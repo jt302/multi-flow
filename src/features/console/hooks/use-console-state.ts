@@ -21,7 +21,7 @@ import {
 	updateProfile as updateProfileApi,
 	updateProfileDevicePreset as updateProfileDevicePresetApi,
 	updateProfileVisual as updateProfileVisualApi,
-} from '../api/profiles-api';
+} from '@/entities/profile/api/profiles-api';
 import {
 	bindProfileProxy as bindProfileProxyApi,
 	createProxy as createProxyApi,

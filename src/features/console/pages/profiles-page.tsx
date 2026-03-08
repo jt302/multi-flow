@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
-import { ProfileCreatePage } from './profile-create-page';
+import { ProfileCreateForm } from '@/features/profile/create-profile/ui/profile-create-form';
+
 import { ProfileDetailPage } from './profile-detail-page';
 import { ProfileListPage } from './profile-list-page';
 import type { ProfilesPageProps } from '../types';
@@ -50,7 +51,7 @@ export function ProfilesPage({
 
 	if (view === 'create') {
 		return (
-			<ProfileCreatePage
+			<ProfileCreateForm
 				groups={groups}
 				proxies={proxies}
 				resources={resources}
@@ -138,7 +139,7 @@ export function ProfilesPage({
 			);
 		}
 		return (
-			<ProfileCreatePage
+			<ProfileCreateForm
 				key={`edit-${profile.id}`}
 				mode="edit"
 				initialProfile={profile}
