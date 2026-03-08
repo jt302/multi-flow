@@ -1,19 +1,23 @@
-import { useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { ConsolePage } from '@/features/console';
+import { LogPanelPage } from '@/features/logs';
+
+function RootRedirect() {
+	const { search } = useLocation();
+	const standalone = new URLSearchParams(search).get('standalone');
+	if (standalone === 'logs') {
+		return <Navigate to="/logs?standalone=1" replace />;
+	}
+	return <Navigate to="/dashboard" replace />;
+}
 
 function App() {
-	const [greetMsg, setGreetMsg] = useState('');
-	const [name, setName] = useState('');
-
-	async function greet() {
-		// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-		setGreetMsg(await invoke('greet', { name }));
-	}
-
 	return (
-		<main className="container">
-			<h1>Welcome to Tauri + React</h1>
-		</main>
+		<Routes>
+			<Route path="/" element={<RootRedirect />} />
+			<Route path="/logs" element={<LogPanelPage />} />
+			<Route path="/*" element={<ConsolePage />} />
+		</Routes>
 	);
 }
 
