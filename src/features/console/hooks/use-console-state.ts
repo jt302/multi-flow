@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
+import { useGroupsQuery } from '@/entities/group/model/use-groups-query';
 import {
 	createGroup as createGroupApi,
 	deleteGroup as deleteGroupApi,
-	listGroups,
 	restoreGroup as restoreGroupApi,
 } from '../api/groups-api';
 import {
@@ -14,28 +15,28 @@ import {
 	batchCloseProfiles as batchCloseProfilesApi,
 	batchOpenProfiles as batchOpenProfilesApi,
 	createProfileDevicePreset as createProfileDevicePresetApi,
-	listProfiles,
-	listProfileDevicePresets,
 	openProfile as openProfileApi,
 	restoreProfile as restoreProfileApi,
 	updateProfile as updateProfileApi,
 	updateProfileDevicePreset as updateProfileDevicePresetApi,
 	updateProfileVisual as updateProfileVisualApi,
 } from '@/entities/profile/api/profiles-api';
+import { useProfileDevicePresetsQuery } from '@/entities/profile/model/use-profile-device-presets-query';
+import { useProfileProxyBindingsQuery } from '@/entities/profile/model/use-profile-proxy-bindings-query';
+import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
 import {
 	bindProfileProxy as bindProfileProxyApi,
 	createProxy as createProxyApi,
 	deleteProxy as deleteProxyApi,
-	listProfileProxyBindings,
-	listProxies,
 	restoreProxy as restoreProxyApi,
 	unbindProfileProxy as unbindProfileProxyApi,
 } from '../api/proxy-api';
+import { useProxiesQuery } from '@/entities/proxy/model/use-proxies-query';
 import {
 	activateChromiumVersion as activateChromiumVersionApi,
 	installChromiumResourceWithProgress,
-	listResources,
 } from '../api/resource-api';
+import { useResourcesQuery } from '@/entities/resource/model/use-resources-query';
 import {
 	activateTab as activateTabApi,
 	activateTabByIndex as activateTabByIndexApi,
@@ -48,27 +49,21 @@ import {
 	closeProfileTab as closeProfileTabApi,
 	closeProfileWindow as closeProfileWindowApi,
 	focusProfileWindow as focusProfileWindowApi,
-	listOpenProfileWindows,
 	openProfileTab as openProfileTabApi,
 	openProfileWindow as openProfileWindowApi,
 	setProfileWindowBounds as setProfileWindowBoundsApi,
 } from '../api/windows-api';
+import { useWindowStatesQuery } from '@/entities/window-session/model/use-window-states-query';
 import type {
 	CreateProxyPayload,
-	GroupItem,
-	ProfileWindowStateItem,
 	ResourceProgressState,
-	ResourceItem,
-	ProxyItem,
 	WindowBoundsItem,
 } from '../types';
 import type {
 	BatchProfileActionResponse,
 	CreateProfilePayload,
 	ProfileActionState,
-	ProfileDevicePresetItem,
 	ProfileItem,
-	ProfileProxyBindingMap,
 	SaveProfileDevicePresetPayload,
 } from '@/entities/profile/model/types';
 
@@ -77,21 +72,44 @@ type UseConsoleStateOptions = {
 };
 
 export function useConsoleState(_options: UseConsoleStateOptions = {}) {
+	const queryClient = useQueryClient();
 	const [isRunning, setIsRunning] = useState(true);
-	const [groups, setGroups] = useState<GroupItem[]>([]);
-	const [deletedGroups, setDeletedGroups] = useState<GroupItem[]>([]);
-	const [profiles, setProfiles] = useState<ProfileItem[]>([]);
-	const [proxies, setProxies] = useState<ProxyItem[]>([]);
-	const [profileProxyBindings, setProfileProxyBindings] = useState<ProfileProxyBindingMap>({});
 	const [profileActionStates, setProfileActionStates] = useState<Record<string, ProfileActionState>>({});
-	const [resources, setResources] = useState<ResourceItem[]>([]);
 	const [resourceProgress, setResourceProgress] = useState<ResourceProgressState | null>(null);
-	const [devicePresets, setDevicePresets] = useState<ProfileDevicePresetItem[]>([]);
-	const [windowStates, setWindowStates] = useState<ProfileWindowStateItem[]>([]);
 	const profileActionLocksRef = useRef<Set<string>>(new Set());
 	const windowActionLocksRef = useRef<Set<string>>(new Set());
 	const prevProfilesRef = useRef<ProfileItem[]>([]);
 	const profileActionStatesRef = useRef<Record<string, ProfileActionState>>({});
+
+	const groupsQuery = useGroupsQuery();
+	const profilesQuery = useProfilesQuery();
+	const proxiesQuery = useProxiesQuery();
+	const resourcesQuery = useResourcesQuery();
+	const devicePresetsQuery = useProfileDevicePresetsQuery();
+	const windowStatesQuery = useWindowStatesQuery();
+	const activeProfileIds = useMemo(
+		() =>
+			(profilesQuery.data ?? [])
+				.filter((item) => item.lifecycle === 'active')
+				.map((item) => item.id),
+		[profilesQuery.data],
+	);
+	const bindingsQuery = useProfileProxyBindingsQuery(activeProfileIds);
+
+	const groups = useMemo(
+		() => (groupsQuery.data ?? []).filter((item) => item.lifecycle === 'active'),
+		[groupsQuery.data],
+	);
+	const deletedGroups = useMemo(
+		() => (groupsQuery.data ?? []).filter((item) => item.lifecycle === 'deleted'),
+		[groupsQuery.data],
+	);
+	const profiles = profilesQuery.data ?? [];
+	const proxies = proxiesQuery.data ?? [];
+	const resources = resourcesQuery.data ?? [];
+	const devicePresets = devicePresetsQuery.data ?? [];
+	const windowStates = windowStatesQuery.data ?? [];
+	const profileProxyBindings = bindingsQuery.data ?? {};
 
 	useEffect(() => {
 		profileActionStatesRef.current = profileActionStates;
@@ -136,14 +154,12 @@ export function useConsoleState(_options: UseConsoleStateOptions = {}) {
 	};
 
 	const refreshGroups = async () => {
-		const items = await listGroups(true);
-		setGroups(items.filter((item) => item.lifecycle === 'active'));
-		setDeletedGroups(items.filter((item) => item.lifecycle === 'deleted'));
-		return items;
+		await groupsQuery.refetch();
 	};
 
 	const refreshProfiles = async () => {
-		const items = await listProfiles();
+		const result = await profilesQuery.refetch();
+		const items = result.data ?? [];
 		const prevMap = new Map(prevProfilesRef.current.map((item) => [item.id, item]));
 		for (const item of items) {
 			const prev = prevMap.get(item.id);
@@ -161,32 +177,23 @@ export function useConsoleState(_options: UseConsoleStateOptions = {}) {
 			}
 		}
 		prevProfilesRef.current = items;
-		setProfiles(items);
 		return items;
 	};
 
 	const refreshProxies = async () => {
-		const items = await listProxies();
-		setProxies(items);
-		return items;
+		await proxiesQuery.refetch();
 	};
 
 	const refreshResources = async () => {
-		const items = await listResources();
-		setResources(items);
-		return items;
+		await resourcesQuery.refetch();
 	};
 
 	const refreshDevicePresets = async () => {
-		const items = await listProfileDevicePresets();
-		setDevicePresets(items);
-		return items;
+		await devicePresetsQuery.refetch();
 	};
 
 	const refreshWindows = async () => {
-		const items = await listOpenProfileWindows();
-		setWindowStates(items);
-		return items;
+		await windowStatesQuery.refetch();
 	};
 
 	const refreshWindowsStable = async () => {
@@ -200,12 +207,11 @@ export function useConsoleState(_options: UseConsoleStateOptions = {}) {
 			.filter((item) => item.lifecycle === 'active')
 			.map((item) => item.id);
 		if (profileIds.length === 0) {
-			setProfileProxyBindings({});
 			return {};
 		}
-		const bindings = await listProfileProxyBindings(profileIds);
-		setProfileProxyBindings(bindings);
-		return bindings;
+		await queryClient.invalidateQueries({ queryKey: ['profile-proxy-bindings'] });
+		const result = await bindingsQuery.refetch();
+		return result.data ?? {};
 	};
 
 	const refreshProfilesAndBindings = async () => {
@@ -214,29 +220,24 @@ export function useConsoleState(_options: UseConsoleStateOptions = {}) {
 	};
 
 	useEffect(() => {
-		void (async () => {
-			try {
-				const [, profileItems] = await Promise.all([
-					refreshGroups(),
-					refreshProfiles(),
-					refreshProxies(),
-					refreshResources(),
-					refreshDevicePresets(),
-					refreshWindows(),
-				]);
-				await refreshBindingsByProfiles(profileItems);
-			} catch {
-				// keep page usable when backend is unavailable
+		const prevMap = new Map(prevProfilesRef.current.map((item) => [item.id, item]));
+		for (const item of profiles) {
+			const prev = prevMap.get(item.id);
+			const actionState = profileActionStatesRef.current[item.id];
+			if (
+				prev?.running &&
+				!item.running &&
+				!actionState &&
+				!profileActionLocksRef.current.has(item.id) &&
+				item.lifecycle === 'active'
+			) {
+				setActionState(item.id, 'recovering');
+				toast.info(`环境 ${item.name} 已退出，状态已自动回收`);
+				window.setTimeout(() => setActionState(item.id, null), 1800);
 			}
-		})();
-	}, []);
-
-	useEffect(() => {
-		const timer = window.setInterval(() => {
-			void Promise.all([refreshProfilesAndBindings(), refreshWindows()]);
-		}, 5000);
-		return () => window.clearInterval(timer);
-	}, []);
+		}
+		prevProfilesRef.current = profiles;
+	}, [profiles]);
 
 	const createGroup = async (name: string, note: string) => {
 		const trimmedName = name.trim();
@@ -260,7 +261,6 @@ export function useConsoleState(_options: UseConsoleStateOptions = {}) {
 			toast.success('分组已删除');
 		} catch {
 			toast.error('删除分组失败');
-			setGroups((prev) => prev.filter((item) => item.id !== id));
 		}
 	};
 
