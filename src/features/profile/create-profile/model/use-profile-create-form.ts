@@ -11,10 +11,10 @@ import {
 import type {
 	CreateProfilePayload,
 	ProfileFingerprintSnapshot,
+	ProfileItem,
 } from '@/entities/profile/model/types';
 import type {
 	GroupItem,
-	ProfileItem,
 	ProxyItem,
 	ResourceItem,
 } from '@/features/console/types';

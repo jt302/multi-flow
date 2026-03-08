@@ -3,9 +3,8 @@ import type {
 	ProfileActionState,
 	ProfileItem,
 	ProfileProxyBindingMap,
-	ProxyItem,
-	ResourceItem,
-} from '@/features/console/types';
+} from '@/entities/profile/model/types';
+import type { ProxyItem, ResourceItem } from '@/features/console/types';
 
 export type ProfileListPageProps = {
 	profiles: ProfileItem[];

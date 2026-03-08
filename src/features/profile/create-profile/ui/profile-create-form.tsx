@@ -1,8 +1,12 @@
 import { ArrowLeft, Plus } from 'lucide-react';
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Icon } from '@/components/ui';
+import type {
+	CreateProfilePayload,
+	ProfileItem,
+} from '@/entities/profile/model/types';
 import { FingerprintSummaryCard } from '@/entities/profile/ui/fingerprint-summary-card';
-import type { GroupItem, ProfileItem, ProxyItem, ResourceItem } from '@/features/console/types';
+import type { GroupItem, ProxyItem, ResourceItem } from '@/features/console/types';
 
 import { useProfileCreateForm } from '../model/use-profile-create-form';
 import { AdvancedSettingsSection } from './advanced-settings-section';
@@ -15,7 +19,7 @@ type ProfileCreateFormProps = {
 	groups: GroupItem[];
 	proxies: ProxyItem[];
 	resources: ResourceItem[];
-	onSubmit: (payload: import('@/entities/profile/model/types').CreateProfilePayload) => Promise<void>;
+	onSubmit: (payload: CreateProfilePayload) => Promise<void>;
 	onBack: () => void;
 	mode?: 'create' | 'edit';
 	initialProfile?: ProfileItem;

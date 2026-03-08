@@ -21,14 +21,14 @@ import {
 	SelectValue,
 	Textarea,
 } from '@/components/ui';
-
-import { ActiveSectionCard, ThemeCustomizerCard } from '../components';
-import { NAV_SECTIONS } from '../constants';
 import type {
 	ProfileDevicePresetItem,
 	SaveProfileDevicePresetPayload,
-	SettingsPageProps,
-} from '../types';
+} from '@/entities/profile/model/types';
+
+import { ActiveSectionCard, ThemeCustomizerCard } from '../components';
+import { NAV_SECTIONS } from '../constants';
+import type { SettingsPageProps } from '../types';
 
 const devicePresetSchema = z.object({
 	label: z.string().trim().min(1, '机型名称不能为空'),
