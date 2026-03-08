@@ -22,10 +22,18 @@ import {
 	DropdownMenuTrigger,
 	Icon,
 } from '@/components/ui';
+import {
+	formatProfileTime,
+	resolveBrowserVersionMeta,
+	resolvePlatformMeta,
+} from '@/entities/profile/lib/profile-list';
+import type {
+	ProfileActionState,
+	ProfileItem,
+} from '@/entities/profile/model/types';
 import { cn } from '@/lib/utils';
 
-import type { ProfileActionState, ProfileItem, ProxyItem, ResourceItem } from '../types';
-import { formatProfileTime, resolveBrowserVersionMeta, resolvePlatformMeta } from '../utils';
+import type { ProxyItem, ResourceItem } from '../types';
 import { PlatformMark } from './platform-mark';
 import { BackgroundQuickEditForm, ToolbarQuickEditForm } from './profile-list-quick-edit-forms';
 

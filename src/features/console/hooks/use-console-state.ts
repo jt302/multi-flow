@@ -54,21 +54,23 @@ import {
 	setProfileWindowBounds as setProfileWindowBoundsApi,
 } from '../api/windows-api';
 import type {
-	BatchProfileActionResponse,
-	CreateProfilePayload,
 	CreateProxyPayload,
 	GroupItem,
+	ProfileWindowStateItem,
+	ResourceProgressState,
+	ResourceItem,
+	ProxyItem,
+	WindowBoundsItem,
+} from '../types';
+import type {
+	BatchProfileActionResponse,
+	CreateProfilePayload,
 	ProfileActionState,
 	ProfileDevicePresetItem,
 	ProfileItem,
 	ProfileProxyBindingMap,
-	ProfileWindowStateItem,
-	ResourceProgressState,
-	ResourceItem,
 	SaveProfileDevicePresetPayload,
-	ProxyItem,
-	WindowBoundsItem,
-} from '../types';
+} from '@/entities/profile/model/types';
 
 type UseConsoleStateOptions = {
 	onRequireSettings?: () => void;
