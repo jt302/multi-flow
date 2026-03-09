@@ -17,11 +17,7 @@ import { useWindowStatesQuery } from '@/entities/window-session/model/use-window
 import { useConsoleRefresh } from './use-console-refresh';
 import type { ProfileActionState } from '@/entities/profile/model/types';
 
-type UseConsoleStateOptions = {
-	onRequireSettings?: () => void;
-};
-
-export function useConsoleState(_options: UseConsoleStateOptions = {}) {
+export function useConsoleState() {
 	const [isRunning, setIsRunning] = useState(true);
 	const [profileActionStates, setProfileActionStates] = useState<Record<string, ProfileActionState>>({});
 	const [resourceProgress, setResourceProgress] = useState<ResourceProgressState | null>(null);

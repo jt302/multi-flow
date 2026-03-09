@@ -1,6 +1,6 @@
 import type { ProfileDevicePresetItem, SaveProfileDevicePresetPayload } from '@/entities/profile/model/types';
 import type { ResourceItem, ResourceProgressState } from '@/entities/resource/model/types';
-import type { PresetKey, ThemeMode } from '@/entities/theme/model/types';
+import type { PresetKey } from '@/entities/theme/model/types';
 
 export type ThemeCustomizerCardProps = {
 	useCustomColor: boolean;
@@ -12,8 +12,6 @@ export type ThemeCustomizerCardProps = {
 };
 
 export type SettingsPageProps = {
-	themeMode: ThemeMode;
-	onThemeModeChange: (mode: ThemeMode) => void;
 	useCustomColor: boolean;
 	preset: PresetKey;
 	customColor: string;
