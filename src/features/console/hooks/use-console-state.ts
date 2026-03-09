@@ -3,11 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { useGroupsQuery } from '@/entities/group/model/use-groups-query';
-import {
-	createGroup as createGroupApi,
-	deleteGroup as deleteGroupApi,
-	restoreGroup as restoreGroupApi,
-} from '../api/groups-api';
+import { useGroupActions } from '@/features/group/model/use-group-actions';
 import { useProfileDevicePresetsQuery } from '@/entities/profile/model/use-profile-device-presets-query';
 import { useProfileProxyBindingsQuery } from '@/entities/profile/model/use-profile-proxy-bindings-query';
 import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
@@ -195,42 +191,9 @@ export function useConsoleState(_options: UseConsoleStateOptions = {}) {
 		}
 		prevProfilesRef.current = profiles;
 	}, [profiles]);
-
-	const createGroup = async (name: string, note: string) => {
-		const trimmedName = name.trim();
-		if (!trimmedName) {
-			return;
-		}
-		try {
-			await createGroupApi(trimmedName, note);
-			await refreshGroups();
-			toast.success('分组已创建');
-		} catch {
-			toast.error('创建分组失败');
-			// backend unavailable: keep current UI state unchanged
-		}
-	};
-
-	const deleteGroup = async (id: string) => {
-		try {
-			await deleteGroupApi(id);
-			await refreshGroups();
-			toast.success('分组已删除');
-		} catch {
-			toast.error('删除分组失败');
-		}
-	};
-
-	const restoreGroup = async (id: string) => {
-		try {
-			await restoreGroupApi(id);
-			await refreshGroups();
-			toast.success('分组已恢复');
-		} catch (error) {
-			toast.error('恢复分组失败');
-			throw error;
-		}
-	};
+	const { createGroup, deleteGroup, restoreGroup } = useGroupActions({
+		refreshGroups,
+	});
 	const {
 		createProfile,
 		createDevicePreset,
