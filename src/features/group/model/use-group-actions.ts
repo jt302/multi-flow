@@ -4,13 +4,15 @@ import {
 	createGroup as createGroupApi,
 	deleteGroup as deleteGroupApi,
 	restoreGroup as restoreGroupApi,
+	updateGroup as updateGroupApi,
 } from '@/entities/group/api/groups-api';
 
 type GroupActionsDeps = {
 	refreshGroups: () => Promise<void>;
+	refreshProfiles: () => Promise<void>;
 };
 
-export function useGroupActions({ refreshGroups }: GroupActionsDeps) {
+export function useGroupActions({ refreshGroups, refreshProfiles }: GroupActionsDeps) {
 	const createGroup = async (name: string, note: string) => {
 		const trimmedName = name.trim();
 		if (!trimmedName) {
@@ -26,10 +28,25 @@ export function useGroupActions({ refreshGroups }: GroupActionsDeps) {
 		}
 	};
 
+	const updateGroup = async (groupId: string, name: string, note: string) => {
+		const trimmedName = name.trim();
+		if (!trimmedName) {
+			return;
+		}
+		try {
+			await updateGroupApi(groupId, trimmedName, note);
+			await Promise.all([refreshGroups(), refreshProfiles()]);
+			toast.success('分组已更新');
+		} catch (error) {
+			toast.error('更新分组失败');
+			throw error;
+		}
+	};
+
 	const deleteGroup = async (id: string) => {
 		try {
 			await deleteGroupApi(id);
-			await refreshGroups();
+			await Promise.all([refreshGroups(), refreshProfiles()]);
 			toast.success('分组已删除');
 		} catch (error) {
 			toast.error('删除分组失败');
@@ -50,6 +67,7 @@ export function useGroupActions({ refreshGroups }: GroupActionsDeps) {
 
 	return {
 		createGroup,
+		updateGroup,
 		deleteGroup,
 		restoreGroup,
 	};

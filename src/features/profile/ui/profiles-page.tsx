@@ -17,9 +17,11 @@ export function ProfilesPage({
 	onUpdateProfileVisual,
 	onOpenProfile,
 	onCloseProfile,
+	onSetProfileGroup,
 	onFocusProfileWindow,
 	onBatchOpenProfiles,
 	onBatchCloseProfiles,
+	onBatchSetProfileGroup,
 	onDeleteProfile,
 	onRestoreProfile,
 	onRefreshProfiles,
@@ -49,6 +51,37 @@ export function ProfilesPage({
 		setView('list');
 	}, [activeProfileId, profiles, view]);
 
+	const renderListPage = () => (
+		<ProfileListPage
+			profiles={profiles}
+			groups={groups}
+			proxies={proxies}
+			resources={resources}
+			profileProxyBindings={profileProxyBindings}
+			profileActionStates={profileActionStates}
+			onCreateClick={() => setView('create')}
+			onViewProfile={(profileId) => {
+				setActiveProfileId(profileId);
+				setView('detail');
+			}}
+			onEditProfile={(profileId) => {
+				setActiveProfileId(profileId);
+				setView('edit');
+			}}
+			onUpdateProfileVisual={onUpdateProfileVisual}
+			onOpenProfile={onOpenProfile}
+			onCloseProfile={onCloseProfile}
+			onSetProfileGroup={onSetProfileGroup}
+			onFocusProfileWindow={onFocusProfileWindow}
+			onBatchOpenProfiles={onBatchOpenProfiles}
+			onBatchCloseProfiles={onBatchCloseProfiles}
+			onBatchSetProfileGroup={onBatchSetProfileGroup}
+			onDeleteProfile={onDeleteProfile}
+			onRestoreProfile={onRestoreProfile}
+			onRefreshProfiles={onRefreshProfiles}
+		/>
+	);
+
 	if (view === 'create') {
 		return (
 			<ProfileCreateForm
@@ -64,33 +97,7 @@ export function ProfilesPage({
 	if (view === 'detail' && activeProfileId) {
 		const profile = profiles.find((item) => item.id === activeProfileId);
 		if (!profile) {
-			return (
-				<ProfileListPage
-					profiles={profiles}
-					proxies={proxies}
-					resources={resources}
-					profileProxyBindings={profileProxyBindings}
-					profileActionStates={profileActionStates}
-					onCreateClick={() => setView('create')}
-					onViewProfile={(profileId) => {
-						setActiveProfileId(profileId);
-						setView('detail');
-					}}
-					onEditProfile={(profileId) => {
-						setActiveProfileId(profileId);
-						setView('edit');
-					}}
-					onUpdateProfileVisual={onUpdateProfileVisual}
-					onOpenProfile={onOpenProfile}
-					onCloseProfile={onCloseProfile}
-					onFocusProfileWindow={onFocusProfileWindow}
-					onBatchOpenProfiles={onBatchOpenProfiles}
-					onBatchCloseProfiles={onBatchCloseProfiles}
-					onDeleteProfile={onDeleteProfile}
-					onRestoreProfile={onRestoreProfile}
-					onRefreshProfiles={onRefreshProfiles}
-				/>
-			);
+			return renderListPage();
 		}
 		return (
 			<ProfileDetailPage
@@ -112,33 +119,7 @@ export function ProfilesPage({
 	if (view === 'edit' && activeProfileId) {
 		const profile = profiles.find((item) => item.id === activeProfileId);
 		if (!profile) {
-			return (
-				<ProfileListPage
-					profiles={profiles}
-					proxies={proxies}
-					resources={resources}
-					profileProxyBindings={profileProxyBindings}
-					profileActionStates={profileActionStates}
-					onCreateClick={() => setView('create')}
-					onViewProfile={(profileId) => {
-						setActiveProfileId(profileId);
-						setView('detail');
-					}}
-					onEditProfile={(profileId) => {
-						setActiveProfileId(profileId);
-						setView('edit');
-					}}
-					onUpdateProfileVisual={onUpdateProfileVisual}
-					onOpenProfile={onOpenProfile}
-					onCloseProfile={onCloseProfile}
-					onFocusProfileWindow={onFocusProfileWindow}
-					onBatchOpenProfiles={onBatchOpenProfiles}
-					onBatchCloseProfiles={onBatchCloseProfiles}
-					onDeleteProfile={onDeleteProfile}
-					onRestoreProfile={onRestoreProfile}
-					onRefreshProfiles={onRefreshProfiles}
-				/>
-			);
+			return renderListPage();
 		}
 		return (
 			<ProfileCreateForm
@@ -158,31 +139,5 @@ export function ProfilesPage({
 		);
 	}
 
-	return (
-		<ProfileListPage
-			profiles={profiles}
-			proxies={proxies}
-			resources={resources}
-			profileProxyBindings={profileProxyBindings}
-			profileActionStates={profileActionStates}
-			onCreateClick={() => setView('create')}
-			onViewProfile={(profileId) => {
-				setActiveProfileId(profileId);
-				setView('detail');
-			}}
-			onEditProfile={(profileId) => {
-				setActiveProfileId(profileId);
-				setView('edit');
-			}}
-			onUpdateProfileVisual={onUpdateProfileVisual}
-			onOpenProfile={onOpenProfile}
-			onCloseProfile={onCloseProfile}
-			onFocusProfileWindow={onFocusProfileWindow}
-			onBatchOpenProfiles={onBatchOpenProfiles}
-			onBatchCloseProfiles={onBatchCloseProfiles}
-			onDeleteProfile={onDeleteProfile}
-			onRestoreProfile={onRestoreProfile}
-			onRefreshProfiles={onRefreshProfiles}
-		/>
-	);
+	return renderListPage();
 }

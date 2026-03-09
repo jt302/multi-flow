@@ -35,7 +35,6 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 		submitError,
 		hostPlatform,
 		hostChromiumVersions,
-		groupSuggestions,
 		availableProxies,
 		devicePresetsQuery,
 		fontFamiliesQuery,
@@ -77,22 +76,23 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 					<form onSubmit={onFormSubmit} className="space-y-4">
 						<div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
 							<div className="space-y-4">
-								<BasicSettingsSection
-									form={form}
-									groupSuggestions={groupSuggestions}
-									hostPlatform={hostPlatform}
-									hostChromiumVersions={hostChromiumVersions}
-									selectedResource={selectedResource}
-									devicePresets={devicePresetsQuery.data ?? []}
-									devicePresetsLoading={devicePresetsQuery.isLoading}
-									devicePresetsError={devicePresetsQuery.error instanceof Error ? devicePresetsQuery.error.message : null}
-									browserKind={values.browserKind}
-									browserVersion={values.browserVersion}
-									platform={values.platform}
-									devicePresetId={values.devicePresetId}
-									browserBgColor={values.browserBgColor}
-									resourceStatusLabel={resourceStatusLabel}
-								/>
+							<BasicSettingsSection
+								form={form}
+								groups={props.groups}
+								hostPlatform={hostPlatform}
+								hostChromiumVersions={hostChromiumVersions}
+								selectedResource={selectedResource}
+								devicePresets={devicePresetsQuery.data ?? []}
+								devicePresetsLoading={devicePresetsQuery.isLoading}
+								devicePresetsError={devicePresetsQuery.error instanceof Error ? devicePresetsQuery.error.message : null}
+								browserKind={values.browserKind}
+								browserVersion={values.browserVersion}
+								groupValue={values.group}
+								platform={values.platform}
+								devicePresetId={values.devicePresetId}
+								browserBgColor={values.browserBgColor}
+								resourceStatusLabel={resourceStatusLabel}
+							/>
 
 								<FingerprintSettingsSection
 									form={form}

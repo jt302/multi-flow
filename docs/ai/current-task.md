@@ -55,3 +55,14 @@
 - [x] `console api / console utils / console pages / console types` 已删除
 - [x] `console constants` 已拆分到主题预设、导航项、示例 section
 - [ ] 继续清理 `use-console-state` 的剩余壳层编排，并评估是否进一步拆分 `ConsolePageContent`
+
+## 本轮新增（分组闭环 + Zustand）
+
+- [x] 前端本地 UI 状态开始统一到 `Zustand`，当前已覆盖：环境列表筛选/选择/快捷编辑/批量结果、分组页搜索与编辑目标、控制台环境导航意图
+- [x] 分组后端补齐更新能力：`update_profile_group`
+- [x] 环境后端补齐分组指派能力：`set_profile_group` / `batch_set_profile_group`
+- [x] 删除分组后继续沿用当前语义：直接清空相关环境 `group_name`
+- [x] 分组页补齐搜索 / 编辑 / 查看组内环境入口
+- [x] 环境列表补齐单个与批量归组、清空分组
+- [x] 环境创建/编辑页的分组字段改为真实分组列表选择，不再依赖纯文本建议
+- [x] 环境页分组筛选已与 URL query 同步，刷新后保留当前分组筛选

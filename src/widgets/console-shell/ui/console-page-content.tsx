@@ -1,4 +1,5 @@
 import { lazy } from 'react';
+import { createSearchParams } from 'react-router-dom';
 
 import { NAV_PATHS, SETTINGS_RECYCLE_BIN_PATH } from '@/features/console/routes';
 import type {
@@ -73,9 +74,11 @@ export function ConsolePageContent({
 					onUpdateProfileVisual={actions.updateProfileVisual}
 					onOpenProfile={actions.openProfile}
 					onCloseProfile={actions.closeProfile}
+					onSetProfileGroup={actions.setProfileGroup}
 					onFocusProfileWindow={actions.focusWindow}
 					onBatchOpenProfiles={actions.batchOpenProfiles}
 					onBatchCloseProfiles={actions.batchCloseProfiles}
+					onBatchSetProfileGroup={actions.batchSetProfileGroup}
 					onDeleteProfile={actions.deleteProfile}
 					onRestoreProfile={actions.restoreProfile}
 					onRefreshProfiles={actions.refreshProfiles}
@@ -88,7 +91,12 @@ export function ConsolePageContent({
 				<GroupsPage
 					groups={data.groups}
 					onCreateGroup={actions.createGroup}
+					onUpdateGroup={actions.updateGroup}
 					onDeleteGroup={actions.deleteGroup}
+					onOpenGroupProfiles={(groupName) => {
+						navigation.onSetProfileNavigationIntent(null);
+						navigation.onNavigate(`${NAV_PATHS.profiles}?${createSearchParams({ group: groupName }).toString()}`);
+					}}
 				/>
 			);
 		case 'proxy':

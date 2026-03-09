@@ -212,3 +212,24 @@ export async function deleteProfile(profileId: string): Promise<void> {
 export async function restoreProfile(profileId: string): Promise<void> {
 	await tauriInvoke('restore_profile', { profileId });
 }
+
+export async function setProfileGroup(profileId: string, groupName?: string): Promise<void> {
+	await tauriInvoke('set_profile_group', {
+		profileId,
+		payload: {
+			groupName: groupName?.trim() ? groupName : null,
+		},
+	});
+}
+
+export async function batchSetProfileGroup(
+	profileIds: string[],
+	groupName?: string,
+): Promise<BatchProfileActionResponse> {
+	return tauriInvoke<BatchProfileActionResponse>('batch_set_profile_group', {
+		payload: {
+			profileIds,
+			groupName: groupName?.trim() ? groupName : null,
+		},
+	});
+}

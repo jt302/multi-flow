@@ -119,6 +119,7 @@ export function ConsoleShell() {
 									}}
 									actions={{
 										createGroup: consoleState.createGroup,
+										updateGroup: consoleState.updateGroup,
 										deleteGroup: consoleState.deleteGroup,
 										restoreGroup: consoleState.restoreGroup,
 										createProfile: consoleState.createProfile,
@@ -126,8 +127,10 @@ export function ConsoleShell() {
 										updateProfileVisual: consoleState.updateProfileVisual,
 										openProfile: consoleState.openProfile,
 										closeProfile: consoleState.closeProfile,
+										setProfileGroup: consoleState.setProfileGroup,
 										batchOpenProfiles: consoleState.batchOpenProfiles,
 										batchCloseProfiles: consoleState.batchCloseProfiles,
+										batchSetProfileGroup: consoleState.batchSetProfileGroup,
 										createDevicePreset: consoleState.createDevicePreset,
 										updateDevicePreset: consoleState.updateDevicePreset,
 										deleteProfile: consoleState.deleteProfile,
