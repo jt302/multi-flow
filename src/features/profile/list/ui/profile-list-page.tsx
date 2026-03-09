@@ -25,6 +25,7 @@ export function ProfileListPage({
 	onUpdateProfileVisual,
 	onOpenProfile,
 	onCloseProfile,
+	onFocusProfileWindow,
 	onBatchOpenProfiles,
 	onBatchCloseProfiles,
 	onDeleteProfile,
@@ -225,6 +226,7 @@ export function ProfileListPage({
 									onUpdateProfileVisual={onUpdateProfileVisual}
 									onOpenProfile={onOpenProfile}
 									onCloseProfile={onCloseProfile}
+									onFocusProfileWindow={onFocusProfileWindow}
 									onDeleteProfile={onDeleteProfile}
 									onRestoreProfile={onRestoreProfile}
 								/>

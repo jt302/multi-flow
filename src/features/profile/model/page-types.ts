@@ -24,6 +24,7 @@ export type ProfilesPageProps = {
 	) => Promise<void>;
 	onOpenProfile: (profileId: string) => Promise<void>;
 	onCloseProfile: (profileId: string) => Promise<void>;
+	onFocusProfileWindow: (profileId: string) => Promise<void>;
 	onBatchOpenProfiles: (profileIds: string[]) => Promise<BatchProfileActionResponse>;
 	onBatchCloseProfiles: (profileIds: string[]) => Promise<BatchProfileActionResponse>;
 	onDeleteProfile: (profileId: string) => Promise<void>;

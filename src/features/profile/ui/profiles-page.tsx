@@ -17,6 +17,7 @@ export function ProfilesPage({
 	onUpdateProfileVisual,
 	onOpenProfile,
 	onCloseProfile,
+	onFocusProfileWindow,
 	onBatchOpenProfiles,
 	onBatchCloseProfiles,
 	onDeleteProfile,
@@ -82,6 +83,7 @@ export function ProfilesPage({
 					onUpdateProfileVisual={onUpdateProfileVisual}
 					onOpenProfile={onOpenProfile}
 					onCloseProfile={onCloseProfile}
+					onFocusProfileWindow={onFocusProfileWindow}
 					onBatchOpenProfiles={onBatchOpenProfiles}
 					onBatchCloseProfiles={onBatchCloseProfiles}
 					onDeleteProfile={onDeleteProfile}
@@ -129,6 +131,7 @@ export function ProfilesPage({
 					onUpdateProfileVisual={onUpdateProfileVisual}
 					onOpenProfile={onOpenProfile}
 					onCloseProfile={onCloseProfile}
+					onFocusProfileWindow={onFocusProfileWindow}
 					onBatchOpenProfiles={onBatchOpenProfiles}
 					onBatchCloseProfiles={onBatchCloseProfiles}
 					onDeleteProfile={onDeleteProfile}
@@ -174,6 +177,7 @@ export function ProfilesPage({
 			onUpdateProfileVisual={onUpdateProfileVisual}
 			onOpenProfile={onOpenProfile}
 			onCloseProfile={onCloseProfile}
+			onFocusProfileWindow={onFocusProfileWindow}
 			onBatchOpenProfiles={onBatchOpenProfiles}
 			onBatchCloseProfiles={onBatchCloseProfiles}
 			onDeleteProfile={onDeleteProfile}
