@@ -100,11 +100,11 @@ export function ConsolePageContent({
 				/>
 			);
 		case 'proxy':
-			return (
-				<ProxyPage
-					proxies={data.proxies}
-					profiles={data.profiles}
-					profileProxyBindings={data.profileProxyBindings}
+				return (
+					<ProxyPage
+						proxies={data.proxies.filter((item) => item.lifecycle === 'active')}
+						profiles={data.profiles}
+						profileProxyBindings={data.profileProxyBindings}
 					onCreateProxy={actions.createProxy}
 					onUpdateProxy={actions.updateProxy}
 					onDeleteProxy={actions.deleteProxy}
@@ -157,8 +157,11 @@ export function ConsolePageContent({
 						proxies={data.proxies}
 						groups={data.deletedGroups}
 						onRestoreProfile={actions.restoreProfile}
+						onPurgeProfile={actions.purgeProfile}
 						onRestoreProxy={actions.restoreProxy}
+						onPurgeProxy={actions.purgeProxy}
 						onRestoreGroup={actions.restoreGroup}
+						onPurgeGroup={actions.purgeGroup}
 						onRefreshAll={async () => {
 							await Promise.all([
 								actions.refreshProfiles(),

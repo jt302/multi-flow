@@ -1,9 +1,9 @@
-use std::future::Future;
 use std::collections::HashMap;
 use std::env;
-use std::net::IpAddr;
+use std::future::Future;
+use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs};
 use std::path::Path;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use maxminddb::Reader;
 use reqwest::{Client, Proxy as ReqwestProxy};
@@ -15,6 +15,7 @@ use serde::Deserialize;
 
 use crate::db::entities::{profile, profile_proxy_binding, proxy};
 use crate::error::{AppError, AppResult};
+use crate::logger;
 use crate::models::{
     now_ts, BatchCheckProxiesRequest, BatchProxyActionItem, BatchProxyActionResponse,
     CreateProxyRequest, ImportProxiesRequest, ListProxiesQuery, ListProxiesResponse,
@@ -33,6 +34,10 @@ const CHECK_STATUS_ERROR: &str = "error";
 const CHECK_STATUS_UNSUPPORTED: &str = "unsupported";
 const DEFAULT_IPINFO_JSON_URL: &str = "https://ipinfo.io/json";
 const DEFAULT_IPINFO_LITE_URL: &str = "https://api.ipinfo.io/lite/me";
+const DEFAULT_IPIFY_JSON_URL: &str = "https://api.ipify.org?format=json";
+const DEFAULT_IPIFY64_JSON_URL: &str = "https://api64.ipify.org?format=json";
+const DEFAULT_IP_SB_TEXT_URL: &str = "https://api.ip.sb/ip";
+const DEFAULT_IFCONFIG_TEXT_URL: &str = "https://ifconfig.me/ip";
 const IPINFO_TOKEN_ENV: &str = "MULTI_FLOW_IPINFO_TOKEN";
 const IPINFO_URL_ENV: &str = "MULTI_FLOW_IPINFO_URL";
 
@@ -49,6 +54,11 @@ struct ProxyCheckSnapshot {
     geo_accuracy_meters: Option<f64>,
     suggested_language: Option<String>,
     suggested_timezone: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ProxyConnectivitySnapshot {
+    latency_ms: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -78,6 +88,7 @@ struct GeoIpLocation {
     time_zone: Option<String>,
 }
 
+#[derive(Clone)]
 pub struct ProxyService {
     db: DatabaseConnection,
 }
@@ -394,7 +405,7 @@ impl ProxyService {
             Ok(snapshot) => snapshot,
             Err(err) => ProxyCheckSnapshot {
                 check_status: CHECK_STATUS_ERROR.to_string(),
-                check_message: Some(err.to_string()),
+                check_message: Some(humanize_proxy_check_error(&err)),
                 exit_ip: None,
                 country: None,
                 region: None,
@@ -480,6 +491,23 @@ impl ProxyService {
 
         let updated = self.db_query(active_model.update(&self.db))?;
         Ok(to_api_proxy(updated))
+    }
+
+    pub fn purge_proxy(&self, proxy_id: &str) -> AppResult<()> {
+        let stored = self.find_proxy_model(proxy_id)?;
+        if stored.lifecycle != LIFECYCLE_DELETED {
+            return Err(AppError::Conflict(format!(
+                "proxy must be deleted before purge: {proxy_id}"
+            )));
+        }
+
+        self.db_query(
+            profile_proxy_binding::Entity::delete_many()
+                .filter(profile_proxy_binding::Column::ProxyId.eq(stored.id))
+                .exec(&self.db),
+        )?;
+        self.db_query(proxy::Entity::delete_by_id(stored.id).exec(&self.db))?;
+        Ok(())
     }
 
     pub fn bind_profile_proxy(
@@ -595,7 +623,41 @@ impl ProxyService {
             });
         }
 
-        let exit_ip = lookup_exit_ip_through_proxy(stored)?;
+        let connectivity = check_proxy_connectivity(stored)?;
+        let exit_ip = match lookup_exit_ip_through_proxy(stored) {
+            Ok(value) => Some(value),
+            Err(err) => {
+                logger::warn(
+                    "proxy_service.check",
+                    format!(
+                        "proxy_id={} exit ip lookup degraded err={}",
+                        format_proxy_id(stored.id),
+                        err
+                    ),
+                );
+                None
+            }
+        };
+
+        let Some(exit_ip) = exit_ip else {
+            return Ok(ProxyCheckSnapshot {
+                check_status: CHECK_STATUS_OK.to_string(),
+                check_message: Some(format!(
+                    "代理连通正常（{} ms），出口 IP 查询失败",
+                    connectivity.latency_ms
+                )),
+                exit_ip: None,
+                country: None,
+                region: None,
+                city: None,
+                latitude: None,
+                longitude: None,
+                geo_accuracy_meters: None,
+                suggested_language: None,
+                suggested_timezone: None,
+            });
+        };
+
         let geo = lookup_geoip_city(geoip_database_path, &exit_ip)?;
         let country = geo
             .country
@@ -625,7 +687,7 @@ impl ProxyService {
 
         Ok(ProxyCheckSnapshot {
             check_status: CHECK_STATUS_OK.to_string(),
-            check_message: None,
+            check_message: Some(format!("代理连通正常（{} ms）", connectivity.latency_ms)),
             exit_ip: Some(exit_ip),
             country,
             region,
@@ -831,24 +893,68 @@ fn parse_import_line(line: &str) -> AppResult<ParsedImportLine> {
 fn lookup_exit_ip_through_proxy(stored: &proxy::Model) -> AppResult<String> {
     let proxy = build_reqwest_proxy(stored)?;
     let client = Client::builder()
-        .timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(4))
         .no_proxy()
         .proxy(proxy)
         .build()?;
 
     tauri::async_runtime::block_on(async move {
-        let response = client
-            .get(resolve_ipinfo_url()?)
-            .send()
-            .await?
-            .error_for_status()?
-            .json::<IpInfoResponse>()
-            .await?;
-        response
-            .ip
-            .and_then(trim_to_option_ref)
-            .ok_or_else(|| AppError::Validation("ipinfo response missing ip".to_string()))
+        let mut last_error: Option<AppError> = None;
+        for url in resolve_exit_ip_urls()? {
+            match lookup_exit_ip_from_url(&client, &url).await {
+                Ok(ip) => return Ok(ip),
+                Err(err) => {
+                    logger::warn(
+                        "proxy_service.check",
+                        format!(
+                            "exit ip lookup failed proxy_id={} url={} err={}",
+                            format_proxy_id(stored.id),
+                            url,
+                            err
+                        ),
+                    );
+                    last_error = Some(err);
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| {
+            AppError::Validation("出口 IP 查询失败，请检查代理配置或网络连通性".to_string())
+        }))
     })
+}
+
+fn check_proxy_connectivity(stored: &proxy::Model) -> AppResult<ProxyConnectivitySnapshot> {
+    let address = resolve_proxy_socket_addr(stored)?;
+    let started_at = Instant::now();
+    TcpStream::connect_timeout(&address, Duration::from_secs(3)).map_err(|err| {
+        AppError::Validation(format!(
+            "proxy tcp connect failed {}:{}: {}",
+            stored.host, stored.port, err
+        ))
+    })?;
+    Ok(ProxyConnectivitySnapshot {
+        latency_ms: started_at.elapsed().as_millis() as u64,
+    })
+}
+
+fn resolve_proxy_socket_addr(stored: &proxy::Model) -> AppResult<SocketAddr> {
+    let host_port = format!("{}:{}", stored.host, stored.port);
+    host_port
+        .to_socket_addrs()
+        .map_err(|err| {
+            AppError::Validation(format!(
+                "resolve proxy host failed {}:{}: {}",
+                stored.host, stored.port, err
+            ))
+        })?
+        .next()
+        .ok_or_else(|| {
+            AppError::Validation(format!(
+                "resolve proxy host returned no address {}:{}",
+                stored.host, stored.port
+            ))
+        })
 }
 
 fn build_reqwest_proxy(stored: &proxy::Model) -> AppResult<ReqwestProxy> {
@@ -860,26 +966,74 @@ fn build_reqwest_proxy(stored: &proxy::Model) -> AppResult<ReqwestProxy> {
     Ok(proxy)
 }
 
-fn resolve_ipinfo_url() -> AppResult<String> {
+fn resolve_exit_ip_urls() -> AppResult<Vec<String>> {
+    let mut urls = Vec::new();
+
     if let Ok(custom) = env::var(IPINFO_URL_ENV) {
         if let Some(value) = trim_to_option_ref(custom) {
-            return Ok(value);
+            urls.push(value);
         }
     }
 
     if let Ok(token) = env::var(IPINFO_TOKEN_ENV) {
         if let Some(value) = trim_to_option_ref(token) {
-            return Ok(format!("{DEFAULT_IPINFO_LITE_URL}?token={value}"));
+            urls.push(format!("{DEFAULT_IPINFO_LITE_URL}?token={value}"));
         }
     }
 
-    if cfg!(debug_assertions) {
-        return Ok(DEFAULT_IPINFO_JSON_URL.to_string());
+    urls.push(DEFAULT_IPINFO_JSON_URL.to_string());
+    urls.push(DEFAULT_IPIFY_JSON_URL.to_string());
+    urls.push(DEFAULT_IPIFY64_JSON_URL.to_string());
+    urls.push(DEFAULT_IP_SB_TEXT_URL.to_string());
+    urls.push(DEFAULT_IFCONFIG_TEXT_URL.to_string());
+
+    urls.dedup();
+    Ok(urls)
+}
+
+async fn lookup_exit_ip_from_url(client: &Client, url: &str) -> AppResult<String> {
+    let response = client.get(url).send().await?.error_for_status()?;
+    let body = response.text().await?;
+
+    if let Ok(parsed) = serde_json::from_str::<IpInfoResponse>(&body) {
+        if let Some(ip) = parsed.ip.and_then(trim_to_option_ref) {
+            validate_exit_ip(&ip)?;
+            return Ok(ip);
+        }
     }
 
-    Err(AppError::Validation(format!(
-        "{IPINFO_TOKEN_ENV} is required outside debug builds"
-    )))
+    let value = body.lines().next().and_then(trim_to_option_ref).ok_or_else(|| {
+        AppError::Validation("exit ip response missing ip".to_string())
+    })?;
+    validate_exit_ip(&value)?;
+    Ok(value)
+}
+
+fn validate_exit_ip(value: &str) -> AppResult<()> {
+    value
+        .parse::<IpAddr>()
+        .map(|_| ())
+        .map_err(|err| AppError::Validation(format!("invalid exit ip {value}: {err}")))
+}
+
+fn humanize_proxy_check_error(err: &AppError) -> String {
+    match err {
+        AppError::Http(inner) if inner.is_timeout() => {
+            "代理检测超时，请检查代理网络连通性".to_string()
+        }
+        AppError::Http(_) => "出口 IP 查询失败，请检查代理配置或网络连通性".to_string(),
+        AppError::Validation(message)
+            if message.contains("http error")
+                || message.contains("ipinfo")
+                || message.contains("exit ip")
+                || message.contains("sending request")
+                || message.contains("dns")
+                || message.contains("connection") =>
+        {
+            "出口 IP 查询失败，请检查代理配置或网络连通性".to_string()
+        }
+        _ => err.to_string(),
+    }
 }
 
 fn lookup_geoip_city(geoip_database_path: &Path, exit_ip: &str) -> AppResult<GeoIpCityRecord> {
@@ -1300,6 +1454,40 @@ mod tests {
         );
         assert_eq!(checked.check_status.as_deref(), Some("ok"));
         assert_eq!(checked.expires_at, Some(1_800_000_000));
+    }
+
+    #[test]
+    fn check_proxy_masks_exit_ip_lookup_errors() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProxyService::from_db(db);
+
+        let proxy = service
+            .create_proxy(CreateProxyRequest {
+                name: "proxy-check".to_string(),
+                protocol: "http".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: 8080,
+                username: None,
+                password: None,
+                provider: None,
+                note: None,
+                expires_at: None,
+            })
+            .expect("create proxy");
+
+        let checked = service
+            .check_proxy_with(proxy.id.as_str(), |_| {
+                Err(AppError::Validation(
+                    "http error: error sending request for url (https://ipinfo.io/json)".to_string(),
+                ))
+            })
+            .expect("check proxy");
+
+        assert_eq!(checked.check_status.as_deref(), Some("error"));
+        assert_eq!(
+            checked.check_message.as_deref(),
+            Some("出口 IP 查询失败，请检查代理配置或网络连通性")
+        );
     }
 
     #[test]

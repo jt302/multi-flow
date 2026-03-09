@@ -213,6 +213,10 @@ export async function restoreProfile(profileId: string): Promise<void> {
 	await tauriInvoke('restore_profile', { profileId });
 }
 
+export async function purgeProfile(profileId: string): Promise<void> {
+	await tauriInvoke('purge_profile', { profileId });
+}
+
 export async function setProfileGroup(profileId: string, groupName?: string): Promise<void> {
 	await tauriInvoke('set_profile_group', {
 		profileId,

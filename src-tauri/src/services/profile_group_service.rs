@@ -168,6 +168,18 @@ impl ProfileGroupService {
         self.to_api_group(updated)
     }
 
+    pub fn purge_group(&self, group_id: &str) -> AppResult<()> {
+        let stored = self.find_group(group_id)?;
+        if stored.lifecycle != LIFECYCLE_DELETED {
+            return Err(AppError::Conflict(format!(
+                "group must be deleted before purge: {group_id}"
+            )));
+        }
+
+        self.db_query(profile_group::Entity::delete_by_id(stored.id).exec(&self.db))?;
+        Ok(())
+    }
+
     fn find_group(&self, group_id: &str) -> AppResult<profile_group::Model> {
         let id = parse_group_id(group_id)?;
         self.find_group_by_pk(id)

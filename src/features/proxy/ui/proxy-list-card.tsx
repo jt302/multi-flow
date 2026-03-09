@@ -1,4 +1,4 @@
-import { Ellipsis, Globe, Link2, Pencil, RefreshCw, RotateCcw, Search, Trash2, Upload } from 'lucide-react';
+import { Ellipsis, Globe, Link2, LoaderCircle, Pencil, RefreshCw, RotateCcw, Search, Trash2, Upload } from 'lucide-react';
 
 import {
 	Badge,
@@ -32,6 +32,10 @@ type ProxyListCardProps = {
 	onRequestDelete: (proxyId: string) => void;
 	onRestoreProxy: (proxyId: string) => void;
 	boundCounts: Record<string, number>;
+	checkingProxyIds: string[];
+	batchChecking: boolean;
+	refreshing: boolean;
+	rowActionDisabled: boolean;
 };
 
 function formatProxyAddress(protocol: string, host: string, port: number) {
@@ -62,7 +66,7 @@ function resolveCountryFlag(countryCode: string) {
 function resolveStatusLabel(item: ProxyItem) {
 	switch (item.checkStatus) {
 		case 'ok':
-			return '检测正常';
+			return '';
 		case 'error':
 			return '检测异常';
 		case 'unsupported':
@@ -96,6 +100,26 @@ function formatExpiry(input: number | null) {
 	});
 }
 
+function resolveLatency(item: ProxyItem) {
+	const match = item.checkMessage.match(/(\d+)\s*ms/i);
+	if (!match) return null;
+	const value = Number.parseInt(match[1], 10);
+	return Number.isFinite(value) ? value : null;
+}
+
+function resolveLatencyTone(item: ProxyItem, latencyMs: number | null) {
+	if (item.checkStatus !== 'ok' || latencyMs === null) {
+		return 'text-destructive';
+	}
+	if (latencyMs <= 300) {
+		return 'text-emerald-600 dark:text-emerald-400';
+	}
+	if (latencyMs <= 1000) {
+		return 'text-amber-600 dark:text-amber-400';
+	}
+	return 'text-destructive';
+}
+
 export function ProxyListCard({
 	proxies,
 	pending,
@@ -114,6 +138,10 @@ export function ProxyListCard({
 	onRequestDelete,
 	onRestoreProxy,
 	boundCounts,
+	checkingProxyIds,
+	batchChecking,
+	refreshing,
+	rowActionDisabled,
 }: ProxyListCardProps) {
 	const activeProxyIds = proxies.filter((item) => item.lifecycle === 'active').map((item) => item.id);
 	const selectedActiveCount = activeProxyIds.filter((id) => selectedProxyIds.includes(id)).length;
@@ -128,12 +156,12 @@ export function ProxyListCard({
 					<p className="text-xs text-muted-foreground">已选 {selectedActiveCount} 个活跃代理</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
-					<Button type="button" variant="default" size="sm" className="cursor-pointer" disabled={pending} onClick={onOpenCreate}><Icon icon={Pencil} size={12} />新增代理</Button>
-					<Button type="button" variant="outline" size="sm" className="cursor-pointer" disabled={pending} onClick={onOpenImport}><Icon icon={Upload} size={12} />批量导入</Button>
-					<Button type="button" variant="outline" size="sm" className="cursor-pointer" disabled={pending || selectedActiveCount === 0} onClick={onBatchCheck}><Icon icon={Search} size={12} />批量检测</Button>
-					<Button type="button" variant="outline" size="sm" className="cursor-pointer" disabled={pending || selectedActiveCount === 0} onClick={onOpenBatchEdit}><Icon icon={Pencil} size={12} />批量修改</Button>
-					<Button type="button" variant="outline" size="sm" className="cursor-pointer" disabled={pending || selectedActiveCount === 0} onClick={onOpenBatchDelete}><Icon icon={Trash2} size={12} />批量删除</Button>
-					<Button type="button" variant="ghost" size="sm" className="cursor-pointer" onClick={onRefresh}><Icon icon={RefreshCw} size={12} />刷新</Button>
+					<Button type="button" variant="default" size="sm" className="cursor-pointer" disabled={pending || batchChecking || rowActionDisabled} onClick={onOpenCreate}><Icon icon={Pencil} size={12} />新增代理</Button>
+					<Button type="button" variant="outline" size="sm" className="cursor-pointer" disabled={pending || batchChecking || rowActionDisabled} onClick={onOpenImport}><Icon icon={Upload} size={12} />批量导入</Button>
+					<Button type="button" variant="outline" size="sm" className="cursor-pointer" disabled={pending || batchChecking || selectedActiveCount === 0} onClick={onBatchCheck}><Icon icon={batchChecking ? LoaderCircle : Search} size={12} className={batchChecking ? 'animate-spin' : ''} />批量检测</Button>
+					<Button type="button" variant="outline" size="sm" className="cursor-pointer" disabled={pending || batchChecking || rowActionDisabled || selectedActiveCount === 0} onClick={onOpenBatchEdit}><Icon icon={Pencil} size={12} />批量修改</Button>
+					<Button type="button" variant="outline" size="sm" className="cursor-pointer" disabled={pending || batchChecking || rowActionDisabled || selectedActiveCount === 0} onClick={onOpenBatchDelete}><Icon icon={Trash2} size={12} />批量删除</Button>
+					<Button type="button" variant="ghost" size="sm" className="cursor-pointer" disabled={pending || refreshing || batchChecking} onClick={onRefresh}><Icon icon={refreshing ? LoaderCircle : RefreshCw} size={12} className={refreshing ? 'animate-spin' : ''} />刷新</Button>
 				</div>
 			</div>
 
@@ -152,7 +180,19 @@ export function ProxyListCard({
 						</div>
 						{proxies.map((item, index) => (
 							<div key={item.id} className={`grid grid-cols-[48px_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_220px] items-center gap-3 px-3 py-3 text-sm ${index < proxies.length - 1 ? 'border-b border-border/70' : ''}`}>
-								<div className="flex justify-center"><Checkbox checked={selectedProxyIds.includes(item.id)} disabled={item.lifecycle !== 'active' || pending} className="cursor-pointer" onCheckedChange={(checked) => onSelectProxy(item.id, checked === true)} /></div>
+								<div className="flex justify-center"><Checkbox checked={selectedProxyIds.includes(item.id)} disabled={item.lifecycle !== 'active' || pending || checkingProxyIds.includes(item.id)} className="cursor-pointer" onCheckedChange={(checked) => onSelectProxy(item.id, checked === true)} /></div>
+								{(() => {
+									const latencyMs = resolveLatency(item);
+									const latencyTone = resolveLatencyTone(item, latencyMs);
+									const isChecking = checkingProxyIds.includes(item.id);
+									const exitIpLabel =
+										item.exitIp ||
+										(item.checkStatus === 'ok'
+											? '出口 IP 获取失败'
+											: '未检测出口 IP');
+									const statusLabel = resolveStatusLabel(item);
+									return (
+										<>
 								<div className="min-w-0">
 									<div className="flex items-center gap-2">
 										<p className="truncate font-medium">{resolveProxyDisplayName(item)}</p>
@@ -171,25 +211,25 @@ export function ProxyListCard({
 										<span className="truncate">{item.country || '未知国家'}</span>
 									</p>
 									<p className="truncate text-[11px] text-muted-foreground">{item.region || '未知区域'} / {item.city || '未知城市'}</p>
-									<p className="truncate text-[11px] text-muted-foreground">{item.suggestedLanguage || '语言待检测'} / {item.suggestedTimezone || '时区待检测'}</p>
 								</div>
 								<div className="min-w-0 space-y-1">
-									<p className="truncate font-medium">{item.exitIp || '未检测出口 IP'}</p>
-									<p className="truncate text-[11px] text-muted-foreground">{item.latitude !== null && item.longitude !== null ? `${item.latitude}, ${item.longitude}` : '经纬度待检测'}</p>
+									<p className="truncate font-medium">{exitIpLabel}</p>
 									<p className="truncate text-[11px] text-muted-foreground">最近检测 {formatTimestamp(item.lastCheckedAt)}</p>
 								</div>
 								<div className="space-y-1 min-w-0">
 									<Badge variant={item.lifecycle === 'active' ? 'outline' : 'secondary'}>{item.lifecycle === 'active' ? '可用' : '已归档'}</Badge>
-									<p className="text-[11px] text-muted-foreground">{resolveStatusLabel(item)}</p>
-									<p className="truncate text-[11px] text-muted-foreground">{item.checkMessage || `过期时间 ${formatExpiry(item.expiresAt)}`}</p>
+									{statusLabel ? <p className="text-[11px] text-muted-foreground">{statusLabel}</p> : null}
+									<p className={`truncate text-[11px] font-medium ${latencyTone}`}>
+										{latencyMs !== null ? `${latencyMs} ms` : item.checkStatus === 'ok' ? '延迟待回填' : item.checkMessage || `过期时间 ${formatExpiry(item.expiresAt)}`}
+									</p>
 								</div>
 								<div className="flex justify-end gap-1">
 									{item.lifecycle === 'active' ? (
 										<>
-											<Button type="button" size="icon" variant="ghost" className="h-8 w-8 cursor-pointer" disabled={pending} onClick={() => onCheckProxy(item.id)}><Icon icon={Search} size={13} /></Button>
+											<Button type="button" size="icon" variant="ghost" className="h-8 w-8 cursor-pointer" disabled={pending || rowActionDisabled || isChecking} onClick={() => onCheckProxy(item.id)}><Icon icon={isChecking ? LoaderCircle : Search} size={13} className={isChecking ? 'animate-spin' : ''} /></Button>
 											<DropdownMenu>
 												<DropdownMenuTrigger asChild>
-													<Button type="button" size="icon" variant="ghost" className="h-8 w-8 cursor-pointer" disabled={pending}>
+													<Button type="button" size="icon" variant="ghost" className="h-8 w-8 cursor-pointer" disabled={pending || rowActionDisabled || isChecking}>
 														<Icon icon={Ellipsis} size={14} />
 													</Button>
 												</DropdownMenuTrigger>
@@ -214,9 +254,12 @@ export function ProxyListCard({
 											</DropdownMenu>
 										</>
 									) : (
-										<Button type="button" size="sm" variant="outline" className="cursor-pointer" disabled={pending} onClick={() => onRestoreProxy(item.id)}><Icon icon={RotateCcw} size={12} />恢复</Button>
+										<Button type="button" size="sm" variant="outline" className="cursor-pointer" disabled={pending || rowActionDisabled} onClick={() => onRestoreProxy(item.id)}><Icon icon={RotateCcw} size={12} />恢复</Button>
 									)}
 								</div>
+										</>
+									);
+								})()}
 							</div>
 						))}
 					</>

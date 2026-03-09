@@ -198,6 +198,10 @@ export async function restoreProxy(proxyId: string): Promise<void> {
 	await tauriInvoke('restore_proxy', { proxyId });
 }
 
+export async function purgeProxy(proxyId: string): Promise<void> {
+	await tauriInvoke('purge_proxy', { proxyId });
+}
+
 export async function bindProfileProxy(profileId: string, proxyId: string): Promise<void> {
 	await tauriInvoke('bind_profile_proxy', { profileId, proxyId });
 }

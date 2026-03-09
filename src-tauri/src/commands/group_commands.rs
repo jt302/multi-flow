@@ -73,6 +73,19 @@ pub fn restore_profile_group(
     service.restore_group(&group_id).map_err(error_to_string)
 }
 
+#[tauri::command]
+pub fn purge_profile_group(
+    state: State<'_, AppState>,
+    group_id: String,
+) -> Result<(), String> {
+    let service = state
+        .profile_group_service
+        .lock()
+        .map_err(|_| "profile group service lock poisoned".to_string())?;
+    service.purge_group(&group_id).map_err(error_to_string)?;
+    Ok(())
+}
+
 fn error_to_string(err: AppError) -> String {
     err.to_string()
 }

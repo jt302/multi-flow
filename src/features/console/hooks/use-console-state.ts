@@ -111,7 +111,7 @@ export function useConsoleState() {
 		profileActionLocksRef,
 		setActionState,
 	});
-	const { createGroup, updateGroup, deleteGroup, restoreGroup } = useGroupActions({
+	const { createGroup, updateGroup, deleteGroup, restoreGroup, purgeGroup } = useGroupActions({
 		refreshGroups,
 		refreshProfiles: refreshProfilesAndBindings,
 	});
@@ -125,6 +125,7 @@ export function useConsoleState() {
 		closeProfile,
 		deleteProfile,
 		restoreProfile,
+		purgeProfile,
 		batchOpenProfiles,
 		batchCloseProfiles,
 		setProfileGroup,
@@ -145,6 +146,7 @@ export function useConsoleState() {
 		deleteProxy,
 		batchDeleteProxies,
 		restoreProxy,
+		purgeProxy,
 		batchUpdateProxies,
 		importProxies,
 		checkProxy,
@@ -197,6 +199,7 @@ export function useConsoleState() {
 		updateGroup,
 		deleteGroup,
 		restoreGroup,
+		purgeGroup,
 		createProfile,
 		updateProfile,
 		updateProfileVisual,
@@ -204,6 +207,7 @@ export function useConsoleState() {
 		closeProfile,
 		deleteProfile,
 		restoreProfile,
+		purgeProfile,
 		batchOpenProfiles,
 		batchCloseProfiles,
 		setProfileGroup,
@@ -221,6 +225,7 @@ export function useConsoleState() {
 		batchCheckProxies,
 		bindProfileProxy,
 		unbindProfileProxy,
+		purgeProxy,
 		refreshProfiles: refreshProfilesAndBindings,
 		refreshGroups,
 		refreshProxies,

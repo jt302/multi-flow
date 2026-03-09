@@ -114,3 +114,7 @@ export async function deleteGroup(groupId: string): Promise<void> {
 export async function restoreGroup(groupId: string): Promise<void> {
 	await tauriInvoke('restore_profile_group', { groupId });
 }
+
+export async function purgeGroup(groupId: string): Promise<void> {
+	await tauriInvoke('purge_profile_group', { groupId });
+}

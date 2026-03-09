@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { LoaderCircle } from 'lucide-react';
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
@@ -262,6 +263,7 @@ export function ProxyBatchEditDialog({
 							取消
 						</Button>
 						<Button type="submit" className="cursor-pointer" disabled={pending}>
+							{pending ? <LoaderCircle className="animate-spin" /> : null}
 							确认修改
 						</Button>
 					</DialogFooter>

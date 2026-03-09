@@ -116,7 +116,7 @@ pub fn import_proxies(
 }
 
 #[tauri::command]
-pub fn check_proxy(state: State<'_, AppState>, proxy_id: String) -> Result<Proxy, String> {
+pub async fn check_proxy(state: State<'_, AppState>, proxy_id: String) -> Result<Proxy, String> {
     let geoip_database = {
         let resource_service = state
             .resource_service
@@ -126,17 +126,24 @@ pub fn check_proxy(state: State<'_, AppState>, proxy_id: String) -> Result<Proxy
             .ensure_geoip_database_available()
             .map_err(error_to_string)?
     };
-    let proxy_service = state
-        .proxy_service
-        .lock()
-        .map_err(|_| "proxy service lock poisoned".to_string())?;
-    proxy_service
-        .check_proxy(&proxy_id, &geoip_database)
+    let proxy_service = {
+        let proxy_service = state
+            .proxy_service
+            .lock()
+            .map_err(|_| "proxy service lock poisoned".to_string())?;
+        proxy_service.clone()
+    };
+    let handle = tauri::async_runtime::spawn_blocking(move || {
+        proxy_service.check_proxy(&proxy_id, &geoip_database)
+    });
+    handle
+        .await
+        .map_err(|err| format!("proxy check task join failed: {err}"))?
         .map_err(error_to_string)
 }
 
 #[tauri::command]
-pub fn batch_check_proxies(
+pub async fn batch_check_proxies(
     state: State<'_, AppState>,
     payload: BatchCheckProxiesRequest,
 ) -> Result<BatchProxyActionResponse, String> {
@@ -149,12 +156,19 @@ pub fn batch_check_proxies(
             .ensure_geoip_database_available()
             .map_err(error_to_string)?
     };
-    let proxy_service = state
-        .proxy_service
-        .lock()
-        .map_err(|_| "proxy service lock poisoned".to_string())?;
-    proxy_service
-        .batch_check_proxies(payload, &geoip_database)
+    let proxy_service = {
+        let proxy_service = state
+            .proxy_service
+            .lock()
+            .map_err(|_| "proxy service lock poisoned".to_string())?;
+        proxy_service.clone()
+    };
+    let handle = tauri::async_runtime::spawn_blocking(move || {
+        proxy_service.batch_check_proxies(payload, &geoip_database)
+    });
+    handle
+        .await
+        .map_err(|err| format!("proxy batch check task join failed: {err}"))?
         .map_err(error_to_string)
 }
 
@@ -167,6 +181,18 @@ pub fn restore_proxy(state: State<'_, AppState>, proxy_id: String) -> Result<Pro
     proxy_service
         .restore_proxy(&proxy_id)
         .map_err(error_to_string)
+}
+
+#[tauri::command]
+pub fn purge_proxy(state: State<'_, AppState>, proxy_id: String) -> Result<(), String> {
+    let proxy_service = state
+        .proxy_service
+        .lock()
+        .map_err(|_| "proxy service lock poisoned".to_string())?;
+    proxy_service
+        .purge_proxy(&proxy_id)
+        .map_err(error_to_string)?;
+    Ok(())
 }
 
 #[tauri::command]
