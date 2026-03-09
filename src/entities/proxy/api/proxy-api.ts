@@ -1,9 +1,12 @@
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
 import type {
+	BatchProxyActionResponse,
 	CreateProxyPayload,
+	ImportProxiesPayload,
 	ProxyItem,
 	ProxyLifecycle,
 	ProxyProtocol,
+	UpdateProxyPayload,
 } from '@/entities/proxy/model/types';
 import type { ProfileProxyBindingMap } from '@/entities/profile/model/types';
 
@@ -86,8 +89,97 @@ export async function createProxy(payload: CreateProxyPayload): Promise<void> {
 	});
 }
 
+export async function updateProxy(proxyId: string, payload: UpdateProxyPayload): Promise<void> {
+	await tauriInvoke('update_proxy', {
+		proxyId,
+		payload: {
+			name: payload.name,
+			protocol: payload.protocol,
+			username: payload.username,
+			password: payload.password,
+			country: payload.country,
+			region: payload.region,
+			city: payload.city,
+			provider: payload.provider,
+			note: payload.note,
+		},
+	});
+}
+
 export async function deleteProxy(proxyId: string): Promise<void> {
 	await tauriInvoke('delete_proxy', { proxyId });
+}
+
+type BackendBatchProxyActionResponse = {
+	total: number;
+	successCount: number;
+	failedCount: number;
+	items: Array<{
+		proxyId: string;
+		ok: boolean;
+		message: string;
+	}>;
+};
+
+function mapBatchProxyActionResponse(
+	response: BackendBatchProxyActionResponse,
+): BatchProxyActionResponse {
+	return {
+		total: response.total,
+		successCount: response.successCount,
+		failedCount: response.failedCount,
+		items: response.items,
+	};
+}
+
+export async function batchUpdateProxies(
+	proxyIds: string[],
+	payload: UpdateProxyPayload,
+): Promise<BatchProxyActionResponse> {
+	const response = await tauriInvoke<BackendBatchProxyActionResponse>(
+		'batch_update_proxies',
+		{
+			payload: {
+				proxyIds,
+				payload,
+			},
+		},
+	);
+	return mapBatchProxyActionResponse(response);
+}
+
+export async function batchDeleteProxies(
+	proxyIds: string[],
+): Promise<BatchProxyActionResponse> {
+	const response = await tauriInvoke<BackendBatchProxyActionResponse>(
+		'batch_delete_proxies',
+		{
+			payload: { proxyIds },
+		},
+	);
+	return mapBatchProxyActionResponse(response);
+}
+
+
+export async function importProxies(payload: ImportProxiesPayload): Promise<BatchProxyActionResponse> {
+	const response = await tauriInvoke<BackendBatchProxyActionResponse>('import_proxies', {
+		payload: {
+			protocol: payload.protocol,
+			lines: payload.lines,
+		},
+	});
+	return mapBatchProxyActionResponse(response);
+}
+
+export async function checkProxy(proxyId: string): Promise<void> {
+	await tauriInvoke('check_proxy', { proxyId });
+}
+
+export async function batchCheckProxies(proxyIds: string[]): Promise<BatchProxyActionResponse> {
+	const response = await tauriInvoke<BackendBatchProxyActionResponse>('batch_check_proxies', {
+		payload: { proxyIds },
+	});
+	return mapBatchProxyActionResponse(response);
 }
 
 export async function restoreProxy(proxyId: string): Promise<void> {

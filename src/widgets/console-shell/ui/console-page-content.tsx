@@ -106,7 +106,13 @@ export function ConsolePageContent({
 					profiles={data.profiles}
 					profileProxyBindings={data.profileProxyBindings}
 					onCreateProxy={actions.createProxy}
+					onUpdateProxy={actions.updateProxy}
 					onDeleteProxy={actions.deleteProxy}
+					onBatchDeleteProxies={actions.batchDeleteProxies}
+					onBatchUpdateProxies={actions.batchUpdateProxies}
+					onImportProxies={actions.importProxies}
+					onCheckProxy={actions.checkProxy}
+					onBatchCheckProxies={actions.batchCheckProxies}
 					onRestoreProxy={actions.restoreProxy}
 					onBindProfileProxy={actions.bindProfileProxy}
 					onUnbindProfileProxy={actions.unbindProfileProxy}
