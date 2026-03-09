@@ -4,6 +4,8 @@ mod m20260307_000003_create_profile_groups;
 mod m20260307_000004_create_engine_sessions;
 mod m20260307_000005_add_profile_settings;
 mod m20260308_000006_create_device_presets;
+mod m20260309_000007_create_proxy_runtime_instances;
+mod m20260309_000008_add_proxy_health_fields;
 
 use sea_orm_migration::prelude::*;
 
@@ -19,6 +21,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260307_000004_create_engine_sessions::Migration),
             Box::new(m20260307_000005_add_profile_settings::Migration),
             Box::new(m20260308_000006_create_device_presets::Migration),
+            Box::new(m20260309_000007_create_proxy_runtime_instances::Migration),
+            Box::new(m20260309_000008_add_proxy_health_fields::Migration),
         ]
     }
 }
