@@ -1,8 +1,8 @@
 import { Cpu, Play, RefreshCcw } from 'lucide-react';
 
 import { Badge, Button, Card, CardContent, CardHeader, Icon } from '@/components/ui';
-import { NAV_ITEMS } from '@/features/console/constants';
 import { cn } from '@/lib/utils';
+import { CONSOLE_NAV_ITEMS } from '@/widgets/console-shell/model/nav-items';
 import type { ConsoleSidebarProps } from '@/widgets/console-shell/model/types';
 
 export function ConsoleSidebar({ activeNav, onNavChange, isRunning, onToggleRunning }: ConsoleSidebarProps) {
@@ -19,7 +19,7 @@ export function ConsoleSidebar({ activeNav, onNavChange, isRunning, onToggleRunn
 			</div>
 
 			<nav className="space-y-1.5">
-				{NAV_ITEMS.map((item) => {
+				{CONSOLE_NAV_ITEMS.map((item) => {
 					const active = activeNav === item.id;
 					return (
 						<Button

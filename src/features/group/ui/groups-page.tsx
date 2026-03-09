@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Icon, Input } from '@/components/ui';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 import { SessionTableCard } from '@/widgets/session-table-card/ui/session-table-card';
-import { NAV_SECTIONS } from '@/features/console/constants';
+import { CONSOLE_NAV_SECTIONS } from '@/widgets/console-shell/model/nav-sections';
 import type { GroupsPageProps } from '@/features/group/model/types';
 
 const groupFormSchema = z.object({
@@ -18,7 +18,7 @@ const groupFormSchema = z.object({
 type GroupFormValues = z.infer<typeof groupFormSchema>;
 
 export function GroupsPage({ groups, onCreateGroup, onDeleteGroup }: GroupsPageProps) {
-	const section = NAV_SECTIONS.groups;
+	const section = CONSOLE_NAV_SECTIONS.groups;
 	const {
 		register,
 		handleSubmit,

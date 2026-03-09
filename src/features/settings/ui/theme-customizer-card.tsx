@@ -1,9 +1,8 @@
 import { Palette } from 'lucide-react';
 
 import { Button, Card, Icon, Input } from '@/components/ui';
+import { THEME_PRESET_KEYS, THEME_PRESETS } from '@/entities/theme/model/presets';
 import { cn } from '@/lib/utils';
-
-import { PRESET_KEYS, PRESETS } from '@/features/console/constants';
 import type { ThemeCustomizerCardProps } from '@/features/settings/model/types';
 
 export function ThemeCustomizerCard({
@@ -22,7 +21,7 @@ export function ThemeCustomizerCard({
 			</div>
 
 			<div className="grid grid-cols-2 gap-2">
-				{PRESET_KEYS.map((item) => (
+				{THEME_PRESET_KEYS.map((item) => (
 					<Button
 						key={item}
 						type="button"
@@ -34,7 +33,7 @@ export function ThemeCustomizerCard({
 						)}
 					>
 						<div className="flex items-center gap-1.5">
-							<span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PRESETS[item].light }} />
+							<span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: THEME_PRESETS[item].light }} />
 							{item}
 						</div>
 						<p className="text-[11px] text-muted-foreground">亮/暗双态</p>

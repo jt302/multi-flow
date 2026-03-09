@@ -1,37 +1,6 @@
-import {
-	Bot,
-	FolderKanban,
-	Folders,
-	Globe2,
-	LayoutDashboard,
-	PanelsTopLeft,
-	Settings2,
-} from 'lucide-react';
+import type { NavItem, NavSection } from './types';
 
-import type { GroupItem } from '@/entities/group/model/types';
-import type { Palette, PresetKey } from '@/entities/theme/model/types';
-import type { NavItem, NavSection } from '@/widgets/console-shell/model/types';
-
-export const PRESETS: Record<PresetKey, Palette> = {
-	harbor: { light: '#0F8A73', dark: '#56D3BC' },
-	olive: { light: '#4C7A38', dark: '#9FDD72' },
-	copper: { light: '#B05A2B', dark: '#FF9A66' },
-	slate: { light: '#34607C', dark: '#7FC5ED' },
-};
-
-export const PRESET_KEYS: PresetKey[] = ['harbor', 'olive', 'copper', 'slate'];
-
-export const NAV_ITEMS: NavItem[] = [
-	{ id: 'dashboard', label: '总览', icon: LayoutDashboard },
-	{ id: 'profiles', label: '环境', icon: FolderKanban },
-	{ id: 'groups', label: '分组', icon: Folders },
-	{ id: 'proxy', label: '代理池', icon: Globe2 },
-	{ id: 'windows', label: '窗口管理', icon: PanelsTopLeft },
-	{ id: 'ai', label: 'AI 执行', icon: Bot },
-	{ id: 'settings', label: '设置', icon: Settings2 },
-];
-
-export const NAV_SECTIONS: Record<NavItem['id'], NavSection> = {
+export const CONSOLE_NAV_SECTIONS: Record<NavItem['id'], NavSection> = {
 	dashboard: {
 		title: '全局运行总览',
 		desc: '聚合展示环境状态、代理健康与 AI 执行统计。',
@@ -103,33 +72,3 @@ export const NAV_SECTIONS: Record<NavItem['id'], NavSection> = {
 		],
 	},
 };
-
-export const DEFAULT_GROUPS: GroupItem[] = [
-	{
-		id: 'g_airdrop',
-		name: 'AirDrop',
-		note: '空投批量任务',
-		profileCount: 12,
-		updatedAt: '刚刚',
-		lifecycle: 'active',
-		deletedAt: null,
-	},
-	{
-		id: 'g_farm',
-		name: 'Farm',
-		note: '收益农场矩阵',
-		profileCount: 8,
-		updatedAt: '8 分钟前',
-		lifecycle: 'active',
-		deletedAt: null,
-	},
-	{
-		id: 'g_brand',
-		name: 'Brand',
-		note: '品牌账号运营',
-		profileCount: 5,
-		updatedAt: '20 分钟前',
-		lifecycle: 'active',
-		deletedAt: null,
-	},
-];

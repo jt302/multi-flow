@@ -1,8 +1,8 @@
 import { setTheme as setNativeAppTheme } from '@tauri-apps/api/app';
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 
-import { PRESET_KEYS, PRESETS } from '@/features/console/constants';
 import type { Palette, PresetKey, ThemeMode } from '@/entities/theme/model/types';
+import { THEME_PRESET_KEYS, THEME_PRESETS } from '@/entities/theme/model/presets';
 import { getReadableForeground, hexToRgb, mixHex } from '@/shared/lib/color';
 
 const STORAGE_KEYS = {
@@ -17,7 +17,7 @@ function isThemeMode(value: string | null): value is ThemeMode {
 }
 
 function isPresetKey(value: string | null): value is PresetKey {
-	return PRESET_KEYS.includes(value as PresetKey);
+	return THEME_PRESET_KEYS.includes(value as PresetKey);
 }
 
 function getStorageItem(key: string): string | null {
@@ -118,7 +118,7 @@ export function useThemeSettings() {
 				dark: mixHex(customColor, '#FFFFFF', 0.28),
 			};
 		}
-		return PRESETS[preset];
+		return THEME_PRESETS[preset];
 	}, [customColor, preset, useCustomColor]);
 
 	useLayoutEffect(() => {

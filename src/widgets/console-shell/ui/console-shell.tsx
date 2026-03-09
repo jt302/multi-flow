@@ -4,8 +4,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { Card, Toaster } from '@/components/ui';
+import { useThemeSettings } from '@/entities/theme/model/use-theme-settings';
 import { openLogPanelWindow } from '@/features/logs';
-import { useThemeSettings } from '@/features/console/hooks';
 import { useConsoleState } from '@/features/console/hooks';
 import { ConsoleSidebar } from './console-sidebar';
 import { ConsolePageContent } from './console-page-content';

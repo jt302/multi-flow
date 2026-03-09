@@ -27,7 +27,11 @@
 
 ## 4. 目录与职责（高频）
 
-- 前端业务：`src/features/console/*`
+- 前端入口与路由：`src/app/*`、`src/pages/*`
+- 页面级组合壳：`src/widgets/*`
+- 业务动作与表单：`src/features/*`
+- 领域实体、query、只读展示：`src/entities/*`
+- 跨域共享能力：`src/shared/*`
 - 通用组件：`src/components/*`
 - Tauri 命令层：`src-tauri/src/commands/*`
 - 领域/服务层：`src-tauri/src/services/*`

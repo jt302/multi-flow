@@ -20,7 +20,7 @@ import {
 	SelectValue,
 } from '@/components/ui';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
-import { NAV_SECTIONS } from '@/features/console/constants';
+import { CONSOLE_NAV_SECTIONS } from '@/widgets/console-shell/model/nav-sections';
 import type {
 	CreateProxyPayload,
 	ProxyPageProps,
@@ -67,7 +67,7 @@ export function ProxyPage({
 	onUnbindProfileProxy,
 	onRefreshProxies,
 }: ProxyPageProps) {
-	const section = NAV_SECTIONS.proxy;
+	const section = CONSOLE_NAV_SECTIONS.proxy;
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
