@@ -1,19 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { Card } from '@/components/ui';
-import { filterProfiles, type ProfileListFiltersState } from '@/entities/profile/lib/profile-list';
+import { filterProfiles } from '@/entities/profile/lib/profile-list';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
+import { useProfileListState } from '../model/use-profile-list-state';
 import { ProfileBatchOpenResultCard } from './profile-batch-open-result-card';
 import { ProfileListFilters } from './profile-list-filters';
 import { ProfileListItem } from './profile-list-item';
 import { ProfileListStats } from './profile-list-stats';
 import { CONSOLE_NAV_SECTIONS } from '@/widgets/console-shell/model/nav-sections';
 import type { ProxyItem } from '@/entities/proxy/model/types';
-import type { BatchProfileActionResponse } from '@/entities/profile/model/types';
 
 import type { ProfileListPageProps } from '../model/types';
-
-type QuickEditField = 'background' | 'toolbar';
 
 export function ProfileListPage({
 	profiles,
@@ -34,21 +32,16 @@ export function ProfileListPage({
 	onRefreshProfiles,
 }: ProfileListPageProps) {
 	const section = CONSOLE_NAV_SECTIONS.profiles;
-	const [error, setError] = useState<string | null>(null);
-	const [filters, setFilters] = useState<ProfileListFiltersState>({
-		keyword: '',
-		groupFilter: 'all',
-		runningFilter: 'all',
-		lifecycleFilter: 'active',
-	});
-	const [quickEdit, setQuickEdit] = useState<{
-		profileId: string;
-		field: QuickEditField;
-	} | null>(null);
-	const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
-	const [lastBatchOpenResult, setLastBatchOpenResult] = useState<BatchProfileActionResponse | null>(
-		null,
-	);
+	const {
+		state: { error, filters, quickEdit, selectedProfileIds, lastBatchOpenResult },
+		setError,
+		patchFilters,
+		setQuickEdit,
+		toggleProfile,
+		setSelectedProfiles,
+		clearSelection,
+		setBatchOpenResult,
+	} = useProfileListState();
 
 	const proxyById = useMemo(() => {
 		return proxies.reduce<Record<string, ProxyItem>>((acc, item: ProxyItem) => {
@@ -114,23 +107,15 @@ export function ProfileListPage({
 	};
 
 	const handleSelectProfile = (profileId: string, checked: boolean) => {
-		setSelectedProfileIds((prev) => {
-			if (checked) {
-				if (prev.includes(profileId)) {
-					return prev;
-				}
-				return [...prev, profileId];
-			}
-			return prev.filter((id) => id !== profileId);
-		});
+		toggleProfile(profileId, checked);
 	};
 
 	const handleSelectAllFiltered = () => {
-		setSelectedProfileIds(filteredActiveIds);
+		setSelectedProfiles(filteredActiveIds);
 	};
 
 	const handleClearSelection = () => {
-		setSelectedProfileIds([]);
+		clearSelection();
 	};
 
 	return (
@@ -159,22 +144,22 @@ export function ProfileListPage({
 					selectableCount={filteredActiveIds.length}
 					stoppedSelectedCount={selectedStoppedIds.length}
 					runningSelectedCount={selectedRunningIds.length}
-					onChange={(patch) => setFilters((prev) => ({ ...prev, ...patch }))}
+					onChange={patchFilters}
 					onSelectAll={handleSelectAllFiltered}
 					onClearSelection={handleClearSelection}
 					onBatchOpen={() => {
 						void runAction(async () => {
-							const result = await onBatchOpenProfiles(selectedStoppedIds);
-							setLastBatchOpenResult(result.failedCount > 0 ? result : null);
-							handleClearSelection();
-						});
+								const result = await onBatchOpenProfiles(selectedStoppedIds);
+								setBatchOpenResult(result.failedCount > 0 ? result : null);
+								handleClearSelection();
+							});
 					}}
 					onBatchClose={() => {
 						void runAction(async () => {
-							await onBatchCloseProfiles(selectedRunningIds);
-							setLastBatchOpenResult(null);
-							handleClearSelection();
-						});
+								await onBatchCloseProfiles(selectedRunningIds);
+								setBatchOpenResult(null);
+								handleClearSelection();
+							});
 					}}
 					onRefresh={() => {
 						void (async () => {
@@ -189,19 +174,19 @@ export function ProfileListPage({
 					onCreateClick={onCreateClick}
 				/>
 
-					{lastBatchOpenResult?.failedCount ? (
-						<ProfileBatchOpenResultCard
-							result={lastBatchOpenResult}
-							profiles={profiles}
-							onRetryFailed={(failedProfileIds) => {
-								void runAction(async () => {
-									const result = await onBatchOpenProfiles(failedProfileIds);
-									setLastBatchOpenResult(result.failedCount > 0 ? result : null);
-								});
-							}}
-							onClose={() => setLastBatchOpenResult(null)}
-						/>
-					) : null}
+				{lastBatchOpenResult?.failedCount ? (
+					<ProfileBatchOpenResultCard
+						result={lastBatchOpenResult}
+						profiles={profiles}
+						onRetryFailed={(failedProfileIds) => {
+							void runAction(async () => {
+								const result = await onBatchOpenProfiles(failedProfileIds);
+								setBatchOpenResult(result.failedCount > 0 ? result : null);
+							});
+						}}
+						onClose={() => setBatchOpenResult(null)}
+					/>
+				) : null}
 
 				<div className="overflow-hidden rounded-xl border border-border/70">
 					{filteredProfiles.length === 0 ? (
