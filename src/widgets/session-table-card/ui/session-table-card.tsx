@@ -1,9 +1,9 @@
 import { Activity } from 'lucide-react';
 
 import { Badge, Button, Card, Icon } from '@/components/ui';
+import { getStatusVariant } from '@/features/console/utils/status';
 
-import type { SessionTableCardProps } from '../types';
-import { getStatusVariant } from '../utils/status';
+import type { SessionTableCardProps } from '@/widgets/console-shell/model/types';
 
 export function SessionTableCard({ title, rows }: SessionTableCardProps) {
 	return (

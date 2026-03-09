@@ -1,5 +1,5 @@
 import { tauriInvoke } from './tauri-invoke';
-import type { ProfileWindowStateItem, WindowBoundsItem } from '../types';
+import type { ProfileWindowStateItem, WindowBoundsItem } from '@/entities/window-session/model/types';
 
 type BatchActionResponse = {
 	total: number;

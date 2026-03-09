@@ -2,7 +2,7 @@ import { setTheme as setNativeAppTheme } from '@tauri-apps/api/app';
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 
 import { PRESET_KEYS, PRESETS } from '@/features/console/constants';
-import type { Palette, PresetKey, ThemeMode } from '@/features/console/types';
+import type { Palette, PresetKey, ThemeMode } from '@/entities/theme/model/types';
 import { getReadableForeground, hexToRgb, mixHex } from '@/features/console/utils';
 
 const STORAGE_KEYS = {

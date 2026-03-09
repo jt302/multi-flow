@@ -1,6 +1,6 @@
 import { tauriInvoke } from './tauri-invoke';
 import { listen } from '@tauri-apps/api/event';
-import type { ResourceItem } from '../types';
+import type { ResourceItem } from '@/entities/resource/model/types';
 
 type BackendResourceItem = {
 	id: string;

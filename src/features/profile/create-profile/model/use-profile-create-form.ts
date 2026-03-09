@@ -13,11 +13,9 @@ import type {
 	ProfileFingerprintSnapshot,
 	ProfileItem,
 } from '@/entities/profile/model/types';
-import type {
-	GroupItem,
-	ProxyItem,
-	ResourceItem,
-} from '@/features/console/types';
+import type { GroupItem } from '@/entities/group/model/types';
+import type { ProxyItem } from '@/entities/proxy/model/types';
+import type { ResourceItem } from '@/entities/resource/model/types';
 import { detectClientPlatform } from '@/features/console/utils';
 
 import {

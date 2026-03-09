@@ -1,10 +1,9 @@
 import { Cpu, Play, RefreshCcw } from 'lucide-react';
 
 import { Badge, Button, Card, CardContent, CardHeader, Icon } from '@/components/ui';
+import { NAV_ITEMS } from '@/features/console/constants';
 import { cn } from '@/lib/utils';
-
-import { NAV_ITEMS } from '../constants';
-import type { ConsoleSidebarProps } from '../types';
+import type { ConsoleSidebarProps } from '@/widgets/console-shell/model/types';
 
 export function ConsoleSidebar({ activeNav, onNavChange, isRunning, onToggleRunning }: ConsoleSidebarProps) {
 	return (

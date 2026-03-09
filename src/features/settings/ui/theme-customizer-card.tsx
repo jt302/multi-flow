@@ -3,8 +3,8 @@ import { Palette } from 'lucide-react';
 import { Button, Card, Icon, Input } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
-import { PRESET_KEYS, PRESETS } from '../constants';
-import type { ThemeCustomizerCardProps } from '../types';
+import { PRESET_KEYS, PRESETS } from '@/features/console/constants';
+import type { ThemeCustomizerCardProps } from '@/features/settings/model/types';
 
 export function ThemeCustomizerCard({
 	useCustomColor,

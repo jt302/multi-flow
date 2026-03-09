@@ -2,9 +2,12 @@ import { useMemo, useState } from 'react';
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { filterProfiles, type ProfileListFiltersState } from '@/entities/profile/lib/profile-list';
-import { ActiveSectionCard, ProfileListFilters, ProfileListItem } from '@/features/console/components';
+import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
+import { ProfileListFilters } from './profile-list-filters';
+import { ProfileListItem } from './profile-list-item';
 import { NAV_SECTIONS } from '@/features/console/constants';
-import type { BatchProfileActionResponse, ProxyItem } from '@/features/console/types';
+import type { ProxyItem } from '@/entities/proxy/model/types';
+import type { BatchProfileActionResponse } from '@/entities/profile/model/types';
 
 import type { ProfileListPageProps } from '../model/types';
 

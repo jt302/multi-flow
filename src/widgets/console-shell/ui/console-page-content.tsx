@@ -1,22 +1,17 @@
 import { lazy } from 'react';
 
 import { NAV_PATHS, SETTINGS_RECYCLE_BIN_PATH } from '@/features/console/routes';
-import type {
-	CreateProxyPayload,
-	GroupItem,
-	NavId,
-	PresetKey,
-	ProfileDevicePresetItem,
-	ProfileWindowStateItem,
-	ProxyItem,
-	ResourceItem,
-	ResourceProgressState,
-	ThemeMode,
-} from '@/features/console/types';
+import type { GroupItem } from '@/entities/group/model/types';
+import type { CreateProxyPayload, ProxyItem } from '@/entities/proxy/model/types';
+import type { ResourceItem, ResourceProgressState } from '@/entities/resource/model/types';
+import type { PresetKey, ThemeMode } from '@/entities/theme/model/types';
+import type { ProfileWindowStateItem } from '@/entities/window-session/model/types';
+import type { NavId } from '@/widgets/console-shell/model/types';
 import type {
 	BatchProfileActionResponse,
 	CreateProfilePayload,
 	ProfileActionState,
+	ProfileDevicePresetItem,
 	ProfileItem,
 	ProfileProxyBindingMap,
 	SaveProfileDevicePresetPayload,
@@ -26,7 +21,7 @@ const DashboardPage = lazy(() =>
 	import('@/features/dashboard/ui/dashboard-page').then((module) => ({ default: module.DashboardPage })),
 );
 const ProfilesPage = lazy(() =>
-	import('@/features/console/pages/profiles-page').then((module) => ({ default: module.ProfilesPage })),
+	import('@/features/profile/ui/profiles-page').then((module) => ({ default: module.ProfilesPage })),
 );
 const GroupsPage = lazy(() =>
 	import('@/features/group/ui/groups-page').then((module) => ({ default: module.GroupsPage })),
@@ -38,13 +33,13 @@ const WindowsPage = lazy(() =>
 	import('@/features/window-session/ui/windows-page').then((module) => ({ default: module.WindowsPage })),
 );
 const AiPage = lazy(() =>
-	import('@/features/console/pages/ai-page').then((module) => ({ default: module.AiPage })),
+	import('@/features/ai/ui/ai-page').then((module) => ({ default: module.AiPage })),
 );
 const SettingsPage = lazy(() =>
 	import('@/features/settings/ui/settings-page').then((module) => ({ default: module.SettingsPage })),
 );
 const RecycleBinPage = lazy(() =>
-	import('@/features/console/pages/recycle-bin-page').then((module) => ({ default: module.RecycleBinPage })),
+	import('@/features/recycle-bin/ui/recycle-bin-page').then((module) => ({ default: module.RecycleBinPage })),
 );
 
 type ProfileNavigationIntent = {

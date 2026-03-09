@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Icon } from '@/components/ui';
 
-import type { RecycleBinPageProps } from '../types';
+import type { RecycleBinPageProps } from '@/features/recycle-bin/model-types';
 
 function formatDeletedAt(ts: number | null | undefined): string {
 	if (!ts) {

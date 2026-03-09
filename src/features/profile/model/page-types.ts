@@ -1,5 +1,7 @@
+import type { GroupItem } from '@/entities/group/model/types';
 import type {
 	BatchProfileActionResponse,
+	CreateProfilePayload,
 	ProfileActionState,
 	ProfileItem,
 	ProfileProxyBindingMap,
@@ -7,15 +9,15 @@ import type {
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import type { ResourceItem } from '@/entities/resource/model/types';
 
-export type ProfileListPageProps = {
+export type ProfilesPageProps = {
 	profiles: ProfileItem[];
+	groups: GroupItem[];
 	proxies: ProxyItem[];
-	resources: ResourceItem[];
 	profileProxyBindings: ProfileProxyBindingMap;
+	resources: ResourceItem[];
 	profileActionStates: Record<string, ProfileActionState>;
-	onCreateClick: () => void;
-	onViewProfile: (profileId: string) => void;
-	onEditProfile: (profileId: string) => void;
+	onCreateProfile: (payload: CreateProfilePayload) => Promise<void>;
+	onUpdateProfile: (profileId: string, payload: CreateProfilePayload) => Promise<void>;
 	onUpdateProfileVisual: (
 		profileId: string,
 		payload: { browserBgColor?: string; toolbarText?: string },
@@ -27,4 +29,9 @@ export type ProfileListPageProps = {
 	onDeleteProfile: (profileId: string) => Promise<void>;
 	onRestoreProfile: (profileId: string) => Promise<void>;
 	onRefreshProfiles: () => Promise<void>;
+	navigationIntent?: {
+		profileId: string;
+		view: 'detail' | 'edit';
+	} | null;
+	onConsumeNavigationIntent?: () => void;
 };

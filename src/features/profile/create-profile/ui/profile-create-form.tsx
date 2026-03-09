@@ -6,7 +6,9 @@ import type {
 	ProfileItem,
 } from '@/entities/profile/model/types';
 import { FingerprintSummaryCard } from '@/entities/profile/ui/fingerprint-summary-card';
-import type { GroupItem, ProxyItem, ResourceItem } from '@/features/console/types';
+import type { GroupItem } from '@/entities/group/model/types';
+import type { ProxyItem } from '@/entities/proxy/model/types';
+import type { ResourceItem } from '@/entities/resource/model/types';
 
 import { useProfileCreateForm } from '../model/use-profile-create-form';
 import { AdvancedSettingsSection } from './advanced-settings-section';

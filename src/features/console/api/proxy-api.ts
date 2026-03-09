@@ -1,5 +1,11 @@
 import { tauriInvoke } from './tauri-invoke';
-import type { CreateProxyPayload, ProfileProxyBindingMap, ProxyItem, ProxyLifecycle, ProxyProtocol } from '../types';
+import type {
+	CreateProxyPayload,
+	ProxyItem,
+	ProxyLifecycle,
+	ProxyProtocol,
+} from '@/entities/proxy/model/types';
+import type { ProfileProxyBindingMap } from '@/entities/profile/model/types';
 
 type BackendProxy = {
 	id: string;

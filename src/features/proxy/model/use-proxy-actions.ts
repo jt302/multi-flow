@@ -7,7 +7,7 @@ import {
 	restoreProxy as restoreProxyApi,
 	unbindProfileProxy as unbindProfileProxyApi,
 } from '@/features/console/api/proxy-api';
-import type { CreateProxyPayload } from '@/features/console/types';
+import type { CreateProxyPayload } from '@/entities/proxy/model/types';
 
 type ProxyActionsDeps = {
 	refreshProxies: () => Promise<void>;

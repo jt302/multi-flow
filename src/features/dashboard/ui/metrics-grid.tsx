@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui';
 
-import type { MetricsGridProps } from '../types';
+import type { MetricsGridProps } from '@/widgets/console-shell/model/types';
 
 export function MetricsGrid({ resolvedMode, useCustomColor, preset }: MetricsGridProps) {
 	return (

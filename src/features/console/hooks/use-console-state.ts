@@ -10,11 +10,11 @@ import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
 import { useProfileActions } from '@/features/profile/model/use-profile-actions';
 import { useProxyActions } from '@/features/proxy/model/use-proxy-actions';
 import { useProxiesQuery } from '@/entities/proxy/model/use-proxies-query';
+import type { ResourceProgressState } from '@/entities/resource/model/types';
 import { useResourceActions } from '@/features/resource/model/use-resource-actions';
 import { useResourcesQuery } from '@/entities/resource/model/use-resources-query';
 import { useWindowActions } from '@/features/window-session/model/use-window-actions';
 import { useWindowStatesQuery } from '@/entities/window-session/model/use-window-states-query';
-import type { ResourceProgressState } from '../types';
 import type {
 	ProfileActionState,
 	ProfileItem,

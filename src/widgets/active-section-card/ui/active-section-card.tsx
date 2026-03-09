@@ -1,6 +1,6 @@
 import { Card } from '@/components/ui';
 
-import type { ActiveSectionCardProps } from '../types';
+import type { ActiveSectionCardProps } from '@/widgets/console-shell/model/types';
 
 export function ActiveSectionCard({ label, title, description }: ActiveSectionCardProps) {
 	return (

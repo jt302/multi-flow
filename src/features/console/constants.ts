@@ -8,7 +8,9 @@ import {
 	Settings2,
 } from 'lucide-react';
 
-import type { GroupItem, NavItem, NavSection, Palette, PresetKey } from './types';
+import type { GroupItem } from '@/entities/group/model/types';
+import type { Palette, PresetKey } from '@/entities/theme/model/types';
+import type { NavItem, NavSection } from '@/widgets/console-shell/model/types';
 
 export const PRESETS: Record<PresetKey, Palette> = {
 	harbor: { light: '#0F8A73', dark: '#56D3BC' },

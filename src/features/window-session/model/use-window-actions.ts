@@ -16,7 +16,7 @@ import {
 	openProfileWindow as openProfileWindowApi,
 	setProfileWindowBounds as setProfileWindowBoundsApi,
 } from '@/features/console/api/windows-api';
-import type { WindowBoundsItem } from '@/features/console/types';
+import type { WindowBoundsItem } from '@/entities/window-session/model/types';
 
 type WindowActionsDeps = {
 	withWindowActionLock: (profileId: string, action: () => Promise<void>) => Promise<void>;
