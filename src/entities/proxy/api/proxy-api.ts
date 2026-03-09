@@ -1,4 +1,4 @@
-import { tauriInvoke } from './tauri-invoke';
+import { tauriInvoke } from '@/shared/api/tauri-invoke';
 import type {
 	CreateProxyPayload,
 	ProxyItem,

@@ -15,7 +15,7 @@ import {
 	openProfileTab as openProfileTabApi,
 	openProfileWindow as openProfileWindowApi,
 	setProfileWindowBounds as setProfileWindowBoundsApi,
-} from '@/features/console/api/windows-api';
+} from '@/entities/window-session/api/windows-api';
 import type { WindowBoundsItem } from '@/entities/window-session/model/types';
 
 type WindowActionsDeps = {

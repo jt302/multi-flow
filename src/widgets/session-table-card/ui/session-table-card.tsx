@@ -1,7 +1,7 @@
 import { Activity } from 'lucide-react';
 
 import { Badge, Button, Card, Icon } from '@/components/ui';
-import { getStatusVariant } from '@/features/console/utils/status';
+import { getStatusVariant } from '@/shared/lib/status';
 
 import type { SessionTableCardProps } from '@/widgets/console-shell/model/types';
 

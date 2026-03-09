@@ -4,7 +4,7 @@ import {
 	createGroup as createGroupApi,
 	deleteGroup as deleteGroupApi,
 	restoreGroup as restoreGroupApi,
-} from '@/features/console/api/groups-api';
+} from '@/entities/group/api/groups-api';
 
 type GroupActionsDeps = {
 	refreshGroups: () => Promise<void>;

@@ -6,7 +6,7 @@ import {
 	deleteProxy as deleteProxyApi,
 	restoreProxy as restoreProxyApi,
 	unbindProfileProxy as unbindProfileProxyApi,
-} from '@/features/console/api/proxy-api';
+} from '@/entities/proxy/api/proxy-api';
 import type { CreateProxyPayload } from '@/entities/proxy/model/types';
 
 type ProxyActionsDeps = {

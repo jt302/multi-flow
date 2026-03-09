@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { listOpenProfileWindows } from '@/features/console/api/windows-api';
+import { listOpenProfileWindows } from '@/entities/window-session/api/windows-api';
 import type { ProfileWindowStateItem } from '@/entities/window-session/model/types';
 import { queryKeys } from '@/shared/config/query-keys';
 

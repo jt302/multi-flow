@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import {
 	activateChromiumVersion as activateChromiumVersionApi,
 	installChromiumResourceWithProgress,
-} from '@/features/console/api/resource-api';
+} from '@/entities/resource/api/resource-api';
 import type { ResourceProgressState } from '@/entities/resource/model/types';
 
 type ResourceActionsDeps = {
