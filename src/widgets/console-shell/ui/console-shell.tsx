@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -8,39 +8,14 @@ import { openLogPanelWindow } from '@/features/logs';
 import { useThemeSettings } from '@/features/console/hooks';
 import { ConsoleSidebar, ConsoleTopbar } from '@/features/console/components';
 import { useConsoleState } from '@/features/console/hooks';
+import { ConsolePageContent } from './console-page-content';
 import {
 	isConsolePath,
 	NAV_PATHS,
-	SETTINGS_RECYCLE_BIN_PATH,
 	resolveNavFromPath,
 	resolvePathFromNav,
 } from '@/features/console/routes';
 import type { NavId } from '@/features/console/types';
-
-const DashboardPage = lazy(() =>
-	import('@/features/console/pages/dashboard-page').then((module) => ({ default: module.DashboardPage })),
-);
-const ProfilesPage = lazy(() =>
-	import('@/features/console/pages/profiles-page').then((module) => ({ default: module.ProfilesPage })),
-);
-const GroupsPage = lazy(() =>
-	import('@/features/console/pages/groups-page').then((module) => ({ default: module.GroupsPage })),
-);
-const ProxyPage = lazy(() =>
-	import('@/features/console/pages/proxy-page').then((module) => ({ default: module.ProxyPage })),
-);
-const WindowsPage = lazy(() =>
-	import('@/features/console/pages/windows-page').then((module) => ({ default: module.WindowsPage })),
-);
-const AiPage = lazy(() =>
-	import('@/features/console/pages/ai-page').then((module) => ({ default: module.AiPage })),
-);
-const SettingsPage = lazy(() =>
-	import('@/features/console/pages/settings-page').then((module) => ({ default: module.SettingsPage })),
-);
-const RecycleBinPage = lazy(() =>
-	import('@/features/console/pages/recycle-bin-page').then((module) => ({ default: module.RecycleBinPage })),
-);
 
 function resolveActiveNav(pathname: string): NavId {
 	return resolveNavFromPath(pathname) ?? 'dashboard';
@@ -131,151 +106,6 @@ export function ConsoleShell() {
 		}
 	}, [location.pathname, navigate]);
 
-	const renderPage = () => {
-		switch (activeNav) {
-			case 'dashboard':
-				return (
-					<DashboardPage
-						resolvedMode={resolvedMode}
-						useCustomColor={useCustomColor}
-						preset={preset}
-					/>
-				);
-			case 'profiles':
-				return (
-					<ProfilesPage
-						profiles={profiles}
-						groups={groups}
-						proxies={proxies}
-						profileProxyBindings={profileProxyBindings}
-						resources={resources}
-						profileActionStates={profileActionStates}
-						onCreateProfile={createProfile}
-						onUpdateProfile={updateProfile}
-						onUpdateProfileVisual={updateProfileVisual}
-						onOpenProfile={openProfile}
-						onCloseProfile={closeProfile}
-						onBatchOpenProfiles={batchOpenProfiles}
-						onBatchCloseProfiles={batchCloseProfiles}
-					onDeleteProfile={deleteProfile}
-					onRestoreProfile={restoreProfile}
-					onRefreshProfiles={refreshProfiles}
-					navigationIntent={profileNavigationIntent}
-					onConsumeNavigationIntent={() => setProfileNavigationIntent(null)}
-				/>
-			);
-			case 'groups':
-				return (
-					<GroupsPage
-						groups={groups}
-						onCreateGroup={createGroup}
-						onDeleteGroup={deleteGroup}
-					/>
-				);
-			case 'proxy':
-				return (
-					<ProxyPage
-						proxies={proxies}
-						profiles={profiles}
-						profileProxyBindings={profileProxyBindings}
-						onCreateProxy={createProxy}
-						onDeleteProxy={deleteProxy}
-						onRestoreProxy={restoreProxy}
-						onBindProfileProxy={bindProfileProxy}
-						onUnbindProfileProxy={unbindProfileProxy}
-						onRefreshProxies={async () => {
-							await Promise.all([refreshProxies(), refreshProfiles()]);
-						}}
-					/>
-				);
-			case 'ai':
-				return <AiPage />;
-			case 'windows':
-				return (
-					<WindowsPage
-						profiles={profiles}
-						windowStates={windowStates}
-						onRefreshWindows={async () => {
-							await refreshWindows();
-						}}
-						onViewProfile={(profileId) => {
-							setProfileNavigationIntent({ profileId, view: 'detail' });
-							navigate(NAV_PATHS.profiles);
-						}}
-						onOpenTab={openTab}
-						onCloseTab={closeTab}
-						onCloseInactiveTabs={closeInactiveTabs}
-						onActivateTab={activateTab}
-						onActivateTabByIndex={activateTabByIndex}
-						onOpenWindow={openWindow}
-						onCloseWindow={closeWindow}
-						onFocusWindow={focusWindow}
-						onSetWindowBounds={setWindowBounds}
-						onBatchOpenTabs={batchOpenTabs}
-						onBatchCloseTabs={batchCloseTabs}
-						onBatchCloseInactiveTabs={batchCloseInactiveTabs}
-						onBatchOpenWindows={batchOpenWindows}
-						onBatchFocusWindows={batchFocusWindows}
-					/>
-				);
-			case 'settings':
-				if (location.pathname === SETTINGS_RECYCLE_BIN_PATH) {
-					return (
-						<RecycleBinPage
-							profiles={profiles}
-							proxies={proxies}
-							groups={deletedGroups}
-							onRestoreProfile={restoreProfile}
-							onRestoreProxy={restoreProxy}
-							onRestoreGroup={restoreGroup}
-							onRefreshAll={async () => {
-								await Promise.all([
-									refreshProfiles(),
-									refreshProxies(),
-									refreshGroups(),
-									refreshWindows(),
-								]);
-							}}
-						/>
-					);
-				}
-				return (
-					<SettingsPage
-						themeMode={themeMode}
-						onThemeModeChange={setThemeMode}
-						useCustomColor={useCustomColor}
-						preset={preset}
-						customColor={customColor}
-						onPresetChange={(nextPreset) => {
-							setUseCustomColor(false);
-							setPreset(nextPreset);
-						}}
-						onCustomColorChange={(value) => {
-							setUseCustomColor(true);
-							setCustomColor(value);
-						}}
-						onToggleCustomColor={() => setUseCustomColor((prev) => !prev)}
-						resources={resources}
-						onRefreshResources={async () => {
-							await refreshResources();
-						}}
-						onInstallChromium={installChromium}
-						onActivateChromium={activateChromium}
-						resourceProgress={resourceProgress}
-						devicePresets={devicePresets}
-						onCreateDevicePreset={createDevicePreset}
-						onUpdateDevicePreset={updateDevicePreset}
-						onRefreshDevicePresets={async () => {
-							await refreshDevicePresets();
-						}}
-						onOpenRecycleBin={() => navigate(SETTINGS_RECYCLE_BIN_PATH)}
-					/>
-				);
-			default:
-				return null;
-		}
-	};
-
 	const toasterTheme = resolvedMode === 'dark' ? 'dark' : 'light';
 	const handleOpenLogPanel = () => {
 		void (async () => {
@@ -325,7 +155,80 @@ export function ConsoleShell() {
 									</Card>
 								}
 							>
-								{renderPage()}
+								<ConsolePageContent
+									activeNav={activeNav}
+									pathname={location.pathname}
+									resolvedMode={resolvedMode}
+									useCustomColor={useCustomColor}
+									preset={preset}
+									customColor={customColor}
+									themeMode={themeMode}
+									onThemeModeChange={setThemeMode}
+									onPresetChange={(nextPreset) => {
+										setUseCustomColor(false);
+										setPreset(nextPreset);
+									}}
+									onCustomColorChange={(value) => {
+										setUseCustomColor(true);
+										setCustomColor(value);
+									}}
+									onToggleCustomColor={() => setUseCustomColor((prev) => !prev)}
+									groups={groups}
+									deletedGroups={deletedGroups}
+									profiles={profiles}
+									profileActionStates={profileActionStates}
+									proxies={proxies}
+									profileProxyBindings={profileProxyBindings}
+									resources={resources}
+									resourceProgress={resourceProgress}
+									devicePresets={devicePresets}
+									windowStates={windowStates}
+									createGroup={createGroup}
+									deleteGroup={deleteGroup}
+									restoreGroup={restoreGroup}
+									createProfile={createProfile}
+									updateProfile={updateProfile}
+									updateProfileVisual={updateProfileVisual}
+									openProfile={openProfile}
+									closeProfile={closeProfile}
+									batchOpenProfiles={batchOpenProfiles}
+									batchCloseProfiles={batchCloseProfiles}
+									createDevicePreset={createDevicePreset}
+									updateDevicePreset={updateDevicePreset}
+									deleteProfile={deleteProfile}
+									restoreProfile={restoreProfile}
+									refreshGroups={refreshGroups}
+									refreshProfiles={refreshProfiles}
+									createProxy={createProxy}
+									deleteProxy={deleteProxy}
+									restoreProxy={restoreProxy}
+									bindProfileProxy={bindProfileProxy}
+									unbindProfileProxy={unbindProfileProxy}
+									refreshProxies={refreshProxies}
+									refreshResources={refreshResources}
+									refreshDevicePresets={refreshDevicePresets}
+									installChromium={installChromium}
+									activateChromium={activateChromium}
+									refreshWindows={refreshWindows}
+									openTab={openTab}
+									closeTab={closeTab}
+									closeInactiveTabs={closeInactiveTabs}
+									activateTab={activateTab}
+									activateTabByIndex={activateTabByIndex}
+									openWindow={openWindow}
+									closeWindow={closeWindow}
+									focusWindow={focusWindow}
+									setWindowBounds={setWindowBounds}
+									batchOpenTabs={batchOpenTabs}
+									batchCloseTabs={batchCloseTabs}
+									batchCloseInactiveTabs={batchCloseInactiveTabs}
+									batchOpenWindows={batchOpenWindows}
+									batchFocusWindows={batchFocusWindows}
+									navigationIntent={profileNavigationIntent}
+									onConsumeNavigationIntent={() => setProfileNavigationIntent(null)}
+									onSetProfileNavigationIntent={setProfileNavigationIntent}
+									onNavigate={(path) => navigate(path)}
+								/>
 							</Suspense>
 						</div>
 					</Card>
