@@ -1,12 +1,9 @@
 import { Suspense, useEffect } from 'react';
-import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { Card, Toaster } from '@/components/ui';
-import { useThemeSettings } from '@/entities/theme/model/use-theme-settings';
-import { openLogPanelWindow } from '@/features/logs';
-import { useConsoleState } from '@/features/console/hooks';
+import { openLogPanelWindow } from '@/entities/log-entry/api/logs-api';
 import { ConsoleSidebar } from './console-sidebar';
 import { ConsolePageContent } from './console-page-content';
 import { ConsoleTopbar } from './console-topbar';
@@ -16,6 +13,7 @@ import {
 	resolveNavFromPath,
 	resolvePathFromNav,
 } from '@/features/console/routes';
+import { useConsoleShellModel } from '@/widgets/console-shell/model/use-console-shell-model';
 import type { NavId } from '@/widgets/console-shell/model/types';
 
 function resolveActiveNav(pathname: string): NavId {
@@ -26,80 +24,12 @@ export function ConsoleShell() {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const activeNav = resolveActiveNav(location.pathname);
-	const [profileNavigationIntent, setProfileNavigationIntent] = useState<{
-		profileId: string;
-		view: 'detail' | 'edit';
-	} | null>(null);
-
 	const {
-		isRunning,
-		setIsRunning,
-		groups,
-		deletedGroups,
-		profiles,
-		profileActionStates,
-		proxies,
-		profileProxyBindings,
-		resources,
-		resourceProgress,
-		devicePresets,
-		windowStates,
-		createGroup,
-		deleteGroup,
-		restoreGroup,
-		createProfile,
-		updateProfile,
-		updateProfileVisual,
-		openProfile,
-		closeProfile,
-		batchOpenProfiles,
-		batchCloseProfiles,
-		createDevicePreset,
-		updateDevicePreset,
-		deleteProfile,
-		restoreProfile,
-		refreshGroups,
-		refreshProfiles,
-		createProxy,
-		deleteProxy,
-		restoreProxy,
-		bindProfileProxy,
-		unbindProfileProxy,
-		refreshProxies,
-		refreshResources,
-		refreshDevicePresets,
-		installChromium,
-		activateChromium,
-		refreshWindows,
-		openTab,
-		closeTab,
-		closeInactiveTabs,
-		activateTab,
-		activateTabByIndex,
-		openWindow,
-		closeWindow,
-		focusWindow,
-		setWindowBounds,
-		batchOpenTabs,
-		batchCloseTabs,
-		batchCloseInactiveTabs,
-		batchOpenWindows,
-		batchFocusWindows,
-	} = useConsoleState({
-		onRequireSettings: () => navigate(NAV_PATHS.settings),
-	});
-
-	const {
-		themeMode,
-		setThemeMode,
-		preset,
-		setPreset,
-		customColor,
-		setCustomColor,
-		useCustomColor,
-		setUseCustomColor,
-		resolvedMode,
-	} = useThemeSettings();
+		consoleState,
+		themeState,
+		profileNavigationIntent,
+		setProfileNavigationIntent,
+	} = useConsoleShellModel();
 
 	useEffect(() => {
 		if (!isConsolePath(location.pathname)) {
@@ -107,7 +37,7 @@ export function ConsoleShell() {
 		}
 	}, [location.pathname, navigate]);
 
-	const toasterTheme = resolvedMode === 'dark' ? 'dark' : 'light';
+	const toasterTheme = themeState.resolvedMode === 'dark' ? 'dark' : 'light';
 	const handleOpenLogPanel = () => {
 		void (async () => {
 			try {
@@ -134,16 +64,16 @@ export function ConsoleShell() {
 				<ConsoleSidebar
 					activeNav={activeNav}
 					onNavChange={(nav) => navigate(resolvePathFromNav(nav))}
-					isRunning={isRunning}
-					onToggleRunning={() => setIsRunning((prev) => !prev)}
+					isRunning={consoleState.isRunning}
+					onToggleRunning={() => consoleState.setIsRunning((prev) => !prev)}
 				/>
 
 				<section className="flex h-full min-h-0 flex-col gap-3">
 					<Card className="shrink-0 border-border/60 bg-card/84 p-4 backdrop-blur-2xl md:p-5">
 						<ConsoleTopbar
 							activeNav={activeNav}
-							themeMode={themeMode}
-							onThemeModeChange={setThemeMode}
+							themeMode={themeState.themeMode}
+							onThemeModeChange={themeState.setThemeMode}
 							onOpenLogPanel={handleOpenLogPanel}
 						/>
 					</Card>
@@ -158,77 +88,84 @@ export function ConsoleShell() {
 							>
 								<ConsolePageContent
 									activeNav={activeNav}
-									pathname={location.pathname}
-									resolvedMode={resolvedMode}
-									useCustomColor={useCustomColor}
-									preset={preset}
-									customColor={customColor}
-									themeMode={themeMode}
-									onThemeModeChange={setThemeMode}
-									onPresetChange={(nextPreset) => {
-										setUseCustomColor(false);
-										setPreset(nextPreset);
+									theme={{
+										resolvedMode: themeState.resolvedMode,
+										useCustomColor: themeState.useCustomColor,
+										preset: themeState.preset,
+										customColor: themeState.customColor,
+										onPresetChange: (nextPreset) => {
+											themeState.setUseCustomColor(false);
+											themeState.setPreset(nextPreset);
+										},
+										onCustomColorChange: (value) => {
+											themeState.setUseCustomColor(true);
+											themeState.setCustomColor(value);
+										},
+										onToggleCustomColor: () =>
+											themeState.setUseCustomColor((prev) => !prev),
 									}}
-									onCustomColorChange={(value) => {
-										setUseCustomColor(true);
-										setCustomColor(value);
+									data={{
+										groups: consoleState.groups,
+										deletedGroups: consoleState.deletedGroups,
+										profiles: consoleState.profiles,
+										profileActionStates: consoleState.profileActionStates,
+										proxies: consoleState.proxies,
+										profileProxyBindings: consoleState.profileProxyBindings,
+										resources: consoleState.resources,
+										resourceProgress: consoleState.resourceProgress,
+										devicePresets: consoleState.devicePresets,
+										windowStates: consoleState.windowStates,
 									}}
-									onToggleCustomColor={() => setUseCustomColor((prev) => !prev)}
-									groups={groups}
-									deletedGroups={deletedGroups}
-									profiles={profiles}
-									profileActionStates={profileActionStates}
-									proxies={proxies}
-									profileProxyBindings={profileProxyBindings}
-									resources={resources}
-									resourceProgress={resourceProgress}
-									devicePresets={devicePresets}
-									windowStates={windowStates}
-									createGroup={createGroup}
-									deleteGroup={deleteGroup}
-									restoreGroup={restoreGroup}
-									createProfile={createProfile}
-									updateProfile={updateProfile}
-									updateProfileVisual={updateProfileVisual}
-									openProfile={openProfile}
-									closeProfile={closeProfile}
-									batchOpenProfiles={batchOpenProfiles}
-									batchCloseProfiles={batchCloseProfiles}
-									createDevicePreset={createDevicePreset}
-									updateDevicePreset={updateDevicePreset}
-									deleteProfile={deleteProfile}
-									restoreProfile={restoreProfile}
-									refreshGroups={refreshGroups}
-									refreshProfiles={refreshProfiles}
-									createProxy={createProxy}
-									deleteProxy={deleteProxy}
-									restoreProxy={restoreProxy}
-									bindProfileProxy={bindProfileProxy}
-									unbindProfileProxy={unbindProfileProxy}
-									refreshProxies={refreshProxies}
-									refreshResources={refreshResources}
-									refreshDevicePresets={refreshDevicePresets}
-									installChromium={installChromium}
-									activateChromium={activateChromium}
-									refreshWindows={refreshWindows}
-									openTab={openTab}
-									closeTab={closeTab}
-									closeInactiveTabs={closeInactiveTabs}
-									activateTab={activateTab}
-									activateTabByIndex={activateTabByIndex}
-									openWindow={openWindow}
-									closeWindow={closeWindow}
-									focusWindow={focusWindow}
-									setWindowBounds={setWindowBounds}
-									batchOpenTabs={batchOpenTabs}
-									batchCloseTabs={batchCloseTabs}
-									batchCloseInactiveTabs={batchCloseInactiveTabs}
-									batchOpenWindows={batchOpenWindows}
-									batchFocusWindows={batchFocusWindows}
-									navigationIntent={profileNavigationIntent}
-									onConsumeNavigationIntent={() => setProfileNavigationIntent(null)}
-									onSetProfileNavigationIntent={setProfileNavigationIntent}
-									onNavigate={(path) => navigate(path)}
+									actions={{
+										createGroup: consoleState.createGroup,
+										deleteGroup: consoleState.deleteGroup,
+										restoreGroup: consoleState.restoreGroup,
+										createProfile: consoleState.createProfile,
+										updateProfile: consoleState.updateProfile,
+										updateProfileVisual: consoleState.updateProfileVisual,
+										openProfile: consoleState.openProfile,
+										closeProfile: consoleState.closeProfile,
+										batchOpenProfiles: consoleState.batchOpenProfiles,
+										batchCloseProfiles: consoleState.batchCloseProfiles,
+										createDevicePreset: consoleState.createDevicePreset,
+										updateDevicePreset: consoleState.updateDevicePreset,
+										deleteProfile: consoleState.deleteProfile,
+										restoreProfile: consoleState.restoreProfile,
+										refreshGroups: consoleState.refreshGroups,
+										refreshProfiles: consoleState.refreshProfiles,
+										createProxy: consoleState.createProxy,
+										deleteProxy: consoleState.deleteProxy,
+										restoreProxy: consoleState.restoreProxy,
+										bindProfileProxy: consoleState.bindProfileProxy,
+										unbindProfileProxy: consoleState.unbindProfileProxy,
+										refreshProxies: consoleState.refreshProxies,
+										refreshResources: consoleState.refreshResources,
+										refreshDevicePresets: consoleState.refreshDevicePresets,
+										installChromium: consoleState.installChromium,
+										activateChromium: consoleState.activateChromium,
+										refreshWindows: consoleState.refreshWindows,
+										openTab: consoleState.openTab,
+										closeTab: consoleState.closeTab,
+										closeInactiveTabs: consoleState.closeInactiveTabs,
+										activateTab: consoleState.activateTab,
+										activateTabByIndex: consoleState.activateTabByIndex,
+										openWindow: consoleState.openWindow,
+										closeWindow: consoleState.closeWindow,
+										focusWindow: consoleState.focusWindow,
+										setWindowBounds: consoleState.setWindowBounds,
+										batchOpenTabs: consoleState.batchOpenTabs,
+										batchCloseTabs: consoleState.batchCloseTabs,
+										batchCloseInactiveTabs: consoleState.batchCloseInactiveTabs,
+										batchOpenWindows: consoleState.batchOpenWindows,
+										batchFocusWindows: consoleState.batchFocusWindows,
+									}}
+									navigation={{
+										pathname: location.pathname,
+										intent: profileNavigationIntent,
+										onConsumeNavigationIntent: () => setProfileNavigationIntent(null),
+										onSetProfileNavigationIntent: setProfileNavigationIntent,
+										onNavigate: (path) => navigate(path),
+									}}
 								/>
 							</Suspense>
 						</div>
