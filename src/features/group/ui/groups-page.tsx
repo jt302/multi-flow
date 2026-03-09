@@ -1,5 +1,5 @@
-import { Plus, Trash2 } from 'lucide-react';
-import { useMemo } from 'react';
+import { Plus, Search, Trash2 } from 'lucide-react';
+import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod/v3';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,6 +9,7 @@ import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-secti
 import { SessionTableCard } from '@/widgets/session-table-card/ui/session-table-card';
 import { CONSOLE_NAV_SECTIONS } from '@/widgets/console-shell/model/nav-sections';
 import type { GroupsPageProps } from '@/features/group/model/types';
+import { useGroupManagementStore } from '@/features/group/model/group-management-store';
 
 const groupFormSchema = z.object({
 	name: z.string().trim().min(1, '分组名称不能为空'),
@@ -19,6 +20,12 @@ type GroupFormValues = z.infer<typeof groupFormSchema>;
 
 export function GroupsPage({ groups, onCreateGroup, onDeleteGroup }: GroupsPageProps) {
 	const section = CONSOLE_NAV_SECTIONS.groups;
+	const searchKeyword = useGroupManagementStore((state) => state.searchKeyword);
+	const isFormOpen = useGroupManagementStore((state) => state.isFormOpen);
+	const setSearchKeyword = useGroupManagementStore((state) => state.setSearchKeyword);
+	const openCreateForm = useGroupManagementStore((state) => state.openCreateForm);
+	const closeForm = useGroupManagementStore((state) => state.closeForm);
+	const resetState = useGroupManagementStore((state) => state.reset);
 	const {
 		register,
 		handleSubmit,
@@ -36,10 +43,25 @@ export function GroupsPage({ groups, onCreateGroup, onDeleteGroup }: GroupsPageP
 		() => groups.reduce((total, item) => total + item.profileCount, 0),
 		[groups],
 	);
+	const normalizedKeyword = searchKeyword.trim().toLowerCase();
+	const filteredGroups = useMemo(() => {
+		if (!normalizedKeyword) {
+			return groups;
+		}
+		return groups.filter((group) => {
+			const haystack = `${group.name} ${group.note}`.toLowerCase();
+			return haystack.includes(normalizedKeyword);
+		});
+	}, [groups, normalizedKeyword]);
+
+	useEffect(() => {
+		resetState();
+	}, [resetState]);
 
 	const handleCreate = async (values: GroupFormValues) => {
 		await onCreateGroup(values.name.trim(), values.note.trim());
 		reset();
+		openCreateForm();
 	};
 
 	return (
@@ -49,7 +71,23 @@ export function GroupsPage({ groups, onCreateGroup, onDeleteGroup }: GroupsPageP
 			<div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
 				<Card className="p-3">
 					<CardHeader className="px-1 pb-2">
-						<CardTitle className="text-sm">分组列表</CardTitle>
+						<div className="flex items-center justify-between gap-2">
+							<CardTitle className="text-sm">分组列表</CardTitle>
+							<div className="flex items-center gap-2">
+								<div className="relative w-48 max-w-full">
+									<Icon icon={Search} size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+									<Input
+										value={searchKeyword}
+										onChange={(event) => setSearchKeyword(event.target.value)}
+										placeholder="搜索分组"
+										className="pl-8"
+									/>
+								</div>
+								<Button type="button" variant="outline" size="sm" onClick={isFormOpen ? closeForm : openCreateForm}>
+									{isFormOpen ? '收起表单' : '创建分组'}
+								</Button>
+							</div>
+						</div>
 					</CardHeader>
 					<CardContent className="space-y-2 px-1 pt-0">
 						<div className="flex items-center justify-between rounded-xl border border-border/70 bg-background/75 px-3 py-2 text-xs">
@@ -62,7 +100,7 @@ export function GroupsPage({ groups, onCreateGroup, onDeleteGroup }: GroupsPageP
 						</div>
 
 						<div className="space-y-2 pt-1">
-							{groups.map((group) => (
+							{filteredGroups.map((group) => (
 								<div key={group.id} className="flex items-center justify-between rounded-xl border border-border/70 bg-background/75 px-3 py-2">
 										<div className="min-w-0">
 											<p className="truncate text-sm font-medium">{group.name}</p>
@@ -86,10 +124,16 @@ export function GroupsPage({ groups, onCreateGroup, onDeleteGroup }: GroupsPageP
 										</div>
 								</div>
 							))}
+							{filteredGroups.length === 0 ? (
+								<div className="rounded-xl border border-dashed border-border/70 px-3 py-6 text-center text-xs text-muted-foreground">
+									没有匹配当前搜索条件的分组。
+								</div>
+							) : null}
 						</div>
 					</CardContent>
 				</Card>
 
+				{isFormOpen ? (
 				<Card className="p-4">
 					<CardHeader className="p-0">
 						<CardTitle className="text-sm">创建分组</CardTitle>
@@ -122,6 +166,7 @@ export function GroupsPage({ groups, onCreateGroup, onDeleteGroup }: GroupsPageP
 						</form>
 					</CardContent>
 				</Card>
+				) : null}
 			</div>
 
 			<SessionTableCard title={section.tableTitle} rows={section.rows} />

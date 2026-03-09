@@ -29,6 +29,7 @@ export function ConsoleShell() {
 		themeState,
 		profileNavigationIntent,
 		setProfileNavigationIntent,
+		clearProfileNavigationIntent,
 	} = useConsoleShellModel();
 
 	useEffect(() => {
@@ -162,7 +163,7 @@ export function ConsoleShell() {
 									navigation={{
 										pathname: location.pathname,
 										intent: profileNavigationIntent,
-										onConsumeNavigationIntent: () => setProfileNavigationIntent(null),
+										onConsumeNavigationIntent: clearProfileNavigationIntent,
 										onSetProfileNavigationIntent: setProfileNavigationIntent,
 										onNavigate: (path) => navigate(path),
 									}}
