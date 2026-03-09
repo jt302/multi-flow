@@ -35,16 +35,12 @@ const batchEditSchema = z
 		username: z.string(),
 		applyPassword: z.boolean(),
 		password: z.string(),
-		applyCountry: z.boolean(),
-		country: z.string(),
-		applyRegion: z.boolean(),
-		region: z.string(),
-		applyCity: z.boolean(),
-		city: z.string(),
 		applyProvider: z.boolean(),
 		provider: z.string(),
 		applyNote: z.boolean(),
 		note: z.string(),
+		applyExpiresAt: z.boolean(),
+		expiresAt: z.string(),
 	})
 	.superRefine((values, ctx) => {
 		const applyCount = [
@@ -52,11 +48,9 @@ const batchEditSchema = z
 			values.applyProtocol,
 			values.applyUsername,
 			values.applyPassword,
-			values.applyCountry,
-			values.applyRegion,
-			values.applyCity,
 			values.applyProvider,
 			values.applyNote,
+			values.applyExpiresAt,
 		].filter(Boolean).length;
 		if (applyCount === 0) {
 			ctx.addIssue({
@@ -93,17 +87,21 @@ const DEFAULT_VALUES: BatchEditValues = {
 	username: '',
 	applyPassword: false,
 	password: '',
-	applyCountry: false,
-	country: '',
-	applyRegion: false,
-	region: '',
-	applyCity: false,
-	city: '',
 	applyProvider: false,
 	provider: '',
 	applyNote: false,
 	note: '',
+	applyExpiresAt: false,
+	expiresAt: '',
 };
+
+function parseDateTimeLocalValue(value: string) {
+	const trimmed = value.trim();
+	if (!trimmed) return 0;
+	const timestamp = Date.parse(trimmed);
+	if (Number.isNaN(timestamp)) return 0;
+	return Math.floor(timestamp / 1000);
+}
 
 function buildPayload(values: BatchEditValues): UpdateProxyPayload {
 	const payload: UpdateProxyPayload = {};
@@ -111,11 +109,9 @@ function buildPayload(values: BatchEditValues): UpdateProxyPayload {
 	if (values.applyProtocol) payload.protocol = values.protocol;
 	if (values.applyUsername) payload.username = values.username.trim();
 	if (values.applyPassword) payload.password = values.password.trim();
-	if (values.applyCountry) payload.country = values.country.trim();
-	if (values.applyRegion) payload.region = values.region.trim();
-	if (values.applyCity) payload.city = values.city.trim();
 	if (values.applyProvider) payload.provider = values.provider.trim();
 	if (values.applyNote) payload.note = values.note.trim();
+	if (values.applyExpiresAt) payload.expiresAt = parseDateTimeLocalValue(values.expiresAt);
 	return payload;
 }
 
@@ -236,36 +232,20 @@ export function ProxyBatchEditDialog({
 							<Input type="password" {...register('password')} placeholder="留空表示清空" disabled={!values.applyPassword || pending} />
 						</FieldRow>
 						<FieldRow
-							id="proxy-batch-country"
-							label="国家"
-							checked={values.applyCountry}
-							onCheckedChange={(checked) => setValue('applyCountry', checked)}
-						>
-							<Input {...register('country')} placeholder="留空表示清空" disabled={!values.applyCountry || pending} />
-						</FieldRow>
-						<FieldRow
-							id="proxy-batch-region"
-							label="区域"
-							checked={values.applyRegion}
-							onCheckedChange={(checked) => setValue('applyRegion', checked)}
-						>
-							<Input {...register('region')} placeholder="留空表示清空" disabled={!values.applyRegion || pending} />
-						</FieldRow>
-						<FieldRow
-							id="proxy-batch-city"
-							label="城市"
-							checked={values.applyCity}
-							onCheckedChange={(checked) => setValue('applyCity', checked)}
-						>
-							<Input {...register('city')} placeholder="留空表示清空" disabled={!values.applyCity || pending} />
-						</FieldRow>
-						<FieldRow
 							id="proxy-batch-provider"
 							label="供应商"
 							checked={values.applyProvider}
 							onCheckedChange={(checked) => setValue('applyProvider', checked)}
 						>
 							<Input {...register('provider')} placeholder="留空表示清空" disabled={!values.applyProvider || pending} />
+						</FieldRow>
+						<FieldRow
+							id="proxy-batch-expires-at"
+							label="过期时间"
+							checked={values.applyExpiresAt}
+							onCheckedChange={(checked) => setValue('applyExpiresAt', checked)}
+						>
+							<Input type="datetime-local" {...register('expiresAt')} disabled={!values.applyExpiresAt || pending} />
 						</FieldRow>
 					</div>
 					<FieldRow

@@ -31,11 +31,9 @@ const proxyFormSchema = z.object({
 	port: z.coerce.number().int('端口必须是整数').min(1, '端口必须在 1-65535 范围').max(65535, '端口必须在 1-65535 范围'),
 	username: z.string(),
 	password: z.string(),
-	country: z.string(),
-	region: z.string(),
-	city: z.string(),
 	provider: z.string(),
 	note: z.string(),
+	expiresAt: z.string(),
 });
 
 type ProxyFormValues = z.infer<typeof proxyFormSchema>;
@@ -57,12 +55,26 @@ const DEFAULT_VALUES: ProxyFormValues = {
 	port: 8080,
 	username: '',
 	password: '',
-	country: '',
-	region: '',
-	city: '',
 	provider: '',
 	note: '',
+	expiresAt: '',
 };
+
+function toDateTimeLocalValue(value: number | null) {
+	if (!value) return '';
+	const date = new Date(value * 1000);
+	const offset = date.getTimezoneOffset();
+	const local = new Date(date.getTime() - offset * 60_000);
+	return local.toISOString().slice(0, 16);
+}
+
+function parseDateTimeLocalValue(value: string) {
+	const trimmed = value.trim();
+	if (!trimmed) return null;
+	const timestamp = Date.parse(trimmed);
+	if (Number.isNaN(timestamp)) return null;
+	return Math.floor(timestamp / 1000);
+}
 
 function toFormValues(proxy: ProxyItem | null): ProxyFormValues {
 	if (!proxy) {
@@ -75,11 +87,9 @@ function toFormValues(proxy: ProxyItem | null): ProxyFormValues {
 		port: proxy.port,
 		username: proxy.username,
 		password: proxy.password,
-		country: proxy.country,
-		region: proxy.region,
-		city: proxy.city,
 		provider: proxy.provider,
 		note: proxy.note,
+		expiresAt: toDateTimeLocalValue(proxy.expiresAt),
 	};
 }
 
@@ -107,7 +117,7 @@ export function ProxyFormDialog({
 	const isEdit = mode === 'edit';
 	const title = isEdit ? '修改代理' : '新增代理';
 	const description = isEdit
-		? '可以修改代理名称、认证信息、区域、供应商和备注。主机与端口不可修改。'
+		? '可以修改代理名称、协议、认证信息、供应商、过期时间和备注。地理信息由检测自动维护。'
 		: '填写代理基础信息后保存。';
 	const submitLabel = isEdit ? '保存修改' : '创建代理';
 
@@ -129,11 +139,9 @@ export function ProxyFormDialog({
 						protocol: values.protocol,
 						username: values.username.trim(),
 						password: values.password.trim(),
-						country: values.country.trim(),
-						region: values.region.trim(),
-						city: values.city.trim(),
 						provider: values.provider.trim(),
 						note: values.note.trim(),
+						expiresAt: parseDateTimeLocalValue(values.expiresAt),
 					});
 				} else {
 					await onCreateProxy({
@@ -143,11 +151,9 @@ export function ProxyFormDialog({
 						port: values.port,
 						username: values.username.trim(),
 						password: values.password.trim(),
-						country: values.country.trim(),
-						region: values.region.trim(),
-						city: values.city.trim(),
 						provider: values.provider.trim(),
 						note: values.note.trim(),
+						expiresAt: parseDateTimeLocalValue(values.expiresAt),
 					});
 				}
 				onOpenChange(false);
@@ -207,23 +213,27 @@ export function ProxyFormDialog({
 							<Input type="password" {...register('password')} placeholder="留空表示无认证" disabled={pending} />
 						</div>
 					</div>
-					<div className="grid gap-3 md:grid-cols-3">
-						<div>
-							<p className="mb-1 text-xs text-muted-foreground">国家</p>
-							<Input {...register('country')} placeholder="国家代码" disabled={pending} />
-						</div>
-						<div>
-							<p className="mb-1 text-xs text-muted-foreground">区域</p>
-							<Input {...register('region')} placeholder="区域" disabled={pending} />
-						</div>
-						<div>
-							<p className="mb-1 text-xs text-muted-foreground">城市</p>
-							<Input {...register('city')} placeholder="城市" disabled={pending} />
-						</div>
-					</div>
 					<div>
 						<p className="mb-1 text-xs text-muted-foreground">供应商</p>
 						<Input {...register('provider')} placeholder="供应商" disabled={pending} />
+					</div>
+					<div>
+						<p className="mb-1 text-xs text-muted-foreground">过期时间</p>
+						<Input type="datetime-local" {...register('expiresAt')} disabled={pending} />
+					</div>
+					<div className="rounded-xl border border-border/70 bg-muted/20 p-3">
+						<p className="mb-2 text-xs font-medium text-muted-foreground">检测结果</p>
+						<div className="grid gap-2 text-xs md:grid-cols-2">
+							<p>出口 IP: {proxy?.exitIp || '未检测'}</p>
+							<p>状态: {proxy?.checkStatus || 'unknown'}</p>
+							<p>国家 / 区域: {proxy ? `${proxy.country || '未知'} / ${proxy.region || '未知'}` : '未检测'}</p>
+							<p>城市: {proxy?.city || '未检测'}</p>
+							<p>经纬度: {proxy && proxy.latitude !== null && proxy.longitude !== null ? `${proxy.latitude}, ${proxy.longitude}` : '未检测'}</p>
+							<p>建议语言 / 时区: {proxy ? `${proxy.suggestedLanguage || '未检测'} / ${proxy.suggestedTimezone || '未检测'}` : '未检测'}</p>
+						</div>
+						{proxy?.checkMessage ? (
+							<p className="mt-2 text-xs text-muted-foreground">错误信息: {proxy.checkMessage}</p>
+						) : null}
 					</div>
 					<div>
 						<p className="mb-1 text-xs text-muted-foreground">备注</p>

@@ -146,6 +146,7 @@ export type ConsolePageActions = {
 	refreshDevicePresets: () => Promise<void>;
 	installChromium: (resourceId: string) => Promise<void>;
 	activateChromium: (version: string) => Promise<void>;
+	downloadResource: (resourceId: string, label?: string) => Promise<void>;
 	refreshWindows: () => Promise<void>;
 	openTab: (profileId: string, url?: string) => Promise<void>;
 	closeTab: (profileId: string, tabId?: number) => Promise<void>;

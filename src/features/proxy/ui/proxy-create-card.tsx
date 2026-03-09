@@ -26,7 +26,6 @@ const createProxyFormSchema = z.object({
 	protocol: z.enum(['http', 'https', 'socks5', 'ssh']),
 	host: z.string().trim().min(1, '主机地址不能为空'),
 	port: z.coerce.number().int('端口必须是整数').min(1, '端口必须在 1-65535 范围').max(65535, '端口必须在 1-65535 范围'),
-	country: z.string(),
 	provider: z.string(),
 	note: z.string(),
 });
@@ -53,7 +52,6 @@ export function ProxyCreateCard({ pending, onCreateProxy }: ProxyCreateCardProps
 			protocol: 'http',
 			host: '',
 			port: 8080,
-			country: '',
 			provider: '',
 			note: '',
 		},
@@ -73,7 +71,6 @@ export function ProxyCreateCard({ pending, onCreateProxy }: ProxyCreateCardProps
 							protocol: values.protocol,
 							host: values.host.trim(),
 							port: values.port,
-							country: values.country.trim(),
 							provider: values.provider.trim(),
 							note: values.note.trim(),
 						});
@@ -82,7 +79,6 @@ export function ProxyCreateCard({ pending, onCreateProxy }: ProxyCreateCardProps
 							protocol: 'http',
 							host: '',
 							port: 8080,
-							country: '',
 							provider: '',
 							note: '',
 						});
@@ -117,10 +113,7 @@ export function ProxyCreateCard({ pending, onCreateProxy }: ProxyCreateCardProps
 							{errors.port ? <p className="mt-1 text-xs text-destructive">{errors.port.message}</p> : null}
 						</div>
 					</div>
-					<div className="grid grid-cols-2 gap-2">
-						<Input {...register('country')} placeholder="国家代码（US/CN）" />
-						<Input {...register('provider')} placeholder="供应商" />
-					</div>
+					<Input {...register('provider')} placeholder="供应商" />
 					<Input {...register('note')} placeholder="备注" />
 					<Button type="submit" className="w-full" disabled={pending}>
 						<Icon icon={Plus} size={14} />

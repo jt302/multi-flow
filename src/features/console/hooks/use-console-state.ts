@@ -155,7 +155,7 @@ export function useConsoleState() {
 		refreshProxies,
 		refreshProfilesAndBindings,
 	});
-	const { installChromium, activateChromium } = useResourceActions({
+	const { installChromium, activateChromium, downloadResource } = useResourceActions({
 		setResourceProgress,
 		refreshResources,
 	});
@@ -229,6 +229,7 @@ export function useConsoleState() {
 		refreshWindows,
 		installChromium,
 		activateChromium,
+		downloadResource,
 		openTab,
 		closeTab,
 		closeInactiveTabs,

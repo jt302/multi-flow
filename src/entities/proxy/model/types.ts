@@ -14,8 +14,16 @@ export type ProxyItem = {
 	city: string;
 	provider: string;
 	note: string;
-	lastStatus: string;
+	checkStatus: string;
+	checkMessage: string;
 	lastCheckedAt: number | null;
+	exitIp: string;
+	latitude: number | null;
+	longitude: number | null;
+	geoAccuracyMeters: number | null;
+	suggestedLanguage: string;
+	suggestedTimezone: string;
+	expiresAt: number | null;
 	lifecycle: ProxyLifecycle;
 	createdAt: number;
 	updatedAt: number;
@@ -29,11 +37,9 @@ export type CreateProxyPayload = {
 	port: number;
 	username?: string;
 	password?: string;
-	country?: string;
-	region?: string;
-	city?: string;
 	provider?: string;
 	note?: string;
+	expiresAt?: number | null;
 };
 
 export type UpdateProxyPayload = {
@@ -41,11 +47,9 @@ export type UpdateProxyPayload = {
 	protocol?: ProxyProtocol;
 	username?: string;
 	password?: string;
-	country?: string;
-	region?: string;
-	city?: string;
 	provider?: string;
 	note?: string;
+	expiresAt?: number | null;
 };
 
 export type BatchProxyActionItem = {

@@ -10,6 +10,8 @@ type AdvancedSettingsSectionProps = {
 	geoEnabled: boolean;
 	headless: boolean;
 	disableImages: boolean;
+	geolocationSource: string;
+	onMarkGeolocationManual: () => void;
 };
 
 export function AdvancedSettingsSection({
@@ -17,6 +19,8 @@ export function AdvancedSettingsSection({
 	geoEnabled,
 	headless,
 	disableImages,
+	geolocationSource,
+	onMarkGeolocationManual,
 }: AdvancedSettingsSectionProps) {
 	const { register, setValue } = form;
 	const headlessId = 'profile-headless';
@@ -60,14 +64,16 @@ export function AdvancedSettingsSection({
 							id={geoEnabledId}
 							checked={geoEnabled}
 						onCheckedChange={(checked) =>
+							(onMarkGeolocationManual(),
 							setValue('geoEnabled', checked === true, {
 								shouldDirty: true,
 								shouldValidate: true,
-							})
+							}))
 						}
 					/>
 					启用地理位置覆盖
 				</label>
+				<p className="text-[11px] text-muted-foreground">地理位置来源: {geolocationSource === 'proxy' ? '代理建议' : geolocationSource === 'manual' ? '手动设置' : '未设置'}</p>
 				<div>
 						<label htmlFor={launchArgsId} className="mb-1 block text-xs text-muted-foreground">自定义启动参数（每行一个）</label>
 						<Textarea
@@ -81,15 +87,15 @@ export function AdvancedSettingsSection({
 					<div className="grid gap-3 md:grid-cols-3">
 						<div>
 								<label htmlFor={latitudeId} className="mb-1 block text-xs text-muted-foreground">纬度</label>
-								<Input id={latitudeId} {...register('latitude')} placeholder="31.2304" />
+								<Input id={latitudeId} {...register('latitude', { onChange: onMarkGeolocationManual })} placeholder="31.2304" />
 						</div>
 						<div>
 								<label htmlFor={longitudeId} className="mb-1 block text-xs text-muted-foreground">经度</label>
-								<Input id={longitudeId} {...register('longitude')} placeholder="121.4737" />
+								<Input id={longitudeId} {...register('longitude', { onChange: onMarkGeolocationManual })} placeholder="121.4737" />
 						</div>
 						<div>
 								<label htmlFor={accuracyId} className="mb-1 block text-xs text-muted-foreground">精度(米)</label>
-								<Input id={accuracyId} {...register('accuracy')} placeholder="20" />
+								<Input id={accuracyId} {...register('accuracy', { onChange: onMarkGeolocationManual })} placeholder="20" />
 						</div>
 					</div>
 				) : null}
