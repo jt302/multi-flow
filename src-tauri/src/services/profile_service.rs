@@ -434,7 +434,11 @@ fn normalize_profile_settings(
         basic.browser_version = basic.browser_version.take().and_then(trim_to_option);
         basic.platform = basic.platform.take().and_then(trim_to_option);
         basic.device_preset_id = basic.device_preset_id.take().and_then(trim_to_option);
-        basic.startup_url = basic.startup_url.take().and_then(trim_to_option);
+        basic.startup_urls = normalize_startup_urls(
+            basic.startup_urls.take(),
+            basic.startup_url.take().and_then(trim_to_option),
+        )?;
+        basic.startup_url = None;
         basic.browser_bg_color = basic
             .browser_bg_color
             .take()
@@ -442,11 +446,6 @@ fn normalize_profile_settings(
             .map(normalize_hex_color)
             .transpose()?;
         basic.toolbar_text = basic.toolbar_text.take().and_then(trim_to_option);
-        if let Some(startup_url) = basic.startup_url.as_ref() {
-            if !startup_url.starts_with("http://") && !startup_url.starts_with("https://") {
-                return Err(AppError::Validation("invalid startupUrl".to_string()));
-            }
-        }
         if basic.platform.is_none() {
             return Err(AppError::Validation("platform is required".to_string()));
         }
@@ -454,7 +453,7 @@ fn normalize_profile_settings(
             && basic.browser_version.is_none()
             && basic.platform.is_none()
             && basic.device_preset_id.is_none()
-            && basic.startup_url.is_none()
+            && basic.startup_urls.is_none()
             && basic.browser_bg_color.is_none()
             && basic.toolbar_text.is_none()
         {
@@ -868,6 +867,35 @@ fn trim_to_option(input: String) -> Option<String> {
     }
 }
 
+fn normalize_startup_urls(
+    startup_urls: Option<Vec<String>>,
+    legacy_startup_url: Option<String>,
+) -> AppResult<Option<Vec<String>>> {
+    let mut normalized = startup_urls
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(trim_to_option)
+        .collect::<Vec<_>>();
+
+    if normalized.is_empty() {
+        if let Some(legacy) = legacy_startup_url {
+            normalized.push(legacy);
+        }
+    }
+
+    if normalized.is_empty() {
+        return Ok(None);
+    }
+
+    for startup_url in &normalized {
+        if !startup_url.starts_with("http://") && !startup_url.starts_with("https://") {
+            return Err(AppError::Validation("invalid startupUrl".to_string()));
+        }
+    }
+
+    Ok(Some(normalized))
+}
+
 fn stable_seed(seed_hint: &str) -> u32 {
     use std::hash::{Hash, Hasher};
 
@@ -1155,6 +1183,47 @@ mod tests {
         assert_eq!(
             snapshot.custom_font_list.as_ref(),
             Some(&vec!["Arial".to_string(), "Helvetica".to_string()])
+        );
+    }
+
+    #[test]
+    fn profile_basic_settings_supports_legacy_and_multi_startup_urls() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProfileService::from_db(db);
+
+        let profile = service
+            .create_profile(CreateProfileRequest {
+                name: "startup-profile".to_string(),
+                group: None,
+                note: None,
+                proxy_id: None,
+                settings: Some(ProfileSettings {
+                    basic: Some(ProfileBasicSettings {
+                        platform: Some("macos".to_string()),
+                        startup_url: Some("https://legacy.example".to_string()),
+                        startup_urls: Some(vec![
+                            "https://first.example".to_string(),
+                            "https://second.example".to_string(),
+                        ]),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+            })
+            .expect("create profile with startup urls");
+
+        let startup_urls = profile
+            .settings
+            .as_ref()
+            .and_then(|settings| settings.basic.as_ref())
+            .and_then(|basic| basic.startup_urls.as_ref())
+            .expect("startup urls should exist");
+        assert_eq!(
+            startup_urls,
+            &vec![
+                "https://first.example".to_string(),
+                "https://second.example".to_string()
+            ]
         );
     }
 }

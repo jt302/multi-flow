@@ -59,6 +59,7 @@
 - [会话摘要与阶段记录](docs/ai/session-summary.md)
 - [React 规则](docs/ai/react-rules.md)
 - [component library 规则](docs/ai/component-library.md)
+- [Proxy Daemon 用法说明](docs/ai/proxy-daemon.md)
 
 ## 7. 开发执行建议（简版）
 

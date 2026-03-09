@@ -16,6 +16,7 @@ export type ProfileBasicSettings = {
 	browserVersion?: string;
 	platform?: string;
 	devicePresetId?: string;
+	startupUrls?: string[];
 	startupUrl?: string;
 	browserBgColor?: string;
 	toolbarText?: string;

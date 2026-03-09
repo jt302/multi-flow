@@ -49,6 +49,8 @@ pub struct ProfileBasicSettings {
     pub browser_version: Option<String>,
     pub platform: Option<String>,
     pub device_preset_id: Option<String>,
+    pub startup_urls: Option<Vec<String>>,
+    /// 历史兼容字段，仅用于旧数据读取；保存时统一收口到 startup_urls。
     pub startup_url: Option<String>,
     pub browser_bg_color: Option<String>,
     pub toolbar_text: Option<String>,
@@ -299,6 +301,8 @@ pub struct GeolocationOverride {
 pub struct OpenProfileOptions {
     pub language: Option<String>,
     pub timezone_id: Option<String>,
+    pub startup_urls: Option<Vec<String>>,
+    /// 历史兼容字段，仅用于旧调用读取；运行时优先使用 startup_urls。
     pub startup_url: Option<String>,
     pub geolocation: Option<GeolocationOverride>,
     pub web_rtc_mode: Option<WebRtcMode>,

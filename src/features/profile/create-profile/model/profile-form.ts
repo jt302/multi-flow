@@ -17,7 +17,7 @@ export const profileFormSchema = z
 		browserVersion: z.string().trim().min(1, '浏览器版本不能为空'),
 		platform: z.string().trim().min(1, '模拟平台不能为空'),
 		devicePresetId: z.string().trim().min(1, '设备预设不能为空'),
-		startupUrl: z.string(),
+		startupUrls: z.string(),
 		browserBgColor: z
 			.string()
 			.trim()
@@ -38,23 +38,25 @@ export const profileFormSchema = z
 		accuracy: z.string(),
 	})
 	.superRefine((values, ctx) => {
-		const startupUrl = values.startupUrl.trim();
-		if (startupUrl) {
+		const startupUrls = parseStartupUrls(values.startupUrls);
+		for (const startupUrl of startupUrls) {
 			try {
 				const parsed = new URL(startupUrl);
 				if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
 					ctx.addIssue({
 						code: z.ZodIssueCode.custom,
 						message: '默认打开 URL 必须是 http 或 https',
-						path: ['startupUrl'],
+						path: ['startupUrls'],
 					});
+					break;
 				}
 			} catch {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
 					message: '默认打开 URL 格式不正确',
-					path: ['startupUrl'],
+					path: ['startupUrls'],
 				});
+				break;
 			}
 		}
 
@@ -135,6 +137,17 @@ export function buildAcceptLanguages(language: string): string | undefined {
 }
 
 export function parseCustomFontList(text: string): string[] {
+	return Array.from(
+		new Set(
+			text
+				.split('\n')
+				.map((item) => item.trim())
+				.filter(Boolean),
+		),
+	);
+}
+
+export function parseStartupUrls(text: string): string[] {
 	return Array.from(
 		new Set(
 			text

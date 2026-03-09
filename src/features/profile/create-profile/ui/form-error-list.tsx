@@ -13,7 +13,7 @@ const ERROR_FIELDS: Array<keyof ProfileFormValues> = [
 	'platform',
 	'devicePresetId',
 	'browserBgColor',
-	'startupUrl',
+	'startupUrls',
 	'webrtcIpOverride',
 	'customFontListText',
 	'latitude',

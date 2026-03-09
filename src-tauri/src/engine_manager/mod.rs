@@ -55,7 +55,7 @@ pub struct EngineLaunchOptions {
     pub user_agent: Option<String>,
     pub language: Option<String>,
     pub timezone_id: Option<String>,
-    pub startup_url: Option<String>,
+    pub startup_urls: Vec<String>,
     pub proxy_server: Option<String>,
     pub web_rtc_policy: Option<String>,
     pub geoip_database_path: Option<PathBuf>,
@@ -171,9 +171,9 @@ impl EngineManager {
             SessionRecord {
                 session: session.clone(),
                 process,
-                windows: build_default_windows(options.startup_url.clone()),
+                windows: build_default_windows(options.startup_urls.clone()),
                 next_window_id: 2,
-                next_tab_id: 2,
+                next_tab_id: options.startup_urls.len().max(1) as u64 + 1,
             },
         );
         logger::info(
@@ -1246,12 +1246,10 @@ impl EngineManager {
                 args.push(arg);
             }
         }
-        if let Some(startup_url) = options
-            .startup_url
-            .as_ref()
-            .and_then(|value| trim_to_option(value))
-        {
-            args.push(startup_url);
+        for startup_url in &options.startup_urls {
+            if let Some(value) = trim_to_option(startup_url) {
+                args.push(value);
+            }
         }
 
         let timezone = options
@@ -1484,18 +1482,38 @@ fn trim_to_option(input: &str) -> Option<String> {
     }
 }
 
-fn build_default_windows(startup_url: Option<String>) -> Vec<WindowRecord> {
-    let url = normalize_url(startup_url).unwrap_or_else(|_| DEFAULT_TAB_URL.to_string());
+fn build_default_windows(startup_urls: Vec<String>) -> Vec<WindowRecord> {
+    let normalized_urls = if startup_urls.is_empty() {
+        vec![DEFAULT_TAB_URL.to_string()]
+    } else {
+        startup_urls
+            .into_iter()
+            .filter_map(|value| trim_to_option(&value))
+            .map(|value| normalize_url(Some(value)).unwrap_or_else(|_| DEFAULT_TAB_URL.to_string()))
+            .collect::<Vec<_>>()
+    };
+    let normalized_urls = if normalized_urls.is_empty() {
+        vec![DEFAULT_TAB_URL.to_string()]
+    } else {
+        normalized_urls
+    };
+
+    let tabs = normalized_urls
+        .into_iter()
+        .enumerate()
+        .map(|(index, url)| TabRecord {
+            tab_id: index as u64 + 1,
+            title: derive_tab_title(&url),
+            url,
+            active: index == 0,
+        })
+        .collect::<Vec<_>>();
+
     vec![WindowRecord {
         window_id: 1,
         focused: true,
         bounds: None,
-        tabs: vec![TabRecord {
-            tab_id: 1,
-            title: derive_tab_title(&url),
-            url,
-            active: true,
-        }],
+        tabs,
     }]
 }
 
@@ -1625,7 +1643,7 @@ mod tests {
             .open_profile_with_options(
                 "pf_000001",
                 &EngineLaunchOptions {
-                    startup_url: Some("https://example.com".to_string()),
+                    startup_urls: vec!["https://example.com".to_string()],
                     ..Default::default()
                 },
             )

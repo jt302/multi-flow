@@ -67,7 +67,8 @@
 - 当前持久化：`app_local_data_dir/multi-flow.sqlite3`
 - 兼容策略：若检测到历史 `profiles.json` 且数据库为空，启动时执行一次性导入。
   - 启动参数联动（M0.8）：
-  - `open_profile` 支持可选 `OpenProfileOptions`（语言、时区、地理位置、WebRTC、headless、禁图、附加启动参数、运行时 seed）
+  - `open_profile` 支持可选 `OpenProfileOptions`（语言、时区、默认打开 URL 列表、地理位置、WebRTC、headless、禁图、附加启动参数、运行时 seed）
+  - `ProfileBasicSettings.startupUrls` 支持多个默认打开 URL；启动时会按列表顺序直接追加到 Chromium 启动参数中
   - `OpenProfileOptions` 不再承载 `UA / CPU / RAM / 字体` 这类强关联指纹覆盖；这组参数统一由 `fingerprintSnapshot` 生成
   - 自动读取 Profile 绑定代理并注入 `--proxy-server`
   - 若 Profile 保存了默认启动配置，启动时先加载默认配置，再叠加运行时传入参数

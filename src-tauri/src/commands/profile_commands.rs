@@ -769,15 +769,12 @@ fn resolve_launch_options(
     geoip_database: Option<std::path::PathBuf>,
     resolved_browser_version: Option<&str>,
 ) -> Result<EngineLaunchOptions, String> {
-    let startup_url = options
-        .startup_url
-        .and_then(trim_to_option)
-        .unwrap_or_else(|| DEFAULT_STARTUP_URL.to_string());
-    if !startup_url.starts_with("http://") && !startup_url.starts_with("https://") {
-        return Err(format!(
-            "validation failed: invalid startupUrl for {profile_id}"
-        ));
-    }
+    let startup_urls = normalize_startup_urls(
+        options.startup_urls.clone(),
+        options.startup_url.clone(),
+    )
+    .map_err(|_| format!("validation failed: invalid startupUrl for {profile_id}"))?
+    .unwrap_or_else(|| vec![DEFAULT_STARTUP_URL.to_string()]);
     if let Some(geo) = options.geolocation.as_ref() {
         if !(-90.0..=90.0).contains(&geo.latitude) {
             return Err(format!(
@@ -893,7 +890,7 @@ fn resolve_launch_options(
         user_agent,
         language,
         timezone_id,
-        startup_url: Some(startup_url),
+        startup_urls,
         proxy_server,
         web_rtc_policy: None,
         geoip_database_path: geoip_database,
@@ -916,7 +913,13 @@ fn merge_open_options(
 
     if let Some(settings) = settings {
         if let Some(basic) = settings.basic.as_ref() {
-            merged.startup_url = basic.startup_url.clone();
+            merged.startup_urls = basic.startup_urls.clone().or_else(|| {
+                basic
+                    .startup_url
+                    .as_ref()
+                    .cloned()
+                    .map(|value| vec![value])
+            });
         }
         if let Some(fingerprint) = settings.fingerprint.as_ref() {
             let snapshot = fingerprint.fingerprint_snapshot.as_ref();
@@ -955,7 +958,12 @@ fn merge_open_options(
             merged.timezone_id = overrides.timezone_id;
         }
         if overrides.startup_url.is_some() {
+            merged.startup_urls = None;
             merged.startup_url = overrides.startup_url;
+        }
+        if overrides.startup_urls.is_some() {
+            merged.startup_urls = overrides.startup_urls;
+            merged.startup_url = None;
         }
         if overrides.geolocation.is_some() {
             merged.geolocation = overrides.geolocation;
@@ -1326,6 +1334,35 @@ fn trim_str_to_option(input: &str) -> Option<String> {
     }
 }
 
+fn normalize_startup_urls(
+    startup_urls: Option<Vec<String>>,
+    legacy_startup_url: Option<String>,
+) -> Result<Option<Vec<String>>, ()> {
+    let mut normalized = startup_urls
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|value| trim_to_option(value))
+        .collect::<Vec<_>>();
+
+    if normalized.is_empty() {
+        if let Some(legacy) = legacy_startup_url.and_then(trim_to_option) {
+            normalized.push(legacy);
+        }
+    }
+
+    if normalized.is_empty() {
+        return Ok(None);
+    }
+
+    for startup_url in &normalized {
+        if !startup_url.starts_with("http://") && !startup_url.starts_with("https://") {
+            return Err(());
+        }
+    }
+
+    Ok(Some(normalized))
+}
+
 fn do_close_profile(state: &AppState, profile_id: &str) -> Result<Profile, String> {
     logger::info(
         "profile_cmd",
@@ -1622,10 +1659,7 @@ mod tests {
             Some("http://127.0.0.1:8080")
         );
         assert_eq!(options.web_rtc_policy, None);
-        assert_eq!(
-            options.startup_url.as_deref(),
-            Some("https://www.browserscan.net/")
-        );
+        assert_eq!(options.startup_urls, vec!["https://www.browserscan.net/".to_string()]);
     }
 
     #[test]
@@ -1662,7 +1696,7 @@ mod tests {
             "test-profile",
             None,
             OpenProfileOptions {
-                startup_url: Some("ftp://example.com".to_string()),
+                startup_urls: Some(vec!["ftp://example.com".to_string()]),
                 ..Default::default()
             },
             None,
@@ -1671,6 +1705,40 @@ mod tests {
         )
         .expect_err("invalid startup url should fail");
         assert!(err.contains("invalid startupUrl"));
+    }
+
+    #[test]
+    fn resolve_launch_options_keeps_multiple_startup_urls_in_order() {
+        let preset_service = new_test_device_preset_service();
+        let settings = ProfileSettings {
+            basic: Some(crate::models::ProfileBasicSettings {
+                startup_urls: Some(vec![
+                    "https://example.com".to_string(),
+                    "https://example.org/path".to_string(),
+                ]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let merged = merge_open_options(Some(&settings), None);
+        let options = resolve_launch_options(
+            &preset_service,
+            "pf_000001",
+            "test-profile",
+            Some(&settings),
+            merged,
+            None,
+            None,
+            None,
+        )
+        .expect("resolve launch options");
+        assert_eq!(
+            options.startup_urls,
+            vec![
+                "https://example.com".to_string(),
+                "https://example.org/path".to_string()
+            ]
+        );
     }
 
     #[test]

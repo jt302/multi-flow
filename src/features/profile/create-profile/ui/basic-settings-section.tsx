@@ -1,4 +1,4 @@
-import { Badge, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
+import { Badge, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@/components/ui';
 import type { GroupItem } from '@/entities/group/model/types';
 import type { ProfileDevicePresetItem } from '@/entities/profile/model/types';
 import { PlatformGlyph } from '@/entities/profile/ui/platform-mark';
@@ -220,7 +220,12 @@ export function BasicSettingsSection({
 				</div>
 				<div className="md:col-span-2">
 					<p className="mb-1 text-xs text-muted-foreground">默认打开 URL</p>
-					<Input {...register('startupUrl')} placeholder={DEFAULT_STARTUP_URL} />
+					<Textarea
+						{...register('startupUrls')}
+						placeholder={`${DEFAULT_STARTUP_URL}\nhttps://example.com`}
+						className="min-h-24"
+					/>
+					<p className="mt-1 text-[11px] text-muted-foreground">每行一个 URL，仅支持 http 或 https。</p>
 				</div>
 				<div>
 					<p className="mb-1 text-xs text-muted-foreground">浏览器背景色</p>
