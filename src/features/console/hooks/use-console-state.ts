@@ -12,13 +12,7 @@ import { useProfileDevicePresetsQuery } from '@/entities/profile/model/use-profi
 import { useProfileProxyBindingsQuery } from '@/entities/profile/model/use-profile-proxy-bindings-query';
 import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
 import { useProfileActions } from '@/features/profile/model/use-profile-actions';
-import {
-	bindProfileProxy as bindProfileProxyApi,
-	createProxy as createProxyApi,
-	deleteProxy as deleteProxyApi,
-	restoreProxy as restoreProxyApi,
-	unbindProfileProxy as unbindProfileProxyApi,
-} from '../api/proxy-api';
+import { useProxyActions } from '@/features/proxy/model/use-proxy-actions';
 import { useProxiesQuery } from '@/entities/proxy/model/use-proxies-query';
 import {
 	activateChromiumVersion as activateChromiumVersionApi,
@@ -43,7 +37,6 @@ import {
 } from '../api/windows-api';
 import { useWindowStatesQuery } from '@/entities/window-session/model/use-window-states-query';
 import type {
-	CreateProxyPayload,
 	ResourceProgressState,
 	WindowBoundsItem,
 } from '../types';
@@ -281,50 +274,16 @@ export function useConsoleState(_options: UseConsoleStateOptions = {}) {
 		refreshResources,
 		refreshDevicePresets,
 	});
-
-	const createProxy = async (payload: CreateProxyPayload) => {
-		try {
-			await createProxyApi(payload);
-			await refreshProxies();
-			toast.success('代理已创建');
-		} catch (error) {
-			toast.error('创建代理失败');
-			throw error;
-		}
-	};
-
-	const deleteProxy = async (proxyId: string) => {
-		try {
-			await deleteProxyApi(proxyId);
-			await Promise.all([refreshProxies(), refreshProfilesAndBindings()]);
-			toast.success('代理已删除');
-		} catch (error) {
-			toast.error('删除代理失败');
-			throw error;
-		}
-	};
-
-	const restoreProxy = async (proxyId: string) => {
-		try {
-			await restoreProxyApi(proxyId);
-			await refreshProxies();
-			toast.success('代理已恢复');
-		} catch (error) {
-			toast.error('恢复代理失败');
-			throw error;
-		}
-	};
-
-	const bindProfileProxy = async (profileId: string, proxyId: string) => {
-		try {
-			await bindProfileProxyApi(profileId, proxyId);
-			await refreshProfilesAndBindings();
-			toast.success('绑定已更新');
-		} catch (error) {
-			toast.error('绑定代理失败');
-			throw error;
-		}
-	};
+	const {
+		createProxy,
+		deleteProxy,
+		restoreProxy,
+		bindProfileProxy,
+		unbindProfileProxy,
+	} = useProxyActions({
+		refreshProxies,
+		refreshProfilesAndBindings,
+	});
 
 	const installChromium = async (resourceId: string) => {
 		const toastId = toast.loading('开始下载浏览器资源...');
@@ -389,17 +348,6 @@ export function useConsoleState(_options: UseConsoleStateOptions = {}) {
 			toast.success(`已切换 Chromium ${version}`);
 		} catch (error) {
 			toast.error('切换浏览器版本失败');
-			throw error;
-		}
-	};
-
-	const unbindProfileProxy = async (profileId: string) => {
-		try {
-			await unbindProfileProxyApi(profileId);
-			await refreshProfilesAndBindings();
-			toast.success('已解除绑定');
-		} catch (error) {
-			toast.error('解绑代理失败');
 			throw error;
 		}
 	};
