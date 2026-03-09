@@ -1,5 +1,68 @@
 ## 关于 chromium
 
+## Multi-Flow 当前接入约定（2026-03-08）
+
+- 浏览器资源版本与指纹版本已统一为同一个字段：`browserVersion`
+  - 该字段同时决定运行内核版本和对外暴露的浏览器版本
+- 宿主资源平台与模拟平台已拆开：
+  - 宿主资源平台由当前系统自动推导，仅用于匹配和下载可执行文件
+  - 模拟平台由环境配置决定，可跨宿主系统模拟 `macos/windows/linux/android/ios`
+- 环境保存时会持久化：
+  - `fingerprintSource`
+  - `fingerprintSnapshot`
+- 启动时如果当前宿主系统缺少指定 `browserVersion`：
+  - 自动下载并安装该版本
+  - 安装完成后继续当前启动流程
+  - 不切换全局 active Chromium
+- 若当前宿主系统没有该版本构建，直接报错，不降级到其它版本
+
+## Multi-Flow 当前注入的关键强关联参数
+
+- `--fingerprint-seed`
+- `--custom-platform`
+- `--custom-ua-metadata`
+- `--custom-gl-vendor`
+- `--custom-gl-renderer`
+- `--custom-cpu-cores`
+- `--custom-ram-gb`
+- `--custom-font-list`
+- `--window-size`
+- `--force-device-scale-factor`
+- 移动端：
+  - `--custom-touch-points`
+  - `--use-mobile-user-agent`
+  - `--touch-events=enabled`
+
+## 指纹模板目录（当前默认 seed 到数据库）
+
+- 桌面：
+  - `macos_macbook_pro_14`
+  - `windows_11_desktop`
+  - `linux_ubuntu_desktop`
+- 移动：
+  - `android_pixel_8`
+  - `android_s24_ultra`
+  - `ios_iphone_15_pro`
+  - `ios_iphone_15_pro_max`
+  - `ios_ipad_air`
+
+这些预设负责成套生成以下字段，避免参数组合怪异：
+
+- UserAgent
+- UA metadata
+- 平台参数
+- GL vendor / renderer
+- CPU / RAM
+- touch points
+- 字体列表
+- 窗口尺寸 / DPR
+
+当前实现说明：
+
+- `fingerprint_catalog` 仍保存默认模板定义
+- 应用启动后会由 `device_preset_service` 将默认模板 seed 到 `device_presets` 表
+- 环境创建、环境展示、预览和启动时，统一读取数据库中的设备预设
+
 chromium 中的 magic_controller 模块
 
 1. magic_http_handler
@@ -622,9 +685,10 @@ chromium 中的 magic_controller 模块
     1. Arial,Verdana,Tahoma,Microsoft YaHei
 
 12. --toolbar-text
-    1. 地址栏和刷新按钮中间的区域可以显示自定义文字 以标识不同浏览器实例
+    1. 地址栏和刷新按钮中间的区域可以显示自定义文字(工具栏文本) 以标识不同浏览器实例
 
 13. --magic-socket-server-port
+    1. 浏览器内部用于接收命令的socket 和 http 服务器端口 上面的修改或获取信息的接口就是从这里进入
 
 14. --custom-main-language
     1. 自定义主语言
@@ -637,6 +701,37 @@ chromium 中的 magic_controller 模块
 
 17. --custom-time-zone
     1. 自定义时区
+
+### 当前项目默认映射（2026-03-08）
+
+- `android` 平台：
+  - `--custom-platform=Linux armv81`
+  - `--custom-touch-points=5`
+  - `--custom-ua-metadata=platform=Android|platform_version=14.0.0|arch=arm|bitness=64|mobile=1|brands=Google Chrome:<major>,Chromium:<major>|form_factors=Mobile`
+  - 官方 Chromium 额外附加：`--use-mobile-user-agent`
+- `ios` 平台：
+  - `--custom-platform=iPhone`
+  - `--custom-touch-points=5`
+  - `--custom-ua-metadata=platform=iOS|platform_version=17.0.0|arch=arm|bitness=64|mobile=1|brands=Google Chrome:<major>,Chromium:<major>|form_factors=Mobile`
+  - 官方 Chromium 额外附加：`--use-mobile-user-agent`
+- 设备预设层：
+  - `android_pixel_8`
+  - `android_s24_ultra`
+  - `ios_iphone_15_pro`
+  - `ios_iphone_15_pro_max`
+  - `ios_ipad_air`
+- 若选择设备预设，额外自动注入：
+  - `--window-size=<width>,<height>`
+  - `--force-device-scale-factor=<dpr>`
+  - `--touch-events=enabled`
+  - 若未自定义 UA，则使用预设 UA
+  - 若未自定义字体列表，则使用对应移动平台字体集
+- 字体列表：
+  - `android` 默认返回 Android 风格字体集（`Roboto` / `Noto Sans` / `Noto Sans CJK` / `Noto Color Emoji` 等）
+  - `ios` 默认返回 iOS 风格字体集（`Helvetica Neue` / `PingFang` / `Hiragino Sans` / `Apple Color Emoji` 等）
+- 说明：
+  - 平台参数负责大类行为（platform / touch points / mobile metadata）
+  - 设备预设负责更细粒度的窗口尺寸、DPR、具体 UA
 
 这些参数是强关联的 随机生成时需要查看所有参数是否匹配
 

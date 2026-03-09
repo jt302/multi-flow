@@ -2,7 +2,9 @@
 
 - 目标：对标 AdsPower 功能面，生成 README 与核心文档，并给出分阶段落地路线。
 - 已知：项目使用 Tauri + React + shadcn + Tailwind；浏览器引擎是自研/魔改 Chromium 144。
-- 当前优先：先做 Profile 管理 + 引擎启动闭环 + 代理池 + 回收站，再逐步加入窗口同步、RPA、Local API/MCP、团队权限与日志。
+- 架构决策更新（2026-03-07）：后端持久化统一为 `SQLite + SeaORM`，不再以 JSON 作为长期方案。
+- 当前进度：Profile 与 Proxy 基础模型均已迁移到 SeaORM，包含启动迁移与历史 JSON 一次性导入（Profile）。
+- 当前优先：推进分页筛选、集成测试、引擎真实进程管理与 Local API/MCP。
 
 ## 2026-03-07（本轮）
 
@@ -14,6 +16,46 @@
   - `commands` 仅做编排，业务落在 `services`，与协作规范一致。
   - Local API 当前仅做模块与状态占位，不在 M0 启动真实 HTTP 服务。
   - Local API 默认地址固定为 `127.0.0.1:18180`，避免默认对外暴露。
+- 本轮新增：
+  - 新增代理数据表：`proxies`、`profile_proxy_bindings`（含索引与 FK）。
+  - 新增代理命令：`create/list/delete/restore` 与 `bind/unbind/get_profile_proxy`。
+  - 删除代理时自动清理绑定，防止环境引用软删除代理。
+  - `list_profiles` / `list_proxies` 已支持分页与筛选（page/page_size + 业务过滤项）。
+  - 新增后端单元测试 3 个：分页筛选、绑定一致性、内存 DB 迁移链路。
+  - 新增命令层闭环测试：`open -> close -> delete -> restore -> open`，并验证 delete 时 engine session 自动清理。
+  - `engine_manager` 新增 sidecar 预接入：若检测到 Chromium 可执行文件则按 profile 启动子进程，否则自动回退 mock 模式。
+  - 新增资源基础设施：`list_resources/download_resource` 命令，统一 Chromium/GeoIP 下载入口，并支持远端 manifest 回退内置配置。
+  - 资源链路升级：新增 `install_chromium_resource` 与 `activate_chromium_version`，macOS 下支持 dmg 挂载安装并切换 active version。
+  - 新增分组持久化：`profile_groups` 迁移、group commands/service，前端分组页接入后端数据。
+  - 前端结构重构：菜单改为页面级拆分，总览与主题设置按功能独立，不再在每个菜单重复出现。
+  - 前端环境页接入后端：支持真实 Profile 列表、创建、打开、关闭、删除、恢复；新增“创建环境”独立页面。
+  - 前端代理页接入后端：支持真实 Proxy 列表、新增代理、删除/恢复代理、环境与代理绑定/解绑。
+  - 前端通知接入 Sonner：全局 `Toaster` 已挂载，分组/环境/代理关键操作统一成功与失败提示。
+  - 环境启动改为真实引擎模式：`open_profile` 启动前校验 active Chromium，缺失时返回明确错误并阻止 mock 启动。
+  - 支持多版本切换生效：启动时动态读取当前 active Chromium 可执行文件，不再依赖应用启动时的固定路径。
+  - 设置页新增 Chromium 版本管理 UI：支持资源刷新、下载并激活、已安装版本切换。
+  - 资源下载进度事件：后端 `install_chromium_resource` 通过 Tauri 事件推送下载/安装阶段进度，前端用 Sonner 实时更新通知。
+  - 环境启动防抖：前端对单环境启动/关闭动作增加锁，防止快速连点触发重复请求。
+  - `open_profile` 启动链路新增参数解析与注入：语言、时区、WebRTC、代理、GeoIP 路径；支持可选 `OpenProfileOptions`。
+  - 启动参数默认联动：读取 Profile 当前绑定代理自动注入 `--proxy-server`，并在代理场景默认启用 `disable_non_proxied_udp`。
+  - 新增 Profile 完整配置持久化：`profiles.settings_json`，支持基础设置/指纹设置/高级设置。
+  - 新建环境页面升级为分区配置：基础设置、指纹配置、代理配置、高级设置。
+  - 创建环境支持直接绑定代理，启动时自动合并 Profile 默认配置与运行时覆盖参数。
+  - 启动浏览器版本联动增强：若环境配置了 `browserVersion`，启动时优先使用该版本可执行文件，否则回退全局 active version。
+  - 新增窗口管理能力：`engine_manager` 维护运行会话的窗口/标签页状态，并新增单个/批量窗口管理 Tauri commands。
+  - 窗口管理命令语义已对齐 `docs/ai/chromium.md`：支持 `open_new_tab/open_new_window/close_tab/close_inactive_tabs/activate_tab/activate_tab_by_index` 对应能力。
+  - Chromium 启动参数新增 `--magic-socket-server-port` 注入；窗口与标签操作优先走 magic HTTP 实时控制。
+  - 窗口状态列表改为实时读取 `get_browsers`，并新增窗口尺寸控制命令 `set_bounds`（前端可设置 x/y/width/height）。
+  - 窗口列表查询前增加 runtime reconcile（包含进程存活校验），并在 `list_window_states` 前先清理已退出会话，减少运行状态滞后。
+  - 前端窗口操作增加“同 profile 串行锁 + 二次刷新确认”，避免标签页操作延迟时重复点击导致误操作。
+  - 新增回收站：作为设置页二级入口（隐藏于主导航之外），集中展示并恢复 `deleted` 的 Profile/Proxy/Group。
+  - 设置页新增“机型映射”管理：统一展示并编辑数据库中的设备预设，点击“新建机型”只重置表单，点击保存后才写入数据库。
+  - 新增 `device_presets` 表与 `device_preset_service`，应用会把 catalog 默认预设 seed 到数据库，环境创建、详情展示和启动解析统一改为读取数据库中的同一套预设。
+  - 启动链路、预览链路、环境保存时的 snapshot 解析都改为通过设备预设服务取 preset，再生成最终强关联指纹。
+  - 设置页布局调整为单列：主题定制上移到顶部，移除与顶部工具栏重复的“主题模式”卡片。
+  - 数据策略：继续采用软删除与 `deleted_at/lifecycle`，不做额外迁移；关联数据保持原样，恢复时直接复用原关系。
+  - 前端新增“窗口管理”页面，支持对已打开环境执行批量新标签、批量新窗口、批量聚焦、批量关闭当前标签。
+  - 新增命令层单测：代理默认参数推导、地理位置参数范围校验。
 - 已知缺口：
-  - `engine_manager` 目前是会话模拟，尚未接入真实 Chromium sidecar 进程。
+  - `engine_manager` 已支持启动参数注入，但“地理位置精确覆盖（lat/lng）”仍待后续接入 CDP override（当前为参数校验与预留传递）。
   - 尚未推送 Tauri events 到前端。

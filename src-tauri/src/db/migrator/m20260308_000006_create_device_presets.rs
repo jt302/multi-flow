@@ -1,0 +1,167 @@
+use sea_orm_migration::prelude::*;
+
+#[derive(DeriveMigrationName)]
+pub struct Migration;
+
+#[async_trait::async_trait]
+impl MigrationTrait for Migration {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .create_table(
+                Table::create()
+                    .table(DevicePresets::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(DevicePresets::Id)
+                            .big_integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(DevicePresets::PresetKey)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(DevicePresets::Label).string().not_null())
+                    .col(ColumnDef::new(DevicePresets::Platform).string().not_null())
+                    .col(
+                        ColumnDef::new(DevicePresets::PlatformVersion)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(DevicePresets::ViewportWidth)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(DevicePresets::ViewportHeight)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(DevicePresets::DeviceScaleFactor)
+                            .float()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(DevicePresets::TouchPoints)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(DevicePresets::CustomPlatform)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(DevicePresets::Arch).string().not_null())
+                    .col(ColumnDef::new(DevicePresets::Bitness).string().not_null())
+                    .col(ColumnDef::new(DevicePresets::Mobile).boolean().not_null())
+                    .col(
+                        ColumnDef::new(DevicePresets::FormFactor)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(DevicePresets::UserAgentTemplate)
+                            .text()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(DevicePresets::CustomGlVendor)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(DevicePresets::CustomGlRenderer)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(DevicePresets::CustomCpuCores)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(DevicePresets::CustomRamGb)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(DevicePresets::CreatedAt)
+                            .big_integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(DevicePresets::UpdatedAt)
+                            .big_integer()
+                            .not_null(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .if_not_exists()
+                    .name("idx_device_presets_key")
+                    .table(DevicePresets::Table)
+                    .col(DevicePresets::PresetKey)
+                    .unique()
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .if_not_exists()
+                    .name("idx_device_presets_platform")
+                    .table(DevicePresets::Table)
+                    .col(DevicePresets::Platform)
+                    .to_owned(),
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .drop_table(
+                Table::drop()
+                    .if_exists()
+                    .table(DevicePresets::Table)
+                    .to_owned(),
+            )
+            .await
+    }
+}
+
+#[derive(DeriveIden)]
+enum DevicePresets {
+    Table,
+    Id,
+    PresetKey,
+    Label,
+    Platform,
+    PlatformVersion,
+    ViewportWidth,
+    ViewportHeight,
+    DeviceScaleFactor,
+    TouchPoints,
+    CustomPlatform,
+    Arch,
+    Bitness,
+    Mobile,
+    FormFactor,
+    UserAgentTemplate,
+    CustomGlVendor,
+    CustomGlRenderer,
+    CustomCpuCores,
+    CustomRamGb,
+    CreatedAt,
+    UpdatedAt,
+}
