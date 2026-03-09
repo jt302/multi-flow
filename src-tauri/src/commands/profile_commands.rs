@@ -7,10 +7,11 @@ use crate::font_catalog;
 use crate::logger;
 use crate::models::{
     BatchProfileActionItem, BatchProfileActionRequest, BatchProfileActionResponse,
-    CreateProfileRequest, ListProfilesQuery, ListProfilesResponse, LocalApiServerStatus,
-    FontListMode, OpenProfileOptions, OpenProfileResponse, Profile, ProfileDevicePreset,
-    ProfileFingerprintSnapshot, ProfileFingerprintSource, ProfileSettings, Proxy,
-    SaveProfileDevicePresetRequest, UpdateProfileVisualRequest, WebRtcMode,
+    BatchSetProfileGroupRequest, CreateProfileRequest, FontListMode, ListProfilesQuery,
+    ListProfilesResponse, LocalApiServerStatus, OpenProfileOptions, OpenProfileResponse,
+    Profile, ProfileDevicePreset, ProfileFingerprintSnapshot, ProfileFingerprintSource,
+    ProfileSettings, Proxy, SaveProfileDevicePresetRequest, SetProfileGroupRequest,
+    UpdateProfileVisualRequest, WebRtcMode,
 };
 use crate::runtime_guard;
 use crate::state::AppState;
@@ -239,6 +240,87 @@ pub fn update_profile_visual(
     }
 
     Ok(profile)
+}
+
+#[tauri::command]
+pub fn set_profile_group(
+    state: State<'_, AppState>,
+    profile_id: String,
+    payload: SetProfileGroupRequest,
+) -> Result<Profile, String> {
+    logger::info(
+        "profile_cmd",
+        format!(
+            "set_profile_group request profile_id={profile_id} group={:?}",
+            payload.group_name
+        ),
+    );
+    let profile_service = state
+        .profile_service
+        .lock()
+        .map_err(|_| "profile service lock poisoned".to_string())?;
+    profile_service
+        .set_profile_group(&profile_id, payload.group_name)
+        .map_err(error_to_string)
+}
+
+#[tauri::command]
+pub fn batch_set_profile_group(
+    state: State<'_, AppState>,
+    payload: BatchSetProfileGroupRequest,
+) -> Result<BatchProfileActionResponse, String> {
+    do_batch_set_profile_group(&state, payload)
+}
+
+fn do_batch_set_profile_group(
+    state: &AppState,
+    payload: BatchSetProfileGroupRequest,
+) -> Result<BatchProfileActionResponse, String> {
+    logger::info(
+        "profile_cmd",
+        format!(
+            "batch_set_profile_group request profile_count={} group={:?}",
+            payload.profile_ids.len(),
+            payload.group_name
+        ),
+    );
+    let profile_service = state
+        .profile_service
+        .lock()
+        .map_err(|_| "profile service lock poisoned".to_string())?;
+
+    let mut items = Vec::with_capacity(payload.profile_ids.len());
+    let mut success_count = 0usize;
+
+    for profile_id in payload.profile_ids {
+        match profile_service.set_profile_group(&profile_id, payload.group_name.clone()) {
+            Ok(_) => {
+                success_count += 1;
+                items.push(BatchProfileActionItem {
+                    profile_id,
+                    ok: true,
+                    message: payload
+                        .group_name
+                        .as_deref()
+                        .map(|value| format!("group set to {value}"))
+                        .unwrap_or_else(|| "group cleared".to_string()),
+                });
+            }
+            Err(err) => items.push(BatchProfileActionItem {
+                profile_id,
+                ok: false,
+                message: error_to_string(err),
+            }),
+        }
+    }
+
+    let total = items.len();
+    Ok(BatchProfileActionResponse {
+        total,
+        success_count,
+        failed_count: total.saturating_sub(success_count),
+        items,
+    })
 }
 
 #[tauri::command]
@@ -1368,6 +1450,19 @@ mod tests {
     fn profile_lifecycle_and_engine_guard_work_end_to_end() {
         let state = new_test_state();
 
+        {
+            let service = state
+                .profile_group_service
+                .lock()
+                .expect("group service lock");
+            service
+                .create_group(crate::models::CreateProfileGroupRequest {
+                    name: "g-lifecycle".to_string(),
+                    note: None,
+                })
+                .expect("create lifecycle group");
+        }
+
         let profile = {
             let service = state.profile_service.lock().expect("profile service lock");
             service
@@ -1439,6 +1534,50 @@ mod tests {
         let reopened =
             do_open_profile(&state, None, None, &profile.id, None).expect("open after restore");
         assert!(reopened.profile.running);
+    }
+
+    #[test]
+    fn batch_set_profile_group_reports_success_and_failure() {
+        let state = new_test_state();
+
+        {
+            let service = state
+                .profile_group_service
+                .lock()
+                .expect("group service lock");
+            service
+                .create_group(crate::models::CreateProfileGroupRequest {
+                    name: "growth".to_string(),
+                    note: None,
+                })
+                .expect("create growth group");
+        }
+
+        let profile = {
+            let service = state.profile_service.lock().expect("profile service lock");
+            service
+                .create_profile(CreateProfileRequest {
+                    name: "group-target".to_string(),
+                    group: None,
+                    note: None,
+                    proxy_id: None,
+                    settings: None,
+                })
+                .expect("create profile")
+        };
+
+        let response = do_batch_set_profile_group(
+            &state,
+            crate::models::BatchSetProfileGroupRequest {
+                profile_ids: vec![profile.id.clone(), "pf_missing".to_string()],
+                group_name: Some("growth".to_string()),
+            },
+        )
+        .expect("batch set group");
+
+        assert_eq!(response.total, 2);
+        assert_eq!(response.success_count, 1);
+        assert_eq!(response.failed_count, 1);
     }
 
     #[test]

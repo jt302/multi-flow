@@ -9,7 +9,7 @@
 ## 2. 项目信息（必须了解）
 
 - 项目名称：`multi-flow`
-- 前端：`React + TypeScript + Vite + Tailwind + shadcn/ui + lucide-react + sonner + tanstack query`
+- 前端：`React + TypeScript + Vite + Tailwind + shadcn/ui + lucide-react + sonner + tanstack query + zustand`
 - 前端：`所有输入+提交类表单统一使用 react-hook-form 配合 @hookform/resolvers + zod（zodResolver）校验`
 - 后端：`Tauri v2 + Rust + SQLite + SeaORM`
 - 浏览器引擎：自研 Chromium（当前资源以 macOS 版本为主）

@@ -1,19 +1,19 @@
-import { useState } from 'react';
-
 import { useThemeSettings } from '@/entities/theme/model/use-theme-settings';
 import { useConsoleState } from '@/features/console/hooks/use-console-state';
-import type { ProfileNavigationIntent } from './types';
+import { useConsoleNavigationStore } from './console-navigation-store';
 
 export function useConsoleShellModel() {
 	const consoleState = useConsoleState();
 	const themeState = useThemeSettings();
-	const [profileNavigationIntent, setProfileNavigationIntent] =
-		useState<ProfileNavigationIntent>(null);
+	const profileNavigationIntent = useConsoleNavigationStore((state) => state.profileNavigationIntent);
+	const setProfileNavigationIntent = useConsoleNavigationStore((state) => state.setProfileNavigationIntent);
+	const clearProfileNavigationIntent = useConsoleNavigationStore((state) => state.clearProfileNavigationIntent);
 
 	return {
 		consoleState,
 		themeState,
 		profileNavigationIntent,
 		setProfileNavigationIntent,
+		clearProfileNavigationIntent,
 	};
 }

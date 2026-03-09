@@ -50,11 +50,11 @@
 ## 5) 当前代码状态（2026-03-07）
 
 - 已有：
-  - `commands/group_commands`（分组 CRUD 最小集）
+  - `commands/group_commands`（分组创建/列表/更新/删除/恢复）
   - `commands/profile_commands`
   - `commands/proxy_commands`
   - `commands/resource_commands`（资源列表/下载/安装/激活）
-  - `services/profile_group_service`（分组持久化与 profile 计数）
+  - `services/profile_group_service`（分组持久化、重命名与 profile 计数）
   - `services/profile_service`（已基于 SeaORM）
   - `services/device_preset_service`（设备预设数据库服务，负责预设 seed、列表、编辑、解析）
   - `services/proxy_service`（已基于 SeaORM）
@@ -73,6 +73,12 @@
   - 若 Profile 保存了默认启动配置，启动时先加载默认配置，再叠加运行时传入参数
   - 若存在 GeoIP 资源文件则注入 `--geoip-database`
   - Profile 指纹配置已升级为 `source + snapshot`：
+
+- 分组语义（当前实现）：
+  - 环境仍保存 `group_name` 字符串，不引入 `group_id` 外键绑定
+  - 分组删除后，所有关联环境的 `group_name` 会被直接清空
+  - 分组恢复仅恢复分组实体本身，不自动恢复历史环境绑定
+  - 分组重命名会同步更新关联环境的 `group_name`
     - `fingerprintSource` 记录模拟平台、设备预设、浏览器版本、策略与 seed policy
     - `fingerprintSnapshot` 记录 UA、UA metadata、平台参数、GL、CPU、RAM、字体、窗口尺寸、DPR、seed 等最终结果
     - 上层意图字段额外保留 `fontListMode`：
@@ -139,6 +145,10 @@
   - 查询放在 `entities/*/model/use-xxx-query`
   - 写操作放在 `features/*/model/use-xxx-actions`
   - 页面层不再手写集中式 `Promise.all(refresh...)` 状态管理
+- 本地 UI / 交互状态统一走 `Zustand`：
+  - 仅存筛选、选中态、当前编辑对象、导航意图等本地状态
+  - 不复制 `TanStack Query` 的服务端数据结果
+  - 表单字段仍由 `react-hook-form + zod` 管理
 
 - 组件库统一：`shadcn/ui`（基于 Radix + Tailwind），新组件优先复用 `src/components/ui/*`。
 - 图标统一：`lucide-react`，新页面/新交互不再引入新的图标库依赖。

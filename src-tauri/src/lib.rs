@@ -50,6 +50,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::group_commands::create_profile_group,
             commands::group_commands::list_profile_groups,
+            commands::group_commands::update_profile_group,
             commands::group_commands::delete_profile_group,
             commands::group_commands::restore_profile_group,
             commands::profile_commands::create_profile,
@@ -60,6 +61,8 @@ pub fn run() {
             commands::profile_commands::restore_profile,
             commands::profile_commands::update_profile,
             commands::profile_commands::update_profile_visual,
+            commands::profile_commands::set_profile_group,
+            commands::profile_commands::batch_set_profile_group,
             commands::profile_commands::list_profile_font_families,
             commands::profile_commands::list_profile_device_presets,
             commands::profile_commands::list_fingerprint_presets,

@@ -1,4 +1,5 @@
 import { Badge, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
+import type { GroupItem } from '@/entities/group/model/types';
 import type { ProfileDevicePresetItem } from '@/entities/profile/model/types';
 import { PlatformGlyph } from '@/entities/profile/ui/platform-mark';
 import type { ResourceItem } from '@/entities/resource/model/types';
@@ -12,7 +13,7 @@ import { SectionTitle } from './section-title';
 
 type BasicSettingsSectionProps = {
 	form: UseFormReturn<ProfileFormValues>;
-	groupSuggestions: string[];
+	groups: GroupItem[];
 	hostPlatform: string;
 	hostChromiumVersions: ResourceItem[];
 	selectedResource?: ResourceItem;
@@ -21,6 +22,7 @@ type BasicSettingsSectionProps = {
 	devicePresetsError: string | null;
 	browserKind: string;
 	browserVersion: string;
+	groupValue: string;
 	platform: string;
 	devicePresetId: string;
 	browserBgColor: string;
@@ -70,7 +72,7 @@ function PlatformOptionCard({
 
 export function BasicSettingsSection({
 	form,
-	groupSuggestions,
+	groups,
 	hostPlatform,
 	hostChromiumVersions,
 	selectedResource,
@@ -79,6 +81,7 @@ export function BasicSettingsSection({
 	devicePresetsError,
 	browserKind,
 	browserVersion,
+	groupValue,
 	platform,
 	devicePresetId,
 	browserBgColor,
@@ -99,23 +102,24 @@ export function BasicSettingsSection({
 				</div>
 				<div>
 					<p className="mb-1 text-xs text-muted-foreground">分组</p>
-					<Input {...register('group')} placeholder="例如 AirDrop" />
-					{groupSuggestions.length > 0 ? (
-						<div className="mt-1 flex flex-wrap gap-1">
-							{groupSuggestions.map((value) => (
-								<Button
-									key={value}
-									type="button"
-									size="sm"
-									variant="ghost"
-									className="h-7 cursor-pointer rounded-md px-2 text-[11px]"
-									onClick={() => setValue('group', value, { shouldDirty: true })}
-								>
-									{value}
-								</Button>
+					<Select
+						value={groupValue || '__none__'}
+						onValueChange={(value) =>
+							setValue('group', value === '__none__' ? '' : value, { shouldDirty: true })
+						}
+					>
+						<SelectTrigger>
+							<SelectValue placeholder="选择分组" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="__none__">未分组</SelectItem>
+							{groups.map((group) => (
+								<SelectItem key={group.id} value={group.name}>
+									{group.name}
+								</SelectItem>
 							))}
-						</div>
-					) : null}
+						</SelectContent>
+					</Select>
 				</div>
 				<div>
 					<p className="mb-1 text-xs text-muted-foreground">浏览器内核</p>

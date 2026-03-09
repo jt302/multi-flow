@@ -3,6 +3,7 @@ import {
 	Loader2,
 	Monitor,
 	MoreHorizontal,
+	FolderTree,
 	Palette,
 	Play,
 	RotateCcw,
@@ -20,6 +21,9 @@ import {
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuSeparator,
+	DropdownMenuSub,
+	DropdownMenuSubContent,
+	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 	Icon,
 } from '@/components/ui';
@@ -32,6 +36,7 @@ import type {
 	ProfileActionState,
 	ProfileItem,
 } from '@/entities/profile/model/types';
+import type { GroupItem } from '@/entities/group/model/types';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import type { ResourceItem } from '@/entities/resource/model/types';
 import { cn } from '@/lib/utils';
@@ -43,6 +48,7 @@ type QuickEditField = 'background' | 'toolbar';
 
 type ProfileListItemProps = {
 	item: ProfileItem;
+	groups: GroupItem[];
 	resources: ResourceItem[];
 	index: number;
 	total: number;
@@ -61,6 +67,7 @@ type ProfileListItemProps = {
 	) => Promise<void>;
 	onOpenProfile: (profileId: string) => Promise<void>;
 	onCloseProfile: (profileId: string) => Promise<void>;
+	onSetProfileGroup: (profileId: string, groupName?: string) => Promise<void>;
 	onFocusProfileWindow: (profileId: string) => Promise<void>;
 	onDeleteProfile: (profileId: string) => Promise<void>;
 	onRestoreProfile: (profileId: string) => Promise<void>;
@@ -81,6 +88,7 @@ function resolveRunningLabel(running: boolean, actionState?: ProfileActionState)
 
 export function ProfileListItem({
 	item,
+	groups,
 	resources,
 	index,
 	total,
@@ -96,6 +104,7 @@ export function ProfileListItem({
 	onUpdateProfileVisual,
 	onOpenProfile,
 	onCloseProfile,
+	onSetProfileGroup,
 	onFocusProfileWindow,
 	onDeleteProfile,
 	onRestoreProfile,
@@ -108,6 +117,7 @@ export function ProfileListItem({
 	const currentToolbarText = item.settings?.basic?.toolbarText ?? item.name;
 	const normalizedNote =
 		item.note?.trim() && item.note.trim() !== '未填写备注' ? item.note.trim() : '无备注';
+	const groupLabel = item.group?.trim() || '未分组';
 	const presetLabel =
 		item.settings?.fingerprint?.fingerprintSnapshot?.presetLabel?.trim() ||
 		item.settings?.basic?.devicePresetId?.trim() ||
@@ -139,6 +149,9 @@ export function ProfileListItem({
 				<div className="min-w-0">
 					<div className="flex items-center gap-2">
 						<p className="truncate font-medium">{item.name}</p>
+						<Badge variant="outline" className="max-w-[140px] truncate text-[10px]">
+							{groupLabel}
+						</Badge>
 						{showToolbarText ? (
 							<Badge variant="secondary" className="max-w-[160px] truncate text-[10px]">
 								{toolbarTextTrimmed}
@@ -245,7 +258,7 @@ export function ProfileListItem({
 										<Icon icon={MoreHorizontal} size={13} />
 									</Button>
 								</DropdownMenuTrigger>
-								<DropdownMenuContent align="end" className="w-56">
+						<DropdownMenuContent align="end" className="w-56">
 									<DropdownMenuItem
 										className="cursor-pointer"
 										onClick={() => onViewProfile(item.id)}
@@ -254,9 +267,9 @@ export function ProfileListItem({
 										查看详情
 									</DropdownMenuItem>
 									<DropdownMenuSeparator />
-									<DropdownMenuItem
-										className="cursor-pointer"
-										disabled={!item.running}
+							<DropdownMenuItem
+								className="cursor-pointer"
+								disabled={!item.running}
 										onClick={() => {
 											if (!item.running) {
 												return;
@@ -266,8 +279,36 @@ export function ProfileListItem({
 									>
 										<Icon icon={Palette} size={13} />
 										修改背景色
-									</DropdownMenuItem>
+							</DropdownMenuItem>
+							<DropdownMenuSub>
+								<DropdownMenuSubTrigger className="cursor-pointer">
+									<Icon icon={FolderTree} size={13} />
+									设置分组
+								</DropdownMenuSubTrigger>
+								<DropdownMenuSubContent className="w-48">
+									{groups.map((group) => (
+										<DropdownMenuItem
+											key={`group-${group.id}`}
+											className="cursor-pointer"
+											onClick={() => {
+												void onRunAction(() => onSetProfileGroup(item.id, group.name));
+											}}
+										>
+											{group.name}
+										</DropdownMenuItem>
+									))}
+									<DropdownMenuSeparator />
 									<DropdownMenuItem
+										className="cursor-pointer"
+										onClick={() => {
+											void onRunAction(() => onSetProfileGroup(item.id));
+										}}
+									>
+										清空分组
+									</DropdownMenuItem>
+								</DropdownMenuSubContent>
+							</DropdownMenuSub>
+							<DropdownMenuItem
 										className="cursor-pointer"
 										onClick={() => {
 											onQuickEditChange({ profileId: item.id, field: 'toolbar' });

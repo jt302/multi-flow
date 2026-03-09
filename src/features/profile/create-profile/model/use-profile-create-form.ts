@@ -49,7 +49,6 @@ export function resourceStatusLabel(item: ResourceItem | undefined) {
 }
 
 export function useProfileCreateForm({
-	groups,
 	proxies,
 	resources,
 	onSubmit,
@@ -125,11 +124,6 @@ export function useProfileCreateForm({
 	const language = watch('language');
 	const timezoneId = watch('timezoneId');
 	const geoEnabled = watch('geoEnabled');
-
-	const groupSuggestions = useMemo(() => {
-		const names = groups.map((item) => item.name.trim()).filter(Boolean);
-		return Array.from(new Set(names)).slice(0, 8);
-	}, [groups]);
 
 	const availableProxies = useMemo(
 		() => proxies.filter((item) => item.lifecycle === 'active'),
@@ -361,7 +355,6 @@ export function useProfileCreateForm({
 		submitError,
 		hostPlatform,
 		hostChromiumVersions,
-		groupSuggestions,
 		availableProxies,
 		devicePresetsQuery,
 		fontFamiliesQuery,
@@ -374,6 +367,7 @@ export function useProfileCreateForm({
 		values: {
 			browserKind,
 			browserVersion,
+			group: watch('group'),
 			browserBgColor,
 			platform,
 			proxyId,

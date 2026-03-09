@@ -29,6 +29,7 @@ export function ConsoleShell() {
 		themeState,
 		profileNavigationIntent,
 		setProfileNavigationIntent,
+		clearProfileNavigationIntent,
 	} = useConsoleShellModel();
 
 	useEffect(() => {
@@ -118,6 +119,7 @@ export function ConsoleShell() {
 									}}
 									actions={{
 										createGroup: consoleState.createGroup,
+										updateGroup: consoleState.updateGroup,
 										deleteGroup: consoleState.deleteGroup,
 										restoreGroup: consoleState.restoreGroup,
 										createProfile: consoleState.createProfile,
@@ -125,8 +127,10 @@ export function ConsoleShell() {
 										updateProfileVisual: consoleState.updateProfileVisual,
 										openProfile: consoleState.openProfile,
 										closeProfile: consoleState.closeProfile,
+										setProfileGroup: consoleState.setProfileGroup,
 										batchOpenProfiles: consoleState.batchOpenProfiles,
 										batchCloseProfiles: consoleState.batchCloseProfiles,
+										batchSetProfileGroup: consoleState.batchSetProfileGroup,
 										createDevicePreset: consoleState.createDevicePreset,
 										updateDevicePreset: consoleState.updateDevicePreset,
 										deleteProfile: consoleState.deleteProfile,
@@ -162,7 +166,7 @@ export function ConsoleShell() {
 									navigation={{
 										pathname: location.pathname,
 										intent: profileNavigationIntent,
-										onConsumeNavigationIntent: () => setProfileNavigationIntent(null),
+										onConsumeNavigationIntent: clearProfileNavigationIntent,
 										onSetProfileNavigationIntent: setProfileNavigationIntent,
 										onNavigate: (path) => navigate(path),
 									}}
