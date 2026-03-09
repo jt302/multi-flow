@@ -1,4 +1,4 @@
-import { tauriInvoke } from './tauri-invoke';
+import { tauriInvoke } from '@/shared/api/tauri-invoke';
 import type { ProfileWindowStateItem, WindowBoundsItem } from '@/entities/window-session/model/types';
 
 type BatchActionResponse = {

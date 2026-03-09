@@ -1,4 +1,4 @@
-import { tauriInvoke } from './tauri-invoke';
+import { tauriInvoke } from '@/shared/api/tauri-invoke';
 import { listen } from '@tauri-apps/api/event';
 import type { ResourceItem } from '@/entities/resource/model/types';
 

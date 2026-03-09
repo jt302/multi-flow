@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { listResources } from '@/features/console/api/resource-api';
+import { listResources } from '@/entities/resource/api/resource-api';
 import type { ResourceItem } from '@/entities/resource/model/types';
 import { queryKeys } from '@/shared/config/query-keys';
 

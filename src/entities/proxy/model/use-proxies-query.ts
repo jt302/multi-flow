@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { listProxies } from '@/features/console/api/proxy-api';
+import { listProxies } from '@/entities/proxy/api/proxy-api';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import { queryKeys } from '@/shared/config/query-keys';
 

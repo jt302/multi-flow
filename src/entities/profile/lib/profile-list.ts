@@ -2,7 +2,7 @@ import type { ProfileItem } from '@/entities/profile/model/types';
 import type { ResourceItem } from '@/entities/resource/model/types';
 import type { PlatformVisualMeta } from '@/entities/profile/lib/platform-meta';
 import { getPlatformMeta } from '@/entities/profile/lib/platform-meta';
-import { detectClientPlatform } from '@/features/console/utils/platform';
+import { detectClientPlatform } from '@/shared/lib/platform';
 
 export type ProfileListRunningFilter = 'all' | 'running' | 'stopped';
 export type ProfileListLifecycleFilter = 'all' | 'active' | 'deleted';

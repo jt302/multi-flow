@@ -17,7 +17,7 @@ import {
 	listenResourceProgress,
 	listenResourceProgressByTaskPrefix,
 	type ResourceDownloadProgressEvent,
-} from '@/features/console/api/resource-api';
+} from '@/entities/resource/api/resource-api';
 
 type BackendProfile = {
 	id: string;
