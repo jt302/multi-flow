@@ -14,10 +14,7 @@ import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
 import { useProfileActions } from '@/features/profile/model/use-profile-actions';
 import { useProxyActions } from '@/features/proxy/model/use-proxy-actions';
 import { useProxiesQuery } from '@/entities/proxy/model/use-proxies-query';
-import {
-	activateChromiumVersion as activateChromiumVersionApi,
-	installChromiumResourceWithProgress,
-} from '../api/resource-api';
+import { useResourceActions } from '@/features/resource/model/use-resource-actions';
 import { useResourcesQuery } from '@/entities/resource/model/use-resources-query';
 import {
 	activateTab as activateTabApi,
@@ -284,73 +281,10 @@ export function useConsoleState(_options: UseConsoleStateOptions = {}) {
 		refreshProxies,
 		refreshProfilesAndBindings,
 	});
-
-	const installChromium = async (resourceId: string) => {
-		const toastId = toast.loading('开始下载浏览器资源...');
-		let lastShownPercent = -1;
-		setResourceProgress({
-			resourceId,
-			stage: 'start',
-			percent: 0,
-			downloadedBytes: 0,
-			totalBytes: null,
-			message: '开始下载资源',
-		});
-		try {
-			await installChromiumResourceWithProgress(resourceId, (progress) => {
-				setResourceProgress({
-					resourceId,
-					stage: progress.stage,
-					percent: progress.percent,
-					downloadedBytes: progress.downloadedBytes,
-					totalBytes: progress.totalBytes,
-					message: progress.message,
-				});
-				if (progress.stage === 'download') {
-					const percent = progress.percent === null ? null : Math.floor(progress.percent);
-					if (percent !== null && percent <= lastShownPercent) {
-						return;
-					}
-					if (percent !== null) {
-						lastShownPercent = percent;
-						toast.loading(`浏览器下载中 ${percent}%`, { id: toastId });
-					} else {
-						toast.loading('浏览器下载中...', { id: toastId });
-					}
-					return;
-				}
-				if (progress.stage === 'install') {
-					toast.loading('浏览器安装中...', { id: toastId });
-					return;
-				}
-				if (progress.stage === 'error') {
-					toast.error(progress.message || '浏览器安装失败', { id: toastId });
-				}
-			});
-			await refreshResources();
-			setResourceProgress((prev) => (prev ? { ...prev, stage: 'done', percent: 100 } : prev));
-			toast.success('浏览器已安装并激活', { id: toastId });
-		} catch (error) {
-			setResourceProgress((prev) =>
-				prev
-					? { ...prev, stage: 'error', message: error instanceof Error ? error.message : '安装失败' }
-					: prev,
-			);
-			toast.error('安装浏览器失败', { id: toastId });
-			throw error;
-		}
-	};
-
-	const activateChromium = async (version: string) => {
-		try {
-			await activateChromiumVersionApi(version);
-			await refreshResources();
-			toast.success(`已切换 Chromium ${version}`);
-		} catch (error) {
-			toast.error('切换浏览器版本失败');
-			throw error;
-		}
-	};
+	const { installChromium, activateChromium } = useResourceActions({
+		setResourceProgress,
+		refreshResources,
+	});
 
 	const openTab = async (profileId: string, url?: string) => {
 		await withWindowActionLock(profileId, async () => {
