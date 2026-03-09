@@ -16,6 +16,8 @@ export type ProfileListStoreState = {
 	filters: ProfileListFiltersState;
 	quickEdit: ProfileListQuickEditState;
 	batchGroupTarget: string;
+	batchGroupDialogOpen: boolean;
+	batchClearGroupDialogOpen: boolean;
 	selectedProfileIds: string[];
 	lastBatchOpenResult: BatchProfileActionResponse | null;
 };
@@ -26,6 +28,8 @@ type ProfileListStoreActions = {
 	patchFilters: (patch: Partial<ProfileListFiltersState>) => void;
 	setQuickEdit: (quickEdit: ProfileListQuickEditState) => void;
 	setBatchGroupTarget: (groupName: string) => void;
+	setBatchGroupDialogOpen: (open: boolean) => void;
+	setBatchClearGroupDialogOpen: (open: boolean) => void;
 	toggleProfile: (profileId: string, checked: boolean) => void;
 	setSelectedProfiles: (profileIds: string[]) => void;
 	clearSelection: () => void;
@@ -44,6 +48,8 @@ export const PROFILE_LIST_INITIAL_STATE: ProfileListStoreState = {
 	},
 	quickEdit: null,
 	batchGroupTarget: '',
+	batchGroupDialogOpen: false,
+	batchClearGroupDialogOpen: false,
 	selectedProfileIds: [],
 	lastBatchOpenResult: null,
 };
@@ -65,6 +71,8 @@ export function createProfileListStore(initialState?: Partial<ProfileListStoreSt
 		patchFilters: (patch) => set((state) => ({ filters: { ...state.filters, ...patch } })),
 		setQuickEdit: (quickEdit) => set({ quickEdit }),
 		setBatchGroupTarget: (batchGroupTarget) => set({ batchGroupTarget }),
+		setBatchGroupDialogOpen: (batchGroupDialogOpen) => set({ batchGroupDialogOpen }),
+		setBatchClearGroupDialogOpen: (batchClearGroupDialogOpen) => set({ batchClearGroupDialogOpen }),
 		toggleProfile: (profileId, checked) =>
 			set((state) => ({
 				selectedProfileIds: checked

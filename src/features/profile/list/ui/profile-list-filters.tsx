@@ -1,4 +1,4 @@
-import { CheckCheck, Play, Plus, RefreshCw, Square, X } from 'lucide-react';
+import { Play, Plus, RefreshCw, Square } from 'lucide-react';
 
 import {
 	Button,
@@ -27,15 +27,11 @@ type ProfileListFiltersProps = {
 	selectableCount: number;
 	stoppedSelectedCount: number;
 	runningSelectedCount: number;
-	batchGroupTarget: string;
 	onChange: (patch: Partial<ProfileListFiltersState>) => void;
-	onBatchGroupTargetChange: (groupName: string) => void;
-	onSelectAll: () => void;
-	onClearSelection: () => void;
 	onBatchOpen: () => void;
 	onBatchClose: () => void;
-	onBatchAssignGroup: () => void;
-	onBatchClearGroup: () => void;
+	onOpenBatchGroupDialog: () => void;
+	onOpenBatchClearDialog: () => void;
 	onRefresh: () => void;
 	onCreateClick: () => void;
 };
@@ -50,15 +46,11 @@ export function ProfileListFilters({
 	selectableCount,
 	stoppedSelectedCount,
 	runningSelectedCount,
-	batchGroupTarget,
 	onChange,
-	onBatchGroupTargetChange,
-	onSelectAll,
-	onClearSelection,
 	onBatchOpen,
 	onBatchClose,
-	onBatchAssignGroup,
-	onBatchClearGroup,
+	onOpenBatchGroupDialog,
+	onOpenBatchClearDialog,
 	onRefresh,
 	onCreateClick,
 }: ProfileListFiltersProps) {
@@ -134,52 +126,13 @@ export function ProfileListFilters({
 					已选择 {selectedCount} / {selectableCount} 个当前筛选环境
 				</p>
 				<div className="flex flex-wrap items-center gap-2">
-					<div className="min-w-[180px]">
-						<Select
-							value={batchGroupTarget || undefined}
-							onValueChange={onBatchGroupTargetChange}
-						>
-							<SelectTrigger>
-								<SelectValue placeholder="选择批量分组目标" />
-							</SelectTrigger>
-							<SelectContent>
-								{groupOptions.map((groupName) => (
-									<SelectItem key={`batch-${groupName}`} value={groupName}>
-										{groupName}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					</div>
-					<Button
-						type="button"
-						variant="ghost"
-						size="sm"
-						className="cursor-pointer"
-						onClick={onSelectAll}
-						disabled={selectableCount === 0}
-					>
-						<Icon icon={CheckCheck} size={12} />
-						全选当前筛选
-					</Button>
-					<Button
-						type="button"
-						variant="ghost"
-						size="sm"
-						className="cursor-pointer"
-						onClick={onClearSelection}
-						disabled={selectedCount === 0}
-					>
-						<Icon icon={X} size={12} />
-						清空选择
-					</Button>
 					<Button
 						type="button"
 						variant="outline"
 						size="sm"
 						className="cursor-pointer"
-						onClick={onBatchAssignGroup}
-						disabled={selectedCount === 0 || !batchGroupTarget}
+						onClick={onOpenBatchGroupDialog}
+						disabled={selectedCount === 0 || groupOptions.length === 0}
 					>
 						批量设组
 					</Button>
@@ -188,7 +141,7 @@ export function ProfileListFilters({
 						variant="ghost"
 						size="sm"
 						className="cursor-pointer"
-						onClick={onBatchClearGroup}
+						onClick={onOpenBatchClearDialog}
 						disabled={selectedCount === 0}
 					>
 						清空分组
