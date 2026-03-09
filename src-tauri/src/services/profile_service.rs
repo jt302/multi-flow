@@ -6,7 +6,7 @@ use sea_orm::{
     QueryFilter, QueryOrder, Set,
 };
 
-use crate::db::entities::profile;
+use crate::db::entities::{profile, profile_group};
 use crate::error::{AppError, AppResult};
 use crate::fingerprint_catalog;
 use crate::font_catalog;
@@ -37,6 +37,7 @@ impl ProfileService {
         if name.is_empty() {
             return Err(AppError::Validation("name is required".to_string()));
         }
+        let group_name = self.ensure_active_group_name(req.group)?;
         let settings = normalize_profile_settings(&self.db, req.settings, None)?;
         let settings_json = settings
             .as_ref()
@@ -46,7 +47,7 @@ impl ProfileService {
         let now = now_ts();
         let profile_model = profile::ActiveModel {
             name: Set(name.to_string()),
-            group_name: Set(req.group.and_then(trim_to_option)),
+            group_name: Set(group_name),
             note: Set(req.note.and_then(trim_to_option)),
             settings_json: Set(settings_json),
             lifecycle: Set(LIFECYCLE_ACTIVE.to_string()),
@@ -79,6 +80,7 @@ impl ProfileService {
             )));
         }
 
+        let group_name = self.ensure_active_group_name(req.group)?;
         let previous_settings = parse_settings_json(stored.settings_json.clone());
         let settings = normalize_profile_settings(&self.db, req.settings, previous_settings.as_ref())?;
         let settings_json = settings
@@ -87,7 +89,7 @@ impl ProfileService {
             .transpose()?;
         let mut active_model: profile::ActiveModel = stored.into();
         active_model.name = Set(name.to_string());
-        active_model.group_name = Set(req.group.and_then(trim_to_option));
+        active_model.group_name = Set(group_name);
         active_model.note = Set(req.note.and_then(trim_to_option));
         active_model.settings_json = Set(settings_json);
         active_model.updated_at = Set(now_ts());
@@ -124,6 +126,25 @@ impl ProfileService {
 
         let mut active_model: profile::ActiveModel = stored.into();
         active_model.settings_json = Set(settings_json);
+        active_model.updated_at = Set(now_ts());
+        let updated = self.db_query(active_model.update(&self.db))?;
+        Ok(self.to_api_profile(updated))
+    }
+
+    pub fn set_profile_group(
+        &self,
+        profile_id: &str,
+        group_name: Option<String>,
+    ) -> AppResult<Profile> {
+        let stored = self.find_profile_model(profile_id)?;
+        if stored.lifecycle == LIFECYCLE_DELETED {
+            return Err(AppError::Conflict(format!(
+                "profile already deleted: {profile_id}"
+            )));
+        }
+
+        let mut active_model: profile::ActiveModel = stored.into();
+        active_model.group_name = Set(self.ensure_active_group_name(group_name)?);
         active_model.updated_at = Set(now_ts());
         let updated = self.db_query(active_model.update(&self.db))?;
         Ok(self.to_api_profile(updated))
@@ -277,6 +298,26 @@ impl ProfileService {
         }
 
         Ok(affected)
+    }
+
+    fn ensure_active_group_name(&self, group_name: Option<String>) -> AppResult<Option<String>> {
+        let Some(group_name) = group_name.and_then(trim_to_option) else {
+            return Ok(None);
+        };
+
+        let exists = self.db_query(
+            profile_group::Entity::find()
+                .filter(profile_group::Column::Name.eq(group_name.clone()))
+                .filter(profile_group::Column::Lifecycle.eq(LIFECYCLE_ACTIVE))
+                .one(&self.db),
+        )?;
+        if exists.is_none() {
+            return Err(AppError::NotFound(format!(
+                "active group not found: {group_name}"
+            )));
+        }
+
+        Ok(Some(group_name))
     }
 
     pub fn list_running_profile_ids(&self) -> AppResult<Vec<String>> {
@@ -871,14 +912,29 @@ mod tests {
     use super::*;
     use crate::db;
     use crate::models::{
-        CreateProfileRequest, ProfileBasicSettings, ProfileFingerprintSettings,
-        ProfileFingerprintSource, ProfileSettings, UserAgentMode,
+        CreateProfileGroupRequest, CreateProfileRequest, ProfileBasicSettings,
+        ProfileFingerprintSettings, ProfileFingerprintSource, ProfileSettings, UserAgentMode,
     };
+    use crate::services::profile_group_service::ProfileGroupService;
 
     #[test]
     fn list_profiles_supports_filters_and_pagination() {
         let db = db::init_test_database().expect("init test db");
+        let group_service = ProfileGroupService::from_db(db.clone());
         let service = ProfileService::from_db(db);
+
+        group_service
+            .create_group(CreateProfileGroupRequest {
+                name: "g1".to_string(),
+                note: None,
+            })
+            .expect("create g1");
+        group_service
+            .create_group(CreateProfileGroupRequest {
+                name: "g2".to_string(),
+                note: None,
+            })
+            .expect("create g2");
 
         let p1 = service
             .create_profile(CreateProfileRequest {
@@ -968,6 +1024,40 @@ mod tests {
             .expect("list running filtered");
         assert_eq!(running_filtered.total, 1);
         assert_eq!(running_filtered.items[0].name, "alpha");
+    }
+
+    #[test]
+    fn set_profile_group_updates_and_clears_group_name() {
+        let db = db::init_test_database().expect("init test db");
+        let group_service = ProfileGroupService::from_db(db.clone());
+        let service = ProfileService::from_db(db);
+
+        group_service
+            .create_group(CreateProfileGroupRequest {
+                name: "growth".to_string(),
+                note: None,
+            })
+            .expect("create growth group");
+
+        let profile = service
+            .create_profile(CreateProfileRequest {
+                name: "alpha".to_string(),
+                group: None,
+                note: None,
+                proxy_id: None,
+                settings: None,
+            })
+            .expect("create profile");
+
+        let grouped = service
+            .set_profile_group(&profile.id, Some("growth".to_string()))
+            .expect("set group");
+        assert_eq!(grouped.group.as_deref(), Some("growth"));
+
+        let cleared = service
+            .set_profile_group(&profile.id, None)
+            .expect("clear group");
+        assert_eq!(cleared.group, None);
     }
 
     #[test]

@@ -70,6 +70,7 @@ function mapBackendGroup(item: BackendGroup): GroupItem {
 		name: item.name,
 		note: item.note ?? '未填写备注',
 		profileCount: item.profileCount,
+		rawUpdatedAt: item.updatedAt,
 		updatedAt: formatTimeAgo(item.updatedAt),
 		lifecycle: item.lifecycle,
 		deletedAt: item.deletedAt,
@@ -89,6 +90,16 @@ export async function listGroups(includeDeleted = false): Promise<GroupItem[]> {
 
 export async function createGroup(name: string, note: string): Promise<void> {
 	await tauriInvoke('create_profile_group', {
+		payload: {
+			name,
+			note: note.trim() ? note : null,
+		},
+	});
+}
+
+export async function updateGroup(groupId: string, name: string, note: string): Promise<void> {
+	await tauriInvoke('update_profile_group', {
+		groupId,
 		payload: {
 			name,
 			note: note.trim() ? note : null,

@@ -9,6 +9,8 @@ import {
 	deleteProfile as deleteProfileApi,
 	openProfile as openProfileApi,
 	restoreProfile as restoreProfileApi,
+	setProfileGroup as setProfileGroupApi,
+	batchSetProfileGroup as batchSetProfileGroupApi,
 	updateProfile as updateProfileApi,
 	updateProfileDevicePreset as updateProfileDevicePresetApi,
 	updateProfileVisual as updateProfileVisualApi,
@@ -317,6 +319,41 @@ export function useProfileActions({
 		}
 	};
 
+	const setProfileGroup = async (profileId: string, groupName?: string) => {
+		try {
+			await setProfileGroupApi(profileId, groupName);
+			await Promise.all([refreshProfilesAndBindings(), refreshGroups()]);
+			toast.success(groupName ? '分组已更新' : '分组已清空');
+		} catch (error) {
+			toast.error(groupName ? '更新分组失败' : '清空分组失败');
+			throw error;
+		}
+	};
+
+	const batchSetProfileGroup = async (profileIds: string[], groupName?: string) => {
+		if (profileIds.length === 0) {
+			return {
+				total: 0,
+				successCount: 0,
+				failedCount: 0,
+				items: [],
+			} satisfies BatchProfileActionResponse;
+		}
+		try {
+			const result = await batchSetProfileGroupApi(profileIds, groupName);
+			await Promise.all([refreshProfilesAndBindings(), refreshGroups()]);
+			if (result.failedCount > 0) {
+				toast.warning(groupName ? '部分环境分组设置失败' : '部分环境清空分组失败');
+			} else {
+				toast.success(groupName ? '批量分组设置完成' : '批量清空分组完成');
+			}
+			return result;
+		} catch (error) {
+			toast.error(groupName ? '批量分组设置失败' : '批量清空分组失败');
+			throw error;
+		}
+	};
+
 	return {
 		createProfile,
 		createDevicePreset,
@@ -329,5 +366,7 @@ export function useProfileActions({
 		restoreProfile,
 		batchOpenProfiles,
 		batchCloseProfiles,
+		setProfileGroup,
+		batchSetProfileGroup,
 	};
 }
