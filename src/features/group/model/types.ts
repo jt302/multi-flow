@@ -5,3 +5,5 @@ export type GroupsPageProps = {
 	onCreateGroup: (name: string, note: string) => Promise<void> | void;
 	onDeleteGroup: (id: string) => Promise<void> | void;
 };
+
+export type GroupFormMode = 'create' | 'edit';

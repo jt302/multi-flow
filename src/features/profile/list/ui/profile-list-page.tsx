@@ -1,9 +1,9 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { Card } from '@/components/ui';
 import { filterProfiles } from '@/entities/profile/lib/profile-list';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
-import { useProfileListState } from '../model/use-profile-list-state';
+import { useProfileListStore } from '../model/profile-list-store';
 import { ProfileBatchOpenResultCard } from './profile-batch-open-result-card';
 import { ProfileListFilters } from './profile-list-filters';
 import { ProfileListItem } from './profile-list-item';
@@ -33,16 +33,23 @@ export function ProfileListPage({
 	onRefreshProfiles,
 }: ProfileListPageProps) {
 	const section = CONSOLE_NAV_SECTIONS.profiles;
-	const {
-		state: { error, filters, quickEdit, selectedProfileIds, lastBatchOpenResult },
-		setError,
-		patchFilters,
-		setQuickEdit,
-		toggleProfile,
-		setSelectedProfiles,
-		clearSelection,
-		setBatchOpenResult,
-	} = useProfileListState();
+	const error = useProfileListStore((state) => state.error);
+	const filters = useProfileListStore((state) => state.filters);
+	const quickEdit = useProfileListStore((state) => state.quickEdit);
+	const selectedProfileIds = useProfileListStore((state) => state.selectedProfileIds);
+	const lastBatchOpenResult = useProfileListStore((state) => state.lastBatchOpenResult);
+	const reset = useProfileListStore((state) => state.reset);
+	const setError = useProfileListStore((state) => state.setError);
+	const patchFilters = useProfileListStore((state) => state.patchFilters);
+	const setQuickEdit = useProfileListStore((state) => state.setQuickEdit);
+	const toggleProfile = useProfileListStore((state) => state.toggleProfile);
+	const setSelectedProfiles = useProfileListStore((state) => state.setSelectedProfiles);
+	const clearSelection = useProfileListStore((state) => state.clearSelection);
+	const setBatchOpenResult = useProfileListStore((state) => state.setBatchOpenResult);
+
+	useEffect(() => {
+		reset();
+	}, [reset]);
 
 	const proxyById = useMemo(() => {
 		return proxies.reduce<Record<string, ProxyItem>>((acc, item: ProxyItem) => {

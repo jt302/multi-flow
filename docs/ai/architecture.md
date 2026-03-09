@@ -139,6 +139,10 @@
   - 查询放在 `entities/*/model/use-xxx-query`
   - 写操作放在 `features/*/model/use-xxx-actions`
   - 页面层不再手写集中式 `Promise.all(refresh...)` 状态管理
+- 本地 UI / 交互状态统一走 `Zustand`：
+  - 仅存筛选、选中态、当前编辑对象、导航意图等本地状态
+  - 不复制 `TanStack Query` 的服务端数据结果
+  - 表单字段仍由 `react-hook-form + zod` 管理
 
 - 组件库统一：`shadcn/ui`（基于 Radix + Tailwind），新组件优先复用 `src/components/ui/*`。
 - 图标统一：`lucide-react`，新页面/新交互不再引入新的图标库依赖。
