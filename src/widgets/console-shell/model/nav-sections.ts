@@ -3,7 +3,7 @@ import type { NavItem, NavSection } from './types';
 export const CONSOLE_NAV_SECTIONS: Record<NavItem['id'], NavSection> = {
 	dashboard: {
 		title: '全局运行总览',
-		desc: '聚合展示环境状态、代理健康与 AI 执行统计。',
+		desc: '聚合展示环境状态、代理健康与 RPA 执行统计。',
 		tableTitle: '最近活跃会话',
 		rows: [
 			{ name: 'AirDrop-001', group: 'AirDrop', status: '运行中', geo: 'US / New York', last: '刚刚' },
@@ -52,9 +52,9 @@ export const CONSOLE_NAV_SECTIONS: Record<NavItem['id'], NavSection> = {
 		],
 	},
 	ai: {
-		title: 'AI 执行中心',
-		desc: '自然语言任务编排正在运行，异常节点会自动暂停等待处理。',
-		tableTitle: 'AI 任务会话',
+		title: 'RPA 流程中心',
+		desc: '流程入口只保留清单，节点编排与任务调试在独立编辑窗口完成。',
+		tableTitle: 'RPA 任务会话',
 		rows: [
 			{ name: 'Airdrop Batch #12', group: '自动任务', status: '运行中', geo: 'US / New York', last: '刚刚' },
 			{ name: 'Farm Mission #4', group: '自动任务', status: '待机', geo: 'DE / Frankfurt', last: '18 分钟前' },

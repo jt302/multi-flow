@@ -59,3 +59,33 @@
 - 已知缺口：
   - `engine_manager` 已支持启动参数注入，但“地理位置精确覆盖（lat/lng）”仍待后续接入 CDP override（当前为参数校验与预留传递）。
   - 尚未推送 Tauri events 到前端。
+
+## 2026-03-09（RPA v1 首版骨架）
+
+- 新增 RPA 后端骨架：
+  - `rpa_flows / rpa_flow_targets / rpa_runs / rpa_run_instances / rpa_run_steps` 数据表与 SeaORM entity
+  - `rpa_flow_service / rpa_run_service / rpa_artifact_service / rpa_runtime_service`
+  - 任务状态、实例状态、步骤日志与调试产物目录持久化
+- 新增 RPA 命令层：
+  - 流程创建、更新、列表、详情、删除、恢复
+  - 流程运行、任务列表、任务详情、步骤详情、取消任务、取消实例、人工继续实例
+- 新增运行态接入：
+  - `engine_manager` 暴露当前运行环境的 `session_id / pid / debug_port / magic_port`
+  - RPA 运行时可直接驱动现有 Chromium 运行实例
+- 前端 RPA 入口已完成拆分：
+  - `/ai` 仅保留流程列表与“新建流程”入口
+  - 新建/编辑流程通过新的独立 RPA 编辑窗口打开
+  - 独立窗口内部拆成“流程设计 / 运行中心”两块，缓解原单页拥挤问题
+- RPA 回收站已接入现有设置页入口：
+  - `/ai` 主列表仅显示 active 流程，归档后立即隐藏
+  - 设置页回收站新增 `RPA 流程` 区块
+  - 回收站中的 RPA 流程支持恢复与彻底删除
+  - 彻底删除仅移除流程定义与目标绑定，历史 run snapshot 保留
+- 新增独立编辑窗口链路：
+  - Tauri 新增 `open_rpa_flow_editor_window`
+  - 路由新增 `/rpa-editor` 与 `/?standalone=rpa-editor` 重定向
+  - 已支持从列表页继续编辑指定流程，或直接以 create mode 打开新草稿
+- 当前限制：
+  - 节点配置仍以 JSON 配置为主，尚未做专用表单面板
+  - 人工接管后的“跳转到指定浏览器上下文继续操作”仍是基础态
+  - 页面自动化节点已接入 CDP 执行通道，但覆盖面与健壮性仍需继续打磨
