@@ -3,6 +3,14 @@ import assert from 'node:assert/strict';
 
 import { createGroupManagementStore } from './group-management-store.ts';
 
+test('group management store keeps form closed by default', () => {
+	const store = createGroupManagementStore();
+
+	assert.equal(store.getState().isFormOpen, false);
+	assert.equal(store.getState().editorMode, 'create');
+	assert.equal(store.getState().editingGroupId, null);
+});
+
 test('group management store tracks search and editor mode', () => {
 	const store = createGroupManagementStore({ isFormOpen: false });
 

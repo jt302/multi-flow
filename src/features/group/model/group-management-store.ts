@@ -22,7 +22,7 @@ export type GroupManagementStore = GroupManagementStoreState & GroupManagementSt
 
 export const GROUP_MANAGEMENT_INITIAL_STATE: GroupManagementStoreState = {
 	searchKeyword: '',
-	isFormOpen: true,
+	isFormOpen: false,
 	editingGroupId: null,
 	editorMode: 'create',
 };
