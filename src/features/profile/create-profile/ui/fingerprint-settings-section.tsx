@@ -23,6 +23,11 @@ export function FingerprintSettingsSection({
 	onRegenerateFonts,
 }: FingerprintSettingsSectionProps) {
 	const { register, setValue } = form;
+	const languageId = 'profile-language';
+	const timezoneId = 'profile-timezone';
+	const customFontListId = 'profile-custom-font-list';
+	const webrtcIpOverrideId = 'profile-webrtc-ip-override';
+	const randomFingerprintId = 'profile-random-fingerprint';
 
 	return (
 		<div className="rounded-xl border border-border/70 p-3">
@@ -32,16 +37,16 @@ export function FingerprintSettingsSection({
 			/>
 			<div className="grid gap-3 md:grid-cols-2">
 				<div>
-					<p className="mb-1 text-xs text-muted-foreground">语言</p>
-					<Input {...register('language')} placeholder="如 zh-CN / en-US" />
+						<label htmlFor={languageId} className="mb-1 block text-xs text-muted-foreground">语言</label>
+						<Input id={languageId} {...register('language')} placeholder="如 zh-CN / en-US" />
 				</div>
 				<div>
-					<p className="mb-1 text-xs text-muted-foreground">时区</p>
-					<Input {...register('timezoneId')} placeholder="如 Asia/Shanghai" />
+						<label htmlFor={timezoneId} className="mb-1 block text-xs text-muted-foreground">时区</label>
+						<Input id={timezoneId} {...register('timezoneId')} placeholder="如 Asia/Shanghai" />
 				</div>
 				<div className="md:col-span-2">
 					<div className="mb-1 flex items-center justify-between gap-2">
-						<p className="text-xs text-muted-foreground">字体列表</p>
+							<label htmlFor={customFontListId} className="text-xs text-muted-foreground">字体列表</label>
 						<Button
 							type="button"
 							size="sm"
@@ -53,8 +58,9 @@ export function FingerprintSettingsSection({
 							随机生成
 						</Button>
 					</div>
-					<Textarea
-						{...register('customFontListText')}
+						<Textarea
+							id={customFontListId}
+							{...register('customFontListText')}
 						placeholder={'Arial\nHelvetica Neue\nSegoe UI'}
 						className="min-h-[140px]"
 					/>
@@ -85,13 +91,14 @@ export function FingerprintSettingsSection({
 				</div>
 				{webRtcMode === 'replace' ? (
 					<div className="md:col-span-2">
-						<p className="mb-1 text-xs text-muted-foreground">WebRTC 替换 IP</p>
-						<Input {...register('webrtcIpOverride')} placeholder="例如 8.8.8.8" />
+							<label htmlFor={webrtcIpOverrideId} className="mb-1 block text-xs text-muted-foreground">WebRTC 替换 IP</label>
+							<Input id={webrtcIpOverrideId} {...register('webrtcIpOverride')} placeholder="例如 8.8.8.8" />
 					</div>
 				) : null}
-				<label className="flex items-center gap-2 text-sm md:col-span-2">
-					<Checkbox
-						checked={randomFingerprint}
+					<label htmlFor={randomFingerprintId} className="flex items-center gap-2 text-sm md:col-span-2">
+						<Checkbox
+							id={randomFingerprintId}
+							checked={randomFingerprint}
 						onCheckedChange={(checked) =>
 							setValue('randomFingerprint', checked === true, {
 								shouldDirty: true,

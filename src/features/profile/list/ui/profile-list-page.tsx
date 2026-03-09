@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+import { Card } from '@/components/ui';
 import { filterProfiles, type ProfileListFiltersState } from '@/entities/profile/lib/profile-list';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
+import { ProfileBatchOpenResultCard } from './profile-batch-open-result-card';
 import { ProfileListFilters } from './profile-list-filters';
 import { ProfileListItem } from './profile-list-item';
+import { ProfileListStats } from './profile-list-stats';
 import { CONSOLE_NAV_SECTIONS } from '@/widgets/console-shell/model/nav-sections';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import type { BatchProfileActionResponse } from '@/entities/profile/model/types';
@@ -99,14 +101,8 @@ export function ProfileListPage({
 		return selectedProfileIds.filter((id) => allowed.has(id));
 	}, [filteredActiveIds, selectedProfileIds]);
 
-	const activeCount = useMemo(
-		() => filteredProfiles.filter((item) => item.lifecycle === 'active').length,
-		[filteredProfiles],
-	);
-	const runningCount = useMemo(
-		() => filteredProfiles.filter((item) => item.running).length,
-		[filteredProfiles],
-	);
+	const activeCount = filteredProfiles.filter((item) => item.lifecycle === 'active').length;
+	const runningCount = filteredProfiles.filter((item) => item.running).length;
 
 	const runAction = async (action: () => Promise<void>) => {
 		setError(null);
@@ -145,41 +141,12 @@ export function ProfileListPage({
 				description={section.desc}
 			/>
 
-			<div className="grid gap-3 md:grid-cols-3">
-				<Card className="p-3">
-					<CardHeader className="px-1 pb-1">
-						<CardTitle className="text-xs text-muted-foreground">
-							环境总数
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="px-1 pt-0">
-						<p className="text-2xl font-semibold">{filteredProfiles.length}</p>
-						<p className="text-xs text-muted-foreground">
-							总计 {profiles.length}
-						</p>
-					</CardContent>
-				</Card>
-				<Card className="p-3">
-					<CardHeader className="px-1 pb-1">
-						<CardTitle className="text-xs text-muted-foreground">
-							活跃环境
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="px-1 pt-0">
-						<p className="text-2xl font-semibold">{activeCount}</p>
-					</CardContent>
-				</Card>
-				<Card className="p-3">
-					<CardHeader className="px-1 pb-1">
-						<CardTitle className="text-xs text-muted-foreground">
-							运行中
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="px-1 pt-0">
-						<p className="text-2xl font-semibold">{runningCount}</p>
-					</CardContent>
-				</Card>
-			</div>
+			<ProfileListStats
+				filteredCount={filteredProfiles.length}
+				totalCount={profiles.length}
+				activeCount={activeCount}
+				runningCount={runningCount}
+			/>
 
 			<Card className="p-3">
 				<ProfileListFilters
@@ -222,66 +189,19 @@ export function ProfileListPage({
 					onCreateClick={onCreateClick}
 				/>
 
-				{lastBatchOpenResult?.failedCount ? (
-					<div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
-						<div className="flex items-center justify-between gap-3">
-							<div>
-								<p className="text-sm font-medium">批量启动失败详情</p>
-								<p className="mt-1 text-xs text-muted-foreground">
-									成功 {lastBatchOpenResult.successCount}，失败 {lastBatchOpenResult.failedCount}。
-								</p>
-							</div>
-							<div className="flex items-center gap-2">
-								<Button
-									type="button"
-									size="sm"
-									variant="outline"
-									className="cursor-pointer"
-									onClick={() => {
-										const failedProfileIds = lastBatchOpenResult.items
-											.filter((item) => !item.ok)
-											.map((item) => item.profileId);
-										void runAction(async () => {
-											const result = await onBatchOpenProfiles(failedProfileIds);
-											setLastBatchOpenResult(result.failedCount > 0 ? result : null);
-										});
-									}}
-								>
-									重试失败项
-								</Button>
-								<Button
-									type="button"
-									size="sm"
-									variant="outline"
-									className="cursor-pointer"
-									onClick={() => setLastBatchOpenResult(null)}
-								>
-									关闭
-								</Button>
-							</div>
-						</div>
-						<div className="mt-3 space-y-2">
-							{lastBatchOpenResult.items
-								.filter((item) => !item.ok)
-								.map((item) => {
-									const profile = profiles.find((profileItem) => profileItem.id === item.profileId);
-									return (
-										<div
-											key={item.profileId}
-											className="rounded-lg border border-border/70 bg-background/80 px-3 py-2"
-										>
-											<p className="text-sm font-medium">
-												{profile?.name || item.profileId}
-											</p>
-											<p className="mt-1 break-words text-xs text-muted-foreground">
-												{item.message}
-											</p>
-										</div>
-									);
-								})}
-						</div>
-					</div>
-				) : null}
+					{lastBatchOpenResult?.failedCount ? (
+						<ProfileBatchOpenResultCard
+							result={lastBatchOpenResult}
+							profiles={profiles}
+							onRetryFailed={(failedProfileIds) => {
+								void runAction(async () => {
+									const result = await onBatchOpenProfiles(failedProfileIds);
+									setLastBatchOpenResult(result.failedCount > 0 ? result : null);
+								});
+							}}
+							onClose={() => setLastBatchOpenResult(null)}
+						/>
+					) : null}
 
 				<div className="overflow-hidden rounded-xl border border-border/70">
 					{filteredProfiles.length === 0 ? (
