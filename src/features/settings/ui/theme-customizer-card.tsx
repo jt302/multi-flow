@@ -13,6 +13,9 @@ export function ThemeCustomizerCard({
 	onCustomColorChange,
 	onToggleCustomColor,
 }: ThemeCustomizerCardProps) {
+	const customColorPickerId = 'theme-custom-color-picker';
+	const customColorTextId = 'theme-custom-color-text';
+
 	return (
 		<Card className="min-w-0 p-4">
 			<div className="mb-3 flex items-center gap-2">
@@ -41,16 +44,18 @@ export function ThemeCustomizerCard({
 				))}
 			</div>
 
-			<label className="mt-4 block text-xs text-muted-foreground">自定义主色</label>
-			<div className="mt-2 flex items-center gap-2">
-				<Input
-					type="color"
+				<label htmlFor={customColorTextId} className="mt-4 block text-xs text-muted-foreground">自定义主色</label>
+				<div className="mt-2 flex items-center gap-2">
+					<Input
+						id={customColorPickerId}
+						type="color"
 					value={customColor}
 					onChange={(event) => onCustomColorChange(event.target.value)}
 					className="h-10 w-12 cursor-pointer rounded-lg p-1"
 				/>
-				<Input
-					type="text"
+					<Input
+						id={customColorTextId}
+						type="text"
 					value={customColor}
 					onChange={(event) => onCustomColorChange(event.target.value)}
 					className="w-0 min-w-0 flex-1 bg-card uppercase tracking-wide"

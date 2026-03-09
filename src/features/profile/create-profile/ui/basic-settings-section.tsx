@@ -95,7 +95,7 @@ export function BasicSettingsSection({
 			<div className="grid gap-3 md:grid-cols-2">
 				<div>
 					<p className="mb-1 text-xs text-muted-foreground">环境名称</p>
-					<Input {...register('name')} placeholder="例如 AirDrop-001" autoFocus />
+						<Input {...register('name')} placeholder="例如 AirDrop-001" />
 				</div>
 				<div>
 					<p className="mb-1 text-xs text-muted-foreground">分组</p>
