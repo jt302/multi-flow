@@ -31,10 +31,11 @@ import type {
 	ProfileActionState,
 	ProfileItem,
 } from '@/entities/profile/model/types';
+import type { ProxyItem } from '@/entities/proxy/model/types';
+import type { ResourceItem } from '@/entities/resource/model/types';
 import { cn } from '@/lib/utils';
 
-import type { ProxyItem, ResourceItem } from '../types';
-import { PlatformMark } from './platform-mark';
+import { PlatformMark } from '@/entities/profile/ui/platform-mark';
 import { BackgroundQuickEditForm, ToolbarQuickEditForm } from './profile-list-quick-edit-forms';
 
 type QuickEditField = 'background' | 'toolbar';

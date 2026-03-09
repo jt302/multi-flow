@@ -1,10 +1,10 @@
 import { BarChart3, Bot, Globe2 } from 'lucide-react';
 
 import { Badge, Card, CardContent, CardHeader, CardTitle, Icon } from '@/components/ui';
-import { MetricsGrid } from '@/features/console/components/metrics-grid';
-import { SessionTableCard } from '@/features/console/components/session-table-card';
+import { MetricsGrid } from './metrics-grid';
+import { SessionTableCard } from '@/widgets/session-table-card/ui/session-table-card';
 import { NAV_SECTIONS } from '@/features/console/constants';
-import type { PresetKey } from '@/features/console/types';
+import type { PresetKey } from '@/entities/theme/model/types';
 
 type DashboardPageProps = {
 	resolvedMode: string;

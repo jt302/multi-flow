@@ -1,8 +1,8 @@
 import type { ProfileItem } from '@/entities/profile/model/types';
-import type { ResourceItem } from '@/features/console/types';
-import type { PlatformVisualMeta } from '@/features/console/utils/platform-meta';
+import type { ResourceItem } from '@/entities/resource/model/types';
+import type { PlatformVisualMeta } from '@/entities/profile/lib/platform-meta';
+import { getPlatformMeta } from '@/entities/profile/lib/platform-meta';
 import { detectClientPlatform } from '@/features/console/utils/platform';
-import { getPlatformMeta } from '@/features/console/utils/platform-meta';
 
 export type ProfileListRunningFilter = 'all' | 'running' | 'stopped';
 export type ProfileListLifecycleFilter = 'all' | 'active' | 'deleted';

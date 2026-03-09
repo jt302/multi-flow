@@ -5,10 +5,10 @@ import { z } from 'zod/v3';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Icon, Input } from '@/components/ui';
-import { ActiveSectionCard } from '@/features/console/components';
-import { SessionTableCard } from '@/features/console/components/session-table-card';
+import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
+import { SessionTableCard } from '@/widgets/session-table-card/ui/session-table-card';
 import { NAV_SECTIONS } from '@/features/console/constants';
-import type { GroupsPageProps } from '@/features/console/types';
+import type { GroupsPageProps } from '@/features/group/model/types';
 
 const groupFormSchema = z.object({
 	name: z.string().trim().min(1, '分组名称不能为空'),

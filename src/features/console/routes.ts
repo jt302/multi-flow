@@ -1,4 +1,4 @@
-import type { NavId } from './types';
+import type { NavId } from '@/widgets/console-shell/model/types';
 
 export const NAV_PATHS: Record<NavId, string> = {
 	dashboard: '/dashboard',

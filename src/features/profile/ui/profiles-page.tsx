@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { ProfileCreateForm } from '@/features/profile/create-profile/ui/profile-create-form';
 import { ProfileDetailPage } from '@/features/profile/detail/ui/profile-detail-page';
 import { ProfileListPage } from '@/features/profile/list/ui/profile-list-page';
-import type { ProfilesPageProps } from '../types';
+import type { ProfilesPageProps } from '@/features/profile/model/page-types';
 
 export function ProfilesPage({
 	profiles,

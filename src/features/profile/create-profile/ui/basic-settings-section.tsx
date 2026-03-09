@@ -1,8 +1,8 @@
 import { Badge, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
 import type { ProfileDevicePresetItem } from '@/entities/profile/model/types';
-import { PlatformGlyph } from '@/features/console/components/platform-mark';
-import type { ResourceItem } from '@/features/console/types';
-import { PLATFORM_OPTIONS } from '@/features/console/utils';
+import { PlatformGlyph } from '@/entities/profile/ui/platform-mark';
+import type { ResourceItem } from '@/entities/resource/model/types';
+import { PLATFORM_OPTIONS } from '@/entities/profile/lib/platform-meta';
 import { cn } from '@/lib/utils';
 import type { UseFormReturn } from 'react-hook-form';
 

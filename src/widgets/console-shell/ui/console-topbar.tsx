@@ -9,8 +9,7 @@ import {
 
 import { Button, Icon, Input } from '@/components/ui';
 import { NAV_ITEMS } from '@/features/console/constants';
-
-import type { ConsoleTopbarProps } from '../types';
+import type { ConsoleTopbarProps } from '@/widgets/console-shell/model/types';
 
 export function ConsoleTopbar({
 	activeNav,

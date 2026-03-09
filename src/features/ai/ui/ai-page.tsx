@@ -1,5 +1,6 @@
-import { ActiveSectionCard, SessionTableCard } from '../components';
-import { NAV_SECTIONS } from '../constants';
+import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
+import { SessionTableCard } from '@/widgets/session-table-card/ui/session-table-card';
+import { NAV_SECTIONS } from '@/features/console/constants';
 
 export function AiPage() {
 	const section = NAV_SECTIONS.ai;

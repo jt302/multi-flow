@@ -19,7 +19,7 @@ import type {
 	ProfileActionState,
 	SaveProfileDevicePresetPayload,
 } from '@/entities/profile/model/types';
-import type { ResourceProgressState } from '@/features/console/types';
+import type { ResourceProgressState } from '@/entities/resource/model/types';
 
 type ProfileActionsDeps = {
 	setActionState: (profileId: string, state: ProfileActionState | null) => void;

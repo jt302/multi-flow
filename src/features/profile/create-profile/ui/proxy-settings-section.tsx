@@ -1,7 +1,7 @@
 import type { UseFormReturn } from 'react-hook-form';
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
-import type { ProxyItem } from '@/features/console/types';
+import type { ProxyItem } from '@/entities/proxy/model/types';
 
 import type { ProfileFormValues } from '../model/profile-form';
 import { SectionTitle } from './section-title';

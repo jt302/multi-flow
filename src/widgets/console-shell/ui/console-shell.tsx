@@ -6,16 +6,17 @@ import { toast } from 'sonner';
 import { Card, Toaster } from '@/components/ui';
 import { openLogPanelWindow } from '@/features/logs';
 import { useThemeSettings } from '@/features/console/hooks';
-import { ConsoleSidebar, ConsoleTopbar } from '@/features/console/components';
 import { useConsoleState } from '@/features/console/hooks';
+import { ConsoleSidebar } from './console-sidebar';
 import { ConsolePageContent } from './console-page-content';
+import { ConsoleTopbar } from './console-topbar';
 import {
 	isConsolePath,
 	NAV_PATHS,
 	resolveNavFromPath,
 	resolvePathFromNav,
 } from '@/features/console/routes';
-import type { NavId } from '@/features/console/types';
+import type { NavId } from '@/widgets/console-shell/model/types';
 
 function resolveActiveNav(pathname: string): NavId {
 	return resolveNavFromPath(pathname) ?? 'dashboard';

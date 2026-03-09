@@ -3,8 +3,9 @@ import { ArrowLeft, PencilLine, Shield, Sparkles } from 'lucide-react';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Icon } from '@/components/ui';
 import { formatProfileTime, resolveBrowserVersionMeta, resolvePlatformMeta } from '@/entities/profile/lib/profile-list';
 import type { ProfileItem } from '@/entities/profile/model/types';
-import { PlatformMark } from '@/features/console/components/platform-mark';
-import type { ProxyItem, ResourceItem } from '@/features/console/types';
+import { PlatformMark } from '@/entities/profile/ui/platform-mark';
+import type { ProxyItem } from '@/entities/proxy/model/types';
+import type { ResourceItem } from '@/entities/resource/model/types';
 
 type ProfileDetailPageProps = {
 	profile: ProfileItem;

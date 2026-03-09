@@ -19,13 +19,13 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui';
-import { ActiveSectionCard } from '@/features/console/components';
+import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 import { NAV_SECTIONS } from '@/features/console/constants';
 import type {
 	CreateProxyPayload,
 	ProxyPageProps,
 	ProxyProtocol,
-} from '@/features/console/types';
+} from '@/features/proxy/model/types';
 
 const PROTOCOL_OPTIONS: ProxyProtocol[] = ['http', 'https', 'socks5', 'ssh'];
 

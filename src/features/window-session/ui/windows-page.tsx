@@ -24,13 +24,10 @@ import {
 	Icon,
 	Input,
 } from '@/components/ui';
-import { ActiveSectionCard } from '@/features/console/components';
+import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 import { NAV_SECTIONS } from '@/features/console/constants';
-import type {
-	ProfileWindowItem,
-	WindowBoundsItem,
-	WindowsPageProps,
-} from '@/features/console/types';
+import type { ProfileWindowItem, WindowBoundsItem } from '@/entities/window-session/model/types';
+import type { WindowsPageProps } from '@/features/window-session/model/page-types';
 
 const DEFAULT_URL = 'https://www.browserscan.net/';
 

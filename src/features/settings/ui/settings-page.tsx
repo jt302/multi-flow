@@ -25,9 +25,10 @@ import type {
 	ProfileDevicePresetItem,
 	SaveProfileDevicePresetPayload,
 } from '@/entities/profile/model/types';
-import { ActiveSectionCard, ThemeCustomizerCard } from '@/features/console/components';
+import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
+import { ThemeCustomizerCard } from './theme-customizer-card';
 import { NAV_SECTIONS } from '@/features/console/constants';
-import type { SettingsPageProps } from '@/features/console/types';
+import type { SettingsPageProps } from '@/features/settings/model/types';
 
 const devicePresetSchema = z.object({
 	label: z.string().trim().min(1, '机型名称不能为空'),

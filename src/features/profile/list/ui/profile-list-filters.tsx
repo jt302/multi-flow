@@ -15,7 +15,7 @@ import type {
 	ProfileListFiltersState,
 	ProfileListLifecycleFilter,
 	ProfileListRunningFilter,
-} from '../utils';
+} from '@/entities/profile/lib/profile-list';
 
 type ProfileListFiltersProps = {
 	keyword: string;

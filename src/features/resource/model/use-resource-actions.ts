@@ -4,7 +4,7 @@ import {
 	activateChromiumVersion as activateChromiumVersionApi,
 	installChromiumResourceWithProgress,
 } from '@/features/console/api/resource-api';
-import type { ResourceProgressState } from '@/features/console/types';
+import type { ResourceProgressState } from '@/entities/resource/model/types';
 
 type ResourceActionsDeps = {
 	setResourceProgress: (

@@ -1,5 +1,5 @@
 import { tauriInvoke } from './tauri-invoke';
-import type { GroupItem } from '../types';
+import type { GroupItem } from '@/entities/group/model/types';
 
 type GroupLifecycle = 'active' | 'deleted';
 

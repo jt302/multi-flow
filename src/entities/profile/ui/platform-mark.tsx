@@ -1,7 +1,7 @@
 import { Icon } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
-import type { PlatformVisualMeta } from '../utils/platform-meta';
+import type { PlatformVisualMeta } from '@/entities/profile/lib/platform-meta';
 
 type PlatformMarkProps = {
 	meta: PlatformVisualMeta;
