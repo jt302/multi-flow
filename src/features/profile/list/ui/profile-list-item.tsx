@@ -1,6 +1,7 @@
 import {
 	Eye,
 	Loader2,
+	Monitor,
 	MoreHorizontal,
 	Palette,
 	Play,
@@ -60,6 +61,7 @@ type ProfileListItemProps = {
 	) => Promise<void>;
 	onOpenProfile: (profileId: string) => Promise<void>;
 	onCloseProfile: (profileId: string) => Promise<void>;
+	onFocusProfileWindow: (profileId: string) => Promise<void>;
 	onDeleteProfile: (profileId: string) => Promise<void>;
 	onRestoreProfile: (profileId: string) => Promise<void>;
 };
@@ -94,6 +96,7 @@ export function ProfileListItem({
 	onUpdateProfileVisual,
 	onOpenProfile,
 	onCloseProfile,
+	onFocusProfileWindow,
 	onDeleteProfile,
 	onRestoreProfile,
 }: ProfileListItemProps) {
@@ -209,6 +212,25 @@ export function ProfileListItem({
 								) : (
 									<Icon icon={item.running ? Square : Play} size={13} />
 								)}
+							</Button>
+
+							<Button
+								type="button"
+								size="icon"
+								variant="ghost"
+								className={cn(
+									'h-8 w-8 cursor-pointer',
+									item.running
+										? 'text-sky-600 hover:bg-sky-500/10 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300'
+										: 'text-muted-foreground/60',
+								)}
+								title={item.running ? '显示浏览器窗口' : '环境未运行'}
+								disabled={actionPending || !item.running}
+								onClick={() => {
+									void onRunAction(() => onFocusProfileWindow(item.id));
+								}}
+							>
+								<Icon icon={Monitor} size={13} />
 							</Button>
 
 							<DropdownMenu>

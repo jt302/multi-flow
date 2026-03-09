@@ -73,6 +73,7 @@ export function ConsolePageContent({
 					onUpdateProfileVisual={actions.updateProfileVisual}
 					onOpenProfile={actions.openProfile}
 					onCloseProfile={actions.closeProfile}
+					onFocusProfileWindow={actions.focusWindow}
 					onBatchOpenProfiles={actions.batchOpenProfiles}
 					onBatchCloseProfiles={actions.batchCloseProfiles}
 					onDeleteProfile={actions.deleteProfile}
