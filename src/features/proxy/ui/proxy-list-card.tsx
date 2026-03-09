@@ -1,4 +1,4 @@
-import { Ellipsis, Link2, Pencil, RefreshCw, RotateCcw, Search, Trash2, Upload } from 'lucide-react';
+import { Ellipsis, Globe, Link2, Pencil, RefreshCw, RotateCcw, Search, Trash2, Upload } from 'lucide-react';
 
 import {
 	Badge,
@@ -31,6 +31,7 @@ type ProxyListCardProps = {
 	onCheckProxy: (proxyId: string) => void;
 	onRequestDelete: (proxyId: string) => void;
 	onRestoreProxy: (proxyId: string) => void;
+	boundCounts: Record<string, number>;
 };
 
 function formatProxyAddress(protocol: string, host: string, port: number) {
@@ -48,10 +49,51 @@ function resolveProxyDisplayName(item: ProxyItem) {
 	return item.name;
 }
 
+function resolveCountryFlag(countryCode: string) {
+	const trimmed = countryCode.trim().toUpperCase();
+	if (!/^[A-Z]{2}$/.test(trimmed)) {
+		return null;
+	}
+	return String.fromCodePoint(
+		...trimmed.split('').map((char) => 0x1f1e6 + char.charCodeAt(0) - 65),
+	);
+}
+
 function resolveStatusLabel(item: ProxyItem) {
-	if (!item.lastStatus) return '未检测';
-	if (item.lastStatus === 'ok') return '检测正常';
-	return '检测异常';
+	switch (item.checkStatus) {
+		case 'ok':
+			return '检测正常';
+		case 'error':
+			return '检测异常';
+		case 'unsupported':
+			return '暂不支持';
+		default:
+			return '未检测';
+	}
+}
+
+function formatTimestamp(input: number | null) {
+	if (!input) return '未检测';
+	return new Date(input * 1000).toLocaleString('zh-CN', {
+		month: '2-digit',
+		day: '2-digit',
+		hour: '2-digit',
+		minute: '2-digit',
+	});
+}
+
+function formatExpiry(input: number | null) {
+	if (!input) return '未设置';
+	const now = Date.now();
+	const target = input * 1000;
+	if (target <= now) return '已过期';
+	return new Date(target).toLocaleString('zh-CN', {
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+		hour: '2-digit',
+		minute: '2-digit',
+	});
 }
 
 export function ProxyListCard({
@@ -71,6 +113,7 @@ export function ProxyListCard({
 	onCheckProxy,
 	onRequestDelete,
 	onRestoreProxy,
+	boundCounts,
 }: ProxyListCardProps) {
 	const activeProxyIds = proxies.filter((item) => item.lifecycle === 'active').map((item) => item.id);
 	const selectedActiveCount = activeProxyIds.filter((id) => selectedProxyIds.includes(id)).length;
@@ -99,14 +142,16 @@ export function ProxyListCard({
 					<div className="px-4 py-10 text-center text-sm text-muted-foreground">暂无代理，请先新增。</div>
 				) : (
 					<>
-						<div className="grid grid-cols-[48px_minmax(0,1fr)_120px_196px] items-center gap-3 border-b border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+						<div className="grid grid-cols-[48px_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_220px] items-center gap-3 border-b border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
 							<div className="flex justify-center"><Checkbox checked={allActiveSelected ? true : indeterminate ? 'indeterminate' : false} className="cursor-pointer" disabled={activeProxyIds.length === 0 || pending} onCheckedChange={(checked) => onSelectAll(checked === true)} /></div>
 							<div>代理</div>
-							<div>状态</div>
+							<div>GEO</div>
+							<div>出口</div>
+							<div>健康</div>
 							<div className="text-right">操作</div>
 						</div>
 						{proxies.map((item, index) => (
-							<div key={item.id} className={`grid grid-cols-[48px_minmax(0,1fr)_120px_196px] items-center gap-3 px-3 py-3 text-sm ${index < proxies.length - 1 ? 'border-b border-border/70' : ''}`}>
+							<div key={item.id} className={`grid grid-cols-[48px_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_220px] items-center gap-3 px-3 py-3 text-sm ${index < proxies.length - 1 ? 'border-b border-border/70' : ''}`}>
 								<div className="flex justify-center"><Checkbox checked={selectedProxyIds.includes(item.id)} disabled={item.lifecycle !== 'active' || pending} className="cursor-pointer" onCheckedChange={(checked) => onSelectProxy(item.id, checked === true)} /></div>
 								<div className="min-w-0">
 									<div className="flex items-center gap-2">
@@ -114,11 +159,29 @@ export function ProxyListCard({
 										<Badge variant="outline" className="text-[10px] uppercase">{item.protocol}</Badge>
 									</div>
 									<p className="truncate text-xs text-muted-foreground">{formatProxyAddress(item.protocol, item.host, item.port)}</p>
-									<p className="truncate text-[11px] text-muted-foreground">{item.country || '未知国家'} · {item.provider || '未填写供应商'}</p>
+									<p className="truncate text-[11px] text-muted-foreground">{item.provider || '未填写供应商'} · 绑定 {boundCounts[item.id] ?? 0} 个环境</p>
 								</div>
-								<div className="space-y-1">
+								<div className="min-w-0 space-y-1">
+									<p className="flex items-center gap-2 font-medium">
+										{resolveCountryFlag(item.country) ? (
+											<span className="text-base leading-none">{resolveCountryFlag(item.country)}</span>
+										) : (
+											<Icon icon={Globe} size={14} className="text-muted-foreground" />
+										)}
+										<span className="truncate">{item.country || '未知国家'}</span>
+									</p>
+									<p className="truncate text-[11px] text-muted-foreground">{item.region || '未知区域'} / {item.city || '未知城市'}</p>
+									<p className="truncate text-[11px] text-muted-foreground">{item.suggestedLanguage || '语言待检测'} / {item.suggestedTimezone || '时区待检测'}</p>
+								</div>
+								<div className="min-w-0 space-y-1">
+									<p className="truncate font-medium">{item.exitIp || '未检测出口 IP'}</p>
+									<p className="truncate text-[11px] text-muted-foreground">{item.latitude !== null && item.longitude !== null ? `${item.latitude}, ${item.longitude}` : '经纬度待检测'}</p>
+									<p className="truncate text-[11px] text-muted-foreground">最近检测 {formatTimestamp(item.lastCheckedAt)}</p>
+								</div>
+								<div className="space-y-1 min-w-0">
 									<Badge variant={item.lifecycle === 'active' ? 'outline' : 'secondary'}>{item.lifecycle === 'active' ? '可用' : '已归档'}</Badge>
 									<p className="text-[11px] text-muted-foreground">{resolveStatusLabel(item)}</p>
+									<p className="truncate text-[11px] text-muted-foreground">{item.checkMessage || `过期时间 ${formatExpiry(item.expiresAt)}`}</p>
 								</div>
 								<div className="flex justify-end gap-1">
 									{item.lifecycle === 'active' ? (

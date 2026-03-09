@@ -153,6 +153,7 @@ export function ConsoleShell() {
 										refreshDevicePresets: consoleState.refreshDevicePresets,
 										installChromium: consoleState.installChromium,
 										activateChromium: consoleState.activateChromium,
+										downloadResource: consoleState.downloadResource,
 										refreshWindows: consoleState.refreshWindows,
 										openTab: consoleState.openTab,
 										closeTab: consoleState.closeTab,

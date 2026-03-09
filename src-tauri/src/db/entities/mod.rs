@@ -4,3 +4,8 @@ pub mod profile;
 pub mod profile_group;
 pub mod profile_proxy_binding;
 pub mod proxy;
+pub mod rpa_flow;
+pub mod rpa_flow_target;
+pub mod rpa_run;
+pub mod rpa_run_instance;
+pub mod rpa_run_step;

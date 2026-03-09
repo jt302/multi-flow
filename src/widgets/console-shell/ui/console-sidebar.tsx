@@ -38,16 +38,16 @@ export function ConsoleSidebar({ activeNav, onNavChange, isRunning, onToggleRunn
 
 			<Card className="mt-6 bg-background/70">
 				<CardHeader className="p-4 pb-2">
-					<p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">AI 状态</p>
+					<p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">RPA 状态</p>
 				</CardHeader>
 				<CardContent className="space-y-3 p-4 pt-0">
 					<div className="flex items-center justify-between text-sm">
-						<span>自动执行引擎</span>
+						<span>RPA 执行引擎</span>
 						<Badge variant={isRunning ? 'default' : 'secondary'}>{isRunning ? '活跃' : '暂停'}</Badge>
 					</div>
 					<Button type="button" onClick={onToggleRunning} variant="outline" className="w-full cursor-pointer">
 						<Icon icon={isRunning ? RefreshCcw : Play} size={14} />
-						{isRunning ? '暂停自动任务' : '恢复自动任务'}
+						{isRunning ? '暂停执行引擎' : '恢复执行引擎'}
 					</Button>
 				</CardContent>
 			</Card>

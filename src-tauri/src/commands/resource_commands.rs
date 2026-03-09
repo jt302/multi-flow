@@ -33,17 +33,67 @@ pub fn list_resources(state: State<'_, AppState>) -> Result<ResourceCatalogRespo
 
 #[tauri::command]
 pub fn download_resource(
+    app: AppHandle,
     state: State<'_, AppState>,
     resource_id: String,
     force: Option<bool>,
+    task_id: Option<String>,
 ) -> Result<ResourceDownloadResponse, String> {
+    let task_id = task_id.unwrap_or_else(|| format!("download-{}", crate::models::now_ts()));
     let resource_service = state
         .resource_service
         .lock()
         .map_err(|_| "resource service lock poisoned".to_string())?;
-    resource_service
-        .download_resource(&resource_id, force.unwrap_or(false))
-        .map_err(error_to_string)
+    emit_progress(
+        &app,
+        &task_id,
+        &resource_id,
+        "start",
+        0,
+        None,
+        "开始下载资源",
+    );
+    let result = resource_service.download_resource_with_progress(
+        &resource_id,
+        force.unwrap_or(false),
+        |downloaded, total| {
+            emit_progress(
+                &app,
+                &task_id,
+                &resource_id,
+                "download",
+                downloaded,
+                total,
+                "下载中",
+            );
+        },
+    );
+    match result {
+        Ok(response) => {
+            emit_progress(
+                &app,
+                &task_id,
+                &resource_id,
+                "done",
+                response.bytes,
+                Some(response.bytes),
+                "已完成",
+            );
+            Ok(response)
+        }
+        Err(err) => {
+            emit_progress(
+                &app,
+                &task_id,
+                &resource_id,
+                "error",
+                0,
+                None,
+                &format!("失败: {}", err),
+            );
+            Err(error_to_string(err))
+        }
+    }
 }
 
 #[tauri::command]

@@ -22,6 +22,7 @@ export type SettingsPageProps = {
 	onRefreshResources: () => Promise<void>;
 	onInstallChromium: (resourceId: string) => Promise<void>;
 	onActivateChromium: (version: string) => Promise<void>;
+	onDownloadResource: (resourceId: string, label?: string) => Promise<void>;
 	resourceProgress: ResourceProgressState | null;
 	devicePresets: ProfileDevicePresetItem[];
 	onCreateDevicePreset: (payload: SaveProfileDevicePresetPayload) => Promise<void>;
