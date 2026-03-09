@@ -9,6 +9,7 @@ import {
 	createProxy as createProxyApi,
 	deleteProxy as deleteProxyApi,
 	importProxies as importProxiesApi,
+	purgeProxy as purgeProxyApi,
 	restoreProxy as restoreProxyApi,
 	unbindProfileProxy as unbindProfileProxyApi,
 	updateProxy as updateProxyApi,
@@ -89,6 +90,17 @@ export function useProxyActions({
 		}
 	};
 
+	const purgeProxy = async (proxyId: string) => {
+		try {
+			await purgeProxyApi(proxyId);
+			await Promise.all([refreshProxies(), refreshProfilesAndBindings()]);
+			toast.success('代理已彻底删除');
+		} catch (error) {
+			toast.error('彻底删除代理失败');
+			throw error;
+		}
+	};
+
 	const batchUpdateProxies = async (proxyIds: string[], payload: UpdateProxyPayload) => {
 		try {
 			const result = await batchUpdateProxiesApi(proxyIds, payload);
@@ -114,13 +126,20 @@ export function useProxyActions({
 		}
 	};
 
-	const checkProxy = async (proxyId: string) => {
+	const checkProxy = async (
+		proxyId: string,
+		options?: { silent?: boolean },
+	) => {
 		try {
 			await checkProxyApi(proxyId);
 			await refreshProxies();
-			toast.success('代理检测已完成');
+			if (!options?.silent) {
+				toast.success('代理检测已完成');
+			}
 		} catch (error) {
-			toast.error('代理检测失败');
+			if (!options?.silent) {
+				toast.error('代理检测失败');
+			}
 			throw error;
 		}
 	};
@@ -164,6 +183,7 @@ export function useProxyActions({
 		deleteProxy,
 		batchDeleteProxies,
 		restoreProxy,
+		purgeProxy,
 		batchUpdateProxies,
 		importProxies,
 		checkProxy,

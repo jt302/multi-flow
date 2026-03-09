@@ -8,6 +8,7 @@ import {
 	createProfileDevicePreset as createProfileDevicePresetApi,
 	deleteProfile as deleteProfileApi,
 	openProfile as openProfileApi,
+	purgeProfile as purgeProfileApi,
 	restoreProfile as restoreProfileApi,
 	setProfileGroup as setProfileGroupApi,
 	batchSetProfileGroup as batchSetProfileGroupApi,
@@ -232,6 +233,20 @@ export function useProfileActions({
 		}
 	};
 
+	const purgeProfile = async (profileId: string) => {
+		setActionState(profileId, 'deleting');
+		try {
+			await purgeProfileApi(profileId);
+			await Promise.all([refreshProfilesAndBindings(), refreshGroups(), refreshWindows()]);
+			toast.success('环境已彻底删除');
+		} catch (error) {
+			toast.error('彻底删除环境失败');
+			throw error;
+		} finally {
+			setActionState(profileId, null);
+		}
+	};
+
 	const batchOpenProfiles = async (profileIds: string[]) => {
 		if (profileIds.length === 0) {
 			return {
@@ -364,6 +379,7 @@ export function useProfileActions({
 		closeProfile,
 		deleteProfile,
 		restoreProfile,
+		purgeProfile,
 		batchOpenProfiles,
 		batchCloseProfiles,
 		setProfileGroup,

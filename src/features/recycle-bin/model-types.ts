@@ -7,7 +7,10 @@ export type RecycleBinPageProps = {
 	proxies: ProxyItem[];
 	groups: GroupItem[];
 	onRestoreProfile: (profileId: string) => Promise<void>;
+	onPurgeProfile: (profileId: string) => Promise<void>;
 	onRestoreProxy: (proxyId: string) => Promise<void>;
+	onPurgeProxy: (proxyId: string) => Promise<void>;
 	onRestoreGroup: (groupId: string) => Promise<void>;
+	onPurgeGroup: (groupId: string) => Promise<void>;
 	onRefreshAll: () => Promise<void>;
 };

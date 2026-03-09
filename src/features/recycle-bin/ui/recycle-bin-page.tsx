@@ -38,18 +38,80 @@ function formatDeletedAt(ts: number | null | undefined): string {
 	return `${Math.floor(diff / 86400)} 天前`;
 }
 
+type PurgeTarget = {
+	kind: 'profile' | 'proxy' | 'group' | 'rpa';
+	id: string;
+	name: string;
+};
+
+type DeletedItem = {
+	id: string;
+	name: string;
+	deletedAt?: number | null;
+};
+
+function DeletedItemRow({
+	item,
+	pending,
+	onRestore,
+	onPurge,
+}: {
+	item: DeletedItem;
+	pending: boolean;
+	onRestore: () => void;
+	onPurge: () => void;
+}) {
+	return (
+		<div className="flex items-center justify-between rounded-xl border border-border/70 bg-background/70 px-3 py-2">
+			<div className="min-w-0">
+				<p className="truncate text-sm font-medium">{item.name}</p>
+				<p className="truncate text-xs text-muted-foreground">
+					{item.id} · 删除于 {formatDeletedAt(item.deletedAt)}
+				</p>
+			</div>
+			<div className="flex gap-2">
+				<Button
+					type="button"
+					size="sm"
+					variant="outline"
+					className="cursor-pointer"
+					disabled={pending}
+					onClick={onRestore}
+				>
+					<Icon icon={RotateCcw} size={12} />
+					恢复
+				</Button>
+				<Button
+					type="button"
+					size="sm"
+					variant="destructive"
+					className="cursor-pointer"
+					disabled={pending}
+					onClick={onPurge}
+				>
+					<Icon icon={Trash2} size={12} />
+					彻底删除
+				</Button>
+			</div>
+		</div>
+	);
+}
+
 export function RecycleBinPage({
 	profiles,
 	proxies,
 	groups,
 	onRestoreProfile,
+	onPurgeProfile,
 	onRestoreProxy,
+	onPurgeProxy,
 	onRestoreGroup,
+	onPurgeGroup,
 	onRefreshAll,
 }: RecycleBinPageProps) {
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [purgeFlowId, setPurgeFlowId] = useState<string | null>(null);
+	const [purgeTarget, setPurgeTarget] = useState<PurgeTarget | null>(null);
 	const rpaFlowsQuery = useRpaFlowsQuery(true);
 	const rpaActions = useRpaActions();
 
@@ -85,6 +147,24 @@ export function RecycleBinPage({
 			当前回收站为空
 		</div>
 	);
+
+	const runPurge = async () => {
+		if (!purgeTarget) return;
+		switch (purgeTarget.kind) {
+			case 'profile':
+				await onPurgeProfile(purgeTarget.id);
+				return;
+			case 'proxy':
+				await onPurgeProxy(purgeTarget.id);
+				return;
+			case 'group':
+				await onPurgeGroup(purgeTarget.id);
+				return;
+			case 'rpa':
+				await rpaActions.purgeFlow(purgeTarget.id);
+				return;
+		}
+	};
 
 	return (
 		<div className="space-y-3">
@@ -125,27 +205,15 @@ export function RecycleBinPage({
 					{deletedProfiles.length === 0
 						? renderEmpty
 						: deletedProfiles.map((item) => (
-								<div key={item.id} className="flex items-center justify-between rounded-xl border border-border/70 bg-background/70 px-3 py-2">
-									<div className="min-w-0">
-										<p className="truncate text-sm font-medium">{item.name}</p>
-										<p className="truncate text-xs text-muted-foreground">
-											{item.id} · 删除于 {formatDeletedAt(item.deletedAt)}
-										</p>
-									</div>
-									<Button
-										type="button"
-										size="sm"
-										variant="outline"
-										className="cursor-pointer"
-										disabled={pending}
-										onClick={() => {
-											void runAction(() => onRestoreProfile(item.id));
-										}}
-									>
-										<Icon icon={RotateCcw} size={12} />
-										恢复
-									</Button>
-								</div>
+								<DeletedItemRow
+									key={item.id}
+									item={item}
+									pending={pending}
+									onRestore={() => {
+										void runAction(() => onRestoreProfile(item.id));
+									}}
+									onPurge={() => setPurgeTarget({ kind: 'profile', id: item.id, name: item.name })}
+								/>
 						  ))}
 				</CardContent>
 			</Card>
@@ -158,27 +226,15 @@ export function RecycleBinPage({
 					{deletedProxies.length === 0
 						? renderEmpty
 						: deletedProxies.map((item) => (
-								<div key={item.id} className="flex items-center justify-between rounded-xl border border-border/70 bg-background/70 px-3 py-2">
-									<div className="min-w-0">
-										<p className="truncate text-sm font-medium">{item.name}</p>
-										<p className="truncate text-xs text-muted-foreground">
-											{item.id} · 删除于 {formatDeletedAt(item.deletedAt)}
-										</p>
-									</div>
-									<Button
-										type="button"
-										size="sm"
-										variant="outline"
-										className="cursor-pointer"
-										disabled={pending}
-										onClick={() => {
-											void runAction(() => onRestoreProxy(item.id));
-										}}
-									>
-										<Icon icon={RotateCcw} size={12} />
-										恢复
-									</Button>
-								</div>
+								<DeletedItemRow
+									key={item.id}
+									item={item}
+									pending={pending}
+									onRestore={() => {
+										void runAction(() => onRestoreProxy(item.id));
+									}}
+									onPurge={() => setPurgeTarget({ kind: 'proxy', id: item.id, name: item.name })}
+								/>
 						  ))}
 				</CardContent>
 			</Card>
@@ -191,27 +247,15 @@ export function RecycleBinPage({
 					{deletedGroups.length === 0
 						? renderEmpty
 						: deletedGroups.map((item) => (
-								<div key={item.id} className="flex items-center justify-between rounded-xl border border-border/70 bg-background/70 px-3 py-2">
-									<div className="min-w-0">
-										<p className="truncate text-sm font-medium">{item.name}</p>
-										<p className="truncate text-xs text-muted-foreground">
-											{item.id} · 删除于 {formatDeletedAt(item.deletedAt)}
-										</p>
-									</div>
-									<Button
-										type="button"
-										size="sm"
-										variant="outline"
-										className="cursor-pointer"
-										disabled={pending}
-										onClick={() => {
-											void runAction(() => onRestoreGroup(item.id));
-										}}
-									>
-										<Icon icon={RotateCcw} size={12} />
-										恢复
-									</Button>
-								</div>
+								<DeletedItemRow
+									key={item.id}
+									item={item}
+									pending={pending}
+									onRestore={() => {
+										void runAction(() => onRestoreGroup(item.id));
+									}}
+									onPurge={() => setPurgeTarget({ kind: 'group', id: item.id, name: item.name })}
+								/>
 						  ))}
 					{error ? <p className="text-xs text-destructive">{error}</p> : null}
 				</CardContent>
@@ -225,43 +269,15 @@ export function RecycleBinPage({
 					{deletedRpaFlows.length === 0
 						? renderEmpty
 						: deletedRpaFlows.map((item) => (
-								<div
+								<DeletedItemRow
 									key={item.id}
-									className="flex items-center justify-between rounded-xl border border-border/70 bg-background/70 px-3 py-2"
-								>
-									<div className="min-w-0">
-										<p className="truncate text-sm font-medium">{item.name}</p>
-										<p className="truncate text-xs text-muted-foreground">
-											{item.id} · 删除于 {formatDeletedAt(item.deletedAt)}
-										</p>
-									</div>
-									<div className="flex gap-2">
-										<Button
-											type="button"
-											size="sm"
-											variant="outline"
-											className="cursor-pointer"
-											disabled={pending}
-											onClick={() => {
-												void runAction(() => rpaActions.restoreFlow(item.id));
-											}}
-										>
-											<Icon icon={RotateCcw} size={12} />
-											恢复
-										</Button>
-										<Button
-											type="button"
-											size="sm"
-											variant="destructive"
-											className="cursor-pointer"
-											disabled={pending}
-											onClick={() => setPurgeFlowId(item.id)}
-										>
-											<Icon icon={Trash2} size={12} />
-											彻底删除
-										</Button>
-									</div>
-								</div>
+									item={item}
+									pending={pending}
+									onRestore={() => {
+										void runAction(() => rpaActions.restoreFlow(item.id));
+									}}
+									onPurge={() => setPurgeTarget({ kind: 'rpa', id: item.id, name: item.name })}
+								/>
 						  ))}
 					{rpaFlowsQuery.error ? (
 						<p className="text-xs text-destructive">加载 RPA 回收站失败</p>
@@ -269,12 +285,12 @@ export function RecycleBinPage({
 				</CardContent>
 			</Card>
 
-			<AlertDialog open={Boolean(purgeFlowId)} onOpenChange={(open) => !open && setPurgeFlowId(null)}>
+			<AlertDialog open={Boolean(purgeTarget)} onOpenChange={(open) => !open && setPurgeTarget(null)}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>确认彻底删除流程</AlertDialogTitle>
+						<AlertDialogTitle>确认彻底删除</AlertDialogTitle>
 						<AlertDialogDescription>
-							彻底删除后流程定义和默认目标绑定会被移除，历史运行记录会保留，且不能恢复。
+							{purgeTarget?.name || '该项目'} 将被彻底删除且不能恢复，请确认这不是误操作。
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
@@ -288,14 +304,14 @@ export function RecycleBinPage({
 								type="button"
 								variant="destructive"
 								className="cursor-pointer"
-								disabled={pending || !purgeFlowId}
+								disabled={pending || !purgeTarget}
 								onClick={() => {
-									if (!purgeFlowId) {
+									if (!purgeTarget) {
 										return;
 									}
 									void runAction(async () => {
-										await rpaActions.purgeFlow(purgeFlowId);
-										setPurgeFlowId(null);
+										await runPurge();
+										setPurgeTarget(null);
 									});
 								}}
 							>

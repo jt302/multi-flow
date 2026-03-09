@@ -1,3 +1,4 @@
+import { LoaderCircle } from 'lucide-react';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -48,6 +49,7 @@ export function ProxyDeleteAlertDialog({
 							disabled={pending}
 							onClick={onConfirm}
 						>
+							{pending ? <LoaderCircle className="animate-spin" /> : null}
 							确认删除
 						</Button>
 					</AlertDialogAction>

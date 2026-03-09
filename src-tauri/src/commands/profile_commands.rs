@@ -136,6 +136,18 @@ pub fn restore_profile(state: State<'_, AppState>, profile_id: String) -> Result
 }
 
 #[tauri::command]
+pub fn purge_profile(state: State<'_, AppState>, profile_id: String) -> Result<(), String> {
+    let profile_service = state
+        .profile_service
+        .lock()
+        .map_err(|_| "profile service lock poisoned".to_string())?;
+    profile_service
+        .purge_profile(&profile_id)
+        .map_err(error_to_string)?;
+    Ok(())
+}
+
+#[tauri::command]
 pub fn update_profile(
     state: State<'_, AppState>,
     profile_id: String,

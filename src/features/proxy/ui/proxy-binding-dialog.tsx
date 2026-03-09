@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link2, Unlink2 } from 'lucide-react';
+import { Link2, LoaderCircle, Unlink2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod/v3';
@@ -144,7 +144,7 @@ export function ProxyBindingDialog({
 						</div>
 						<div className="flex justify-end">
 							<Button type="submit" variant="outline" className="cursor-pointer" disabled={pending || !selectedProfileId || !selectedProxyId}>
-								<Icon icon={Link2} size={13} />绑定
+								<Icon icon={pending ? LoaderCircle : Link2} size={13} className={pending ? 'animate-spin' : ''} />绑定
 							</Button>
 						</div>
 						<div className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-border/70 p-2">
@@ -177,6 +177,7 @@ export function ProxyBindingDialog({
 						<AlertDialogCancel asChild><Button type="button" variant="ghost" className="cursor-pointer" disabled={pending}>取消</Button></AlertDialogCancel>
 						<AlertDialogAction asChild>
 							<Button type="button" variant="destructive" className="cursor-pointer" disabled={pending} onClick={() => { if (unbindProfileId) void onUnbindProfileProxy(unbindProfileId).finally(() => setUnbindProfileId(null)); }}>
+								{pending ? <LoaderCircle className="animate-spin" /> : null}
 								确认解绑
 							</Button>
 						</AlertDialogAction>

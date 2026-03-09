@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import {
 	createGroup as createGroupApi,
 	deleteGroup as deleteGroupApi,
+	purgeGroup as purgeGroupApi,
 	restoreGroup as restoreGroupApi,
 	updateGroup as updateGroupApi,
 } from '@/entities/group/api/groups-api';
@@ -65,10 +66,22 @@ export function useGroupActions({ refreshGroups, refreshProfiles }: GroupActions
 		}
 	};
 
+	const purgeGroup = async (id: string) => {
+		try {
+			await purgeGroupApi(id);
+			await refreshGroups();
+			toast.success('分组已彻底删除');
+		} catch (error) {
+			toast.error('彻底删除分组失败');
+			throw error;
+		}
+	};
+
 	return {
 		createGroup,
 		updateGroup,
 		deleteGroup,
 		restoreGroup,
+		purgeGroup,
 	};
 }

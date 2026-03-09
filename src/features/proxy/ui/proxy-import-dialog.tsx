@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { LoaderCircle } from 'lucide-react';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod/v3';
@@ -97,7 +98,10 @@ export function ProxyImportDialog({ open, pending, onOpenChange, onConfirm }: Pr
 					</div>
 					<DialogFooter>
 						<Button type="button" variant="ghost" className="cursor-pointer" disabled={pending} onClick={() => onOpenChange(false)}>取消</Button>
-						<Button type="submit" className="cursor-pointer" disabled={pending}>开始导入</Button>
+						<Button type="submit" className="cursor-pointer" disabled={pending}>
+							{pending ? <LoaderCircle className="animate-spin" /> : null}
+							开始导入
+						</Button>
 					</DialogFooter>
 				</form>
 			</DialogContent>
