@@ -42,6 +42,7 @@ export function SettingsPage({
 	onRefreshResources,
 	onInstallChromium,
 	onActivateChromium,
+	onDownloadResource,
 	resourceProgress,
 	devicePresets,
 	onCreateDevicePreset,
@@ -54,6 +55,10 @@ export function SettingsPage({
 
 	const chromiumItems = useMemo(
 		() => resources.filter((item) => item.kind === 'chromium'),
+		[resources],
+	);
+	const geoItems = useMemo(
+		() => resources.filter((item) => item.kind === 'geoip_mmdb'),
 		[resources],
 	);
 
@@ -85,6 +90,7 @@ export function SettingsPage({
 
 				<ResourceManagementCard
 					chromiumItems={chromiumItems}
+					geoItems={geoItems}
 					pendingKey={pendingKey}
 					resourceProgress={resourceProgress}
 					onRefreshResources={() => {
@@ -95,6 +101,9 @@ export function SettingsPage({
 					}}
 					onActivateChromium={(version) => {
 						void runAction(`activate-${version}`, () => onActivateChromium(version));
+					}}
+					onDownloadResource={(resourceId, label) => {
+						void runAction(`download-${resourceId}`, () => onDownloadResource(resourceId, label));
 					}}
 					formatBytes={formatBytes}
 				/>

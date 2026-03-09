@@ -113,6 +113,24 @@ export async function installChromiumResourceWithProgress(
 	}
 }
 
+export async function downloadResourceWithProgress(
+	resourceId: string,
+	onProgress: (progress: ResourceDownloadProgressEvent) => void,
+): Promise<void> {
+	const taskId = createResourceTaskId(`download-${resourceId}`);
+	const unlisten = await listenResourceProgress(taskId, resourceId, onProgress);
+
+	try {
+		await tauriInvoke('download_resource', {
+			resourceId,
+			force: false,
+			taskId,
+		});
+	} finally {
+		unlisten();
+	}
+}
+
 export async function activateChromiumVersion(version: string): Promise<void> {
 	await tauriInvoke('activate_chromium_version', {
 		version,

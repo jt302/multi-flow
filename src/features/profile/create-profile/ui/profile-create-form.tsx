@@ -43,6 +43,8 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 		mergedPreviewSnapshot,
 		resourceStatusLabel,
 		regenerateFontList,
+		markProxyFieldManual,
+		restoreProxySuggestedValues,
 		onFormSubmit,
 		values,
 	} = useProfileCreateForm(props);
@@ -99,6 +101,17 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 									webRtcMode={values.webRtcMode}
 									randomFingerprint={values.randomFingerprint}
 									availableFontFamiliesCount={fontFamiliesQuery.data?.length ?? 0}
+									languageSource={values.proxySuggestionSource.language}
+									timezoneSource={values.proxySuggestionSource.timezoneId}
+									onMarkManual={markProxyFieldManual}
+									onRestoreProxySuggestions={restoreProxySuggestedValues}
+									hasProxySuggestions={Boolean(
+										values.selectedProxy?.suggestedLanguage ||
+										values.selectedProxy?.suggestedTimezone ||
+										(values.selectedProxy &&
+											values.selectedProxy.latitude !== null &&
+											values.selectedProxy.longitude !== null),
+									)}
 									onRegenerateFonts={() => {
 										void regenerateFontList().catch((error) => {
 											const message = error instanceof Error ? error.message : '随机生成字体列表失败';
@@ -118,6 +131,8 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 									geoEnabled={values.geoEnabled}
 									headless={values.headless}
 									disableImages={values.disableImages}
+									geolocationSource={values.proxySuggestionSource.geolocation}
+									onMarkGeolocationManual={() => markProxyFieldManual('geolocation')}
 								/>
 
 								<FormErrorList errors={errors} submitError={submitError} />

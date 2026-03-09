@@ -182,6 +182,7 @@ export function ConsolePageContent({
 					onRefreshResources={actions.refreshResources}
 					onInstallChromium={actions.installChromium}
 					onActivateChromium={actions.activateChromium}
+					onDownloadResource={actions.downloadResource}
 					resourceProgress={data.resourceProgress}
 					devicePresets={data.devicePresets}
 					onCreateDevicePreset={actions.createDevicePreset}

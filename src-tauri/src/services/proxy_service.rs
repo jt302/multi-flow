@@ -1,11 +1,17 @@
 use std::future::Future;
-use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
+use std::collections::HashMap;
+use std::env;
+use std::net::IpAddr;
+use std::path::Path;
 use std::time::Duration;
 
+use maxminddb::Reader;
+use reqwest::{Client, Proxy as ReqwestProxy};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, DatabaseConnection, EntityTrait, PaginatorTrait,
     QueryFilter, QueryOrder, Set,
 };
+use serde::Deserialize;
 
 use crate::db::entities::{profile, profile_proxy_binding, proxy};
 use crate::error::{AppError, AppResult};
@@ -21,6 +27,56 @@ const SUPPORTED_PROTOCOLS: &[&str] = &["http", "https", "socks5", "ssh"];
 const DEFAULT_PAGE: u64 = 1;
 const DEFAULT_PAGE_SIZE: u64 = 50;
 const MAX_PAGE_SIZE: u64 = 200;
+const CHECK_STATUS_UNKNOWN: &str = "unknown";
+const CHECK_STATUS_OK: &str = "ok";
+const CHECK_STATUS_ERROR: &str = "error";
+const CHECK_STATUS_UNSUPPORTED: &str = "unsupported";
+const DEFAULT_IPINFO_JSON_URL: &str = "https://ipinfo.io/json";
+const DEFAULT_IPINFO_LITE_URL: &str = "https://api.ipinfo.io/lite/me";
+const IPINFO_TOKEN_ENV: &str = "MULTI_FLOW_IPINFO_TOKEN";
+const IPINFO_URL_ENV: &str = "MULTI_FLOW_IPINFO_URL";
+
+#[derive(Debug, Clone)]
+struct ProxyCheckSnapshot {
+    check_status: String,
+    check_message: Option<String>,
+    exit_ip: Option<String>,
+    country: Option<String>,
+    region: Option<String>,
+    city: Option<String>,
+    latitude: Option<f64>,
+    longitude: Option<f64>,
+    geo_accuracy_meters: Option<f64>,
+    suggested_language: Option<String>,
+    suggested_timezone: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct IpInfoResponse {
+    ip: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GeoIpCityRecord {
+    country: Option<GeoIpNameRecord>,
+    city: Option<GeoIpNameRecord>,
+    subdivisions: Option<Vec<GeoIpNameRecord>>,
+    location: Option<GeoIpLocation>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GeoIpNameRecord {
+    iso_code: Option<String>,
+    names: Option<HashMap<String, String>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GeoIpLocation {
+    latitude: Option<f64>,
+    longitude: Option<f64>,
+    accuracy_radius: Option<u16>,
+    time_zone: Option<String>,
+}
 
 pub struct ProxyService {
     db: DatabaseConnection,
@@ -45,13 +101,21 @@ impl ProxyService {
             port: Set(port),
             username: Set(trim_option(req.username)),
             password: Set(trim_option(req.password)),
-            country: Set(trim_option(req.country)),
-            region: Set(trim_option(req.region)),
-            city: Set(trim_option(req.city)),
+            country: Set(None),
+            region: Set(None),
+            city: Set(None),
             provider: Set(trim_option(req.provider)),
             note: Set(trim_option(req.note)),
-            last_status: Set(None),
+            check_status: Set(Some(CHECK_STATUS_UNKNOWN.to_string())),
+            check_message: Set(None),
             last_checked_at: Set(None),
+            exit_ip: Set(None),
+            latitude: Set(None),
+            longitude: Set(None),
+            geo_accuracy_meters: Set(None),
+            suggested_language: Set(None),
+            suggested_timezone: Set(None),
+            expires_at: Set(req.expires_at),
             lifecycle: Set(LIFECYCLE_ACTIVE.to_string()),
             created_at: Set(now),
             updated_at: Set(now),
@@ -85,20 +149,14 @@ impl ProxyService {
         if let Some(password) = req.password {
             active_model.password = Set(trim_string_value(password));
         }
-        if let Some(country) = req.country {
-            active_model.country = Set(trim_string_value(country));
-        }
-        if let Some(region) = req.region {
-            active_model.region = Set(trim_string_value(region));
-        }
-        if let Some(city) = req.city {
-            active_model.city = Set(trim_string_value(city));
-        }
         if let Some(provider) = req.provider {
             active_model.provider = Set(trim_string_value(provider));
         }
         if let Some(note) = req.note {
             active_model.note = Set(trim_string_value(note));
+        }
+        if let Some(expires_at) = req.expires_at {
+            active_model.expires_at = Set((expires_at > 0).then_some(expires_at));
         }
         active_model.updated_at = Set(now_ts());
         let updated = self.db_query(active_model.update(&self.db))?;
@@ -131,8 +189,8 @@ impl ProxyService {
             query = query.filter(proxy::Column::Country.eq(country));
         }
 
-        if let Some(last_status) = trim_option(params.last_status) {
-            query = query.filter(proxy::Column::LastStatus.eq(last_status));
+        if let Some(check_status) = trim_option(params.check_status) {
+            query = query.filter(proxy::Column::CheckStatus.eq(check_status));
         }
 
         let paginator = query
@@ -282,11 +340,9 @@ impl ProxyService {
                         port: parsed.port,
                         username: parsed.username,
                         password: parsed.password,
-                        country: None,
-                        region: None,
-                        city: None,
                         provider: None,
                         note: None,
+                        expires_at: None,
                     }) {
                         Ok(proxy) => {
                             success_count += 1;
@@ -319,34 +375,59 @@ impl ProxyService {
         })
     }
 
-    pub fn check_proxy(&self, proxy_id: &str) -> AppResult<Proxy> {
+    pub fn check_proxy(&self, proxy_id: &str, geoip_database_path: &Path) -> AppResult<Proxy> {
+        self.check_proxy_with(proxy_id, |stored| {
+            self.perform_proxy_check(stored, geoip_database_path)
+        })
+    }
+
+    fn check_proxy_with<F>(&self, proxy_id: &str, checker: F) -> AppResult<Proxy>
+    where
+        F: FnOnce(&proxy::Model) -> AppResult<ProxyCheckSnapshot>,
+    {
         let stored = self.find_proxy_model(proxy_id)?;
         if stored.lifecycle == LIFECYCLE_DELETED {
             return Err(AppError::Conflict(format!("proxy already deleted: {proxy_id}")));
         }
 
-        let now = now_ts();
-        let mut active_model: proxy::ActiveModel = stored.clone().into();
-        let timeout = Duration::from_secs(5);
-        let target = format!("{}:{}", stored.host, stored.port);
-        let status_result = resolve_socket_addr(&target)
-            .and_then(|addr| TcpStream::connect_timeout(&addr, timeout).map_err(|err| err.to_string()));
-
-        match status_result {
-            Ok(_) => {
-                active_model.last_status = Set(Some("ok".to_string()));
-            }
-            Err(err) => {
-                active_model.last_status = Set(Some(format!("error:{err}")));
-            }
-        }
-        active_model.last_checked_at = Set(Some(now));
-        active_model.updated_at = Set(now);
-        let updated = self.db_query(active_model.update(&self.db))?;
+        let snapshot = match checker(&stored) {
+            Ok(snapshot) => snapshot,
+            Err(err) => ProxyCheckSnapshot {
+                check_status: CHECK_STATUS_ERROR.to_string(),
+                check_message: Some(err.to_string()),
+                exit_ip: None,
+                country: None,
+                region: None,
+                city: None,
+                latitude: None,
+                longitude: None,
+                geo_accuracy_meters: None,
+                suggested_language: None,
+                suggested_timezone: None,
+            },
+        };
+        let updated = self.persist_proxy_check_snapshot(stored, snapshot)?;
         Ok(to_api_proxy(updated))
     }
 
-    pub fn batch_check_proxies(&self, req: BatchCheckProxiesRequest) -> AppResult<BatchProxyActionResponse> {
+    pub fn batch_check_proxies(
+        &self,
+        req: BatchCheckProxiesRequest,
+        geoip_database_path: &Path,
+    ) -> AppResult<BatchProxyActionResponse> {
+        self.batch_check_proxies_with(req, |proxy_id| {
+            self.check_proxy(proxy_id, geoip_database_path)
+        })
+    }
+
+    fn batch_check_proxies_with<F>(
+        &self,
+        req: BatchCheckProxiesRequest,
+        checker: F,
+    ) -> AppResult<BatchProxyActionResponse>
+    where
+        F: Fn(&str) -> AppResult<Proxy>,
+    {
         if req.proxy_ids.is_empty() {
             return Err(AppError::Validation("proxy_ids must not be empty".to_string()));
         }
@@ -355,16 +436,19 @@ impl ProxyService {
         let mut success_count = 0usize;
         let mut items = Vec::with_capacity(total);
         for proxy_id in req.proxy_ids {
-            match self.check_proxy(&proxy_id) {
+            match checker(&proxy_id) {
                 Ok(proxy) => {
-                    let ok = proxy.last_status.as_deref() == Some("ok");
+                    let ok = proxy.check_status.as_deref() == Some(CHECK_STATUS_OK);
                     if ok {
                         success_count += 1;
                     }
                     items.push(BatchProxyActionItem {
                         proxy_id,
                         ok,
-                        message: proxy.last_status.unwrap_or_else(|| "unknown".to_string()),
+                        message: proxy
+                            .check_message
+                            .or(proxy.check_status)
+                            .unwrap_or_else(|| CHECK_STATUS_UNKNOWN.to_string()),
                     });
                 }
                 Err(err) => items.push(BatchProxyActionItem {
@@ -490,6 +574,93 @@ impl ProxyService {
         Ok(Some(to_api_proxy(proxy)))
     }
 
+    fn perform_proxy_check(
+        &self,
+        stored: &proxy::Model,
+        geoip_database_path: &Path,
+    ) -> AppResult<ProxyCheckSnapshot> {
+        if stored.protocol == "ssh" {
+            return Ok(ProxyCheckSnapshot {
+                check_status: CHECK_STATUS_UNSUPPORTED.to_string(),
+                check_message: Some("ssh proxy check is not supported yet".to_string()),
+                exit_ip: None,
+                country: None,
+                region: None,
+                city: None,
+                latitude: None,
+                longitude: None,
+                geo_accuracy_meters: None,
+                suggested_language: None,
+                suggested_timezone: None,
+            });
+        }
+
+        let exit_ip = lookup_exit_ip_through_proxy(stored)?;
+        let geo = lookup_geoip_city(geoip_database_path, &exit_ip)?;
+        let country = geo
+            .country
+            .as_ref()
+            .and_then(|value| value.iso_code.clone())
+            .and_then(trim_to_option_ref);
+        let region = geo
+            .subdivisions
+            .as_ref()
+            .and_then(|items| items.first())
+            .and_then(extract_geo_name);
+        let city = geo.city.as_ref().and_then(extract_geo_name);
+        let latitude = geo.location.as_ref().and_then(|value| value.latitude);
+        let longitude = geo.location.as_ref().and_then(|value| value.longitude);
+        let geo_accuracy_meters = geo
+            .location
+            .as_ref()
+            .and_then(|value| value.accuracy_radius.map(f64::from));
+        let suggested_timezone = geo
+            .location
+            .as_ref()
+            .and_then(|value| value.time_zone.clone())
+            .or_else(|| country.as_deref().and_then(default_timezone_from_country));
+        let suggested_language = country
+            .as_deref()
+            .and_then(default_language_from_country);
+
+        Ok(ProxyCheckSnapshot {
+            check_status: CHECK_STATUS_OK.to_string(),
+            check_message: None,
+            exit_ip: Some(exit_ip),
+            country,
+            region,
+            city,
+            latitude,
+            longitude,
+            geo_accuracy_meters,
+            suggested_language,
+            suggested_timezone,
+        })
+    }
+
+    fn persist_proxy_check_snapshot(
+        &self,
+        stored: proxy::Model,
+        snapshot: ProxyCheckSnapshot,
+    ) -> AppResult<proxy::Model> {
+        let now = now_ts();
+        let mut active_model: proxy::ActiveModel = stored.into();
+        active_model.check_status = Set(Some(snapshot.check_status));
+        active_model.check_message = Set(snapshot.check_message);
+        active_model.last_checked_at = Set(Some(now));
+        active_model.exit_ip = Set(snapshot.exit_ip);
+        active_model.country = Set(snapshot.country);
+        active_model.region = Set(snapshot.region);
+        active_model.city = Set(snapshot.city);
+        active_model.latitude = Set(snapshot.latitude);
+        active_model.longitude = Set(snapshot.longitude);
+        active_model.geo_accuracy_meters = Set(snapshot.geo_accuracy_meters);
+        active_model.suggested_language = Set(snapshot.suggested_language);
+        active_model.suggested_timezone = Set(snapshot.suggested_timezone);
+        active_model.updated_at = Set(now);
+        self.db_query(active_model.update(&self.db))
+    }
+
     fn find_proxy_model(&self, proxy_id: &str) -> AppResult<proxy::Model> {
         let id = parse_id("proxy", "px_", proxy_id)?;
         self.find_proxy_model_by_pk(id)
@@ -522,8 +693,16 @@ fn to_api_proxy(model: proxy::Model) -> Proxy {
         city: model.city,
         provider: model.provider,
         note: model.note,
-        last_status: model.last_status,
+        check_status: model.check_status,
+        check_message: model.check_message,
         last_checked_at: model.last_checked_at,
+        exit_ip: model.exit_ip,
+        latitude: model.latitude,
+        longitude: model.longitude,
+        geo_accuracy_meters: model.geo_accuracy_meters,
+        suggested_language: model.suggested_language,
+        suggested_timezone: model.suggested_timezone,
+        expires_at: model.expires_at,
         lifecycle: if model.lifecycle == LIFECYCLE_DELETED {
             ProxyLifecycle::Deleted
         } else {
@@ -649,12 +828,118 @@ fn parse_import_line(line: &str) -> AppResult<ParsedImportLine> {
     }
 }
 
-fn resolve_socket_addr(target: &str) -> Result<SocketAddr, String> {
-    target
-        .to_socket_addrs()
-        .map_err(|err| err.to_string())?
-        .next()
-        .ok_or_else(|| format!("unable to resolve address: {target}"))
+fn lookup_exit_ip_through_proxy(stored: &proxy::Model) -> AppResult<String> {
+    let proxy = build_reqwest_proxy(stored)?;
+    let client = Client::builder()
+        .timeout(Duration::from_secs(10))
+        .no_proxy()
+        .proxy(proxy)
+        .build()?;
+
+    tauri::async_runtime::block_on(async move {
+        let response = client
+            .get(resolve_ipinfo_url()?)
+            .send()
+            .await?
+            .error_for_status()?
+            .json::<IpInfoResponse>()
+            .await?;
+        response
+            .ip
+            .and_then(trim_to_option_ref)
+            .ok_or_else(|| AppError::Validation("ipinfo response missing ip".to_string()))
+    })
+}
+
+fn build_reqwest_proxy(stored: &proxy::Model) -> AppResult<ReqwestProxy> {
+    let proxy_url = format!("{}://{}:{}", stored.protocol, stored.host, stored.port);
+    let mut proxy = ReqwestProxy::all(&proxy_url)?;
+    if let Some(username) = stored.username.as_deref().and_then(trim_to_option_ref) {
+        proxy = proxy.basic_auth(&username, stored.password.as_deref().unwrap_or(""));
+    }
+    Ok(proxy)
+}
+
+fn resolve_ipinfo_url() -> AppResult<String> {
+    if let Ok(custom) = env::var(IPINFO_URL_ENV) {
+        if let Some(value) = trim_to_option_ref(custom) {
+            return Ok(value);
+        }
+    }
+
+    if let Ok(token) = env::var(IPINFO_TOKEN_ENV) {
+        if let Some(value) = trim_to_option_ref(token) {
+            return Ok(format!("{DEFAULT_IPINFO_LITE_URL}?token={value}"));
+        }
+    }
+
+    if cfg!(debug_assertions) {
+        return Ok(DEFAULT_IPINFO_JSON_URL.to_string());
+    }
+
+    Err(AppError::Validation(format!(
+        "{IPINFO_TOKEN_ENV} is required outside debug builds"
+    )))
+}
+
+fn lookup_geoip_city(geoip_database_path: &Path, exit_ip: &str) -> AppResult<GeoIpCityRecord> {
+    let reader = Reader::open_readfile(geoip_database_path)
+        .map_err(|err| AppError::Validation(format!("failed to open geoip database: {err}")))?;
+    let address = exit_ip
+        .parse::<IpAddr>()
+        .map_err(|err| AppError::Validation(format!("invalid exit ip {exit_ip}: {err}")))?;
+    let record = reader
+        .lookup::<GeoIpCityRecord>(address)
+        .map_err(|err| AppError::Validation(format!("geoip lookup failed: {err}")))?;
+    record.ok_or_else(|| AppError::Validation(format!("geoip record missing for ip: {exit_ip}")))
+}
+
+fn extract_geo_name(record: &GeoIpNameRecord) -> Option<String> {
+    record
+        .names
+        .as_ref()
+        .and_then(|value| value.get("en").cloned())
+        .or_else(|| record.names.as_ref().and_then(|value| value.values().next().cloned()))
+        .and_then(trim_to_option_ref)
+}
+
+fn default_language_from_country(country: &str) -> Option<String> {
+    let value = match country.trim().to_uppercase().as_str() {
+        "CN" => "zh-CN",
+        "TW" => "zh-TW",
+        "HK" => "zh-HK",
+        "JP" => "ja-JP",
+        "KR" => "ko-KR",
+        "DE" => "de-DE",
+        "FR" => "fr-FR",
+        "GB" => "en-GB",
+        "US" => "en-US",
+        _ => "en-US",
+    };
+    Some(value.to_string())
+}
+
+fn default_timezone_from_country(country: &str) -> Option<String> {
+    let value = match country.trim().to_uppercase().as_str() {
+        "CN" => "Asia/Shanghai",
+        "JP" => "Asia/Tokyo",
+        "KR" => "Asia/Seoul",
+        "DE" => "Europe/Berlin",
+        "FR" => "Europe/Paris",
+        "GB" => "Europe/London",
+        "US" => "America/New_York",
+        _ => return None,
+    };
+    Some(value.to_string())
+}
+
+fn trim_to_option_ref(input: impl AsRef<str>) -> Option<String> {
+    let value = input.as_ref().trim();
+    if value.is_empty() {
+        None
+    } else {
+        Some(value.to_string())
+    }
 }
 
 #[cfg(test)]
@@ -666,6 +951,22 @@ mod tests {
         ImportProxiesRequest, UpdateProxyRequest,
     };
     use crate::services::profile_service::ProfileService;
+
+    fn build_proxy_check_snapshot() -> ProxyCheckSnapshot {
+        ProxyCheckSnapshot {
+            check_status: "ok".to_string(),
+            check_message: None,
+            exit_ip: Some("8.8.8.8".to_string()),
+            country: Some("US".to_string()),
+            region: Some("California".to_string()),
+            city: Some("Mountain View".to_string()),
+            latitude: Some(37.386),
+            longitude: Some(-122.0838),
+            geo_accuracy_meters: Some(20.0),
+            suggested_language: Some("en-US".to_string()),
+            suggested_timezone: Some("America/Los_Angeles".to_string()),
+        }
+    }
 
     #[test]
     fn proxy_binding_stays_consistent_after_proxy_deleted() {
@@ -691,11 +992,9 @@ mod tests {
                 port: 8080,
                 username: None,
                 password: None,
-                country: Some("US".to_string()),
-                region: Some("NY".to_string()),
-                city: Some("New York".to_string()),
                 provider: None,
                 note: None,
+                expires_at: None,
             })
             .expect("create proxy");
 
@@ -741,11 +1040,9 @@ mod tests {
                 port: 8001,
                 username: None,
                 password: None,
-                country: Some("US".to_string()),
-                region: None,
-                city: None,
                 provider: Some("isp-a".to_string()),
                 note: Some("residential".to_string()),
+                expires_at: None,
             })
             .expect("create proxy a");
 
@@ -757,11 +1054,9 @@ mod tests {
                 port: 8002,
                 username: None,
                 password: None,
-                country: Some("DE".to_string()),
-                region: None,
-                city: None,
                 provider: Some("isp-b".to_string()),
                 note: Some("datacenter".to_string()),
+                expires_at: None,
             })
             .expect("create proxy b");
 
@@ -773,7 +1068,7 @@ mod tests {
                 keyword: None,
                 protocol: None,
                 country: None,
-                last_status: None,
+                check_status: None,
             })
             .expect("list proxy page");
         assert_eq!(page1.total, 2);
@@ -788,7 +1083,7 @@ mod tests {
                 keyword: None,
                 protocol: Some("socks5".to_string()),
                 country: None,
-                last_status: None,
+                check_status: None,
             })
             .expect("list by protocol");
         assert_eq!(protocol_filtered.total, 1);
@@ -802,7 +1097,7 @@ mod tests {
                 keyword: Some("residential".to_string()),
                 protocol: None,
                 country: None,
-                last_status: None,
+                check_status: None,
             })
             .expect("list by keyword");
         assert_eq!(keyword_filtered.total, 1);
@@ -822,11 +1117,9 @@ mod tests {
                 port: 8001,
                 username: Some("user-a".to_string()),
                 password: None,
-                country: Some("US".to_string()),
-                region: None,
-                city: None,
                 provider: Some("isp-a".to_string()),
                 note: Some("residential".to_string()),
+                expires_at: None,
             })
             .expect("create proxy a");
 
@@ -838,11 +1131,9 @@ mod tests {
                 port: 8002,
                 username: Some("user-b".to_string()),
                 password: None,
-                country: Some("DE".to_string()),
-                region: None,
-                city: None,
                 provider: Some("isp-b".to_string()),
                 note: Some("datacenter".to_string()),
+                expires_at: None,
             })
             .expect("create proxy b");
 
@@ -885,11 +1176,9 @@ mod tests {
                 port: 8001,
                 username: None,
                 password: None,
-                country: None,
-                region: None,
-                city: None,
                 provider: None,
                 note: None,
+                expires_at: None,
             })
             .expect("create proxy");
 
@@ -932,7 +1221,7 @@ mod tests {
                 keyword: None,
                 protocol: Some("http".to_string()),
                 country: None,
-                last_status: None,
+                check_status: None,
             })
             .expect("list imported proxies");
         assert!(list.items.iter().any(|item| item.name == "127.0.0.1:8080"));
@@ -940,8 +1229,6 @@ mod tests {
 
     #[test]
     fn check_proxy_updates_last_status() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
-        let port = listener.local_addr().expect("local addr").port() as i32;
         let db = db::init_test_database().expect("init test db");
         let service = ProxyService::from_db(db);
 
@@ -950,27 +1237,99 @@ mod tests {
                 name: "proxy-check".to_string(),
                 protocol: "http".to_string(),
                 host: "127.0.0.1".to_string(),
-                port,
+                port: 8080,
                 username: None,
                 password: None,
-                country: None,
-                region: None,
-                city: None,
                 provider: None,
                 note: None,
+                expires_at: None,
             })
             .expect("create proxy");
 
-        let checked = service.check_proxy(&proxy.id).expect("check proxy");
-        assert_eq!(checked.last_status.as_deref(), Some("ok"));
+        let checked = service
+            .check_proxy_with(proxy.id.as_str(), |_| Ok(build_proxy_check_snapshot()))
+            .expect("check proxy");
+        assert_eq!(checked.check_status.as_deref(), Some("ok"));
         assert!(checked.last_checked_at.is_some());
 
         let batch = service
-            .batch_check_proxies(BatchCheckProxiesRequest {
-                proxy_ids: vec![proxy.id.clone()],
-            })
+            .batch_check_proxies_with(
+                BatchCheckProxiesRequest {
+                    proxy_ids: vec![proxy.id.clone()],
+                },
+                |proxy_id| {
+                    service.check_proxy_with(proxy_id, |_| Ok(build_proxy_check_snapshot()))
+                },
+            )
             .expect("batch check proxies");
         assert_eq!(batch.total, 1);
         assert_eq!(batch.success_count, 1);
+    }
+
+    #[test]
+    fn check_proxy_with_snapshot_persists_proxy_portrait() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProxyService::from_db(db);
+
+        let proxy = service
+            .create_proxy(CreateProxyRequest {
+                name: "proxy-check".to_string(),
+                protocol: "http".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: 8080,
+                username: None,
+                password: None,
+                provider: Some("isp-a".to_string()),
+                note: None,
+                expires_at: Some(1_800_000_000),
+            })
+            .expect("create proxy");
+
+        let checked = service
+            .check_proxy_with(proxy.id.as_str(), |_| Ok(build_proxy_check_snapshot()))
+            .expect("check proxy");
+
+        assert_eq!(checked.exit_ip.as_deref(), Some("8.8.8.8"));
+        assert_eq!(checked.country.as_deref(), Some("US"));
+        assert_eq!(checked.region.as_deref(), Some("California"));
+        assert_eq!(checked.city.as_deref(), Some("Mountain View"));
+        assert_eq!(checked.suggested_language.as_deref(), Some("en-US"));
+        assert_eq!(
+            checked.suggested_timezone.as_deref(),
+            Some("America/Los_Angeles")
+        );
+        assert_eq!(checked.check_status.as_deref(), Some("ok"));
+        assert_eq!(checked.expires_at, Some(1_800_000_000));
+    }
+
+    #[test]
+    fn check_proxy_marks_ssh_as_unsupported() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProxyService::from_db(db);
+
+        let proxy = service
+            .create_proxy(CreateProxyRequest {
+                name: "proxy-check".to_string(),
+                protocol: "ssh".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: 22,
+                username: Some("root".to_string()),
+                password: Some("secret".to_string()),
+                provider: None,
+                note: None,
+                expires_at: None,
+            })
+            .expect("create proxy");
+
+        let checked = service
+            .check_proxy_with(proxy.id.as_str(), |stored| {
+                service.perform_proxy_check(stored, Path::new("/tmp/unused.mmdb"))
+            })
+            .expect("check proxy");
+        assert_eq!(checked.check_status.as_deref(), Some("unsupported"));
+        assert!(checked
+            .check_message
+            .as_deref()
+            .is_some_and(|value| value.contains("ssh")));
     }
 }

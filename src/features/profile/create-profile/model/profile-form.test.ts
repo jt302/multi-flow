@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { DEFAULT_STARTUP_URL, profileFormSchema } from './profile-form.ts';
+import {
+	DEFAULT_STARTUP_URL,
+	applyProxySuggestionValue,
+	profileFormSchema,
+	resolveProxySuggestedValues,
+} from './profile-form.ts';
 
 function buildFormValues(overrides: Record<string, unknown> = {}) {
 	return {
@@ -52,4 +57,35 @@ test('profile form schema rejects non http startup urls in multi line input', ()
 		return;
 	}
 	assert.equal(result.error.issues[0]?.path[0], 'startupUrls');
+});
+
+test('resolveProxySuggestedValues maps proxy portrait into profile fields', () => {
+	const suggestion = resolveProxySuggestedValues({
+		suggestedLanguage: 'en-US',
+		suggestedTimezone: 'America/New_York',
+		latitude: 40.7128,
+		longitude: -74.006,
+		geoAccuracyMeters: 25,
+	});
+
+	assert.deepEqual(suggestion, {
+		language: 'en-US',
+		timezoneId: 'America/New_York',
+		geolocation: {
+			latitude: '40.7128',
+			longitude: '-74.006',
+			accuracy: '25',
+		},
+	});
+});
+
+test('applyProxySuggestionValue preserves manual value but allows proxy-owned value to refresh', () => {
+	assert.equal(
+		applyProxySuggestionValue('manual', 'zh-CN', 'en-US'),
+		'zh-CN',
+	);
+	assert.equal(
+		applyProxySuggestionValue('proxy', 'en-US', 'de-DE'),
+		'de-DE',
+	);
 });

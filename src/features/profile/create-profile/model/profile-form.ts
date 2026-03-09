@@ -5,6 +5,7 @@ import type {
 	ProfileFingerprintSource,
 	WebRtcMode,
 } from '@/entities/profile/model/types';
+import type { ProxyItem } from '@/entities/proxy/model/types';
 
 export const DEFAULT_STARTUP_URL = 'https://www.browserscan.net/';
 
@@ -116,6 +117,56 @@ export const profileFormSchema = z
 	});
 
 export type ProfileFormValues = z.infer<typeof profileFormSchema>;
+
+export type ProxySuggestionFieldSource = 'manual' | 'proxy' | 'empty';
+
+export function applyProxySuggestionValue(
+	source: ProxySuggestionFieldSource,
+	currentValue: string,
+	suggestedValue: string,
+) {
+	if (source === 'manual') {
+		return currentValue;
+	}
+	return suggestedValue || '';
+}
+
+export function resolveProxySuggestedValues(
+	proxy:
+		| Pick<
+				ProxyItem,
+				| 'suggestedLanguage'
+				| 'suggestedTimezone'
+				| 'latitude'
+				| 'longitude'
+				| 'geoAccuracyMeters'
+		  >
+		| null
+		| undefined,
+) {
+	if (!proxy) {
+		return {
+			language: '',
+			timezoneId: '',
+			geolocation: null,
+		};
+	}
+	return {
+		language: proxy.suggestedLanguage?.trim() || '',
+		timezoneId: proxy.suggestedTimezone?.trim() || '',
+		geolocation:
+			proxy.latitude !== null && proxy.longitude !== null
+				? {
+						latitude: proxy.latitude.toString(),
+						longitude: proxy.longitude.toString(),
+						accuracy:
+							proxy.geoAccuracyMeters === null
+								? ''
+								: proxy.geoAccuracyMeters.toString(),
+					}
+				: null,
+	};
+}
 
 export function normalizeWebRtcMode(value?: string): WebRtcMode {
 	if (value === 'replace' || value === 'disable' || value === 'real') {

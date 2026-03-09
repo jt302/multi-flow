@@ -19,6 +19,7 @@ import type { ResourceItem } from '@/entities/resource/model/types';
 import { detectClientPlatform } from '@/shared/lib/platform';
 
 import {
+	applyProxySuggestionValue,
 	buildFingerprintSource,
 	compareVersions,
 	DEFAULT_STARTUP_URL,
@@ -28,6 +29,8 @@ import {
 	parseStartupUrls,
 	profileFormSchema,
 	randomizeFontList,
+	resolveProxySuggestedValues,
+	type ProxySuggestionFieldSource,
 	type ProfileFormValues,
 } from './profile-form';
 
@@ -64,6 +67,15 @@ export function useProfileCreateForm({
 	const hostPlatform = detectClientPlatform();
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const initialRandomFontsApplied = useRef(false);
+	const [proxySuggestionSource, setProxySuggestionSource] = useState<{
+		language: ProxySuggestionFieldSource;
+		timezoneId: ProxySuggestionFieldSource;
+		geolocation: ProxySuggestionFieldSource;
+	}>(() => ({
+		language: initialFingerprint?.fingerprintSnapshot?.language ? 'manual' : 'empty',
+		timezoneId: initialFingerprint?.fingerprintSnapshot?.timeZone ? 'manual' : 'empty',
+		geolocation: initialAdvanced?.geolocation ? 'manual' : 'empty',
+	}));
 	const [previewSnapshot, setPreviewSnapshot] =
 		useState<ProfileFingerprintSnapshot | null>(
 			initialFingerprint?.fingerprintSnapshot ?? null,
@@ -133,11 +145,109 @@ export function useProfileCreateForm({
 		() => proxies.filter((item) => item.lifecycle === 'active'),
 		[proxies],
 	);
+	const selectedProxy = useMemo(
+		() => availableProxies.find((item) => item.id === proxyId) ?? null,
+		[availableProxies, proxyId],
+	);
+	const proxySuggestedValues = useMemo(
+		() => resolveProxySuggestedValues(selectedProxy),
+		[selectedProxy],
+	);
 
 	const selectedResource = useMemo(
 		() => hostChromiumVersions.find((item) => item.version === browserVersion),
 		[browserVersion, hostChromiumVersions],
 	);
+
+	useEffect(() => {
+		const nextLanguage = applyProxySuggestionValue(
+			proxySuggestionSource.language,
+			getValues('language'),
+			proxySuggestedValues.language,
+		);
+		if (nextLanguage !== getValues('language')) {
+			setValue('language', nextLanguage, { shouldDirty: false, shouldValidate: true });
+		}
+
+		const nextTimezone = applyProxySuggestionValue(
+			proxySuggestionSource.timezoneId,
+			getValues('timezoneId'),
+			proxySuggestedValues.timezoneId,
+		);
+		if (nextTimezone !== getValues('timezoneId')) {
+			setValue('timezoneId', nextTimezone, { shouldDirty: false, shouldValidate: true });
+		}
+
+		if (proxySuggestionSource.geolocation !== 'manual') {
+			if (proxySuggestedValues.geolocation) {
+				setValue('geoEnabled', true, { shouldDirty: false, shouldValidate: true });
+				setValue('latitude', proxySuggestedValues.geolocation.latitude, { shouldDirty: false, shouldValidate: true });
+				setValue('longitude', proxySuggestedValues.geolocation.longitude, { shouldDirty: false, shouldValidate: true });
+				setValue('accuracy', proxySuggestedValues.geolocation.accuracy, { shouldDirty: false, shouldValidate: true });
+			} else {
+				setValue('geoEnabled', false, { shouldDirty: false, shouldValidate: true });
+				setValue('latitude', '', { shouldDirty: false, shouldValidate: true });
+				setValue('longitude', '', { shouldDirty: false, shouldValidate: true });
+				setValue('accuracy', '', { shouldDirty: false, shouldValidate: true });
+			}
+		}
+
+		setProxySuggestionSource((prev) => {
+			const next = {
+				language:
+					prev.language === 'manual'
+						? 'manual'
+						: proxySuggestedValues.language
+							? 'proxy'
+							: 'empty',
+				timezoneId:
+					prev.timezoneId === 'manual'
+						? 'manual'
+						: proxySuggestedValues.timezoneId
+							? 'proxy'
+							: 'empty',
+				geolocation:
+					prev.geolocation === 'manual'
+						? 'manual'
+						: proxySuggestedValues.geolocation
+							? 'proxy'
+							: 'empty',
+			} as const;
+			if (
+				next.language === prev.language &&
+				next.timezoneId === prev.timezoneId &&
+				next.geolocation === prev.geolocation
+			) {
+				return prev;
+			}
+			return next;
+		});
+	}, [getValues, proxySuggestedValues, proxySuggestionSource, setValue]);
+
+	const markProxyFieldManual = useCallback((field: 'language' | 'timezoneId' | 'geolocation') => {
+		setProxySuggestionSource((prev) => ({ ...prev, [field]: 'manual' }));
+	}, []);
+
+	const restoreProxySuggestedValues = useCallback(() => {
+		setProxySuggestionSource({
+			language: proxySuggestedValues.language ? 'proxy' : 'empty',
+			timezoneId: proxySuggestedValues.timezoneId ? 'proxy' : 'empty',
+			geolocation: proxySuggestedValues.geolocation ? 'proxy' : 'empty',
+		});
+		setValue('language', proxySuggestedValues.language, { shouldDirty: false, shouldValidate: true });
+		setValue('timezoneId', proxySuggestedValues.timezoneId, { shouldDirty: false, shouldValidate: true });
+		if (proxySuggestedValues.geolocation) {
+			setValue('geoEnabled', true, { shouldDirty: false, shouldValidate: true });
+			setValue('latitude', proxySuggestedValues.geolocation.latitude, { shouldDirty: false, shouldValidate: true });
+			setValue('longitude', proxySuggestedValues.geolocation.longitude, { shouldDirty: false, shouldValidate: true });
+			setValue('accuracy', proxySuggestedValues.geolocation.accuracy, { shouldDirty: false, shouldValidate: true });
+			return;
+		}
+		setValue('geoEnabled', false, { shouldDirty: false, shouldValidate: true });
+		setValue('latitude', '', { shouldDirty: false, shouldValidate: true });
+		setValue('longitude', '', { shouldDirty: false, shouldValidate: true });
+		setValue('accuracy', '', { shouldDirty: false, shouldValidate: true });
+	}, [proxySuggestedValues, setValue]);
 
 	useEffect(() => {
 		if (
@@ -367,6 +477,8 @@ export function useProfileCreateForm({
 		mergedPreviewSnapshot,
 		resourceStatusLabel,
 		regenerateFontList,
+		markProxyFieldManual,
+		restoreProxySuggestedValues,
 		onFormSubmit,
 		values: {
 			browserKind,
@@ -382,6 +494,8 @@ export function useProfileCreateForm({
 			language,
 			timezoneId,
 			geoEnabled,
+			proxySuggestionSource,
+			selectedProxy,
 			name: watch('name'),
 			headless: watch('headless'),
 			disableImages: watch('disableImages'),

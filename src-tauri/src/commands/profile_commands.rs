@@ -7,11 +7,11 @@ use crate::font_catalog;
 use crate::logger;
 use crate::models::{
     BatchProfileActionItem, BatchProfileActionRequest, BatchProfileActionResponse,
-    BatchSetProfileGroupRequest, CreateProfileRequest, FontListMode, ListProfilesQuery,
-    ListProfilesResponse, LocalApiServerStatus, OpenProfileOptions, OpenProfileResponse,
-    Profile, ProfileDevicePreset, ProfileFingerprintSnapshot, ProfileFingerprintSource,
-    ProfileSettings, Proxy, SaveProfileDevicePresetRequest, SetProfileGroupRequest,
-    UpdateProfileVisualRequest, WebRtcMode,
+    BatchSetProfileGroupRequest, CreateProfileRequest, FontListMode, GeolocationOverride,
+    ListProfilesQuery, ListProfilesResponse, LocalApiServerStatus, OpenProfileOptions,
+    OpenProfileResponse, Profile, ProfileDevicePreset, ProfileFingerprintSnapshot,
+    ProfileFingerprintSource, ProfileSettings, Proxy, SaveProfileDevicePresetRequest,
+    SetProfileGroupRequest, UpdateProfileVisualRequest, WebRtcMode,
 };
 use crate::runtime_guard;
 use crate::state::AppState;
@@ -569,7 +569,7 @@ pub fn get_local_api_server_status(
     Ok(local_api_server.status())
 }
 
-fn do_open_profile(
+pub(crate) fn do_open_profile(
     state: &AppState,
     app: Option<&AppHandle>,
     task_id: Option<&str>,
@@ -775,7 +775,11 @@ fn resolve_launch_options(
     )
     .map_err(|_| format!("validation failed: invalid startupUrl for {profile_id}"))?
     .unwrap_or_else(|| vec![DEFAULT_STARTUP_URL.to_string()]);
-    if let Some(geo) = options.geolocation.as_ref() {
+    let geolocation = options
+        .geolocation
+        .clone()
+        .or_else(|| bound_proxy.and_then(default_geolocation_from_proxy));
+    if let Some(geo) = geolocation.as_ref() {
         if !(-90.0..=90.0).contains(&geo.latitude) {
             return Err(format!(
                 "validation failed: invalid latitude for {profile_id}"
@@ -844,7 +848,7 @@ fn resolve_launch_options(
             extra_args.push("--disable-webrtc".to_string());
         }
     }
-    if let Some(geo) = options.geolocation {
+    if let Some(geo) = geolocation {
         extra_args.push(format!(
             "--multi-flow-geolocation={},{}",
             geo.latitude, geo.longitude
@@ -1285,35 +1289,55 @@ fn proxy_to_arg(proxy: &Proxy) -> Result<String, String> {
 }
 
 fn default_language_from_proxy(proxy: &Proxy) -> Option<String> {
-    let country = proxy.country.as_ref()?.trim().to_uppercase();
-    let value = match country.as_str() {
-        "CN" => "zh-CN",
-        "TW" => "zh-TW",
-        "HK" => "zh-HK",
-        "JP" => "ja-JP",
-        "KR" => "ko-KR",
-        "DE" => "de-DE",
-        "FR" => "fr-FR",
-        "GB" => "en-GB",
-        "US" => "en-US",
-        _ => "en-US",
-    };
-    Some(value.to_string())
+    proxy
+        .suggested_language
+        .as_deref()
+        .and_then(trim_str_to_option)
+        .or_else(|| {
+            let country = proxy.country.as_ref()?.trim().to_uppercase();
+            let value = match country.as_str() {
+                "CN" => "zh-CN",
+                "TW" => "zh-TW",
+                "HK" => "zh-HK",
+                "JP" => "ja-JP",
+                "KR" => "ko-KR",
+                "DE" => "de-DE",
+                "FR" => "fr-FR",
+                "GB" => "en-GB",
+                "US" => "en-US",
+                _ => "en-US",
+            };
+            Some(value.to_string())
+        })
 }
 
 fn default_timezone_from_proxy(proxy: &Proxy) -> Option<String> {
-    let country = proxy.country.as_ref()?.trim().to_uppercase();
-    let value = match country.as_str() {
-        "CN" => "Asia/Shanghai",
-        "JP" => "Asia/Tokyo",
-        "KR" => "Asia/Seoul",
-        "DE" => "Europe/Berlin",
-        "FR" => "Europe/Paris",
-        "GB" => "Europe/London",
-        "US" => "America/New_York",
-        _ => return None,
-    };
-    Some(value.to_string())
+    proxy
+        .suggested_timezone
+        .as_deref()
+        .and_then(trim_str_to_option)
+        .or_else(|| {
+            let country = proxy.country.as_ref()?.trim().to_uppercase();
+            let value = match country.as_str() {
+                "CN" => "Asia/Shanghai",
+                "JP" => "Asia/Tokyo",
+                "KR" => "Asia/Seoul",
+                "DE" => "Europe/Berlin",
+                "FR" => "Europe/Paris",
+                "GB" => "Europe/London",
+                "US" => "America/New_York",
+                _ => return None,
+            };
+            Some(value.to_string())
+        })
+}
+
+fn default_geolocation_from_proxy(proxy: &Proxy) -> Option<GeolocationOverride> {
+    Some(GeolocationOverride {
+        latitude: proxy.latitude?,
+        longitude: proxy.longitude?,
+        accuracy: proxy.geo_accuracy_meters,
+    })
 }
 
 fn trim_to_option(input: String) -> Option<String> {
@@ -1363,7 +1387,7 @@ fn normalize_startup_urls(
     Ok(Some(normalized))
 }
 
-fn do_close_profile(state: &AppState, profile_id: &str) -> Result<Profile, String> {
+pub(crate) fn do_close_profile(state: &AppState, profile_id: &str) -> Result<Profile, String> {
     logger::info(
         "profile_cmd",
         format!("do_close_profile start profile_id={profile_id}"),
@@ -1445,6 +1469,9 @@ mod tests {
     use crate::services::profile_group_service::ProfileGroupService;
     use crate::services::profile_service::ProfileService;
     use crate::services::proxy_service::ProxyService;
+    use crate::services::rpa_artifact_service::RpaArtifactService;
+    use crate::services::rpa_flow_service::RpaFlowService;
+    use crate::services::rpa_run_service::RpaRunService;
     use crate::services::resource_service::ResourceService;
 
     fn new_test_state() -> AppState {
@@ -1453,7 +1480,9 @@ mod tests {
         let profile_service = ProfileService::from_db(db.clone());
         let device_preset_service = DevicePresetService::from_db(db.clone());
         let engine_session_service = EngineSessionService::from_db(db.clone());
-        let proxy_service = ProxyService::from_db(db);
+        let proxy_service = ProxyService::from_db(db.clone());
+        let rpa_flow_service = RpaFlowService::from_db(db.clone());
+        let rpa_run_service = RpaRunService::from_db(db.clone());
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("time")
@@ -1462,6 +1491,9 @@ mod tests {
             std::env::temp_dir().join(format!("multi-flow-resource-cmd-test-{unique}"));
         let resource_service =
             ResourceService::from_data_dir(&resource_dir).expect("resource service");
+        let artifact_service =
+            RpaArtifactService::new(std::env::temp_dir().join(format!("multi-flow-rpa-artifacts-{unique}")))
+                .expect("artifact service");
         let mut local_api_server = LocalApiServer::new("127.0.0.1:18180");
         local_api_server.ensure_started();
 
@@ -1471,6 +1503,9 @@ mod tests {
             device_preset_service: Mutex::new(device_preset_service),
             engine_session_service: Mutex::new(engine_session_service),
             proxy_service: Mutex::new(proxy_service),
+            rpa_flow_service: Mutex::new(rpa_flow_service),
+            rpa_run_service: Mutex::new(rpa_run_service),
+            rpa_artifact_service: Mutex::new(artifact_service),
             resource_service: Mutex::new(resource_service),
             engine_manager: Mutex::new(EngineManager::new()),
             local_api_server: Mutex::new(local_api_server),
@@ -1632,8 +1667,16 @@ mod tests {
             city: None,
             provider: None,
             note: None,
-            last_status: None,
+            check_status: Some("ok".to_string()),
+            check_message: None,
             last_checked_at: None,
+            exit_ip: Some("8.8.8.8".to_string()),
+            latitude: Some(37.7749),
+            longitude: Some(-122.4194),
+            geo_accuracy_meters: Some(20.0),
+            suggested_language: Some("en-US".to_string()),
+            suggested_timezone: Some("America/Los_Angeles".to_string()),
+            expires_at: None,
             lifecycle: ProxyLifecycle::Active,
             created_at: 1,
             updated_at: 1,
@@ -1653,7 +1696,7 @@ mod tests {
         )
         .expect("resolve launch options");
         assert_eq!(options.language.as_deref(), Some("en-US"));
-        assert_eq!(options.timezone_id.as_deref(), Some("America/New_York"));
+        assert_eq!(options.timezone_id.as_deref(), Some("America/Los_Angeles"));
         assert_eq!(
             options.proxy_server.as_deref(),
             Some("http://127.0.0.1:8080")

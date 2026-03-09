@@ -71,8 +71,17 @@
   - `ProfileBasicSettings.startupUrls` 支持多个默认打开 URL；启动时会按列表顺序直接追加到 Chromium 启动参数中
   - `OpenProfileOptions` 不再承载 `UA / CPU / RAM / 字体` 这类强关联指纹覆盖；这组参数统一由 `fingerprintSnapshot` 生成
   - 自动读取 Profile 绑定代理并注入 `--proxy-server`
+  - 代理资产已升级为“代理画像”模型：
+    - 检测阶段会写入 `exitIp / country / region / city / latitude / longitude / suggestedLanguage / suggestedTimezone`
+    - `checkStatus` 与 `checkMessage` 用于区分 `ok / error / unsupported`
+    - `expiresAt` 用于代理资产过期展示，不参与 Chromium 启动参数本身
+  - 代理检测依赖 GeoIP 资源时，后端会自动确保 `GeoLite2-City.mmdb` 已下载；设置页同步展示该资源状态
   - 若 Profile 保存了默认启动配置，启动时先加载默认配置，再叠加运行时传入参数
   - 若存在 GeoIP 资源文件则注入 `--geoip-database`
+  - 启动时语言 / 时区 / 地理位置优先级：
+    - Profile 显式配置
+    - 绑定代理画像建议值
+    - 旧的国家码默认映射
   - Profile 指纹配置已升级为 `source + snapshot`：
 
 - 分组语义（当前实现）：

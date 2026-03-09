@@ -24,4 +24,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sea-orm = { version = "1", default-features = false, features = ["macros", "runtime-tokio-rustls", "sqlx-sqlite"] }
 sea-orm-migration = { version = "1", default-features = false, features = ["runtime-tokio-rustls", "sqlx-sqlite"] }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "socks", "blocking"] }
+maxminddb = "0.26"
+chromiumoxide = "0.9.1"
+chromiumoxide_cdp = "0.9.1"
+futures-util = "0.3"
