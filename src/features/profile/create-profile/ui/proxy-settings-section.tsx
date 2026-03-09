@@ -38,6 +38,11 @@ export function ProxySettingsSection({
 					))}
 				</SelectContent>
 			</Select>
+			{proxyId && proxyId !== '__none__' ? (
+				<p className="mt-2 text-xs text-muted-foreground">
+					选择代理后会自动带入建议语言、时区和地理位置；手动修改后不再被覆盖。
+				</p>
+			) : null}
 		</div>
 	);
 }

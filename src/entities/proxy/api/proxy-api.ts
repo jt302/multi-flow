@@ -23,8 +23,16 @@ type BackendProxy = {
 	city: string | null;
 	provider: string | null;
 	note: string | null;
-	lastStatus: string | null;
+	checkStatus: string | null;
+	checkMessage: string | null;
 	lastCheckedAt: number | null;
+	exitIp: string | null;
+	latitude: number | null;
+	longitude: number | null;
+	geoAccuracyMeters: number | null;
+	suggestedLanguage: string | null;
+	suggestedTimezone: string | null;
+	expiresAt: number | null;
 	lifecycle: ProxyLifecycle;
 	createdAt: number;
 	updatedAt: number;
@@ -53,8 +61,16 @@ function mapBackendProxy(item: BackendProxy): ProxyItem {
 		city: item.city ?? '',
 		provider: item.provider ?? '',
 		note: item.note ?? '',
-		lastStatus: item.lastStatus ?? '',
+		checkStatus: item.checkStatus ?? 'unknown',
+		checkMessage: item.checkMessage ?? '',
 		lastCheckedAt: item.lastCheckedAt,
+		exitIp: item.exitIp ?? '',
+		latitude: item.latitude,
+		longitude: item.longitude,
+		geoAccuracyMeters: item.geoAccuracyMeters,
+		suggestedLanguage: item.suggestedLanguage ?? '',
+		suggestedTimezone: item.suggestedTimezone ?? '',
+		expiresAt: item.expiresAt,
 		lifecycle: item.lifecycle,
 		createdAt: item.createdAt,
 		updatedAt: item.updatedAt,
@@ -80,11 +96,9 @@ export async function createProxy(payload: CreateProxyPayload): Promise<void> {
 			port: payload.port,
 			username: payload.username?.trim() ? payload.username : null,
 			password: payload.password?.trim() ? payload.password : null,
-			country: payload.country?.trim() ? payload.country : null,
-			region: payload.region?.trim() ? payload.region : null,
-			city: payload.city?.trim() ? payload.city : null,
 			provider: payload.provider?.trim() ? payload.provider : null,
 			note: payload.note?.trim() ? payload.note : null,
+			expiresAt: payload.expiresAt ?? null,
 		},
 	});
 }
@@ -97,11 +111,9 @@ export async function updateProxy(proxyId: string, payload: UpdateProxyPayload):
 			protocol: payload.protocol,
 			username: payload.username,
 			password: payload.password,
-			country: payload.country,
-			region: payload.region,
-			city: payload.city,
 			provider: payload.provider,
 			note: payload.note,
+			expiresAt: payload.expiresAt ?? null,
 		},
 	});
 }

@@ -44,7 +44,7 @@ pub fn list_proxies(
     keyword: Option<String>,
     protocol: Option<String>,
     country: Option<String>,
-    last_status: Option<String>,
+    check_status: Option<String>,
 ) -> Result<ListProxiesResponse, String> {
     let proxy_service = state
         .proxy_service
@@ -57,7 +57,7 @@ pub fn list_proxies(
         keyword,
         protocol,
         country,
-        last_status,
+        check_status,
     };
 
     proxy_service.list_proxies(query).map_err(error_to_string)
@@ -117,11 +117,22 @@ pub fn import_proxies(
 
 #[tauri::command]
 pub fn check_proxy(state: State<'_, AppState>, proxy_id: String) -> Result<Proxy, String> {
+    let geoip_database = {
+        let resource_service = state
+            .resource_service
+            .lock()
+            .map_err(|_| "resource service lock poisoned".to_string())?;
+        resource_service
+            .ensure_geoip_database_available()
+            .map_err(error_to_string)?
+    };
     let proxy_service = state
         .proxy_service
         .lock()
         .map_err(|_| "proxy service lock poisoned".to_string())?;
-    proxy_service.check_proxy(&proxy_id).map_err(error_to_string)
+    proxy_service
+        .check_proxy(&proxy_id, &geoip_database)
+        .map_err(error_to_string)
 }
 
 #[tauri::command]
@@ -129,11 +140,22 @@ pub fn batch_check_proxies(
     state: State<'_, AppState>,
     payload: BatchCheckProxiesRequest,
 ) -> Result<BatchProxyActionResponse, String> {
+    let geoip_database = {
+        let resource_service = state
+            .resource_service
+            .lock()
+            .map_err(|_| "resource service lock poisoned".to_string())?;
+        resource_service
+            .ensure_geoip_database_available()
+            .map_err(error_to_string)?
+    };
     let proxy_service = state
         .proxy_service
         .lock()
         .map_err(|_| "proxy service lock poisoned".to_string())?;
-    proxy_service.batch_check_proxies(payload).map_err(error_to_string)
+    proxy_service
+        .batch_check_proxies(payload, &geoip_database)
+        .map_err(error_to_string)
 }
 
 #[tauri::command]

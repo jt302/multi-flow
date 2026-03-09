@@ -97,6 +97,14 @@ export function ProxyPage({
 		const activeIdSet = new Set(activeProxies.map((item) => item.id));
 		return selectedProxyIds.filter((id) => activeIdSet.has(id));
 	}, [activeProxies, selectedProxyIds]);
+	const boundCounts = useMemo(() => {
+		const counts: Record<string, number> = {};
+		for (const proxyId of Object.values(profileProxyBindings)) {
+			if (!proxyId) continue;
+			counts[proxyId] = (counts[proxyId] ?? 0) + 1;
+		}
+		return counts;
+	}, [profileProxyBindings]);
 	const editingProxy = useMemo(() => proxies.find((item) => item.id === editingProxyId) ?? null, [editingProxyId, proxies]);
 	const deletingProxy = useMemo(
 		() => proxies.find((item) => item.id === deleteDialogProxyId) ?? null,
@@ -149,6 +157,7 @@ export function ProxyPage({
 				onCheckProxy={(proxyId) => { void runAction(() => onCheckProxy(proxyId)); }}
 				onRequestDelete={setDeleteDialogProxyId}
 				onRestoreProxy={(proxyId) => { void runAction(() => onRestoreProxy(proxyId)); }}
+				boundCounts={boundCounts}
 			/>
 			{lastBatchResult && lastBatchResult.failedCount > 0 ? <p className="text-xs text-destructive">批量操作存在失败项：成功 {lastBatchResult.successCount} 条，失败 {lastBatchResult.failedCount} 条。</p> : null}
 			{error ? <p className="text-xs text-destructive">{error}</p> : null}

@@ -2,6 +2,7 @@ import { toast } from 'sonner';
 
 import {
 	activateChromiumVersion as activateChromiumVersionApi,
+	downloadResourceWithProgress,
 	installChromiumResourceWithProgress,
 } from '@/entities/resource/api/resource-api';
 import type { ResourceProgressState } from '@/entities/resource/model/types';
@@ -91,8 +92,56 @@ export function useResourceActions({
 		}
 	};
 
+	const downloadResource = async (resourceId: string, label = '资源') => {
+		const toastId = toast.loading(`开始下载${label}...`);
+		setResourceProgress({
+			resourceId,
+			stage: 'start',
+			percent: 0,
+			downloadedBytes: 0,
+			totalBytes: null,
+			message: '开始下载资源',
+		});
+		try {
+			await downloadResourceWithProgress(resourceId, (progress) => {
+				setResourceProgress({
+					resourceId,
+					stage: progress.stage,
+					percent: progress.percent,
+					downloadedBytes: progress.downloadedBytes,
+					totalBytes: progress.totalBytes,
+					message: progress.message,
+				});
+				if (progress.stage === 'download') {
+					toast.loading(
+						progress.percent === null
+							? `${label}下载中...`
+							: `${label}下载中 ${Math.floor(progress.percent)}%`,
+						{ id: toastId },
+					);
+				}
+			});
+			await refreshResources();
+			setResourceProgress((prev) => (prev ? { ...prev, stage: 'done', percent: 100 } : prev));
+			toast.success(`${label}已下载`, { id: toastId });
+		} catch (error) {
+			setResourceProgress((prev) =>
+				prev
+					? {
+							...prev,
+							stage: 'error',
+							message: error instanceof Error ? error.message : '下载失败',
+						}
+					: prev,
+			);
+			toast.error(`${label}下载失败`, { id: toastId });
+			throw error;
+		}
+	};
+
 	return {
 		installChromium,
 		activateChromium,
+		downloadResource,
 	};
 }

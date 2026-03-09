@@ -274,6 +274,16 @@ pub struct EngineSession {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct EngineRuntimeHandle {
+    pub profile_id: String,
+    pub session_id: u64,
+    pub pid: Option<u32>,
+    pub debug_port: Option<u16>,
+    pub magic_port: Option<u16>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OpenProfileResponse {
     pub profile: Profile,
     pub session: EngineSession,
@@ -440,8 +450,16 @@ pub struct Proxy {
     pub city: Option<String>,
     pub provider: Option<String>,
     pub note: Option<String>,
-    pub last_status: Option<String>,
+    pub check_status: Option<String>,
+    pub check_message: Option<String>,
     pub last_checked_at: Option<i64>,
+    pub exit_ip: Option<String>,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
+    pub geo_accuracy_meters: Option<f64>,
+    pub suggested_language: Option<String>,
+    pub suggested_timezone: Option<String>,
+    pub expires_at: Option<i64>,
     pub lifecycle: ProxyLifecycle,
     pub created_at: i64,
     pub updated_at: i64,
@@ -457,11 +475,9 @@ pub struct CreateProxyRequest {
     pub port: i32,
     pub username: Option<String>,
     pub password: Option<String>,
-    pub country: Option<String>,
-    pub region: Option<String>,
-    pub city: Option<String>,
     pub provider: Option<String>,
     pub note: Option<String>,
+    pub expires_at: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -471,11 +487,9 @@ pub struct UpdateProxyRequest {
     pub protocol: Option<String>,
     pub username: Option<String>,
     pub password: Option<String>,
-    pub country: Option<String>,
-    pub region: Option<String>,
-    pub city: Option<String>,
     pub provider: Option<String>,
     pub note: Option<String>,
+    pub expires_at: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -539,7 +553,250 @@ pub struct ListProxiesQuery {
     pub keyword: Option<String>,
     pub protocol: Option<String>,
     pub country: Option<String>,
-    pub last_status: Option<String>,
+    pub check_status: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RpaFlowLifecycle {
+    Active,
+    Deleted,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RpaRunStatus {
+    Queued,
+    Running,
+    PartialSuccess,
+    Success,
+    Failed,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RpaRunInstanceStatus {
+    Queued,
+    Running,
+    NeedsManual,
+    Success,
+    Failed,
+    Cancelled,
+    Interrupted,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RpaRunStepStatus {
+    Running,
+    Success,
+    Failed,
+    Skipped,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RpaRunDefaults {
+    pub concurrency_limit: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(transparent)]
+pub struct RpaFlowNodeConfig(pub serde_json::Map<String, serde_json::Value>);
+
+impl RpaFlowNodeConfig {
+    pub fn empty() -> Self {
+        Self(serde_json::Map::new())
+    }
+
+    pub fn get_str(&self, key: &str) -> Option<String> {
+        self.0
+            .get(key)
+            .and_then(|value| value.as_str())
+            .map(|value| value.to_string())
+    }
+
+    pub fn get_u64(&self, key: &str) -> Option<u64> {
+        self.0.get(key).and_then(|value| value.as_u64())
+    }
+
+    pub fn get_i64(&self, key: &str) -> Option<i64> {
+        self.0.get(key).and_then(|value| value.as_i64())
+    }
+
+    pub fn get_bool(&self, key: &str) -> Option<bool> {
+        self.0.get(key).and_then(|value| value.as_bool())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RpaFlowNodePosition {
+    pub x: f64,
+    pub y: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RpaFlowNode {
+    pub id: String,
+    pub kind: String,
+    pub position: RpaFlowNodePosition,
+    pub config: RpaFlowNodeConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RpaFlowEdge {
+    pub id: String,
+    pub source: String,
+    pub target: String,
+    pub source_handle: Option<String>,
+    pub target_handle: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RpaFlowVariable {
+    pub key: String,
+    pub label: String,
+    pub required: bool,
+    pub default_value: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RpaFlowDefinition {
+    pub nodes: Vec<RpaFlowNode>,
+    pub edges: Vec<RpaFlowEdge>,
+    pub entry_node_id: String,
+    pub variables: Vec<RpaFlowVariable>,
+    pub defaults: RpaRunDefaults,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RpaFlow {
+    pub id: String,
+    pub name: String,
+    pub note: Option<String>,
+    pub lifecycle: RpaFlowLifecycle,
+    pub definition: RpaFlowDefinition,
+    pub default_target_profile_ids: Vec<String>,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub deleted_at: Option<i64>,
+    pub last_run_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateRpaFlowRequest {
+    pub name: String,
+    pub note: Option<String>,
+    pub definition: RpaFlowDefinition,
+    pub default_target_profile_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateRpaFlowRequest {
+    pub name: String,
+    pub note: Option<String>,
+    pub definition: RpaFlowDefinition,
+    pub default_target_profile_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RunRpaFlowRequest {
+    pub flow_id: String,
+    pub target_profile_ids: Vec<String>,
+    pub concurrency_limit: Option<u32>,
+    pub runtime_input: serde_json::Map<String, serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelRpaRunRequest {
+    pub run_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResumeRpaInstanceRequest {
+    pub instance_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RpaRun {
+    pub id: String,
+    pub flow_id: String,
+    pub flow_name: String,
+    pub trigger_source: String,
+    pub status: RpaRunStatus,
+    pub total_instances: usize,
+    pub success_count: usize,
+    pub failed_count: usize,
+    pub cancelled_count: usize,
+    pub concurrency_limit: u32,
+    pub definition_snapshot: RpaFlowDefinition,
+    pub runtime_input: serde_json::Map<String, serde_json::Value>,
+    pub started_at: Option<i64>,
+    pub finished_at: Option<i64>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RpaArtifactIndex {
+    pub screenshot_path: Option<String>,
+    pub html_path: Option<String>,
+    pub output_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RpaRunInstance {
+    pub id: String,
+    pub run_id: String,
+    pub profile_id: String,
+    pub status: RpaRunInstanceStatus,
+    pub current_node_id: Option<String>,
+    pub context: serde_json::Map<String, serde_json::Value>,
+    pub artifact_index: RpaArtifactIndex,
+    pub error_message: Option<String>,
+    pub started_at: Option<i64>,
+    pub finished_at: Option<i64>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RpaRunStep {
+    pub id: String,
+    pub run_instance_id: String,
+    pub node_id: String,
+    pub node_kind: String,
+    pub status: RpaRunStepStatus,
+    pub attempt: u32,
+    pub input_snapshot: serde_json::Map<String, serde_json::Value>,
+    pub output_snapshot: serde_json::Map<String, serde_json::Value>,
+    pub error_message: Option<String>,
+    pub artifacts: RpaArtifactIndex,
+    pub started_at: i64,
+    pub finished_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RpaRunDetails {
+    pub run: RpaRun,
+    pub instances: Vec<RpaRunInstance>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

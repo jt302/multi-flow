@@ -307,6 +307,22 @@ impl ResourceService {
             .find(|path| path.is_file())
     }
 
+    pub fn ensure_geoip_database_available(&self) -> AppResult<PathBuf> {
+        if let Some(path) = self.resolve_geoip_database_path() {
+            return Ok(path);
+        }
+
+        let (_source, manifest) = self.load_manifest_with_fallback()?;
+        let resource = manifest
+            .resources
+            .into_iter()
+            .find(|item| item.kind == "geoip_mmdb")
+            .ok_or_else(|| AppError::NotFound("geoip resource not found in manifest".to_string()))?;
+
+        let download = self.download_resource(&resource.id, false)?;
+        Ok(PathBuf::from(download.local_path))
+    }
+
     pub fn resolve_active_chromium_executable(&self) -> Option<PathBuf> {
         self.resolve_active_chromium_executable_inner()
     }
