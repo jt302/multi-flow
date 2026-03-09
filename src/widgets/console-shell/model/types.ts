@@ -10,7 +10,13 @@ import type {
 	ProfileProxyBindingMap,
 	SaveProfileDevicePresetPayload,
 } from '@/entities/profile/model/types';
-import type { CreateProxyPayload, ProxyItem } from '@/entities/proxy/model/types';
+import type {
+	BatchProxyActionResponse,
+	CreateProxyPayload,
+	ImportProxiesPayload,
+	ProxyItem,
+	UpdateProxyPayload,
+} from '@/entities/proxy/model/types';
 import type { ResourceItem, ResourceProgressState } from '@/entities/resource/model/types';
 import type { PresetKey } from '@/entities/theme/model/types';
 import type { ThemeMode } from '@/entities/theme/model/types';
@@ -125,7 +131,13 @@ export type ConsolePageActions = {
 	refreshGroups: () => Promise<void>;
 	refreshProfiles: () => Promise<void>;
 	createProxy: (payload: CreateProxyPayload) => Promise<void>;
+	updateProxy: (proxyId: string, payload: UpdateProxyPayload) => Promise<void>;
 	deleteProxy: (proxyId: string) => Promise<void>;
+	batchDeleteProxies: (proxyIds: string[]) => Promise<BatchProxyActionResponse>;
+	batchUpdateProxies: (proxyIds: string[], payload: UpdateProxyPayload) => Promise<BatchProxyActionResponse>;
+	importProxies: (payload: ImportProxiesPayload) => Promise<BatchProxyActionResponse>;
+	checkProxy: (proxyId: string) => Promise<void>;
+	batchCheckProxies: (proxyIds: string[]) => Promise<BatchProxyActionResponse>;
 	restoreProxy: (proxyId: string) => Promise<void>;
 	bindProfileProxy: (profileId: string, proxyId: string) => Promise<void>;
 	unbindProfileProxy: (profileId: string) => Promise<void>;

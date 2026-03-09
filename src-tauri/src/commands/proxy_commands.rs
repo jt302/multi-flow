@@ -2,7 +2,9 @@ use tauri::State;
 
 use crate::error::AppError;
 use crate::models::{
-    CreateProxyRequest, ListProxiesQuery, ListProxiesResponse, ProfileProxyBinding, Proxy,
+    BatchCheckProxiesRequest, BatchDeleteProxiesRequest, BatchProxyActionResponse,
+    BatchUpdateProxiesRequest, CreateProxyRequest, ImportProxiesRequest, ListProxiesQuery,
+    ListProxiesResponse, ProfileProxyBinding, Proxy, UpdateProxyRequest,
 };
 use crate::state::AppState;
 
@@ -16,6 +18,21 @@ pub fn create_proxy(
         .lock()
         .map_err(|_| "proxy service lock poisoned".to_string())?;
     proxy_service.create_proxy(payload).map_err(error_to_string)
+}
+
+#[tauri::command]
+pub fn update_proxy(
+    state: State<'_, AppState>,
+    proxy_id: String,
+    payload: UpdateProxyRequest,
+) -> Result<Proxy, String> {
+    let proxy_service = state
+        .proxy_service
+        .lock()
+        .map_err(|_| "proxy service lock poisoned".to_string())?;
+    proxy_service
+        .update_proxy(&proxy_id, payload)
+        .map_err(error_to_string)
 }
 
 #[tauri::command]
@@ -55,6 +72,68 @@ pub fn delete_proxy(state: State<'_, AppState>, proxy_id: String) -> Result<Prox
     proxy_service
         .soft_delete_proxy(&proxy_id)
         .map_err(error_to_string)
+}
+
+#[tauri::command]
+pub fn batch_update_proxies(
+    state: State<'_, AppState>,
+    payload: BatchUpdateProxiesRequest,
+) -> Result<BatchProxyActionResponse, String> {
+    let proxy_service = state
+        .proxy_service
+        .lock()
+        .map_err(|_| "proxy service lock poisoned".to_string())?;
+    proxy_service
+        .batch_update_proxies(payload.proxy_ids, payload.payload)
+        .map_err(error_to_string)
+}
+
+#[tauri::command]
+pub fn batch_delete_proxies(
+    state: State<'_, AppState>,
+    payload: BatchDeleteProxiesRequest,
+) -> Result<BatchProxyActionResponse, String> {
+    let proxy_service = state
+        .proxy_service
+        .lock()
+        .map_err(|_| "proxy service lock poisoned".to_string())?;
+    proxy_service
+        .batch_delete_proxies(payload.proxy_ids)
+        .map_err(error_to_string)
+}
+
+
+#[tauri::command]
+pub fn import_proxies(
+    state: State<'_, AppState>,
+    payload: ImportProxiesRequest,
+) -> Result<BatchProxyActionResponse, String> {
+    let proxy_service = state
+        .proxy_service
+        .lock()
+        .map_err(|_| "proxy service lock poisoned".to_string())?;
+    proxy_service.import_proxies(payload).map_err(error_to_string)
+}
+
+#[tauri::command]
+pub fn check_proxy(state: State<'_, AppState>, proxy_id: String) -> Result<Proxy, String> {
+    let proxy_service = state
+        .proxy_service
+        .lock()
+        .map_err(|_| "proxy service lock poisoned".to_string())?;
+    proxy_service.check_proxy(&proxy_id).map_err(error_to_string)
+}
+
+#[tauri::command]
+pub fn batch_check_proxies(
+    state: State<'_, AppState>,
+    payload: BatchCheckProxiesRequest,
+) -> Result<BatchProxyActionResponse, String> {
+    let proxy_service = state
+        .proxy_service
+        .lock()
+        .map_err(|_| "proxy service lock poisoned".to_string())?;
+    proxy_service.batch_check_proxies(payload).map_err(error_to_string)
 }
 
 #[tauri::command]
