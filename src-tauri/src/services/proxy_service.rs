@@ -1,4 +1,6 @@
 use std::future::Future;
+use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
+use std::time::Duration;
 
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, DatabaseConnection, EntityTrait, PaginatorTrait,
@@ -8,8 +10,9 @@ use sea_orm::{
 use crate::db::entities::{profile, profile_proxy_binding, proxy};
 use crate::error::{AppError, AppResult};
 use crate::models::{
-    now_ts, CreateProxyRequest, ListProxiesQuery, ListProxiesResponse, ProfileProxyBinding, Proxy,
-    ProxyLifecycle,
+    now_ts, BatchCheckProxiesRequest, BatchProxyActionItem, BatchProxyActionResponse,
+    CreateProxyRequest, ImportProxiesRequest, ListProxiesQuery, ListProxiesResponse,
+    ProfileProxyBinding, Proxy, ProxyLifecycle, UpdateProxyRequest,
 };
 
 const LIFECYCLE_ACTIVE: &str = "active";
@@ -59,6 +62,47 @@ impl ProxyService {
         let inserted = self.db_query(proxy::Entity::insert(model).exec(&self.db))?;
         let created = self.find_proxy_model_by_pk(inserted.last_insert_id)?;
         Ok(to_api_proxy(created))
+    }
+
+    pub fn update_proxy(&self, proxy_id: &str, req: UpdateProxyRequest) -> AppResult<Proxy> {
+        let stored = self.find_proxy_model(proxy_id)?;
+        if stored.lifecycle == LIFECYCLE_DELETED {
+            return Err(AppError::Conflict(format!(
+                "proxy already deleted: {proxy_id}"
+            )));
+        }
+
+        let mut active_model: proxy::ActiveModel = stored.into();
+        if let Some(name) = req.name {
+            active_model.name = Set(require_non_empty("name", &name)?);
+        }
+        if let Some(protocol) = req.protocol {
+            active_model.protocol = Set(normalize_protocol(&protocol)?);
+        }
+        if let Some(username) = req.username {
+            active_model.username = Set(trim_string_value(username));
+        }
+        if let Some(password) = req.password {
+            active_model.password = Set(trim_string_value(password));
+        }
+        if let Some(country) = req.country {
+            active_model.country = Set(trim_string_value(country));
+        }
+        if let Some(region) = req.region {
+            active_model.region = Set(trim_string_value(region));
+        }
+        if let Some(city) = req.city {
+            active_model.city = Set(trim_string_value(city));
+        }
+        if let Some(provider) = req.provider {
+            active_model.provider = Set(trim_string_value(provider));
+        }
+        if let Some(note) = req.note {
+            active_model.note = Set(trim_string_value(note));
+        }
+        active_model.updated_at = Set(now_ts());
+        let updated = self.db_query(active_model.update(&self.db))?;
+        Ok(to_api_proxy(updated))
     }
 
     pub fn list_proxies(&self, params: ListProxiesQuery) -> AppResult<ListProxiesResponse> {
@@ -129,6 +173,214 @@ impl ProxyService {
         )?;
 
         Ok(to_api_proxy(updated))
+    }
+
+    pub fn batch_update_proxies(
+        &self,
+        proxy_ids: Vec<String>,
+        req: UpdateProxyRequest,
+    ) -> AppResult<BatchProxyActionResponse> {
+        if proxy_ids.is_empty() {
+            return Err(AppError::Validation(
+                "proxy_ids must not be empty".to_string(),
+            ));
+        }
+
+        let total = proxy_ids.len();
+        let mut success_count = 0usize;
+        let mut items = Vec::with_capacity(total);
+        for proxy_id in proxy_ids {
+            match self.update_proxy(&proxy_id, req.clone()) {
+                Ok(_) => {
+                    success_count += 1;
+                    items.push(BatchProxyActionItem {
+                        proxy_id,
+                        ok: true,
+                        message: "updated".to_string(),
+                    });
+                }
+                Err(err) => items.push(BatchProxyActionItem {
+                    proxy_id,
+                    ok: false,
+                    message: err.to_string(),
+                }),
+            }
+        }
+
+        Ok(BatchProxyActionResponse {
+            total,
+            success_count,
+            failed_count: total.saturating_sub(success_count),
+            items,
+        })
+    }
+
+    pub fn batch_delete_proxies(
+        &self,
+        proxy_ids: Vec<String>,
+    ) -> AppResult<BatchProxyActionResponse> {
+        if proxy_ids.is_empty() {
+            return Err(AppError::Validation(
+                "proxy_ids must not be empty".to_string(),
+            ));
+        }
+
+        let total = proxy_ids.len();
+        let mut success_count = 0usize;
+        let mut items = Vec::with_capacity(total);
+        for proxy_id in proxy_ids {
+            match self.soft_delete_proxy(&proxy_id) {
+                Ok(_) => {
+                    success_count += 1;
+                    items.push(BatchProxyActionItem {
+                        proxy_id,
+                        ok: true,
+                        message: "deleted".to_string(),
+                    });
+                }
+                Err(err) => items.push(BatchProxyActionItem {
+                    proxy_id,
+                    ok: false,
+                    message: err.to_string(),
+                }),
+            }
+        }
+
+        Ok(BatchProxyActionResponse {
+            total,
+            success_count,
+            failed_count: total.saturating_sub(success_count),
+            items,
+        })
+    }
+
+    pub fn import_proxies(&self, req: ImportProxiesRequest) -> AppResult<BatchProxyActionResponse> {
+        let protocol = normalize_protocol(&req.protocol)?;
+        if req.lines.is_empty() {
+            return Err(AppError::Validation("lines must not be empty".to_string()));
+        }
+
+        let mut items = Vec::with_capacity(req.lines.len());
+        let mut success_count = 0usize;
+        for raw_line in req.lines {
+            let line = raw_line.trim();
+            if line.is_empty() {
+                items.push(BatchProxyActionItem {
+                    proxy_id: String::new(),
+                    ok: false,
+                    message: "empty line".to_string(),
+                });
+                continue;
+            }
+            match parse_import_line(line) {
+                Ok(parsed) => {
+                    let name = format!("{}:{}", parsed.host, parsed.port);
+                    match self.create_proxy(CreateProxyRequest {
+                        name,
+                        protocol: protocol.clone(),
+                        host: parsed.host,
+                        port: parsed.port,
+                        username: parsed.username,
+                        password: parsed.password,
+                        country: None,
+                        region: None,
+                        city: None,
+                        provider: None,
+                        note: None,
+                    }) {
+                        Ok(proxy) => {
+                            success_count += 1;
+                            items.push(BatchProxyActionItem {
+                                proxy_id: proxy.id,
+                                ok: true,
+                                message: "imported".to_string(),
+                            });
+                        }
+                        Err(err) => items.push(BatchProxyActionItem {
+                            proxy_id: String::new(),
+                            ok: false,
+                            message: err.to_string(),
+                        }),
+                    }
+                }
+                Err(err) => items.push(BatchProxyActionItem {
+                    proxy_id: String::new(),
+                    ok: false,
+                    message: err.to_string(),
+                }),
+            }
+        }
+
+        Ok(BatchProxyActionResponse {
+            total: items.len(),
+            success_count,
+            failed_count: items.len().saturating_sub(success_count),
+            items,
+        })
+    }
+
+    pub fn check_proxy(&self, proxy_id: &str) -> AppResult<Proxy> {
+        let stored = self.find_proxy_model(proxy_id)?;
+        if stored.lifecycle == LIFECYCLE_DELETED {
+            return Err(AppError::Conflict(format!("proxy already deleted: {proxy_id}")));
+        }
+
+        let now = now_ts();
+        let mut active_model: proxy::ActiveModel = stored.clone().into();
+        let timeout = Duration::from_secs(5);
+        let target = format!("{}:{}", stored.host, stored.port);
+        let status_result = resolve_socket_addr(&target)
+            .and_then(|addr| TcpStream::connect_timeout(&addr, timeout).map_err(|err| err.to_string()));
+
+        match status_result {
+            Ok(_) => {
+                active_model.last_status = Set(Some("ok".to_string()));
+            }
+            Err(err) => {
+                active_model.last_status = Set(Some(format!("error:{err}")));
+            }
+        }
+        active_model.last_checked_at = Set(Some(now));
+        active_model.updated_at = Set(now);
+        let updated = self.db_query(active_model.update(&self.db))?;
+        Ok(to_api_proxy(updated))
+    }
+
+    pub fn batch_check_proxies(&self, req: BatchCheckProxiesRequest) -> AppResult<BatchProxyActionResponse> {
+        if req.proxy_ids.is_empty() {
+            return Err(AppError::Validation("proxy_ids must not be empty".to_string()));
+        }
+
+        let total = req.proxy_ids.len();
+        let mut success_count = 0usize;
+        let mut items = Vec::with_capacity(total);
+        for proxy_id in req.proxy_ids {
+            match self.check_proxy(&proxy_id) {
+                Ok(proxy) => {
+                    let ok = proxy.last_status.as_deref() == Some("ok");
+                    if ok {
+                        success_count += 1;
+                    }
+                    items.push(BatchProxyActionItem {
+                        proxy_id,
+                        ok,
+                        message: proxy.last_status.unwrap_or_else(|| "unknown".to_string()),
+                    });
+                }
+                Err(err) => items.push(BatchProxyActionItem {
+                    proxy_id,
+                    ok: false,
+                    message: err.to_string(),
+                }),
+            }
+        }
+
+        Ok(BatchProxyActionResponse {
+            total,
+            success_count,
+            failed_count: total.saturating_sub(success_count),
+            items,
+        })
     }
 
     pub fn restore_proxy(&self, proxy_id: &str) -> AppResult<Proxy> {
@@ -311,6 +563,15 @@ fn trim_option(input: Option<String>) -> Option<String> {
     })
 }
 
+fn trim_string_value(input: String) -> Option<String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
 fn normalize_protocol(value: &str) -> AppResult<String> {
     let normalized = value.trim().to_ascii_lowercase();
     if SUPPORTED_PROTOCOLS.contains(&normalized.as_str()) {
@@ -362,11 +623,48 @@ fn normalize_page_size(page_size: u64) -> u64 {
     page_size.min(MAX_PAGE_SIZE)
 }
 
+struct ParsedImportLine {
+    host: String,
+    port: i32,
+    username: Option<String>,
+    password: Option<String>,
+}
+
+fn parse_import_line(line: &str) -> AppResult<ParsedImportLine> {
+    let parts: Vec<&str> = line.split(':').collect();
+    match parts.as_slice() {
+        [host, port] => Ok(ParsedImportLine {
+            host: require_non_empty("host", host)?,
+            port: validate_port(port.parse::<i32>().map_err(|_| AppError::Validation(format!("invalid port in line: {line}")))?)?,
+            username: None,
+            password: None,
+        }),
+        [host, port, username, password] => Ok(ParsedImportLine {
+            host: require_non_empty("host", host)?,
+            port: validate_port(port.parse::<i32>().map_err(|_| AppError::Validation(format!("invalid port in line: {line}")))?)?,
+            username: trim_string_value((*username).to_string()),
+            password: trim_string_value((*password).to_string()),
+        }),
+        _ => Err(AppError::Validation(format!("invalid proxy line: {line}"))),
+    }
+}
+
+fn resolve_socket_addr(target: &str) -> Result<SocketAddr, String> {
+    target
+        .to_socket_addrs()
+        .map_err(|err| err.to_string())?
+        .next()
+        .ok_or_else(|| format!("unable to resolve address: {target}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::db;
-    use crate::models::{CreateProfileRequest, CreateProxyRequest};
+    use crate::models::{
+        BatchCheckProxiesRequest, CreateProfileRequest, CreateProxyRequest,
+        ImportProxiesRequest, UpdateProxyRequest,
+    };
     use crate::services::profile_service::ProfileService;
 
     #[test]
@@ -509,5 +807,170 @@ mod tests {
             .expect("list by keyword");
         assert_eq!(keyword_filtered.total, 1);
         assert_eq!(keyword_filtered.items[0].name, "proxy-a");
+    }
+
+    #[test]
+    fn batch_update_proxies_updates_selected_fields_only() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProxyService::from_db(db);
+
+        let first = service
+            .create_proxy(CreateProxyRequest {
+                name: "proxy-a".to_string(),
+                protocol: "http".to_string(),
+                host: "10.0.0.1".to_string(),
+                port: 8001,
+                username: Some("user-a".to_string()),
+                password: None,
+                country: Some("US".to_string()),
+                region: None,
+                city: None,
+                provider: Some("isp-a".to_string()),
+                note: Some("residential".to_string()),
+            })
+            .expect("create proxy a");
+
+        let second = service
+            .create_proxy(CreateProxyRequest {
+                name: "proxy-b".to_string(),
+                protocol: "socks5".to_string(),
+                host: "10.0.0.2".to_string(),
+                port: 8002,
+                username: Some("user-b".to_string()),
+                password: None,
+                country: Some("DE".to_string()),
+                region: None,
+                city: None,
+                provider: Some("isp-b".to_string()),
+                note: Some("datacenter".to_string()),
+            })
+            .expect("create proxy b");
+
+        let result = service
+            .batch_update_proxies(
+                vec![first.id.clone(), second.id.clone()],
+                UpdateProxyRequest {
+                    protocol: Some("https".to_string()),
+                    provider: Some("batch-provider".to_string()),
+                    note: Some("".to_string()),
+                    ..Default::default()
+                },
+            )
+            .expect("batch update proxies");
+
+        assert_eq!(result.total, 2);
+        assert_eq!(result.success_count, 2);
+        let first_updated = service.find_proxy_model(&first.id).expect("find first");
+        let second_updated = service.find_proxy_model(&second.id).expect("find second");
+        assert_eq!(first_updated.protocol, "https");
+        assert_eq!(second_updated.protocol, "https");
+        assert_eq!(first_updated.provider.as_deref(), Some("batch-provider"));
+        assert_eq!(second_updated.provider.as_deref(), Some("batch-provider"));
+        assert!(first_updated.note.is_none());
+        assert!(second_updated.note.is_none());
+        assert_eq!(first_updated.host, "10.0.0.1");
+        assert_eq!(second_updated.port, 8002);
+    }
+
+    #[test]
+    fn batch_delete_proxies_reports_partial_success() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProxyService::from_db(db);
+
+        let proxy = service
+            .create_proxy(CreateProxyRequest {
+                name: "proxy-delete".to_string(),
+                protocol: "http".to_string(),
+                host: "10.0.0.1".to_string(),
+                port: 8001,
+                username: None,
+                password: None,
+                country: None,
+                region: None,
+                city: None,
+                provider: None,
+                note: None,
+            })
+            .expect("create proxy");
+
+        let result = service
+            .batch_delete_proxies(vec![proxy.id.clone(), "px_999999".to_string()])
+            .expect("batch delete proxies");
+
+        assert_eq!(result.total, 2);
+        assert_eq!(result.success_count, 1);
+        assert_eq!(result.failed_count, 1);
+        let deleted = service.find_proxy_model(&proxy.id).expect("find proxy");
+        assert_eq!(deleted.lifecycle, LIFECYCLE_DELETED);
+    }
+
+    #[test]
+    fn import_proxies_supports_plain_and_auth_lines() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProxyService::from_db(db);
+
+        let result = service
+            .import_proxies(ImportProxiesRequest {
+                protocol: "http".to_string(),
+                lines: vec![
+                    "127.0.0.1:8080".to_string(),
+                    "127.0.0.2:8081:user:pass".to_string(),
+                    "bad-line".to_string(),
+                ],
+            })
+            .expect("import proxies");
+
+        assert_eq!(result.total, 3);
+        assert_eq!(result.success_count, 2);
+        assert_eq!(result.failed_count, 1);
+
+        let list = service
+            .list_proxies(ListProxiesQuery {
+                include_deleted: false,
+                page: 1,
+                page_size: 20,
+                keyword: None,
+                protocol: Some("http".to_string()),
+                country: None,
+                last_status: None,
+            })
+            .expect("list imported proxies");
+        assert!(list.items.iter().any(|item| item.name == "127.0.0.1:8080"));
+    }
+
+    #[test]
+    fn check_proxy_updates_last_status() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let port = listener.local_addr().expect("local addr").port() as i32;
+        let db = db::init_test_database().expect("init test db");
+        let service = ProxyService::from_db(db);
+
+        let proxy = service
+            .create_proxy(CreateProxyRequest {
+                name: "proxy-check".to_string(),
+                protocol: "http".to_string(),
+                host: "127.0.0.1".to_string(),
+                port,
+                username: None,
+                password: None,
+                country: None,
+                region: None,
+                city: None,
+                provider: None,
+                note: None,
+            })
+            .expect("create proxy");
+
+        let checked = service.check_proxy(&proxy.id).expect("check proxy");
+        assert_eq!(checked.last_status.as_deref(), Some("ok"));
+        assert!(checked.last_checked_at.is_some());
+
+        let batch = service
+            .batch_check_proxies(BatchCheckProxiesRequest {
+                proxy_ids: vec![proxy.id.clone()],
+            })
+            .expect("batch check proxies");
+        assert_eq!(batch.total, 1);
+        assert_eq!(batch.success_count, 1);
     }
 }

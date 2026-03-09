@@ -464,6 +464,63 @@ pub struct CreateProxyRequest {
     pub note: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateProxyRequest {
+    pub name: Option<String>,
+    pub protocol: Option<String>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub country: Option<String>,
+    pub region: Option<String>,
+    pub city: Option<String>,
+    pub provider: Option<String>,
+    pub note: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchUpdateProxiesRequest {
+    pub proxy_ids: Vec<String>,
+    pub payload: UpdateProxyRequest,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchDeleteProxiesRequest {
+    pub proxy_ids: Vec<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportProxiesRequest {
+    pub protocol: String,
+    pub lines: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchCheckProxiesRequest {
+    pub proxy_ids: Vec<String>,
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchProxyActionItem {
+    pub proxy_id: String,
+    pub ok: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchProxyActionResponse {
+    pub total: usize,
+    pub success_count: usize,
+    pub failed_count: usize,
+    pub items: Vec<BatchProxyActionItem>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListProxiesResponse {
