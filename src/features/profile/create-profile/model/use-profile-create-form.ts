@@ -25,6 +25,7 @@ import {
 	mergePreviewSnapshot,
 	normalizeWebRtcMode,
 	parseCustomFontList,
+	parseStartupUrls,
 	profileFormSchema,
 	randomizeFontList,
 	type ProfileFormValues,
@@ -88,7 +89,10 @@ export function useProfileCreateForm({
 			browserVersion: defaultBrowserVersion,
 			platform: defaultPlatform,
 			devicePresetId: initialBasic?.devicePresetId ?? '',
-			startupUrl: initialBasic?.startupUrl ?? DEFAULT_STARTUP_URL,
+			startupUrls:
+				initialBasic?.startupUrls?.join('\n') ??
+				initialBasic?.startupUrl ??
+				DEFAULT_STARTUP_URL,
 			browserBgColor: initialBasic?.browserBgColor ?? '#0F8A73',
 			proxyId: initialProxyId ?? '__none__',
 			language: initialFingerprint?.fingerprintSnapshot?.language ?? '',
@@ -312,7 +316,7 @@ export function useProfileCreateForm({
 					browserVersion: values.browserVersion,
 					platform: values.platform,
 					devicePresetId: values.devicePresetId,
-					startupUrl: values.startupUrl.trim() || undefined,
+					startupUrls: parseStartupUrls(values.startupUrls),
 					browserBgColor: values.browserBgColor.trim() || undefined,
 				},
 				fingerprint: {

@@ -25,7 +25,7 @@ function DetailMetric({
 	return (
 		<div className="rounded-xl border border-border/70 bg-muted/20 p-3">
 			<p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
-			<p className="mt-1 break-words text-sm">{value}</p>
+			<p className="mt-1 break-words whitespace-pre-wrap text-sm">{value}</p>
 		</div>
 	);
 }
@@ -45,7 +45,9 @@ export function ProfileDetailPage({
 	const platformMeta = resolvePlatformMeta(profile);
 	const statusLabel = profile.running ? '运行中' : '未运行';
 	const toolbarText = basic?.toolbarText?.trim();
-	const startupUrl = basic?.startupUrl?.trim() || '未设置';
+	const startupUrls =
+		basic?.startupUrls?.filter((item) => item.trim()) ??
+		(basic?.startupUrl?.trim() ? [basic.startupUrl.trim()] : []);
 	const proxyLabel = boundProxy
 		? `${boundProxy.name} · ${boundProxy.protocol.toUpperCase()}://${boundProxy.host}:${boundProxy.port}`
 		: '未绑定代理';
@@ -106,7 +108,10 @@ export function ProfileDetailPage({
 				</CardHeader>
 				<CardContent className="grid gap-3 p-0 md:grid-cols-2 xl:grid-cols-4">
 					<DetailMetric label="浏览器资源" value={browserVersionMeta.resourceLabel} />
-					<DetailMetric label="默认打开 URL" value={startupUrl} />
+					<DetailMetric
+						label="默认打开 URL"
+						value={startupUrls.length ? startupUrls.join('\n') : '未设置'}
+					/>
 					<DetailMetric label="代理" value={proxyLabel} />
 					<DetailMetric label="最近启动" value={formatProfileTime(profile.lastOpenedAt)} />
 				</CardContent>
