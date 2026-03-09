@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-import { Card } from '@/components/ui';
+import { Card, Checkbox } from '@/components/ui';
 import { filterProfiles } from '@/entities/profile/lib/profile-list';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
@@ -9,6 +9,8 @@ import { CONSOLE_NAV_SECTIONS } from '@/widgets/console-shell/model/nav-sections
 import { useProfileListStore } from '../model/profile-list-store';
 import type { ProfileListPageProps } from '../model/types';
 import { ProfileBatchOpenResultCard } from './profile-batch-open-result-card';
+import { ProfileBatchClearGroupDialog } from './profile-batch-clear-group-dialog';
+import { ProfileBatchGroupDialog } from './profile-batch-group-dialog';
 import { ProfileListFilters } from './profile-list-filters';
 import { ProfileListItem } from './profile-list-item';
 import { ProfileListStats } from './profile-list-stats';
@@ -41,6 +43,8 @@ export function ProfileListPage({
 	const filters = useProfileListStore((state) => state.filters);
 	const quickEdit = useProfileListStore((state) => state.quickEdit);
 	const batchGroupTarget = useProfileListStore((state) => state.batchGroupTarget);
+	const batchGroupDialogOpen = useProfileListStore((state) => state.batchGroupDialogOpen);
+	const batchClearGroupDialogOpen = useProfileListStore((state) => state.batchClearGroupDialogOpen);
 	const selectedProfileIds = useProfileListStore((state) => state.selectedProfileIds);
 	const lastBatchOpenResult = useProfileListStore((state) => state.lastBatchOpenResult);
 	const reset = useProfileListStore((state) => state.reset);
@@ -48,6 +52,8 @@ export function ProfileListPage({
 	const patchFilters = useProfileListStore((state) => state.patchFilters);
 	const setQuickEdit = useProfileListStore((state) => state.setQuickEdit);
 	const setBatchGroupTarget = useProfileListStore((state) => state.setBatchGroupTarget);
+	const setBatchGroupDialogOpen = useProfileListStore((state) => state.setBatchGroupDialogOpen);
+	const setBatchClearGroupDialogOpen = useProfileListStore((state) => state.setBatchClearGroupDialogOpen);
 	const toggleProfile = useProfileListStore((state) => state.toggleProfile);
 	const setSelectedProfiles = useProfileListStore((state) => state.setSelectedProfiles);
 	const clearSelection = useProfileListStore((state) => state.clearSelection);
@@ -115,6 +121,10 @@ export function ProfileListPage({
 		const allowed = new Set(filteredActiveIds);
 		return selectedProfileIds.filter((id) => allowed.has(id));
 	}, [filteredActiveIds, selectedProfileIds]);
+	const allFilteredSelected =
+		filteredActiveIds.length > 0 && selectedFilteredActiveIds.length === filteredActiveIds.length;
+	const filteredSelectionIndeterminate =
+		selectedFilteredActiveIds.length > 0 && selectedFilteredActiveIds.length < filteredActiveIds.length;
 
 	const activeCount = filteredProfiles.filter((item) => item.lifecycle === 'active').length;
 	const runningCount = filteredProfiles.filter((item) => item.running).length;
@@ -150,25 +160,14 @@ export function ProfileListPage({
 					selectableCount={filteredActiveIds.length}
 					stoppedSelectedCount={selectedStoppedIds.length}
 					runningSelectedCount={selectedRunningIds.length}
-					batchGroupTarget={batchGroupTarget}
 					onChange={handleFilterChange}
-					onBatchGroupTargetChange={setBatchGroupTarget}
-					onSelectAll={() => setSelectedProfiles(filteredActiveIds)}
-					onClearSelection={clearSelection}
-						onBatchAssignGroup={() => {
-							void runAction(async () => {
-								await onBatchSetProfileGroup(selectedFilteredActiveIds, batchGroupTarget);
-								setBatchGroupTarget('');
-								clearSelection();
-							});
-						}}
-						onBatchClearGroup={() => {
-							void runAction(async () => {
-								await onBatchSetProfileGroup(selectedFilteredActiveIds);
-								setBatchGroupTarget('');
-								clearSelection();
-							});
-						}}
+					onOpenBatchGroupDialog={() => {
+						if (!batchGroupTarget && groupOptions[0]) {
+							setBatchGroupTarget(groupOptions[0]);
+						}
+						setBatchGroupDialogOpen(true);
+					}}
+					onOpenBatchClearDialog={() => setBatchClearGroupDialogOpen(true)}
 					onBatchOpen={() => {
 						void runAction(async () => {
 							const result = await onBatchOpenProfiles(selectedStoppedIds);
@@ -196,6 +195,37 @@ export function ProfileListPage({
 					onCreateClick={onCreateClick}
 				/>
 
+				<ProfileBatchGroupDialog
+					open={batchGroupDialogOpen}
+					groupOptions={groupOptions}
+					selectedCount={selectedFilteredActiveIds.length}
+					value={batchGroupTarget}
+					onOpenChange={setBatchGroupDialogOpen}
+					onValueChange={setBatchGroupTarget}
+					onConfirm={() => {
+							void runAction(async () => {
+								await onBatchSetProfileGroup(selectedFilteredActiveIds, batchGroupTarget);
+								setBatchGroupDialogOpen(false);
+								setBatchGroupTarget('');
+								clearSelection();
+							});
+					}}
+				/>
+
+				<ProfileBatchClearGroupDialog
+					open={batchClearGroupDialogOpen}
+					selectedCount={selectedFilteredActiveIds.length}
+					onOpenChange={setBatchClearGroupDialogOpen}
+					onConfirm={() => {
+							void runAction(async () => {
+								await onBatchSetProfileGroup(selectedFilteredActiveIds);
+								setBatchClearGroupDialogOpen(false);
+								setBatchGroupTarget('');
+								clearSelection();
+							});
+					}}
+				/>
+
 				{lastBatchOpenResult?.failedCount ? (
 					<ProfileBatchOpenResultCard
 						result={lastBatchOpenResult}
@@ -216,39 +246,64 @@ export function ProfileListPage({
 							{profiles.length === 0 ? '暂无环境，先创建一个环境。' : '没有匹配当前筛选条件的环境。'}
 						</div>
 					) : (
-						filteredProfiles.map((item, index) => {
-							const boundProxyId = profileProxyBindings[item.id];
-							const boundProxy = boundProxyId ? proxyById[boundProxyId] : undefined;
-							return (
-								<ProfileListItem
-									key={item.id}
-									item={item}
-									groups={groups}
-									resources={resources}
-									index={index}
-									total={filteredProfiles.length}
-									selected={selectedProfileIds.includes(item.id)}
-									onSelectedChange={(checked) => toggleProfile(item.id, checked)}
-									actionState={profileActionStates[item.id]}
-									boundProxy={boundProxy}
-									quickEdit={quickEdit}
-									onQuickEditChange={(value) => {
-										setQuickEdit(value);
-										setError(null);
-									}}
-									onRunAction={runAction}
-									onViewProfile={onViewProfile}
-									onCreateClick={onEditProfile}
-									onUpdateProfileVisual={onUpdateProfileVisual}
-									onOpenProfile={onOpenProfile}
-									onCloseProfile={onCloseProfile}
-									onSetProfileGroup={onSetProfileGroup}
-									onFocusProfileWindow={onFocusProfileWindow}
-									onDeleteProfile={onDeleteProfile}
-									onRestoreProfile={onRestoreProfile}
-								/>
-							);
-						})
+						<>
+							<div className="grid grid-cols-[64px_minmax(0,1.6fr)_minmax(0,1.1fr)_minmax(0,1fr)_80px_120px_96px] items-center gap-3 border-b border-border/70 bg-muted/15 px-3 py-2 text-xs font-medium text-muted-foreground">
+								<div className="flex items-center justify-center gap-2">
+									<Checkbox
+										checked={filteredSelectionIndeterminate ? 'indeterminate' : allFilteredSelected}
+										disabled={filteredActiveIds.length === 0}
+										className="cursor-pointer"
+										onCheckedChange={(checked) => {
+											if (checked === true) {
+												setSelectedProfiles(filteredActiveIds);
+												return;
+											}
+											clearSelection();
+										}}
+									/>
+									<span className="h-9 w-9 shrink-0" aria-hidden="true" />
+								</div>
+								<div>环境</div>
+								<div>备注 / 版本</div>
+								<div>设备 / 代理</div>
+								<div>生命周期</div>
+								<div>运行状态</div>
+								<div className="text-right">操作</div>
+							</div>
+							{filteredProfiles.map((item, index) => {
+								const boundProxyId = profileProxyBindings[item.id];
+								const boundProxy = boundProxyId ? proxyById[boundProxyId] : undefined;
+								return (
+									<ProfileListItem
+										key={item.id}
+										item={item}
+										groups={groups}
+										resources={resources}
+										index={index}
+										total={filteredProfiles.length}
+										selected={selectedProfileIds.includes(item.id)}
+										onSelectedChange={(checked) => toggleProfile(item.id, checked)}
+										actionState={profileActionStates[item.id]}
+										boundProxy={boundProxy}
+										quickEdit={quickEdit}
+										onQuickEditChange={(value) => {
+											setQuickEdit(value);
+											setError(null);
+										}}
+										onRunAction={runAction}
+										onViewProfile={onViewProfile}
+										onCreateClick={onEditProfile}
+										onUpdateProfileVisual={onUpdateProfileVisual}
+										onOpenProfile={onOpenProfile}
+										onCloseProfile={onCloseProfile}
+										onSetProfileGroup={onSetProfileGroup}
+										onFocusProfileWindow={onFocusProfileWindow}
+										onDeleteProfile={onDeleteProfile}
+										onRestoreProfile={onRestoreProfile}
+									/>
+								);
+							})}
+						</>
 					)}
 				</div>
 				{error ? <p className="mt-2 px-1 text-xs text-destructive">{error}</p> : null}
