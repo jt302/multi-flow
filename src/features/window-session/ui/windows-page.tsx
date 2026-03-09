@@ -25,7 +25,7 @@ import {
 	Input,
 } from '@/components/ui';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
-import { NAV_SECTIONS } from '@/features/console/constants';
+import { CONSOLE_NAV_SECTIONS } from '@/widgets/console-shell/model/nav-sections';
 import type { ProfileWindowItem, WindowBoundsItem } from '@/entities/window-session/model/types';
 import type { WindowsPageProps } from '@/features/window-session/model/page-types';
 
@@ -178,7 +178,7 @@ export function WindowsPage({
 	onBatchOpenWindows,
 	onBatchFocusWindows,
 }: WindowsPageProps) {
-	const section = NAV_SECTIONS.windows;
+	const section = CONSOLE_NAV_SECTIONS.windows;
 	const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
 	const [pendingProfileIds, setPendingProfileIds] = useState<Set<string>>(new Set());
 	const [error, setError] = useState<string | null>(null);

@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 
 import { Button, Icon, Input } from '@/components/ui';
-import { NAV_ITEMS } from '@/features/console/constants';
+import { CONSOLE_NAV_ITEMS } from '@/widgets/console-shell/model/nav-items';
 import type { ConsoleTopbarProps } from '@/widgets/console-shell/model/types';
 
 export function ConsoleTopbar({
@@ -18,7 +18,7 @@ export function ConsoleTopbar({
 	onOpenLogPanel,
 }: ConsoleTopbarProps) {
 	const activeLabel =
-		NAV_ITEMS.find((item) => item.id === activeNav)?.label ?? '';
+		CONSOLE_NAV_ITEMS.find((item) => item.id === activeNav)?.label ?? '';
 
 	return (
 		<header className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">

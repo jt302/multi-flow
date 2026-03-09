@@ -47,3 +47,11 @@
 - [x] 新增回收站页面（设置页二级入口，非主导航），统一恢复已归档环境/代理/分组
 - [x] 回收站数据策略明确：沿用现有软删除，不迁移关联数据结构；恢复时按原关系就地生效
 - [x] 设置页增加机型映射管理（数据库单源：预设列表/新增/修改），并让环境创建/展示/启动统一走同一预设来源
+
+## 当前进行中（前端结构重构）
+
+- [ ] 前端 FSD 重构收尾：继续压缩控制台壳，只保留路由与装配职责
+- [x] `profile / proxy / resource / group / window-session` 查询与写操作已迁到 `entities/*` 与 `features/*`
+- [x] `console api / console utils / console pages / console types` 已删除
+- [x] `console constants` 已拆分到主题预设、导航项、示例 section
+- [ ] 继续清理 `use-console-state` 的剩余壳层编排，并评估是否进一步拆分 `ConsolePageContent`

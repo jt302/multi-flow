@@ -5,7 +5,7 @@ import { filterProfiles, type ProfileListFiltersState } from '@/entities/profile
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 import { ProfileListFilters } from './profile-list-filters';
 import { ProfileListItem } from './profile-list-item';
-import { NAV_SECTIONS } from '@/features/console/constants';
+import { CONSOLE_NAV_SECTIONS } from '@/widgets/console-shell/model/nav-sections';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import type { BatchProfileActionResponse } from '@/entities/profile/model/types';
 
@@ -31,7 +31,7 @@ export function ProfileListPage({
 	onRestoreProfile,
 	onRefreshProfiles,
 }: ProfileListPageProps) {
-	const section = NAV_SECTIONS.profiles;
+	const section = CONSOLE_NAV_SECTIONS.profiles;
 	const [error, setError] = useState<string | null>(null);
 	const [filters, setFilters] = useState<ProfileListFiltersState>({
 		keyword: '',

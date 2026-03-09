@@ -3,7 +3,7 @@ import { BarChart3, Bot, Globe2 } from 'lucide-react';
 import { Badge, Card, CardContent, CardHeader, CardTitle, Icon } from '@/components/ui';
 import { MetricsGrid } from './metrics-grid';
 import { SessionTableCard } from '@/widgets/session-table-card/ui/session-table-card';
-import { NAV_SECTIONS } from '@/features/console/constants';
+import { CONSOLE_NAV_SECTIONS } from '@/widgets/console-shell/model/nav-sections';
 import type { PresetKey } from '@/entities/theme/model/types';
 
 type DashboardPageProps = {
@@ -13,7 +13,7 @@ type DashboardPageProps = {
 };
 
 export function DashboardPage({ resolvedMode, useCustomColor, preset }: DashboardPageProps) {
-	const section = NAV_SECTIONS.dashboard;
+	const section = CONSOLE_NAV_SECTIONS.dashboard;
 
 	return (
 		<div className="space-y-3">

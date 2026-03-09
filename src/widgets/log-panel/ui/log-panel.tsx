@@ -12,7 +12,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Icon, Input, Toaster } from '@/components/ui';
-import { useThemeSettings } from '@/features/console/hooks';
+import { useThemeSettings } from '@/entities/theme/model/use-theme-settings';
 import type { BackendLogEvent } from '@/entities/log-entry/api/logs-api';
 
 import {

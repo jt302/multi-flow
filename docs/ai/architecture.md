@@ -125,6 +125,21 @@
 
 ## 7) 前端技术栈规范
 
+- 前端目录当前按 FSD 收口：
+  - `src/app`：应用入口、provider、router
+  - `src/pages`：路由页面壳
+  - `src/widgets`：页面级组合块与控制台壳
+  - `src/features`：用户动作、表单、mutation 流程
+  - `src/entities`：领域类型、query hooks、adapter、只读 UI
+  - `src/shared`：跨域共享 API、lib、config、基础 hook
+- 控制台壳当前只保留路由和装配职责：
+  - `use-console-state` 负责组合 query 数据与各 feature action
+  - 集中式 `console api / console utils / console pages / console types` 已移除
+- 数据层统一走 `TanStack Query`：
+  - 查询放在 `entities/*/model/use-xxx-query`
+  - 写操作放在 `features/*/model/use-xxx-actions`
+  - 页面层不再手写集中式 `Promise.all(refresh...)` 状态管理
+
 - 组件库统一：`shadcn/ui`（基于 Radix + Tailwind），新组件优先复用 `src/components/ui/*`。
 - 图标统一：`lucide-react`，新页面/新交互不再引入新的图标库依赖。
 - 表单统一：所有“输入 + 提交”场景（创建、编辑、快捷修改、批量操作输入）必须使用 `react-hook-form`。
@@ -134,9 +149,9 @@
   - 校验 schema 与表单同模块维护（便于复用到创建/编辑场景）。
   - 提交前后端一致校验：前端做体验校验，后端做最终校验与兜底。
   - 页面与组件拆分约束：
-  - `pages/*` 只负责页面状态装配与业务拼接，尽量避免承载大量展示细节。
-  - 复用展示块、快捷编辑块、筛选块拆到 `components/*`。
-  - 纯计算逻辑与展示格式化逻辑拆到 `utils/*`。
+  - `pages/*` 只负责路由装配与页面壳，不直接写请求细节。
+  - 复用展示块优先拆到 `widgets/*`、`entities/*/ui`、`features/*/ui`。
+  - 纯计算逻辑与展示格式化逻辑拆到对应实体或共享 `lib/*`。
   - 控制台页面默认采用懒加载，避免所有页面一次性打入首屏主包。
   - 环境创建页应优先暴露“上层意图”：平台、设备预设、浏览器版本、语言、时区、WebRTC、随机策略；强关联底层字段通过“指纹摘要”只读展示。
   - 设置页当前按“主题定制 / 运行资源 / 设备预设 / 维护入口”单列分区，设备预设管理应放在设置页，不再散落到环境创建页做底层强参数维护。

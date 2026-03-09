@@ -27,7 +27,7 @@ import type {
 } from '@/entities/profile/model/types';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 import { ThemeCustomizerCard } from './theme-customizer-card';
-import { NAV_SECTIONS } from '@/features/console/constants';
+import { CONSOLE_NAV_SECTIONS } from '@/widgets/console-shell/model/nav-sections';
 import type { SettingsPageProps } from '@/features/settings/model/types';
 
 const devicePresetSchema = z.object({
@@ -216,7 +216,7 @@ export function SettingsPage({
 	onRefreshDevicePresets,
 	onOpenRecycleBin,
 }: SettingsPageProps) {
-	const section = NAV_SECTIONS.settings;
+	const section = CONSOLE_NAV_SECTIONS.settings;
 	const [pendingKey, setPendingKey] = useState('');
 	const [activePresetId, setActivePresetId] = useState<string | null>(null);
 
