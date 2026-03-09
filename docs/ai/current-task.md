@@ -67,3 +67,26 @@
 - [x] 环境创建/编辑页的分组字段改为真实分组列表选择，不再依赖纯文本建议
 - [x] 环境页分组筛选已与 URL query 同步，刷新后保留当前分组筛选
 - [x] 创建环境默认打开 URL 改为多值列表：前端一行一个，后端保存 `startupUrls`，启动时按顺序追加到 Chromium 参数
+
+## 本轮新增（RPA v1 首版骨架）
+
+- [x] 新增 RPA 数据模型与迁移：`rpa_flows` / `rpa_flow_targets` / `rpa_runs` / `rpa_run_instances` / `rpa_run_steps`
+- [x] 新增 RPA 后端服务：流程 CRUD、任务创建、步骤日志、调试产物目录、实例状态推进
+- [x] 新增 RPA Tauri 命令：流程 CRUD、运行流程、任务详情、步骤列表、取消、人工继续
+- [x] `engine_manager` 新增运行句柄读取能力，RPA 可读取 `debug_port / magic_port`
+- [x] `/ai` 页面已收缩为 RPA 流程列表页，仅保留清单与新建入口
+- [x] 新增独立 RPA 编辑窗口：流程设计、运行面板、任务中心迁移到单独窗口
+- [x] 前端新增 `entities/rpa` 与 `features/ai` 数据层、Zustand 选择状态、Tauri 事件增量刷新
+- [x] RPA 归档策略接入现有回收站：`/ai` 仅显示 active 流程，回收站新增 RPA 流程恢复与彻底删除
+- [ ] 继续补强节点配置体验（当前节点配置仍以 JSON 为主）
+- [ ] 继续补强页面自动化节点覆盖面与更细粒度的人工接管体验
+- [ ] 继续拆分独立编辑页内部组件，压缩单文件体积并收敛局部状态
+
+## 本轮新增（代理画像 + GEO 联动）
+
+- [x] 代理检测改为真实出口检测：通过代理请求公网 IP，再用本地 GeoLite2 City 数据库回填国家 / 区域 / 城市 / 经纬度
+- [x] 代理实体补齐画像字段：`checkStatus / checkMessage / exitIp / suggestedLanguage / suggestedTimezone / expiresAt`
+- [x] 新增 / 编辑代理不再手填国家、区域、城市；这些字段统一由检测自动维护
+- [x] 代理列表改为多列细节展示：协议 / GEO / 出口 IP / 健康状态 / 过期时间 / 绑定环境数
+- [x] 设置页资源管理增加 GEO 数据库状态与下载入口
+- [x] 环境创建页选择代理后，自动带出语言 / 时区 / 地理位置建议，并允许用户手动覆盖

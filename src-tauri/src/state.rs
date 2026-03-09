@@ -17,6 +17,9 @@ use crate::services::device_preset_service::DevicePresetService;
 use crate::services::profile_group_service::ProfileGroupService;
 use crate::services::profile_service::ProfileService;
 use crate::services::proxy_service::ProxyService;
+use crate::services::rpa_artifact_service::RpaArtifactService;
+use crate::services::rpa_flow_service::RpaFlowService;
+use crate::services::rpa_run_service::RpaRunService;
 use crate::services::resource_service::ResourceService;
 
 pub struct AppState {
@@ -25,6 +28,9 @@ pub struct AppState {
     pub device_preset_service: Mutex<DevicePresetService>,
     pub engine_session_service: Mutex<EngineSessionService>,
     pub proxy_service: Mutex<ProxyService>,
+    pub rpa_flow_service: Mutex<RpaFlowService>,
+    pub rpa_run_service: Mutex<RpaRunService>,
+    pub rpa_artifact_service: Mutex<RpaArtifactService>,
     pub resource_service: Mutex<ResourceService>,
     pub engine_manager: Mutex<EngineManager>,
     pub local_api_server: Mutex<LocalApiServer>,
@@ -37,9 +43,12 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
     let profile_service = ProfileService::from_db(db.clone());
     let device_preset_service = DevicePresetService::from_db(db.clone());
     let engine_session_service = EngineSessionService::from_db(db.clone());
-    let proxy_service = ProxyService::from_db(db);
+    let proxy_service = ProxyService::from_db(db.clone());
+    let rpa_flow_service = RpaFlowService::from_db(db.clone());
+    let rpa_run_service = RpaRunService::from_db(db.clone());
     let resource_service = ResourceService::from_app_handle(app)?;
     let engine_manager = build_engine_manager(app)?;
+    let rpa_artifact_service = build_rpa_artifact_service(app)?;
     let mut local_api_server = LocalApiServer::new("127.0.0.1:18180");
     local_api_server.ensure_started();
 
@@ -49,11 +58,20 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
         device_preset_service: Mutex::new(device_preset_service),
         engine_session_service: Mutex::new(engine_session_service),
         proxy_service: Mutex::new(proxy_service),
+        rpa_flow_service: Mutex::new(rpa_flow_service),
+        rpa_run_service: Mutex::new(rpa_run_service),
+        rpa_artifact_service: Mutex::new(rpa_artifact_service),
         resource_service: Mutex::new(resource_service),
         engine_manager: Mutex::new(engine_manager),
         local_api_server: Mutex::new(local_api_server),
         require_real_engine: true,
     };
+    let interrupted = app_state
+        .rpa_run_service
+        .lock()
+        .map_err(|_| crate::error::AppError::Validation("rpa run service lock poisoned".to_string()))?
+        .mark_incomplete_runs_interrupted()?;
+    logger::info("state", format!("startup rpa interrupted instances marked={interrupted}"));
     let affected = runtime_guard::reconcile_runtime_state(&app_state)?;
     logger::info(
         "state",
@@ -80,6 +98,18 @@ fn build_engine_manager(app: &AppHandle) -> AppResult<EngineManager> {
     manager.set_chromium_executable(resolve_chromium_executable(&data_dir));
 
     Ok(manager)
+}
+
+fn build_rpa_artifact_service(app: &AppHandle) -> AppResult<RpaArtifactService> {
+    let data_dir = app
+        .path()
+        .app_local_data_dir()
+        .or_else(|_| app.path().app_data_dir())
+        .map_err(|err| {
+            crate::error::AppError::Validation(format!("failed to resolve app data dir: {err}"))
+        })?;
+    fs::create_dir_all(&data_dir)?;
+    RpaArtifactService::new(data_dir.join("rpa-artifacts"))
 }
 
 fn resolve_chromium_executable(data_dir: &Path) -> Option<PathBuf> {

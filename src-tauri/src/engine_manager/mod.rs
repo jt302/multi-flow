@@ -7,7 +7,8 @@ use std::time::Duration;
 use crate::error::{AppError, AppResult};
 use crate::logger;
 use crate::models::{
-    now_ts, EngineSession, ProfileWindow, ProfileWindowState, WindowBounds, WindowTab,
+    now_ts, EngineRuntimeHandle, EngineSession, ProfileWindow, ProfileWindowState, WindowBounds,
+    WindowTab,
 };
 use serde_json::{json, Value};
 
@@ -228,6 +229,28 @@ impl EngineManager {
 
     pub fn is_running(&self, profile_id: &str) -> bool {
         self.sessions.contains_key(profile_id)
+    }
+
+    pub fn get_runtime_handle(&self, profile_id: &str) -> AppResult<EngineRuntimeHandle> {
+        let record = self
+            .sessions
+            .get(profile_id)
+            .ok_or_else(|| AppError::NotFound(format!("running session not found: {profile_id}")))?;
+        let (debug_port, magic_port) = match &record.process {
+            EngineProcess::Mock => (None, None),
+            EngineProcess::Chromium {
+                debug_port,
+                magic_port,
+                ..
+            } => (Some(*debug_port), Some(*magic_port)),
+        };
+        Ok(EngineRuntimeHandle {
+            profile_id: record.session.profile_id.clone(),
+            session_id: record.session.session_id,
+            pid: record.session.pid,
+            debug_port,
+            magic_port,
+        })
     }
 
     pub fn list_window_states(&mut self) -> Vec<ProfileWindowState> {
