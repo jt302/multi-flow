@@ -229,6 +229,13 @@ pub struct CreateProfileGroupRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct UpdateProfileGroupRequest {
+    pub name: String,
+    pub note: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ListProfileGroupsResponse {
     pub items: Vec<ProfileGroup>,
     pub total: usize,
@@ -313,6 +320,19 @@ pub struct UpdateProfileVisualRequest {
 #[serde(rename_all = "camelCase")]
 pub struct BatchProfileActionRequest {
     pub profile_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetProfileGroupRequest {
+    pub group_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchSetProfileGroupRequest {
+    pub profile_ids: Vec<String>,
+    pub group_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

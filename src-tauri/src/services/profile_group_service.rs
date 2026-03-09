@@ -10,7 +10,7 @@ use crate::db::entities::{profile, profile_group};
 use crate::error::{AppError, AppResult};
 use crate::models::{
     now_ts, CreateProfileGroupRequest, ListProfileGroupsResponse, ProfileGroup,
-    ProfileGroupLifecycle,
+    ProfileGroupLifecycle, UpdateProfileGroupRequest,
 };
 
 const LIFECYCLE_ACTIVE: &str = "active";
@@ -75,6 +75,47 @@ impl ProfileGroupService {
         })
     }
 
+    pub fn update_group(
+        &self,
+        group_id: &str,
+        req: UpdateProfileGroupRequest,
+    ) -> AppResult<ProfileGroup> {
+        let stored = self.find_group(group_id)?;
+        if stored.lifecycle == LIFECYCLE_DELETED {
+            return Err(AppError::Conflict(format!(
+                "group already deleted: {group_id}"
+            )));
+        }
+
+        let name = require_name(req.name)?;
+        let note = req.note.and_then(trim_to_option);
+        let duplicate = self.db_query(
+            profile_group::Entity::find()
+                .filter(profile_group::Column::Name.eq(name.clone()))
+                .filter(profile_group::Column::Lifecycle.eq(LIFECYCLE_ACTIVE))
+                .one(&self.db),
+        )?;
+        if duplicate.as_ref().is_some_and(|item| item.id != stored.id) {
+            return Err(AppError::Conflict(format!("group already exists: {name}")));
+        }
+
+        if stored.name != name {
+            self.db_query(
+                profile::Entity::update_many()
+                    .col_expr(profile::Column::GroupName, Expr::value(Some(name.clone())))
+                    .filter(profile::Column::GroupName.eq(stored.name.clone()))
+                    .exec(&self.db),
+            )?;
+        }
+
+        let mut active_model: profile_group::ActiveModel = stored.into();
+        active_model.name = Set(name);
+        active_model.note = Set(note);
+        active_model.updated_at = Set(now_ts());
+        let updated = self.db_query(active_model.update(&self.db))?;
+        self.to_api_group(updated)
+    }
+
     pub fn soft_delete_group(&self, group_id: &str) -> AppResult<ProfileGroup> {
         let stored = self.find_group(group_id)?;
         if stored.lifecycle == LIFECYCLE_DELETED {
@@ -136,7 +177,6 @@ impl ProfileGroupService {
         let row = self.db_query(profile_group::Entity::find_by_id(id).one(&self.db))?;
         row.ok_or_else(|| AppError::NotFound(format!("group not found: {}", format_group_id(id))))
     }
-
     fn to_api_group(&self, model: profile_group::Model) -> AppResult<ProfileGroup> {
         let profile_count = self.db_query(
             profile::Entity::find()
@@ -253,5 +293,62 @@ mod tests {
             .restore_group(&group.id)
             .expect("restore group");
         assert!(matches!(restored.lifecycle, ProfileGroupLifecycle::Active));
+    }
+
+    #[test]
+    fn update_group_renames_profiles_and_rejects_duplicates() {
+        let db = db::init_test_database().expect("init db");
+        let profile_service = ProfileService::from_db(db.clone());
+        let group_service = ProfileGroupService::from_db(db);
+
+        let source = group_service
+            .create_group(CreateProfileGroupRequest {
+                name: "Legacy".to_string(),
+                note: Some("old".to_string()),
+            })
+            .expect("create source group");
+        let _other = group_service
+            .create_group(CreateProfileGroupRequest {
+                name: "Reserved".to_string(),
+                note: None,
+            })
+            .expect("create other group");
+
+        let profile = profile_service
+            .create_profile(CreateProfileRequest {
+                name: "rename-target".to_string(),
+                group: Some("Legacy".to_string()),
+                note: None,
+                proxy_id: None,
+                settings: None,
+            })
+            .expect("create profile");
+
+        let updated = group_service
+            .update_group(
+                &source.id,
+                UpdateProfileGroupRequest {
+                    name: "Growth".to_string(),
+                    note: Some("new".to_string()),
+                },
+            )
+            .expect("update group");
+        assert_eq!(updated.name, "Growth");
+
+        let refreshed_profile = profile_service
+            .get_profile(&profile.id)
+            .expect("refresh profile");
+        assert_eq!(refreshed_profile.group.as_deref(), Some("Growth"));
+
+        let duplicate_err = group_service
+            .update_group(
+                &source.id,
+                UpdateProfileGroupRequest {
+                    name: "Reserved".to_string(),
+                    note: None,
+                },
+            )
+            .expect_err("duplicate rename should fail");
+        assert!(duplicate_err.to_string().contains("group already exists"));
     }
 }

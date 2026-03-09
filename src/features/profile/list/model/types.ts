@@ -1,3 +1,4 @@
+import type { GroupItem } from '@/entities/group/model/types';
 import type {
 	BatchProfileActionResponse,
 	ProfileActionState,
@@ -9,6 +10,7 @@ import type { ResourceItem } from '@/entities/resource/model/types';
 
 export type ProfileListPageProps = {
 	profiles: ProfileItem[];
+	groups: GroupItem[];
 	proxies: ProxyItem[];
 	resources: ResourceItem[];
 	profileProxyBindings: ProfileProxyBindingMap;
@@ -22,9 +24,11 @@ export type ProfileListPageProps = {
 	) => Promise<void>;
 	onOpenProfile: (profileId: string) => Promise<void>;
 	onCloseProfile: (profileId: string) => Promise<void>;
+	onSetProfileGroup: (profileId: string, groupName?: string) => Promise<void>;
 	onFocusProfileWindow: (profileId: string) => Promise<void>;
 	onBatchOpenProfiles: (profileIds: string[]) => Promise<BatchProfileActionResponse>;
 	onBatchCloseProfiles: (profileIds: string[]) => Promise<BatchProfileActionResponse>;
+	onBatchSetProfileGroup: (profileIds: string[], groupName?: string) => Promise<BatchProfileActionResponse>;
 	onDeleteProfile: (profileId: string) => Promise<void>;
 	onRestoreProfile: (profileId: string) => Promise<void>;
 	onRefreshProfiles: () => Promise<void>;

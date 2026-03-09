@@ -7,6 +7,7 @@ test('profile list store updates filters, selection and reset', () => {
 	const store = createProfileListStore();
 
 	store.getState().patchFilters({ keyword: 'airdrop', groupFilter: 'growth' });
+	store.getState().setBatchGroupTarget('ops');
 	store.getState().toggleProfile('pf_1', true);
 	store.getState().toggleProfile('pf_2', true);
 	store.getState().toggleProfile('pf_1', false);
@@ -19,11 +20,13 @@ test('profile list store updates filters, selection and reset', () => {
 		lifecycleFilter: 'active',
 	});
 	assert.deepEqual(store.getState().selectedProfileIds, ['pf_2']);
+	assert.equal(store.getState().batchGroupTarget, 'ops');
 	assert.deepEqual(store.getState().quickEdit, { profileId: 'pf_2', field: 'toolbar' });
 
 	store.getState().reset();
 
 	assert.equal(store.getState().error, null);
+	assert.equal(store.getState().batchGroupTarget, '');
 	assert.deepEqual(store.getState().selectedProfileIds, []);
 	assert.equal(store.getState().quickEdit, null);
 	assert.equal(store.getState().filters.keyword, '');

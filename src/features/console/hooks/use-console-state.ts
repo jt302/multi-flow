@@ -111,8 +111,9 @@ export function useConsoleState() {
 		profileActionLocksRef,
 		setActionState,
 	});
-	const { createGroup, deleteGroup, restoreGroup } = useGroupActions({
+	const { createGroup, updateGroup, deleteGroup, restoreGroup } = useGroupActions({
 		refreshGroups,
+		refreshProfiles: refreshProfilesAndBindings,
 	});
 	const {
 		createProfile,
@@ -126,6 +127,8 @@ export function useConsoleState() {
 		restoreProfile,
 		batchOpenProfiles,
 		batchCloseProfiles,
+		setProfileGroup,
+		batchSetProfileGroup,
 	} = useProfileActions({
 		setActionState,
 		withProfileActionLock,
@@ -185,6 +188,7 @@ export function useConsoleState() {
 		devicePresets,
 		windowStates,
 		createGroup,
+		updateGroup,
 		deleteGroup,
 		restoreGroup,
 		createProfile,
@@ -196,6 +200,8 @@ export function useConsoleState() {
 		restoreProfile,
 		batchOpenProfiles,
 		batchCloseProfiles,
+		setProfileGroup,
+		batchSetProfileGroup,
 		createDevicePreset,
 		updateDevicePreset,
 		createProxy,

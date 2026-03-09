@@ -15,6 +15,7 @@ export type ProfileListStoreState = {
 	error: string | null;
 	filters: ProfileListFiltersState;
 	quickEdit: ProfileListQuickEditState;
+	batchGroupTarget: string;
 	selectedProfileIds: string[];
 	lastBatchOpenResult: BatchProfileActionResponse | null;
 };
@@ -24,6 +25,7 @@ type ProfileListStoreActions = {
 	setError: (error: string | null) => void;
 	patchFilters: (patch: Partial<ProfileListFiltersState>) => void;
 	setQuickEdit: (quickEdit: ProfileListQuickEditState) => void;
+	setBatchGroupTarget: (groupName: string) => void;
 	toggleProfile: (profileId: string, checked: boolean) => void;
 	setSelectedProfiles: (profileIds: string[]) => void;
 	clearSelection: () => void;
@@ -41,6 +43,7 @@ export const PROFILE_LIST_INITIAL_STATE: ProfileListStoreState = {
 		lifecycleFilter: 'active',
 	},
 	quickEdit: null,
+	batchGroupTarget: '',
 	selectedProfileIds: [],
 	lastBatchOpenResult: null,
 };
@@ -61,6 +64,7 @@ export function createProfileListStore(initialState?: Partial<ProfileListStoreSt
 		setError: (error) => set({ error }),
 		patchFilters: (patch) => set((state) => ({ filters: { ...state.filters, ...patch } })),
 		setQuickEdit: (quickEdit) => set({ quickEdit }),
+		setBatchGroupTarget: (batchGroupTarget) => set({ batchGroupTarget }),
 		toggleProfile: (profileId, checked) =>
 			set((state) => ({
 				selectedProfileIds: checked
