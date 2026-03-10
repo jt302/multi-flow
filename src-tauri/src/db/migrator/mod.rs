@@ -9,6 +9,7 @@ mod m20260309_000008_add_proxy_health_fields;
 mod m20260309_000009_add_proxy_portrait_fields;
 mod m20260309_000010_create_rpa_tables;
 mod m20260310_000011_add_proxy_locale_fields;
+mod m20260310_000012_rebuild_proxy_runtime_instances;
 mod m20260310_000012_add_proxy_target_site_checks;
 
 use sea_orm_migration::prelude::*;
@@ -30,7 +31,26 @@ impl MigratorTrait for Migrator {
             Box::new(m20260309_000009_add_proxy_portrait_fields::Migration),
             Box::new(m20260309_000010_create_rpa_tables::Migration),
             Box::new(m20260310_000011_add_proxy_locale_fields::Migration),
+            Box::new(m20260310_000012_rebuild_proxy_runtime_instances::Migration),
             Box::new(m20260310_000012_add_proxy_target_site_checks::Migration),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn includes_legacy_rebuild_proxy_runtime_instances_migration() {
+        let names = Migrator::migrations()
+            .into_iter()
+            .map(|migration| migration.name().to_string())
+            .collect::<Vec<_>>();
+
+        assert!(
+            names.contains(&"m20260310_000012_rebuild_proxy_runtime_instances".to_string()),
+            "missing legacy migration for already-applied local databases"
+        );
     }
 }
