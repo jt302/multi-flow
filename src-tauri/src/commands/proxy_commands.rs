@@ -14,13 +14,17 @@ pub async fn create_proxy(
     state: State<'_, AppState>,
     payload: CreateProxyRequest,
 ) -> Result<Proxy, String> {
-    let created = {
+    let proxy_service = {
         let proxy_service = state
             .proxy_service
             .lock()
             .map_err(|_| "proxy service lock poisoned".to_string())?;
-        proxy_service.create_proxy(payload).map_err(error_to_string)?
+        proxy_service.clone()
     };
+    let created = run_proxy_service_blocking("proxy create", move || {
+        proxy_service.create_proxy(payload).map_err(error_to_string)
+    })
+    .await?;
     auto_check_proxy_if_needed(&state, created).await
 }
 
@@ -30,15 +34,19 @@ pub async fn update_proxy(
     proxy_id: String,
     payload: UpdateProxyRequest,
 ) -> Result<Proxy, String> {
-    let updated = {
+    let proxy_service = {
         let proxy_service = state
             .proxy_service
             .lock()
             .map_err(|_| "proxy service lock poisoned".to_string())?;
+        proxy_service.clone()
+    };
+    let updated = run_proxy_service_blocking("proxy update", move || {
         proxy_service
             .update_proxy(&proxy_id, payload)
-            .map_err(error_to_string)?
-    };
+            .map_err(error_to_string)
+    })
+    .await?;
     auto_check_proxy_if_needed(&state, updated).await
 }
 
@@ -109,7 +117,6 @@ pub fn batch_delete_proxies(
         .map_err(error_to_string)
 }
 
-
 #[tauri::command]
 pub fn import_proxies(
     state: State<'_, AppState>,
@@ -119,7 +126,9 @@ pub fn import_proxies(
         .proxy_service
         .lock()
         .map_err(|_| "proxy service lock poisoned".to_string())?;
-    proxy_service.import_proxies(payload).map_err(error_to_string)
+    proxy_service
+        .import_proxies(payload)
+        .map_err(error_to_string)
 }
 
 #[tauri::command]
@@ -249,10 +258,18 @@ fn error_to_string(err: AppError) -> String {
     err.to_string()
 }
 
-async fn auto_check_proxy_if_needed(
-    state: &AppState,
-    proxy: Proxy,
-) -> Result<Proxy, String> {
+async fn run_proxy_service_blocking<T, F>(task_name: &str, task: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, String> + Send + 'static,
+{
+    let handle = tauri::async_runtime::spawn_blocking(task);
+    handle
+        .await
+        .map_err(|err| format!("{task_name} task join failed: {err}"))?
+}
+
+async fn auto_check_proxy_if_needed(state: &AppState, proxy: Proxy) -> Result<Proxy, String> {
     if !proxy_uses_ip_defaults(&proxy) {
         return Ok(proxy);
     }
@@ -293,7 +310,10 @@ async fn auto_check_proxy_if_needed(
         Err(err) => {
             logger::warn(
                 "proxy_cmd",
-                format!("proxy auto-check failed after save proxy_id={}: {err}", proxy.id),
+                format!(
+                    "proxy auto-check failed after save proxy_id={}: {err}",
+                    proxy.id
+                ),
             );
             Ok(proxy)
         }
@@ -303,4 +323,36 @@ async fn auto_check_proxy_if_needed(
 fn proxy_uses_ip_defaults(proxy: &Proxy) -> bool {
     proxy.language_source.as_deref().unwrap_or("ip") == "ip"
         || proxy.timezone_source.as_deref().unwrap_or("ip") == "ip"
+}
+
+#[cfg(test)]
+mod tests {
+    use super::run_proxy_service_blocking;
+
+    #[test]
+    fn run_proxy_service_blocking_allows_nested_block_on_work() {
+        let value = tauri::async_runtime::block_on(async {
+            run_proxy_service_blocking("proxy-save", || {
+                let nested = tauri::async_runtime::block_on(async { 42_u8 });
+                Ok::<u8, String>(nested)
+            })
+            .await
+        })
+        .expect("proxy-save task should complete");
+
+        assert_eq!(value, 42);
+    }
+
+    #[test]
+    fn run_proxy_service_blocking_maps_join_error() {
+        let err = tauri::async_runtime::block_on(async {
+            run_proxy_service_blocking::<(), _>("proxy-save", || -> Result<(), String> {
+                panic!("intentional panic");
+            })
+            .await
+        })
+        .expect_err("panic in blocking task should surface as error");
+
+        assert!(err.contains("proxy-save task join failed"));
+    }
 }

@@ -37,7 +37,9 @@ pub fn update_rpa_flow(
         .rpa_flow_service
         .lock()
         .map_err(|_| "rpa flow service lock poisoned".to_string())?;
-    let flow = service.update_flow(&flow_id, payload).map_err(error_to_string)?;
+    let flow = service
+        .update_flow(&flow_id, payload)
+        .map_err(error_to_string)?;
     let _ = app.emit(RPA_FLOWS_UPDATED_EVENT, &flow);
     Ok(flow)
 }
@@ -57,7 +59,10 @@ pub fn list_rpa_flows(
 }
 
 #[tauri::command]
-pub fn get_rpa_flow(state: State<'_, AppState>, flow_id: String) -> Result<Option<RpaFlow>, String> {
+pub fn get_rpa_flow(
+    state: State<'_, AppState>,
+    flow_id: String,
+) -> Result<Option<RpaFlow>, String> {
     let service = state
         .rpa_flow_service
         .lock()
@@ -66,7 +71,11 @@ pub fn get_rpa_flow(state: State<'_, AppState>, flow_id: String) -> Result<Optio
 }
 
 #[tauri::command]
-pub fn delete_rpa_flow(app: AppHandle, state: State<'_, AppState>, flow_id: String) -> Result<RpaFlow, String> {
+pub fn delete_rpa_flow(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    flow_id: String,
+) -> Result<RpaFlow, String> {
     let service = state
         .rpa_flow_service
         .lock()
@@ -77,7 +86,11 @@ pub fn delete_rpa_flow(app: AppHandle, state: State<'_, AppState>, flow_id: Stri
 }
 
 #[tauri::command]
-pub fn restore_rpa_flow(app: AppHandle, state: State<'_, AppState>, flow_id: String) -> Result<RpaFlow, String> {
+pub fn restore_rpa_flow(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    flow_id: String,
+) -> Result<RpaFlow, String> {
     let service = state
         .rpa_flow_service
         .lock()
@@ -88,13 +101,20 @@ pub fn restore_rpa_flow(app: AppHandle, state: State<'_, AppState>, flow_id: Str
 }
 
 #[tauri::command]
-pub fn purge_rpa_flow(app: AppHandle, state: State<'_, AppState>, flow_id: String) -> Result<(), String> {
+pub fn purge_rpa_flow(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    flow_id: String,
+) -> Result<(), String> {
     let service = state
         .rpa_flow_service
         .lock()
         .map_err(|_| "rpa flow service lock poisoned".to_string())?;
     service.purge_flow(&flow_id).map_err(error_to_string)?;
-    let _ = app.emit(RPA_FLOWS_UPDATED_EVENT, serde_json::json!({ "flowId": flow_id, "kind": "purged" }));
+    let _ = app.emit(
+        RPA_FLOWS_UPDATED_EVENT,
+        serde_json::json!({ "flowId": flow_id, "kind": "purged" }),
+    );
     Ok(())
 }
 
@@ -177,7 +197,9 @@ pub fn list_rpa_run_steps(
         .rpa_run_service
         .lock()
         .map_err(|_| "rpa run service lock poisoned".to_string())?;
-    service.list_run_steps(&instance_id).map_err(error_to_string)
+    service
+        .list_run_steps(&instance_id)
+        .map_err(error_to_string)
 }
 
 #[tauri::command]
@@ -201,7 +223,9 @@ pub fn cancel_rpa_run_instance(
         .rpa_run_service
         .lock()
         .map_err(|_| "rpa run service lock poisoned".to_string())?;
-    service.cancel_instance(&instance_id).map_err(error_to_string)?;
+    service
+        .cancel_instance(&instance_id)
+        .map_err(error_to_string)?;
     Ok(())
 }
 
@@ -234,8 +258,8 @@ pub fn resume_rpa_instance(
 pub fn open_rpa_flow_editor_window(app: AppHandle, flow_id: Option<String>) -> Result<(), String> {
     let target_path = build_rpa_editor_window_path(flow_id.as_deref());
     if let Some(window) = app.get_webview_window(RPA_EDITOR_LABEL) {
-        let target_json =
-            serde_json::to_string(&target_path).map_err(|err| format!("serialize target failed: {err}"))?;
+        let target_json = serde_json::to_string(&target_path)
+            .map_err(|err| format!("serialize target failed: {err}"))?;
         let script = format!(
             "if (window.location.pathname + window.location.search !== {target}) {{ window.location.replace({target}); }}",
             target = target_json
@@ -247,17 +271,14 @@ pub fn open_rpa_flow_editor_window(app: AppHandle, flow_id: Option<String>) -> R
         return Ok(());
     }
 
-    let window = WebviewWindowBuilder::new(
-        &app,
-        RPA_EDITOR_LABEL,
-        WebviewUrl::App(target_path.into()),
-    )
-    .title("multi-flow RPA 编辑器")
-    .inner_size(1480.0, 920.0)
-    .min_inner_size(1180.0, 760.0)
-    .resizable(true)
-    .build()
-    .map_err(|err| format!("open rpa flow editor window failed: {err}"))?;
+    let window =
+        WebviewWindowBuilder::new(&app, RPA_EDITOR_LABEL, WebviewUrl::App(target_path.into()))
+            .title("multi-flow RPA 编辑器")
+            .inner_size(1480.0, 920.0)
+            .min_inner_size(1180.0, 760.0)
+            .resizable(true)
+            .build()
+            .map_err(|err| format!("open rpa flow editor window failed: {err}"))?;
 
     let _ = window.set_focus();
     Ok(())

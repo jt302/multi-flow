@@ -12,6 +12,12 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
+	Form,
+	FormControl,
+	FormField,
+	FormItem,
+	FormLabel,
+	FormMessage,
 	Icon,
 	Input,
 } from '@/components/ui';
@@ -40,18 +46,19 @@ export function GroupFormDialog({
 	onOpenChange,
 	onSubmit,
 }: GroupFormDialogProps) {
-	const {
-		register,
-		handleSubmit,
-		reset,
-		formState: { errors, isSubmitting },
-	} = useForm<GroupFormValues>({
+	const form = useForm<GroupFormValues>({
 		resolver: zodResolver(groupFormSchema),
 		defaultValues: {
 			name: '',
 			note: '',
 		},
 	});
+	const {
+		handleSubmit,
+		reset,
+		control,
+		formState: { isSubmitting },
+	} = form;
 
 	useEffect(() => {
 		if (!open) {
@@ -77,43 +84,58 @@ export function GroupFormDialog({
 					</DialogDescription>
 				</DialogHeader>
 
-				<form
-					className="space-y-3"
-					onSubmit={handleSubmit(async (values) => {
-						await onSubmit(values);
-						onOpenChange(false);
-					})}
-				>
-					<div>
-						<label htmlFor="group-name" className="mb-1 block text-xs text-muted-foreground">
-							分组名称
-						</label>
-						<Input id="group-name" {...register('name')} placeholder="例如 AirDrop-Matrix" />
-						{errors.name ? <p className="mt-1 text-xs text-destructive">{errors.name.message}</p> : null}
-					</div>
+				<Form {...form}>
+					<form
+						className="flex flex-col gap-3"
+						onSubmit={handleSubmit(async (values) => {
+							await onSubmit(values);
+							onOpenChange(false);
+						})}
+					>
+						<FormField
+							control={control}
+							name="name"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>分组名称</FormLabel>
+									<FormControl>
+										<Input {...field} placeholder="例如 AirDrop-Matrix" />
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
 
-					<div>
-						<label htmlFor="group-note" className="mb-1 block text-xs text-muted-foreground">
-							备注
-						</label>
-						<Input id="group-note" {...register('note')} placeholder="任务目的或业务线" />
-					</div>
+						<FormField
+							control={control}
+							name="note"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>备注</FormLabel>
+									<FormControl>
+										<Input {...field} placeholder="任务目的或业务线" />
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
 
-					<DialogFooter>
-						<Button
-							type="button"
-							variant="ghost"
-							className="cursor-pointer"
-							onClick={() => onOpenChange(false)}
-						>
-							取消
-						</Button>
-						<Button type="submit" className="cursor-pointer" disabled={isSubmitting}>
-							<Icon icon={mode === 'edit' ? Save : Plus} size={14} />
-							{mode === 'edit' ? '保存分组' : '新增分组'}
-						</Button>
-					</DialogFooter>
-				</form>
+						<DialogFooter>
+							<Button
+								type="button"
+								variant="ghost"
+								className="cursor-pointer"
+								onClick={() => onOpenChange(false)}
+							>
+								取消
+							</Button>
+							<Button type="submit" className="cursor-pointer" disabled={isSubmitting}>
+								<Icon icon={mode === 'edit' ? Save : Plus} size={14} />
+								{mode === 'edit' ? '保存分组' : '新增分组'}
+							</Button>
+						</DialogFooter>
+					</form>
+				</Form>
 			</DialogContent>
 		</Dialog>
 	);

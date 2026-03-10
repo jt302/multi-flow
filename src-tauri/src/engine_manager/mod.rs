@@ -232,10 +232,9 @@ impl EngineManager {
     }
 
     pub fn get_runtime_handle(&self, profile_id: &str) -> AppResult<EngineRuntimeHandle> {
-        let record = self
-            .sessions
-            .get(profile_id)
-            .ok_or_else(|| AppError::NotFound(format!("running session not found: {profile_id}")))?;
+        let record = self.sessions.get(profile_id).ok_or_else(|| {
+            AppError::NotFound(format!("running session not found: {profile_id}"))
+        })?;
         let (debug_port, magic_port) = match &record.process {
             EngineProcess::Mock => (None, None),
             EngineProcess::Chromium {

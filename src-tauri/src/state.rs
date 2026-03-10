@@ -9,18 +9,18 @@ use tauri::Manager;
 use crate::db;
 use crate::engine_manager::EngineManager;
 use crate::error::AppResult;
-use crate::local_api_server::LocalApiServer;
+use crate::local_api_server::{LocalApiServer, DEFAULT_PROXY_DAEMON_BIND_ADDRESS};
 use crate::logger;
 use crate::runtime_guard;
-use crate::services::engine_session_service::EngineSessionService;
 use crate::services::device_preset_service::DevicePresetService;
+use crate::services::engine_session_service::EngineSessionService;
 use crate::services::profile_group_service::ProfileGroupService;
 use crate::services::profile_service::ProfileService;
 use crate::services::proxy_service::ProxyService;
+use crate::services::resource_service::ResourceService;
 use crate::services::rpa_artifact_service::RpaArtifactService;
 use crate::services::rpa_flow_service::RpaFlowService;
 use crate::services::rpa_run_service::RpaRunService;
-use crate::services::resource_service::ResourceService;
 
 pub struct AppState {
     pub profile_group_service: Mutex<ProfileGroupService>,
@@ -49,8 +49,7 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
     let resource_service = ResourceService::from_app_handle(app)?;
     let engine_manager = build_engine_manager(app)?;
     let rpa_artifact_service = build_rpa_artifact_service(app)?;
-    let mut local_api_server = LocalApiServer::new("127.0.0.1:18180");
-    local_api_server.ensure_started();
+    let local_api_server = LocalApiServer::new(DEFAULT_PROXY_DAEMON_BIND_ADDRESS);
 
     let app_state = AppState {
         profile_group_service: Mutex::new(profile_group_service),
@@ -69,9 +68,14 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
     let interrupted = app_state
         .rpa_run_service
         .lock()
-        .map_err(|_| crate::error::AppError::Validation("rpa run service lock poisoned".to_string()))?
+        .map_err(|_| {
+            crate::error::AppError::Validation("rpa run service lock poisoned".to_string())
+        })?
         .mark_incomplete_runs_interrupted()?;
-    logger::info("state", format!("startup rpa interrupted instances marked={interrupted}"));
+    logger::info(
+        "state",
+        format!("startup rpa interrupted instances marked={interrupted}"),
+    );
     let affected = runtime_guard::reconcile_runtime_state(&app_state)?;
     logger::info(
         "state",

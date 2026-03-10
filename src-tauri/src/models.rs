@@ -542,7 +542,6 @@ pub struct BatchCheckProxiesRequest {
     pub proxy_ids: Vec<String>,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BatchProxyActionItem {

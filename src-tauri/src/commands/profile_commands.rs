@@ -14,8 +14,8 @@ use crate::models::{
     SetProfileGroupRequest, UpdateProfileVisualRequest, WebRtcMode,
 };
 use crate::runtime_guard;
-use crate::state::AppState;
 use crate::services::device_preset_service::DevicePresetService;
+use crate::state::AppState;
 
 const DEFAULT_STARTUP_URL: &str = "https://www.browserscan.net/";
 const RESOURCE_PROGRESS_EVENT: &str = "resource_download_progress";
@@ -380,12 +380,7 @@ pub fn preview_fingerprint_bundle(
         .device_preset_service
         .lock()
         .map_err(|_| "device preset service lock poisoned".to_string())?;
-    preview_fingerprint_bundle_inner(
-        &service,
-        source,
-        font_list_mode,
-        custom_font_list,
-    )
+    preview_fingerprint_bundle_inner(&service, source, font_list_mode, custom_font_list)
 }
 
 #[tauri::command]
@@ -433,6 +428,7 @@ fn do_delete_profile(state: &AppState, profile_id: &str) -> Result<Profile, Stri
         let _ = engine_manager.close_profile(profile_id);
     }
     let _ = engine_session_service.delete_session(profile_id);
+    stop_profile_proxy_runtime_quietly(state, profile_id);
 
     profile_service
         .soft_delete_profile(profile_id)
@@ -697,6 +693,16 @@ pub(crate) fn do_open_profile(
     let bound_proxy = proxy_service
         .get_profile_proxy(profile_id)
         .map_err(error_to_string)?;
+    let daemon_proxy_server = match bound_proxy.as_ref() {
+        Some(proxy) => {
+            let mut local_api_server = state
+                .local_api_server
+                .lock()
+                .map_err(|_| "local api server lock poisoned".to_string())?;
+            Some(local_api_server.start_proxy_runtime(profile_id, proxy)?)
+        }
+        None => None,
+    };
     let geoip_database = resource_service.resolve_geoip_database_path();
     let mut merged_options = merge_open_options(profile_snapshot.settings.as_ref(), user_options);
     merged_options.fingerprint_seed = Some(fingerprint_seed);
@@ -711,6 +717,7 @@ pub(crate) fn do_open_profile(
         profile_snapshot.settings.as_ref(),
         merged_options,
         bound_proxy.as_ref(),
+        daemon_proxy_server.clone(),
         geoip_database,
         Some(resolved_browser_version.as_str()),
     )?;
@@ -724,7 +731,10 @@ pub(crate) fn do_open_profile(
 
     let session = engine_manager
         .open_profile_with_options(profile_id, &launch_options)
-        .map_err(error_to_string)?;
+        .map_err(|err| {
+            stop_profile_proxy_runtime_quietly(state, profile_id);
+            error_to_string(err)
+        })?;
     let _ = engine_manager.apply_profile_visual_overrides(
         profile_id,
         launch_options.background_color.clone(),
@@ -735,12 +745,14 @@ pub(crate) fn do_open_profile(
         Ok(profile) => profile,
         Err(err) => {
             let _ = engine_manager.close_profile(profile_id);
+            stop_profile_proxy_runtime_quietly(state, profile_id);
             return Err(error_to_string(err));
         }
     };
     if let Err(err) = engine_session_service.save_session(profile_id, &session) {
         let _ = engine_manager.close_profile(profile_id);
         let _ = profile_service.mark_profile_running(profile_id, false);
+        stop_profile_proxy_runtime_quietly(state, profile_id);
         return Err(error_to_string(err));
     }
     logger::info(
@@ -778,15 +790,14 @@ fn resolve_launch_options(
     profile_settings: Option<&ProfileSettings>,
     options: OpenProfileOptions,
     bound_proxy: Option<&Proxy>,
+    daemon_proxy_server: Option<String>,
     geoip_database: Option<std::path::PathBuf>,
     resolved_browser_version: Option<&str>,
 ) -> Result<EngineLaunchOptions, String> {
-    let startup_urls = normalize_startup_urls(
-        options.startup_urls.clone(),
-        options.startup_url.clone(),
-    )
-    .map_err(|_| format!("validation failed: invalid startupUrl for {profile_id}"))?
-    .unwrap_or_else(|| vec![DEFAULT_STARTUP_URL.to_string()]);
+    let startup_urls =
+        normalize_startup_urls(options.startup_urls.clone(), options.startup_url.clone())
+            .map_err(|_| format!("validation failed: invalid startupUrl for {profile_id}"))?
+            .unwrap_or_else(|| vec![DEFAULT_STARTUP_URL.to_string()]);
     let geolocation = options
         .geolocation
         .clone()
@@ -810,9 +821,13 @@ fn resolve_launch_options(
             }
         }
     }
-    let proxy_server = match bound_proxy {
-        Some(proxy) => Some(proxy_to_arg(proxy)?),
-        None => None,
+    let proxy_server = if let Some(proxy_server) = daemon_proxy_server.and_then(trim_to_option) {
+        Some(proxy_server)
+    } else {
+        match bound_proxy {
+            Some(proxy) => Some(proxy_to_arg(proxy)?),
+            None => None,
+        }
     };
     let runtime_snapshot = resolve_runtime_fingerprint_snapshot(
         device_preset_service,
@@ -929,13 +944,10 @@ fn merge_open_options(
 
     if let Some(settings) = settings {
         if let Some(basic) = settings.basic.as_ref() {
-            merged.startup_urls = basic.startup_urls.clone().or_else(|| {
-                basic
-                    .startup_url
-                    .as_ref()
-                    .cloned()
-                    .map(|value| vec![value])
-            });
+            merged.startup_urls = basic
+                .startup_urls
+                .clone()
+                .or_else(|| basic.startup_url.as_ref().cloned().map(|value| vec![value]));
         }
         if let Some(fingerprint) = settings.fingerprint.as_ref() {
             let snapshot = fingerprint.fingerprint_snapshot.as_ref();
@@ -1460,6 +1472,7 @@ pub(crate) fn do_close_profile(state: &AppState, profile_id: &str) -> Result<Pro
     engine_session_service
         .delete_session(profile_id)
         .map_err(error_to_string)?;
+    stop_profile_proxy_runtime_quietly(state, profile_id);
 
     let profile = profile_service
         .mark_profile_running(profile_id, false)
@@ -1475,6 +1488,27 @@ fn error_to_string(err: AppError) -> String {
     err.to_string()
 }
 
+fn stop_profile_proxy_runtime_quietly(state: &AppState, profile_id: &str) {
+    let mut local_api_server = match state.local_api_server.lock() {
+        Ok(value) => value,
+        Err(_) => {
+            logger::warn(
+                "profile_cmd",
+                format!(
+                    "skip stopping proxy daemon runtime because local api server lock poisoned profile_id={profile_id}"
+                ),
+            );
+            return;
+        }
+    };
+    if let Err(err) = local_api_server.stop_proxy_runtime(profile_id) {
+        logger::warn(
+            "profile_cmd",
+            format!("proxy daemon stop failed profile_id={profile_id} err={err}"),
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Mutex;
@@ -1488,15 +1522,15 @@ mod tests {
         CreateProfileRequest, GeolocationOverride, OpenProfileOptions, Proxy, ProxyLifecycle,
         WebRtcMode,
     };
-    use crate::services::engine_session_service::EngineSessionService;
     use crate::services::device_preset_service::DevicePresetService;
+    use crate::services::engine_session_service::EngineSessionService;
     use crate::services::profile_group_service::ProfileGroupService;
     use crate::services::profile_service::ProfileService;
     use crate::services::proxy_service::ProxyService;
+    use crate::services::resource_service::ResourceService;
     use crate::services::rpa_artifact_service::RpaArtifactService;
     use crate::services::rpa_flow_service::RpaFlowService;
     use crate::services::rpa_run_service::RpaRunService;
-    use crate::services::resource_service::ResourceService;
 
     fn new_test_state() -> AppState {
         let db = db::init_test_database().expect("init test db");
@@ -1515,11 +1549,12 @@ mod tests {
             std::env::temp_dir().join(format!("multi-flow-resource-cmd-test-{unique}"));
         let resource_service =
             ResourceService::from_data_dir(&resource_dir).expect("resource service");
-        let artifact_service =
-            RpaArtifactService::new(std::env::temp_dir().join(format!("multi-flow-rpa-artifacts-{unique}")))
-                .expect("artifact service");
+        let artifact_service = RpaArtifactService::new(
+            std::env::temp_dir().join(format!("multi-flow-rpa-artifacts-{unique}")),
+        )
+        .expect("artifact service");
         let mut local_api_server = LocalApiServer::new("127.0.0.1:18180");
-        local_api_server.ensure_started();
+        local_api_server.mark_started();
 
         AppState {
             profile_group_service: Mutex::new(profile_group_service),
@@ -1724,6 +1759,7 @@ mod tests {
             Some(&proxy),
             None,
             None,
+            None,
         )
         .expect("resolve launch options");
         assert_eq!(options.language.as_deref(), Some("en-US"));
@@ -1733,7 +1769,10 @@ mod tests {
             Some("http://127.0.0.1:8080")
         );
         assert_eq!(options.web_rtc_policy, None);
-        assert_eq!(options.startup_urls, vec!["https://www.browserscan.net/".to_string()]);
+        assert_eq!(
+            options.startup_urls,
+            vec!["https://www.browserscan.net/".to_string()]
+        );
     }
 
     #[test]
@@ -1784,6 +1823,7 @@ mod tests {
             Some(&proxy),
             None,
             None,
+            None,
         )
         .expect("resolve launch options");
 
@@ -1811,6 +1851,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         )
         .expect_err("invalid geolocation should fail");
         assert!(err.contains("invalid latitude"));
@@ -1828,6 +1869,7 @@ mod tests {
                 startup_urls: Some(vec!["ftp://example.com".to_string()]),
                 ..Default::default()
             },
+            None,
             None,
             None,
             None,
@@ -1856,6 +1898,7 @@ mod tests {
             "test-profile",
             Some(&settings),
             merged,
+            None,
             None,
             None,
             None,
@@ -1896,6 +1939,7 @@ mod tests {
                 ..Default::default()
             }),
             OpenProfileOptions::default(),
+            None,
             None,
             None,
             Some("144.0.7559.97"),
@@ -1942,6 +1986,7 @@ mod tests {
                 timezone_id: Some("Europe/Berlin".to_string()),
                 ..Default::default()
             },
+            None,
             None,
             None,
             Some("144.0.7559.97"),
@@ -2006,7 +2051,10 @@ mod tests {
                         ..Default::default()
                     }),
                     font_list_mode: Some(FontListMode::Custom),
-                    custom_font_list: Some(vec!["Custom UI".to_string(), "Custom Sans".to_string()]),
+                    custom_font_list: Some(vec![
+                        "Custom UI".to_string(),
+                        "Custom Sans".to_string(),
+                    ]),
                     fingerprint_snapshot: Some(ProfileFingerprintSnapshot {
                         browser_version: Some("143.0.0.0".to_string()),
                         platform: Some("windows".to_string()),
@@ -2018,6 +2066,7 @@ mod tests {
                 ..Default::default()
             }),
             OpenProfileOptions::default(),
+            None,
             None,
             None,
             Some("144.0.7559.97"),
@@ -2047,6 +2096,7 @@ mod tests {
                 ..Default::default()
             }),
             OpenProfileOptions::default(),
+            None,
             None,
             None,
             Some("144.0.7559.97"),
@@ -2111,6 +2161,7 @@ mod tests {
                 ..Default::default()
             }),
             OpenProfileOptions::default(),
+            None,
             None,
             None,
             Some("144.0.7559.97"),

@@ -28,7 +28,9 @@ export function ProfilesPage({
 	navigationIntent,
 	onConsumeNavigationIntent,
 }: ProfilesPageProps) {
-	const [view, setView] = useState<'list' | 'create' | 'edit' | 'detail'>('list');
+	const [view, setView] = useState<'list' | 'create' | 'edit' | 'detail'>(
+		'list',
+	);
 	const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
 
 	useEffect(() => {
@@ -103,7 +105,9 @@ export function ProfilesPage({
 			<ProfileDetailPage
 				profile={profile}
 				resources={resources}
-				boundProxy={proxies.find((item) => item.id === profileProxyBindings[profile.id])}
+				boundProxy={proxies.find(
+					(item) => item.id === profileProxyBindings[profile.id],
+				)}
 				onBack={() => {
 					setView('list');
 					setActiveProfileId(null);

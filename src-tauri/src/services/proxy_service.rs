@@ -797,8 +797,9 @@ impl ProxyService {
         let mut active_model: proxy::ActiveModel = stored.into();
         active_model.check_status = Set(Some(snapshot.check_status));
         active_model.check_message = Set(snapshot.check_message);
-        active_model.target_site_checks_json =
-            Set(serialize_target_site_checks(snapshot.target_site_checks.as_deref())?);
+        active_model.target_site_checks_json = Set(serialize_target_site_checks(
+            snapshot.target_site_checks.as_deref(),
+        )?);
         active_model.last_checked_at = Set(Some(now));
         active_model.exit_ip = Set(snapshot.exit_ip);
         active_model.country = Set(snapshot.country);
@@ -1113,7 +1114,10 @@ fn build_proxy_http_client(stored: &proxy::Model, timeout: Duration) -> AppResul
 }
 
 fn probe_target_sites_through_proxy(stored: &proxy::Model) -> Vec<ProxyTargetSiteCheck> {
-    let client = match build_proxy_http_client(stored, Duration::from_secs(TARGET_SITE_CHECK_TIMEOUT_SECS)) {
+    let client = match build_proxy_http_client(
+        stored,
+        Duration::from_secs(TARGET_SITE_CHECK_TIMEOUT_SECS),
+    ) {
         Ok(client) => client,
         Err(err) => {
             let message = err.to_string();
@@ -1228,7 +1232,9 @@ fn compose_proxy_check_message(
     message
 }
 
-fn serialize_target_site_checks(value: Option<&[ProxyTargetSiteCheck]>) -> AppResult<Option<String>> {
+fn serialize_target_site_checks(
+    value: Option<&[ProxyTargetSiteCheck]>,
+) -> AppResult<Option<String>> {
     let Some(items) = value else {
         return Ok(None);
     };
@@ -1507,7 +1513,9 @@ mod tests {
     fn build_proxy_check_snapshot_with_target_warning() -> ProxyCheckSnapshot {
         ProxyCheckSnapshot {
             check_status: "ok".to_string(),
-            check_message: Some("代理连通正常（120 ms）；目标站可达性 1/2（google.com 不可达）".to_string()),
+            check_message: Some(
+                "代理连通正常（120 ms）；目标站可达性 1/2（google.com 不可达）".to_string(),
+            ),
             target_site_checks: Some(vec![
                 ProxyTargetSiteCheck {
                     site: TARGET_SITE_GOOGLE.to_string(),

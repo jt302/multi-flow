@@ -1,5 +1,6 @@
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 import { WORKSPACE_SECTIONS } from '@/app/model/workspace-sections';
+import { DataSection } from '@/components/common';
 import type { ProxyPageProps, UpdateProxyPayload } from '@/features/proxy/model/types';
 import { useProxyPageState } from '@/features/proxy/model/use-proxy-page-state';
 import { ProxyBatchDeleteAlertDialog } from './proxy-batch-delete-alert-dialog';
@@ -57,34 +58,36 @@ export function ProxyPage({
 	});
 
 	return (
-		<div className="space-y-3">
+		<div className="flex flex-col gap-3">
 			<ActiveSectionCard label="代理池" title={section.title} description={section.desc} />
 			<ProxyStats totalCount={activeProxies.length} activeCount={activeProxies.length} boundCount={boundCount} />
-			<ProxyListCard
-				proxies={activeProxies}
-				pending={pending}
-				selectedProxyIds={selectedActiveProxyIds}
-				checkingProxyIds={checkingProxyIds}
-				batchChecking={batchChecking}
-				refreshing={busyAction === 'refresh'}
-				rowActionDisabled={busyAction !== null}
-				onSelectAll={(checked) =>
-					store.setSelectedProxyIds(checked ? activeProxies.map((item) => item.id) : [])
-				}
-				onSelectProxy={(proxyId, checked) => store.toggleProxy(proxyId, checked)}
-				onOpenCreate={store.openCreateDialog}
-				onOpenImport={() => store.setImportDialogOpen(true)}
-				onOpenBinding={store.openBindingDialog}
-				onOpenEdit={store.openEditDialog}
-				onOpenBatchEdit={() => store.setBatchEditDialogOpen(true)}
-				onOpenBatchDelete={() => store.setBatchDeleteDialogOpen(true)}
-				onBatchCheck={() => { void handleBatchCheck(); }}
-				onRefresh={() => { void runNamedAction('refresh', onRefreshProxies); }}
-				onCheckProxy={(proxyId) => { void handleSingleCheck(proxyId); }}
-				onRequestDelete={store.setDeleteDialogProxyId}
-				onRestoreProxy={(proxyId) => { void runNamedAction('delete', () => onRestoreProxy(proxyId)); }}
-				boundCounts={boundCounts}
-			/>
+			<DataSection title="代理资产列表" contentClassName="p-0">
+				<ProxyListCard
+					proxies={activeProxies}
+					pending={pending}
+					selectedProxyIds={selectedActiveProxyIds}
+					checkingProxyIds={checkingProxyIds}
+					batchChecking={batchChecking}
+					refreshing={busyAction === 'refresh'}
+					rowActionDisabled={busyAction !== null}
+					onSelectAll={(checked) =>
+						store.setSelectedProxyIds(checked ? activeProxies.map((item) => item.id) : [])
+					}
+					onSelectProxy={(proxyId, checked) => store.toggleProxy(proxyId, checked)}
+					onOpenCreate={store.openCreateDialog}
+					onOpenImport={() => store.setImportDialogOpen(true)}
+					onOpenBinding={store.openBindingDialog}
+					onOpenEdit={store.openEditDialog}
+					onOpenBatchEdit={() => store.setBatchEditDialogOpen(true)}
+					onOpenBatchDelete={() => store.setBatchDeleteDialogOpen(true)}
+					onBatchCheck={() => { void handleBatchCheck(); }}
+					onRefresh={() => { void runNamedAction('refresh', onRefreshProxies); }}
+					onCheckProxy={(proxyId) => { void handleSingleCheck(proxyId); }}
+					onRequestDelete={store.setDeleteDialogProxyId}
+					onRestoreProxy={(proxyId) => { void runNamedAction('delete', () => onRestoreProxy(proxyId)); }}
+					boundCounts={boundCounts}
+				/>
+			</DataSection>
 			{store.lastBatchResult && store.lastBatchResult.failedCount > 0 ? <p className="text-xs text-destructive">批量操作存在失败项：成功 {store.lastBatchResult.successCount} 条，失败 {store.lastBatchResult.failedCount} 条。</p> : null}
 			{error ? <p className="text-xs text-destructive">{error}</p> : null}
 			<ProxyFormDialog

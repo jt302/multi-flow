@@ -74,10 +74,7 @@ pub fn restore_profile_group(
 }
 
 #[tauri::command]
-pub fn purge_profile_group(
-    state: State<'_, AppState>,
-    group_id: String,
-) -> Result<(), String> {
+pub fn purge_profile_group(state: State<'_, AppState>, group_id: String) -> Result<(), String> {
     let service = state
         .profile_group_service
         .lock()

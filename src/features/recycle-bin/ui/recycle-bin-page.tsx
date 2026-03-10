@@ -2,22 +2,13 @@ import { RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
 	Badge,
 	Button,
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle,
 	Icon,
+	TableCell,
+	TableRow,
 } from '@/components/ui';
+import { ConfirmActionDialog, DataSection, PageHeader } from '@/components/common';
 import { useRpaFlowsQuery } from '@/entities/rpa/model/use-rpa-flows-query';
 import { useRpaActions } from '@/features/rpa/model/use-rpa-actions';
 import {
@@ -63,38 +54,28 @@ function DeletedItemRow({
 	onPurge: () => void;
 }) {
 	return (
-		<div className="flex items-center justify-between rounded-xl border border-border/70 bg-background/70 px-3 py-2">
-			<div className="min-w-0">
+		<TableRow>
+			<TableCell>
 				<p className="truncate text-sm font-medium">{item.name}</p>
+			</TableCell>
+			<TableCell className="w-[280px]">
 				<p className="truncate text-xs text-muted-foreground">
 					{item.id} · 删除于 {formatDeletedAt(item.deletedAt)}
 				</p>
-			</div>
-			<div className="flex gap-2">
-				<Button
-					type="button"
-					size="sm"
-					variant="outline"
-					className="cursor-pointer"
-					disabled={pending}
-					onClick={onRestore}
-				>
-					<Icon icon={RotateCcw} size={12} />
-					恢复
-				</Button>
-				<Button
-					type="button"
-					size="sm"
-					variant="destructive"
-					className="cursor-pointer"
-					disabled={pending}
-					onClick={onPurge}
-				>
-					<Icon icon={Trash2} size={12} />
-					彻底删除
-				</Button>
-			</div>
-		</div>
+			</TableCell>
+			<TableCell className="w-[220px] text-right">
+				<div className="flex justify-end gap-2">
+					<Button type="button" size="sm" variant="outline" disabled={pending} onClick={onRestore}>
+						<Icon icon={RotateCcw} size={12} />
+						恢复
+					</Button>
+					<Button type="button" size="sm" variant="destructive" disabled={pending} onClick={onPurge}>
+						<Icon icon={Trash2} size={12} />
+						彻底删除
+					</Button>
+				</div>
+			</TableCell>
+		</TableRow>
 	);
 }
 
@@ -162,35 +143,33 @@ export function RecycleBinPage({
 	};
 
 	return (
-		<div className="space-y-3">
-			<Card className="p-3">
-				<CardHeader className="px-1 pb-2">
-					<div className="flex items-center justify-between">
-						<CardTitle className="text-sm">回收站</CardTitle>
-						<Button
-							type="button"
-							variant="ghost"
-							size="sm"
-							className="cursor-pointer"
-							onClick={() => {
-								void runAction(onRefreshAll);
-							}}
-						>
-							<Icon icon={RefreshCw} size={12} />
-							刷新
-						</Button>
+		<div className="flex flex-col gap-3">
+			<PageHeader label="settings" title="回收站" description="统一恢复或彻底删除已归档数据" />
+
+			<DataSection
+				title="统计"
+				actions={(
+					<Button
+						type="button"
+						variant="ghost"
+						size="sm"
+						onClick={() => {
+							void runAction(onRefreshAll);
+						}}
+					>
+						<Icon icon={RefreshCw} size={12} />
+						刷新
+					</Button>
+				)}
+			>
+				<div className="rounded-xl border border-border/70 bg-background/70 px-3 py-2 text-xs">
+					<div className="flex items-center gap-2">
+						<Icon icon={Trash2} size={12} />
+						<span className="text-muted-foreground">已归档项目</span>
+						<Badge>{totalDeleted}</Badge>
 					</div>
-				</CardHeader>
-				<CardContent className="px-1 pt-0">
-					<div className="rounded-xl border border-border/70 bg-background/70 px-3 py-2 text-xs">
-						<div className="flex items-center gap-2">
-							<Icon icon={Trash2} size={12} />
-							<span className="text-muted-foreground">已归档项目</span>
-							<Badge>{totalDeleted}</Badge>
-						</div>
-					</div>
-				</CardContent>
-			</Card>
+				</div>
+			</DataSection>
 
 			<RecycleBinSection title="环境" items={deletedProfiles}>
 				{(item) => (
@@ -258,42 +237,27 @@ export function RecycleBinPage({
 				)}
 			</RecycleBinSection>
 
-			<AlertDialog open={Boolean(purgeTarget)} onOpenChange={(open) => !open && setPurgeTarget(null)}>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>确认彻底删除</AlertDialogTitle>
-						<AlertDialogDescription>
-							{purgeTarget?.name || '该项目'} 将被彻底删除且不能恢复，请确认这不是误操作。
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel asChild>
-							<Button type="button" variant="ghost" className="cursor-pointer" disabled={pending}>
-								取消
-							</Button>
-						</AlertDialogCancel>
-						<AlertDialogAction asChild>
-							<Button
-								type="button"
-								variant="destructive"
-								className="cursor-pointer"
-								disabled={pending || !purgeTarget}
-								onClick={() => {
-									if (!purgeTarget) {
-										return;
-									}
-									void runAction(async () => {
-										await runPurge();
-										setPurgeTarget(null);
-									});
-								}}
-							>
-								彻底删除
-							</Button>
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
+			<ConfirmActionDialog
+				open={Boolean(purgeTarget)}
+				title="确认彻底删除"
+				description={`${purgeTarget?.name || '该项目'} 将被彻底删除且不能恢复，请确认这不是误操作。`}
+				confirmText="彻底删除"
+				pending={pending}
+				onOpenChange={(open) => {
+					if (!open) {
+						setPurgeTarget(null);
+					}
+				}}
+				onConfirm={() => {
+					if (!purgeTarget) {
+						return;
+					}
+					void runAction(async () => {
+						await runPurge();
+						setPurgeTarget(null);
+					});
+				}}
+			/>
 		</div>
 	);
 }

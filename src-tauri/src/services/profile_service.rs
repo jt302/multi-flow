@@ -6,7 +6,9 @@ use sea_orm::{
     QueryFilter, QueryOrder, Set,
 };
 
-use crate::db::entities::{profile, profile_group, profile_proxy_binding, rpa_flow_target, rpa_run_instance};
+use crate::db::entities::{
+    profile, profile_group, profile_proxy_binding, rpa_flow_target, rpa_run_instance,
+};
 use crate::error::{AppError, AppResult};
 use crate::fingerprint_catalog;
 use crate::font_catalog;
@@ -82,7 +84,8 @@ impl ProfileService {
 
         let group_name = self.ensure_active_group_name(req.group)?;
         let previous_settings = parse_settings_json(stored.settings_json.clone());
-        let settings = normalize_profile_settings(&self.db, req.settings, previous_settings.as_ref())?;
+        let settings =
+            normalize_profile_settings(&self.db, req.settings, previous_settings.as_ref())?;
         let settings_json = settings
             .as_ref()
             .map(|value| serde_json::to_string(value))
@@ -209,7 +212,10 @@ impl ProfileService {
             .paginate(&self.db, page_size);
         let pages = self.db_query(paginator.num_items_and_pages())?;
         let items = self.db_query(paginator.fetch_page(page.saturating_sub(1)))?;
-        let items: Vec<Profile> = items.into_iter().map(|item| self.to_api_profile(item)).collect();
+        let items: Vec<Profile> = items
+            .into_iter()
+            .map(|item| self.to_api_profile(item))
+            .collect();
 
         Ok(ListProfilesResponse {
             total: pages.number_of_items as usize,
@@ -711,8 +717,10 @@ fn hydrate_strong_fingerprint_settings(
     let snapshot = if let Some(snapshot) = fingerprint.fingerprint_snapshot.clone() {
         snapshot
     } else {
-        let preset = device_preset_service
-            .resolve_preset(platform.as_str(), resolved_source.device_preset_id.as_deref())?;
+        let preset = device_preset_service.resolve_preset(
+            platform.as_str(),
+            resolved_source.device_preset_id.as_deref(),
+        )?;
         let mut snapshot = fingerprint_catalog::resolve_fingerprint_snapshot_from_preset(
             &preset,
             &resolved_source,

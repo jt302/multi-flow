@@ -1,7 +1,9 @@
 use std::future::Future;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, Set};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, Set,
+};
 
 use crate::db::entities::device_preset;
 use crate::error::{AppError, AppResult};
@@ -23,13 +25,16 @@ impl DevicePresetService {
         _browser_version: Option<&str>,
     ) -> AppResult<Vec<ProfileDevicePreset>> {
         self.ensure_seeded()?;
-        let normalized_platform = fingerprint_catalog::normalize_platform(platform).map(str::to_string);
+        let normalized_platform =
+            fingerprint_catalog::normalize_platform(platform).map(str::to_string);
         let mut query = device_preset::Entity::find();
         if let Some(platform) = normalized_platform.as_deref() {
             query = query.filter(device_preset::Column::Platform.eq(platform));
         }
         let items = self.db_query(
-            query.order_by_asc(device_preset::Column::CreatedAt).all(&self.db),
+            query
+                .order_by_asc(device_preset::Column::CreatedAt)
+                .all(&self.db),
         )?;
         Ok(items.into_iter().map(|item| to_api_preset(&item)).collect())
     }
@@ -126,14 +131,12 @@ impl DevicePresetService {
             )));
         }
 
-        if let Some(model) = self
-            .db_query(
-                device_preset::Entity::find()
-                    .filter(device_preset::Column::Platform.eq(normalized_platform))
-                    .order_by_asc(device_preset::Column::CreatedAt)
-                    .one(&self.db),
-            )?
-        {
+        if let Some(model) = self.db_query(
+            device_preset::Entity::find()
+                .filter(device_preset::Column::Platform.eq(normalized_platform))
+                .order_by_asc(device_preset::Column::CreatedAt)
+                .one(&self.db),
+        )? {
             return Ok(to_preset_spec(&model));
         }
 
@@ -158,10 +161,7 @@ impl DevicePresetService {
     fn ensure_seeded(&self) -> AppResult<()> {
         let now = now_ts();
         for preset in fingerprint_catalog::builtin_preset_definitions(None) {
-            if self
-                .find_preset_by_key(&preset.id)?
-                .is_some()
-            {
+            if self.find_preset_by_key(&preset.id)?.is_some() {
                 continue;
             }
             let primary_variant = preset.variants.first().cloned().ok_or_else(|| {
@@ -185,7 +185,10 @@ impl DevicePresetService {
                 custom_gl_vendor: Set(primary_variant.gl_vendor),
                 custom_gl_renderer: Set(primary_variant.gl_renderer),
                 custom_cpu_cores: Set(primary_variant.custom_cpu_cores as i32),
-                custom_ram_gb: Set(primary_variant.custom_ram_gb.min(fingerprint_catalog::MAX_FINGERPRINT_RAM_GB) as i32),
+                custom_ram_gb: Set(primary_variant
+                    .custom_ram_gb
+                    .min(fingerprint_catalog::MAX_FINGERPRINT_RAM_GB)
+                    as i32),
                 created_at: Set(now),
                 updated_at: Set(now),
                 ..Default::default()
@@ -225,7 +228,9 @@ struct NormalizedPresetPayload {
     custom_ram_gb: u32,
 }
 
-fn normalize_payload(payload: SaveProfileDevicePresetRequest) -> AppResult<NormalizedPresetPayload> {
+fn normalize_payload(
+    payload: SaveProfileDevicePresetRequest,
+) -> AppResult<NormalizedPresetPayload> {
     let label = trim_owned(payload.label)
         .ok_or_else(|| AppError::Validation("device preset label is required".to_string()))?;
     let platform = fingerprint_catalog::normalize_platform(Some(&payload.platform))
@@ -241,9 +246,8 @@ fn normalize_payload(payload: SaveProfileDevicePresetRequest) -> AppResult<Norma
         .ok_or_else(|| AppError::Validation("device preset arch is required".to_string()))?;
     let bitness = trim_owned(payload.bitness)
         .ok_or_else(|| AppError::Validation("device preset bitness is required".to_string()))?;
-    let form_factor = trim_owned(payload.form_factor).ok_or_else(|| {
-        AppError::Validation("device preset formFactor is required".to_string())
-    })?;
+    let form_factor = trim_owned(payload.form_factor)
+        .ok_or_else(|| AppError::Validation("device preset formFactor is required".to_string()))?;
     let user_agent_template = trim_owned(payload.user_agent_template).ok_or_else(|| {
         AppError::Validation("device preset userAgentTemplate is required".to_string())
     })?;

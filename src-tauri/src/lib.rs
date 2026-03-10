@@ -5,9 +5,14 @@ use std::time::Duration;
 
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::{AppHandle, Manager};
+use tauri_plugin_shell::process::CommandEvent;
+use tauri_plugin_shell::ShellExt;
 
 const MENU_ID_OPEN_DATA_DIR: &str = "open_data_dir";
 const MENU_ID_OPEN_LOG_PANEL: &str = "open_log_panel";
+const PROXY_DAEMON_SIDECAR_NAME: &str = "proxy-daemon";
+const PROXY_DAEMON_RUST_LOG_ENV: &str = "MULTI_FLOW_PROXY_DAEMON_RUST_LOG";
+const DEFAULT_PROXY_DAEMON_RUST_LOG: &str = "info";
 
 mod commands;
 mod db;
@@ -25,6 +30,7 @@ mod state;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .on_menu_event(|app, event| {
             if event.id().as_ref() == MENU_ID_OPEN_DATA_DIR {
@@ -39,7 +45,12 @@ pub fn run() {
             logger::init(&app.handle())
                 .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))
                 .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })?;
-            let app_state = state::build_app_state(&app.handle())
+            let app_state = state::build_app_state(&app.handle()).map_err(|err| {
+                let io_err = std::io::Error::new(std::io::ErrorKind::Other, err.to_string());
+                Box::new(io_err) as Box<dyn std::error::Error>
+            })?;
+            start_proxy_daemon_sidecar(&app.handle(), &app_state)
+                .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))
                 .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })?;
             app.manage(app_state);
             setup_native_menu(app)?;
@@ -165,6 +176,107 @@ fn start_runtime_guard(app: AppHandle) {
         });
 }
 
+fn start_proxy_daemon_sidecar(app: &AppHandle, app_state: &state::AppState) -> Result<(), String> {
+    let (bind_address, bind_port) = {
+        let local_api_server = app_state
+            .local_api_server
+            .lock()
+            .map_err(|_| "local api server lock poisoned".to_string())?;
+        (
+            local_api_server.bind_address().to_string(),
+            local_api_server.bind_port()?,
+        )
+    };
+
+    {
+        let mut local_api_server = app_state
+            .local_api_server
+            .lock()
+            .map_err(|_| "local api server lock poisoned".to_string())?;
+        if local_api_server.check_daemon_health() {
+            local_api_server.mark_started();
+            logger::info(
+                "proxy_daemon",
+                format!("proxy daemon already reachable at {bind_address}, skip sidecar spawn"),
+            );
+            return Ok(());
+        }
+    }
+
+    let bind_port_text = bind_port.to_string();
+    let daemon_log_level = std::env::var(PROXY_DAEMON_RUST_LOG_ENV)
+        .ok()
+        .and_then(trim_to_option)
+        .unwrap_or_else(|| DEFAULT_PROXY_DAEMON_RUST_LOG.to_string());
+    let sidecar_command = app
+        .shell()
+        .sidecar(PROXY_DAEMON_SIDECAR_NAME)
+        .map_err(|err| format!("resolve proxy daemon sidecar failed: {err}"))?;
+    let (mut events, child) = sidecar_command
+        .env("RUST_LOG", daemon_log_level.as_str())
+        .args(["--port", bind_port_text.as_str()])
+        .spawn()
+        .map_err(|err| format!("spawn proxy daemon sidecar failed: {err}"))?;
+    let daemon_pid = child.pid();
+    logger::info(
+        "proxy_daemon",
+        format!(
+            "proxy daemon sidecar spawn requested pid={daemon_pid} port={} rust_log={}",
+            bind_port, daemon_log_level
+        ),
+    );
+    tauri::async_runtime::spawn(async move {
+        while let Some(event) = events.recv().await {
+            match event {
+                CommandEvent::Stdout(bytes) => {
+                    if let Some(line) = sidecar_line(bytes.as_slice()) {
+                        logger::info("proxy_daemon.stdout", line);
+                    }
+                }
+                CommandEvent::Stderr(bytes) => {
+                    if let Some(line) = sidecar_line(bytes.as_slice()) {
+                        logger::warn("proxy_daemon.stderr", line);
+                    }
+                }
+                CommandEvent::Error(err) => {
+                    logger::error("proxy_daemon", format!("sidecar event stream error: {err}"));
+                }
+                CommandEvent::Terminated(payload) => {
+                    logger::warn(
+                        "proxy_daemon",
+                        format!(
+                            "proxy daemon terminated code={:?} signal={:?}",
+                            payload.code, payload.signal
+                        ),
+                    );
+                }
+                _ => {}
+            }
+        }
+        logger::warn("proxy_daemon", "proxy daemon sidecar event stream closed");
+    });
+
+    for _ in 0..20 {
+        thread::sleep(Duration::from_millis(120));
+        let mut local_api_server = app_state
+            .local_api_server
+            .lock()
+            .map_err(|_| "local api server lock poisoned".to_string())?;
+        if local_api_server.check_daemon_health() {
+            local_api_server.mark_started();
+            logger::info(
+                "proxy_daemon",
+                format!("proxy daemon sidecar started at {bind_address}"),
+            );
+            return Ok(());
+        }
+    }
+
+    Err(format!(
+        "proxy daemon sidecar spawned but health check timed out at {bind_address}"
+    ))
+}
+
 fn open_data_dir(app: &AppHandle) -> Result<(), String> {
     let data_dir = app
         .path()
@@ -189,4 +301,22 @@ fn open_data_dir(app: &AppHandle) -> Result<(), String> {
         format!("open data dir requested: {}", data_dir.to_string_lossy()),
     );
     Ok(())
+}
+
+fn sidecar_line(bytes: &[u8]) -> Option<String> {
+    let line = String::from_utf8_lossy(bytes).trim().to_string();
+    if line.is_empty() {
+        None
+    } else {
+        Some(line)
+    }
+}
+
+fn trim_to_option(input: String) -> Option<String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
 }

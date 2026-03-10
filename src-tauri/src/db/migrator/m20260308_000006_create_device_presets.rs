@@ -18,11 +18,7 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(
-                        ColumnDef::new(DevicePresets::PresetKey)
-                            .string()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(DevicePresets::PresetKey).string().not_null())
                     .col(ColumnDef::new(DevicePresets::Label).string().not_null())
                     .col(ColumnDef::new(DevicePresets::Platform).string().not_null())
                     .col(
