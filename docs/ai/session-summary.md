@@ -48,6 +48,7 @@
   - 窗口状态列表改为实时读取 `get_browsers`，并新增窗口尺寸控制命令 `set_bounds`（前端可设置 x/y/width/height）。
   - 窗口列表查询前增加 runtime reconcile（包含进程存活校验），并在 `list_window_states` 前先清理已退出会话，减少运行状态滞后。
   - 前端窗口操作增加“同 profile 串行锁 + 二次刷新确认”，避免标签页操作延迟时重复点击导致误操作。
+  - 前端结构重构继续收口：`WorkspaceLayout` 不再集中持有 profile/proxy/resource/window 全量状态，改为各路由页就近组合 query 与 action，控制台壳只保留导航、主题与页面装配。
   - 新增回收站：作为设置页二级入口（隐藏于主导航之外），集中展示并恢复 `deleted` 的 Profile/Proxy/Group。
   - 设置页新增“机型映射”管理：统一展示并编辑数据库中的设备预设，点击“新建机型”只重置表单，点击保存后才写入数据库。
   - 新增 `device_presets` 表与 `device_preset_service`，应用会把 catalog 默认预设 seed 到数据库，环境创建、详情展示和启动解析统一改为读取数据库中的同一套预设。
@@ -73,11 +74,11 @@
   - `engine_manager` 暴露当前运行环境的 `session_id / pid / debug_port / magic_port`
   - RPA 运行时可直接驱动现有 Chromium 运行实例
 - 前端 RPA 入口已完成拆分：
-  - `/ai` 仅保留流程列表与“新建流程”入口
+  - `/rpa` 仅保留流程列表与“新建流程”入口
   - 新建/编辑流程通过新的独立 RPA 编辑窗口打开
-  - 独立窗口内部拆成“流程设计 / 运行中心”两块，缓解原单页拥挤问题
+  - 独立窗口内部拆成“页面容器 / 编辑 hook / 流程设计 / 运行中心 / 离开弹窗”几块，缓解原单页拥挤问题
 - RPA 回收站已接入现有设置页入口：
-  - `/ai` 主列表仅显示 active 流程，归档后立即隐藏
+  - `/rpa` 主列表仅显示 active 流程，归档后立即隐藏
   - 设置页回收站新增 `RPA 流程` 区块
   - 回收站中的 RPA 流程支持恢复与彻底删除
   - 彻底删除仅移除流程定义与目标绑定，历史 run snapshot 保留

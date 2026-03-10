@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod/v3';
 
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
-import { CONSOLE_NAV_SECTIONS } from '@/widgets/console-shell/model/nav-sections';
+import { WORKSPACE_SECTIONS } from '@/app/model/workspace-sections';
 import type { WindowsPageProps } from '@/features/window-session/model/page-types';
 import { WindowBatchActionsCard } from './window-batch-actions-card';
 import { WindowStatesCard } from './window-states-card';
@@ -65,7 +65,7 @@ export function WindowsPage({
 	onBatchOpenWindows,
 	onBatchFocusWindows,
 }: WindowsPageProps) {
-	const section = CONSOLE_NAV_SECTIONS.windows;
+	const section = WORKSPACE_SECTIONS.windows;
 	const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
 	const [pendingProfileIds, setPendingProfileIds] = useState<Set<string>>(new Set());
 	const [error, setError] = useState<string | null>(null);

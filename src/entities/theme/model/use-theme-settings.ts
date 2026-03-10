@@ -5,12 +5,21 @@ import type { Palette, PresetKey, ThemeMode } from '@/entities/theme/model/types
 import { THEME_PRESET_KEYS, THEME_PRESETS } from '@/entities/theme/model/presets';
 import { getReadableForeground, hexToRgb, mixHex } from '@/shared/lib/color';
 
+const THEME_SYNC_CHANNEL = 'mf-theme-sync';
+
 const STORAGE_KEYS = {
 	mode: 'mf_theme_mode',
 	preset: 'mf_theme_preset',
 	customColor: 'mf_theme_custom_color',
 	useCustom: 'mf_theme_use_custom',
 } as const;
+
+type ThemeSyncPayload = {
+	mode: ThemeMode;
+	preset: PresetKey;
+	customColor: string;
+	useCustomColor: boolean;
+};
 
 function isThemeMode(value: string | null): value is ThemeMode {
 	return value === 'light' || value === 'dark' || value === 'system';
@@ -98,6 +107,29 @@ export function useThemeSettings() {
 	}, []);
 
 	useEffect(() => {
+		if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') {
+			return;
+		}
+
+		const channel = new BroadcastChannel(THEME_SYNC_CHANNEL);
+		channel.onmessage = (event: MessageEvent<ThemeSyncPayload>) => {
+			const payload = event.data;
+			if (!payload) {
+				return;
+			}
+
+			setThemeMode(payload.mode);
+			setPreset(payload.preset);
+			setCustomColor(payload.customColor);
+			setUseCustomColor(payload.useCustomColor);
+		};
+
+		return () => {
+			channel.close();
+		};
+	}, []);
+
+	useEffect(() => {
 		localStorage.setItem(STORAGE_KEYS.mode, themeMode);
 		const root = document.documentElement;
 		const shouldDark = themeMode === 'dark' || (themeMode === 'system' && systemDark);
@@ -126,6 +158,17 @@ export function useThemeSettings() {
 		localStorage.setItem(STORAGE_KEYS.customColor, customColor);
 		localStorage.setItem(STORAGE_KEYS.useCustom, String(useCustomColor));
 
+		if (typeof BroadcastChannel !== 'undefined') {
+			const channel = new BroadcastChannel(THEME_SYNC_CHANNEL);
+			channel.postMessage({
+				mode: themeMode,
+				preset,
+				customColor,
+				useCustomColor,
+			} satisfies ThemeSyncPayload);
+			channel.close();
+		}
+
 		const root = document.documentElement;
 		root.style.setProperty('--primary-light', activePalette.light);
 		root.style.setProperty('--primary-dark', activePalette.dark);
@@ -133,7 +176,7 @@ export function useThemeSettings() {
 		root.style.setProperty('--primary-foreground-dark', getReadableForeground(activePalette.dark));
 		root.style.setProperty('--ring-light', mixHex(activePalette.light, '#FFFFFF', 0.4));
 		root.style.setProperty('--ring-dark', mixHex(activePalette.dark, '#0B1220', 0.35));
-	}, [activePalette, customColor, preset, useCustomColor]);
+	}, [activePalette, customColor, preset, themeMode, useCustomColor]);
 
 	const resolvedMode = themeMode === 'system' ? (systemDark ? 'dark' : 'light') : themeMode;
 

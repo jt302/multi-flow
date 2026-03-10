@@ -52,11 +52,11 @@
 
 ## 当前进行中（前端结构重构）
 
-- [ ] 前端 FSD 重构收尾：继续压缩控制台壳，只保留路由与装配职责
+- [x] 前端 FSD 重构收尾：控制台壳已压缩为 `WorkspaceLayout + src/pages/*`，页面各自读取 query / action
 - [x] `profile / proxy / resource / group / window-session` 查询与写操作已迁到 `entities/*` 与 `features/*`
 - [x] `console api / console utils / console pages / console types` 已删除
 - [x] `console constants` 已拆分到主题预设、导航项、示例 section
-- [ ] 继续清理 `use-console-state` 的剩余壳层编排，并评估是否进一步拆分 `ConsolePageContent`
+- [x] 已移除 `ConsoleShell` 与 `use-console-state`，主页面改为 `AppRouter + WorkspaceLayout + src/pages/*`
 
 ## 本轮新增（分组闭环 + Zustand）
 
@@ -76,13 +76,13 @@
 - [x] 新增 RPA 后端服务：流程 CRUD、任务创建、步骤日志、调试产物目录、实例状态推进
 - [x] 新增 RPA Tauri 命令：流程 CRUD、运行流程、任务详情、步骤列表、取消、人工继续
 - [x] `engine_manager` 新增运行句柄读取能力，RPA 可读取 `debug_port / magic_port`
-- [x] `/ai` 页面已收缩为 RPA 流程列表页，仅保留清单与新建入口
+- [x] `/rpa` 页面已收缩为 RPA 流程列表页，仅保留清单与新建入口
 - [x] 新增独立 RPA 编辑窗口：流程设计、运行面板、任务中心迁移到单独窗口
-- [x] 前端新增 `entities/rpa` 与 `features/ai` 数据层、Zustand 选择状态、Tauri 事件增量刷新
-- [x] RPA 归档策略接入现有回收站：`/ai` 仅显示 active 流程，回收站新增 RPA 流程恢复与彻底删除
+- [x] 前端新增 `entities/rpa` 与 `features/rpa` 数据层、Zustand 选择状态、Tauri 事件增量刷新
+- [x] RPA 归档策略接入现有回收站：`/rpa` 仅显示 active 流程，回收站新增 RPA 流程恢复与彻底删除
 - [ ] 继续补强节点配置体验（当前节点配置仍以 JSON 为主）
 - [ ] 继续补强页面自动化节点覆盖面与更细粒度的人工接管体验
-- [ ] 继续拆分独立编辑页内部组件，压缩单文件体积并收敛局部状态
+- [x] 已拆分独立编辑页为页面容器 + `use-rpa-flow-editor` hook + 头部/设计面板/运行面板/离开弹窗组件
 
 ## 本轮新增（代理画像 + GEO 联动）
 

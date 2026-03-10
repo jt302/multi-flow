@@ -149,19 +149,21 @@
 - 前端目录当前按 FSD 收口：
   - `src/app`：应用入口、provider、router
   - `src/pages`：路由页面壳
-  - `src/widgets`：页面级组合块与控制台壳
+  - `src/widgets`：页面级组合块
   - `src/features`：用户动作、表单、mutation 流程
   - `src/entities`：领域类型、query hooks、adapter、只读 UI
   - `src/shared`：跨域共享 API、lib、config、基础 hook
-- 控制台壳当前只保留路由和装配职责：
-  - `use-console-state` 负责组合 query 数据与各 feature action
-  - 集中式 `console api / console utils / console pages / console types` 已移除
+- 主工作台当前采用“`AppRouter` 直挂页面 + `WorkspaceLayout` 布局壳”：
+  - `src/app/ui/workspace-layout` 负责侧边栏、顶栏与 `Outlet` 装配
+  - `src/pages/*` 负责就近组合当前页面所需 query / action，再下发给 `features/*/ui`
+  - 旧的集中式 `workspace state` 与 `ConsoleShell` 已移除
 - 数据层统一走 `TanStack Query`：
   - 查询放在 `entities/*/model/use-xxx-query`
   - 写操作放在 `features/*/model/use-xxx-actions`
   - 页面层不再手写集中式 `Promise.all(refresh...)` 状态管理
 - 本地 UI / 交互状态统一走 `Zustand`：
   - 仅存筛选、选中态、当前编辑对象、导航意图等本地状态
+  - 统一放入 `src/store/*`
   - 不复制 `TanStack Query` 的服务端数据结果
   - 表单字段仍由 `react-hook-form + zod` 管理
 
@@ -177,7 +179,7 @@
   - `pages/*` 只负责路由装配与页面壳，不直接写请求细节。
   - 复用展示块优先拆到 `widgets/*`、`entities/*/ui`、`features/*/ui`。
   - 纯计算逻辑与展示格式化逻辑拆到对应实体或共享 `lib/*`。
-  - 控制台页面默认采用懒加载，避免所有页面一次性打入首屏主包。
+  - 工作台页面默认采用懒加载，避免所有页面一次性打入首屏主包。
   - 环境创建页应优先暴露“上层意图”：平台、设备预设、浏览器版本、语言、时区、WebRTC、随机策略；强关联底层字段通过“指纹摘要”只读展示。
   - 设置页当前按“主题定制 / 运行资源 / 设备预设 / 维护入口”单列分区，设备预设管理应放在设置页，不再散落到环境创建页做底层强参数维护。
   - 前端页面读取环境指纹时，优先只消费 `fingerprintSource + fingerprintSnapshot`；历史平铺字段仅视为后端兼容输出，不作为页面主逻辑依赖。
