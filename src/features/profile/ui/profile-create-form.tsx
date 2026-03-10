@@ -106,8 +106,8 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 									onMarkManual={markProxyFieldManual}
 									onRestoreProxySuggestions={restoreProxySuggestedValues}
 									hasProxySuggestions={Boolean(
-										values.selectedProxy?.suggestedLanguage ||
-										values.selectedProxy?.suggestedTimezone ||
+										values.selectedProxy?.effectiveLanguage ||
+										values.selectedProxy?.effectiveTimezone ||
 										(values.selectedProxy &&
 											values.selectedProxy.latitude !== null &&
 											values.selectedProxy.longitude !== null),

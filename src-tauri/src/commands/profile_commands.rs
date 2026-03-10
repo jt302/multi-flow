@@ -1302,9 +1302,15 @@ fn proxy_to_arg(proxy: &Proxy) -> Result<String, String> {
 
 fn default_language_from_proxy(proxy: &Proxy) -> Option<String> {
     proxy
-        .suggested_language
+        .effective_language
         .as_deref()
         .and_then(trim_str_to_option)
+        .or_else(|| {
+            proxy
+                .suggested_language
+                .as_deref()
+                .and_then(trim_str_to_option)
+        })
         .or_else(|| {
             let country = proxy.country.as_ref()?.trim().to_uppercase();
             let value = match country.as_str() {
@@ -1325,9 +1331,15 @@ fn default_language_from_proxy(proxy: &Proxy) -> Option<String> {
 
 fn default_timezone_from_proxy(proxy: &Proxy) -> Option<String> {
     proxy
-        .suggested_timezone
+        .effective_timezone
         .as_deref()
         .and_then(trim_str_to_option)
+        .or_else(|| {
+            proxy
+                .suggested_timezone
+                .as_deref()
+                .and_then(trim_str_to_option)
+        })
         .or_else(|| {
             let country = proxy.country.as_ref()?.trim().to_uppercase();
             let value = match country.as_str() {
@@ -1688,6 +1700,12 @@ mod tests {
             geo_accuracy_meters: Some(20.0),
             suggested_language: Some("en-US".to_string()),
             suggested_timezone: Some("America/Los_Angeles".to_string()),
+            language_source: Some("ip".to_string()),
+            custom_language: None,
+            effective_language: Some("en-US".to_string()),
+            timezone_source: Some("ip".to_string()),
+            custom_timezone: None,
+            effective_timezone: Some("America/Los_Angeles".to_string()),
             expires_at: None,
             lifecycle: ProxyLifecycle::Active,
             created_at: 1,
@@ -1715,6 +1733,60 @@ mod tests {
         );
         assert_eq!(options.web_rtc_policy, None);
         assert_eq!(options.startup_urls, vec!["https://www.browserscan.net/".to_string()]);
+    }
+
+    #[test]
+    fn resolve_launch_options_prefers_proxy_effective_values() {
+        let proxy = Proxy {
+            id: "px_000001".to_string(),
+            name: "proxy-us".to_string(),
+            protocol: "http".to_string(),
+            host: "127.0.0.1".to_string(),
+            port: 8080,
+            username: None,
+            password: None,
+            country: Some("US".to_string()),
+            region: None,
+            city: None,
+            provider: None,
+            note: None,
+            check_status: Some("ok".to_string()),
+            check_message: None,
+            last_checked_at: None,
+            exit_ip: Some("8.8.8.8".to_string()),
+            latitude: Some(37.7749),
+            longitude: Some(-122.4194),
+            geo_accuracy_meters: Some(20.0),
+            suggested_language: Some("en-US".to_string()),
+            suggested_timezone: Some("America/Los_Angeles".to_string()),
+            language_source: Some("custom".to_string()),
+            custom_language: Some("de-DE".to_string()),
+            effective_language: Some("de-DE".to_string()),
+            timezone_source: Some("custom".to_string()),
+            custom_timezone: Some("Europe/Berlin".to_string()),
+            effective_timezone: Some("Europe/Berlin".to_string()),
+            expires_at: None,
+            lifecycle: ProxyLifecycle::Active,
+            created_at: 1,
+            updated_at: 1,
+            deleted_at: None,
+        };
+
+        let preset_service = new_test_device_preset_service();
+        let options = resolve_launch_options(
+            &preset_service,
+            "pf_000001",
+            "test-profile",
+            None,
+            OpenProfileOptions::default(),
+            Some(&proxy),
+            None,
+            None,
+        )
+        .expect("resolve launch options");
+
+        assert_eq!(options.language.as_deref(), Some("de-DE"));
+        assert_eq!(options.timezone_id.as_deref(), Some("Europe/Berlin"));
     }
 
     #[test]

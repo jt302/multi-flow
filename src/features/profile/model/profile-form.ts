@@ -5,7 +5,6 @@ import type {
 	ProfileFingerprintSource,
 	WebRtcMode,
 } from '@/entities/profile/model/types';
-import type { ProxyItem } from '@/entities/proxy/model/types';
 
 export const DEFAULT_STARTUP_URL = 'https://www.browserscan.net/';
 
@@ -120,6 +119,16 @@ export type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 export type ProxySuggestionFieldSource = 'manual' | 'proxy' | 'empty';
 
+type ProxyLocaleSuggestionInput = {
+	suggestedLanguage?: string;
+	suggestedTimezone?: string;
+	effectiveLanguage?: string;
+	effectiveTimezone?: string;
+	latitude: number | null;
+	longitude: number | null;
+	geoAccuracyMeters: number | null;
+};
+
 export function applyProxySuggestionValue(
 	source: ProxySuggestionFieldSource,
 	currentValue: string,
@@ -132,17 +141,7 @@ export function applyProxySuggestionValue(
 }
 
 export function resolveProxySuggestedValues(
-	proxy:
-		| Pick<
-				ProxyItem,
-				| 'suggestedLanguage'
-				| 'suggestedTimezone'
-				| 'latitude'
-				| 'longitude'
-				| 'geoAccuracyMeters'
-		  >
-		| null
-		| undefined,
+	proxy: ProxyLocaleSuggestionInput | null | undefined,
 ) {
 	if (!proxy) {
 		return {
@@ -152,8 +151,9 @@ export function resolveProxySuggestedValues(
 		};
 	}
 	return {
-		language: proxy.suggestedLanguage?.trim() || '',
-		timezoneId: proxy.suggestedTimezone?.trim() || '',
+		language: proxy.effectiveLanguage?.trim() || proxy.suggestedLanguage?.trim() || '',
+		timezoneId:
+			proxy.effectiveTimezone?.trim() || proxy.suggestedTimezone?.trim() || '',
 		geolocation:
 			proxy.latitude !== null && proxy.longitude !== null
 				? {

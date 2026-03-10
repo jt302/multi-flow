@@ -1,5 +1,6 @@
 export type ProxyLifecycle = 'active' | 'deleted';
 export type ProxyProtocol = 'http' | 'https' | 'socks5' | 'ssh';
+export type ProxyValueSource = 'ip' | 'custom';
 
 export type ProxyItem = {
 	id: string;
@@ -23,6 +24,12 @@ export type ProxyItem = {
 	geoAccuracyMeters: number | null;
 	suggestedLanguage: string;
 	suggestedTimezone: string;
+	languageSource: ProxyValueSource;
+	customLanguage: string;
+	effectiveLanguage: string;
+	timezoneSource: ProxyValueSource;
+	customTimezone: string;
+	effectiveTimezone: string;
 	expiresAt: number | null;
 	lifecycle: ProxyLifecycle;
 	createdAt: number;
@@ -40,6 +47,10 @@ export type CreateProxyPayload = {
 	provider?: string;
 	note?: string;
 	expiresAt?: number | null;
+	languageSource?: ProxyValueSource;
+	customLanguage?: string;
+	timezoneSource?: ProxyValueSource;
+	customTimezone?: string;
 };
 
 export type UpdateProxyPayload = {
@@ -50,6 +61,10 @@ export type UpdateProxyPayload = {
 	provider?: string;
 	note?: string;
 	expiresAt?: number | null;
+	languageSource?: ProxyValueSource;
+	customLanguage?: string;
+	timezoneSource?: ProxyValueSource;
+	customTimezone?: string;
 };
 
 export type BatchProxyActionItem = {

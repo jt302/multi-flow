@@ -33,6 +33,22 @@
   - `--use-mobile-user-agent`
   - `--touch-events=enabled`
 
+## 代理与语言 / 时区联动（2026-03-10）
+
+- 绑定代理后，Chromium 启动时语言 / 时区优先级为：
+  - Profile 显式配置
+  - 代理 `effectiveLanguage / effectiveTimezone`
+  - 若代理未产出生效值，再回退旧的国家码默认映射
+- 代理内部同时维护两类字段：
+  - `suggestedLanguage / suggestedTimezone`：代理出口 IP + 本地 GeoIP 推导出的建议值
+  - `effectiveLanguage / effectiveTimezone`：结合来源配置 (`ip/custom`) 后的最终生效值
+- 对 Chromium 的实际注入保持不变，只切换取值来源：
+  - `--lang`
+  - `TZ`
+  - `--custom-main-language`
+  - `--custom-time-zone`
+- 地理位置仍沿用最近一次代理检测得到的经纬度；本轮未新增代理级 geolocation 自定义模式
+
 ## 指纹模板目录（当前默认 seed 到数据库）
 
 - 桌面：

@@ -40,6 +40,8 @@ const DEFAULT_IP_SB_TEXT_URL: &str = "https://api.ip.sb/ip";
 const DEFAULT_IFCONFIG_TEXT_URL: &str = "https://ifconfig.me/ip";
 const IPINFO_TOKEN_ENV: &str = "MULTI_FLOW_IPINFO_TOKEN";
 const IPINFO_URL_ENV: &str = "MULTI_FLOW_IPINFO_URL";
+const PROXY_VALUE_SOURCE_IP: &str = "ip";
+const PROXY_VALUE_SOURCE_CUSTOM: &str = "custom";
 
 #[derive(Debug, Clone)]
 struct ProxyCheckSnapshot {
@@ -59,6 +61,16 @@ struct ProxyCheckSnapshot {
 #[derive(Debug, Clone, Copy)]
 struct ProxyConnectivitySnapshot {
     latency_ms: u64,
+}
+
+#[derive(Debug, Clone)]
+struct ProxyLocaleSettings {
+    language_source: String,
+    custom_language: Option<String>,
+    effective_language: Option<String>,
+    timezone_source: String,
+    custom_timezone: Option<String>,
+    effective_timezone: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -103,6 +115,14 @@ impl ProxyService {
         let protocol = normalize_protocol(&req.protocol)?;
         let host = require_non_empty("host", &req.host)?;
         let port = validate_port(req.port)?;
+        let locale_settings = normalize_proxy_locale_settings(
+            req.language_source,
+            req.custom_language,
+            None,
+            req.timezone_source,
+            req.custom_timezone,
+            None,
+        )?;
         let now = now_ts();
 
         let model = proxy::ActiveModel {
@@ -126,6 +146,12 @@ impl ProxyService {
             geo_accuracy_meters: Set(None),
             suggested_language: Set(None),
             suggested_timezone: Set(None),
+            language_source: Set(Some(locale_settings.language_source)),
+            custom_language: Set(locale_settings.custom_language),
+            effective_language: Set(locale_settings.effective_language),
+            timezone_source: Set(Some(locale_settings.timezone_source)),
+            custom_timezone: Set(locale_settings.custom_timezone),
+            effective_timezone: Set(locale_settings.effective_timezone),
             expires_at: Set(req.expires_at),
             lifecycle: Set(LIFECYCLE_ACTIVE.to_string()),
             created_at: Set(now),
@@ -147,6 +173,14 @@ impl ProxyService {
             )));
         }
 
+        let locale_settings = normalize_proxy_locale_settings(
+            req.language_source.or_else(|| stored.language_source.clone()),
+            req.custom_language.or_else(|| stored.custom_language.clone()),
+            stored.suggested_language.clone(),
+            req.timezone_source.or_else(|| stored.timezone_source.clone()),
+            req.custom_timezone.or_else(|| stored.custom_timezone.clone()),
+            stored.suggested_timezone.clone(),
+        )?;
         let mut active_model: proxy::ActiveModel = stored.into();
         if let Some(name) = req.name {
             active_model.name = Set(require_non_empty("name", &name)?);
@@ -169,6 +203,12 @@ impl ProxyService {
         if let Some(expires_at) = req.expires_at {
             active_model.expires_at = Set((expires_at > 0).then_some(expires_at));
         }
+        active_model.language_source = Set(Some(locale_settings.language_source));
+        active_model.custom_language = Set(locale_settings.custom_language);
+        active_model.effective_language = Set(locale_settings.effective_language);
+        active_model.timezone_source = Set(Some(locale_settings.timezone_source));
+        active_model.custom_timezone = Set(locale_settings.custom_timezone);
+        active_model.effective_timezone = Set(locale_settings.effective_timezone);
         active_model.updated_at = Set(now_ts());
         let updated = self.db_query(active_model.update(&self.db))?;
         Ok(to_api_proxy(updated))
@@ -354,6 +394,10 @@ impl ProxyService {
                         provider: None,
                         note: None,
                         expires_at: None,
+                        language_source: None,
+                        custom_language: None,
+                        timezone_source: None,
+                        custom_timezone: None,
                     }) {
                         Ok(proxy) => {
                             success_count += 1;
@@ -706,6 +750,14 @@ impl ProxyService {
         snapshot: ProxyCheckSnapshot,
     ) -> AppResult<proxy::Model> {
         let now = now_ts();
+        let locale_settings = normalize_proxy_locale_settings(
+            stored.language_source.clone(),
+            stored.custom_language.clone(),
+            snapshot.suggested_language.clone(),
+            stored.timezone_source.clone(),
+            stored.custom_timezone.clone(),
+            snapshot.suggested_timezone.clone(),
+        )?;
         let mut active_model: proxy::ActiveModel = stored.into();
         active_model.check_status = Set(Some(snapshot.check_status));
         active_model.check_message = Set(snapshot.check_message);
@@ -719,6 +771,12 @@ impl ProxyService {
         active_model.geo_accuracy_meters = Set(snapshot.geo_accuracy_meters);
         active_model.suggested_language = Set(snapshot.suggested_language);
         active_model.suggested_timezone = Set(snapshot.suggested_timezone);
+        active_model.language_source = Set(Some(locale_settings.language_source));
+        active_model.custom_language = Set(locale_settings.custom_language);
+        active_model.effective_language = Set(locale_settings.effective_language);
+        active_model.timezone_source = Set(Some(locale_settings.timezone_source));
+        active_model.custom_timezone = Set(locale_settings.custom_timezone);
+        active_model.effective_timezone = Set(locale_settings.effective_timezone);
         active_model.updated_at = Set(now);
         self.db_query(active_model.update(&self.db))
     }
@@ -764,6 +822,12 @@ fn to_api_proxy(model: proxy::Model) -> Proxy {
         geo_accuracy_meters: model.geo_accuracy_meters,
         suggested_language: model.suggested_language,
         suggested_timezone: model.suggested_timezone,
+        language_source: model.language_source,
+        custom_language: model.custom_language,
+        effective_language: model.effective_language,
+        timezone_source: model.timezone_source,
+        custom_timezone: model.custom_timezone,
+        effective_timezone: model.effective_timezone,
         expires_at: model.expires_at,
         lifecycle: if model.lifecycle == LIFECYCLE_DELETED {
             ProxyLifecycle::Deleted
@@ -782,6 +846,78 @@ fn to_api_binding(model: profile_proxy_binding::Model) -> ProfileProxyBinding {
         proxy_id: format_proxy_id(model.proxy_id),
         created_at: model.created_at,
         updated_at: model.updated_at,
+    }
+}
+
+fn normalize_proxy_locale_settings(
+    language_source: Option<String>,
+    custom_language: Option<String>,
+    suggested_language: Option<String>,
+    timezone_source: Option<String>,
+    custom_timezone: Option<String>,
+    suggested_timezone: Option<String>,
+) -> AppResult<ProxyLocaleSettings> {
+    let language_source = normalize_proxy_value_source("languageSource", language_source)?;
+    let custom_language =
+        normalize_proxy_custom_value("customLanguage", &language_source, custom_language)?;
+    let timezone_source = normalize_proxy_value_source("timezoneSource", timezone_source)?;
+    let custom_timezone =
+        normalize_proxy_custom_value("customTimezone", &timezone_source, custom_timezone)?;
+
+    Ok(ProxyLocaleSettings {
+        effective_language: resolve_proxy_effective_value(
+            &language_source,
+            custom_language.as_deref(),
+            suggested_language.as_deref(),
+        ),
+        language_source,
+        custom_language,
+        effective_timezone: resolve_proxy_effective_value(
+            &timezone_source,
+            custom_timezone.as_deref(),
+            suggested_timezone.as_deref(),
+        ),
+        timezone_source,
+        custom_timezone,
+    })
+}
+
+fn normalize_proxy_value_source(field_name: &str, value: Option<String>) -> AppResult<String> {
+    let normalized = value
+        .and_then(trim_string_value)
+        .unwrap_or_else(|| PROXY_VALUE_SOURCE_IP.to_string());
+    match normalized.as_str() {
+        PROXY_VALUE_SOURCE_IP | PROXY_VALUE_SOURCE_CUSTOM => Ok(normalized),
+        _ => Err(AppError::Validation(format!(
+            "{field_name} must be ip or custom"
+        ))),
+    }
+}
+
+fn normalize_proxy_custom_value(
+    field_name: &str,
+    source: &str,
+    value: Option<String>,
+) -> AppResult<Option<String>> {
+    let normalized = value.and_then(trim_string_value);
+    if source == PROXY_VALUE_SOURCE_CUSTOM && normalized.is_none() {
+        return Err(AppError::Validation(format!(
+            "{field_name} is required when source is custom"
+        )));
+    }
+    Ok((source == PROXY_VALUE_SOURCE_CUSTOM)
+        .then_some(normalized)
+        .flatten())
+}
+
+fn resolve_proxy_effective_value(
+    source: &str,
+    custom_value: Option<&str>,
+    suggested_value: Option<&str>,
+) -> Option<String> {
+    match source {
+        PROXY_VALUE_SOURCE_CUSTOM => custom_value.and_then(trim_to_option_ref),
+        _ => suggested_value.and_then(trim_to_option_ref),
     }
 }
 
@@ -1123,6 +1259,99 @@ mod tests {
     }
 
     #[test]
+    fn create_proxy_defaults_to_ip_sources() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProxyService::from_db(db);
+
+        let proxy = service
+            .create_proxy(CreateProxyRequest {
+                name: "proxy-default".to_string(),
+                protocol: "http".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: 8080,
+                username: None,
+                password: None,
+                provider: None,
+                note: None,
+                expires_at: None,
+                custom_language: None,
+                language_source: None,
+                custom_timezone: None,
+                timezone_source: None,
+            })
+            .expect("create proxy");
+
+        assert_eq!(proxy.language_source.as_deref(), Some("ip"));
+        assert_eq!(proxy.timezone_source.as_deref(), Some("ip"));
+        assert_eq!(proxy.effective_language, None);
+        assert_eq!(proxy.effective_timezone, None);
+    }
+
+    #[test]
+    fn check_proxy_keeps_custom_effective_values() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProxyService::from_db(db);
+
+        let proxy = service
+            .create_proxy(CreateProxyRequest {
+                name: "proxy-custom".to_string(),
+                protocol: "http".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: 8080,
+                username: None,
+                password: None,
+                provider: None,
+                note: None,
+                expires_at: None,
+                custom_language: Some("de-DE".to_string()),
+                language_source: Some("custom".to_string()),
+                custom_timezone: Some("Europe/Berlin".to_string()),
+                timezone_source: Some("custom".to_string()),
+            })
+            .expect("create proxy");
+
+        let checked = service
+            .check_proxy_with(proxy.id.as_str(), |_| Ok(build_proxy_check_snapshot()))
+            .expect("check proxy");
+
+        assert_eq!(checked.suggested_language.as_deref(), Some("en-US"));
+        assert_eq!(checked.suggested_timezone.as_deref(), Some("America/Los_Angeles"));
+        assert_eq!(checked.effective_language.as_deref(), Some("de-DE"));
+        assert_eq!(checked.effective_timezone.as_deref(), Some("Europe/Berlin"));
+    }
+
+    #[test]
+    fn check_proxy_refreshes_effective_values_for_ip_sources() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProxyService::from_db(db);
+
+        let proxy = service
+            .create_proxy(CreateProxyRequest {
+                name: "proxy-ip".to_string(),
+                protocol: "http".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: 8080,
+                username: None,
+                password: None,
+                provider: None,
+                note: None,
+                expires_at: None,
+                custom_language: None,
+                language_source: Some("ip".to_string()),
+                custom_timezone: None,
+                timezone_source: Some("ip".to_string()),
+            })
+            .expect("create proxy");
+
+        let checked = service
+            .check_proxy_with(proxy.id.as_str(), |_| Ok(build_proxy_check_snapshot()))
+            .expect("check proxy");
+
+        assert_eq!(checked.effective_language.as_deref(), Some("en-US"));
+        assert_eq!(checked.effective_timezone.as_deref(), Some("America/Los_Angeles"));
+    }
+
+    #[test]
     fn proxy_binding_stays_consistent_after_proxy_deleted() {
         let db = db::init_test_database().expect("init test db");
         let profile_service = ProfileService::from_db(db.clone());
@@ -1149,6 +1378,10 @@ mod tests {
                 provider: None,
                 note: None,
                 expires_at: None,
+                custom_language: None,
+                language_source: None,
+                custom_timezone: None,
+                timezone_source: None,
             })
             .expect("create proxy");
 
@@ -1197,6 +1430,10 @@ mod tests {
                 provider: Some("isp-a".to_string()),
                 note: Some("residential".to_string()),
                 expires_at: None,
+                custom_language: None,
+                language_source: None,
+                custom_timezone: None,
+                timezone_source: None,
             })
             .expect("create proxy a");
 
@@ -1211,6 +1448,10 @@ mod tests {
                 provider: Some("isp-b".to_string()),
                 note: Some("datacenter".to_string()),
                 expires_at: None,
+                custom_language: None,
+                language_source: None,
+                custom_timezone: None,
+                timezone_source: None,
             })
             .expect("create proxy b");
 
@@ -1274,6 +1515,10 @@ mod tests {
                 provider: Some("isp-a".to_string()),
                 note: Some("residential".to_string()),
                 expires_at: None,
+                custom_language: None,
+                language_source: None,
+                custom_timezone: None,
+                timezone_source: None,
             })
             .expect("create proxy a");
 
@@ -1288,6 +1533,10 @@ mod tests {
                 provider: Some("isp-b".to_string()),
                 note: Some("datacenter".to_string()),
                 expires_at: None,
+                custom_language: None,
+                language_source: None,
+                custom_timezone: None,
+                timezone_source: None,
             })
             .expect("create proxy b");
 
@@ -1298,6 +1547,10 @@ mod tests {
                     protocol: Some("https".to_string()),
                     provider: Some("batch-provider".to_string()),
                     note: Some("".to_string()),
+                    custom_language: None,
+                    language_source: None,
+                    custom_timezone: None,
+                    timezone_source: None,
                     ..Default::default()
                 },
             )
@@ -1333,6 +1586,10 @@ mod tests {
                 provider: None,
                 note: None,
                 expires_at: None,
+                custom_language: None,
+                language_source: None,
+                custom_timezone: None,
+                timezone_source: None,
             })
             .expect("create proxy");
 
@@ -1397,6 +1654,10 @@ mod tests {
                 provider: None,
                 note: None,
                 expires_at: None,
+                custom_language: None,
+                language_source: None,
+                custom_timezone: None,
+                timezone_source: None,
             })
             .expect("create proxy");
 
@@ -1436,6 +1697,10 @@ mod tests {
                 provider: Some("isp-a".to_string()),
                 note: None,
                 expires_at: Some(1_800_000_000),
+                custom_language: None,
+                language_source: None,
+                custom_timezone: None,
+                timezone_source: None,
             })
             .expect("create proxy");
 
@@ -1450,6 +1715,11 @@ mod tests {
         assert_eq!(checked.suggested_language.as_deref(), Some("en-US"));
         assert_eq!(
             checked.suggested_timezone.as_deref(),
+            Some("America/Los_Angeles")
+        );
+        assert_eq!(checked.effective_language.as_deref(), Some("en-US"));
+        assert_eq!(
+            checked.effective_timezone.as_deref(),
             Some("America/Los_Angeles")
         );
         assert_eq!(checked.check_status.as_deref(), Some("ok"));
@@ -1472,6 +1742,10 @@ mod tests {
                 provider: None,
                 note: None,
                 expires_at: None,
+                custom_language: None,
+                language_source: None,
+                custom_timezone: None,
+                timezone_source: None,
             })
             .expect("create proxy");
 
@@ -1506,6 +1780,10 @@ mod tests {
                 provider: None,
                 note: None,
                 expires_at: None,
+                custom_language: None,
+                language_source: None,
+                custom_timezone: None,
+                timezone_source: None,
             })
             .expect("create proxy");
 

@@ -47,9 +47,9 @@ export function FingerprintSettingsSection({
 			/>
 			{hasProxySuggestions ? (
 				<div className="mb-3 flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-					<p>已接入代理建议，语言/时区可自动填充，也可以手动覆盖。</p>
+					<p>已接入代理默认值，语言/时区可自动填充，也可以手动覆盖。</p>
 					<Button type="button" size="sm" variant="outline" className="cursor-pointer" onClick={onRestoreProxySuggestions}>
-						恢复代理建议
+						恢复代理默认
 					</Button>
 				</div>
 			) : null}
@@ -63,7 +63,7 @@ export function FingerprintSettingsSection({
 							})}
 							placeholder="如 zh-CN / en-US"
 						/>
-						<p className="mt-1 text-[11px] text-muted-foreground">来源: {languageSource === 'proxy' ? '代理建议' : languageSource === 'manual' ? '手动设置' : '未设置'}</p>
+						<p className="mt-1 text-[11px] text-muted-foreground">来源: {languageSource === 'proxy' ? '代理默认' : languageSource === 'manual' ? '手动设置' : '未设置'}</p>
 				</div>
 				<div>
 						<label htmlFor={timezoneId} className="mb-1 block text-xs text-muted-foreground">时区</label>
@@ -74,7 +74,7 @@ export function FingerprintSettingsSection({
 							})}
 							placeholder="如 Asia/Shanghai"
 						/>
-						<p className="mt-1 text-[11px] text-muted-foreground">来源: {timezoneSource === 'proxy' ? '代理建议' : timezoneSource === 'manual' ? '手动设置' : '未设置'}</p>
+						<p className="mt-1 text-[11px] text-muted-foreground">来源: {timezoneSource === 'proxy' ? '代理默认' : timezoneSource === 'manual' ? '手动设置' : '未设置'}</p>
 				</div>
 				<div className="md:col-span-2">
 					<div className="mb-1 flex items-center justify-between gap-2">
