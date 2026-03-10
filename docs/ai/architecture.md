@@ -73,6 +73,8 @@
   - 自动读取 Profile 绑定代理并注入 `--proxy-server`
   - 代理资产已升级为“代理画像”模型：
     - 检测阶段会写入 `exitIp / country / region / city / latitude / longitude / suggestedLanguage / suggestedTimezone`
+    - 代理可分别配置语言 / 时区来源：`ip` 或 `custom`
+    - `suggestedLanguage / suggestedTimezone` 仅表示 GeoIP 建议值；`effectiveLanguage / effectiveTimezone` 才是环境继承与 Chromium 启动实际消费的默认值
     - `checkStatus` 与 `checkMessage` 用于区分 `ok / error / unsupported`
     - `expiresAt` 用于代理资产过期展示，不参与 Chromium 启动参数本身
   - 代理检测依赖 GeoIP 资源时，后端会自动确保 `GeoLite2-City.mmdb` 已下载；设置页同步展示该资源状态
@@ -80,7 +82,7 @@
   - 若存在 GeoIP 资源文件则注入 `--geoip-database`
   - 启动时语言 / 时区 / 地理位置优先级：
     - Profile 显式配置
-    - 绑定代理画像建议值
+    - 绑定代理最终生效值（语言 / 时区）或最近检测画像（经纬度）
     - 旧的国家码默认映射
   - Profile 指纹配置已升级为 `source + snapshot`：
 

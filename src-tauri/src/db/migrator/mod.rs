@@ -8,6 +8,7 @@ mod m20260309_000007_create_proxy_runtime_instances;
 mod m20260309_000008_add_proxy_health_fields;
 mod m20260309_000009_add_proxy_portrait_fields;
 mod m20260309_000010_create_rpa_tables;
+mod m20260310_000011_add_proxy_locale_fields;
 
 use sea_orm_migration::prelude::*;
 
@@ -27,6 +28,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260309_000008_add_proxy_health_fields::Migration),
             Box::new(m20260309_000009_add_proxy_portrait_fields::Migration),
             Box::new(m20260309_000010_create_rpa_tables::Migration),
+            Box::new(m20260310_000011_add_proxy_locale_fields::Migration),
         ]
     }
 }

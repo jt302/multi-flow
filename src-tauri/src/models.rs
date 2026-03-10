@@ -459,6 +459,12 @@ pub struct Proxy {
     pub geo_accuracy_meters: Option<f64>,
     pub suggested_language: Option<String>,
     pub suggested_timezone: Option<String>,
+    pub language_source: Option<String>,
+    pub custom_language: Option<String>,
+    pub effective_language: Option<String>,
+    pub timezone_source: Option<String>,
+    pub custom_timezone: Option<String>,
+    pub effective_timezone: Option<String>,
     pub expires_at: Option<i64>,
     pub lifecycle: ProxyLifecycle,
     pub created_at: i64,
@@ -478,6 +484,10 @@ pub struct CreateProxyRequest {
     pub provider: Option<String>,
     pub note: Option<String>,
     pub expires_at: Option<i64>,
+    pub language_source: Option<String>,
+    pub custom_language: Option<String>,
+    pub timezone_source: Option<String>,
+    pub custom_timezone: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -490,6 +500,10 @@ pub struct UpdateProxyRequest {
     pub provider: Option<String>,
     pub note: Option<String>,
     pub expires_at: Option<i64>,
+    pub language_source: Option<String>,
+    pub custom_language: Option<String>,
+    pub timezone_source: Option<String>,
+    pub custom_timezone: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

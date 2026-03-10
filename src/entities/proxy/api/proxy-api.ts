@@ -6,6 +6,7 @@ import type {
 	ProxyItem,
 	ProxyLifecycle,
 	ProxyProtocol,
+	ProxyValueSource,
 	UpdateProxyPayload,
 } from '@/entities/proxy/model/types';
 import type { ProfileProxyBindingMap } from '@/entities/profile/model/types';
@@ -32,6 +33,12 @@ type BackendProxy = {
 	geoAccuracyMeters: number | null;
 	suggestedLanguage: string | null;
 	suggestedTimezone: string | null;
+	languageSource: ProxyValueSource | null;
+	customLanguage: string | null;
+	effectiveLanguage: string | null;
+	timezoneSource: ProxyValueSource | null;
+	customTimezone: string | null;
+	effectiveTimezone: string | null;
 	expiresAt: number | null;
 	lifecycle: ProxyLifecycle;
 	createdAt: number;
@@ -70,6 +77,12 @@ function mapBackendProxy(item: BackendProxy): ProxyItem {
 		geoAccuracyMeters: item.geoAccuracyMeters,
 		suggestedLanguage: item.suggestedLanguage ?? '',
 		suggestedTimezone: item.suggestedTimezone ?? '',
+		languageSource: item.languageSource ?? 'ip',
+		customLanguage: item.customLanguage ?? '',
+		effectiveLanguage: item.effectiveLanguage ?? '',
+		timezoneSource: item.timezoneSource ?? 'ip',
+		customTimezone: item.customTimezone ?? '',
+		effectiveTimezone: item.effectiveTimezone ?? '',
 		expiresAt: item.expiresAt,
 		lifecycle: item.lifecycle,
 		createdAt: item.createdAt,
@@ -99,6 +112,10 @@ export async function createProxy(payload: CreateProxyPayload): Promise<void> {
 			provider: payload.provider?.trim() ? payload.provider : null,
 			note: payload.note?.trim() ? payload.note : null,
 			expiresAt: payload.expiresAt ?? null,
+			languageSource: payload.languageSource ?? 'ip',
+			customLanguage: payload.customLanguage?.trim() ? payload.customLanguage : null,
+			timezoneSource: payload.timezoneSource ?? 'ip',
+			customTimezone: payload.customTimezone?.trim() ? payload.customTimezone : null,
 		},
 	});
 }
@@ -114,6 +131,10 @@ export async function updateProxy(proxyId: string, payload: UpdateProxyPayload):
 			provider: payload.provider,
 			note: payload.note,
 			expiresAt: payload.expiresAt ?? null,
+			languageSource: payload.languageSource,
+			customLanguage: payload.customLanguage?.trim() ? payload.customLanguage : null,
+			timezoneSource: payload.timezoneSource,
+			customTimezone: payload.customTimezone?.trim() ? payload.customTimezone : null,
 		},
 	});
 }

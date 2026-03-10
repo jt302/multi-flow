@@ -21,21 +21,51 @@ import {
 	Textarea,
 } from '@/components/ui';
 import type { ProxyItem } from '@/entities/proxy/model/types';
-import type { CreateProxyPayload, ProxyProtocol, UpdateProxyPayload } from '@/features/proxy/model/types';
+import type {
+	CreateProxyPayload,
+	ProxyProtocol,
+	UpdateProxyPayload,
+} from '@/features/proxy/model/types';
+import type { ProxyValueSource } from '@/entities/proxy/model/types';
 
 const PROTOCOL_OPTIONS: ProxyProtocol[] = ['http', 'https', 'socks5', 'ssh'];
+const VALUE_SOURCE_OPTIONS: Array<{ value: ProxyValueSource; label: string }> = [
+	{ value: 'ip', label: '基于 IP' },
+	{ value: 'custom', label: '自定义' },
+];
 
-const proxyFormSchema = z.object({
-	name: z.string().trim().min(1, '代理名称不能为空'),
-	protocol: z.enum(['http', 'https', 'socks5', 'ssh']),
-	host: z.string().trim().min(1, '主机地址不能为空'),
-	port: z.coerce.number().int('端口必须是整数').min(1, '端口必须在 1-65535 范围').max(65535, '端口必须在 1-65535 范围'),
-	username: z.string(),
-	password: z.string(),
-	provider: z.string(),
-	note: z.string(),
-	expiresAt: z.string(),
-});
+const proxyFormSchema = z
+	.object({
+		name: z.string().trim().min(1, '代理名称不能为空'),
+		protocol: z.enum(['http', 'https', 'socks5', 'ssh']),
+		host: z.string().trim().min(1, '主机地址不能为空'),
+		port: z.coerce.number().int('端口必须是整数').min(1, '端口必须在 1-65535 范围').max(65535, '端口必须在 1-65535 范围'),
+		username: z.string(),
+		password: z.string(),
+		provider: z.string(),
+		note: z.string(),
+		expiresAt: z.string(),
+		languageSource: z.enum(['ip', 'custom']),
+		customLanguage: z.string(),
+		timezoneSource: z.enum(['ip', 'custom']),
+		customTimezone: z.string(),
+	})
+	.superRefine((values, ctx) => {
+		if (values.languageSource === 'custom' && !values.customLanguage.trim()) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: '语言来源为自定义时必须填写语言',
+				path: ['customLanguage'],
+			});
+		}
+		if (values.timezoneSource === 'custom' && !values.customTimezone.trim()) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: '时区来源为自定义时必须填写时区',
+				path: ['customTimezone'],
+			});
+		}
+	});
 
 type ProxyFormValues = z.infer<typeof proxyFormSchema>;
 
@@ -59,6 +89,10 @@ const DEFAULT_VALUES: ProxyFormValues = {
 	provider: '',
 	note: '',
 	expiresAt: '',
+	languageSource: 'ip',
+	customLanguage: '',
+	timezoneSource: 'ip',
+	customTimezone: '',
 };
 
 function toDateTimeLocalValue(value: number | null) {
@@ -91,6 +125,10 @@ function toFormValues(proxy: ProxyItem | null): ProxyFormValues {
 		provider: proxy.provider,
 		note: proxy.note,
 		expiresAt: toDateTimeLocalValue(proxy.expiresAt),
+		languageSource: proxy.languageSource,
+		customLanguage: proxy.customLanguage,
+		timezoneSource: proxy.timezoneSource,
+		customTimezone: proxy.customTimezone,
 	};
 }
 
@@ -118,8 +156,8 @@ export function ProxyFormDialog({
 	const isEdit = mode === 'edit';
 	const title = isEdit ? '修改代理' : '新增代理';
 	const description = isEdit
-		? '可以修改代理名称、协议、认证信息、供应商、过期时间和备注。地理信息由检测自动维护。'
-		: '填写代理基础信息后保存。';
+		? '可以修改代理名称、协议、认证信息，以及语言/时区来源配置。基于 IP 的项会在保存后自动重新检测。'
+		: '填写代理基础信息后保存。若语言或时区选择基于 IP，保存后会自动检测出口画像。';
 	const submitLabel = isEdit ? '保存修改' : '创建代理';
 
 	useEffect(() => {
@@ -131,6 +169,8 @@ export function ProxyFormDialog({
 	}, [open, proxy, reset]);
 
 	const protocolValue = watch('protocol');
+	const languageSourceValue = watch('languageSource');
+	const timezoneSourceValue = watch('timezoneSource');
 	const submitHandler = useMemo(
 		() =>
 			handleSubmit(async (values) => {
@@ -143,6 +183,16 @@ export function ProxyFormDialog({
 						provider: values.provider.trim(),
 						note: values.note.trim(),
 						expiresAt: parseDateTimeLocalValue(values.expiresAt),
+						languageSource: values.languageSource,
+						customLanguage:
+							values.languageSource === 'custom'
+								? values.customLanguage.trim()
+								: undefined,
+						timezoneSource: values.timezoneSource,
+						customTimezone:
+							values.timezoneSource === 'custom'
+								? values.customTimezone.trim()
+								: undefined,
 					});
 				} else {
 					await onCreateProxy({
@@ -155,6 +205,16 @@ export function ProxyFormDialog({
 						provider: values.provider.trim(),
 						note: values.note.trim(),
 						expiresAt: parseDateTimeLocalValue(values.expiresAt),
+						languageSource: values.languageSource,
+						customLanguage:
+							values.languageSource === 'custom'
+								? values.customLanguage.trim()
+								: undefined,
+						timezoneSource: values.timezoneSource,
+						customTimezone:
+							values.timezoneSource === 'custom'
+								? values.customTimezone.trim()
+								: undefined,
 					});
 				}
 				onOpenChange(false);
@@ -223,6 +283,65 @@ export function ProxyFormDialog({
 						<Input type="datetime-local" {...register('expiresAt')} disabled={pending} />
 					</div>
 					<div className="rounded-xl border border-border/70 bg-muted/20 p-3">
+						<p className="mb-2 text-xs font-medium text-muted-foreground">语言 / 时区来源</p>
+						<div className="grid gap-3 md:grid-cols-2">
+							<div>
+								<p className="mb-1 text-xs text-muted-foreground">语言来源</p>
+								<Select
+									value={languageSourceValue}
+									onValueChange={(value) => setValue('languageSource', value as ProxyValueSource, { shouldValidate: true })}
+									disabled={pending}
+								>
+									<SelectTrigger className="w-full cursor-pointer">
+										<SelectValue placeholder="语言来源" />
+									</SelectTrigger>
+									<SelectContent>
+										{VALUE_SOURCE_OPTIONS.map((item) => (
+											<SelectItem key={item.value} value={item.value}>
+												{item.label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+								{languageSourceValue === 'custom' ? (
+									<>
+										<Input {...register('customLanguage')} className="mt-2" placeholder="如 zh-CN / en-US" disabled={pending} />
+										{errors.customLanguage ? <p className="mt-1 text-xs text-destructive">{errors.customLanguage.message}</p> : null}
+									</>
+								) : (
+									<p className="mt-2 text-[11px] text-muted-foreground">保存后会基于代理出口 IP 和本地 GEO 数据自动推导。</p>
+								)}
+							</div>
+							<div>
+								<p className="mb-1 text-xs text-muted-foreground">时区来源</p>
+								<Select
+									value={timezoneSourceValue}
+									onValueChange={(value) => setValue('timezoneSource', value as ProxyValueSource, { shouldValidate: true })}
+									disabled={pending}
+								>
+									<SelectTrigger className="w-full cursor-pointer">
+										<SelectValue placeholder="时区来源" />
+									</SelectTrigger>
+									<SelectContent>
+										{VALUE_SOURCE_OPTIONS.map((item) => (
+											<SelectItem key={item.value} value={item.value}>
+												{item.label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+								{timezoneSourceValue === 'custom' ? (
+									<>
+										<Input {...register('customTimezone')} className="mt-2" placeholder="如 Asia/Shanghai" disabled={pending} />
+										{errors.customTimezone ? <p className="mt-1 text-xs text-destructive">{errors.customTimezone.message}</p> : null}
+									</>
+								) : (
+									<p className="mt-2 text-[11px] text-muted-foreground">保存后会基于代理出口 IP 和本地 GEO 数据自动推导。</p>
+								)}
+							</div>
+						</div>
+					</div>
+					<div className="rounded-xl border border-border/70 bg-muted/20 p-3">
 						<p className="mb-2 text-xs font-medium text-muted-foreground">检测结果</p>
 						<div className="grid gap-2 text-xs md:grid-cols-2">
 							<p>出口 IP: {proxy?.exitIp || '未检测'}</p>
@@ -230,7 +349,10 @@ export function ProxyFormDialog({
 							<p>国家 / 区域: {proxy ? `${proxy.country || '未知'} / ${proxy.region || '未知'}` : '未检测'}</p>
 							<p>城市: {proxy?.city || '未检测'}</p>
 							<p>经纬度: {proxy && proxy.latitude !== null && proxy.longitude !== null ? `${proxy.latitude}, ${proxy.longitude}` : '未检测'}</p>
-							<p>建议语言 / 时区: {proxy ? `${proxy.suggestedLanguage || '未检测'} / ${proxy.suggestedTimezone || '未检测'}` : '未检测'}</p>
+							<p>GEO 建议语言 / 时区: {proxy ? `${proxy.suggestedLanguage || '未检测'} / ${proxy.suggestedTimezone || '未检测'}` : '未检测'}</p>
+							<p>当前生效语言 / 时区: {proxy ? `${proxy.effectiveLanguage || '未生效'} / ${proxy.effectiveTimezone || '未生效'}` : '未检测'}</p>
+							<p>语言来源: {proxy ? `${proxy.languageSource === 'custom' ? '自定义' : '基于 IP'}${proxy.customLanguage ? ` (${proxy.customLanguage})` : ''}` : '未设置'}</p>
+							<p>时区来源: {proxy ? `${proxy.timezoneSource === 'custom' ? '自定义' : '基于 IP'}${proxy.customTimezone ? ` (${proxy.customTimezone})` : ''}` : '未设置'}</p>
 						</div>
 						{proxy?.checkMessage ? (
 							<p className="mt-2 text-xs text-muted-foreground">错误信息: {proxy.checkMessage}</p>

@@ -61,8 +61,8 @@ test('profile form schema rejects non http startup urls in multi line input', ()
 
 test('resolveProxySuggestedValues maps proxy portrait into profile fields', () => {
 	const suggestion = resolveProxySuggestedValues({
-		suggestedLanguage: 'en-US',
-		suggestedTimezone: 'America/New_York',
+		effectiveLanguage: 'en-US',
+		effectiveTimezone: 'America/New_York',
 		latitude: 40.7128,
 		longitude: -74.006,
 		geoAccuracyMeters: 25,
@@ -88,4 +88,22 @@ test('applyProxySuggestionValue preserves manual value but allows proxy-owned va
 		applyProxySuggestionValue('proxy', 'en-US', 'de-DE'),
 		'de-DE',
 	);
+});
+
+test('resolveProxySuggestedValues prefers effective values over suggestion values', () => {
+	const suggestion = resolveProxySuggestedValues({
+		suggestedLanguage: 'fr-FR',
+		suggestedTimezone: 'Europe/Paris',
+		effectiveLanguage: 'de-DE',
+		effectiveTimezone: 'Europe/Berlin',
+		latitude: null,
+		longitude: null,
+		geoAccuracyMeters: null,
+	});
+
+	assert.deepEqual(suggestion, {
+		language: 'de-DE',
+		timezoneId: 'Europe/Berlin',
+		geolocation: null,
+	});
 });

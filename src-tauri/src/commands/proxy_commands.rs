@@ -1,6 +1,7 @@
 use tauri::State;
 
 use crate::error::AppError;
+use crate::logger;
 use crate::models::{
     BatchCheckProxiesRequest, BatchDeleteProxiesRequest, BatchProxyActionResponse,
     BatchUpdateProxiesRequest, CreateProxyRequest, ImportProxiesRequest, ListProxiesQuery,
@@ -9,30 +10,36 @@ use crate::models::{
 use crate::state::AppState;
 
 #[tauri::command]
-pub fn create_proxy(
+pub async fn create_proxy(
     state: State<'_, AppState>,
     payload: CreateProxyRequest,
 ) -> Result<Proxy, String> {
-    let proxy_service = state
-        .proxy_service
-        .lock()
-        .map_err(|_| "proxy service lock poisoned".to_string())?;
-    proxy_service.create_proxy(payload).map_err(error_to_string)
+    let created = {
+        let proxy_service = state
+            .proxy_service
+            .lock()
+            .map_err(|_| "proxy service lock poisoned".to_string())?;
+        proxy_service.create_proxy(payload).map_err(error_to_string)?
+    };
+    auto_check_proxy_if_needed(&state, created).await
 }
 
 #[tauri::command]
-pub fn update_proxy(
+pub async fn update_proxy(
     state: State<'_, AppState>,
     proxy_id: String,
     payload: UpdateProxyRequest,
 ) -> Result<Proxy, String> {
-    let proxy_service = state
-        .proxy_service
-        .lock()
-        .map_err(|_| "proxy service lock poisoned".to_string())?;
-    proxy_service
-        .update_proxy(&proxy_id, payload)
-        .map_err(error_to_string)
+    let updated = {
+        let proxy_service = state
+            .proxy_service
+            .lock()
+            .map_err(|_| "proxy service lock poisoned".to_string())?;
+        proxy_service
+            .update_proxy(&proxy_id, payload)
+            .map_err(error_to_string)?
+    };
+    auto_check_proxy_if_needed(&state, updated).await
 }
 
 #[tauri::command]
@@ -240,4 +247,60 @@ pub fn get_profile_proxy(
 
 fn error_to_string(err: AppError) -> String {
     err.to_string()
+}
+
+async fn auto_check_proxy_if_needed(
+    state: &AppState,
+    proxy: Proxy,
+) -> Result<Proxy, String> {
+    if !proxy_uses_ip_defaults(&proxy) {
+        return Ok(proxy);
+    }
+
+    let geoip_database = {
+        let resource_service = state
+            .resource_service
+            .lock()
+            .map_err(|_| "resource service lock poisoned".to_string())?;
+        resource_service.resolve_geoip_database_path()
+    };
+    let Some(geoip_database) = geoip_database else {
+        logger::warn(
+            "proxy_cmd",
+            format!(
+                "skip proxy auto-check after save because geoip database is unavailable proxy_id={}",
+                proxy.id
+            ),
+        );
+        return Ok(proxy);
+    };
+    let proxy_service = {
+        let proxy_service = state
+            .proxy_service
+            .lock()
+            .map_err(|_| "proxy service lock poisoned".to_string())?;
+        proxy_service.clone()
+    };
+    let proxy_id = proxy.id.clone();
+    let handle = tauri::async_runtime::spawn_blocking(move || {
+        proxy_service.check_proxy(&proxy_id, &geoip_database)
+    });
+    match handle
+        .await
+        .map_err(|err| format!("proxy auto-check task join failed: {err}"))?
+    {
+        Ok(updated) => Ok(updated),
+        Err(err) => {
+            logger::warn(
+                "proxy_cmd",
+                format!("proxy auto-check failed after save proxy_id={}: {err}", proxy.id),
+            );
+            Ok(proxy)
+        }
+    }
+}
+
+fn proxy_uses_ip_defaults(proxy: &Proxy) -> bool {
+    proxy.language_source.as_deref().unwrap_or("ip") == "ip"
+        || proxy.timezone_source.as_deref().unwrap_or("ip") == "ip"
 }

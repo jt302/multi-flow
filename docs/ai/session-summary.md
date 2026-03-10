@@ -38,6 +38,7 @@
   - 环境启动防抖：前端对单环境启动/关闭动作增加锁，防止快速连点触发重复请求。
   - `open_profile` 启动链路新增参数解析与注入：语言、时区、WebRTC、代理、GeoIP 路径；支持可选 `OpenProfileOptions`。
   - 启动参数默认联动：读取 Profile 当前绑定代理自动注入 `--proxy-server`，并在代理场景默认启用 `disable_non_proxied_udp`。
+  - 代理语言 / 时区默认值升级：代理可分别配置 `ip/custom` 来源；检测保留 `suggestedLanguage / suggestedTimezone` 作为建议值，并新增 `effectiveLanguage / effectiveTimezone` 作为环境继承和 Chromium 启动的实际默认值。
   - 新增 Profile 完整配置持久化：`profiles.settings_json`，支持基础设置/指纹设置/高级设置。
   - 新建环境页面升级为分区配置：基础设置、指纹配置、代理配置、高级设置。
   - 创建环境支持直接绑定代理，启动时自动合并 Profile 默认配置与运行时覆盖参数。

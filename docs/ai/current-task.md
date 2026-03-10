@@ -88,7 +88,8 @@
 
 - [x] 代理检测改为真实出口检测：通过代理请求公网 IP，再用本地 GeoLite2 City 数据库回填国家 / 区域 / 城市 / 经纬度
 - [x] 代理实体补齐画像字段：`checkStatus / checkMessage / exitIp / suggestedLanguage / suggestedTimezone / expiresAt`
+- [x] 代理语言 / 时区配置升级为“来源 + 建议值 + 最终生效值”：分别支持 `ip/custom`，并新增 `effectiveLanguage / effectiveTimezone`
 - [x] 新增 / 编辑代理不再手填国家、区域、城市；这些字段统一由检测自动维护
 - [x] 代理列表改为多列细节展示：协议 / GEO / 出口 IP / 健康状态 / 过期时间 / 绑定环境数
 - [x] 设置页资源管理增加 GEO 数据库状态与下载入口
-- [x] 环境创建页选择代理后，自动带出语言 / 时区 / 地理位置建议，并允许用户手动覆盖
+- [x] 环境创建页选择代理后，自动带出代理最终生效的语言 / 时区与 GEO 经纬度，并允许用户手动覆盖
