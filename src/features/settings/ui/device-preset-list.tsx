@@ -13,28 +13,30 @@ function PresetListItem({
 	onClick: () => void;
 }) {
 	return (
-		<button
+		<Button
 			type="button"
-			className={`w-full cursor-pointer rounded-xl border px-3 py-3 text-left transition ${
+			variant="outline"
+			className={`relative h-auto w-full justify-start rounded-xl border px-3 py-3 text-left transition ${
 				selected
-					? 'border-primary/40 bg-primary/10'
+					? 'border-primary/40 bg-primary/10 hover:bg-primary/10'
 					: 'border-border/70 bg-background/75 hover:border-primary/25 hover:bg-accent/40'
 			}`}
 			onClick={onClick}
 		>
-			<div className="flex items-start justify-between gap-2">
-				<div className="min-w-0">
-					<p className="truncate text-sm font-medium">{item.label}</p>
-					<p className="mt-1 text-xs text-muted-foreground">
-						{item.platform} · {item.viewportWidth}x{item.viewportHeight} · DPR {item.deviceScaleFactor}
-					</p>
-				</div>
-				<div className="flex shrink-0 items-center gap-1">
-					<Badge variant="outline">{item.formFactor}</Badge>
-					{item.mobile ? <Badge variant="secondary">移动</Badge> : null}
-				</div>
+			<div className="min-w-0 pr-36">
+				<p className="truncate text-sm font-medium">{item.label}</p>
+				<p className="mt-1 text-xs text-muted-foreground">
+					{item.platform} · {item.viewportWidth}x{item.viewportHeight} · DPR {item.deviceScaleFactor}
+				</p>
 			</div>
-		</button>
+
+			<div className="pointer-events-none absolute top-3 right-3 flex max-w-[45%] items-center justify-end gap-1">
+				<Badge variant="outline">{item.formFactor}</Badge>
+				{item.mobile && item.formFactor.trim().toLowerCase() !== 'mobile' ? (
+					<Badge variant="secondary">移动</Badge>
+				) : null}
+			</div>
+		</Button>
 	);
 }
 

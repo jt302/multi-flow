@@ -317,7 +317,9 @@ impl ResourceService {
             .resources
             .into_iter()
             .find(|item| item.kind == "geoip_mmdb")
-            .ok_or_else(|| AppError::NotFound("geoip resource not found in manifest".to_string()))?;
+            .ok_or_else(|| {
+                AppError::NotFound("geoip resource not found in manifest".to_string())
+            })?;
 
         let download = self.download_resource(&resource.id, false)?;
         Ok(PathBuf::from(download.local_path))

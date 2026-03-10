@@ -9,8 +9,8 @@ mod m20260309_000008_add_proxy_health_fields;
 mod m20260309_000009_add_proxy_portrait_fields;
 mod m20260309_000010_create_rpa_tables;
 mod m20260310_000011_add_proxy_locale_fields;
-mod m20260310_000012_rebuild_proxy_runtime_instances;
 mod m20260310_000012_add_proxy_target_site_checks;
+mod m20260310_000012_rebuild_proxy_runtime_instances;
 
 use sea_orm_migration::prelude::*;
 

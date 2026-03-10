@@ -8,8 +8,8 @@ use sea_orm::{
 use crate::db::entities::{rpa_run, rpa_run_instance, rpa_run_step};
 use crate::error::{AppError, AppResult};
 use crate::models::{
-    now_ts, RpaArtifactIndex, RpaFlow, RpaRun, RpaRunDetails, RpaRunInstance,
-    RpaRunInstanceStatus, RpaRunStatus, RpaRunStep, RpaRunStepStatus, RunRpaFlowRequest,
+    now_ts, RpaArtifactIndex, RpaFlow, RpaRun, RpaRunDetails, RpaRunInstance, RpaRunInstanceStatus,
+    RpaRunStatus, RpaRunStep, RpaRunStepStatus, RunRpaFlowRequest,
 };
 use crate::services::rpa_flow_service::{format_profile_id, parse_profile_id};
 
@@ -29,9 +29,10 @@ impl RpaRunService {
             ));
         }
         let now = now_ts();
-        let concurrency_limit = normalize_concurrency(req.concurrency_limit.unwrap_or(
-            flow.definition.defaults.concurrency_limit.max(1),
-        ));
+        let concurrency_limit = normalize_concurrency(
+            req.concurrency_limit
+                .unwrap_or(flow.definition.defaults.concurrency_limit.max(1)),
+        );
         let definition_snapshot_json = serde_json::to_string(&flow.definition)?;
         let runtime_input_json = serde_json::to_string(&req.runtime_input)?;
         let model = rpa_run::ActiveModel {
@@ -335,7 +336,8 @@ impl RpaRunService {
             ..Default::default()
         };
         let inserted = self.db_query(rpa_run_step::Entity::insert(model).exec(&self.db))?;
-        let created = self.db_query(rpa_run_step::Entity::find_by_id(inserted.last_insert_id).one(&self.db))?
+        let created = self
+            .db_query(rpa_run_step::Entity::find_by_id(inserted.last_insert_id).one(&self.db))?
             .ok_or_else(|| AppError::NotFound("rpa step missing right after create".to_string()))?;
         let api = to_api_step(created)?;
         self.update_instance_artifacts(&step.run_instance_id, api.artifacts.clone())?;
@@ -364,9 +366,8 @@ impl RpaRunService {
     ) -> AppResult<()> {
         let existing = self.find_instance_model(instance_id)?;
         let mut active: rpa_run_instance::ActiveModel = existing.into();
-        let mut current: RpaArtifactIndex = serde_json::from_str(
-            active.artifact_index_json.clone().unwrap().as_str(),
-        )?;
+        let mut current: RpaArtifactIndex =
+            serde_json::from_str(active.artifact_index_json.clone().unwrap().as_str())?;
         if artifacts.screenshot_path.is_some() {
             current.screenshot_path = artifacts.screenshot_path;
         }

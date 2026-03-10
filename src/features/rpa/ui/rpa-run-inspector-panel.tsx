@@ -132,10 +132,11 @@ export function RpaRunInspectorPanel({ editor }: RpaRunInspectorPanelProps) {
 				<div className="grid gap-4 xl:grid-cols-[280px_280px_minmax(0,1fr)]">
 					<div className="space-y-2">
 						{editor.runs.map((run) => (
-							<button
+							<Button
 								key={run.id}
 								type="button"
-								className={`w-full cursor-pointer rounded-xl border px-3 py-3 text-left ${
+								variant="outline"
+								className={`h-auto w-full justify-start rounded-xl border px-3 py-3 text-left ${
 									editor.selectedRun?.id === run.id
 										? 'border-primary bg-primary/10'
 										: 'border-border/60 hover:border-primary/40'
@@ -145,14 +146,14 @@ export function RpaRunInspectorPanel({ editor }: RpaRunInspectorPanelProps) {
 									editor.setSelectedInstanceId(null);
 								}}
 							>
-								<div className="flex items-center justify-between">
+								<div className="flex w-full items-center justify-between">
 									<p className="text-sm font-medium">{run.flowName}</p>
 									<Badge variant={editor.statusVariant(run.status)}>{editor.formatStatus(run.status)}</Badge>
 								</div>
 								<p className="mt-1 text-xs text-muted-foreground">
 									成功 {run.successCount} / 失败 {run.failedCount} / 取消 {run.cancelledCount}
 								</p>
-							</button>
+							</Button>
 						))}
 					</div>
 
@@ -166,12 +167,13 @@ export function RpaRunInspectorPanel({ editor }: RpaRunInspectorPanelProps) {
 										: 'border-border/60'
 								}`}
 							>
-								<button
+								<Button
 									type="button"
-									className="w-full cursor-pointer text-left"
+									variant="ghost"
+									className="h-auto w-full justify-start p-0 text-left hover:bg-transparent"
 									onClick={() => editor.setSelectedInstanceId(instance.id)}
 								>
-									<div className="flex items-center justify-between">
+									<div className="flex w-full items-center justify-between">
 										<p className="text-sm font-medium">{instance.profileId}</p>
 										<Badge variant={editor.statusVariant(instance.status)}>
 											{editor.formatStatus(instance.status)}
@@ -183,7 +185,7 @@ export function RpaRunInspectorPanel({ editor }: RpaRunInspectorPanelProps) {
 									{instance.errorMessage ? (
 										<p className="mt-1 text-xs text-destructive">{instance.errorMessage}</p>
 									) : null}
-								</button>
+								</Button>
 								<div className="mt-3 flex gap-2">
 									<Button
 										variant="outline"

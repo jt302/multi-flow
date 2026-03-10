@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-import { Card } from '@/components/ui';
+import { DataSection, EmptyState } from '@/components/common';
 import { filterProfiles } from '@/entities/profile/lib/profile-list';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
@@ -139,7 +139,7 @@ export function ProfileListPage({
 	const emptyText = profiles.length === 0 ? '暂无环境，先创建一个环境。' : '没有匹配当前筛选条件的环境。';
 
 	return (
-		<div className="space-y-3">
+		<div className="flex flex-col gap-3">
 			<ActiveSectionCard label="环境" title={section.title} description={section.desc} />
 
 			<ProfileListStats
@@ -149,7 +149,7 @@ export function ProfileListPage({
 				runningCount={runningCount}
 			/>
 
-			<Card className="p-3">
+			<DataSection title="环境列表" contentClassName="p-1 pt-0">
 				<ProfileListToolbar
 					keyword={filters.keyword}
 					groupFilter={filters.groupFilter}
@@ -227,9 +227,7 @@ export function ProfileListPage({
 				/>
 
 				{isEmpty ? (
-					<div className="overflow-hidden rounded-xl border border-border/70 px-4 py-10 text-center text-sm text-muted-foreground">
-						{emptyText}
-					</div>
+					<EmptyState title={emptyText} />
 				) : (
 					<ProfileListTable
 						profiles={filteredProfiles}
@@ -261,7 +259,7 @@ export function ProfileListPage({
 					/>
 				)}
 				{error ? <p className="mt-2 px-1 text-xs text-destructive">{error}</p> : null}
-			</Card>
+			</DataSection>
 		</div>
 	);
 }

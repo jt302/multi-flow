@@ -89,7 +89,9 @@ impl RpaFlowService {
         let existing = self.find_model(flow_id)?;
         let mut active_model: rpa_flow::ActiveModel = existing.into();
         if active_model.lifecycle.clone().unwrap() == LIFECYCLE_DELETED {
-            return Err(AppError::Conflict(format!("rpa flow already deleted: {flow_id}")));
+            return Err(AppError::Conflict(format!(
+                "rpa flow already deleted: {flow_id}"
+            )));
         }
         let now = now_ts();
         active_model.lifecycle = Set(LIFECYCLE_DELETED.to_string());
@@ -104,7 +106,9 @@ impl RpaFlowService {
         let existing = self.find_model(flow_id)?;
         let mut active_model: rpa_flow::ActiveModel = existing.into();
         if active_model.lifecycle.clone().unwrap() == LIFECYCLE_ACTIVE {
-            return Err(AppError::Conflict(format!("rpa flow not deleted: {flow_id}")));
+            return Err(AppError::Conflict(format!(
+                "rpa flow not deleted: {flow_id}"
+            )));
         }
         active_model.lifecycle = Set(LIFECYCLE_ACTIVE.to_string());
         active_model.deleted_at = Set(None);
@@ -121,7 +125,8 @@ impl RpaFlowService {
                 .filter(rpa_flow_target::Column::FlowId.eq(flow_pk))
                 .exec(&self.db),
         )?;
-        let delete_result = self.db_query(rpa_flow::Entity::delete_by_id(flow_pk).exec(&self.db))?;
+        let delete_result =
+            self.db_query(rpa_flow::Entity::delete_by_id(flow_pk).exec(&self.db))?;
         if delete_result.rows_affected == 0 {
             return Err(AppError::NotFound(format!("rpa flow not found: {flow_id}")));
         }
@@ -203,7 +208,9 @@ impl RpaFlowService {
 fn validate_flow_definition(definition: &RpaFlowDefinition) -> AppResult<()> {
     require_non_empty("entryNodeId", &definition.entry_node_id)?;
     if definition.nodes.is_empty() {
-        return Err(AppError::Validation("rpa flow nodes must not be empty".to_string()));
+        return Err(AppError::Validation(
+            "rpa flow nodes must not be empty".to_string(),
+        ));
     }
     if !definition
         .nodes
@@ -222,7 +229,9 @@ fn validate_target_profile_ids(db: &DatabaseConnection, profile_ids: &[String]) 
         let parsed = parse_profile_id(profile_id)?;
         let exists = tauri::async_runtime::block_on(profile::Entity::find_by_id(parsed).one(db))?;
         if exists.is_none() {
-            return Err(AppError::NotFound(format!("profile not found: {profile_id}")));
+            return Err(AppError::NotFound(format!(
+                "profile not found: {profile_id}"
+            )));
         }
     }
     Ok(())

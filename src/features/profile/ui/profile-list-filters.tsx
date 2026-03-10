@@ -56,28 +56,30 @@ export function ProfileListFilters({
 }: ProfileListFiltersProps) {
 	return (
 		<>
-			<div className="mb-2 flex items-center justify-between px-1">
-				<h2 className="text-sm font-semibold">环境列表</h2>
-				<div className="flex items-center gap-2">
-					<Button type="button" variant="ghost" size="sm" className="cursor-pointer" onClick={onRefresh}>
-						<Icon icon={RefreshCw} size={12} />
-						刷新
-					</Button>
-					<Button type="button" size="sm" className="cursor-pointer" onClick={onCreateClick}>
-						<Icon icon={Plus} size={14} />
-						创建环境
-					</Button>
+			<div className="mb-3 px-1">
+				<div className="flex flex-wrap items-center justify-between gap-2">
+					<h2 className="text-sm font-semibold">环境列表</h2>
+					<div className="flex items-center gap-2">
+						<Button type="button" variant="ghost" size="sm" className="cursor-pointer" onClick={onRefresh}>
+							<Icon icon={RefreshCw} size={12} />
+							刷新
+						</Button>
+						<Button type="button" size="sm" className="cursor-pointer" onClick={onCreateClick}>
+							<Icon icon={Plus} size={14} />
+							创建环境
+						</Button>
+					</div>
 				</div>
 			</div>
 
-			<div className="mb-3 grid gap-2 px-1 md:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,0.8fr)_minmax(0,0.8fr)]">
+			<div className="mb-3 grid gap-2 px-1 md:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
 				<Input
 					value={keyword}
 					onChange={(event) => onChange({ keyword: event.target.value })}
 					placeholder="搜索名称/分组/备注"
 				/>
 				<Select value={groupFilter} onValueChange={(value) => onChange({ groupFilter: value })}>
-					<SelectTrigger>
+					<SelectTrigger className="w-full">
 						<SelectValue placeholder="全部分组" />
 					</SelectTrigger>
 					<SelectContent>
@@ -95,7 +97,7 @@ export function ProfileListFilters({
 						onChange({ runningFilter: value as ProfileListRunningFilter })
 					}
 				>
-					<SelectTrigger>
+					<SelectTrigger className="w-full">
 						<SelectValue placeholder="全部运行态" />
 					</SelectTrigger>
 					<SelectContent>
@@ -110,7 +112,7 @@ export function ProfileListFilters({
 						onChange({ lifecycleFilter: value as ProfileListLifecycleFilter })
 					}
 				>
-					<SelectTrigger>
+					<SelectTrigger className="w-full">
 						<SelectValue placeholder="可用环境" />
 					</SelectTrigger>
 					<SelectContent>

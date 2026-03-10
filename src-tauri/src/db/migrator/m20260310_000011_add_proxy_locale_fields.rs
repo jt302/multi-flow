@@ -9,37 +9,49 @@ impl MigrationTrait for Migration {
         add_column_if_missing(
             manager,
             "language_source",
-            ColumnDef::new(Alias::new("language_source")).string().null(),
+            ColumnDef::new(Alias::new("language_source"))
+                .string()
+                .null(),
         )
         .await?;
         add_column_if_missing(
             manager,
             "custom_language",
-            ColumnDef::new(Alias::new("custom_language")).string().null(),
+            ColumnDef::new(Alias::new("custom_language"))
+                .string()
+                .null(),
         )
         .await?;
         add_column_if_missing(
             manager,
             "effective_language",
-            ColumnDef::new(Alias::new("effective_language")).string().null(),
+            ColumnDef::new(Alias::new("effective_language"))
+                .string()
+                .null(),
         )
         .await?;
         add_column_if_missing(
             manager,
             "timezone_source",
-            ColumnDef::new(Alias::new("timezone_source")).string().null(),
+            ColumnDef::new(Alias::new("timezone_source"))
+                .string()
+                .null(),
         )
         .await?;
         add_column_if_missing(
             manager,
             "custom_timezone",
-            ColumnDef::new(Alias::new("custom_timezone")).string().null(),
+            ColumnDef::new(Alias::new("custom_timezone"))
+                .string()
+                .null(),
         )
         .await?;
         add_column_if_missing(
             manager,
             "effective_timezone",
-            ColumnDef::new(Alias::new("effective_timezone")).string().null(),
+            ColumnDef::new(Alias::new("effective_timezone"))
+                .string()
+                .null(),
         )
         .await?;
 

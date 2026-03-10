@@ -99,8 +99,11 @@ impl RpaRuntimeService {
             .instances
             .into_iter()
             .find(|item| item.id == instance_id)
-            .ok_or_else(|| AppError::NotFound(format!("rpa run instance not found: {instance_id}")))?;
-        Self::process_instance(app.clone(), details.run.definition_snapshot, instance, true).await?;
+            .ok_or_else(|| {
+                AppError::NotFound(format!("rpa run instance not found: {instance_id}"))
+            })?;
+        Self::process_instance(app.clone(), details.run.definition_snapshot, instance, true)
+            .await?;
         let state = app.state::<AppState>();
         let run_service = lock_run_service(&state)?;
         let run = run_service.update_run_aggregate_status(&details.run.id)?;
@@ -123,7 +126,8 @@ impl RpaRuntimeService {
         let state = app.state::<AppState>();
         {
             let run_service = lock_run_service(&state)?;
-            instance = run_service.mark_instance_running(&instance.id, instance.current_node_id.clone())?;
+            instance = run_service
+                .mark_instance_running(&instance.id, instance.current_node_id.clone())?;
             let _ = app.emit(INSTANCE_UPDATED_EVENT, &instance);
         }
 
@@ -191,7 +195,8 @@ impl RpaRuntimeService {
 
                         match outcome.kind {
                             NodeOutcomeKind::Continue(handle) => {
-                                current_node_id = resolve_next_node_id(&definition, &node.id, handle);
+                                current_node_id =
+                                    resolve_next_node_id(&definition, &node.id, handle);
                                 let updated = run_service.update_instance_context(
                                     &instance.id,
                                     current_node_id.clone(),
@@ -200,8 +205,8 @@ impl RpaRuntimeService {
                                 let _ = app.emit(INSTANCE_UPDATED_EVENT, &updated);
                             }
                             NodeOutcomeKind::Manual => {
-                                let updated =
-                                    run_service.mark_instance_manual(&instance.id, node.id.clone())?;
+                                let updated = run_service
+                                    .mark_instance_manual(&instance.id, node.id.clone())?;
                                 let _ = app.emit(INSTANCE_UPDATED_EVENT, &updated);
                                 return Ok(());
                             }
@@ -302,75 +307,71 @@ impl RpaRuntimeService {
             "open_tab" => {
                 let url = render_template(node.config.get_str("url").as_deref(), context)?;
                 let state = app.state::<AppState>();
-                let mut engine_manager = state
-                    .engine_manager
-                    .lock()
-                    .map_err(|_| AppError::Validation("engine manager lock poisoned".to_string()))?;
+                let mut engine_manager = state.engine_manager.lock().map_err(|_| {
+                    AppError::Validation("engine manager lock poisoned".to_string())
+                })?;
                 let _ = engine_manager.open_tab(&instance.profile_id, Some(url))?;
                 NodeOutcomeKind::Continue("success")
             }
             "open_window" => {
                 let url = render_template(node.config.get_str("url").as_deref(), context)?;
                 let state = app.state::<AppState>();
-                let mut engine_manager = state
-                    .engine_manager
-                    .lock()
-                    .map_err(|_| AppError::Validation("engine manager lock poisoned".to_string()))?;
+                let mut engine_manager = state.engine_manager.lock().map_err(|_| {
+                    AppError::Validation("engine manager lock poisoned".to_string())
+                })?;
                 let _ = engine_manager.open_window(&instance.profile_id, Some(url))?;
                 NodeOutcomeKind::Continue("success")
             }
             "close_tab" => {
                 let tab_id = node.config.get_u64("tabId");
                 let state = app.state::<AppState>();
-                let mut engine_manager = state
-                    .engine_manager
-                    .lock()
-                    .map_err(|_| AppError::Validation("engine manager lock poisoned".to_string()))?;
+                let mut engine_manager = state.engine_manager.lock().map_err(|_| {
+                    AppError::Validation("engine manager lock poisoned".to_string())
+                })?;
                 let _ = engine_manager.close_tab(&instance.profile_id, tab_id)?;
                 NodeOutcomeKind::Continue("success")
             }
             "close_inactive_tabs" => {
                 let window_id = node.config.get_u64("windowId");
                 let state = app.state::<AppState>();
-                let mut engine_manager = state
-                    .engine_manager
-                    .lock()
-                    .map_err(|_| AppError::Validation("engine manager lock poisoned".to_string()))?;
+                let mut engine_manager = state.engine_manager.lock().map_err(|_| {
+                    AppError::Validation("engine manager lock poisoned".to_string())
+                })?;
                 let _ = engine_manager.close_inactive_tabs(&instance.profile_id, window_id)?;
                 NodeOutcomeKind::Continue("success")
             }
             "focus_window" => {
                 let window_id = node.config.get_u64("windowId");
                 let state = app.state::<AppState>();
-                let mut engine_manager = state
-                    .engine_manager
-                    .lock()
-                    .map_err(|_| AppError::Validation("engine manager lock poisoned".to_string()))?;
+                let mut engine_manager = state.engine_manager.lock().map_err(|_| {
+                    AppError::Validation("engine manager lock poisoned".to_string())
+                })?;
                 let _ = engine_manager.focus_window(&instance.profile_id, window_id)?;
                 NodeOutcomeKind::Continue("success")
             }
             "activate_tab" => {
                 let state = app.state::<AppState>();
-                let mut engine_manager = state
-                    .engine_manager
-                    .lock()
-                    .map_err(|_| AppError::Validation("engine manager lock poisoned".to_string()))?;
+                let mut engine_manager = state.engine_manager.lock().map_err(|_| {
+                    AppError::Validation("engine manager lock poisoned".to_string())
+                })?;
                 if let Some(tab_id) = node.config.get_u64("tabId") {
                     let _ = engine_manager.activate_tab(&instance.profile_id, tab_id)?;
                 } else {
                     let index = node.config.get_u64("index").unwrap_or(0) as usize;
                     let window_id = node.config.get_u64("windowId");
-                    let _ =
-                        engine_manager.activate_tab_by_index(&instance.profile_id, index, window_id)?;
+                    let _ = engine_manager.activate_tab_by_index(
+                        &instance.profile_id,
+                        index,
+                        window_id,
+                    )?;
                 }
                 NodeOutcomeKind::Continue("success")
             }
             "set_window_bounds" => {
                 let state = app.state::<AppState>();
-                let mut engine_manager = state
-                    .engine_manager
-                    .lock()
-                    .map_err(|_| AppError::Validation("engine manager lock poisoned".to_string()))?;
+                let mut engine_manager = state.engine_manager.lock().map_err(|_| {
+                    AppError::Validation("engine manager lock poisoned".to_string())
+                })?;
                 let _ = engine_manager.set_window_bounds(
                     &instance.profile_id,
                     crate::models::WindowBounds {
@@ -415,7 +416,8 @@ impl RpaRuntimeService {
                 NodeOutcomeKind::Continue("success")
             }
             "click_element" => {
-                let selector = render_template(Some(&require_config_value(node, "selector")?), context)?;
+                let selector =
+                    render_template(Some(&require_config_value(node, "selector")?), context)?;
                 with_profile_page(app, &instance.profile_id, |page| async move {
                     page.find_element(&selector)
                         .await
@@ -429,7 +431,8 @@ impl RpaRuntimeService {
                 NodeOutcomeKind::Continue("success")
             }
             "input_text" => {
-                let selector = render_template(Some(&require_config_value(node, "selector")?), context)?;
+                let selector =
+                    render_template(Some(&require_config_value(node, "selector")?), context)?;
                 let text = render_template(node.config.get_str("text").as_deref(), context)?;
                 with_profile_page(app, &instance.profile_id, |page| async move {
                     page.find_element(&selector)
@@ -508,7 +511,8 @@ impl RpaRuntimeService {
                 NodeOutcomeKind::Continue("success")
             }
             "extract_text" => {
-                let selector = render_template(Some(&require_config_value(node, "selector")?), context)?;
+                let selector =
+                    render_template(Some(&require_config_value(node, "selector")?), context)?;
                 let variable_key = require_config_value(node, "variableKey")?;
                 let result = with_profile_page(app, &instance.profile_id, |page| async move {
                     let text = page
@@ -531,7 +535,8 @@ impl RpaRuntimeService {
                 NodeOutcomeKind::Continue("success")
             }
             "extract_attribute" => {
-                let selector = render_template(Some(&require_config_value(node, "selector")?), context)?;
+                let selector =
+                    render_template(Some(&require_config_value(node, "selector")?), context)?;
                 let attribute = require_config_value(node, "attribute")?;
                 let variable_key = require_config_value(node, "variableKey")?;
                 let result = with_profile_page(app, &instance.profile_id, |page| async move {
@@ -570,7 +575,10 @@ impl RpaRuntimeService {
                         .await
                         .map_err(map_cdp_error)?;
                     let mut output = Map::new();
-                    output.insert("size".to_string(), Value::Number((content.len() as u64).into()));
+                    output.insert(
+                        "size".to_string(),
+                        Value::Number((content.len() as u64).into()),
+                    );
                     Ok((output, content))
                 })
                 .await?;
@@ -665,7 +673,10 @@ enum NodeOutcomeKind {
 
 fn build_input_snapshot(node: &RpaFlowNode, context: &Map<String, Value>) -> Map<String, Value> {
     let mut snapshot = Map::new();
-    snapshot.insert("config".to_string(), serde_json::to_value(&node.config.0).unwrap_or(Value::Null));
+    snapshot.insert(
+        "config".to_string(),
+        serde_json::to_value(&node.config.0).unwrap_or(Value::Null),
+    );
     snapshot.insert("context".to_string(), Value::Object(context.clone()));
     snapshot
 }
@@ -678,7 +689,9 @@ fn resolve_next_node_id(
     definition
         .edges
         .iter()
-        .find(|edge| edge.source == node_id && edge.source_handle.as_deref().unwrap_or("success") == handle)
+        .find(|edge| {
+            edge.source == node_id && edge.source_handle.as_deref().unwrap_or("success") == handle
+        })
         .map(|edge| edge.target.clone())
         .or_else(|| {
             definition
@@ -722,7 +735,8 @@ fn lock_run_service<'a>(
 
 fn lock_artifact_service<'a>(
     state: &'a AppState,
-) -> AppResult<std::sync::MutexGuard<'a, crate::services::rpa_artifact_service::RpaArtifactService>> {
+) -> AppResult<std::sync::MutexGuard<'a, crate::services::rpa_artifact_service::RpaArtifactService>>
+{
     state
         .rpa_artifact_service
         .lock()
@@ -742,9 +756,8 @@ where
     let (browser, mut handler) = Browser::connect(websocket_url.as_str())
         .await
         .map_err(|err| AppError::Validation(format!("connect browser failed: {err}")))?;
-    let handler_task = tauri::async_runtime::spawn(async move {
-        while let Some(_) = handler.next().await {}
-    });
+    let handler_task =
+        tauri::async_runtime::spawn(async move { while let Some(_) = handler.next().await {} });
     let pages = browser
         .pages()
         .await

@@ -54,10 +54,26 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(RpaFlowTargets::FlowId).big_integer().not_null())
-                    .col(ColumnDef::new(RpaFlowTargets::ProfileId).big_integer().not_null())
-                    .col(ColumnDef::new(RpaFlowTargets::CreatedAt).big_integer().not_null())
-                    .col(ColumnDef::new(RpaFlowTargets::UpdatedAt).big_integer().not_null())
+                    .col(
+                        ColumnDef::new(RpaFlowTargets::FlowId)
+                            .big_integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(RpaFlowTargets::ProfileId)
+                            .big_integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(RpaFlowTargets::CreatedAt)
+                            .big_integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(RpaFlowTargets::UpdatedAt)
+                            .big_integer()
+                            .not_null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_rpa_flow_targets_flow_id")
@@ -107,8 +123,16 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(RpaRuns::SuccessCount).integer().not_null())
                     .col(ColumnDef::new(RpaRuns::FailedCount).integer().not_null())
                     .col(ColumnDef::new(RpaRuns::CancelledCount).integer().not_null())
-                    .col(ColumnDef::new(RpaRuns::ConcurrencyLimit).integer().not_null())
-                    .col(ColumnDef::new(RpaRuns::DefinitionSnapshotJson).text().not_null())
+                    .col(
+                        ColumnDef::new(RpaRuns::ConcurrencyLimit)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(RpaRuns::DefinitionSnapshotJson)
+                            .text()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(RpaRuns::RuntimeInputJson).text().not_null())
                     .col(ColumnDef::new(RpaRuns::StartedAt).big_integer().null())
                     .col(ColumnDef::new(RpaRuns::FinishedAt).big_integer().null())
@@ -148,17 +172,53 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(RpaRunInstances::RunId).big_integer().not_null())
-                    .col(ColumnDef::new(RpaRunInstances::ProfileId).big_integer().not_null())
+                    .col(
+                        ColumnDef::new(RpaRunInstances::RunId)
+                            .big_integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(RpaRunInstances::ProfileId)
+                            .big_integer()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(RpaRunInstances::Status).string().not_null())
-                    .col(ColumnDef::new(RpaRunInstances::CurrentNodeId).string().null())
-                    .col(ColumnDef::new(RpaRunInstances::ContextJson).text().not_null())
-                    .col(ColumnDef::new(RpaRunInstances::ArtifactIndexJson).text().not_null())
+                    .col(
+                        ColumnDef::new(RpaRunInstances::CurrentNodeId)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(RpaRunInstances::ContextJson)
+                            .text()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(RpaRunInstances::ArtifactIndexJson)
+                            .text()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(RpaRunInstances::ErrorMessage).text().null())
-                    .col(ColumnDef::new(RpaRunInstances::StartedAt).big_integer().null())
-                    .col(ColumnDef::new(RpaRunInstances::FinishedAt).big_integer().null())
-                    .col(ColumnDef::new(RpaRunInstances::CreatedAt).big_integer().not_null())
-                    .col(ColumnDef::new(RpaRunInstances::UpdatedAt).big_integer().not_null())
+                    .col(
+                        ColumnDef::new(RpaRunInstances::StartedAt)
+                            .big_integer()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(RpaRunInstances::FinishedAt)
+                            .big_integer()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(RpaRunInstances::CreatedAt)
+                            .big_integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(RpaRunInstances::UpdatedAt)
+                            .big_integer()
+                            .not_null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_rpa_run_instances_run_id")
@@ -208,11 +268,27 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(RpaRunSteps::NodeKind).string().not_null())
                     .col(ColumnDef::new(RpaRunSteps::Status).string().not_null())
                     .col(ColumnDef::new(RpaRunSteps::Attempt).integer().not_null())
-                    .col(ColumnDef::new(RpaRunSteps::InputSnapshotJson).text().not_null())
-                    .col(ColumnDef::new(RpaRunSteps::OutputSnapshotJson).text().not_null())
+                    .col(
+                        ColumnDef::new(RpaRunSteps::InputSnapshotJson)
+                            .text()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(RpaRunSteps::OutputSnapshotJson)
+                            .text()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(RpaRunSteps::ErrorMessage).text().null())
-                    .col(ColumnDef::new(RpaRunSteps::ArtifactIndexJson).text().not_null())
-                    .col(ColumnDef::new(RpaRunSteps::StartedAt).big_integer().not_null())
+                    .col(
+                        ColumnDef::new(RpaRunSteps::ArtifactIndexJson)
+                            .text()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(RpaRunSteps::StartedAt)
+                            .big_integer()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(RpaRunSteps::FinishedAt).big_integer().null())
                     .foreign_key(
                         ForeignKey::create()
@@ -241,16 +317,31 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().if_exists().table(RpaRunSteps::Table).to_owned())
+            .drop_table(
+                Table::drop()
+                    .if_exists()
+                    .table(RpaRunSteps::Table)
+                    .to_owned(),
+            )
             .await?;
         manager
-            .drop_table(Table::drop().if_exists().table(RpaRunInstances::Table).to_owned())
+            .drop_table(
+                Table::drop()
+                    .if_exists()
+                    .table(RpaRunInstances::Table)
+                    .to_owned(),
+            )
             .await?;
         manager
             .drop_table(Table::drop().if_exists().table(RpaRuns::Table).to_owned())
             .await?;
         manager
-            .drop_table(Table::drop().if_exists().table(RpaFlowTargets::Table).to_owned())
+            .drop_table(
+                Table::drop()
+                    .if_exists()
+                    .table(RpaFlowTargets::Table)
+                    .to_owned(),
+            )
             .await?;
         manager
             .drop_table(Table::drop().if_exists().table(RpaFlows::Table).to_owned())
