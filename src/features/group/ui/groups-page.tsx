@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Icon, Input } from '@/components/ui';
 import type { GroupItem } from '@/entities/group/model/types';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
-import { CONSOLE_NAV_SECTIONS } from '@/widgets/console-shell/model/nav-sections';
-import { useGroupManagementStore } from '@/features/group/model/group-management-store';
+import { WORKSPACE_SECTIONS } from '@/app/model/workspace-sections';
+import { useGroupManagementStore } from '@/store/group-management-store';
 import type { GroupsPageProps } from '@/features/group/model/types';
 import { GroupDeleteAlertDialog } from './group-delete-alert-dialog';
 import { GroupFormDialog, type GroupFormValues } from './group-form-dialog';
@@ -17,7 +17,7 @@ export function GroupsPage({
 	onDeleteGroup,
 	onOpenGroupProfiles,
 }: GroupsPageProps) {
-	const section = CONSOLE_NAV_SECTIONS.groups;
+	const section = WORKSPACE_SECTIONS.groups;
 	const searchKeyword = useGroupManagementStore((state) => state.searchKeyword);
 	const isFormOpen = useGroupManagementStore((state) => state.isFormOpen);
 	const editingGroupId = useGroupManagementStore((state) => state.editingGroupId);

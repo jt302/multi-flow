@@ -3,7 +3,7 @@ import { Activity } from 'lucide-react';
 import { Badge, Button, Card, Icon } from '@/components/ui';
 import { getStatusVariant } from '@/shared/lib/status';
 
-import type { SessionTableCardProps } from '@/widgets/console-shell/model/types';
+import type { SessionTableCardProps } from '@/app/model/workspace-types';
 
 export function SessionTableCard({ title, rows }: SessionTableCardProps) {
 	return (

@@ -15,7 +15,7 @@ import {
 	Icon,
 	Input,
 } from '@/components/ui';
-import type { GroupEditorMode } from '@/features/group/model/group-management-store';
+import type { GroupEditorMode } from '@/store/group-management-store';
 import type { GroupItem } from '@/entities/group/model/types';
 
 export const groupFormSchema = z.object({

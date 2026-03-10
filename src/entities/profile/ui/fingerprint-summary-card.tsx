@@ -4,7 +4,7 @@ import { Badge, Icon } from '@/components/ui';
 
 import type { ProfileFingerprintSnapshot } from '@/entities/profile/model/types';
 
-import { SectionTitle } from '@/features/profile/create-profile/ui/section-title';
+import { SectionTitle } from '@/features/profile/ui/section-title';
 import type { ResourceItem } from '@/entities/resource/model/types';
 
 type FingerprintSummaryCardProps = {

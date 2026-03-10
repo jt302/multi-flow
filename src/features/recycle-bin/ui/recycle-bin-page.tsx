@@ -19,13 +19,14 @@ import {
 	Icon,
 } from '@/components/ui';
 import { useRpaFlowsQuery } from '@/entities/rpa/model/use-rpa-flows-query';
-import { useRpaActions } from '@/features/ai/model/use-rpa-actions';
+import { useRpaActions } from '@/features/rpa/model/use-rpa-actions';
 import {
 	countDeletedRecycleBinItems,
 	getDeletedRpaFlows,
 } from '@/features/recycle-bin/model/rpa-recycle-bin';
 
 import type { RecycleBinPageProps } from '@/features/recycle-bin/model-types';
+import { RecycleBinSection } from './recycle-bin-section';
 
 function formatDeletedAt(ts: number | null | undefined): string {
 	if (!ts) {
@@ -142,12 +143,6 @@ export function RecycleBinPage({
 		}
 	};
 
-	const renderEmpty = (
-		<div className="rounded-xl border border-dashed border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
-			当前回收站为空
-		</div>
-	);
-
 	const runPurge = async () => {
 		if (!purgeTarget) return;
 		switch (purgeTarget.kind) {
@@ -197,93 +192,71 @@ export function RecycleBinPage({
 				</CardContent>
 			</Card>
 
-			<Card className="p-3">
-				<CardHeader className="px-1 pb-2">
-					<CardTitle className="text-sm">环境</CardTitle>
-				</CardHeader>
-				<CardContent className="space-y-2 px-1 pt-0">
-					{deletedProfiles.length === 0
-						? renderEmpty
-						: deletedProfiles.map((item) => (
-								<DeletedItemRow
-									key={item.id}
-									item={item}
-									pending={pending}
-									onRestore={() => {
-										void runAction(() => onRestoreProfile(item.id));
-									}}
-									onPurge={() => setPurgeTarget({ kind: 'profile', id: item.id, name: item.name })}
-								/>
-						  ))}
-				</CardContent>
-			</Card>
+			<RecycleBinSection title="环境" items={deletedProfiles}>
+				{(item) => (
+					<DeletedItemRow
+						key={item.id}
+						item={item}
+						pending={pending}
+						onRestore={() => {
+							void runAction(() => onRestoreProfile(item.id));
+						}}
+						onPurge={() => setPurgeTarget({ kind: 'profile', id: item.id, name: item.name })}
+					/>
+				)}
+			</RecycleBinSection>
 
-			<Card className="p-3">
-				<CardHeader className="px-1 pb-2">
-					<CardTitle className="text-sm">代理</CardTitle>
-				</CardHeader>
-				<CardContent className="space-y-2 px-1 pt-0">
-					{deletedProxies.length === 0
-						? renderEmpty
-						: deletedProxies.map((item) => (
-								<DeletedItemRow
-									key={item.id}
-									item={item}
-									pending={pending}
-									onRestore={() => {
-										void runAction(() => onRestoreProxy(item.id));
-									}}
-									onPurge={() => setPurgeTarget({ kind: 'proxy', id: item.id, name: item.name })}
-								/>
-						  ))}
-				</CardContent>
-			</Card>
+			<RecycleBinSection title="代理" items={deletedProxies}>
+				{(item) => (
+					<DeletedItemRow
+						key={item.id}
+						item={item}
+						pending={pending}
+						onRestore={() => {
+							void runAction(() => onRestoreProxy(item.id));
+						}}
+						onPurge={() => setPurgeTarget({ kind: 'proxy', id: item.id, name: item.name })}
+					/>
+				)}
+			</RecycleBinSection>
 
-			<Card className="p-3">
-				<CardHeader className="px-1 pb-2">
-					<CardTitle className="text-sm">分组</CardTitle>
-				</CardHeader>
-				<CardContent className="space-y-2 px-1 pt-0">
-					{deletedGroups.length === 0
-						? renderEmpty
-						: deletedGroups.map((item) => (
-								<DeletedItemRow
-									key={item.id}
-									item={item}
-									pending={pending}
-									onRestore={() => {
-										void runAction(() => onRestoreGroup(item.id));
-									}}
-									onPurge={() => setPurgeTarget({ kind: 'group', id: item.id, name: item.name })}
-								/>
-						  ))}
-					{error ? <p className="text-xs text-destructive">{error}</p> : null}
-				</CardContent>
-			</Card>
+			<RecycleBinSection
+				title="分组"
+				items={deletedGroups}
+				footer={error ? <p className="text-xs text-destructive">{error}</p> : null}
+			>
+				{(item) => (
+					<DeletedItemRow
+						key={item.id}
+						item={item}
+						pending={pending}
+						onRestore={() => {
+							void runAction(() => onRestoreGroup(item.id));
+						}}
+						onPurge={() => setPurgeTarget({ kind: 'group', id: item.id, name: item.name })}
+					/>
+				)}
+			</RecycleBinSection>
 
-			<Card className="p-3">
-				<CardHeader className="px-1 pb-2">
-					<CardTitle className="text-sm">RPA 流程</CardTitle>
-				</CardHeader>
-				<CardContent className="space-y-2 px-1 pt-0">
-					{deletedRpaFlows.length === 0
-						? renderEmpty
-						: deletedRpaFlows.map((item) => (
-								<DeletedItemRow
-									key={item.id}
-									item={item}
-									pending={pending}
-									onRestore={() => {
-										void runAction(() => rpaActions.restoreFlow(item.id));
-									}}
-									onPurge={() => setPurgeTarget({ kind: 'rpa', id: item.id, name: item.name })}
-								/>
-						  ))}
-					{rpaFlowsQuery.error ? (
-						<p className="text-xs text-destructive">加载 RPA 回收站失败</p>
-					) : null}
-				</CardContent>
-			</Card>
+			<RecycleBinSection
+				title="RPA 流程"
+				items={deletedRpaFlows}
+				footer={
+					rpaFlowsQuery.error ? <p className="text-xs text-destructive">加载 RPA 回收站失败</p> : null
+				}
+			>
+				{(item) => (
+					<DeletedItemRow
+						key={item.id}
+						item={item}
+						pending={pending}
+						onRestore={() => {
+							void runAction(() => rpaActions.restoreFlow(item.id));
+						}}
+						onPurge={() => setPurgeTarget({ kind: 'rpa', id: item.id, name: item.name })}
+					/>
+				)}
+			</RecycleBinSection>
 
 			<AlertDialog open={Boolean(purgeTarget)} onOpenChange={(open) => !open && setPurgeTarget(null)}>
 				<AlertDialogContent>

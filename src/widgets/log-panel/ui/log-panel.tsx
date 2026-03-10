@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router-dom';
 
 import { Card, Toaster } from '@/components/ui';
+import { resolveSonnerTheme } from '@/entities/theme/model/sonner-theme';
 import { useThemeSettings } from '@/entities/theme/model/use-theme-settings';
 import { useLogPanelState } from '../model/use-log-panel-state';
 import { LogPanelList } from './log-panel-list';
@@ -62,7 +63,7 @@ export function LogPanel() {
 					onGroupOpenChange={setGroupOpen}
 				/>
 			</Card>
-			<Toaster theme={resolvedMode === 'dark' ? 'dark' : 'light'} />
+			<Toaster theme={resolveSonnerTheme(resolvedMode)} />
 		</div>
 	);
 }

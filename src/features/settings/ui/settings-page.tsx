@@ -13,7 +13,7 @@ import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-secti
 import { DevicePresetManagerCard } from './device-preset-manager-card';
 import { ResourceManagementCard } from './resource-management-card';
 import { ThemeCustomizerCard } from './theme-customizer-card';
-import { CONSOLE_NAV_SECTIONS } from '@/widgets/console-shell/model/nav-sections';
+import { WORKSPACE_SECTIONS } from '@/app/model/workspace-sections';
 import type { SettingsPageProps } from '@/features/settings/model/types';
 
 function formatBytes(input: number | null): string {
@@ -50,7 +50,7 @@ export function SettingsPage({
 	onRefreshDevicePresets,
 	onOpenRecycleBin,
 }: SettingsPageProps) {
-	const section = CONSOLE_NAV_SECTIONS.settings;
+	const section = WORKSPACE_SECTIONS.settings;
 	const [pendingKey, setPendingKey] = useState('');
 
 	const chromiumItems = useMemo(
