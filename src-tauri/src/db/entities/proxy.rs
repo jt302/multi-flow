@@ -31,6 +31,7 @@ pub struct Model {
     pub timezone_source: Option<String>,
     pub custom_timezone: Option<String>,
     pub effective_timezone: Option<String>,
+    pub target_site_checks_json: Option<String>,
     pub expires_at: Option<i64>,
     pub lifecycle: String,
     pub created_at: i64,

@@ -51,3 +51,15 @@ GET /proxy/list
 - Ensure the specified port is not already in use
 - Supported proxy types: `http`, `https`, `socks5`, `socks5t`
 - Username and password are optional fields, fill them based on the proxy service provider's requirements
+
+## Multi-Flow Proxy Reachability Checks
+
+- Manual proxy checks (`check_proxy` / `batch_check_proxies`) include target-site reachability probes for:
+  - `google.com`
+  - `youtube.com`
+- Probe results are persisted in `proxies.target_site_checks_json` and returned as `targetSiteChecks` in proxy APIs.
+- Main health semantics stay unchanged:
+  - Target-site failures do **not** downgrade proxy `checkStatus` from `ok` to `error`.
+  - Instead, warning text is appended in `checkMessage` (for example: `目标站可达性 1/2`).
+  - Batch check success counting still follows `checkStatus == ok`.
+- Proxy list UI includes a dedicated `站点可达性` column with Google/YouTube icons and per-site status.

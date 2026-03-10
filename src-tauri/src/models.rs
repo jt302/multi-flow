@@ -437,6 +437,16 @@ pub enum ProxyLifecycle {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ProxyTargetSiteCheck {
+    pub site: String,
+    pub reachable: bool,
+    pub status_code: Option<u16>,
+    pub latency_ms: Option<u64>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Proxy {
     pub id: String,
     pub name: String,
@@ -465,6 +475,7 @@ pub struct Proxy {
     pub timezone_source: Option<String>,
     pub custom_timezone: Option<String>,
     pub effective_timezone: Option<String>,
+    pub target_site_checks: Option<Vec<ProxyTargetSiteCheck>>,
     pub expires_at: Option<i64>,
     pub lifecycle: ProxyLifecycle,
     pub created_at: i64,

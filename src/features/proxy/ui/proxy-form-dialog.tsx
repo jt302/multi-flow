@@ -3,6 +3,8 @@ import { LoaderCircle } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod/v3';
+import GoogleIcon from '@/assets/icon/google.svg?react';
+import YouTubeIcon from '@/assets/icon/youtube.svg?react';
 
 import {
 	Button,
@@ -94,6 +96,11 @@ const DEFAULT_VALUES: ProxyFormValues = {
 	timezoneSource: 'ip',
 	customTimezone: '',
 };
+
+const TARGET_SITE_META = {
+	'google.com': { label: 'Google', IconComponent: GoogleIcon },
+	'youtube.com': { label: 'YouTube', IconComponent: YouTubeIcon },
+} as const;
 
 function toDateTimeLocalValue(value: number | null) {
 	if (!value) return '';
@@ -354,8 +361,34 @@ export function ProxyFormDialog({
 							<p>语言来源: {proxy ? `${proxy.languageSource === 'custom' ? '自定义' : '基于 IP'}${proxy.customLanguage ? ` (${proxy.customLanguage})` : ''}` : '未设置'}</p>
 							<p>时区来源: {proxy ? `${proxy.timezoneSource === 'custom' ? '自定义' : '基于 IP'}${proxy.customTimezone ? ` (${proxy.customTimezone})` : ''}` : '未设置'}</p>
 						</div>
+						<div className="mt-2">
+							<p className="mb-1 text-xs font-medium text-muted-foreground">目标站点可达性</p>
+							{proxy?.targetSiteChecks.length ? (
+								<div className="space-y-1 text-xs">
+									{proxy.targetSiteChecks.map((item) => {
+										const normalizedSite = item.site.trim().toLowerCase();
+										const meta = TARGET_SITE_META[normalizedSite as keyof typeof TARGET_SITE_META];
+										const IconComponent = meta?.IconComponent;
+										const label = meta?.label ?? item.site;
+										return (
+											<p key={`${proxy.id}-${item.site}`} className="flex items-center gap-1">
+												{IconComponent ? <IconComponent className="h-3.5 w-3.5 shrink-0" /> : null}
+												<span className="text-muted-foreground">{label}:</span>
+												<span className={item.reachable ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}>
+													{item.reachable ? '可达' : '不可达'}
+												</span>
+												{item.statusCode ? <span className="text-muted-foreground">HTTP {item.statusCode}</span> : null}
+												{item.error ? <span className="truncate text-muted-foreground">({item.error})</span> : null}
+											</p>
+										);
+									})}
+								</div>
+							) : (
+								<p className="text-xs text-muted-foreground">未检测</p>
+							)}
+						</div>
 						{proxy?.checkMessage ? (
-							<p className="mt-2 text-xs text-muted-foreground">错误信息: {proxy.checkMessage}</p>
+							<p className="mt-2 text-xs text-muted-foreground">检测说明: {proxy.checkMessage}</p>
 						) : null}
 					</div>
 					<div>
