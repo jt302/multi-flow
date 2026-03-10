@@ -6,6 +6,7 @@ import type {
 	ProxyItem,
 	ProxyLifecycle,
 	ProxyProtocol,
+	ProxyTargetSiteCheck,
 	ProxyValueSource,
 	UpdateProxyPayload,
 } from '@/entities/proxy/model/types';
@@ -39,6 +40,7 @@ type BackendProxy = {
 	timezoneSource: ProxyValueSource | null;
 	customTimezone: string | null;
 	effectiveTimezone: string | null;
+	targetSiteChecks: ProxyTargetSiteCheck[] | null;
 	expiresAt: number | null;
 	lifecycle: ProxyLifecycle;
 	createdAt: number;
@@ -83,6 +85,7 @@ function mapBackendProxy(item: BackendProxy): ProxyItem {
 		timezoneSource: item.timezoneSource ?? 'ip',
 		customTimezone: item.customTimezone ?? '',
 		effectiveTimezone: item.effectiveTimezone ?? '',
+		targetSiteChecks: item.targetSiteChecks ?? [],
 		expiresAt: item.expiresAt,
 		lifecycle: item.lifecycle,
 		createdAt: item.createdAt,

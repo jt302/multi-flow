@@ -2,6 +2,14 @@ export type ProxyLifecycle = 'active' | 'deleted';
 export type ProxyProtocol = 'http' | 'https' | 'socks5' | 'ssh';
 export type ProxyValueSource = 'ip' | 'custom';
 
+export type ProxyTargetSiteCheck = {
+	site: string;
+	reachable: boolean;
+	statusCode: number | null;
+	latencyMs: number | null;
+	error: string | null;
+};
+
 export type ProxyItem = {
 	id: string;
 	name: string;
@@ -30,6 +38,7 @@ export type ProxyItem = {
 	timezoneSource: ProxyValueSource;
 	customTimezone: string;
 	effectiveTimezone: string;
+	targetSiteChecks: ProxyTargetSiteCheck[];
 	expiresAt: number | null;
 	lifecycle: ProxyLifecycle;
 	createdAt: number;

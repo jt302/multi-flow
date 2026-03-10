@@ -11,7 +11,7 @@ use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, DatabaseConnection, EntityTrait, PaginatorTrait,
     QueryFilter, QueryOrder, Set,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::db::entities::{profile, profile_proxy_binding, proxy};
 use crate::error::{AppError, AppResult};
@@ -19,7 +19,7 @@ use crate::logger;
 use crate::models::{
     now_ts, BatchCheckProxiesRequest, BatchProxyActionItem, BatchProxyActionResponse,
     CreateProxyRequest, ImportProxiesRequest, ListProxiesQuery, ListProxiesResponse,
-    ProfileProxyBinding, Proxy, ProxyLifecycle, UpdateProxyRequest,
+    ProfileProxyBinding, Proxy, ProxyLifecycle, ProxyTargetSiteCheck, UpdateProxyRequest,
 };
 
 const LIFECYCLE_ACTIVE: &str = "active";
@@ -40,6 +40,13 @@ const DEFAULT_IP_SB_TEXT_URL: &str = "https://api.ip.sb/ip";
 const DEFAULT_IFCONFIG_TEXT_URL: &str = "https://ifconfig.me/ip";
 const IPINFO_TOKEN_ENV: &str = "MULTI_FLOW_IPINFO_TOKEN";
 const IPINFO_URL_ENV: &str = "MULTI_FLOW_IPINFO_URL";
+const TARGET_SITE_CHECK_TIMEOUT_SECS: u64 = 8;
+const TARGET_SITE_GOOGLE: &str = "google.com";
+const TARGET_SITE_YOUTUBE: &str = "youtube.com";
+const TARGET_SITE_CHECK_TARGETS: [(&str, &str); 2] = [
+    (TARGET_SITE_GOOGLE, "https://www.google.com"),
+    (TARGET_SITE_YOUTUBE, "https://www.youtube.com"),
+];
 const PROXY_VALUE_SOURCE_IP: &str = "ip";
 const PROXY_VALUE_SOURCE_CUSTOM: &str = "custom";
 
@@ -47,6 +54,7 @@ const PROXY_VALUE_SOURCE_CUSTOM: &str = "custom";
 struct ProxyCheckSnapshot {
     check_status: String,
     check_message: Option<String>,
+    target_site_checks: Option<Vec<ProxyTargetSiteCheck>>,
     exit_ip: Option<String>,
     country: Option<String>,
     region: Option<String>,
@@ -71,6 +79,16 @@ struct ProxyLocaleSettings {
     timezone_source: String,
     custom_timezone: Option<String>,
     effective_timezone: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RawTargetSiteCheck {
+    site: String,
+    reachable: bool,
+    status_code: Option<u16>,
+    latency_ms: Option<u64>,
+    error: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -152,6 +170,7 @@ impl ProxyService {
             timezone_source: Set(Some(locale_settings.timezone_source)),
             custom_timezone: Set(locale_settings.custom_timezone),
             effective_timezone: Set(locale_settings.effective_timezone),
+            target_site_checks_json: Set(None),
             expires_at: Set(req.expires_at),
             lifecycle: Set(LIFECYCLE_ACTIVE.to_string()),
             created_at: Set(now),
@@ -174,11 +193,15 @@ impl ProxyService {
         }
 
         let locale_settings = normalize_proxy_locale_settings(
-            req.language_source.or_else(|| stored.language_source.clone()),
-            req.custom_language.or_else(|| stored.custom_language.clone()),
+            req.language_source
+                .or_else(|| stored.language_source.clone()),
+            req.custom_language
+                .or_else(|| stored.custom_language.clone()),
             stored.suggested_language.clone(),
-            req.timezone_source.or_else(|| stored.timezone_source.clone()),
-            req.custom_timezone.or_else(|| stored.custom_timezone.clone()),
+            req.timezone_source
+                .or_else(|| stored.timezone_source.clone()),
+            req.custom_timezone
+                .or_else(|| stored.custom_timezone.clone()),
             stored.suggested_timezone.clone(),
         )?;
         let mut active_model: proxy::ActiveModel = stored.into();
@@ -442,7 +465,9 @@ impl ProxyService {
     {
         let stored = self.find_proxy_model(proxy_id)?;
         if stored.lifecycle == LIFECYCLE_DELETED {
-            return Err(AppError::Conflict(format!("proxy already deleted: {proxy_id}")));
+            return Err(AppError::Conflict(format!(
+                "proxy already deleted: {proxy_id}"
+            )));
         }
 
         let snapshot = match checker(&stored) {
@@ -450,6 +475,7 @@ impl ProxyService {
             Err(err) => ProxyCheckSnapshot {
                 check_status: CHECK_STATUS_ERROR.to_string(),
                 check_message: Some(humanize_proxy_check_error(&err)),
+                target_site_checks: None,
                 exit_ip: None,
                 country: None,
                 region: None,
@@ -484,7 +510,9 @@ impl ProxyService {
         F: Fn(&str) -> AppResult<Proxy>,
     {
         if req.proxy_ids.is_empty() {
-            return Err(AppError::Validation("proxy_ids must not be empty".to_string()));
+            return Err(AppError::Validation(
+                "proxy_ids must not be empty".to_string(),
+            ));
         }
 
         let total = req.proxy_ids.len();
@@ -655,6 +683,7 @@ impl ProxyService {
             return Ok(ProxyCheckSnapshot {
                 check_status: CHECK_STATUS_UNSUPPORTED.to_string(),
                 check_message: Some("ssh proxy check is not supported yet".to_string()),
+                target_site_checks: None,
                 exit_ip: None,
                 country: None,
                 region: None,
@@ -668,6 +697,8 @@ impl ProxyService {
         }
 
         let connectivity = check_proxy_connectivity(stored)?;
+        let target_site_checks = probe_target_sites_through_proxy(stored);
+        let target_site_warning = summarize_target_site_checks(&target_site_checks);
         let exit_ip = match lookup_exit_ip_through_proxy(stored) {
             Ok(value) => Some(value),
             Err(err) => {
@@ -686,10 +717,12 @@ impl ProxyService {
         let Some(exit_ip) = exit_ip else {
             return Ok(ProxyCheckSnapshot {
                 check_status: CHECK_STATUS_OK.to_string(),
-                check_message: Some(format!(
-                    "代理连通正常（{} ms），出口 IP 查询失败",
-                    connectivity.latency_ms
+                check_message: Some(compose_proxy_check_message(
+                    connectivity.latency_ms,
+                    false,
+                    target_site_warning.as_deref(),
                 )),
+                target_site_checks: Some(target_site_checks),
                 exit_ip: None,
                 country: None,
                 region: None,
@@ -725,13 +758,16 @@ impl ProxyService {
             .as_ref()
             .and_then(|value| value.time_zone.clone())
             .or_else(|| country.as_deref().and_then(default_timezone_from_country));
-        let suggested_language = country
-            .as_deref()
-            .and_then(default_language_from_country);
+        let suggested_language = country.as_deref().and_then(default_language_from_country);
 
         Ok(ProxyCheckSnapshot {
             check_status: CHECK_STATUS_OK.to_string(),
-            check_message: Some(format!("代理连通正常（{} ms）", connectivity.latency_ms)),
+            check_message: Some(compose_proxy_check_message(
+                connectivity.latency_ms,
+                true,
+                target_site_warning.as_deref(),
+            )),
+            target_site_checks: Some(target_site_checks),
             exit_ip: Some(exit_ip),
             country,
             region,
@@ -761,6 +797,8 @@ impl ProxyService {
         let mut active_model: proxy::ActiveModel = stored.into();
         active_model.check_status = Set(Some(snapshot.check_status));
         active_model.check_message = Set(snapshot.check_message);
+        active_model.target_site_checks_json =
+            Set(serialize_target_site_checks(snapshot.target_site_checks.as_deref())?);
         active_model.last_checked_at = Set(Some(now));
         active_model.exit_ip = Set(snapshot.exit_ip);
         active_model.country = Set(snapshot.country);
@@ -828,6 +866,10 @@ fn to_api_proxy(model: proxy::Model) -> Proxy {
         timezone_source: model.timezone_source,
         custom_timezone: model.custom_timezone,
         effective_timezone: model.effective_timezone,
+        target_site_checks: parse_target_site_checks(
+            model.target_site_checks_json,
+            format_proxy_id(model.id),
+        ),
         expires_at: model.expires_at,
         lifecycle: if model.lifecycle == LIFECYCLE_DELETED {
             ProxyLifecycle::Deleted
@@ -1012,13 +1054,19 @@ fn parse_import_line(line: &str) -> AppResult<ParsedImportLine> {
     match parts.as_slice() {
         [host, port] => Ok(ParsedImportLine {
             host: require_non_empty("host", host)?,
-            port: validate_port(port.parse::<i32>().map_err(|_| AppError::Validation(format!("invalid port in line: {line}")))?)?,
+            port: validate_port(
+                port.parse::<i32>()
+                    .map_err(|_| AppError::Validation(format!("invalid port in line: {line}")))?,
+            )?,
             username: None,
             password: None,
         }),
         [host, port, username, password] => Ok(ParsedImportLine {
             host: require_non_empty("host", host)?,
-            port: validate_port(port.parse::<i32>().map_err(|_| AppError::Validation(format!("invalid port in line: {line}")))?)?,
+            port: validate_port(
+                port.parse::<i32>()
+                    .map_err(|_| AppError::Validation(format!("invalid port in line: {line}")))?,
+            )?,
             username: trim_string_value((*username).to_string()),
             password: trim_string_value((*password).to_string()),
         }),
@@ -1027,12 +1075,7 @@ fn parse_import_line(line: &str) -> AppResult<ParsedImportLine> {
 }
 
 fn lookup_exit_ip_through_proxy(stored: &proxy::Model) -> AppResult<String> {
-    let proxy = build_reqwest_proxy(stored)?;
-    let client = Client::builder()
-        .timeout(Duration::from_secs(4))
-        .no_proxy()
-        .proxy(proxy)
-        .build()?;
+    let client = build_proxy_http_client(stored, Duration::from_secs(4))?;
 
     tauri::async_runtime::block_on(async move {
         let mut last_error: Option<AppError> = None;
@@ -1058,6 +1101,186 @@ fn lookup_exit_ip_through_proxy(stored: &proxy::Model) -> AppResult<String> {
             AppError::Validation("出口 IP 查询失败，请检查代理配置或网络连通性".to_string())
         }))
     })
+}
+
+fn build_proxy_http_client(stored: &proxy::Model, timeout: Duration) -> AppResult<Client> {
+    let proxy = build_reqwest_proxy(stored)?;
+    Ok(Client::builder()
+        .timeout(timeout)
+        .no_proxy()
+        .proxy(proxy)
+        .build()?)
+}
+
+fn probe_target_sites_through_proxy(stored: &proxy::Model) -> Vec<ProxyTargetSiteCheck> {
+    let client = match build_proxy_http_client(stored, Duration::from_secs(TARGET_SITE_CHECK_TIMEOUT_SECS)) {
+        Ok(client) => client,
+        Err(err) => {
+            let message = err.to_string();
+            logger::warn(
+                "proxy_service.check",
+                format!(
+                    "target site probe client build failed proxy_id={} err={}",
+                    format_proxy_id(stored.id),
+                    message
+                ),
+            );
+            return TARGET_SITE_CHECK_TARGETS
+                .iter()
+                .map(|(site, _)| ProxyTargetSiteCheck {
+                    site: (*site).to_string(),
+                    reachable: false,
+                    status_code: None,
+                    latency_ms: None,
+                    error: Some(message.clone()),
+                })
+                .collect();
+        }
+    };
+
+    tauri::async_runtime::block_on(async move {
+        let mut checks = Vec::with_capacity(TARGET_SITE_CHECK_TARGETS.len());
+        for (site, url) in TARGET_SITE_CHECK_TARGETS {
+            let started_at = Instant::now();
+            match client.get(url).send().await {
+                Ok(response) => checks.push(ProxyTargetSiteCheck {
+                    site: site.to_string(),
+                    reachable: true,
+                    status_code: Some(response.status().as_u16()),
+                    latency_ms: Some(started_at.elapsed().as_millis() as u64),
+                    error: None,
+                }),
+                Err(err) => {
+                    let error_message = normalize_target_site_error(&err);
+                    logger::warn(
+                        "proxy_service.check",
+                        format!(
+                            "target site probe failed proxy_id={} site={} err={}",
+                            format_proxy_id(stored.id),
+                            site,
+                            error_message
+                        ),
+                    );
+                    checks.push(ProxyTargetSiteCheck {
+                        site: site.to_string(),
+                        reachable: false,
+                        status_code: None,
+                        latency_ms: Some(started_at.elapsed().as_millis() as u64),
+                        error: Some(error_message),
+                    });
+                }
+            }
+        }
+        checks
+    })
+}
+
+fn normalize_target_site_error(err: &reqwest::Error) -> String {
+    if err.is_timeout() {
+        return "request timeout".to_string();
+    }
+    if err.is_connect() {
+        return "connect failed".to_string();
+    }
+    if err.is_request() {
+        return "request failed".to_string();
+    }
+    err.to_string()
+}
+
+fn summarize_target_site_checks(checks: &[ProxyTargetSiteCheck]) -> Option<String> {
+    if checks.is_empty() {
+        return None;
+    }
+
+    let reachable_count = checks.iter().filter(|item| item.reachable).count();
+    if reachable_count == checks.len() {
+        return None;
+    }
+
+    let unreachable_sites = checks
+        .iter()
+        .filter(|item| !item.reachable)
+        .map(|item| item.site.as_str())
+        .collect::<Vec<_>>()
+        .join("、");
+    Some(format!(
+        "目标站可达性 {reachable_count}/{}（{unreachable_sites} 不可达）",
+        checks.len()
+    ))
+}
+
+fn compose_proxy_check_message(
+    latency_ms: u64,
+    has_exit_ip: bool,
+    target_warning: Option<&str>,
+) -> String {
+    let mut message = if has_exit_ip {
+        format!("代理连通正常（{latency_ms} ms）")
+    } else {
+        format!("代理连通正常（{latency_ms} ms），出口 IP 查询失败")
+    };
+
+    if let Some(warning) = target_warning {
+        message.push_str("；");
+        message.push_str(warning);
+    }
+    message
+}
+
+fn serialize_target_site_checks(value: Option<&[ProxyTargetSiteCheck]>) -> AppResult<Option<String>> {
+    let Some(items) = value else {
+        return Ok(None);
+    };
+
+    let raw_checks: Vec<RawTargetSiteCheck> = items
+        .iter()
+        .map(|item| RawTargetSiteCheck {
+            site: item.site.clone(),
+            reachable: item.reachable,
+            status_code: item.status_code,
+            latency_ms: item.latency_ms,
+            error: item.error.clone(),
+        })
+        .collect();
+    Ok(Some(serde_json::to_string(&raw_checks)?))
+}
+
+fn parse_target_site_checks(
+    value: Option<String>,
+    proxy_id: String,
+) -> Option<Vec<ProxyTargetSiteCheck>> {
+    let raw = value?;
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Some(Vec::new());
+    }
+
+    let parsed = serde_json::from_str::<Vec<RawTargetSiteCheck>>(trimmed);
+    match parsed {
+        Ok(items) => Some(
+            items
+                .into_iter()
+                .map(|item| ProxyTargetSiteCheck {
+                    site: item.site,
+                    reachable: item.reachable,
+                    status_code: item.status_code,
+                    latency_ms: item.latency_ms,
+                    error: item.error,
+                })
+                .collect(),
+        ),
+        Err(err) => {
+            logger::warn(
+                "proxy_service.data",
+                format!(
+                    "parse target_site_checks_json failed proxy_id={} err={}",
+                    proxy_id, err
+                ),
+            );
+            Some(Vec::new())
+        }
+    }
 }
 
 fn check_proxy_connectivity(stored: &proxy::Model) -> AppResult<ProxyConnectivitySnapshot> {
@@ -1138,9 +1361,11 @@ async fn lookup_exit_ip_from_url(client: &Client, url: &str) -> AppResult<String
         }
     }
 
-    let value = body.lines().next().and_then(trim_to_option_ref).ok_or_else(|| {
-        AppError::Validation("exit ip response missing ip".to_string())
-    })?;
+    let value = body
+        .lines()
+        .next()
+        .and_then(trim_to_option_ref)
+        .ok_or_else(|| AppError::Validation("exit ip response missing ip".to_string()))?;
     validate_exit_ip(&value)?;
     Ok(value)
 }
@@ -1189,7 +1414,12 @@ fn extract_geo_name(record: &GeoIpNameRecord) -> Option<String> {
         .names
         .as_ref()
         .and_then(|value| value.get("en").cloned())
-        .or_else(|| record.names.as_ref().and_then(|value| value.values().next().cloned()))
+        .or_else(|| {
+            record
+                .names
+                .as_ref()
+                .and_then(|value| value.values().next().cloned())
+        })
         .and_then(trim_to_option_ref)
 }
 
@@ -1237,8 +1467,8 @@ mod tests {
     use super::*;
     use crate::db;
     use crate::models::{
-        BatchCheckProxiesRequest, CreateProfileRequest, CreateProxyRequest,
-        ImportProxiesRequest, UpdateProxyRequest,
+        BatchCheckProxiesRequest, CreateProfileRequest, CreateProxyRequest, ImportProxiesRequest,
+        UpdateProxyRequest,
     };
     use crate::services::profile_service::ProfileService;
 
@@ -1246,6 +1476,54 @@ mod tests {
         ProxyCheckSnapshot {
             check_status: "ok".to_string(),
             check_message: None,
+            target_site_checks: Some(vec![
+                ProxyTargetSiteCheck {
+                    site: TARGET_SITE_GOOGLE.to_string(),
+                    reachable: true,
+                    status_code: Some(200),
+                    latency_ms: Some(120),
+                    error: None,
+                },
+                ProxyTargetSiteCheck {
+                    site: TARGET_SITE_YOUTUBE.to_string(),
+                    reachable: true,
+                    status_code: Some(200),
+                    latency_ms: Some(130),
+                    error: None,
+                },
+            ]),
+            exit_ip: Some("8.8.8.8".to_string()),
+            country: Some("US".to_string()),
+            region: Some("California".to_string()),
+            city: Some("Mountain View".to_string()),
+            latitude: Some(37.386),
+            longitude: Some(-122.0838),
+            geo_accuracy_meters: Some(20.0),
+            suggested_language: Some("en-US".to_string()),
+            suggested_timezone: Some("America/Los_Angeles".to_string()),
+        }
+    }
+
+    fn build_proxy_check_snapshot_with_target_warning() -> ProxyCheckSnapshot {
+        ProxyCheckSnapshot {
+            check_status: "ok".to_string(),
+            check_message: Some("代理连通正常（120 ms）；目标站可达性 1/2（google.com 不可达）".to_string()),
+            target_site_checks: Some(vec![
+                ProxyTargetSiteCheck {
+                    site: TARGET_SITE_GOOGLE.to_string(),
+                    reachable: false,
+                    status_code: None,
+                    latency_ms: Some(3000),
+                    error: Some("connect failed".to_string()),
+                },
+                ProxyTargetSiteCheck {
+                    site: TARGET_SITE_YOUTUBE.to_string(),
+                    reachable: true,
+                    status_code: Some(200),
+                    latency_ms: Some(160),
+                    error: None,
+                },
+            ]),
             exit_ip: Some("8.8.8.8".to_string()),
             country: Some("US".to_string()),
             region: Some("California".to_string()),
@@ -1315,7 +1593,10 @@ mod tests {
             .expect("check proxy");
 
         assert_eq!(checked.suggested_language.as_deref(), Some("en-US"));
-        assert_eq!(checked.suggested_timezone.as_deref(), Some("America/Los_Angeles"));
+        assert_eq!(
+            checked.suggested_timezone.as_deref(),
+            Some("America/Los_Angeles")
+        );
         assert_eq!(checked.effective_language.as_deref(), Some("de-DE"));
         assert_eq!(checked.effective_timezone.as_deref(), Some("Europe/Berlin"));
     }
@@ -1348,7 +1629,10 @@ mod tests {
             .expect("check proxy");
 
         assert_eq!(checked.effective_language.as_deref(), Some("en-US"));
-        assert_eq!(checked.effective_timezone.as_deref(), Some("America/Los_Angeles"));
+        assert_eq!(
+            checked.effective_timezone.as_deref(),
+            Some("America/Los_Angeles")
+        );
     }
 
     #[test]
@@ -1672,13 +1956,53 @@ mod tests {
                 BatchCheckProxiesRequest {
                     proxy_ids: vec![proxy.id.clone()],
                 },
+                |proxy_id| service.check_proxy_with(proxy_id, |_| Ok(build_proxy_check_snapshot())),
+            )
+            .expect("batch check proxies");
+        assert_eq!(batch.total, 1);
+        assert_eq!(batch.success_count, 1);
+    }
+
+    #[test]
+    fn batch_check_counts_warning_as_success() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProxyService::from_db(db);
+
+        let proxy = service
+            .create_proxy(CreateProxyRequest {
+                name: "proxy-check".to_string(),
+                protocol: "http".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: 8080,
+                username: None,
+                password: None,
+                provider: None,
+                note: None,
+                expires_at: None,
+                custom_language: None,
+                language_source: None,
+                custom_timezone: None,
+                timezone_source: None,
+            })
+            .expect("create proxy");
+
+        let batch = service
+            .batch_check_proxies_with(
+                BatchCheckProxiesRequest {
+                    proxy_ids: vec![proxy.id.clone()],
+                },
                 |proxy_id| {
-                    service.check_proxy_with(proxy_id, |_| Ok(build_proxy_check_snapshot()))
+                    service.check_proxy_with(proxy_id, |_| {
+                        Ok(build_proxy_check_snapshot_with_target_warning())
+                    })
                 },
             )
             .expect("batch check proxies");
         assert_eq!(batch.total, 1);
         assert_eq!(batch.success_count, 1);
+        assert_eq!(batch.failed_count, 0);
+        assert!(batch.items[0].ok);
+        assert!(batch.items[0].message.contains("目标站可达性 1/2"));
     }
 
     #[test]
@@ -1724,6 +2048,12 @@ mod tests {
         );
         assert_eq!(checked.check_status.as_deref(), Some("ok"));
         assert_eq!(checked.expires_at, Some(1_800_000_000));
+        let target_site_checks = checked
+            .target_site_checks
+            .as_ref()
+            .expect("target site checks");
+        assert_eq!(target_site_checks.len(), 2);
+        assert!(target_site_checks.iter().all(|item| item.reachable));
     }
 
     #[test]
@@ -1752,7 +2082,8 @@ mod tests {
         let checked = service
             .check_proxy_with(proxy.id.as_str(), |_| {
                 Err(AppError::Validation(
-                    "http error: error sending request for url (https://ipinfo.io/json)".to_string(),
+                    "http error: error sending request for url (https://ipinfo.io/json)"
+                        .to_string(),
                 ))
             })
             .expect("check proxy");
@@ -1762,6 +2093,7 @@ mod tests {
             checked.check_message.as_deref(),
             Some("出口 IP 查询失败，请检查代理配置或网络连通性")
         );
+        assert!(checked.target_site_checks.is_none());
     }
 
     #[test]
@@ -1797,5 +2129,95 @@ mod tests {
             .check_message
             .as_deref()
             .is_some_and(|value| value.contains("ssh")));
+        assert!(checked.target_site_checks.is_none());
+    }
+
+    #[test]
+    fn check_proxy_error_clears_target_site_checks_json() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProxyService::from_db(db);
+
+        let proxy = service
+            .create_proxy(CreateProxyRequest {
+                name: "proxy-check".to_string(),
+                protocol: "http".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: 8080,
+                username: None,
+                password: None,
+                provider: None,
+                note: None,
+                expires_at: None,
+                custom_language: None,
+                language_source: None,
+                custom_timezone: None,
+                timezone_source: None,
+            })
+            .expect("create proxy");
+
+        let stored = service.find_proxy_model(&proxy.id).expect("find proxy");
+        let mut active_model: proxy::ActiveModel = stored.into();
+        active_model.target_site_checks_json = Set(Some("[{\"site\":\"google.com\"}]".to_string()));
+        service
+            .db_query(active_model.update(&service.db))
+            .expect("seed target site checks");
+
+        let checked = service
+            .check_proxy_with(proxy.id.as_str(), |_| {
+                Err(AppError::Validation("mock error".to_string()))
+            })
+            .expect("check proxy");
+        assert!(checked.target_site_checks.is_none());
+
+        let updated = service.find_proxy_model(&proxy.id).expect("find updated");
+        assert!(updated.target_site_checks_json.is_none());
+    }
+
+    #[test]
+    fn list_proxies_tolerates_invalid_target_site_checks_json() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProxyService::from_db(db);
+
+        let proxy = service
+            .create_proxy(CreateProxyRequest {
+                name: "proxy-check".to_string(),
+                protocol: "http".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: 8080,
+                username: None,
+                password: None,
+                provider: None,
+                note: None,
+                expires_at: None,
+                custom_language: None,
+                language_source: None,
+                custom_timezone: None,
+                timezone_source: None,
+            })
+            .expect("create proxy");
+
+        let stored = service.find_proxy_model(&proxy.id).expect("find proxy");
+        let mut active_model: proxy::ActiveModel = stored.into();
+        active_model.target_site_checks_json = Set(Some("{bad json}".to_string()));
+        service
+            .db_query(active_model.update(&service.db))
+            .expect("write invalid json");
+
+        let listed = service
+            .list_proxies(ListProxiesQuery {
+                include_deleted: false,
+                page: 1,
+                page_size: 20,
+                keyword: None,
+                protocol: None,
+                country: None,
+                check_status: None,
+            })
+            .expect("list proxies");
+        assert_eq!(listed.total, 1);
+        assert_eq!(
+            listed.items[0].target_site_checks.as_ref().map(|v| v.len()),
+            Some(0)
+        );
     }
 }
