@@ -15,6 +15,13 @@ export const LEVEL_OPTIONS = ['all', 'INFO', 'WARN', 'ERROR'] as const;
 
 type LogLevelFilter = (typeof LEVEL_OPTIONS)[number];
 
+type LogFilterInput = {
+	levelFilter: LogLevelFilter;
+	componentFilter: string;
+	profileFilter: string;
+	keyword: string;
+};
+
 type LogPanelState = {
 	logs: BackendLogEvent[];
 	componentFilter: string;
@@ -103,8 +110,22 @@ export function formatLogTime(ts: number): string {
 	return new Date(ts * 1000).toLocaleTimeString('zh-CN', { hour12: false });
 }
 
+export function normalizeLogLevel(level: string): string {
+	const normalized = level.trim().toUpperCase();
+	if (normalized.includes('ERROR')) {
+		return 'ERROR';
+	}
+	if (normalized.includes('WARN')) {
+		return 'WARN';
+	}
+	if (normalized.includes('INFO')) {
+		return 'INFO';
+	}
+	return normalized || 'INFO';
+}
+
 export function levelToVariant(level: string): 'default' | 'secondary' | 'destructive' | 'outline' {
-	const upper = level.toUpperCase();
+	const upper = normalizeLogLevel(level);
 	if (upper === 'ERROR') {
 		return 'destructive';
 	}
@@ -117,8 +138,33 @@ export function levelToVariant(level: string): 'default' | 'secondary' | 'destru
 	return 'secondary';
 }
 
-export function getLogEventKey(item: BackendLogEvent): string {
-	return `${item.ts}:${item.level}:${item.component}:${item.profileId ?? 'unassigned'}:${item.line}`;
+export function getLogEventKey(item: BackendLogEvent, index: number): string {
+	return `${item.ts}:${item.level}:${item.component}:${item.profileId ?? 'unassigned'}:${item.line}:${index}`;
+}
+
+export function filterBackendLogs(
+	logs: BackendLogEvent[],
+	filters: LogFilterInput,
+): BackendLogEvent[] {
+	const componentKeyword = filters.componentFilter.trim().toLowerCase();
+	const profileKeyword = filters.profileFilter.trim().toLowerCase();
+	const contentKeyword = filters.keyword.trim().toLowerCase();
+	return logs.filter((item) => {
+		const normalizedLevel = normalizeLogLevel(item.level);
+		if (filters.levelFilter !== 'all' && normalizedLevel !== filters.levelFilter) {
+			return false;
+		}
+		if (componentKeyword && !item.component.toLowerCase().includes(componentKeyword)) {
+			return false;
+		}
+		if (profileKeyword && !(item.profileId ?? '').toLowerCase().includes(profileKeyword)) {
+			return false;
+		}
+		if (contentKeyword && !item.line.toLowerCase().includes(contentKeyword)) {
+			return false;
+		}
+		return true;
+	});
 }
 
 export function useLogPanelState() {
@@ -174,23 +220,11 @@ export function useLogPanelState() {
 	}, [state.autoScroll, state.logs]);
 
 	const filteredLogs = useMemo(() => {
-		const componentKeyword = state.componentFilter.trim().toLowerCase();
-		const profileKeyword = state.profileFilter.trim().toLowerCase();
-		const contentKeyword = state.keyword.trim().toLowerCase();
-		return state.logs.filter((item) => {
-			if (state.levelFilter !== 'all' && item.level.toUpperCase() !== state.levelFilter) {
-				return false;
-			}
-			if (componentKeyword && !item.component.toLowerCase().includes(componentKeyword)) {
-				return false;
-			}
-			if (profileKeyword && !(item.profileId ?? '').toLowerCase().includes(profileKeyword)) {
-				return false;
-			}
-			if (contentKeyword && !item.line.toLowerCase().includes(contentKeyword)) {
-				return false;
-			}
-			return true;
+		return filterBackendLogs(state.logs, {
+			levelFilter: state.levelFilter,
+			componentFilter: state.componentFilter,
+			profileFilter: state.profileFilter,
+			keyword: state.keyword,
 		});
 	}, [state.componentFilter, state.keyword, state.levelFilter, state.logs, state.profileFilter]);
 
