@@ -21,6 +21,7 @@ use crate::services::resource_service::ResourceService;
 use crate::services::rpa_artifact_service::RpaArtifactService;
 use crate::services::rpa_flow_service::RpaFlowService;
 use crate::services::rpa_run_service::RpaRunService;
+use crate::services::rpa_task_service::RpaTaskService;
 
 pub struct AppState {
     pub profile_group_service: Mutex<ProfileGroupService>,
@@ -29,6 +30,7 @@ pub struct AppState {
     pub engine_session_service: Mutex<EngineSessionService>,
     pub proxy_service: Mutex<ProxyService>,
     pub rpa_flow_service: Mutex<RpaFlowService>,
+    pub rpa_task_service: Mutex<RpaTaskService>,
     pub rpa_run_service: Mutex<RpaRunService>,
     pub rpa_artifact_service: Mutex<RpaArtifactService>,
     pub resource_service: Mutex<ResourceService>,
@@ -45,6 +47,7 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
     let engine_session_service = EngineSessionService::from_db(db.clone());
     let proxy_service = ProxyService::from_db(db.clone());
     let rpa_flow_service = RpaFlowService::from_db(db.clone());
+    let rpa_task_service = RpaTaskService::from_db(db.clone());
     let rpa_run_service = RpaRunService::from_db(db.clone());
     let resource_service = ResourceService::from_app_handle(app)?;
     let engine_manager = build_engine_manager(app)?;
@@ -58,6 +61,7 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
         engine_session_service: Mutex::new(engine_session_service),
         proxy_service: Mutex::new(proxy_service),
         rpa_flow_service: Mutex::new(rpa_flow_service),
+        rpa_task_service: Mutex::new(rpa_task_service),
         rpa_run_service: Mutex::new(rpa_run_service),
         rpa_artifact_service: Mutex::new(rpa_artifact_service),
         resource_service: Mutex::new(resource_service),
@@ -75,6 +79,17 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
     logger::info(
         "state",
         format!("startup rpa interrupted instances marked={interrupted}"),
+    );
+    let skipped_schedules = app_state
+        .rpa_task_service
+        .lock()
+        .map_err(|_| {
+            crate::error::AppError::Validation("rpa task service lock poisoned".to_string())
+        })?
+        .skip_missed_schedules(crate::models::now_ts())?;
+    logger::info(
+        "state",
+        format!("startup rpa skipped missed schedules={skipped_schedules}"),
     );
     let affected = runtime_guard::reconcile_runtime_state(&app_state)?;
     logger::info(

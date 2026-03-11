@@ -2,14 +2,14 @@ import '@xyflow/react/dist/style.css';
 
 import { ArrowLeft, Bot, Plus } from 'lucide-react';
 
-import { Button, Card, Tabs, TabsContent, TabsList, TabsTrigger, Toaster } from '@/components/ui';
+import { Button, Card, Toaster } from '@/components/ui';
 import { resolveSonnerTheme } from '@/entities/theme/model/sonner-theme';
 import { useThemeSettings } from '@/entities/theme/model/use-theme-settings';
 import { useRpaFlowEditor } from '@/features/rpa/model/use-rpa-flow-editor';
 import { RpaEditorHeader } from './rpa-editor-header';
+import { RpaDebugRunPanel } from './rpa-debug-run-panel';
 import { RpaFlowCanvasPanel } from './rpa-flow-canvas-panel';
 import { RpaLeaveDialog } from './rpa-leave-dialog';
-import { RpaRunInspectorPanel } from './rpa-run-inspector-panel';
 
 export function RpaFlowEditorPage() {
 	const editor = useRpaFlowEditor();
@@ -52,23 +52,10 @@ export function RpaFlowEditorPage() {
 		<div className="h-dvh overflow-hidden bg-background p-4 md:p-6">
 			<div className="mx-auto flex h-full max-w-[1680px] flex-col gap-4">
 				<RpaEditorHeader editor={editor} />
-
-				<Tabs
-					value={editor.activePanel}
-					onValueChange={(value) => editor.setActivePanel(value as 'design' | 'runs')}
-					className="min-h-0 flex-1"
-				>
-					<TabsList>
-						<TabsTrigger value="design">流程设计</TabsTrigger>
-						<TabsTrigger value="runs">运行中心</TabsTrigger>
-					</TabsList>
-					<TabsContent value="design" className="mt-3 h-[calc(100%-40px)] overflow-auto">
-						<RpaFlowCanvasPanel editor={editor} />
-					</TabsContent>
-					<TabsContent value="runs" className="mt-3 h-[calc(100%-40px)] overflow-auto">
-						<RpaRunInspectorPanel editor={editor} />
-					</TabsContent>
-				</Tabs>
+				<div className="min-h-0 flex-1 space-y-3 overflow-auto">
+					<RpaFlowCanvasPanel editor={editor} />
+					<RpaDebugRunPanel editor={editor} />
+				</div>
 			</div>
 
 			<RpaLeaveDialog editor={editor} />

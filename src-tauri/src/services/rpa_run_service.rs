@@ -8,10 +8,11 @@ use sea_orm::{
 use crate::db::entities::{rpa_run, rpa_run_instance, rpa_run_step};
 use crate::error::{AppError, AppResult};
 use crate::models::{
-    now_ts, RpaArtifactIndex, RpaFlow, RpaRun, RpaRunDetails, RpaRunInstance, RpaRunInstanceStatus,
-    RpaRunStatus, RpaRunStep, RpaRunStepStatus, RunRpaFlowRequest,
+    now_ts, ListRpaRunsRequest, RpaArtifactIndex, RpaFlow, RpaRun, RpaRunDetails, RpaRunInstance,
+    RpaRunInstanceStatus, RpaRunStatus, RpaRunStep, RpaRunStepStatus, RunRpaFlowRequest,
 };
 use crate::services::rpa_flow_service::{format_profile_id, parse_profile_id};
+use crate::services::rpa_task_service::{format_task_id, parse_task_id};
 
 pub struct RpaRunService {
     db: DatabaseConnection,
@@ -35,10 +36,20 @@ impl RpaRunService {
         );
         let definition_snapshot_json = serde_json::to_string(&flow.definition)?;
         let runtime_input_json = serde_json::to_string(&req.runtime_input)?;
+        let task_id = req.task_id.as_deref().map(parse_task_id).transpose()?;
+        let trigger_source = req
+            .trigger_source
+            .and_then(|item| {
+                let trimmed = item.trim().to_string();
+                (!trimmed.is_empty()).then_some(trimmed)
+            })
+            .unwrap_or_else(|| "debug_manual".to_string());
         let model = rpa_run::ActiveModel {
             flow_id: Set(parse_flow_id(&flow.id)?),
             flow_name: Set(flow.name.clone()),
-            trigger_source: Set("manual".to_string()),
+            task_id: Set(task_id),
+            task_name: Set(req.task_name.and_then(trim_non_empty)),
+            trigger_source: Set(trigger_source),
             status: Set("queued".to_string()),
             total_instances: Set(req.target_profile_ids.len() as i32),
             success_count: Set(0),
@@ -76,9 +87,24 @@ impl RpaRunService {
             .ok_or_else(|| AppError::NotFound("rpa run missing right after create".to_string()))
     }
 
-    pub fn list_runs(&self, limit: Option<u64>) -> AppResult<Vec<RpaRun>> {
+    pub fn list_runs(&self, req: ListRpaRunsRequest) -> AppResult<Vec<RpaRun>> {
         let mut query = rpa_run::Entity::find().order_by_desc(rpa_run::Column::CreatedAt);
-        if let Some(limit) = limit {
+        if let Some(task_id) = req.task_id.as_deref().map(parse_task_id).transpose()? {
+            query = query.filter(rpa_run::Column::TaskId.eq(task_id));
+        }
+        if let Some(status) = req.status {
+            query = query.filter(rpa_run::Column::Status.eq(to_run_status_str(&status)));
+        }
+        if let Some(source) = req.trigger_source.and_then(trim_non_empty) {
+            query = query.filter(rpa_run::Column::TriggerSource.eq(source));
+        }
+        if let Some(created_from) = req.created_from {
+            query = query.filter(rpa_run::Column::CreatedAt.gte(created_from));
+        }
+        if let Some(created_to) = req.created_to {
+            query = query.filter(rpa_run::Column::CreatedAt.lte(created_to));
+        }
+        if let Some(limit) = req.limit {
             query = query.limit(limit);
         }
         let models = self.db_query(query.all(&self.db))?;
@@ -490,6 +516,8 @@ fn to_api_run(model: rpa_run::Model) -> AppResult<RpaRun> {
         id: format_run_id(model.id),
         flow_id: format_flow_id(model.flow_id),
         flow_name: model.flow_name,
+        task_id: model.task_id.map(format_task_id),
+        task_name: model.task_name,
         trigger_source: model.trigger_source,
         status: parse_run_status(&model.status),
         total_instances: model.total_instances.max(0) as usize,
@@ -542,6 +570,11 @@ fn to_api_step(model: rpa_run_step::Model) -> AppResult<RpaRunStep> {
 
 fn normalize_concurrency(limit: u32) -> u32 {
     limit.clamp(1, 5)
+}
+
+fn trim_non_empty(value: String) -> Option<String> {
+    let trimmed = value.trim().to_string();
+    (!trimmed.is_empty()).then_some(trimmed)
 }
 
 pub fn parse_flow_id(flow_id: &str) -> AppResult<i64> {

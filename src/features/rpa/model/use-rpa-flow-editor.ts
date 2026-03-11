@@ -408,8 +408,8 @@ export function useRpaFlowEditor() {
 		void (async () => {
 			for (const eventName of ['rpa:run-updated', 'rpa:instance-updated', 'rpa:step-appended']) {
 				const unlisten = await listen(eventName, async () => {
-					await Promise.all([
-						queryClient.invalidateQueries({ queryKey: queryKeys.rpaRuns }),
+						await Promise.all([
+							queryClient.invalidateQueries({ queryKey: queryKeys.rpaRunsRoot }),
 						selectedRunId
 							? queryClient.invalidateQueries({
 									queryKey: queryKeys.rpaRunDetails(selectedRunId),

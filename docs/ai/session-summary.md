@@ -91,3 +91,25 @@
   - 节点配置仍以 JSON 配置为主，尚未做专用表单面板
   - 人工接管后的“跳转到指定浏览器上下文继续操作”仍是基础态
   - 页面自动化节点已接入 CDP 执行通道，但覆盖面与健壮性仍需继续打磨
+
+## 2026-03-11（RPA 导航重构 + Task 模型落地）
+
+- RPA 信息架构重构：
+  - 路由改为 `/rpa/flows`（流程管理）/`/rpa/tasks`（任务管理）/`/rpa/runs`（运行记录）
+  - `/rpa` 自动重定向到 `/rpa/flows`
+  - 侧边栏 `RPA` 升级为二级子菜单，顶栏命令面板新增三个子页面快捷跳转
+- 后端任务模型落地：
+  - 新增 `rpa_tasks / rpa_task_targets` 表与 SeaORM entity
+  - `rpa_runs` 增加 `task_id / task_name` 字段用于运行快照关联
+  - 新增 `rpa_task_service`：任务创建、更新、删除（软删）、启停、立即执行请求组装
+  - 新增 RPA task 命令：`create/update/list/get/delete/toggle/run`
+  - `list_rpa_runs` 支持 `task_id / status / trigger_source / 时间范围` 过滤
+- 调度器能力：
+  - 新增 `rpa_scheduler` 后台循环，扫描 `enabled + active + scheduled + next_run_at<=now` 任务
+  - 调度触发来源标记为 `task_schedule`，手动任务执行标记为 `task_manual`，编辑器调试为 `debug_manual`
+  - 调度策略为“仅应用运行时触发，不补跑错过窗口”
+- 前端页面重构：
+  - 流程页保留流程清单与编辑入口，并增加跳转到任务管理/运行记录入口
+  - 新增任务管理页：任务表单（`react-hook-form + zodResolver`）+ 列表 + 启停/执行/删除
+  - 新增运行记录页：筛选面板 + run/instance/step 三栏详情
+  - 编辑器页移除“运行中心”Tab，改为“临时调试运行”面板；正式运行从任务管理发起

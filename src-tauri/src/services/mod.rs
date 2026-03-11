@@ -8,3 +8,4 @@ pub mod rpa_artifact_service;
 pub mod rpa_flow_service;
 pub mod rpa_run_service;
 pub mod rpa_runtime_service;
+pub mod rpa_task_service;

@@ -11,7 +11,9 @@ function renderSidebar(defaultOpen: boolean) {
 			<Sidebar variant="floating" collapsible="icon">
 				<WorkspaceSidebar
 					activeNav="profiles"
+					activePath="/profiles"
 					onNavChange={() => {}}
+					onPathNavigate={() => {}}
 					isRunning
 					onToggleRunning={() => {}}
 				/>
@@ -28,4 +30,28 @@ test('workspace sidebar 在折叠态包含专用布局类', () => {
 	assert.doesNotMatch(html, />总览</);
 	assert.match(html, /aria-label="总览"/);
 	assert.match(html, /aria-label="恢复执行引擎"|aria-label="暂停执行引擎"/);
+	assert.doesNotMatch(html, />流程管理</);
+	assert.doesNotMatch(html, />任务管理</);
+	assert.doesNotMatch(html, />运行记录</);
+});
+
+test('workspace sidebar 在展开态展示 RPA 子菜单', () => {
+	const html = renderToStaticMarkup(
+		<SidebarProvider defaultOpen>
+			<Sidebar variant="floating" collapsible="icon">
+				<WorkspaceSidebar
+					activeNav="rpa"
+					activePath="/rpa/tasks"
+					onNavChange={() => {}}
+					onPathNavigate={() => {}}
+					isRunning
+					onToggleRunning={() => {}}
+				/>
+			</Sidebar>
+		</SidebarProvider>,
+	);
+
+	assert.match(html, />流程管理</);
+	assert.match(html, />任务管理</);
+	assert.match(html, />运行记录</);
 });
