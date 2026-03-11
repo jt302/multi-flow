@@ -1,6 +1,11 @@
 import { Badge, CardContent } from '@/components/ui';
 import type { BackendLogEvent } from '@/entities/log-entry/api/logs-api';
-import { formatLogTime, getLogEventKey, levelToVariant } from '../model/use-log-panel-state';
+import {
+	formatLogTime,
+	getLogEventKey,
+	levelToVariant,
+	normalizeLogLevel,
+} from '../model/use-log-panel-state';
 
 type LogPanelListProps = {
 	listRef: React.RefObject<HTMLDivElement | null>;
@@ -12,11 +17,12 @@ type LogPanelListProps = {
 };
 
 function LogRow({ item }: { item: BackendLogEvent }) {
+	const levelLabel = normalizeLogLevel(item.level);
 	return (
 		<div className="grid grid-cols-[74px_68px_220px_minmax(0,1fr)] items-start gap-2 rounded-lg border border-border/60 bg-background/55 px-2.5 py-1.5">
 			<span className="text-muted-foreground">{formatLogTime(item.ts)}</span>
-			<Badge variant={levelToVariant(item.level)} className="justify-center rounded-md px-1.5 py-0.5">
-				{item.level}
+			<Badge variant={levelToVariant(levelLabel)} className="justify-center rounded-md px-1.5 py-0.5">
+				{levelLabel}
 			</Badge>
 			<span className="truncate text-primary">{item.component}</span>
 			<div className="min-w-0 text-foreground/95">
@@ -57,22 +63,24 @@ export function LogPanelList({
 									className="rounded-xl border border-border/70 bg-background/50 px-2"
 									onToggle={(event) => onGroupOpenChange(profileId, event.currentTarget.open)}
 								>
-									<summary className="cursor-pointer select-none py-2 text-sm font-medium text-foreground">
-										{profileId === 'unassigned' ? '未绑定 Profile' : profileId} ({items.length})
-									</summary>
-									<div className="space-y-1 pb-2">
-										{items.map((item) => (
-											<LogRow key={getLogEventKey(item)} item={item} />
-										))}
-									</div>
-								</details>
-							);
-						})
-					) : (
-						filteredLogs.map((item) => <LogRow key={getLogEventKey(item)} item={item} />)
-					)}
-				</div>
+								<summary className="cursor-pointer select-none py-2 text-sm font-medium text-foreground">
+									{profileId === 'unassigned' ? '未绑定 Profile' : profileId} ({items.length})
+								</summary>
+								<div className="space-y-1 pb-2">
+									{items.map((item, index) => (
+										<LogRow key={getLogEventKey(item, index)} item={item} />
+									))}
+								</div>
+							</details>
+						);
+					})
+				) : (
+					filteredLogs.map((item, index) => (
+						<LogRow key={getLogEventKey(item, index)} item={item} />
+					))
+				)}
 			</div>
-		</CardContent>
+		</div>
+	</CardContent>
 	);
 }
