@@ -1,16 +1,32 @@
-# Proxy Daemon
+# Proxy Daemon V2
 
-## Start the Service
+## 项目介绍
+
+Proxy Daemon V2 是一个使用 Rust 实现的代理转发程序，专为指纹浏览器项目设计。由于大多数代理 IP 提供商的服务都需要密码认证，而 Chromium 浏览器不支持密码认证，因此本程序应运而生。
+
+本程序能够将所有接收到的流量原封不动地转发到代理商的 IP，同时提供 HTTP API 接口来管理代理转发实例。
+
+## 功能特性
+
+- **多端口支持**: 一个程序可以同时运行多个代理转发实例在不同端口
+- **HTTP API 控制**: 通过 HTTP 请求接收命令来管理代理
+- **自动启停**: 收到启动命令后开始转发，收到退出命令后停止
+- **协议支持**: HTTP、SOCKS5
+- **可选认证**: HTTP 与 SOCKS5 均支持可选用户名密码（需成对提供）
+
+## 使用方法
+
+### 启动服务
 
 ```bash
-cargo run -- --port <command-listening-port>
+cargo run -- --port <命令监听端口>
 ```
 
-The HTTP API service will run on the specified port to receive proxy management commands.
+启动后，HTTP API 服务将在指定端口上运行，用于接收代理管理命令。
 
-### API Endpoints
+### API 接口
 
-#### Start Proxy Forwarding
+#### 启动代理转发
 
 ```http
 POST /proxy/start
@@ -18,48 +34,36 @@ Content-Type: application/json
 
 {
   "listen_port": 12345,
-  "proxy_type": "http|https|socks5|socks5t",
-  "proxy_host": "proxy server address",
-  "proxy_port": "proxy server port",
-  "username": "username (optional)",
-  "password": "password (optional)"
+  "proxy_type": "http|socks5",
+  "proxy_host": "代理服务器地址",
+  "proxy_port": 代理服务器端口,
+  "username": "用户名（可选）",
+  "password": "密码（可选）"
 }
 ```
 
-#### Stop Proxy Forwarding
+#### 停止代理转发
 
 ```http
-POST /proxy/stop?port=<listen-port>
+POST /proxy/stop?port=<监听端口>
 ```
 
-#### Check Running Status
+#### 查看运行状态
 
 ```http
 GET /proxy/list
 ```
 
-## How It Works
+## 工作原理
 
-1. Specify the management port when starting the program
-2. Send a start command via HTTP API, specifying the listen port and target proxy server
-3. The program creates a proxy server on the specified port to receive client connections
-4. Transparently forward client traffic to the target proxy server
-5. When sending a stop command, close the corresponding proxy forwarding instance
+1. 启动程序时指定管理端口
+2. 通过 HTTP API 发送启动命令，指定监听端口和目标代理服务器
+3. 程序在指定端口创建代理服务器，接收客户端连接
+4. 将客户端的流量透明转发到目标代理服务器
+5. 发送停止命令时，关闭对应的代理转发实例
 
-## Notes
+## 注意事项
 
-- Ensure the specified port is not already in use
-- Supported proxy types: `http`, `https`, `socks5`, `socks5t`
-- Username and password are optional fields, fill them based on the proxy service provider's requirements
-
-## Multi-Flow Proxy Reachability Checks
-
-- Manual proxy checks (`check_proxy` / `batch_check_proxies`) include target-site reachability probes for:
-  - `google.com`
-  - `youtube.com`
-- Probe results are persisted in `proxies.target_site_checks_json` and returned as `targetSiteChecks` in proxy APIs.
-- Main health semantics stay unchanged:
-  - Target-site failures do **not** downgrade proxy `checkStatus` from `ok` to `error`.
-  - Instead, warning text is appended in `checkMessage` (for example: `目标站可达性 1/2`).
-  - Batch check success counting still follows `checkStatus == ok`.
-- Proxy list UI includes a dedicated `站点可达性` column with Google/YouTube icons and per-site status.
+- 确保指定的端口未被占用
+- 代理类型支持: `http`, `socks5`
+- 用户名和密码为可选字段；若使用认证，需同时提供用户名和密码
