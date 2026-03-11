@@ -113,8 +113,8 @@ export function ProfileListTable({
 							</TableHead>
 							<TableHead>环境</TableHead>
 							<TableHead>备注 / 版本</TableHead>
-							<TableHead>设备 / 代理</TableHead>
-							<TableHead className="w-[90px]">生命周期</TableHead>
+							<TableHead>设备</TableHead>
+							<TableHead>代理信息</TableHead>
 							<TableHead className="w-[140px]">运行状态</TableHead>
 							<TableHead className="w-[130px] text-right">操作</TableHead>
 						</TableRow>

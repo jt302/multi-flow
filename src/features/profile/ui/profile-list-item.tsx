@@ -1,5 +1,6 @@
 import {
 	Eye,
+	Globe,
 	Loader2,
 	Monitor,
 	MoreHorizontal,
@@ -88,6 +89,45 @@ function resolveRunningLabel(running: boolean, actionState?: ProfileActionState)
 	return running ? '运行中' : '未运行';
 }
 
+function resolveCountryFlag(countryCode: string) {
+	const trimmed = countryCode.trim().toUpperCase();
+	if (!/^[A-Z]{2}$/.test(trimmed)) {
+		return null;
+	}
+	return String.fromCodePoint(
+		...trimmed.split('').map((char) => 0x1f1e6 + char.charCodeAt(0) - 65),
+	);
+}
+
+function resolveProxyExitIp(proxy?: ProxyItem) {
+	if (!proxy) {
+		return '未绑定代理';
+	}
+	if (proxy.exitIp.trim()) {
+		return proxy.exitIp;
+	}
+	return proxy.checkStatus === 'ok' ? '出口 IP 获取失败' : '未检测出口 IP';
+}
+
+function resolveProxyConnectivity(proxy?: ProxyItem): {
+	label: string;
+	toneClassName: string;
+} {
+	if (!proxy) {
+		return { label: '未绑定', toneClassName: 'text-muted-foreground' };
+	}
+	switch (proxy.checkStatus) {
+		case 'ok':
+			return { label: '可用', toneClassName: 'text-emerald-600 dark:text-emerald-400' };
+		case 'error':
+			return { label: '异常', toneClassName: 'text-destructive' };
+		case 'unsupported':
+			return { label: '暂不支持', toneClassName: 'text-amber-600 dark:text-amber-400' };
+		default:
+			return { label: '未检测', toneClassName: 'text-muted-foreground' };
+	}
+}
+
 export function ProfileListItem({
 	item,
 	groups,
@@ -113,7 +153,6 @@ export function ProfileListItem({
 }: ProfileListItemProps) {
 	const actionPending = Boolean(actionState);
 	const runLabel = resolveRunningLabel(item.running, actionState);
-	const proxyCountry = boundProxy?.country?.trim() || '未绑定';
 	const platformMeta = resolvePlatformMeta(item);
 	const currentBg = item.settings?.basic?.browserBgColor ?? '#0F8A73';
 	const currentToolbarText = item.settings?.basic?.toolbarText ?? item.name;
@@ -127,10 +166,13 @@ export function ProfileListItem({
 	const browserVersionMeta = resolveBrowserVersionMeta(item, resources);
 	const toolbarTextTrimmed = currentToolbarText.trim();
 	const showToolbarText = Boolean(toolbarTextTrimmed) && toolbarTextTrimmed !== item.name.trim();
-	const proxyPrimary = boundProxy?.name?.trim() || '未绑定代理';
-	const proxySecondary = boundProxy
-		? `${boundProxy.protocol.toUpperCase()} · ${proxyCountry}`
-		: '未绑定';
+	const proxyFlag = boundProxy ? resolveCountryFlag(boundProxy.country) : null;
+	const proxyLocation = boundProxy
+		? `${boundProxy.country?.trim() || '未知国家'} / ${boundProxy.region?.trim() || '未知地区'}`
+		: '未绑定代理';
+	const proxyIp = resolveProxyExitIp(boundProxy);
+	const proxyType = boundProxy ? boundProxy.protocol.toUpperCase() : '未绑定';
+	const proxyConnectivity = resolveProxyConnectivity(boundProxy);
 	const editConfigDisabled = actionPending || item.running;
 	const isBgEditing = quickEdit?.profileId === item.id && quickEdit.field === 'background';
 	const isToolbarEditing = quickEdit?.profileId === item.id && quickEdit.field === 'toolbar';
@@ -187,15 +229,25 @@ export function ProfileListItem({
 
 				<TableCell className="align-top">
 					<p className="truncate text-xs">{presetLabel}</p>
-					<p className="truncate text-[11px] text-muted-foreground">
-						{proxyPrimary} · {proxySecondary}
-					</p>
+					<p className="truncate text-[11px] text-muted-foreground">{platformMeta.label}</p>
 				</TableCell>
 
-				<TableCell className="w-[90px] align-top">
-					<Badge variant={item.lifecycle === 'active' ? 'outline' : 'secondary'}>
-						{item.lifecycle === 'active' ? '可用' : '已归档'}
-					</Badge>
+				<TableCell className="align-top">
+					<div className="space-y-1">
+						<p className="flex items-center gap-2 text-xs font-medium">
+							{proxyFlag ? (
+								<span className="text-base leading-none">{proxyFlag}</span>
+							) : (
+								<Icon icon={Globe} size={14} className="text-muted-foreground" />
+							)}
+							<span className="truncate">{proxyLocation}</span>
+						</p>
+						<p className="truncate text-[11px] text-muted-foreground">IP: {proxyIp}</p>
+						<p className="truncate text-[11px] text-muted-foreground">代理类型: {proxyType}</p>
+						<p className={cn('truncate text-[11px] font-medium', proxyConnectivity.toneClassName)}>
+							连通性: {proxyConnectivity.label}
+						</p>
+					</div>
 				</TableCell>
 
 				<TableCell className="w-[140px] align-top">
