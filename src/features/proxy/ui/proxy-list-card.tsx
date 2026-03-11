@@ -195,7 +195,16 @@ export function ProxyListCard({
 				{proxies.length === 0 ? (
 					<div className="px-4 py-10 text-center text-sm text-muted-foreground">暂无代理，请先新增。</div>
 				) : (
-					<Table>
+					<Table className="table-fixed">
+						<colgroup>
+							<col className="w-[48px]" />
+							<col className="w-[34%]" />
+							<col className="w-[16%]" />
+							<col className="w-[16%]" />
+							<col className="w-[18%]" />
+							<col className="w-[140px]" />
+							<col className="w-[92px]" />
+						</colgroup>
 						<TableHeader>
 							<TableRow className="bg-muted/20 hover:bg-muted/20">
 								<TableHead className="w-[48px]">
@@ -207,8 +216,8 @@ export function ProxyListCard({
 								<TableHead>GEO</TableHead>
 								<TableHead>出口</TableHead>
 								<TableHead>站点可达性</TableHead>
-								<TableHead>健康</TableHead>
-								<TableHead className="text-right">操作</TableHead>
+								<TableHead className="w-[140px]">健康</TableHead>
+								<TableHead className="w-[92px] text-right">操作</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>
@@ -287,7 +296,7 @@ export function ProxyListCard({
 												})}
 											</div>
 										</TableCell>
-										<TableCell>
+										<TableCell className="w-[140px] align-top whitespace-normal">
 											<div className="flex flex-col gap-1">
 												<Badge variant={item.lifecycle === 'active' ? 'outline' : 'secondary'}>{item.lifecycle === 'active' ? '可用' : '已归档'}</Badge>
 												{statusLabel ? <p className="text-[11px] text-muted-foreground">{statusLabel}</p> : null}
@@ -296,7 +305,7 @@ export function ProxyListCard({
 												</p>
 											</div>
 										</TableCell>
-										<TableCell className="text-right">
+										<TableCell className="w-[92px] align-top text-right">
 											<div className="flex justify-end gap-1">
 												{item.lifecycle === 'active' ? (
 													<>
