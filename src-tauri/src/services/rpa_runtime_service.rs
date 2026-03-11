@@ -39,19 +39,22 @@ impl RpaRuntimeService {
     }
 
     async fn process_run(app: AppHandle, run_id: String) -> AppResult<()> {
-        let state = app.state::<AppState>();
-        {
-            let run_service = lock_run_service(&state)?;
-            let run = run_service.mark_run_started(&run_id)?;
-            let _ = app.emit(RUN_UPDATED_EVENT, &run);
-        }
+        let run_id_for_start = run_id.clone();
+        let run = with_run_service_blocking(&app, "rpa-mark-run-started", move |run_service| {
+            run_service.mark_run_started(&run_id_for_start)
+        })
+        .await?;
+        let _ = app.emit(RUN_UPDATED_EVENT, &run);
 
-        let details = {
-            let run_service = lock_run_service(&state)?;
+        let run_id_for_details = run_id.clone();
+        let details = with_run_service_blocking(&app, "rpa-get-run-details", move |run_service| {
             run_service
-                .get_run_details(&run_id)?
-                .ok_or_else(|| AppError::NotFound(format!("rpa run not found: {run_id}")))?
-        };
+                .get_run_details(&run_id_for_details)?
+                .ok_or_else(|| {
+                    AppError::NotFound(format!("rpa run not found: {run_id_for_details}"))
+                })
+        })
+        .await?;
         let concurrency_limit = details.run.concurrency_limit as usize;
         let definition = details.run.definition_snapshot.clone();
         let instances = details
@@ -70,31 +73,44 @@ impl RpaRuntimeService {
             })
             .await;
 
-        let state = app.state::<AppState>();
-        let run_service = lock_run_service(&state)?;
-        let run = run_service.update_run_aggregate_status(&run_id)?;
+        let run_id_for_aggregate = run_id.clone();
+        let run = with_run_service_blocking(&app, "rpa-update-run-aggregate", move |run_service| {
+            run_service.update_run_aggregate_status(&run_id_for_aggregate)
+        })
+        .await?;
         let _ = app.emit(RUN_UPDATED_EVENT, &run);
         Ok(())
     }
 
     async fn process_resumed_instance(app: AppHandle, instance_id: String) -> AppResult<()> {
-        let state = app.state::<AppState>();
-        let details = {
-            let run_service = lock_run_service(&state)?;
-            let instance = run_service.get_instance(&instance_id)?;
-            if instance.status != RpaRunInstanceStatus::NeedsManual {
-                return Err(AppError::Conflict(format!(
-                    "rpa run instance is not waiting for manual continue: {instance_id}"
-                )));
-            }
-            let run_id = instance.run_id.clone();
-            let details = run_service
-                .get_run_details(&run_id)?
-                .ok_or_else(|| AppError::NotFound(format!("rpa run not found: {run_id}")))?;
-            let run = run_service.mark_run_started(&run_id)?;
-            let _ = app.emit(RUN_UPDATED_EVENT, &run);
-            details
-        };
+        let instance_id_for_get = instance_id.clone();
+        let instance = with_run_service_blocking(&app, "rpa-get-instance", move |run_service| {
+            run_service.get_instance(&instance_id_for_get)
+        })
+        .await?;
+        if instance.status != RpaRunInstanceStatus::NeedsManual {
+            return Err(AppError::Conflict(format!(
+                "rpa run instance is not waiting for manual continue: {instance_id}"
+            )));
+        }
+
+        let run_id = instance.run_id.clone();
+        let run_id_for_details = run_id.clone();
+        let details = with_run_service_blocking(&app, "rpa-get-run-details", move |run_service| {
+            run_service
+                .get_run_details(&run_id_for_details)?
+                .ok_or_else(|| {
+                    AppError::NotFound(format!("rpa run not found: {run_id_for_details}"))
+                })
+        })
+        .await?;
+        let run_id_for_start = run_id.clone();
+        let run = with_run_service_blocking(&app, "rpa-mark-run-started", move |run_service| {
+            run_service.mark_run_started(&run_id_for_start)
+        })
+        .await?;
+        let _ = app.emit(RUN_UPDATED_EVENT, &run);
+
         let instance = details
             .instances
             .into_iter()
@@ -104,9 +120,11 @@ impl RpaRuntimeService {
             })?;
         Self::process_instance(app.clone(), details.run.definition_snapshot, instance, true)
             .await?;
-        let state = app.state::<AppState>();
-        let run_service = lock_run_service(&state)?;
-        let run = run_service.update_run_aggregate_status(&details.run.id)?;
+        let run_id_for_aggregate = details.run.id.clone();
+        let run = with_run_service_blocking(&app, "rpa-update-run-aggregate", move |run_service| {
+            run_service.update_run_aggregate_status(&run_id_for_aggregate)
+        })
+        .await?;
         let _ = app.emit(RUN_UPDATED_EVENT, &run);
         Ok(())
     }
@@ -123,34 +141,49 @@ impl RpaRuntimeService {
             .iter()
             .map(|item| (item.id.as_str(), item))
             .collect::<HashMap<_, _>>();
-        let state = app.state::<AppState>();
-        {
-            let run_service = lock_run_service(&state)?;
-            instance = run_service
-                .mark_instance_running(&instance.id, instance.current_node_id.clone())?;
-            let _ = app.emit(INSTANCE_UPDATED_EVENT, &instance);
-        }
+        let instance_id = instance.id.clone();
+        let current_node_id = instance.current_node_id.clone();
+        instance =
+            with_run_service_blocking(&app, "rpa-mark-instance-running", move |run_service| {
+                run_service.mark_instance_running(&instance_id, current_node_id)
+            })
+            .await?;
+        let _ = app.emit(INSTANCE_UPDATED_EVENT, &instance);
 
         let mut current_node_id = instance.current_node_id.clone();
         let mut skip_manual_gate = resume_manual;
         loop {
             let Some(node_id) = current_node_id.clone() else {
-                let state = app.state::<AppState>();
-                let run_service = lock_run_service(&state)?;
-                let updated =
-                    run_service.mark_instance_success(&instance.id, None, context.clone())?;
+                let instance_id = instance.id.clone();
+                let context_snapshot = context.clone();
+                let updated = with_run_service_blocking(
+                    &app,
+                    "rpa-mark-instance-success",
+                    move |run_service| {
+                        run_service.mark_instance_success(&instance_id, None, context_snapshot)
+                    },
+                )
+                .await?;
                 let _ = app.emit(INSTANCE_UPDATED_EVENT, &updated);
                 return Ok(());
             };
             let Some(node) = node_map.get(node_id.as_str()) else {
-                let state = app.state::<AppState>();
-                let run_service = lock_run_service(&state)?;
-                let updated = run_service.mark_instance_failed(
-                    &instance.id,
-                    Some(node_id.clone()),
-                    context.clone(),
-                    format!("node not found: {node_id}"),
-                )?;
+                let instance_id = instance.id.clone();
+                let context_snapshot = context.clone();
+                let missing_node_id = node_id.clone();
+                let updated = with_run_service_blocking(
+                    &app,
+                    "rpa-mark-instance-failed",
+                    move |run_service| {
+                        run_service.mark_instance_failed(
+                            &instance_id,
+                            Some(missing_node_id.clone()),
+                            context_snapshot,
+                            format!("node not found: {missing_node_id}"),
+                        )
+                    },
+                )
+                .await?;
                 let _ = app.emit(INSTANCE_UPDATED_EVENT, &updated);
                 return Ok(());
             };
@@ -172,9 +205,7 @@ impl RpaRuntimeService {
                     Ok(outcome) => {
                         skip_manual_gate = false;
                         handled = true;
-                        let state = app.state::<AppState>();
-                        let run_service = lock_run_service(&state)?;
-                        let step = run_service.append_step(NewRpaRunStep {
+                        let step_payload = NewRpaRunStep {
                             run_instance_id: instance.id.clone(),
                             node_id: node.id.clone(),
                             node_kind: node.kind.clone(),
@@ -190,42 +221,85 @@ impl RpaRuntimeService {
                             artifacts: outcome.artifacts.clone(),
                             started_at: outcome.started_at,
                             finished_at: Some(now_ts()),
-                        })?;
+                        };
+                        let step = with_run_service_blocking(
+                            &app,
+                            "rpa-append-step",
+                            move |run_service| run_service.append_step(step_payload),
+                        )
+                        .await?;
                         let _ = app.emit(STEP_APPENDED_EVENT, &step);
 
                         match outcome.kind {
                             NodeOutcomeKind::Continue(handle) => {
                                 current_node_id =
                                     resolve_next_node_id(&definition, &node.id, handle);
-                                let updated = run_service.update_instance_context(
-                                    &instance.id,
-                                    current_node_id.clone(),
-                                    context.clone(),
-                                )?;
+                                let instance_id = instance.id.clone();
+                                let next_node_id = current_node_id.clone();
+                                let context_snapshot = context.clone();
+                                let updated = with_run_service_blocking(
+                                    &app,
+                                    "rpa-update-instance-context",
+                                    move |run_service| {
+                                        run_service.update_instance_context(
+                                            &instance_id,
+                                            next_node_id,
+                                            context_snapshot,
+                                        )
+                                    },
+                                )
+                                .await?;
                                 let _ = app.emit(INSTANCE_UPDATED_EVENT, &updated);
                             }
                             NodeOutcomeKind::Manual => {
-                                let updated = run_service
-                                    .mark_instance_manual(&instance.id, node.id.clone())?;
+                                let instance_id = instance.id.clone();
+                                let node_id = node.id.clone();
+                                let updated = with_run_service_blocking(
+                                    &app,
+                                    "rpa-mark-instance-manual",
+                                    move |run_service| {
+                                        run_service.mark_instance_manual(&instance_id, node_id)
+                                    },
+                                )
+                                .await?;
                                 let _ = app.emit(INSTANCE_UPDATED_EVENT, &updated);
                                 return Ok(());
                             }
                             NodeOutcomeKind::SuccessEnd => {
-                                let updated = run_service.mark_instance_success(
-                                    &instance.id,
-                                    None,
-                                    context.clone(),
-                                )?;
+                                let instance_id = instance.id.clone();
+                                let context_snapshot = context.clone();
+                                let updated = with_run_service_blocking(
+                                    &app,
+                                    "rpa-mark-instance-success",
+                                    move |run_service| {
+                                        run_service.mark_instance_success(
+                                            &instance_id,
+                                            None,
+                                            context_snapshot,
+                                        )
+                                    },
+                                )
+                                .await?;
                                 let _ = app.emit(INSTANCE_UPDATED_EVENT, &updated);
                                 return Ok(());
                             }
                             NodeOutcomeKind::FailureEnd(message) => {
-                                let updated = run_service.mark_instance_failed(
-                                    &instance.id,
-                                    Some(node.id.clone()),
-                                    context.clone(),
-                                    message,
-                                )?;
+                                let instance_id = instance.id.clone();
+                                let node_id = node.id.clone();
+                                let context_snapshot = context.clone();
+                                let updated = with_run_service_blocking(
+                                    &app,
+                                    "rpa-mark-instance-failed",
+                                    move |run_service| {
+                                        run_service.mark_instance_failed(
+                                            &instance_id,
+                                            Some(node_id),
+                                            context_snapshot,
+                                            message,
+                                        )
+                                    },
+                                )
+                                .await?;
                                 let _ = app.emit(INSTANCE_UPDATED_EVENT, &updated);
                                 return Ok(());
                             }
@@ -233,10 +307,9 @@ impl RpaRuntimeService {
                         break;
                     }
                     Err(err) => {
-                        last_error = Some(err.to_string());
-                        let state = app.state::<AppState>();
-                        let run_service = lock_run_service(&state)?;
-                        let step = run_service.append_step(NewRpaRunStep {
+                        let error_message = err.to_string();
+                        last_error = Some(error_message.clone());
+                        let step_payload = NewRpaRunStep {
                             run_instance_id: instance.id.clone(),
                             node_id: node.id.clone(),
                             node_kind: node.kind.clone(),
@@ -244,25 +317,41 @@ impl RpaRuntimeService {
                             attempt,
                             input_snapshot: build_input_snapshot(node, &context),
                             output_snapshot: Map::new(),
-                            error_message: Some(err.to_string()),
+                            error_message: Some(error_message),
                             artifacts: RpaArtifactIndex::default(),
                             started_at: now_ts(),
                             finished_at: Some(now_ts()),
-                        })?;
+                        };
+                        let step = with_run_service_blocking(
+                            &app,
+                            "rpa-append-step",
+                            move |run_service| run_service.append_step(step_payload),
+                        )
+                        .await?;
                         let _ = app.emit(STEP_APPENDED_EVENT, &step);
                     }
                 }
             }
 
             if !handled {
-                let state = app.state::<AppState>();
-                let run_service = lock_run_service(&state)?;
-                let updated = run_service.mark_instance_failed(
-                    &instance.id,
-                    Some(node.id.clone()),
-                    context.clone(),
-                    last_error.unwrap_or_else(|| "node execution failed".to_string()),
-                )?;
+                let instance_id = instance.id.clone();
+                let node_id = node.id.clone();
+                let context_snapshot = context.clone();
+                let failure_message =
+                    last_error.unwrap_or_else(|| "node execution failed".to_string());
+                let updated = with_run_service_blocking(
+                    &app,
+                    "rpa-mark-instance-failed",
+                    move |run_service| {
+                        run_service.mark_instance_failed(
+                            &instance_id,
+                            Some(node_id),
+                            context_snapshot,
+                            failure_message,
+                        )
+                    },
+                )
+                .await?;
                 let _ = app.emit(INSTANCE_UPDATED_EVENT, &updated);
                 return Ok(());
             }
@@ -282,21 +371,32 @@ impl RpaRuntimeService {
         let mut artifacts = RpaArtifactIndex::default();
         let outcome_kind = match node.kind.as_str() {
             "open_profile" => {
-                let state = app.state::<AppState>();
-                let _ = do_open_profile(
-                    &state,
-                    Some(app),
-                    None,
-                    &instance.profile_id,
-                    Some(OpenProfileOptions::default()),
-                )
-                .map_err(AppError::Validation)?;
+                let app_handle = app.clone();
+                let profile_id = instance.profile_id.clone();
+                run_rpa_runtime_blocking("rpa-open-profile-node", move || {
+                    let state = app_handle.state::<AppState>();
+                    let _ = do_open_profile(
+                        &state,
+                        Some(&app_handle),
+                        None,
+                        &profile_id,
+                        Some(OpenProfileOptions::default()),
+                    )
+                    .map_err(AppError::Validation)?;
+                    Ok(())
+                })
+                .await?;
                 NodeOutcomeKind::Continue("success")
             }
             "close_profile" => {
-                let state = app.state::<AppState>();
-                let _ =
-                    do_close_profile(&state, &instance.profile_id).map_err(AppError::Validation)?;
+                let app_handle = app.clone();
+                let profile_id = instance.profile_id.clone();
+                run_rpa_runtime_blocking("rpa-close-profile-node", move || {
+                    let state = app_handle.state::<AppState>();
+                    let _ = do_close_profile(&state, &profile_id).map_err(AppError::Validation)?;
+                    Ok(())
+                })
+                .await?;
                 NodeOutcomeKind::Continue("success")
             }
             "delay" => {
@@ -671,6 +771,31 @@ enum NodeOutcomeKind {
     FailureEnd(String),
 }
 
+async fn with_run_service_blocking<T, F>(app: &AppHandle, task_name: &str, task: F) -> AppResult<T>
+where
+    T: Send + 'static,
+    F: FnOnce(&RpaRunService) -> AppResult<T> + Send + 'static,
+{
+    let app_handle = app.clone();
+    run_rpa_runtime_blocking(task_name, move || {
+        let state = app_handle.state::<AppState>();
+        let run_service = lock_run_service(&state)?;
+        task(&run_service)
+    })
+    .await
+}
+
+async fn run_rpa_runtime_blocking<T, F>(task_name: &str, task: F) -> AppResult<T>
+where
+    T: Send + 'static,
+    F: FnOnce() -> AppResult<T> + Send + 'static,
+{
+    let handle = tauri::async_runtime::spawn_blocking(task);
+    handle
+        .await
+        .map_err(|err| AppError::Validation(format!("{task_name} task join failed: {err}")))?
+}
+
 fn build_input_snapshot(node: &RpaFlowNode, context: &Map<String, Value>) -> Map<String, Value> {
     let mut snapshot = Map::new();
     snapshot.insert(
@@ -801,4 +926,38 @@ fn resolve_devtools_ws_url(app: &AppHandle, profile_id: &str) -> AppResult<Strin
 
 fn map_cdp_error(err: impl std::fmt::Display) -> AppError {
     AppError::Validation(format!("cdp command failed: {err}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::run_rpa_runtime_blocking;
+
+    #[test]
+    fn run_rpa_runtime_blocking_allows_nested_block_on_work() {
+        let value = tauri::async_runtime::block_on(async {
+            run_rpa_runtime_blocking("rpa-runtime-nested", || {
+                let nested = tauri::async_runtime::block_on(async { 7_u8 });
+                Ok::<u8, super::AppError>(nested)
+            })
+            .await
+        })
+        .expect("blocking bridge should allow nested block_on");
+
+        assert_eq!(value, 7);
+    }
+
+    #[test]
+    fn run_rpa_runtime_blocking_maps_join_error() {
+        let err = tauri::async_runtime::block_on(async {
+            run_rpa_runtime_blocking::<(), _>("rpa-runtime-panic", || -> super::AppResult<()> {
+                panic!("intentional panic");
+            })
+            .await
+        })
+        .expect_err("panic inside blocking task should return error");
+
+        assert!(err
+            .to_string()
+            .contains("rpa-runtime-panic task join failed"));
+    }
 }
