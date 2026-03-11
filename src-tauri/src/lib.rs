@@ -23,6 +23,7 @@ mod font_catalog;
 mod local_api_server;
 mod logger;
 mod models;
+mod rpa_scheduler;
 mod runtime_guard;
 mod services;
 mod state;
@@ -55,6 +56,7 @@ pub fn run() {
             app.manage(app_state);
             setup_native_menu(app)?;
             start_runtime_guard(app.handle().clone());
+            rpa_scheduler::start_rpa_scheduler(app.handle().clone());
             logger::info("app", "tauri setup completed");
             Ok(())
         })
@@ -106,6 +108,13 @@ pub fn run() {
             commands::rpa_commands::delete_rpa_flow,
             commands::rpa_commands::restore_rpa_flow,
             commands::rpa_commands::purge_rpa_flow,
+            commands::rpa_commands::create_rpa_task,
+            commands::rpa_commands::update_rpa_task,
+            commands::rpa_commands::list_rpa_tasks,
+            commands::rpa_commands::get_rpa_task,
+            commands::rpa_commands::delete_rpa_task,
+            commands::rpa_commands::toggle_rpa_task_enabled,
+            commands::rpa_commands::run_rpa_task,
             commands::rpa_commands::run_rpa_flow,
             commands::rpa_commands::list_rpa_runs,
             commands::rpa_commands::get_rpa_run_details,

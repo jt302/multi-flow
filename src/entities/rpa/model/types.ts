@@ -1,4 +1,8 @@
 export type RpaFlowLifecycle = 'active' | 'deleted';
+export type RpaTaskLifecycle = 'active' | 'deleted';
+export type RpaTaskRunType = 'manual' | 'scheduled';
+export type RpaExecutionMode = 'serial' | 'parallel';
+export type RpaRunSource = 'task_manual' | 'task_schedule' | 'debug_manual';
 export type RpaRunStatus =
 	| 'queued'
 	| 'running'
@@ -76,7 +80,9 @@ export type RpaRunItem = {
 	id: string;
 	flowId: string;
 	flowName: string;
-	triggerSource: string;
+	taskId?: string | null;
+	taskName?: string | null;
+	triggerSource: RpaRunSource | string;
 	status: RpaRunStatus;
 	totalInstances: number;
 	successCount: number;
@@ -87,6 +93,28 @@ export type RpaRunItem = {
 	runtimeInput: Record<string, unknown>;
 	startedAt?: number | null;
 	finishedAt?: number | null;
+	createdAt: number;
+	updatedAt: number;
+};
+
+export type RpaTaskItem = {
+	id: string;
+	flowId: string;
+	flowName: string;
+	name: string;
+	runType: RpaTaskRunType;
+	executionMode: RpaExecutionMode;
+	concurrencyLimit: number;
+	cronExpr?: string | null;
+	startAt?: number | null;
+	timezone: string;
+	enabled: boolean;
+	runtimeInput: Record<string, unknown>;
+	targetProfileIds: string[];
+	lifecycle: RpaTaskLifecycle;
+	deletedAt?: number | null;
+	lastRunAt?: number | null;
+	nextRunAt?: number | null;
 	createdAt: number;
 	updatedAt: number;
 };
@@ -133,9 +161,34 @@ export type SaveRpaFlowPayload = {
 	defaultTargetProfileIds: string[];
 };
 
+export type SaveRpaTaskPayload = {
+	flowId: string;
+	name: string;
+	runType: RpaTaskRunType;
+	executionMode: RpaExecutionMode;
+	concurrencyLimit?: number;
+	cronExpr?: string;
+	startAt?: number | null;
+	timezone?: string;
+	targetProfileIds: string[];
+	runtimeInput?: Record<string, unknown>;
+};
+
 export type RunRpaFlowPayload = {
 	flowId: string;
 	targetProfileIds: string[];
 	concurrencyLimit?: number;
 	runtimeInput?: Record<string, unknown>;
+	triggerSource?: RpaRunSource;
+	taskId?: string;
+	taskName?: string;
+};
+
+export type ListRpaRunsFilters = {
+	limit?: number;
+	taskId?: string;
+	status?: RpaRunStatus;
+	triggerSource?: RpaRunSource | string;
+	createdFrom?: number;
+	createdTo?: number;
 };

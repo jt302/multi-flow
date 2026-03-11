@@ -4,7 +4,10 @@ import type {
 	RpaRunDetailsItem,
 	RpaRunItem,
 	RpaRunStepItem,
+	RpaTaskItem,
+	ListRpaRunsFilters,
 	RunRpaFlowPayload,
+	SaveRpaTaskPayload,
 	SaveRpaFlowPayload,
 } from '@/entities/rpa/model/types';
 
@@ -45,12 +48,22 @@ export async function runRpaFlow(payload: RunRpaFlowPayload): Promise<RpaRunItem
 			targetProfileIds: payload.targetProfileIds,
 			concurrencyLimit: payload.concurrencyLimit ?? null,
 			runtimeInput: payload.runtimeInput ?? {},
+			triggerSource: payload.triggerSource ?? null,
+			taskId: payload.taskId ?? null,
+			taskName: payload.taskName ?? null,
 		},
 	});
 }
 
-export async function listRpaRuns(limit = 20): Promise<RpaRunItem[]> {
-	return tauriInvoke<RpaRunItem[]>('list_rpa_runs', { limit });
+export async function listRpaRuns(filters: ListRpaRunsFilters = {}): Promise<RpaRunItem[]> {
+	return tauriInvoke<RpaRunItem[]>('list_rpa_runs', {
+		limit: filters.limit ?? 50,
+		taskId: filters.taskId ?? null,
+		status: filters.status ?? null,
+		triggerSource: filters.triggerSource ?? null,
+		createdFrom: filters.createdFrom ?? null,
+		createdTo: filters.createdTo ?? null,
+	});
 }
 
 export async function getRpaRunDetails(runId: string): Promise<RpaRunDetailsItem | null> {
@@ -74,5 +87,37 @@ export async function cancelRpaRunInstance(instanceId: string): Promise<void> {
 export async function resumeRpaInstance(instanceId: string): Promise<void> {
 	await tauriInvoke('resume_rpa_instance', {
 		payload: { instanceId },
+	});
+}
+
+export async function listRpaTasks(includeDeleted = false): Promise<RpaTaskItem[]> {
+	return tauriInvoke<RpaTaskItem[]>('list_rpa_tasks', { includeDeleted });
+}
+
+export async function getRpaTask(taskId: string): Promise<RpaTaskItem | null> {
+	return tauriInvoke<RpaTaskItem | null>('get_rpa_task', { taskId });
+}
+
+export async function createRpaTask(payload: SaveRpaTaskPayload): Promise<RpaTaskItem> {
+	return tauriInvoke<RpaTaskItem>('create_rpa_task', { payload });
+}
+
+export async function updateRpaTask(taskId: string, payload: SaveRpaTaskPayload): Promise<RpaTaskItem> {
+	return tauriInvoke<RpaTaskItem>('update_rpa_task', { taskId, payload });
+}
+
+export async function deleteRpaTask(taskId: string): Promise<RpaTaskItem> {
+	return tauriInvoke<RpaTaskItem>('delete_rpa_task', { taskId });
+}
+
+export async function toggleRpaTaskEnabled(taskId: string, enabled: boolean): Promise<RpaTaskItem> {
+	return tauriInvoke<RpaTaskItem>('toggle_rpa_task_enabled', {
+		payload: { taskId, enabled },
+	});
+}
+
+export async function runRpaTask(taskId: string): Promise<RpaRunItem> {
+	return tauriInvoke<RpaRunItem>('run_rpa_task', {
+		payload: { taskId },
 	});
 }

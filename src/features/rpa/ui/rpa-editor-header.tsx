@@ -18,7 +18,7 @@ export function RpaEditorHeader({ editor }: RpaEditorHeaderProps) {
 						{editor.selectedFlow?.name ?? '新流程草稿'}
 					</h1>
 					<p className="mt-1 text-sm text-muted-foreground">
-						流程设计、运行调试和任务追踪都集中在这个独立窗口里。
+						这里只负责流程设计与临时调试，正式运行与记录请在主窗口任务中心操作。
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-2">

@@ -5,14 +5,19 @@ import {
 	cancelRpaRun,
 	cancelRpaRunInstance,
 	createRpaFlow,
+	createRpaTask,
 	deleteRpaFlow,
+	deleteRpaTask,
 	purgeRpaFlow,
 	resumeRpaInstance,
 	restoreRpaFlow,
 	runRpaFlow,
+	runRpaTask,
+	toggleRpaTaskEnabled,
 	updateRpaFlow,
+	updateRpaTask,
 } from '@/entities/rpa/api/rpa-api';
-import type { RunRpaFlowPayload, SaveRpaFlowPayload } from '@/entities/rpa/model/types';
+import type { RunRpaFlowPayload, SaveRpaFlowPayload, SaveRpaTaskPayload } from '@/entities/rpa/model/types';
 import { queryKeys } from '@/shared/config/query-keys';
 
 export function useRpaActions() {
@@ -21,7 +26,8 @@ export function useRpaActions() {
 	const invalidateAll = async () => {
 		await Promise.all([
 			queryClient.invalidateQueries({ queryKey: queryKeys.rpaFlowsRoot }),
-			queryClient.invalidateQueries({ queryKey: queryKeys.rpaRuns }),
+			queryClient.invalidateQueries({ queryKey: queryKeys.rpaTasksRoot }),
+			queryClient.invalidateQueries({ queryKey: queryKeys.rpaRunsRoot }),
 		]);
 	};
 
@@ -89,6 +95,60 @@ export function useRpaActions() {
 				throw error;
 			}
 		},
+		createTask: async (payload: SaveRpaTaskPayload) => {
+			try {
+				const task = await createRpaTask(payload);
+				await invalidateAll();
+				toast.success('任务已创建');
+				return task;
+			} catch (error) {
+				toast.error('创建任务失败');
+				throw error;
+			}
+		},
+		updateTask: async (taskId: string, payload: SaveRpaTaskPayload) => {
+			try {
+				const task = await updateRpaTask(taskId, payload);
+				await invalidateAll();
+				toast.success('任务已保存');
+				return task;
+			} catch (error) {
+				toast.error('保存任务失败');
+				throw error;
+			}
+		},
+		deleteTask: async (taskId: string) => {
+			try {
+				await deleteRpaTask(taskId);
+				await invalidateAll();
+				toast.success('任务已删除');
+			} catch (error) {
+				toast.error('删除任务失败');
+				throw error;
+			}
+		},
+		toggleTaskEnabled: async (taskId: string, enabled: boolean) => {
+			try {
+				const task = await toggleRpaTaskEnabled(taskId, enabled);
+				await invalidateAll();
+				toast.success(enabled ? '任务已启用' : '任务已停用');
+				return task;
+			} catch (error) {
+				toast.error('切换任务状态失败');
+				throw error;
+			}
+		},
+		runTask: async (taskId: string) => {
+			try {
+				const run = await runRpaTask(taskId);
+				await invalidateAll();
+				toast.success('任务已开始执行');
+				return run;
+			} catch (error) {
+				toast.error('执行任务失败');
+				throw error;
+			}
+		},
 		cancelRun: async (runId: string) => {
 			try {
 				const run = await cancelRpaRun(runId);
@@ -104,7 +164,7 @@ export function useRpaActions() {
 			try {
 				await cancelRpaRunInstance(instanceId);
 				await Promise.all([
-					queryClient.invalidateQueries({ queryKey: queryKeys.rpaRuns }),
+					queryClient.invalidateQueries({ queryKey: queryKeys.rpaRunsRoot }),
 					queryClient.invalidateQueries({ queryKey: queryKeys.rpaRunSteps(instanceId) }),
 				]);
 				toast.success('实例已取消');
@@ -117,7 +177,7 @@ export function useRpaActions() {
 			try {
 				await resumeRpaInstance(instanceId);
 				await Promise.all([
-					queryClient.invalidateQueries({ queryKey: queryKeys.rpaRuns }),
+					queryClient.invalidateQueries({ queryKey: queryKeys.rpaRunsRoot }),
 					queryClient.invalidateQueries({ queryKey: queryKeys.rpaRunDetails(null) }),
 				]);
 				toast.success('实例已继续执行');

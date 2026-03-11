@@ -9,3 +9,5 @@ pub mod rpa_flow_target;
 pub mod rpa_run;
 pub mod rpa_run_instance;
 pub mod rpa_run_step;
+pub mod rpa_task;
+pub mod rpa_task_target;

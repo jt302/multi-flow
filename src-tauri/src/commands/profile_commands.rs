@@ -1531,6 +1531,7 @@ mod tests {
     use crate::services::rpa_artifact_service::RpaArtifactService;
     use crate::services::rpa_flow_service::RpaFlowService;
     use crate::services::rpa_run_service::RpaRunService;
+    use crate::services::rpa_task_service::RpaTaskService;
 
     fn new_test_state() -> AppState {
         let db = db::init_test_database().expect("init test db");
@@ -1540,6 +1541,7 @@ mod tests {
         let engine_session_service = EngineSessionService::from_db(db.clone());
         let proxy_service = ProxyService::from_db(db.clone());
         let rpa_flow_service = RpaFlowService::from_db(db.clone());
+        let rpa_task_service = RpaTaskService::from_db(db.clone());
         let rpa_run_service = RpaRunService::from_db(db.clone());
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -1563,6 +1565,7 @@ mod tests {
             engine_session_service: Mutex::new(engine_session_service),
             proxy_service: Mutex::new(proxy_service),
             rpa_flow_service: Mutex::new(rpa_flow_service),
+            rpa_task_service: Mutex::new(rpa_task_service),
             rpa_run_service: Mutex::new(rpa_run_service),
             rpa_artifact_service: Mutex::new(artifact_service),
             resource_service: Mutex::new(resource_service),

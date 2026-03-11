@@ -589,6 +589,27 @@ pub enum RpaFlowLifecycle {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+pub enum RpaTaskLifecycle {
+    Active,
+    Deleted,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RpaTaskRunType {
+    Manual,
+    Scheduled,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RpaExecutionMode {
+    Serial,
+    Parallel,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum RpaRunStatus {
     Queued,
     Running,
@@ -732,6 +753,73 @@ pub struct UpdateRpaFlowRequest {
     pub default_target_profile_ids: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RpaTask {
+    pub id: String,
+    pub flow_id: String,
+    pub flow_name: String,
+    pub name: String,
+    pub run_type: RpaTaskRunType,
+    pub execution_mode: RpaExecutionMode,
+    pub concurrency_limit: u32,
+    pub cron_expr: Option<String>,
+    pub start_at: Option<i64>,
+    pub timezone: String,
+    pub enabled: bool,
+    pub runtime_input: serde_json::Map<String, serde_json::Value>,
+    pub target_profile_ids: Vec<String>,
+    pub lifecycle: RpaTaskLifecycle,
+    pub deleted_at: Option<i64>,
+    pub last_run_at: Option<i64>,
+    pub next_run_at: Option<i64>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateRpaTaskRequest {
+    pub flow_id: String,
+    pub name: String,
+    pub run_type: RpaTaskRunType,
+    pub execution_mode: RpaExecutionMode,
+    pub concurrency_limit: Option<u32>,
+    pub cron_expr: Option<String>,
+    pub start_at: Option<i64>,
+    pub timezone: Option<String>,
+    pub target_profile_ids: Vec<String>,
+    pub runtime_input: Option<serde_json::Map<String, serde_json::Value>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateRpaTaskRequest {
+    pub flow_id: String,
+    pub name: String,
+    pub run_type: RpaTaskRunType,
+    pub execution_mode: RpaExecutionMode,
+    pub concurrency_limit: Option<u32>,
+    pub cron_expr: Option<String>,
+    pub start_at: Option<i64>,
+    pub timezone: Option<String>,
+    pub target_profile_ids: Vec<String>,
+    pub runtime_input: Option<serde_json::Map<String, serde_json::Value>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToggleRpaTaskEnabledRequest {
+    pub task_id: String,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunRpaTaskRequest {
+    pub task_id: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct RunRpaFlowRequest {
@@ -739,6 +827,9 @@ pub struct RunRpaFlowRequest {
     pub target_profile_ids: Vec<String>,
     pub concurrency_limit: Option<u32>,
     pub runtime_input: serde_json::Map<String, serde_json::Value>,
+    pub trigger_source: Option<String>,
+    pub task_id: Option<String>,
+    pub task_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -753,12 +844,25 @@ pub struct ResumeRpaInstanceRequest {
     pub instance_id: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ListRpaRunsRequest {
+    pub limit: Option<u64>,
+    pub task_id: Option<String>,
+    pub status: Option<RpaRunStatus>,
+    pub trigger_source: Option<String>,
+    pub created_from: Option<i64>,
+    pub created_to: Option<i64>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RpaRun {
     pub id: String,
     pub flow_id: String,
     pub flow_name: String,
+    pub task_id: Option<String>,
+    pub task_name: Option<String>,
     pub trigger_source: String,
     pub status: RpaRunStatus,
     pub total_instances: usize,

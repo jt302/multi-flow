@@ -14,7 +14,7 @@ import {
 	buildRpaEditorRoute,
 	RPA_FLOWS_UPDATED_EVENT,
 } from '@/features/rpa/model/rpa-editor-window';
-import { SETTINGS_RECYCLE_BIN_PATH } from '@/app/workspace-routes';
+import { RPA_PATHS, SETTINGS_RECYCLE_BIN_PATH } from '@/app/workspace-routes';
 
 function formatTs(ts?: number | null) {
 	if (!ts) {
@@ -60,12 +60,18 @@ export function RpaPage() {
 			<PageHeader
 				label="rpa"
 				title="RPA 流程列表"
-				description="流程编辑与运行调试在独立窗口进行"
+				description="流程编辑在独立窗口进行，正式运行与记录请在任务管理/运行记录页面查看"
 				actions={(
 					<>
 						<Button type="button" onClick={() => void handleOpenEditor()}>
 							<Plus data-icon="inline-start" />
 							新建流程
+						</Button>
+						<Button type="button" variant="outline" onClick={() => navigate(RPA_PATHS.tasks)}>
+							任务管理
+						</Button>
+						<Button type="button" variant="outline" onClick={() => navigate(RPA_PATHS.runs)}>
+							运行记录
 						</Button>
 						<Button type="button" variant="outline" onClick={() => navigate(SETTINGS_RECYCLE_BIN_PATH)}>
 							<Archive data-icon="inline-start" />
@@ -77,7 +83,7 @@ export function RpaPage() {
 
 			<DataSection
 				title="流程清单"
-				description="点击“继续编辑”会拉起独立窗口，任务运行与节点编排都在窗口内完成"
+				description="点击“继续编辑”会拉起独立窗口，仅用于流程设计与临时调试"
 				actions={<Badge variant="secondary">{flows.length}</Badge>}
 			>
 				{flows.length === 0 ? (

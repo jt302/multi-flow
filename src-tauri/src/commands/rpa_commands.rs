@@ -2,14 +2,17 @@ use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder
 
 use crate::logger;
 use crate::models::{
-    CancelRpaRunRequest, CreateRpaFlowRequest, ResumeRpaInstanceRequest, RpaFlow, RpaRun,
-    RpaRunDetails, RpaRunStep, RunRpaFlowRequest, UpdateRpaFlowRequest,
+    CancelRpaRunRequest, CreateRpaFlowRequest, CreateRpaTaskRequest, ListRpaRunsRequest,
+    ResumeRpaInstanceRequest, RpaFlow, RpaRun, RpaRunDetails, RpaRunStep, RpaTask,
+    RunRpaFlowRequest, RunRpaTaskRequest, ToggleRpaTaskEnabledRequest, UpdateRpaFlowRequest,
+    UpdateRpaTaskRequest,
 };
 use crate::services::rpa_runtime_service::RpaRuntimeService;
 use crate::state::AppState;
 
 const RPA_EDITOR_LABEL: &str = "rpa-flow-editor";
 const RPA_FLOWS_UPDATED_EVENT: &str = "rpa:flows-updated";
+const RPA_TASKS_UPDATED_EVENT: &str = "rpa:tasks-updated";
 
 #[tauri::command]
 pub fn create_rpa_flow(
@@ -147,8 +150,17 @@ pub fn run_rpa_flow(
             .rpa_run_service
             .lock()
             .map_err(|_| "rpa run service lock poisoned".to_string())?;
+        let mut run_payload = payload.clone();
+        if run_payload
+            .trigger_source
+            .as_deref()
+            .map(|value| value.trim().is_empty())
+            .unwrap_or(true)
+        {
+            run_payload.trigger_source = Some("debug_manual".to_string());
+        }
         run_service
-            .create_run(&flow, payload.clone())
+            .create_run(&flow, run_payload)
             .map_err(error_to_string)?
     };
     {
@@ -165,15 +177,181 @@ pub fn run_rpa_flow(
 }
 
 #[tauri::command]
+pub fn create_rpa_task(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    payload: CreateRpaTaskRequest,
+) -> Result<RpaTask, String> {
+    let service = state
+        .rpa_task_service
+        .lock()
+        .map_err(|_| "rpa task service lock poisoned".to_string())?;
+    let task = service.create_task(payload).map_err(error_to_string)?;
+    let _ = app.emit(RPA_TASKS_UPDATED_EVENT, &task);
+    Ok(task)
+}
+
+#[tauri::command]
+pub fn update_rpa_task(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    task_id: String,
+    payload: UpdateRpaTaskRequest,
+) -> Result<RpaTask, String> {
+    let service = state
+        .rpa_task_service
+        .lock()
+        .map_err(|_| "rpa task service lock poisoned".to_string())?;
+    let task = service
+        .update_task(&task_id, payload)
+        .map_err(error_to_string)?;
+    let _ = app.emit(RPA_TASKS_UPDATED_EVENT, &task);
+    Ok(task)
+}
+
+#[tauri::command]
+pub fn list_rpa_tasks(
+    state: State<'_, AppState>,
+    include_deleted: Option<bool>,
+) -> Result<Vec<RpaTask>, String> {
+    let service = state
+        .rpa_task_service
+        .lock()
+        .map_err(|_| "rpa task service lock poisoned".to_string())?;
+    service
+        .list_tasks(include_deleted.unwrap_or(false))
+        .map_err(error_to_string)
+}
+
+#[tauri::command]
+pub fn get_rpa_task(
+    state: State<'_, AppState>,
+    task_id: String,
+) -> Result<Option<RpaTask>, String> {
+    let service = state
+        .rpa_task_service
+        .lock()
+        .map_err(|_| "rpa task service lock poisoned".to_string())?;
+    service.get_task(&task_id).map_err(error_to_string)
+}
+
+#[tauri::command]
+pub fn delete_rpa_task(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    task_id: String,
+) -> Result<RpaTask, String> {
+    let service = state
+        .rpa_task_service
+        .lock()
+        .map_err(|_| "rpa task service lock poisoned".to_string())?;
+    let task = service.delete_task(&task_id).map_err(error_to_string)?;
+    let _ = app.emit(RPA_TASKS_UPDATED_EVENT, &task);
+    Ok(task)
+}
+
+#[tauri::command]
+pub fn toggle_rpa_task_enabled(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    payload: ToggleRpaTaskEnabledRequest,
+) -> Result<RpaTask, String> {
+    let service = state
+        .rpa_task_service
+        .lock()
+        .map_err(|_| "rpa task service lock poisoned".to_string())?;
+    let task = service
+        .toggle_enabled(&payload.task_id, payload.enabled)
+        .map_err(error_to_string)?;
+    let _ = app.emit(RPA_TASKS_UPDATED_EVENT, &task);
+    Ok(task)
+}
+
+#[tauri::command]
+pub fn run_rpa_task(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    payload: RunRpaTaskRequest,
+) -> Result<RpaRun, String> {
+    let (task, run_payload) = {
+        let task_service = state
+            .rpa_task_service
+            .lock()
+            .map_err(|_| "rpa task service lock poisoned".to_string())?;
+        task_service
+            .build_run_request(&payload.task_id)
+            .map_err(error_to_string)?
+    };
+
+    let flow = {
+        let flow_service = state
+            .rpa_flow_service
+            .lock()
+            .map_err(|_| "rpa flow service lock poisoned".to_string())?;
+        flow_service
+            .get_flow(&task.flow_id)
+            .map_err(error_to_string)?
+            .ok_or_else(|| format!("not found: rpa flow not found: {}", task.flow_id))?
+    };
+
+    let run = {
+        let run_service = state
+            .rpa_run_service
+            .lock()
+            .map_err(|_| "rpa run service lock poisoned".to_string())?;
+        run_service
+            .create_run(&flow, run_payload)
+            .map_err(error_to_string)?
+    };
+
+    {
+        let flow_service = state
+            .rpa_flow_service
+            .lock()
+            .map_err(|_| "rpa flow service lock poisoned".to_string())?;
+        flow_service
+            .touch_last_run(&flow.id, crate::models::now_ts())
+            .map_err(error_to_string)?;
+    }
+    {
+        let task_service = state
+            .rpa_task_service
+            .lock()
+            .map_err(|_| "rpa task service lock poisoned".to_string())?;
+        let updated = task_service
+            .touch_after_run(&task.id, crate::models::now_ts())
+            .map_err(error_to_string)?;
+        let _ = app.emit(RPA_TASKS_UPDATED_EVENT, &updated);
+    }
+
+    RpaRuntimeService::spawn_run(app, run.id.clone());
+    Ok(run)
+}
+
+#[tauri::command]
 pub fn list_rpa_runs(
     state: State<'_, AppState>,
     limit: Option<u64>,
+    task_id: Option<String>,
+    status: Option<crate::models::RpaRunStatus>,
+    trigger_source: Option<String>,
+    created_from: Option<i64>,
+    created_to: Option<i64>,
 ) -> Result<Vec<RpaRun>, String> {
     let service = state
         .rpa_run_service
         .lock()
         .map_err(|_| "rpa run service lock poisoned".to_string())?;
-    service.list_runs(limit).map_err(error_to_string)
+    service
+        .list_runs(ListRpaRunsRequest {
+            limit,
+            task_id,
+            status,
+            trigger_source,
+            created_from,
+            created_to,
+        })
+        .map_err(error_to_string)
 }
 
 #[tauri::command]
