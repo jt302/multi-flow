@@ -6,6 +6,8 @@ import {
 	parseVariablesText,
 	rpaFlowMetaSchema,
 	rpaNodeConfigSchema,
+	resolveNodeConfigGuide,
+	validateNodeConfigForKind,
 } from './rpa-editor.ts';
 
 test('rpa flow meta schema accepts bounded concurrency', () => {
@@ -40,4 +42,17 @@ test('parseNodeConfigText parses object payload', () => {
 	assert.deepEqual(parseNodeConfigText('{"url":"https://example.com"}'), {
 		url: 'https://example.com',
 	});
+});
+
+test('resolveNodeConfigGuide returns field hints for known kind', () => {
+	const guide = resolveNodeConfigGuide('wait_for_selector');
+	assert.equal(guide.kind, 'wait_for_selector');
+	assert.equal(guide.fields.length > 0, true);
+	assert.equal(guide.fields[0].key, 'selector');
+});
+
+test('validateNodeConfigForKind detects missing required fields', () => {
+	const errors = validateNodeConfigForKind('input_text', { selector: '#email' });
+	assert.equal(errors.length > 0, true);
+	assert.match(errors[0], /缺少必填字段/);
 });

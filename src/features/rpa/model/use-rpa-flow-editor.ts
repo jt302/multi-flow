@@ -41,9 +41,11 @@ import {
 import {
 	parseNodeConfigText,
 	parseVariablesText,
+	resolveNodeConfigGuide,
 	rpaFlowMetaSchema,
 	rpaNodeConfigSchema,
 	stringifyVariables,
+	validateNodeConfigForKind,
 } from '@/features/rpa/model/rpa-editor';
 import { queryKeys } from '@/shared/config/query-keys';
 
@@ -224,6 +226,13 @@ export function useRpaFlowEditor() {
 	const runs = runsQuery.data ?? [];
 	const selectedFlow = requestedFlowId ? flows.find((item) => item.id === requestedFlowId) ?? null : null;
 	const selectedNode = nodes.find((item) => item.id === selectedNodeId) ?? null;
+	const selectedNodeConfigGuide = useMemo(
+		() =>
+			resolveNodeConfigGuide(
+				String((selectedNode?.data as { kind?: string })?.kind ?? ''),
+			),
+		[selectedNode],
+	);
 	const selectedRun = runDetailsQuery.data?.run ?? runs.find((item) => item.id === selectedRunId) ?? null;
 	const selectedInstance =
 		runDetailsQuery.data?.instances.find((item) => item.id === selectedInstanceId) ?? null;
@@ -475,6 +484,16 @@ export function useRpaFlowEditor() {
 			return;
 		}
 		const nextConfig = parseNodeConfigText(values.configText);
+		const nodeKind = String((selectedNode.data as { kind?: string })?.kind ?? '');
+		const fieldErrors = validateNodeConfigForKind(nodeKind, nextConfig);
+		if (fieldErrors.length > 0) {
+			nodeConfigForm.setError('configText', {
+				type: 'manual',
+				message: fieldErrors[0],
+			});
+			return;
+		}
+		nodeConfigForm.clearErrors('configText');
 		setNodes((current) =>
 			current.map((item) =>
 				item.id === selectedNode.id
@@ -512,6 +531,7 @@ export function useRpaFlowEditor() {
 		setActivePanel,
 		selectedFlow,
 		selectedNode,
+		selectedNodeConfigGuide,
 		selectedRun,
 		selectedInstance,
 		leaveDialogOpen,

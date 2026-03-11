@@ -166,6 +166,11 @@ export function RpaFlowCanvasPanel({ editor }: RpaFlowCanvasPanelProps) {
 					</div>
 					{editor.selectedNode ? (
 						<form className="space-y-3" onSubmit={editor.handleApplyNodeConfig}>
+							{(() => {
+								const configGuide = editor.selectedNodeConfigGuide;
+								const templateText = JSON.stringify(configGuide.template, null, 2);
+								return (
+									<>
 							<div className="rounded-xl border border-border/60 bg-card/70 p-3">
 								<p className="text-sm font-medium">
 									{(editor.selectedNode.data as { label?: string })?.label ?? editor.selectedNode.id}
@@ -173,8 +178,76 @@ export function RpaFlowCanvasPanel({ editor }: RpaFlowCanvasPanelProps) {
 								<p className="mt-1 text-xs text-muted-foreground">
 									类型：{(editor.selectedNode.data as { kind?: string })?.kind}
 								</p>
+								<p className="mt-1 text-xs text-muted-foreground">{configGuide.summary}</p>
 							</div>
-							<Textarea rows={14} {...editor.nodeConfigForm.register('configText')} />
+
+							<div className="rounded-xl border border-border/60 bg-background/65 p-3">
+								<div className="flex items-center justify-between">
+									<p className="text-xs font-medium text-muted-foreground">字段提示</p>
+									<Button
+										type="button"
+										size="sm"
+										variant="outline"
+										className="cursor-pointer"
+										onClick={() => {
+											editor.nodeConfigForm.setValue('configText', templateText, {
+												shouldDirty: true,
+												shouldTouch: true,
+												shouldValidate: true,
+											});
+										}}
+									>
+										填充模板
+									</Button>
+								</div>
+								{configGuide.fields.length > 0 ? (
+									<div className="mt-2 space-y-2">
+										{configGuide.fields.map((field) => (
+											<div
+												key={`${configGuide.kind}-${field.key}`}
+												className="rounded-lg border border-border/60 p-2"
+											>
+												<div className="flex items-center gap-2">
+													<code className="text-xs">{field.key}</code>
+													<Badge variant="secondary" className="text-[10px] uppercase">
+														{field.type}
+													</Badge>
+													{field.required ? (
+														<Badge variant="destructive" className="text-[10px]">
+															必填
+														</Badge>
+													) : (
+														<Badge variant="outline" className="text-[10px]">
+															可选
+														</Badge>
+													)}
+												</div>
+												<p className="mt-1 text-xs text-muted-foreground">{field.description}</p>
+												{field.options && field.options.length > 0 ? (
+													<p className="mt-1 text-xs text-muted-foreground">
+														可选值：{field.options.join(' / ')}
+													</p>
+												) : null}
+												{field.example !== undefined ? (
+													<p className="mt-1 text-xs text-muted-foreground">
+														示例值：<code>{String(field.example)}</code>
+													</p>
+												) : null}
+											</div>
+										))}
+									</div>
+								) : (
+									<p className="mt-2 text-xs text-muted-foreground">
+										当前节点无需配置字段，可直接保留空对象 <code>{'{}'}</code>。
+									</p>
+								)}
+							</div>
+
+							<Textarea
+								rows={14}
+								placeholder={`请输入 JSON 对象，例如：\n${templateText || '{}'}`}
+								{...editor.nodeConfigForm.register('configText')}
+							/>
 							{editor.nodeConfigForm.formState.errors.configText ? (
 								<p className="text-xs text-destructive">
 									{editor.nodeConfigForm.formState.errors.configText.message}
@@ -183,6 +256,9 @@ export function RpaFlowCanvasPanel({ editor }: RpaFlowCanvasPanelProps) {
 							<Button type="submit" className="w-full cursor-pointer">
 								应用节点配置
 							</Button>
+									</>
+								);
+							})()}
 						</form>
 					) : (
 						<div className="rounded-xl border border-dashed border-border/60 p-4 text-sm text-muted-foreground">
