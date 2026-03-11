@@ -15,6 +15,7 @@ import {
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
+	useSidebar,
 } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { WORKSPACE_NAV_ITEMS } from '@/app/model/workspace-nav-items';
@@ -33,18 +34,29 @@ export function WorkspaceSidebar({
 	isRunning,
 	onToggleRunning,
 }: WorkspaceSidebarProps) {
+	const { state } = useSidebar();
+	const collapsed = state === 'collapsed';
+
 	return (
 		<>
-			<SidebarHeader className="p-3 pb-2">
-				<div className="flex items-center gap-3 rounded-2xl border border-sidebar-border/65 bg-sidebar-accent/55 p-2.5">
-					<div className="grid size-9 place-items-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
-						<Cpu className="size-4" />
+			<SidebarHeader className={cn('p-3 pb-2', collapsed && 'px-0 pt-2 pb-1')}>
+				{collapsed ? (
+					<div className="mx-auto grid size-11 shrink-0 place-items-center rounded-2xl border border-sidebar-border/65 bg-sidebar-accent/55">
+						<div className="grid size-8 shrink-0 place-items-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
+							<Cpu className="size-3.5" />
+						</div>
 					</div>
-					<div className="min-w-0">
-						<p className="text-[10px] uppercase tracking-[0.2em] text-sidebar-foreground/65">multi-flow</p>
-						<p className="truncate text-base font-semibold leading-none">Workspace</p>
+				) : (
+					<div className="flex items-center gap-3 rounded-2xl border border-sidebar-border/65 bg-sidebar-accent/55 p-2.5">
+						<div className="grid size-9 place-items-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
+							<Cpu className="size-4" />
+						</div>
+						<div className="min-w-0">
+							<p className="text-[10px] uppercase tracking-[0.2em] text-sidebar-foreground/65">multi-flow</p>
+							<p className="truncate text-base font-semibold leading-none">Workspace</p>
+						</div>
 					</div>
-				</div>
+				)}
 			</SidebarHeader>
 
 			<SidebarContent className="px-2 pb-2">
@@ -63,10 +75,12 @@ export function WorkspaceSidebar({
 											type="button"
 											variant={active ? 'outline' : 'default'}
 											isActive={active}
+											aria-label={item.label}
 											onClick={() => onNavChange(item.id)}
 											tooltip={item.label}
 											className={cn(
 												'h-10 rounded-xl px-2.5',
+												collapsed && 'h-8 justify-center px-0',
 												active
 													? 'border-primary/35 bg-primary/12 shadow-sm'
 													: 'border border-transparent hover:bg-sidebar-accent/80',
@@ -74,15 +88,20 @@ export function WorkspaceSidebar({
 										>
 											<span
 												className={cn(
-													'grid size-7 place-items-center rounded-lg',
-													active
+													'grid place-items-center',
+													collapsed
+														? active
+															? 'size-5 text-primary'
+															: 'size-5 text-sidebar-foreground/70'
+														: active
 														? 'bg-primary/20 text-primary'
-														: 'bg-sidebar-accent/65 text-sidebar-foreground/70',
+														: 'rounded-lg bg-sidebar-accent/65 text-sidebar-foreground/70',
+													!collapsed && 'size-7 rounded-lg',
 												)}
 											>
 												<ItemIcon className="size-3.5" />
 											</span>
-											<span>{item.label}</span>
+											{collapsed ? null : <span>{item.label}</span>}
 										</SidebarMenuButton>
 									</SidebarMenuItem>
 								);
@@ -92,22 +111,37 @@ export function WorkspaceSidebar({
 				</SidebarGroup>
 			</SidebarContent>
 
-			<SidebarFooter className="p-3 pt-1">
-				<Card className="border-sidebar-border/60 bg-sidebar-accent/45">
-					<CardHeader className="p-3 pb-1.5">
-						<p className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/65">RPA 状态</p>
-					</CardHeader>
-					<CardContent className="flex flex-col gap-2 p-3 pt-0">
-						<div className="flex items-center justify-between text-xs">
-							<span>执行引擎</span>
-							<Badge variant={isRunning ? 'default' : 'secondary'}>{isRunning ? '活跃' : '暂停'}</Badge>
-						</div>
-						<Button type="button" variant="secondary" size="sm" onClick={onToggleRunning}>
-							{isRunning ? <RefreshCcw data-icon="inline-start" /> : <Play data-icon="inline-start" />}
-							{isRunning ? '暂停执行引擎' : '恢复执行引擎'}
+			<SidebarFooter className={cn('p-3 pt-1', collapsed && 'p-2 pt-1')}>
+				{collapsed ? (
+					<div className="flex justify-center">
+						<Button
+							type="button"
+							variant={isRunning ? 'default' : 'secondary'}
+							size="icon-sm"
+							aria-label={isRunning ? '暂停执行引擎' : '恢复执行引擎'}
+							title={isRunning ? '暂停执行引擎' : '恢复执行引擎'}
+							onClick={onToggleRunning}
+						>
+							{isRunning ? <RefreshCcw /> : <Play />}
 						</Button>
-					</CardContent>
-				</Card>
+					</div>
+				) : (
+					<Card className="border-sidebar-border/60 bg-sidebar-accent/45">
+						<CardHeader className="p-3 pb-1.5">
+							<p className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/65">RPA 状态</p>
+						</CardHeader>
+						<CardContent className="flex flex-col gap-2 p-3 pt-0">
+							<div className="flex items-center justify-between text-xs">
+								<span>执行引擎</span>
+								<Badge variant={isRunning ? 'default' : 'secondary'}>{isRunning ? '活跃' : '暂停'}</Badge>
+							</div>
+							<Button type="button" variant="secondary" size="sm" onClick={onToggleRunning}>
+								{isRunning ? <RefreshCcw data-icon="inline-start" /> : <Play data-icon="inline-start" />}
+								{isRunning ? '暂停执行引擎' : '恢复执行引擎'}
+							</Button>
+						</CardContent>
+					</Card>
+				)}
 			</SidebarFooter>
 		</>
 	);

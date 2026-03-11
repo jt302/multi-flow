@@ -19,6 +19,11 @@ import type {
 	WorkspaceOutletContext,
 } from '@/app/model/workspace-types';
 import { useWorkspaceNavigationStore } from '@/store/workspace-navigation-store';
+import {
+	persistSidebarOpen,
+	resolveInitialSidebarOpen,
+	SIDEBAR_STORAGE_KEY,
+} from './workspace-sidebar-state';
 import { WorkspaceSidebar } from './workspace-sidebar';
 import { WorkspaceTopbar } from './workspace-topbar';
 
@@ -32,6 +37,15 @@ export function WorkspaceLayout() {
 	const activeNav = resolveActiveNav(location.pathname);
 	const themeState = useThemeSettings();
 	const [isRunning, setIsRunning] = useState(true);
+	const [sidebarOpen, setSidebarOpen] = useState(() =>
+		resolveInitialSidebarOpen({
+			cookieText: typeof document === 'undefined' ? '' : document.cookie,
+			storageValue:
+				typeof window === 'undefined'
+					? null
+					: window.localStorage.getItem(SIDEBAR_STORAGE_KEY),
+		}),
+	);
 	const profileNavigationIntent = useWorkspaceNavigationStore(
 		(state) => state.profileNavigationIntent,
 	);
@@ -86,6 +100,11 @@ export function WorkspaceLayout() {
 
 	return (
 		<SidebarProvider
+			open={sidebarOpen}
+			onOpenChange={(open) => {
+				setSidebarOpen(open);
+				persistSidebarOpen(open);
+			}}
 			style={
 				{
 					'--sidebar-width': '15rem',
