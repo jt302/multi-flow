@@ -1193,86 +1193,13 @@ impl EngineManager {
         let magic_port = self.next_magic_port;
         self.next_magic_port = self.next_magic_port.saturating_add(1);
 
-        let mut args = vec![
-            format!("--user-data-dir={}", user_data_dir.to_string_lossy()),
-            format!("--disk-cache-dir={}", cache_data_dir.to_string_lossy()),
-            format!("--remote-debugging-port={debug_port}"),
-            format!("--magic-socket-server-port={magic_port}"),
-            "--no-first-run".to_string(),
-            "--no-default-browser-check".to_string(),
-        ];
-        if let Some(language) = options
-            .language
-            .as_ref()
-            .and_then(|value| trim_to_option(value))
-        {
-            args.push(format!("--lang={language}"));
-        }
-        if let Some(user_agent) = options
-            .user_agent
-            .as_ref()
-            .and_then(|value| trim_to_option(value))
-        {
-            args.push(format!("--user-agent={user_agent}"));
-        }
-        if let Some(proxy_server) = options
-            .proxy_server
-            .as_ref()
-            .and_then(|value| trim_to_option(value))
-        {
-            args.push(format!("--proxy-server={proxy_server}"));
-        }
-        if let Some(policy) = options
-            .web_rtc_policy
-            .as_ref()
-            .and_then(|value| trim_to_option(value))
-        {
-            args.push(format!("--force-webrtc-ip-handling-policy={policy}"));
-        }
-        if let Some(geoip_path) = options.geoip_database_path.as_ref() {
-            if geoip_path.is_file() {
-                args.push(format!("--geoip-database={}", geoip_path.to_string_lossy()));
-            }
-        }
-        if options.headless {
-            args.push("--headless=new".to_string());
-        }
-        if options.disable_images {
-            args.push("--blink-settings=imagesEnabled=false".to_string());
-        }
-        if let Some(toolbar_text) = options
-            .toolbar_text
-            .as_ref()
-            .and_then(|value| trim_to_option(value))
-        {
-            args.push(format!("--toolbar-text={toolbar_text}"));
-        }
-        if let Some(custom_cpu_cores) = options.custom_cpu_cores {
-            args.push(format!("--custom-cpu-cores={custom_cpu_cores}"));
-        }
-        if let Some(custom_ram_gb) = options.custom_ram_gb {
-            args.push(format!("--custom-ram-gb={custom_ram_gb}"));
-        }
-        if let Some(custom_font_list) = options.custom_font_list.as_ref() {
-            let joined = custom_font_list
-                .iter()
-                .filter_map(|value| trim_to_option(value))
-                .collect::<Vec<_>>()
-                .join(",");
-            if !joined.is_empty() {
-                args.push(format!("--custom-font-list={joined}"));
-            }
-        }
-        for extra in &options.extra_args {
-            if let Some(arg) = trim_to_option(extra) {
-                args.push(arg);
-            }
-        }
-        for startup_url in &options.startup_urls {
-            if let Some(value) = trim_to_option(startup_url) {
-                args.push(value);
-            }
-        }
+        let args = build_chromium_launch_args(
+            &user_data_dir,
+            &cache_data_dir,
+            debug_port,
+            magic_port,
+            options,
+        )?;
 
         let timezone = options
             .timezone_id
@@ -1322,6 +1249,104 @@ impl EngineManager {
             .get_mut(profile_id)
             .ok_or_else(|| AppError::NotFound(format!("running session not found: {profile_id}")))
     }
+}
+
+fn build_chromium_launch_args(
+    user_data_dir: &std::path::Path,
+    cache_data_dir: &std::path::Path,
+    debug_port: u16,
+    magic_port: u16,
+    options: &EngineLaunchOptions,
+) -> AppResult<Vec<String>> {
+    let mut args = vec![
+        format!("--user-data-dir={}", user_data_dir.to_string_lossy()),
+        format!("--disk-cache-dir={}", cache_data_dir.to_string_lossy()),
+        format!("--remote-debugging-port={debug_port}"),
+        format!("--magic-socket-server-port={magic_port}"),
+        "--no-first-run".to_string(),
+        "--no-default-browser-check".to_string(),
+    ];
+    if let Some(language) = options
+        .language
+        .as_ref()
+        .and_then(|value| trim_to_option(value))
+    {
+        args.push(format!("--lang={language}"));
+    }
+    if let Some(user_agent) = options
+        .user_agent
+        .as_ref()
+        .and_then(|value| trim_to_option(value))
+    {
+        args.push(format!("--user-agent={user_agent}"));
+    }
+    if let Some(proxy_server) = options
+        .proxy_server
+        .as_ref()
+        .and_then(|value| trim_to_option(value))
+    {
+        args.push(format!("--proxy-server={proxy_server}"));
+    }
+    if let Some(policy) = options
+        .web_rtc_policy
+        .as_ref()
+        .and_then(|value| trim_to_option(value))
+    {
+        args.push(format!("--force-webrtc-ip-handling-policy={policy}"));
+    }
+    if let Some(geoip_path) = options.geoip_database_path.as_ref() {
+        if geoip_path.is_file() {
+            args.push(format!("--geoip-database={}", geoip_path.to_string_lossy()));
+        }
+    }
+    if options.headless {
+        args.push("--headless=new".to_string());
+    }
+    if options.disable_images {
+        args.push("--blink-settings=imagesEnabled=false".to_string());
+    }
+    if let Some(toolbar_text) = options
+        .toolbar_text
+        .as_ref()
+        .and_then(|value| trim_to_option(value))
+    {
+        args.push(format!("--toolbar-text={toolbar_text}"));
+    }
+    if let Some(color) = options
+        .background_color
+        .as_ref()
+        .and_then(|value| trim_to_option(value))
+    {
+        let _ = parse_hex_rgb(&color)?;
+        args.push(format!("--custom-bg-color={}", color.to_uppercase()));
+    }
+    if let Some(custom_cpu_cores) = options.custom_cpu_cores {
+        args.push(format!("--custom-cpu-cores={custom_cpu_cores}"));
+    }
+    if let Some(custom_ram_gb) = options.custom_ram_gb {
+        args.push(format!("--custom-ram-gb={custom_ram_gb}"));
+    }
+    if let Some(custom_font_list) = options.custom_font_list.as_ref() {
+        let joined = custom_font_list
+            .iter()
+            .filter_map(|value| trim_to_option(value))
+            .collect::<Vec<_>>()
+            .join(",");
+        if !joined.is_empty() {
+            args.push(format!("--custom-font-list={joined}"));
+        }
+    }
+    for extra in &options.extra_args {
+        if let Some(arg) = trim_to_option(extra) {
+            args.push(arg);
+        }
+    }
+    for startup_url in &options.startup_urls {
+        if let Some(value) = trim_to_option(startup_url) {
+            args.push(value);
+        }
+    }
+    Ok(args)
 }
 
 struct MagicHttpResponse {
@@ -1644,6 +1669,7 @@ fn profile_window_state(profile_id: &str, record: &SessionRecord) -> ProfileWind
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn mock_mode_open_close_works() {
@@ -1725,5 +1751,44 @@ mod tests {
         assert!(invalid_url
             .to_string()
             .contains("url is not a valid http/https URL"));
+    }
+
+    #[test]
+    fn build_chromium_launch_args_adds_custom_bg_color_when_configured() {
+        let options = EngineLaunchOptions {
+            background_color: Some(" #0f8a73 ".to_string()),
+            ..Default::default()
+        };
+        let args = build_chromium_launch_args(
+            &PathBuf::from("/tmp/multi-flow-tests/user-data"),
+            &PathBuf::from("/tmp/multi-flow-tests/cache-data"),
+            19222,
+            19322,
+            &options,
+        )
+        .expect("build args");
+
+        assert!(
+            args.iter().any(|arg| arg == "--custom-bg-color=#0F8A73"),
+            "expected --custom-bg-color in args: {args:?}"
+        );
+    }
+
+    #[test]
+    fn build_chromium_launch_args_skips_custom_bg_color_when_not_set() {
+        let options = EngineLaunchOptions::default();
+        let args = build_chromium_launch_args(
+            &PathBuf::from("/tmp/multi-flow-tests/user-data"),
+            &PathBuf::from("/tmp/multi-flow-tests/cache-data"),
+            19222,
+            19322,
+            &options,
+        )
+        .expect("build args");
+
+        assert!(
+            !args.iter().any(|arg| arg.starts_with("--custom-bg-color=")),
+            "custom-bg-color should be absent when not configured: {args:?}"
+        );
     }
 }

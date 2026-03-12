@@ -26,6 +26,7 @@
 - `--custom-cpu-cores`
 - `--custom-ram-gb`
 - `--custom-font-list`
+- `--custom-bg-color`（可选，仅在环境配置了背景色时注入）
 - `--window-size`
 - `--force-device-scale-factor`
 - 移动端：
@@ -48,6 +49,17 @@
   - `--custom-main-language`
   - `--custom-time-zone`
 - 地理位置仍沿用最近一次代理检测得到的经纬度；本轮未新增代理级 geolocation 自定义模式
+
+## 环境背景色启动参数（2026-03-12）
+
+- 新增 Chromium 启动参数：`--custom-bg-color=#RRGGBB`
+- 注入规则：
+  - 环境配置 `basic.browserBgColor` 有值时才传递
+  - 未配置时不传该参数
+- 运行时修改：
+  - 通过 `update_profile_visual` 修改背景色时会同步持久化到环境设置
+  - 如果环境当前正在运行，会立即通过 magic 命令 `set_bg_color` 生效
+  - 下次启动时会读取已保存的背景色并传入 `--custom-bg-color`
 
 ## 指纹模板目录（当前默认 seed 到数据库）
 
@@ -701,21 +713,24 @@ chromium 中的 magic_controller 模块
     1. Arial,Verdana,Tahoma,Microsoft YaHei
 
 12. --toolbar-text
-    1. 地址栏和刷新按钮中间的区域可以显示自定义文字(工具栏文本) 以标识不同浏览器实例
+   1. 地址栏和刷新按钮中间的区域可以显示自定义文字(工具栏文本) 以标识不同浏览器实例
 
-13. --magic-socket-server-port
+13. --custom-bg-color
+   1. 启动时设置窗口背景色，格式 `#RRGGBB`
+
+14. --magic-socket-server-port
     1. 浏览器内部用于接收命令的socket 和 http 服务器端口 上面的修改或获取信息的接口就是从这里进入
 
-14. --custom-main-language
+15. --custom-main-language
     1. 自定义主语言
 
-15. custom-languages
+16. custom-languages
     1. 自定义语言
 
-16. --custom-accept-languages
+17. --custom-accept-languages
     1. 自定义接受语言
 
-17. --custom-time-zone
+18. --custom-time-zone
     1. 自定义时区
 
 ### 当前项目默认映射（2026-03-08）
