@@ -214,20 +214,6 @@ pub fn update_profile_visual(
         .profile_service
         .lock()
         .map_err(|_| "profile service lock poisoned".to_string())?;
-    let existing = profile_service
-        .get_profile(&profile_id)
-        .map_err(error_to_string)?;
-    let has_bg_update = payload
-        .browser_bg_color
-        .as_deref()
-        .and_then(trim_str_to_option)
-        .is_some();
-    if has_bg_update && !existing.running {
-        return Err(
-            "validation failed: browser background color can only be changed while profile is running"
-                .to_string(),
-        );
-    }
     let profile = profile_service
         .update_profile_visual(
             &profile_id,
