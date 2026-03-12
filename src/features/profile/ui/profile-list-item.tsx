@@ -319,11 +319,7 @@ export function ProfileListItem({
 										<DropdownMenuSeparator />
 										<DropdownMenuItem
 											className="cursor-pointer"
-											disabled={!item.running}
 											onClick={() => {
-												if (!item.running) {
-													return;
-												}
 												onQuickEditChange({ profileId: item.id, field: 'background' });
 											}}
 										>
@@ -391,7 +387,6 @@ export function ProfileListItem({
 											<Icon icon={Trash2} size={13} />
 											删除环境
 										</DropdownMenuItem>
-										<p className="px-2 py-1 text-[11px] text-muted-foreground">背景色仅支持运行中修改</p>
 									</DropdownMenuContent>
 								</DropdownMenu>
 							</>
@@ -428,9 +423,6 @@ export function ProfileListItem({
 								onCancel={() => onQuickEditChange(null)}
 								onSubmit={async (color) => {
 									await onRunAction(async () => {
-										if (!item.running) {
-											throw new Error('仅运行中的环境支持修改背景色');
-										}
 										await onUpdateProfileVisual(item.id, {
 											browserBgColor: color,
 										});
