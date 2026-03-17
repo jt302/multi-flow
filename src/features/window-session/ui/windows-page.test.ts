@@ -59,3 +59,20 @@ test('windows sync page renders bound sync diagnostics from upstream protocol', 
 	assert.equal(windowsRoute.includes('boundWindowToken'), true);
 	assert.equal(windowsRoute.includes('coordinateMode'), true);
 });
+
+test('windows sync page uses a single stateful sync action button with loading copy', () => {
+	const windowsPage = readFileSync(
+		new URL('./windows-page.tsx', import.meta.url),
+		'utf8',
+	);
+
+	assert.equal(windowsPage.includes('启动同步中'), true);
+	assert.equal(windowsPage.includes('停止同步中'), true);
+	assert.equal(windowsPage.includes('const [syncActionPending, setSyncActionPending] = useState(false);'), true);
+	assert.equal(
+		windowsPage.includes('disabled={syncActionPending || (activeSyncSession ? !activeSyncSession : !startValidation.ok)}'),
+		true,
+	);
+	assert.equal(windowsPage.includes('重启同步'), true);
+	assert.equal(windowsPage.includes('刷新同步状态'), true);
+});
