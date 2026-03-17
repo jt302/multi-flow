@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Focus, Monitor, RefreshCw, Send, Sparkles } from 'lucide-react';
+import { Focus, LoaderCircle, Monitor, RefreshCw, Send, Sparkles } from 'lucide-react';
 import { z } from 'zod/v3';
 
 import { WORKSPACE_SECTIONS } from '@/app/model/workspace-sections';
@@ -113,6 +113,7 @@ export function WindowsPage({
 }: WindowsPageProps) {
 	const section = WORKSPACE_SECTIONS.windows;
 	const [pendingProfileIds, setPendingProfileIds] = useState<Set<string>>(new Set());
+	const [syncActionPending, setSyncActionPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const selectedProfileIds = useWindowSyncStore((state) => state.selectedProfileIds);
 	const masterProfileId = useWindowSyncStore((state) => state.masterProfileId);
@@ -243,6 +244,18 @@ export function WindowsPage({
 		});
 	};
 
+	const runSyncAction = async (action: () => Promise<void>) => {
+		if (syncActionPending) {
+			return;
+		}
+		setSyncActionPending(true);
+		try {
+			await runAction(action);
+		} finally {
+			setSyncActionPending(false);
+		}
+	};
+
 	const startValidation = useMemo(
 		() => getWindowSyncStartValidation(selectedRunningIds, masterProfileId),
 		[masterProfileId, selectedRunningIds],
@@ -322,30 +335,46 @@ export function WindowsPage({
 							type="button"
 							className="cursor-pointer"
 							onClick={() =>
-								void runAction(() => onStartSync(selectedRunningIds, masterProfileId ?? ''))
+								void runSyncAction(() =>
+									activeSyncSession
+										? onStopSync()
+										: onStartSync(selectedRunningIds, masterProfileId ?? ''),
+								)
 							}
-							disabled={!startValidation.ok}
+							disabled={syncActionPending || (activeSyncSession ? !activeSyncSession : !startValidation.ok)}
 						>
-							<Icon icon={Sparkles} size={14} />
-							启动同步
-						</Button>
-						<Button
-							type="button"
-							variant="outline"
-							className="cursor-pointer"
-							onClick={() => void runAction(onStopSync)}
-							disabled={!activeSyncSession}
-						>
-							停止同步
+							<Icon
+								icon={syncActionPending ? LoaderCircle : Sparkles}
+								size={14}
+								className={syncActionPending ? 'animate-spin' : ''}
+							/>
+							{syncActionPending
+								? activeSyncSession
+									? '停止同步中'
+									: '启动同步中'
+								: activeSyncSession
+									? '停止同步'
+									: '启动同步'}
 						</Button>
 						<Button
 							type="button"
 							variant="outline"
 							className="cursor-pointer"
 							onClick={() => void runAction(onRestartSync)}
-							disabled={!activeSyncSession}
+							disabled={syncActionPending || !activeSyncSession}
 						>
 							重启同步
+						</Button>
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							className="cursor-pointer"
+							onClick={() => void runAction(onRefreshWindows)}
+							disabled={syncActionPending}
+						>
+							<Icon icon={RefreshCw} size={12} />
+							刷新同步状态
 						</Button>
 					</div>
 					{startValidation.reason ? (
@@ -424,12 +453,6 @@ export function WindowsPage({
 						})}
 					</div>
 
-					<div className="flex justify-end">
-						<Button type="button" variant="ghost" size="sm" className="cursor-pointer" onClick={() => void runAction(onRefreshWindows)}>
-							<Icon icon={RefreshCw} size={12} />
-							刷新同步状态
-						</Button>
-					</div>
 				</CardContent>
 			</Card>
 
