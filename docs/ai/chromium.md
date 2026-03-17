@@ -5,7 +5,7 @@
 本文档基于当前源码、旧版接入文档 [`chromium-old.md`](/Users/tt/Developer/Personal/chromium/chromium-old.md) 和当前项目接入约定整理而成。
 
 本文档只描述当前代码中已经存在的实际接口和行为，不描述未实现的理想能力。
-
+如果后续把本文档抽取到 skill / 快照包场景，建议把这里引用到的 Chromium 源码路径替换成同目录快照副本，并在文件头注明是否为摘录版。
 ## 1. 总览
 
 这个定制版 Chromium 内置了一套 `Magic Controller` 控制面，提供两类接口：
@@ -871,7 +871,6 @@ WebSocket 主要用于同步功能。
 如果你正在实现 Rust sidecar，建议优先阅读独立整理的同步接入文档：
 
 - [sidecar-integration.md](/Users/tt/Developer/Personal/chromium/sidecar-integration.md)
-
 ### 6.1 客户端请求
 
 #### `sync.subscribe_events`

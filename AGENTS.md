@@ -63,6 +63,7 @@
 - [自研 chromium 项目位置](/Users/tt/Developer/Personal/chromium)
 - [sync-manger 项目位置](/Users/tt/Developer/Personal/Rust/multi-flow-sync-manager)
 - [tauri 日志文件位置](/Users/tt/Library/Application Support/com.tt.multi-flow/logs/backend.log)
+- [sync manager 文档](docs/ai/multi-flow-sync-manager.md)
 
 ## 7. 开发执行建议（简版）
 
