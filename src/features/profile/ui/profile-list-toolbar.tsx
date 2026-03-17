@@ -15,9 +15,11 @@ type ProfileListToolbarProps = {
 	selectableCount: number;
 	stoppedSelectedCount: number;
 	runningSelectedCount: number;
+	stopAllRunningCount: number;
 	batchGroupDialogOpen: boolean;
 	batchClearGroupDialogOpen: boolean;
 	batchGroupTarget: string;
+	stopAllRunningPending: boolean;
 	lastBatchOpenResult: BatchProfileActionResponse | null;
 	profiles: ProfileItem[];
 	onChange: (patch: {
@@ -31,6 +33,7 @@ type ProfileListToolbarProps = {
 	onOpenBatchClearDialog: () => void;
 	onBatchOpen: () => void;
 	onBatchClose: () => void;
+	onStopAllRunning: () => void;
 	onRefresh: () => void;
 	onBatchGroupDialogOpenChange: (open: boolean) => void;
 	onBatchClearDialogOpenChange: (open: boolean) => void;
@@ -51,9 +54,11 @@ export function ProfileListToolbar({
 	selectableCount,
 	stoppedSelectedCount,
 	runningSelectedCount,
+	stopAllRunningCount,
 	batchGroupDialogOpen,
 	batchClearGroupDialogOpen,
 	batchGroupTarget,
+	stopAllRunningPending,
 	lastBatchOpenResult,
 	profiles,
 	onChange,
@@ -62,6 +67,7 @@ export function ProfileListToolbar({
 	onOpenBatchClearDialog,
 	onBatchOpen,
 	onBatchClose,
+	onStopAllRunning,
 	onRefresh,
 	onBatchGroupDialogOpenChange,
 	onBatchClearDialogOpenChange,
@@ -83,11 +89,14 @@ export function ProfileListToolbar({
 				selectableCount={selectableCount}
 				stoppedSelectedCount={stoppedSelectedCount}
 				runningSelectedCount={runningSelectedCount}
+				stopAllRunningCount={stopAllRunningCount}
+				stopAllRunningPending={stopAllRunningPending}
 				onChange={onChange}
 				onOpenBatchGroupDialog={onOpenBatchGroupDialog}
 				onOpenBatchClearDialog={onOpenBatchClearDialog}
 				onBatchOpen={onBatchOpen}
 				onBatchClose={onBatchClose}
+				onStopAllRunning={onStopAllRunning}
 				onRefresh={onRefresh}
 				onCreateClick={onCreateClick}
 			/>
@@ -120,4 +129,3 @@ export function ProfileListToolbar({
 		</>
 	);
 }
-

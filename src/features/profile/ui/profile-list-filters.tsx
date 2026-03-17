@@ -27,9 +27,12 @@ type ProfileListFiltersProps = {
 	selectableCount: number;
 	stoppedSelectedCount: number;
 	runningSelectedCount: number;
+	stopAllRunningCount: number;
+	stopAllRunningPending: boolean;
 	onChange: (patch: Partial<ProfileListFiltersState>) => void;
 	onBatchOpen: () => void;
 	onBatchClose: () => void;
+	onStopAllRunning: () => void;
 	onOpenBatchGroupDialog: () => void;
 	onOpenBatchClearDialog: () => void;
 	onRefresh: () => void;
@@ -46,9 +49,12 @@ export function ProfileListFilters({
 	selectableCount,
 	stoppedSelectedCount,
 	runningSelectedCount,
+	stopAllRunningCount,
+	stopAllRunningPending,
 	onChange,
 	onBatchOpen,
 	onBatchClose,
+	onStopAllRunning,
 	onOpenBatchGroupDialog,
 	onOpenBatchClearDialog,
 	onRefresh,
@@ -169,6 +175,17 @@ export function ProfileListFilters({
 					>
 						<Icon icon={Square} size={12} />
 						批量关闭 {runningSelectedCount > 0 ? `(${runningSelectedCount})` : ''}
+					</Button>
+					<Button
+						type="button"
+						variant="destructive"
+						size="sm"
+						className="cursor-pointer"
+						onClick={onStopAllRunning}
+						disabled={stopAllRunningPending || stopAllRunningCount === 0}
+					>
+						<Icon icon={Square} size={12} />
+						一键停止运行中 {stopAllRunningCount > 0 ? `(${stopAllRunningCount})` : ''}
 					</Button>
 				</div>
 			</div>
