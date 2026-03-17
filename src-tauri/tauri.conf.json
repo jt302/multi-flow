@@ -25,7 +25,8 @@
     "active": true,
     "targets": "all",
     "externalBin": [
-      "binaries/proxy-daemon"
+      "binaries/proxy-daemon",
+      "binaries/sync-manager"
     ],
     "icon": [
       "icons/32x32.png",

@@ -30,5 +30,8 @@ maxminddb = "0.26"
 chromiumoxide = "0.9.1"
 chromiumoxide_cdp = "0.9.1"
 futures-util = "0.3"
+axum = { version = "0.8", features = ["ws"] }
 chrono = "0.4"
 cron = "0.15"
+tokio = { version = "1", features = ["net", "time"] }
+tokio-tungstenite = { version = "0.28", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }

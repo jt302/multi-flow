@@ -1,10 +1,13 @@
 export const queryKeys = {
 	groups: ['groups'] as const,
 	profiles: ['profiles'] as const,
+	profileRuntimeDetails: (profileId: string | null) => ['profile-runtime-details', profileId] as const,
 	proxies: ['proxies'] as const,
 	resources: ['resources'] as const,
 	devicePresets: ['device-presets'] as const,
 	windowStates: ['window-states'] as const,
+	syncTargets: ['sync-targets'] as const,
+	displayMonitors: ['display-monitors'] as const,
 	rpaFlowsRoot: ['rpa-flows'] as const,
 	rpaFlows: (includeDeleted: boolean) => ['rpa-flows', includeDeleted] as const,
 	rpaTasksRoot: ['rpa-tasks'] as const,

@@ -10,6 +10,7 @@ export type BackendLogEvent = {
 	component: string;
 	message: string;
 	profileId: string | null;
+	profileName: string | null;
 	line: string;
 };
 

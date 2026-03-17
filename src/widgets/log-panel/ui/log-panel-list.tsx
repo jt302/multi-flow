@@ -31,6 +31,11 @@ function LogRow({ item }: { item: BackendLogEvent }) {
 						{item.profileId}
 					</span>
 				) : null}
+				{item.profileName ? (
+					<span className="mr-2 rounded bg-secondary px-1.5 py-0.5 text-[11px] text-secondary-foreground">
+						{item.profileName}
+					</span>
+				) : null}
 				<span className="break-words">{item.message}</span>
 			</div>
 		</div>

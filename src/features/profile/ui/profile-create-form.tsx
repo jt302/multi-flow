@@ -43,6 +43,7 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 		mergedPreviewSnapshot,
 		resourceStatusLabel,
 		regenerateFontList,
+		regenerateFingerprintSeed,
 		markProxyFieldManual,
 		restoreProxySuggestedValues,
 		onFormSubmit,
@@ -100,6 +101,7 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 									form={form}
 									webRtcMode={values.webRtcMode}
 									randomFingerprint={values.randomFingerprint}
+									fingerprintSeed={values.fingerprintSeed}
 									availableFontFamiliesCount={fontFamiliesQuery.data?.length ?? 0}
 									languageSource={values.proxySuggestionSource.language}
 									timezoneSource={values.proxySuggestionSource.timezoneId}
@@ -118,6 +120,7 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 											form.setError('customFontListText', { message });
 										});
 									}}
+									onRegenerateFingerprintSeed={regenerateFingerprintSeed}
 								/>
 
 								<ProxySettingsSection

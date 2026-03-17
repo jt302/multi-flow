@@ -284,6 +284,25 @@ pub struct EngineRuntimeHandle {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ProfileRuntimeDetails {
+    pub profile_id: String,
+    pub profile_root_dir: String,
+    pub user_data_dir: String,
+    pub cache_data_dir: String,
+    pub runtime_handle: Option<EngineRuntimeHandle>,
+    pub launch_args: Option<Vec<String>>,
+    pub extra_args: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClearProfileCacheResponse {
+    pub profile_id: String,
+    pub cache_data_dir: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OpenProfileResponse {
     pub profile: Profile,
     pub session: EngineSession,
@@ -418,6 +437,79 @@ pub struct ProfileWindowState {
     pub total_windows: usize,
     pub total_tabs: usize,
     pub windows: Vec<ProfileWindow>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncTargetItem {
+    pub profile_id: String,
+    pub label: String,
+    pub host: String,
+    pub magic_socket_server_port: Option<u16>,
+    pub session_id: u64,
+    pub pid: Option<u32>,
+    pub total_windows: usize,
+    pub total_tabs: usize,
+    pub windows: Vec<ProfileWindow>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListSyncTargetsResponse {
+    pub items: Vec<SyncTargetItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EnsureSyncSidecarStartedResponse {
+    pub port: u16,
+    pub already_running: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BroadcastSyncTextRequest {
+    pub text: String,
+    pub profile_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum WindowArrangeMode {
+    Grid,
+    Cascade,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArrangeProfileWindowsRequest {
+    pub profile_ids: Vec<String>,
+    pub monitor_id: String,
+    pub mode: WindowArrangeMode,
+    pub gap: i32,
+    pub width: i32,
+    pub height: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchSetWindowBoundsRequest {
+    pub profile_ids: Vec<String>,
+    pub bounds: WindowBounds,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DisplayMonitorItem {
+    pub id: String,
+    pub name: String,
+    pub is_primary: bool,
+    pub scale_factor: f64,
+    pub position_x: i32,
+    pub position_y: i32,
+    pub width: u32,
+    pub height: u32,
+    pub work_area: WindowBounds,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

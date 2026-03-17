@@ -1,3 +1,5 @@
+use std::fs;
+
 use tauri::{AppHandle, Emitter, State};
 
 use crate::engine_manager::EngineLaunchOptions;
@@ -7,11 +9,12 @@ use crate::font_catalog;
 use crate::logger;
 use crate::models::{
     BatchProfileActionItem, BatchProfileActionRequest, BatchProfileActionResponse,
-    BatchSetProfileGroupRequest, CreateProfileRequest, FontListMode, GeolocationOverride,
-    ListProfilesQuery, ListProfilesResponse, LocalApiServerStatus, OpenProfileOptions,
-    OpenProfileResponse, Profile, ProfileDevicePreset, ProfileFingerprintSnapshot,
-    ProfileFingerprintSource, ProfileSettings, Proxy, SaveProfileDevicePresetRequest,
-    SetProfileGroupRequest, UpdateProfileVisualRequest, WebRtcMode,
+    BatchSetProfileGroupRequest, ClearProfileCacheResponse, CreateProfileRequest, FontListMode,
+    GeolocationOverride, ListProfilesQuery, ListProfilesResponse, LocalApiServerStatus,
+    OpenProfileOptions, OpenProfileResponse, Profile, ProfileDevicePreset,
+    ProfileFingerprintSnapshot, ProfileFingerprintSource, ProfileRuntimeDetails, ProfileSettings,
+    Proxy, SaveProfileDevicePresetRequest, SetProfileGroupRequest, UpdateProfileVisualRequest,
+    WebRtcMode,
 };
 use crate::runtime_guard;
 use crate::services::device_preset_service::DevicePresetService;
@@ -241,6 +244,56 @@ pub fn update_profile_visual(
 }
 
 #[tauri::command]
+pub fn get_profile_runtime_details(
+    state: State<'_, AppState>,
+    profile_id: String,
+) -> Result<ProfileRuntimeDetails, String> {
+    build_profile_runtime_details(&state, &profile_id)
+}
+
+#[tauri::command]
+pub fn clear_profile_cache(
+    state: State<'_, AppState>,
+    profile_id: String,
+) -> Result<ClearProfileCacheResponse, String> {
+    clear_profile_cache_inner(&state, &profile_id)
+}
+
+fn clear_profile_cache_inner(
+    state: &AppState,
+    profile_id: &str,
+) -> Result<ClearProfileCacheResponse, String> {
+    let profile_service = state
+        .profile_service
+        .lock()
+        .map_err(|_| "profile service lock poisoned".to_string())?;
+    let profile = profile_service
+        .get_profile(profile_id)
+        .map_err(error_to_string)?;
+    if profile.running {
+        return Err("运行中的环境不能清理 cache，请先关闭环境".to_string());
+    }
+    drop(profile_service);
+
+    let (_, _, cache_data_dir) = state
+        .engine_manager
+        .lock()
+        .map_err(|_| "engine manager lock poisoned".to_string())?
+        .profile_data_dirs(profile_id)
+        .map_err(error_to_string)?;
+
+    if cache_data_dir.exists() {
+        fs::remove_dir_all(&cache_data_dir).map_err(|err| err.to_string())?;
+    }
+    fs::create_dir_all(&cache_data_dir).map_err(|err| err.to_string())?;
+
+    Ok(ClearProfileCacheResponse {
+        profile_id: profile_id.to_string(),
+        cache_data_dir: cache_data_dir.to_string_lossy().to_string(),
+    })
+}
+
+#[tauri::command]
 pub fn set_profile_group(
     state: State<'_, AppState>,
     profile_id: String,
@@ -361,12 +414,19 @@ pub fn preview_fingerprint_bundle(
     source: ProfileFingerprintSource,
     font_list_mode: Option<FontListMode>,
     custom_font_list: Option<Vec<String>>,
+    fingerprint_seed: Option<u32>,
 ) -> Result<ProfileFingerprintSnapshot, String> {
     let service = state
         .device_preset_service
         .lock()
         .map_err(|_| "device preset service lock poisoned".to_string())?;
-    preview_fingerprint_bundle_inner(&service, source, font_list_mode, custom_font_list)
+    preview_fingerprint_bundle_inner(
+        &service,
+        source,
+        font_list_mode,
+        custom_font_list,
+        fingerprint_seed,
+    )
 }
 
 #[tauri::command]
@@ -419,6 +479,46 @@ fn do_delete_profile(state: &AppState, profile_id: &str) -> Result<Profile, Stri
     profile_service
         .soft_delete_profile(profile_id)
         .map_err(error_to_string)
+}
+
+fn build_profile_runtime_details(
+    state: &AppState,
+    profile_id: &str,
+) -> Result<ProfileRuntimeDetails, String> {
+    {
+        let profile_service = state
+            .profile_service
+            .lock()
+            .map_err(|_| "profile service lock poisoned".to_string())?;
+        let _ = profile_service
+            .get_profile(profile_id)
+            .map_err(error_to_string)?;
+    }
+
+    let engine_manager = state
+        .engine_manager
+        .lock()
+        .map_err(|_| "engine manager lock poisoned".to_string())?;
+    let (profile_root_dir, user_data_dir, cache_data_dir) = engine_manager
+        .profile_data_dirs(profile_id)
+        .map_err(error_to_string)?;
+    let runtime_handle = engine_manager.get_runtime_handle(profile_id).ok();
+    let launch_args = engine_manager
+        .get_runtime_launch_args(profile_id)
+        .map_err(error_to_string)?;
+    let extra_args = engine_manager
+        .get_runtime_extra_args(profile_id)
+        .map_err(error_to_string)?;
+
+    Ok(ProfileRuntimeDetails {
+        profile_id: profile_id.to_string(),
+        profile_root_dir: profile_root_dir.to_string_lossy().to_string(),
+        user_data_dir: user_data_dir.to_string_lossy().to_string(),
+        cache_data_dir: cache_data_dir.to_string_lossy().to_string(),
+        runtime_handle,
+        launch_args,
+        extra_args,
+    })
 }
 
 #[tauri::command]
@@ -1096,6 +1196,7 @@ fn preview_fingerprint_bundle_inner(
     source: ProfileFingerprintSource,
     font_list_mode: Option<FontListMode>,
     custom_font_list: Option<Vec<String>>,
+    fingerprint_seed: Option<u32>,
 ) -> Result<ProfileFingerprintSnapshot, String> {
     let platform = source
         .platform
@@ -1109,7 +1210,7 @@ fn preview_fingerprint_bundle_inner(
         &source,
         None,
         None,
-        source_seed(&source),
+        source_seed(&source, fingerprint_seed),
     )
     .map_err(error_to_string)?;
     let fonts = font_catalog::resolve_fonts_for_mode(
@@ -1176,7 +1277,10 @@ fn append_snapshot_args(extra_args: &mut Vec<String>, snapshot: &ProfileFingerpr
     }
 }
 
-fn source_seed(source: &ProfileFingerprintSource) -> Option<u32> {
+fn source_seed(source: &ProfileFingerprintSource, fingerprint_seed: Option<u32>) -> Option<u32> {
+    if fingerprint_seed.is_some() {
+        return fingerprint_seed;
+    }
     let hint = format!(
         "{}:{}:{}",
         source.platform.as_deref().unwrap_or_default(),
@@ -1508,6 +1612,7 @@ mod tests {
         CreateProfileRequest, GeolocationOverride, OpenProfileOptions, Proxy, ProxyLifecycle,
         WebRtcMode,
     };
+    use crate::services::chromium_magic_adapter_service::ChromiumMagicAdapterService;
     use crate::services::device_preset_service::DevicePresetService;
     use crate::services::engine_session_service::EngineSessionService;
     use crate::services::profile_group_service::ProfileGroupService;
@@ -1518,6 +1623,7 @@ mod tests {
     use crate::services::rpa_flow_service::RpaFlowService;
     use crate::services::rpa_run_service::RpaRunService;
     use crate::services::rpa_task_service::RpaTaskService;
+    use crate::services::sync_manager_service::SyncManagerService;
 
     fn new_test_state() -> AppState {
         let db = db::init_test_database().expect("init test db");
@@ -1541,6 +1647,9 @@ mod tests {
             std::env::temp_dir().join(format!("multi-flow-rpa-artifacts-{unique}")),
         )
         .expect("artifact service");
+        let profiles_root =
+            std::env::temp_dir().join(format!("multi-flow-profile-root-{unique}"));
+        std::fs::create_dir_all(&profiles_root).expect("profiles root");
         let mut local_api_server = LocalApiServer::new("127.0.0.1:18180");
         local_api_server.mark_started();
 
@@ -1555,8 +1664,10 @@ mod tests {
             rpa_run_service: Mutex::new(rpa_run_service),
             rpa_artifact_service: Mutex::new(artifact_service),
             resource_service: Mutex::new(resource_service),
-            engine_manager: Mutex::new(EngineManager::new()),
+            engine_manager: Mutex::new(EngineManager::with_profiles_root(profiles_root)),
             local_api_server: Mutex::new(local_api_server),
+            chromium_magic_adapter_service: Mutex::new(ChromiumMagicAdapterService::new()),
+            sync_manager_service: Mutex::new(SyncManagerService::new_mock(None, None)),
             require_real_engine: false,
         }
     }
@@ -1654,6 +1765,69 @@ mod tests {
         let reopened =
             do_open_profile(&state, None, None, &profile.id, None).expect("open after restore");
         assert!(reopened.profile.running);
+    }
+
+    #[test]
+    fn get_profile_runtime_details_returns_profile_dirs_when_not_running() {
+        let state = new_test_state();
+        let profile = {
+            let service = state.profile_service.lock().expect("profile service lock");
+            service
+                .create_profile(CreateProfileRequest {
+                    name: "runtime-detail".to_string(),
+                    group: None,
+                    note: None,
+                    proxy_id: None,
+                    settings: None,
+                })
+                .expect("create profile")
+        };
+
+        let details =
+            build_profile_runtime_details(&state, &profile.id).expect("runtime details");
+
+        assert!(details.profile_root_dir.ends_with(&profile.id));
+        assert!(details.user_data_dir.ends_with(&format!("{}/user-data", profile.id)));
+        assert!(details.cache_data_dir.ends_with(&format!("{}/cache-data", profile.id)));
+        assert!(details.runtime_handle.is_none());
+        assert!(details.launch_args.is_none());
+    }
+
+    #[test]
+    fn clear_profile_cache_recreates_directory_and_rejects_running_profile() {
+        let state = new_test_state();
+        let profile = {
+            let service = state.profile_service.lock().expect("profile service lock");
+            service
+                .create_profile(CreateProfileRequest {
+                    name: "cache-profile".to_string(),
+                    group: None,
+                    note: None,
+                    proxy_id: None,
+                    settings: None,
+                })
+                .expect("create profile")
+        };
+
+        let (_, _, cache_dir) = state
+            .engine_manager
+            .lock()
+            .expect("engine manager lock")
+            .profile_data_dirs(&profile.id)
+            .expect("cache dir");
+        std::fs::create_dir_all(&cache_dir).expect("create cache dir");
+        std::fs::write(cache_dir.join("temp.bin"), b"cache").expect("write cache");
+
+        let response =
+            clear_profile_cache_inner(&state, &profile.id).expect("clear cache");
+        assert_eq!(response.profile_id, profile.id);
+        assert!(cache_dir.exists());
+        assert!(!cache_dir.join("temp.bin").exists());
+
+        let _ = do_open_profile(&state, None, None, &profile.id, None).expect("open profile");
+        let err = clear_profile_cache_inner(&state, &profile.id)
+            .expect_err("running profile should reject");
+        assert!(err.contains("不能清理 cache"));
     }
 
     #[test]
@@ -2009,6 +2183,7 @@ mod tests {
             },
             Some(FontListMode::Custom),
             Some(vec!["Font A".to_string(), "Font B".to_string()]),
+            None,
         )
         .expect("preview bundle");
 

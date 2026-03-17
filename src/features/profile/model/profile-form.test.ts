@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import {
 	DEFAULT_STARTUP_URL,
 	applyProxySuggestionValue,
+	buildFingerprintSource,
+	generateRandomFingerprintSeed,
 	profileFormSchema,
 	resolveProxySuggestedValues,
 } from './profile-form.ts';
@@ -27,12 +29,13 @@ function buildFormValues(overrides: Record<string, unknown> = {}) {
 		webrtcIpOverride: '',
 		headless: false,
 		disableImages: false,
-		randomFingerprint: true,
+		randomFingerprint: false,
 		customLaunchArgsText: '',
 		geoEnabled: false,
 		latitude: '',
 		longitude: '',
 		accuracy: '',
+		fingerprintSeed: 123456789,
 		...overrides,
 	};
 }
@@ -106,4 +109,30 @@ test('resolveProxySuggestedValues prefers effective values over suggestion value
 		timezoneId: 'Europe/Berlin',
 		geolocation: null,
 	});
+});
+
+test('buildFingerprintSource maps random fingerprint to per-launch seed policy', () => {
+	const fixed = buildFingerprintSource({
+		platform: 'macos',
+		browserVersion: '144.0.7559.97',
+		devicePresetId: 'macos_desktop',
+		randomFingerprint: false,
+	});
+	assert.equal(fixed.strategy, 'template');
+	assert.equal(fixed.seedPolicy, 'fixed');
+
+	const random = buildFingerprintSource({
+		platform: 'macos',
+		browserVersion: '144.0.7559.97',
+		devicePresetId: 'macos_desktop',
+		randomFingerprint: true,
+	});
+	assert.equal(random.strategy, 'random_bundle');
+	assert.equal(random.seedPolicy, 'per_launch');
+});
+
+test('generateRandomFingerprintSeed returns a positive integer seed', () => {
+	const seed = generateRandomFingerprintSeed();
+	assert.equal(Number.isInteger(seed), true);
+	assert.equal(seed >= 0, true);
 });

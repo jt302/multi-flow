@@ -15,6 +15,7 @@ function createEvent(overrides: Partial<BackendLogEvent>): BackendLogEvent {
 		component: 'engine_manager.magic',
 		message: 'default',
 		profileId: 'pf_000001',
+		profileName: 'Mac 1',
 		line: '[1762932800][INFO][engine_manager.magic] default',
 		...overrides,
 	};
@@ -52,4 +53,21 @@ test('getLogEventKey 对重复日志生成不同 key', () => {
 	});
 
 	assert.notEqual(getLogEventKey(duplicated, 0), getLogEventKey(duplicated, 1));
+});
+
+test('filterBackendLogs 不受 profileName 字段影响', () => {
+	const logs = [
+		createEvent({ profileId: 'pf_000001', profileName: 'Mac 1', message: 'a' }),
+		createEvent({ profileId: 'pf_000002', profileName: 'Mac 2', message: 'b' }),
+	];
+
+	const result = filterBackendLogs(logs, {
+		levelFilter: 'all',
+		componentFilter: '',
+		profileFilter: 'pf_000002',
+		keyword: '',
+	});
+
+	assert.equal(result.length, 1);
+	assert.equal(result[0].profileName, 'Mac 2');
 });

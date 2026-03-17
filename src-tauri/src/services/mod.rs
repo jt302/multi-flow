@@ -1,3 +1,4 @@
+pub mod chromium_magic_adapter_service;
 pub mod device_preset_service;
 pub mod engine_session_service;
 pub mod profile_group_service;
@@ -9,3 +10,4 @@ pub mod rpa_flow_service;
 pub mod rpa_run_service;
 pub mod rpa_runtime_service;
 pub mod rpa_task_service;
+pub mod sync_manager_service;

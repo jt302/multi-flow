@@ -42,8 +42,8 @@ export const WORKSPACE_SECTIONS: Record<NavItem['id'], NavSection> = {
 		],
 	},
 	windows: {
-		title: '窗口与标签页控制台',
-		desc: '对运行中的环境执行单个或批量窗口/标签页操作，并集中查看会话结构。',
+		title: '窗口同步控制台',
+		desc: '管理主从同步、窗口排列、标签页批量动作与文本广播输入。',
 		tableTitle: '运行窗口概览',
 		rows: [
 			{ name: 'AirDrop-001', group: 'AirDrop', status: '运行中', geo: '1 窗口 / 3 标签', last: '刚刚' },
@@ -72,4 +72,3 @@ export const WORKSPACE_SECTIONS: Record<NavItem['id'], NavSection> = {
 		],
 	},
 };
-

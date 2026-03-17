@@ -1,5 +1,12 @@
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
-import type { ProfileWindowStateItem, WindowBoundsItem } from '@/entities/window-session/model/types';
+import type {
+	ArrangeWindowsPayload,
+	DisplayMonitorItem,
+	EnsureSyncSidecarStartedResponse,
+	ListSyncTargetsResponse,
+	ProfileWindowStateItem,
+	WindowBoundsItem,
+} from '@/entities/window-session/model/types';
 
 type BatchActionResponse = {
 	total: number;
@@ -14,6 +21,51 @@ type BatchActionResponse = {
 
 export async function listOpenProfileWindows(): Promise<ProfileWindowStateItem[]> {
 	return tauriInvoke<ProfileWindowStateItem[]>('list_open_profile_windows');
+}
+
+export async function ensureSyncSidecarStarted(): Promise<EnsureSyncSidecarStartedResponse> {
+	return tauriInvoke<EnsureSyncSidecarStartedResponse>('ensure_sync_sidecar_started');
+}
+
+export async function listSyncTargets(): Promise<ListSyncTargetsResponse> {
+	return tauriInvoke<ListSyncTargetsResponse>('list_sync_targets');
+}
+
+export async function broadcastSyncText(
+	profileIds: string[],
+	text: string,
+): Promise<BatchActionResponse> {
+	return tauriInvoke<BatchActionResponse>('broadcast_sync_text', {
+		payload: { profileIds, text },
+	});
+}
+
+export async function listDisplayMonitors(): Promise<DisplayMonitorItem[]> {
+	return tauriInvoke<DisplayMonitorItem[]>('list_display_monitors');
+}
+
+export async function arrangeProfileWindows(
+	payload: ArrangeWindowsPayload,
+): Promise<BatchActionResponse> {
+	return tauriInvoke<BatchActionResponse>('arrange_profile_windows', { payload });
+}
+
+export async function batchRestoreProfileWindows(profileIds: string[]): Promise<BatchActionResponse> {
+	return tauriInvoke<BatchActionResponse>('batch_restore_profile_windows', {
+		payload: { profileIds },
+	});
+}
+
+export async function batchSetProfileWindowBounds(
+	profileIds: string[],
+	bounds: WindowBoundsItem,
+): Promise<BatchActionResponse> {
+	return tauriInvoke<BatchActionResponse>('batch_set_profile_window_bounds', {
+		payload: {
+			profileIds,
+			bounds,
+		},
+	});
 }
 
 export async function openProfileTab(profileId: string, url?: string): Promise<void> {

@@ -1,5 +1,25 @@
 # AI 当前任务（docs/ai/current-task）
 
+## 当前重点（2026-03-13）
+
+- [x] 窗口同步模块按新 `chromium.md` / `multi-flow-sync-manager.md` 重构为“前端直连 sidecar”
+- [x] 前端新增全局单例 `MultiFlowSyncManagerClient + Zustand store`，统一维护实例、会话、warnings、metrics
+- [x] `sync-manager` 改为前端唯一 WebSocket 客户端消费 `instances.updated / sync.session_updated / sync.warning`
+- [x] Tauri 只保留 sidecar 生命周期与本地实例快照职责：`ensure_sync_sidecar_started / list_sync_targets / broadcast_sync_text / list_display_monitors`
+- [x] `/windows` 页面改为双数据源：本地运行环境快照 + sidecar 会话/诊断状态
+- [x] 当前页面层“启动同步”仅要求 `sync-manager` 连接正常；真正的同步准入与失败原因统一以下游 `sync.start` / Chromium 诊断为准
+- [x] 页面移除键盘/鼠标独立开关，文本输入仅对当前 sidecar session 的 `slave_ids` 生效
+- [x] 新增同步诊断面板：sidecar 连接状态、session 状态、metrics、probe 错误；页面不再展示 warning 日志列表
+- [x] 协议已对齐上游 Chromium / sync-manager：实例状态补齐 `bound_browser_id / bound_window_token / coordinate_mode`，同步 envelope 使用 `window_x / window_y`
+- [x] 修正 slave 注入定位：sidecar 转发 `sync.inject_event` 时，按各自 slave 的绑定窗口改写 `browser_id / window_token`
+- [x] 修正 mac 窗口坐标语义：`window_x / window_y` 统一为浏览器窗口左上角原点
+- [x] 修正 mac 从机注入链：键盘改走 `performKeyEquivalent:/firstResponder keyDown:/keyUp:/flagsChanged:`，鼠标改走 `contentView` responder 链
+- [x] 修正 mac 注入期 donor 语义：临时捐赠 `pressedMouseButtons / mouseLocation / currentEvent`
+- [x] `sync-manager` 事件路由从 `session.rs` 抽离到独立 routing 模块，便于继续扩展 popup/child-window 规则
+- [x] Tauri 同步 store 已拆分出 `sync-manager-client` 与 `sync-manager-normalizers`，减少单文件职责膨胀
+- [x] 已更新项目内 `sync-manager` sidecar 二进制到最新版本；启动同步不再因主从 `bounds/maximized/minimized/fullscreen/tab_count` 不一致而被前置拒绝
+- [x] 后端已删除旧 `window_sync_service` 会话镜像，避免与 sidecar 真相源重复维护
+
 ## 当前阶段：M0.7（引擎与资源基础设施）
 
 目标：完成可运行后端闭环，并打通 Chromium/GeoIP 资源统一下载入口。
@@ -43,6 +63,10 @@
 - [x] 窗口/标签页控制改为真实 Chromium `magic-socket-server-port` HTTP 通道（不再仅内存模拟）
 - [x] 新增窗口尺寸管理能力：后端接入 `set_bounds`，前端窗口管理页支持设置 x/y/width/height
 - [x] 窗口管理状态同步增强：拉取窗口列表前执行 runtime reconcile，并清理已退出会话
+- [x] 新增窗口同步 sidecar 接入：`sync-manager` lazy 启动，Tauri 仅负责 sidecar 生命周期与本地实例快照
+- [x] 窗口管理页面升级为“窗口同步”：支持多选环境、指定主控、启动/停止/重启同步
+- [x] 同步配置区已补齐：窗口统一大小、显示窗口、按显示器宫格/重叠排列、文本输入广播
+- [x] 同步真相源切换为 `sync-manager` sidecar session payload，并保留现有窗口/标签页明细控制
 - [x] 标签页误操作防护：前端同环境窗口操作串行锁 + 操作后短延迟二次刷新
 - [x] 新增回收站页面（设置页二级入口，非主导航），统一恢复已归档环境/代理/分组
 - [x] 回收站数据策略明确：沿用现有软删除，不迁移关联数据结构；恢复时按原关系就地生效
