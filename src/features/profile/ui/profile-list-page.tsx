@@ -1,7 +1,7 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-import { DataSection, EmptyState } from '@/components/common';
+import { ConfirmActionDialog, DataSection, EmptyState } from '@/components/common';
 import { filterProfiles } from '@/entities/profile/lib/profile-list';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
@@ -36,6 +36,8 @@ export function ProfileListPage({
 }: ProfileListPageProps) {
 	const section = WORKSPACE_SECTIONS.profiles;
 	const [searchParams, setSearchParams] = useSearchParams();
+	const [stopAllRunningDialogOpen, setStopAllRunningDialogOpen] = useState(false);
+	const [stopAllRunningPending, setStopAllRunningPending] = useState(false);
 	const error = useProfileListStore((state) => state.error);
 	const filters = useProfileListStore((state) => state.filters);
 	const quickEdit = useProfileListStore((state) => state.quickEdit);
@@ -160,9 +162,11 @@ export function ProfileListPage({
 					selectableCount={filteredActiveIds.length}
 					stoppedSelectedCount={selectedStoppedIds.length}
 					runningSelectedCount={selectedRunningIds.length}
+					stopAllRunningCount={filteredRunningIds.length}
 					batchGroupDialogOpen={batchGroupDialogOpen}
 					batchClearGroupDialogOpen={batchClearGroupDialogOpen}
 					batchGroupTarget={batchGroupTarget}
+					stopAllRunningPending={stopAllRunningPending}
 					lastBatchOpenResult={lastBatchOpenResult}
 					profiles={profiles}
 					onChange={handleFilterChange}
@@ -188,6 +192,7 @@ export function ProfileListPage({
 							clearSelection();
 						});
 					}}
+					onStopAllRunning={() => setStopAllRunningDialogOpen(true)}
 					onRefresh={() => {
 						void (async () => {
 							setError(null);
@@ -224,6 +229,28 @@ export function ProfileListPage({
 						});
 					}}
 					onCloseBatchResult={() => setBatchOpenResult(null)}
+				/>
+				<ConfirmActionDialog
+					open={stopAllRunningDialogOpen}
+					title="确认一键停止运行中环境"
+					description={`确认停止当前筛选结果中的 ${filteredRunningIds.length} 个运行中环境？`}
+					confirmText={stopAllRunningPending ? '停止中...' : '确认停止'}
+					pending={stopAllRunningPending}
+					onOpenChange={setStopAllRunningDialogOpen}
+					onConfirm={() => {
+						void (async () => {
+							setStopAllRunningPending(true);
+							try {
+								await runAction(async () => {
+									await onBatchCloseProfiles(filteredRunningIds);
+									setBatchOpenResult(null);
+								});
+								setStopAllRunningDialogOpen(false);
+							} finally {
+								setStopAllRunningPending(false);
+							}
+						})();
+					}}
 				/>
 
 				{isEmpty ? (
