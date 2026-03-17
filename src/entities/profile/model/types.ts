@@ -141,6 +141,29 @@ export type ProfileItem = {
 	lastOpenedAt: number | null;
 };
 
+export type ProfileRuntimeHandle = {
+	profileId: string;
+	sessionId: number;
+	pid: number | null;
+	debugPort: number | null;
+	magicPort: number | null;
+};
+
+export type ProfileRuntimeDetails = {
+	profileId: string;
+	profileRootDir: string;
+	userDataDir: string;
+	cacheDataDir: string;
+	runtimeHandle: ProfileRuntimeHandle | null;
+	launchArgs: string[] | null;
+	extraArgs: string[] | null;
+};
+
+export type ClearProfileCacheResponse = {
+	profileId: string;
+	cacheDataDir: string;
+};
+
 export type CreateProfilePayload = {
 	name: string;
 	group?: string;

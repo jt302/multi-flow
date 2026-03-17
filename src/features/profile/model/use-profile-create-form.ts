@@ -23,6 +23,7 @@ import {
 	buildFingerprintSource,
 	compareVersions,
 	DEFAULT_STARTUP_URL,
+	generateRandomFingerprintSeed,
 	mergePreviewSnapshot,
 	normalizeWebRtcMode,
 	parseCustomFontList,
@@ -80,6 +81,13 @@ export function useProfileCreateForm({
 		useState<ProfileFingerprintSnapshot | null>(
 			initialFingerprint?.fingerprintSnapshot ?? null,
 		);
+	const [previewFingerprintSeed, setPreviewFingerprintSeed] = useState<number>(() => {
+		return (
+			initialAdvanced?.fixedFingerprintSeed ??
+			initialFingerprint?.fingerprintSnapshot?.fingerprintSeed ??
+			generateRandomFingerprintSeed()
+		);
+	});
 
 	const hostChromiumVersions = useMemo(() => {
 		return resources
@@ -117,12 +125,16 @@ export function useProfileCreateForm({
 			webrtcIpOverride: initialFingerprint?.webrtcIpOverride ?? '',
 			headless: initialAdvanced?.headless ?? false,
 			disableImages: initialAdvanced?.disableImages ?? false,
-			randomFingerprint: initialAdvanced?.randomFingerprint ?? true,
+			randomFingerprint: initialAdvanced?.randomFingerprint ?? false,
 			customLaunchArgsText: initialAdvanced?.customLaunchArgs?.join('\n') ?? '',
 			geoEnabled: Boolean(initialAdvanced?.geolocation),
 			latitude: initialAdvanced?.geolocation?.latitude?.toString() ?? '',
 			longitude: initialAdvanced?.geolocation?.longitude?.toString() ?? '',
 			accuracy: initialAdvanced?.geolocation?.accuracy?.toString() ?? '',
+			fingerprintSeed:
+				initialAdvanced?.fixedFingerprintSeed ??
+				initialFingerprint?.fingerprintSnapshot?.fingerprintSeed ??
+				previewFingerprintSeed,
 		},
 	});
 
@@ -137,6 +149,7 @@ export function useProfileCreateForm({
 	const customFontListText = watch('customFontListText');
 	const webRtcMode = watch('webRtcMode');
 	const randomFingerprint = watch('randomFingerprint');
+	const fingerprintSeed = watch('fingerprintSeed');
 	const language = watch('language');
 	const timezoneId = watch('timezoneId');
 	const geoEnabled = watch('geoEnabled');
@@ -346,6 +359,7 @@ export function useProfileCreateForm({
 			browserVersion,
 			devicePresetId,
 			randomFingerprint,
+			fingerprintSeed,
 			customFonts,
 		],
 		queryFn: () =>
@@ -359,6 +373,7 @@ export function useProfileCreateForm({
 				{
 					fontListMode: 'custom',
 					customFontList: customFonts,
+					fingerprintSeed: fingerprintSeed ?? previewFingerprintSeed,
 				},
 			),
 		enabled:
@@ -380,6 +395,15 @@ export function useProfileCreateForm({
 		[language, previewSnapshot, timezoneId],
 	);
 
+	const regenerateFingerprintSeed = useCallback(() => {
+		const nextSeed = generateRandomFingerprintSeed();
+		setPreviewFingerprintSeed(nextSeed);
+		setValue('fingerprintSeed', nextSeed, {
+			shouldDirty: true,
+			shouldValidate: true,
+		});
+	}, [setValue]);
+
 	const onFormSubmit = handleSubmit(async (values) => {
 		setSubmitError(null);
 		const customLaunchArgs = values.customLaunchArgsText
@@ -393,6 +417,7 @@ export function useProfileCreateForm({
 				await previewFingerprintBundle(source, {
 					fontListMode: 'custom',
 					customFontList: parseCustomFontList(values.customFontListText),
+					fingerprintSeed: values.fingerprintSeed,
 				}),
 				values.language,
 				values.timezoneId,
@@ -447,9 +472,8 @@ export function useProfileCreateForm({
 					disableImages: values.disableImages,
 					customLaunchArgs: customLaunchArgs.length ? customLaunchArgs : undefined,
 					randomFingerprint: values.randomFingerprint,
-					fixedFingerprintSeed: values.randomFingerprint
-						? undefined
-						: snapshot.fingerprintSeed,
+					fixedFingerprintSeed:
+						values.fingerprintSeed ?? snapshot.fingerprintSeed,
 					geolocation,
 				},
 			},
@@ -477,6 +501,7 @@ export function useProfileCreateForm({
 		mergedPreviewSnapshot,
 		resourceStatusLabel,
 		regenerateFontList,
+		regenerateFingerprintSeed,
 		markProxyFieldManual,
 		restoreProxySuggestedValues,
 		onFormSubmit,
@@ -491,6 +516,7 @@ export function useProfileCreateForm({
 			customFontListText,
 			webRtcMode,
 			randomFingerprint,
+			fingerprintSeed,
 			language,
 			timezoneId,
 			geoEnabled,

@@ -15,7 +15,7 @@ export const WORKSPACE_NAV_ITEMS: NavItem[] = [
 	{ id: 'profiles', label: '环境', icon: FolderKanban },
 	{ id: 'groups', label: '分组', icon: Folders },
 	{ id: 'proxy', label: '代理池', icon: Globe2 },
-	{ id: 'windows', label: '窗口管理', icon: PanelsTopLeft },
+	{ id: 'windows', label: '窗口同步', icon: PanelsTopLeft },
 	{ id: 'rpa', label: 'RPA', icon: Bot },
 	{ id: 'settings', label: '设置', icon: Settings2 },
 ];

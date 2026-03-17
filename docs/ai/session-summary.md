@@ -113,3 +113,46 @@
   - 新增任务管理页：任务表单（`react-hook-form + zodResolver`）+ 列表 + 启停/执行/删除
   - 新增运行记录页：筛选面板 + run/instance/step 三栏详情
   - 编辑器页移除“运行中心”Tab，改为“临时调试运行”面板；正式运行从任务管理发起
+
+## 2026-03-13（窗口同步按新协议重构）
+
+- 同步架构切换为“前端直连 `sync-manager` sidecar”：
+  - Tauri bundle 已注册 `binaries/sync-manager`
+  - 后端只保留 sidecar 生命周期与本地实例快照，不再桥接业务 WebSocket 请求
+  - 新增 `ensure_sync_sidecar_started`，保证 sidecar lazy 启动且幂等
+- 前端新增全局单例同步客户端：
+  - 新增 `MultiFlowSyncManagerClient + sync-manager-store`
+  - 全应用只保留一条到 sidecar 的 WebSocket 连接
+  - 统一维护实例表、当前 session payload、recent warnings、diagnostics 状态
+- sidecar 协议消费与页面行为对齐 `multi-flow-sync-manager.md`：
+  - 使用 `instances.upsert / instances.remove / instances.probe / sync.start / sync.stop / sync.get_session / sync.shutdown`
+  - 主动消费 `instances.updated / sync.session_updated / sync.warning`
+  - 实例首次出现、进入同步页、收到带 `instance_id` 的 warning 时都会触发 probe
+- Tauri 同步命令收缩为本地增强能力：
+  - 保留 `list_sync_targets / broadcast_sync_text / list_display_monitors / arrange_profile_windows / batch_restore_profile_windows / batch_set_profile_window_bounds`
+  - 删除 `start_window_sync / stop_window_sync / restart_window_sync`
+  - `broadcast_sync_text` 改为显式接收 `profileIds`
+- `/windows` 页面升级为双数据源同步页：
+  - 本地数据源来自 `list_sync_targets`，只返回运行环境快照和 `magicSocketServerPort`
+  - sidecar 数据源来自全局 store，补齐 `status / platform / ws_status_verified / last_probe_error / last_drop_reason / active_browser / session role / bound_browser_id / bound_window_token / coordinate_mode`
+  - 默认第一个选中的运行环境为主控，用户手动修改后保持
+- 启动同步当前以最小页面约束为主：
+  - 必须是 `1 master + 至少 1 slave`
+  - 页面层只要求 `sync-manager` 已连接
+  - 真实准入、probe 与失败原因统一以下游 `sync.start` / Chromium `get_sync_status` 为准
+- UI 与交互更新：
+  - 移除键盘 / 鼠标独立开关，完全按 sidecar 原生会话基线执行同步
+  - 文本输入只对当前 sidecar session 的 `slave_ids` 生效
+  - 新增同步诊断面板，显示连接状态、session 状态、metrics、recent probe errors、绑定窗口状态；页面不再显示 recent warnings 模块
+- 2026-03-14 补充：
+  - 项目内 `src-tauri/binaries/sync-manager-aarch64-apple-darwin` 已刷新为最新 sidecar 产物
+  - `sync-manager` 转发 `sync.inject_event` 时改写为各自 slave 的 `browser_id / window_token`
+  - mac `window_x / window_y` 语义统一为浏览器窗口左上角原点
+  - mac slave 注入链已改为 responder 基线：
+    - 键盘优先经 `performKeyEquivalent:` / `firstResponder keyDown:/keyUp:/flagsChanged:`
+    - 鼠标优先经 `contentView mouseDown:/mouseUp:/mouseDragged:/mouseMoved:/scrollWheel:`
+  - mac 注入期间临时 donor 了 `pressedMouseButtons / mouseLocation / currentEvent`，用于补齐 click / DOM 事件链需要的原生上下文
+  - `sync-manager` 内部事件路由已从 `session.rs` 抽到独立 routing 模块
+  - Tauri 前端同步 store 已拆分出独立 `sync-manager-client` 与 `sync-manager-normalizers`
+  - sidecar 启动前校验已放宽为“平台一致 + 关键字段存在”，不再因主从窗口位置、尺寸、标签数或最大化状态不同而阻止 `sync.start`
+- Rust 侧已删除旧 `window_sync_service` 会话镜像，避免与 sidecar session 真相源重复维护

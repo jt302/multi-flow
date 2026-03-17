@@ -18,6 +18,12 @@ import {
 	Badge,
 	Button,
 	Checkbox,
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
@@ -412,28 +418,38 @@ export function ProfileListItem({
 				</TableCell>
 			</TableRow>
 
-			{isBgEditing ? (
-				<TableRow className="bg-muted/15">
-					<TableCell colSpan={7}>
-						<div className="rounded-lg border border-border/70 bg-background/70 p-2">
-							<p className="mb-2 text-xs text-muted-foreground">修改浏览器背景色</p>
-							<BackgroundQuickEditForm
-								initialColor={currentBg}
-								disabled={actionPending}
-								onCancel={() => onQuickEditChange(null)}
-								onSubmit={async (color) => {
-									await onRunAction(async () => {
-										await onUpdateProfileVisual(item.id, {
-											browserBgColor: color,
-										});
-										onQuickEditChange(null);
-									});
-								}}
-							/>
-						</div>
-					</TableCell>
-				</TableRow>
-			) : null}
+			<Dialog open={isBgEditing} onOpenChange={(open) => onQuickEditChange(open ? { profileId: item.id, field: 'background' } : null)}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>修改浏览器背景色</DialogTitle>
+						<DialogDescription>
+							设置后会同步更新该环境的背景色。点击“重置背景色”会移除背景色参数，恢复默认表现。
+						</DialogDescription>
+					</DialogHeader>
+					<BackgroundQuickEditForm
+						initialColor={currentBg}
+						disabled={actionPending}
+						onCancel={() => onQuickEditChange(null)}
+						onReset={async () => {
+							await onRunAction(async () => {
+								await onUpdateProfileVisual(item.id, {
+									browserBgColor: '',
+								});
+								onQuickEditChange(null);
+							});
+						}}
+						onSubmit={async (color) => {
+							await onRunAction(async () => {
+								await onUpdateProfileVisual(item.id, {
+									browserBgColor: color,
+								});
+								onQuickEditChange(null);
+							});
+						}}
+					/>
+					<DialogFooter />
+				</DialogContent>
+			</Dialog>
 
 			{isToolbarEditing ? (
 				<TableRow className="bg-muted/15">

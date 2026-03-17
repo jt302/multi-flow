@@ -611,9 +611,6 @@ fn normalize_profile_settings(
                 Some(normalized)
             }
         });
-        if advanced.random_fingerprint == Some(true) {
-            advanced.fixed_fingerprint_seed = None;
-        }
         if advanced.headless.is_none()
             && advanced.disable_images.is_none()
             && advanced.geolocation.is_none()
@@ -684,34 +681,30 @@ fn hydrate_strong_fingerprint_settings(
     basic.browser_version = resolved_source.browser_version.clone();
     basic.device_preset_id = resolved_source.device_preset_id.clone();
 
+    let advanced = settings.advanced.get_or_insert_with(Default::default);
+    let persisted_fixed_seed = advanced
+        .fixed_fingerprint_seed
+        .or_else(|| {
+            previous
+                .and_then(|value| value.advanced.as_ref())
+                .and_then(|value| value.fixed_fingerprint_seed)
+        })
+        .or_else(|| previous_snapshot.and_then(|value| value.fingerprint_seed))
+        .unwrap_or_else(|| {
+            generate_random_seed(&format!(
+                "{}:{}:{}",
+                platform,
+                basic.browser_version.as_deref().unwrap_or_default(),
+                basic.device_preset_id.as_deref().unwrap_or_default()
+            ))
+        });
+    advanced.fixed_fingerprint_seed = Some(persisted_fixed_seed);
+
     let fixed_seed = match resolved_source.seed_policy {
-        Some(FingerprintSeedPolicy::Fixed) => {
-            let advanced = settings.advanced.get_or_insert_with(Default::default);
-            let seed = advanced
-                .fixed_fingerprint_seed
-                .or_else(|| {
-                    previous
-                        .and_then(|value| value.advanced.as_ref())
-                        .and_then(|value| value.fixed_fingerprint_seed)
-                })
-                .or_else(|| previous_snapshot.and_then(|value| value.fingerprint_seed))
-                .unwrap_or_else(|| {
-                    stable_seed(&format!(
-                        "{}:{}:{}",
-                        platform,
-                        basic.browser_version.as_deref().unwrap_or_default(),
-                        basic.device_preset_id.as_deref().unwrap_or_default()
-                    ))
-                });
-            advanced.fixed_fingerprint_seed = Some(seed);
-            Some(seed)
-        }
-        _ => {
-            if let Some(advanced) = settings.advanced.as_mut() {
-                advanced.fixed_fingerprint_seed = None;
-            }
-            previous_snapshot.and_then(|value| value.fingerprint_seed)
-        }
+        Some(FingerprintSeedPolicy::Fixed) => Some(persisted_fixed_seed),
+        _ => previous_snapshot
+            .and_then(|value| value.fingerprint_seed)
+            .or(Some(persisted_fixed_seed)),
     };
 
     let snapshot = if let Some(snapshot) = fingerprint.fingerprint_snapshot.clone() {
@@ -931,10 +924,17 @@ fn normalize_startup_urls(
     Ok(Some(normalized))
 }
 
-fn stable_seed(seed_hint: &str) -> u32 {
+fn generate_random_seed(seed_hint: &str) -> u32 {
     use std::hash::{Hash, Hasher};
+    use std::time::{SystemTime, UNIX_EPOCH};
 
+    let now_nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|value| value.as_nanos())
+        .unwrap_or_default();
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    now_nanos.hash(&mut hasher);
+    std::process::id().hash(&mut hasher);
     seed_hint.hash(&mut hasher);
     (hasher.finish() & u64::from(u32::MAX)) as u32
 }
@@ -1260,5 +1260,106 @@ mod tests {
                 "https://second.example".to_string()
             ]
         );
+    }
+
+    #[test]
+    fn create_profile_generates_distinct_fixed_seed_by_default() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProfileService::from_db(db);
+
+        let first = service
+            .create_profile(CreateProfileRequest {
+                name: "seed-one".to_string(),
+                group: None,
+                note: None,
+                proxy_id: None,
+                settings: Some(ProfileSettings {
+                    basic: Some(ProfileBasicSettings {
+                        platform: Some("windows".to_string()),
+                        browser_version: Some("144.0.7559.97".to_string()),
+                        device_preset_id: Some("windows_11_desktop".to_string()),
+                        ..Default::default()
+                    }),
+                    advanced: Some(crate::models::ProfileAdvancedSettings {
+                        random_fingerprint: Some(false),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+            })
+            .expect("create first profile");
+        let second = service
+            .create_profile(CreateProfileRequest {
+                name: "seed-two".to_string(),
+                group: None,
+                note: None,
+                proxy_id: None,
+                settings: Some(ProfileSettings {
+                    basic: Some(ProfileBasicSettings {
+                        platform: Some("windows".to_string()),
+                        browser_version: Some("144.0.7559.97".to_string()),
+                        device_preset_id: Some("windows_11_desktop".to_string()),
+                        ..Default::default()
+                    }),
+                    advanced: Some(crate::models::ProfileAdvancedSettings {
+                        random_fingerprint: Some(false),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+            })
+            .expect("create second profile");
+
+        let first_seed = first
+            .settings
+            .as_ref()
+            .and_then(|settings| settings.advanced.as_ref())
+            .and_then(|settings| settings.fixed_fingerprint_seed)
+            .expect("first fixed seed");
+        let second_seed = second
+            .settings
+            .as_ref()
+            .and_then(|settings| settings.advanced.as_ref())
+            .and_then(|settings| settings.fixed_fingerprint_seed)
+            .expect("second fixed seed");
+
+        assert_ne!(first_seed, second_seed);
+    }
+
+    #[test]
+    fn random_fingerprint_preserves_persisted_fixed_seed() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProfileService::from_db(db);
+
+        let profile = service
+            .create_profile(CreateProfileRequest {
+                name: "random-seed".to_string(),
+                group: None,
+                note: None,
+                proxy_id: None,
+                settings: Some(ProfileSettings {
+                    basic: Some(ProfileBasicSettings {
+                        platform: Some("windows".to_string()),
+                        browser_version: Some("144.0.7559.97".to_string()),
+                        device_preset_id: Some("windows_11_desktop".to_string()),
+                        ..Default::default()
+                    }),
+                    advanced: Some(crate::models::ProfileAdvancedSettings {
+                        random_fingerprint: Some(true),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+            })
+            .expect("create profile");
+
+        let fixed_seed = profile
+            .settings
+            .as_ref()
+            .and_then(|settings| settings.advanced.as_ref())
+            .and_then(|settings| settings.fixed_fingerprint_seed)
+            .expect("persisted fixed seed");
+
+        assert!(fixed_seed > 0);
     }
 }

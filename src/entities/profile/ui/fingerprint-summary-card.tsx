@@ -51,9 +51,9 @@ export function FingerprintSummaryCard({
 						<Badge variant="outline">{mergedPreviewSnapshot.presetLabel}</Badge>
 					) : null}
 					{randomFingerprint ? (
-						<Badge variant="outline">随机整套</Badge>
+						<Badge variant="outline">启动时随机 Seed</Badge>
 					) : (
-						<Badge variant="secondary">固定指纹</Badge>
+						<Badge variant="secondary">固定 Seed</Badge>
 					)}
 				</div>
 				{previewLoading ? (

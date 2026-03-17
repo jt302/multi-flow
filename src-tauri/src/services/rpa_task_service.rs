@@ -14,7 +14,9 @@ use crate::models::{
     now_ts, CreateRpaTaskRequest, RpaExecutionMode, RpaTask, RpaTaskLifecycle, RpaTaskRunType,
     RunRpaFlowRequest, UpdateRpaTaskRequest,
 };
-use crate::services::rpa_flow_service::{format_flow_id, format_profile_id, parse_flow_id, parse_profile_id};
+use crate::services::rpa_flow_service::{
+    format_flow_id, format_profile_id, parse_flow_id, parse_profile_id,
+};
 
 const LIFECYCLE_ACTIVE: &str = "active";
 const LIFECYCLE_DELETED: &str = "deleted";
@@ -41,7 +43,8 @@ impl RpaTaskService {
         let name = require_non_empty("name", &req.name)?;
         let run_type = to_run_type_str(&req.run_type).to_string();
         let execution_mode = to_execution_mode_str(&req.execution_mode).to_string();
-        let concurrency_limit = normalize_concurrency(req.concurrency_limit.unwrap_or(3), &req.execution_mode);
+        let concurrency_limit =
+            normalize_concurrency(req.concurrency_limit.unwrap_or(3), &req.execution_mode);
         let cron_expr = normalize_cron_expr(&req.run_type, req.cron_expr)?;
         let start_at = req.start_at;
         let timezone = req
@@ -50,13 +53,8 @@ impl RpaTaskService {
             .unwrap_or_else(local_timezone_fallback);
         let runtime_input = req.runtime_input.unwrap_or_default();
         let runtime_input_json = serde_json::to_string(&runtime_input)?;
-        let next_run_at = resolve_next_run_at(
-            &req.run_type,
-            true,
-            cron_expr.as_deref(),
-            start_at,
-            now,
-        )?;
+        let next_run_at =
+            resolve_next_run_at(&req.run_type, true, cron_expr.as_deref(), start_at, now)?;
 
         let model = rpa_task::ActiveModel {
             flow_id: Set(flow_id),
@@ -95,27 +93,26 @@ impl RpaTaskService {
         let execution_mode = to_execution_mode_str(&req.execution_mode).to_string();
         let cron_expr = normalize_cron_expr(&req.run_type, req.cron_expr)?;
         let start_at = req.start_at;
-        let next_run_at = resolve_next_run_at(
-            &req.run_type,
-            enabled,
-            cron_expr.as_deref(),
-            start_at,
-            now,
-        )?;
+        let next_run_at =
+            resolve_next_run_at(&req.run_type, enabled, cron_expr.as_deref(), start_at, now)?;
 
         active_model.flow_id = Set(parse_flow_id(&req.flow_id)?);
         active_model.name = Set(require_non_empty("name", &req.name)?);
         active_model.run_type = Set(run_type);
         active_model.execution_mode = Set(execution_mode);
-        active_model.concurrency_limit = Set(normalize_concurrency(req.concurrency_limit.unwrap_or(3), &req.execution_mode) as i32);
+        active_model.concurrency_limit = Set(normalize_concurrency(
+            req.concurrency_limit.unwrap_or(3),
+            &req.execution_mode,
+        ) as i32);
         active_model.cron_expr = Set(cron_expr);
         active_model.start_at = Set(start_at);
-        active_model.timezone = Set(
-            req.timezone
-                .and_then(trim_non_empty)
-                .unwrap_or_else(local_timezone_fallback),
-        );
-        active_model.runtime_input_json = Set(serde_json::to_string(&req.runtime_input.unwrap_or_default())?);
+        active_model.timezone = Set(req
+            .timezone
+            .and_then(trim_non_empty)
+            .unwrap_or_else(local_timezone_fallback));
+        active_model.runtime_input_json = Set(serde_json::to_string(
+            &req.runtime_input.unwrap_or_default(),
+        )?);
         active_model.next_run_at = Set(next_run_at);
         active_model.updated_at = Set(now);
 
@@ -193,7 +190,9 @@ impl RpaTaskService {
     pub fn delete_task(&self, task_id: &str) -> AppResult<RpaTask> {
         let existing = self.find_model(task_id)?;
         if existing.lifecycle == LIFECYCLE_DELETED {
-            return Err(AppError::Conflict(format!("rpa task already deleted: {task_id}")));
+            return Err(AppError::Conflict(format!(
+                "rpa task already deleted: {task_id}"
+            )));
         }
         let mut active_model: rpa_task::ActiveModel = existing.into();
         let now = now_ts();
@@ -210,19 +209,16 @@ impl RpaTaskService {
     pub fn toggle_enabled(&self, task_id: &str, enabled: bool) -> AppResult<RpaTask> {
         let existing = self.find_model(task_id)?;
         if existing.lifecycle == LIFECYCLE_DELETED {
-            return Err(AppError::Conflict(format!("rpa task already deleted: {task_id}")));
+            return Err(AppError::Conflict(format!(
+                "rpa task already deleted: {task_id}"
+            )));
         }
         let run_type = parse_run_type(&existing.run_type);
         let cron_expr = existing.cron_expr.clone();
         let start_at = existing.start_at;
         let mut active_model: rpa_task::ActiveModel = existing.into();
-        let next_run_at = resolve_next_run_at(
-            &run_type,
-            enabled,
-            cron_expr.as_deref(),
-            start_at,
-            now_ts(),
-        )?;
+        let next_run_at =
+            resolve_next_run_at(&run_type, enabled, cron_expr.as_deref(), start_at, now_ts())?;
 
         active_model.enabled = Set(enabled);
         active_model.next_run_at = Set(next_run_at);
@@ -238,10 +234,14 @@ impl RpaTaskService {
             .get_task(task_id)?
             .ok_or_else(|| AppError::NotFound(format!("rpa task not found: {task_id}")))?;
         if task.lifecycle != RpaTaskLifecycle::Active {
-            return Err(AppError::Conflict(format!("rpa task is deleted: {task_id}")));
+            return Err(AppError::Conflict(format!(
+                "rpa task is deleted: {task_id}"
+            )));
         }
         if !task.enabled {
-            return Err(AppError::Conflict(format!("rpa task is disabled: {task_id}")));
+            return Err(AppError::Conflict(format!(
+                "rpa task is disabled: {task_id}"
+            )));
         }
         let payload = RunRpaFlowRequest {
             flow_id: task.flow_id.clone(),
@@ -255,7 +255,10 @@ impl RpaTaskService {
         Ok((task, payload))
     }
 
-    pub fn build_schedule_run_request(&self, task_id: &str) -> AppResult<(RpaTask, RunRpaFlowRequest)> {
+    pub fn build_schedule_run_request(
+        &self,
+        task_id: &str,
+    ) -> AppResult<(RpaTask, RunRpaFlowRequest)> {
         let task = self
             .get_task(task_id)?
             .ok_or_else(|| AppError::NotFound(format!("rpa task not found: {task_id}")))?;
@@ -297,7 +300,9 @@ impl RpaTaskService {
             return Err(AppError::NotFound(format!("rpa flow not found: {flow_id}")));
         };
         if flow.lifecycle != LIFECYCLE_ACTIVE {
-            return Err(AppError::Conflict(format!("rpa flow is not active: {flow_id}")));
+            return Err(AppError::Conflict(format!(
+                "rpa flow is not active: {flow_id}"
+            )));
         }
         Ok(())
     }
@@ -327,7 +332,9 @@ impl RpaTaskService {
     fn to_api_task(&self, model: rpa_task::Model) -> AppResult<RpaTask> {
         let flow = self
             .db_query(rpa_flow::Entity::find_by_id(model.flow_id).one(&self.db))?
-            .ok_or_else(|| AppError::NotFound(format!("rpa flow missing for task: {}", model.id)))?;
+            .ok_or_else(|| {
+                AppError::NotFound(format!("rpa flow missing for task: {}", model.id))
+            })?;
 
         let targets = self.db_query(
             rpa_task_target::Entity::find()
@@ -404,13 +411,18 @@ fn resolve_next_run_at(
     let cron_expr = cron_expr
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| AppError::Validation("cronExpr must not be empty for scheduled tasks".to_string()))?;
+        .ok_or_else(|| {
+            AppError::Validation("cronExpr must not be empty for scheduled tasks".to_string())
+        })?;
 
     let anchor = start_at.unwrap_or(reference_ts).max(reference_ts);
     compute_next_run_ts(cron_expr, anchor.saturating_sub(1))
 }
 
-fn normalize_cron_expr(run_type: &RpaTaskRunType, cron_expr: Option<String>) -> AppResult<Option<String>> {
+fn normalize_cron_expr(
+    run_type: &RpaTaskRunType,
+    cron_expr: Option<String>,
+) -> AppResult<Option<String>> {
     match run_type {
         RpaTaskRunType::Manual => Ok(None),
         RpaTaskRunType::Scheduled => {
@@ -466,7 +478,9 @@ fn validate_target_profile_ids(db: &DatabaseConnection, profile_ids: &[String]) 
         let parsed = parse_profile_id(profile_id)?;
         let exists = tauri::async_runtime::block_on(profile::Entity::find_by_id(parsed).one(db))?;
         if exists.is_none() {
-            return Err(AppError::NotFound(format!("profile not found: {profile_id}")));
+            return Err(AppError::NotFound(format!(
+                "profile not found: {profile_id}"
+            )));
         }
     }
     Ok(())

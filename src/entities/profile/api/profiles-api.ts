@@ -1,5 +1,6 @@
 import type {
 	BatchProfileActionResponse,
+	ClearProfileCacheResponse,
 	CreateProfilePayload,
 	FontListMode,
 	ProfileDevicePresetItem,
@@ -7,6 +8,7 @@ import type {
 	ProfileFingerprintSource,
 	ProfileItem,
 	ProfileLifecycle,
+	ProfileRuntimeDetails,
 	ProfileSettings,
 	SaveProfileDevicePresetPayload,
 } from '@/entities/profile/model/types';
@@ -151,13 +153,27 @@ export async function previewFingerprintBundle(
 	fontConfig?: {
 		fontListMode?: FontListMode;
 		customFontList?: string[];
+		fingerprintSeed?: number | null;
 	},
 ): Promise<ProfileFingerprintSnapshot> {
 	return tauriInvoke<ProfileFingerprintSnapshot>('preview_fingerprint_bundle', {
 		source,
 		fontListMode: fontConfig?.fontListMode ?? null,
 		customFontList: fontConfig?.customFontList ?? null,
+		fingerprintSeed: fontConfig?.fingerprintSeed ?? null,
 	});
+}
+
+export async function getProfileRuntimeDetails(
+	profileId: string,
+): Promise<ProfileRuntimeDetails> {
+	return tauriInvoke<ProfileRuntimeDetails>('get_profile_runtime_details', { profileId });
+}
+
+export async function clearProfileCache(
+	profileId: string,
+): Promise<ClearProfileCacheResponse> {
+	return tauriInvoke<ClearProfileCacheResponse>('clear_profile_cache', { profileId });
 }
 
 export async function openProfile(

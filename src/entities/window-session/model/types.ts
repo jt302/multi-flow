@@ -12,6 +12,21 @@ export type WindowBoundsItem = {
 	height: number;
 };
 
+export type BrowserBoundsSnapshot = {
+	left: number;
+	top: number;
+	width: number;
+	height: number;
+};
+
+export type ActiveBrowserSnapshot = {
+	bounds?: BrowserBoundsSnapshot | null;
+	maximized?: boolean | null;
+	minimized?: boolean | null;
+	fullscreen?: boolean | null;
+	tabCount?: number | null;
+};
+
 export type ProfileWindowItem = {
 	windowId: number;
 	focused: boolean;
@@ -29,4 +44,118 @@ export type ProfileWindowStateItem = {
 	totalWindows: number;
 	totalTabs: number;
 	windows: ProfileWindowItem[];
+};
+
+export type LocalSyncTargetItem = ProfileWindowStateItem & {
+	label: string;
+	host: string;
+	magicSocketServerPort: number | null;
+};
+
+export type SyncRole = 'none' | 'master' | 'slave';
+export type WindowArrangeMode = 'grid' | 'cascade';
+export type SyncManagerConnectionStatus =
+	| 'idle'
+	| 'starting'
+	| 'connected'
+	| 'disconnected'
+	| 'error';
+export type SyncManagerInstanceStatus = 'unknown' | 'online' | 'offline' | 'unhealthy';
+
+export type SyncManagerInstanceInfo = {
+	id: string;
+	host: string;
+	port: number;
+	status: SyncManagerInstanceStatus;
+	label?: string | null;
+	platform?: string | null;
+	lastDropReason?: string | null;
+	activeBrowser?: ActiveBrowserSnapshot | null;
+	supportsNativeReplay?: boolean | null;
+	captureBackend?: string | null;
+	injectBackend?: string | null;
+	magicSocketServerPort?: number | null;
+	boundBrowserId?: number | null;
+	boundWindowToken?: string | null;
+	coordinateMode?: string | null;
+	wsStatusVerified: boolean;
+	lastProbeError?: string | null;
+};
+
+export type SyncMetrics = {
+	eventsReceived: number;
+	eventsForwarded: number;
+	eventsFailed: number;
+	eventsDroppedInvalid: number;
+	eventsDroppedSessionMismatch: number;
+	eventsDroppedNonReplayable: number;
+	eventsDroppedPlatformMismatch: number;
+};
+
+export type SyncSession = {
+	sessionId: string;
+	masterId: string;
+	slaveIds: string[];
+	status: 'starting' | 'running' | 'stopping' | 'stopped';
+};
+
+export type SyncSessionPayload = {
+	session: SyncSession | null;
+	metrics: SyncMetrics;
+	master: SyncManagerInstanceInfo | null;
+	slaves: SyncManagerInstanceInfo[];
+	reason: string | null;
+};
+
+export type SyncWarningItem = {
+	code: string;
+	scope: string;
+	message: string;
+	instanceId?: string | null;
+	eventFamily?: string | null;
+	eventType?: string | null;
+};
+
+export type SyncTargetItem = LocalSyncTargetItem & {
+	syncRole: SyncRole;
+	instanceStatus: SyncManagerInstanceStatus;
+	platform?: string | null;
+	wsStatusVerified: boolean;
+	lastProbeError?: string | null;
+	lastDropReason?: string | null;
+	boundBrowserId?: number | null;
+	boundWindowToken?: string | null;
+	coordinateMode?: string | null;
+	activeBrowser?: ActiveBrowserSnapshot | null;
+	isProbeReady: boolean;
+};
+
+export type ListSyncTargetsResponse = {
+	items: LocalSyncTargetItem[];
+};
+
+export type DisplayMonitorItem = {
+	id: string;
+	name: string;
+	isPrimary: boolean;
+	scaleFactor: number;
+	positionX: number;
+	positionY: number;
+	width: number;
+	height: number;
+	workArea: WindowBoundsItem;
+};
+
+export type ArrangeWindowsPayload = {
+	profileIds: string[];
+	monitorId: string;
+	mode: WindowArrangeMode;
+	gap: number;
+	width: number;
+	height: number;
+};
+
+export type EnsureSyncSidecarStartedResponse = {
+	port: number;
+	alreadyRunning: boolean;
 };

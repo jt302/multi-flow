@@ -116,12 +116,12 @@ pub fn reconcile_runtime_state(state: &AppState) -> AppResult<usize> {
     }
 
     let running_profile_ids = profile_service.list_running_profile_ids()?;
-    for profile_id in running_profile_ids {
-        if engine_manager.is_running(&profile_id) {
+    for profile_id in &running_profile_ids {
+        if engine_manager.is_running(profile_id) {
             continue;
         }
 
-        let keep_running = match engine_session_service.get_session(&profile_id)? {
+        let keep_running = match engine_session_service.get_session(profile_id)? {
             Some(session) => session.pid.map(is_process_alive).unwrap_or(false),
             None => false,
         };
@@ -129,8 +129,8 @@ pub fn reconcile_runtime_state(state: &AppState) -> AppResult<usize> {
             continue;
         }
 
-        engine_session_service.delete_session(&profile_id)?;
-        let _ = profile_service.mark_profile_running(&profile_id, false)?;
+        engine_session_service.delete_session(profile_id)?;
+        let _ = profile_service.mark_profile_running(profile_id, false)?;
         logger::info(
             "runtime_guard",
             format!("cleared stale running status profile_id={profile_id}"),

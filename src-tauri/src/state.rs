@@ -12,6 +12,7 @@ use crate::error::AppResult;
 use crate::local_api_server::{LocalApiServer, DEFAULT_PROXY_DAEMON_BIND_ADDRESS};
 use crate::logger;
 use crate::runtime_guard;
+use crate::services::chromium_magic_adapter_service::ChromiumMagicAdapterService;
 use crate::services::device_preset_service::DevicePresetService;
 use crate::services::engine_session_service::EngineSessionService;
 use crate::services::profile_group_service::ProfileGroupService;
@@ -22,6 +23,7 @@ use crate::services::rpa_artifact_service::RpaArtifactService;
 use crate::services::rpa_flow_service::RpaFlowService;
 use crate::services::rpa_run_service::RpaRunService;
 use crate::services::rpa_task_service::RpaTaskService;
+use crate::services::sync_manager_service::SyncManagerService;
 
 pub struct AppState {
     pub profile_group_service: Mutex<ProfileGroupService>,
@@ -36,6 +38,8 @@ pub struct AppState {
     pub resource_service: Mutex<ResourceService>,
     pub engine_manager: Mutex<EngineManager>,
     pub local_api_server: Mutex<LocalApiServer>,
+    pub chromium_magic_adapter_service: Mutex<ChromiumMagicAdapterService>,
+    pub sync_manager_service: Mutex<SyncManagerService>,
     pub require_real_engine: bool,
 }
 
@@ -53,6 +57,8 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
     let engine_manager = build_engine_manager(app)?;
     let rpa_artifact_service = build_rpa_artifact_service(app)?;
     let local_api_server = LocalApiServer::new(DEFAULT_PROXY_DAEMON_BIND_ADDRESS);
+    let chromium_magic_adapter_service = ChromiumMagicAdapterService::new();
+    let sync_manager_service = SyncManagerService::new(None, None);
 
     let app_state = AppState {
         profile_group_service: Mutex::new(profile_group_service),
@@ -67,6 +73,8 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
         resource_service: Mutex::new(resource_service),
         engine_manager: Mutex::new(engine_manager),
         local_api_server: Mutex::new(local_api_server),
+        chromium_magic_adapter_service: Mutex::new(chromium_magic_adapter_service),
+        sync_manager_service: Mutex::new(sync_manager_service),
         require_real_engine: true,
     };
     let interrupted = app_state

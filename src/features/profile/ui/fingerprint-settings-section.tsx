@@ -11,8 +11,10 @@ type FingerprintSettingsSectionProps = {
 	form: UseFormReturn<ProfileFormValues>;
 	webRtcMode: WebRtcMode;
 	randomFingerprint: boolean;
+	fingerprintSeed: number | null;
 	availableFontFamiliesCount: number;
 	onRegenerateFonts: () => void;
+	onRegenerateFingerprintSeed: () => void;
 	languageSource: string;
 	timezoneSource: string;
 	onMarkManual: (field: 'language' | 'timezoneId') => void;
@@ -24,8 +26,10 @@ export function FingerprintSettingsSection({
 	form,
 	webRtcMode,
 	randomFingerprint,
+	fingerprintSeed,
 	availableFontFamiliesCount,
 	onRegenerateFonts,
+	onRegenerateFingerprintSeed,
 	languageSource,
 	timezoneSource,
 	onMarkManual,
@@ -127,6 +131,22 @@ export function FingerprintSettingsSection({
 							<Input id={webrtcIpOverrideId} {...register('webrtcIpOverride')} placeholder="例如 8.8.8.8" />
 					</div>
 				) : null}
+				<div className="md:col-span-2 flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+					<div>
+						<p className="text-xs text-muted-foreground">Fingerprint Seed</p>
+						<p className="mt-1 text-sm">{fingerprintSeed ?? '未生成'}</p>
+					</div>
+					<Button
+						type="button"
+						size="sm"
+						variant="outline"
+						className="cursor-pointer"
+						onClick={onRegenerateFingerprintSeed}
+					>
+						<Icon icon={Sparkles} size={12} />
+						随机 Seed
+					</Button>
+				</div>
 					<label htmlFor={randomFingerprintId} className="flex items-center gap-2 text-sm md:col-span-2">
 						<Checkbox
 							id={randomFingerprintId}
@@ -137,7 +157,7 @@ export function FingerprintSettingsSection({
 							})
 						}
 					/>
-					随机整套指纹（每次启动使用新的 bundle / fingerprint-seed）
+					启动时随机 fingerprint-seed（不随机整套指纹）
 				</label>
 			</div>
 		</div>

@@ -23,6 +23,7 @@ pub struct BackendLogEvent {
     pub component: String,
     pub message: String,
     pub profile_id: Option<String>,
+    pub profile_name: Option<String>,
     pub line: String,
 }
 
@@ -96,6 +97,7 @@ fn write_line(level: &str, component: &str, message: &str) {
         component: component.to_string(),
         message: message.to_string(),
         profile_id: extract_profile_id(message),
+        profile_name: extract_profile_name(message),
         line: line.clone(),
     };
 
@@ -120,6 +122,7 @@ fn parse_line_to_event(line: &str) -> BackendLogEvent {
             component: component.to_string(),
             message: message.to_string(),
             profile_id: extract_profile_id(message),
+            profile_name: extract_profile_name(message),
             line: trimmed.to_string(),
         };
     }
@@ -130,6 +133,7 @@ fn parse_line_to_event(line: &str) -> BackendLogEvent {
         component: "logger".to_string(),
         message: trimmed.to_string(),
         profile_id: extract_profile_id(trimmed),
+        profile_name: extract_profile_name(trimmed),
         line: trimmed.to_string(),
     }
 }
@@ -165,9 +169,43 @@ fn extract_profile_id(message: &str) -> Option<String> {
     }
 }
 
+fn extract_profile_name(message: &str) -> Option<String> {
+    const PREFIX: &str = "profile_name=\"";
+    let start = message.find(PREFIX)?;
+    let raw = &message[start + PREFIX.len()..];
+    let end = raw.find('"')?;
+    let value = raw[..end].trim();
+    if value.is_empty() {
+        None
+    } else {
+        Some(value.to_string())
+    }
+}
+
 fn now_ts() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_secs() as i64)
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{extract_profile_id, extract_profile_name, parse_line_to_event};
+
+    #[test]
+    fn parse_line_extracts_profile_name_and_id() {
+        let event = parse_line_to_event(
+            r#"[1762932800][INFO][chromium.stderr] profile_id=pf_000011 profile_name="Mac 1" hello"#,
+        );
+
+        assert_eq!(event.profile_id.as_deref(), Some("pf_000011"));
+        assert_eq!(event.profile_name.as_deref(), Some("Mac 1"));
+    }
+
+    #[test]
+    fn extract_profile_name_handles_missing_value() {
+        assert_eq!(extract_profile_name("hello"), None);
+        assert_eq!(extract_profile_id("hello"), None);
+    }
 }

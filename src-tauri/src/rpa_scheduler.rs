@@ -88,7 +88,10 @@ fn process_due_tasks(app: &AppHandle, state: &AppState) -> Result<(), String> {
 
         logger::info(
             "rpa_scheduler",
-            format!("scheduled run started task_id={} run_id={}", task.id, run.id),
+            format!(
+                "scheduled run started task_id={} run_id={}",
+                task.id, run.id
+            ),
         );
         RpaRuntimeService::spawn_run(app.clone(), run.id);
     }

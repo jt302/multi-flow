@@ -60,6 +60,9 @@
 - [React 规则](docs/ai/react-rules.md)
 - [component library 规则](docs/ai/component-library.md)
 - [Proxy Daemon 用法说明](docs/ai/proxy-daemon.md)
+- [自研 chromium 项目位置](/Users/tt/Developer/Personal/chromium)
+- [sync-manger 项目位置](/Users/tt/Developer/Personal/Rust/multi-flow-sync-manager)
+- [tauri 日志文件位置](/Users/tt/Library/Application Support/com.tt.multi-flow/logs/backend.log)
 
 ## 7. 开发执行建议（简版）
 

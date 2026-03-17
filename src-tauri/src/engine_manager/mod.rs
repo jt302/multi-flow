@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
 
@@ -20,7 +21,10 @@ const MAGIC_HTTP_PATHS: [&str; 4] = ["/", "/cmd", "/command", "/magic"];
 
 struct SessionRecord {
     session: EngineSession,
+    profile_name: String,
     process: EngineProcess,
+    launch_args: Vec<String>,
+    extra_args: Vec<String>,
     windows: Vec<WindowRecord>,
     next_window_id: u64,
     next_tab_id: u64,
@@ -80,6 +84,10 @@ pub struct EngineManager {
 }
 
 impl EngineManager {
+    fn profile_name_for(&self, profile_id: &str) -> Option<&str> {
+        self.sessions.get(profile_id).map(|record| record.profile_name.as_str())
+    }
+
     #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
@@ -129,14 +137,23 @@ impl EngineManager {
         profile_id: &str,
         options: &EngineLaunchOptions,
     ) -> AppResult<EngineSession> {
+        let profile_name = options
+            .toolbar_text
+            .as_deref()
+            .and_then(trim_to_option)
+            .unwrap_or_else(|| profile_id.to_string());
         logger::info(
             "engine_manager",
-            format!("open_profile start profile_id={profile_id} options={options:?}"),
+            format!(
+                "open_profile start profile_id={profile_id} profile_name=\"{profile_name}\" options={options:?}"
+            ),
         );
         if self.sessions.contains_key(profile_id) {
             logger::warn(
                 "engine_manager",
-                format!("open_profile rejected, profile already running: {profile_id}"),
+                format!(
+                    "open_profile rejected, profile_id={profile_id} profile_name=\"{profile_name}\" already running"
+                ),
             );
             return Err(AppError::Conflict(format!(
                 "profile already running: {profile_id}"
@@ -155,8 +172,9 @@ impl EngineManager {
                     "chromium not configured, fallback to mock process profile_id={profile_id}"
                 ),
             );
-            EngineProcess::Mock
+            (EngineProcess::Mock, Vec::new())
         };
+        let (process, launch_args) = process;
         let pid = match &process {
             EngineProcess::Chromium { child, .. } => Some(child.id()),
             EngineProcess::Mock => None,
@@ -171,7 +189,10 @@ impl EngineManager {
             profile_id.to_string(),
             SessionRecord {
                 session: session.clone(),
+                profile_name: profile_name.clone(),
                 process,
+                launch_args,
+                extra_args: options.extra_args.clone(),
                 windows: build_default_windows(options.startup_urls.clone()),
                 next_window_id: 2,
                 next_tab_id: options.startup_urls.len().max(1) as u64 + 1,
@@ -180,7 +201,7 @@ impl EngineManager {
         logger::info(
             "engine_manager",
             format!(
-                "open_profile success profile_id={profile_id} session_id={} pid={:?}",
+                "open_profile success profile_id={profile_id} profile_name=\"{profile_name}\" session_id={} pid={:?}",
                 session.session_id, session.pid
             ),
         );
@@ -196,6 +217,7 @@ impl EngineManager {
         let mut record = self.sessions.remove(profile_id).ok_or_else(|| {
             AppError::NotFound(format!("running session not found: {profile_id}"))
         })?;
+        let profile_name = record.profile_name.clone();
 
         if let EngineProcess::Chromium {
             child,
@@ -207,7 +229,7 @@ impl EngineManager {
             logger::info(
                 "engine_manager",
                 format!(
-                    "close_profile terminating chromium profile_id={profile_id} pid={} debug_port={} magic_port={}",
+                    "close_profile terminating chromium profile_id={profile_id} profile_name=\"{profile_name}\" pid={} debug_port={} magic_port={}",
                     child.id(),
                     debug_port,
                     magic_port
@@ -219,7 +241,7 @@ impl EngineManager {
         logger::info(
             "engine_manager",
             format!(
-                "close_profile success profile_id={profile_id} session_id={} pid={:?}",
+                "close_profile success profile_id={profile_id} profile_name=\"{profile_name}\" session_id={} pid={:?}",
                 record.session.session_id, record.session.pid
             ),
         );
@@ -250,6 +272,38 @@ impl EngineManager {
             debug_port,
             magic_port,
         })
+    }
+
+    pub fn get_runtime_launch_args(&self, profile_id: &str) -> AppResult<Option<Vec<String>>> {
+        let Some(record) = self.sessions.get(profile_id) else {
+            return Ok(None);
+        };
+        match record.process {
+            EngineProcess::Chromium { .. } => Ok(Some(record.launch_args.clone())),
+            EngineProcess::Mock => Ok(None),
+        }
+    }
+
+    pub fn get_runtime_extra_args(&self, profile_id: &str) -> AppResult<Option<Vec<String>>> {
+        let Some(record) = self.sessions.get(profile_id) else {
+            return Ok(None);
+        };
+        match record.process {
+            EngineProcess::Chromium { .. } => Ok(Some(record.extra_args.clone())),
+            EngineProcess::Mock => Ok(None),
+        }
+    }
+
+    pub fn profile_data_dirs(&self, profile_id: &str) -> AppResult<(PathBuf, PathBuf, PathBuf)> {
+        let profiles_root_dir = self.profiles_root_dir.as_ref().ok_or_else(|| {
+            AppError::Validation("profiles root dir is not configured".to_string())
+        })?;
+        let profile_root_dir = profiles_root_dir.join(profile_id);
+        Ok((
+            profile_root_dir.clone(),
+            profile_root_dir.join("user-data"),
+            profile_root_dir.join("cache-data"),
+        ))
     }
 
     pub fn list_window_states(&mut self) -> Vec<ProfileWindowState> {
@@ -901,6 +955,78 @@ impl EngineManager {
         Ok(state)
     }
 
+    pub fn restore_window(
+        &mut self,
+        profile_id: &str,
+        window_id: Option<u64>,
+    ) -> AppResult<ProfileWindowState> {
+        logger::info(
+            "engine_manager.window",
+            format!("restore_window start profile_id={profile_id} window_id={window_id:?}"),
+        );
+        if let Some(magic_port) = self.chromium_magic_port_for_profile(profile_id)? {
+            let snapshot = self.fetch_chromium_window_state(profile_id, magic_port)?;
+            let target_window_id = resolve_target_window_id(&snapshot.windows, window_id)?;
+            self.activate_window_for_chromium(profile_id, magic_port, target_window_id)?;
+            self.chromium_magic_command(
+                profile_id,
+                magic_port,
+                json!({
+                    "cmd": "set_restored",
+                }),
+            )?;
+            let state = self.sync_chromium_window_state(profile_id, magic_port)?;
+            logger::info(
+                "engine_manager.window",
+                format!(
+                    "restore_window success profile_id={profile_id} target_window_id={target_window_id} total_windows={} total_tabs={}",
+                    state.total_windows, state.total_tabs
+                ),
+            );
+            return Ok(state);
+        }
+
+        self.focus_window(profile_id, window_id)
+    }
+
+    pub fn type_string(&mut self, profile_id: &str, text: &str) -> AppResult<ProfileWindowState> {
+        logger::info(
+            "engine_manager.window",
+            format!(
+                "type_string start profile_id={profile_id} text_len={}",
+                text.len()
+            ),
+        );
+        let Some(magic_port) = self.chromium_magic_port_for_profile(profile_id)? else {
+            return Err(AppError::Validation(
+                "type_string requires a real chromium session".to_string(),
+            ));
+        };
+        let snapshot = self.fetch_chromium_window_state(profile_id, magic_port)?;
+        let active_tab_id = snapshot
+            .windows
+            .iter()
+            .find(|window| window.focused)
+            .and_then(|window| window.active_tab_id)
+            .or_else(|| {
+                snapshot
+                    .windows
+                    .iter()
+                    .find_map(|window| window.active_tab_id)
+            })
+            .ok_or_else(|| AppError::NotFound("active tab not found".to_string()))?;
+        self.chromium_magic_command(
+            profile_id,
+            magic_port,
+            json!({
+                "cmd": "type_string",
+                "tab_id": active_tab_id,
+                "text": text,
+            }),
+        )?;
+        self.sync_chromium_window_state(profile_id, magic_port)
+    }
+
     pub fn apply_profile_visual_overrides(
         &self,
         profile_id: &str,
@@ -1150,7 +1276,8 @@ impl EngineManager {
                 logger::info(
                     "engine_manager.magic",
                     format!(
-                        "command success profile_id={profile_id} cmd={cmd} path={path} payload={payload_string}"
+                        "command success profile_id={profile_id} profile_name=\"{}\" cmd={cmd} path={path} payload={payload_string}",
+                        self.profile_name_for(profile_id).unwrap_or(profile_id)
                     ),
                 );
                 return Ok(parsed);
@@ -1168,7 +1295,12 @@ impl EngineManager {
         &mut self,
         profile_id: &str,
         options: &EngineLaunchOptions,
-    ) -> AppResult<Option<EngineProcess>> {
+    ) -> AppResult<Option<(EngineProcess, Vec<String>)>> {
+        let profile_name = options
+            .toolbar_text
+            .as_deref()
+            .and_then(trim_to_option)
+            .unwrap_or_else(|| profile_id.to_string());
         let (Some(executable), Some(profiles_root_dir)) = (
             self.chromium_executable.as_ref(),
             self.profiles_root_dir.as_ref(),
@@ -1208,7 +1340,7 @@ impl EngineManager {
         logger::info(
             "engine_manager.launch",
             format!(
-                "spawn chromium profile_id={profile_id} executable={} args={:?} env_TZ={:?} magic_port={magic_port}",
+                "spawn chromium profile_id={profile_id} profile_name=\"{profile_name}\" executable={} args={:?} env_TZ={:?} magic_port={magic_port}",
                 executable.to_string_lossy(),
                 args,
                 timezone
@@ -1217,31 +1349,86 @@ impl EngineManager {
         let mut command = Command::new(executable);
         command
             .args(&args)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
         if let Some(timezone_id) = timezone {
             command.env("TZ", timezone_id);
         }
-        let child = command.spawn().map_err(|err| {
+        let mut child = command.spawn().map_err(|err| {
             logger::error(
                 "engine_manager.launch",
-                format!("spawn chromium failed profile_id={profile_id}: {err}"),
+                format!(
+                    "spawn chromium failed profile_id={profile_id} profile_name=\"{profile_name}\": {err}"
+                ),
             );
             AppError::Io(err)
         })?;
+        if let Some(stdout) = child.stdout.take() {
+            let profile_id = profile_id.to_string();
+            let profile_name = profile_name.clone();
+            std::thread::spawn(move || {
+                let reader = BufReader::new(stdout);
+                for line in reader.lines() {
+                    match line {
+                        Ok(value) if !value.trim().is_empty() => {
+                            logger::info(
+                                "chromium.stdout",
+                                format!("profile_id={profile_id} profile_name=\"{profile_name}\" {value}"),
+                            );
+                        }
+                        Ok(_) => {}
+                        Err(err) => {
+                            logger::warn(
+                                "chromium.stdout",
+                                format!("profile_id={profile_id} profile_name=\"{profile_name}\" read failed: {err}"),
+                            );
+                            break;
+                        }
+                    }
+                }
+            });
+        }
+        if let Some(stderr) = child.stderr.take() {
+            let profile_id = profile_id.to_string();
+            let profile_name = profile_name.clone();
+            std::thread::spawn(move || {
+                let reader = BufReader::new(stderr);
+                for line in reader.lines() {
+                    match line {
+                        Ok(value) if !value.trim().is_empty() => {
+                            logger::warn(
+                                "chromium.stderr",
+                                format!("profile_id={profile_id} profile_name=\"{profile_name}\" {value}"),
+                            );
+                        }
+                        Ok(_) => {}
+                        Err(err) => {
+                            logger::warn(
+                                "chromium.stderr",
+                                format!("profile_id={profile_id} profile_name=\"{profile_name}\" read failed: {err}"),
+                            );
+                            break;
+                        }
+                    }
+                }
+            });
+        }
         logger::info(
             "engine_manager.launch",
             format!(
-                "spawn chromium success profile_id={profile_id} pid={} debug_port={debug_port} magic_port={magic_port}",
+                "spawn chromium success profile_id={profile_id} profile_name=\"{profile_name}\" pid={} debug_port={debug_port} magic_port={magic_port}",
                 child.id()
             ),
         );
 
-        Ok(Some(EngineProcess::Chromium {
-            child,
-            debug_port,
-            magic_port,
-        }))
+        Ok(Some((
+            EngineProcess::Chromium {
+                child,
+                debug_port,
+                magic_port,
+            },
+            args,
+        )))
     }
 
     fn session_record_mut(&mut self, profile_id: &str) -> AppResult<&mut SessionRecord> {
@@ -1265,6 +1452,8 @@ fn build_chromium_launch_args(
         format!("--magic-socket-server-port={magic_port}"),
         "--no-first-run".to_string(),
         "--no-default-browser-check".to_string(),
+        "--enable-logging=stderr".to_string(),
+        "--v=1".to_string(),
     ];
     if let Some(language) = options
         .language
@@ -1789,6 +1978,28 @@ mod tests {
         assert!(
             !args.iter().any(|arg| arg.starts_with("--custom-bg-color=")),
             "custom-bg-color should be absent when not configured: {args:?}"
+        );
+    }
+
+    #[test]
+    fn build_chromium_launch_args_enables_chromium_stderr_logging() {
+        let options = EngineLaunchOptions::default();
+        let args = build_chromium_launch_args(
+            &PathBuf::from("/tmp/multi-flow-tests/user-data"),
+            &PathBuf::from("/tmp/multi-flow-tests/cache-data"),
+            19222,
+            19322,
+            &options,
+        )
+        .expect("build args");
+
+        assert!(
+            args.iter().any(|arg| arg == "--enable-logging=stderr"),
+            "expected chromium stderr logging flag in args: {args:?}"
+        );
+        assert!(
+            args.iter().any(|arg| arg == "--v=1"),
+            "expected chromium verbose logging level in args: {args:?}"
         );
     }
 }

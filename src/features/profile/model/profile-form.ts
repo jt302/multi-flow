@@ -31,11 +31,12 @@ export const profileFormSchema = z
 		headless: z.boolean(),
 		disableImages: z.boolean(),
 		randomFingerprint: z.boolean(),
-		customLaunchArgsText: z.string(),
-		geoEnabled: z.boolean(),
-		latitude: z.string(),
-		longitude: z.string(),
-		accuracy: z.string(),
+	customLaunchArgsText: z.string(),
+	geoEnabled: z.boolean(),
+	latitude: z.string(),
+	longitude: z.string(),
+	accuracy: z.string(),
+		fingerprintSeed: z.number().int().nonnegative().nullable(),
 	})
 	.superRefine((values, ctx) => {
 		const startupUrls = parseStartupUrls(values.startupUrls);
@@ -260,6 +261,12 @@ export function buildFingerprintSource(
 		strategy: values.randomFingerprint ? 'random_bundle' : 'template',
 		seedPolicy: values.randomFingerprint ? 'per_launch' : 'fixed',
 	};
+}
+
+export function generateRandomFingerprintSeed() {
+	const bytes = new Uint32Array(1);
+	globalThis.crypto?.getRandomValues?.(bytes);
+	return bytes[0] || Math.floor(Math.random() * 0xffffffff);
 }
 
 export function mergePreviewSnapshot(

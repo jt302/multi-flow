@@ -24,6 +24,7 @@ type BackgroundQuickEditFormProps = {
 	disabled: boolean;
 	onCancel: () => void;
 	onSubmit: (color: string) => Promise<void>;
+	onReset: () => Promise<void>;
 };
 
 type ToolbarQuickEditFormProps = {
@@ -38,6 +39,7 @@ export function BackgroundQuickEditForm({
 	disabled,
 	onCancel,
 	onSubmit,
+	onReset,
 }: BackgroundQuickEditFormProps) {
 	const {
 		register,
@@ -86,6 +88,16 @@ export function BackgroundQuickEditForm({
 					disabled={disabled}
 				/>
 				<div className="ml-auto flex items-center gap-1">
+					<Button
+						type="button"
+						size="sm"
+						variant="outline"
+						className="cursor-pointer"
+						onClick={() => void onReset()}
+						disabled={disabled}
+					>
+						重置背景色
+					</Button>
 					<Button type="button" size="sm" variant="ghost" className="cursor-pointer" onClick={onCancel}>
 						取消
 					</Button>

@@ -35,7 +35,14 @@ export function useWorkspaceRefresh() {
 	}, [queryClient]);
 
 	const refreshWindows = useCallback(async () => {
-		await refetchExactQuery(queryClient, queryKeys.windowStates);
+		await Promise.all([
+			refetchExactQuery(queryClient, queryKeys.windowStates),
+			refetchExactQuery(queryClient, queryKeys.syncTargets),
+		]);
+	}, [queryClient]);
+
+	const refreshDisplayMonitors = useCallback(async () => {
+		await refetchExactQuery(queryClient, queryKeys.displayMonitors);
 	}, [queryClient]);
 
 	const refreshWindowsStable = useCallback(async () => {
@@ -82,9 +89,9 @@ export function useWorkspaceRefresh() {
 		refreshDevicePresets,
 		refreshWindows,
 		refreshWindowsStable,
+		refreshDisplayMonitors,
 		refreshBindingsByProfileIds,
 		refreshBindingsByProfiles,
 		refreshProfilesAndBindings,
 	};
 }
-
