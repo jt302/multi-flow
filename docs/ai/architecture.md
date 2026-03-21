@@ -84,6 +84,11 @@
     - Profile 显式配置
     - 绑定代理最终生效值（语言 / 时区）或最近检测画像（经纬度）
     - 旧的国家码默认映射
+  - 环境高级设置中的地理位置策略已升级为：
+    - `off`：不覆盖地理位置
+    - `ip`：启动时优先使用绑定代理 GEO，缺失时回退本机公网 IP 的本地 GeoIP 结果
+    - `custom`：使用用户填写的纬度 / 经度 / 精度
+  - 环境高级设置支持 `autoAllowGeolocation`，启用后会为 Chromium 注入 `--auto-allow-geolocation`
   - Profile 指纹配置已升级为 `source + snapshot`：
 
 - 分组语义（当前实现）：

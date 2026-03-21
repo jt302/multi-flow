@@ -196,6 +196,8 @@ pub struct ProfileFingerprintSettings {
 pub struct ProfileAdvancedSettings {
     pub headless: Option<bool>,
     pub disable_images: Option<bool>,
+    pub geolocation_mode: Option<GeolocationMode>,
+    pub auto_allow_geolocation: Option<bool>,
     pub geolocation: Option<GeolocationOverride>,
     pub custom_launch_args: Option<Vec<String>>,
     pub random_fingerprint: Option<bool>,
@@ -325,6 +327,14 @@ pub struct GeolocationOverride {
     pub accuracy: Option<f64>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GeolocationMode {
+    Off,
+    Ip,
+    Custom,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenProfileOptions {
@@ -333,6 +343,8 @@ pub struct OpenProfileOptions {
     pub startup_urls: Option<Vec<String>>,
     /// 历史兼容字段，仅用于旧调用读取；运行时优先使用 startup_urls。
     pub startup_url: Option<String>,
+    pub geolocation_mode: Option<GeolocationMode>,
+    pub auto_allow_geolocation: Option<bool>,
     pub geolocation: Option<GeolocationOverride>,
     pub web_rtc_mode: Option<WebRtcMode>,
     pub webrtc_ip_override: Option<String>,

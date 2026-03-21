@@ -111,6 +111,8 @@ export type ProfileFingerprintSettings = {
 export type ProfileAdvancedSettings = {
 	headless?: boolean;
 	disableImages?: boolean;
+	geolocationMode?: 'off' | 'ip' | 'custom';
+	autoAllowGeolocation?: boolean;
 	customLaunchArgs?: string[];
 	randomFingerprint?: boolean;
 	fixedFingerprintSeed?: number;

@@ -31,11 +31,12 @@ export const profileFormSchema = z
 		headless: z.boolean(),
 		disableImages: z.boolean(),
 		randomFingerprint: z.boolean(),
-	customLaunchArgsText: z.string(),
-	geoEnabled: z.boolean(),
-	latitude: z.string(),
-	longitude: z.string(),
-	accuracy: z.string(),
+		customLaunchArgsText: z.string(),
+		geolocationMode: z.enum(['off', 'ip', 'custom']),
+		autoAllowGeolocation: z.boolean(),
+		latitude: z.string(),
+		longitude: z.string(),
+		accuracy: z.string(),
 		fingerprintSeed: z.number().int().nonnegative().nullable(),
 	})
 	.superRefine((values, ctx) => {
@@ -84,20 +85,22 @@ export const profileFormSchema = z
 			});
 		}
 
-		if (!values.geoEnabled) {
+		if (values.geolocationMode !== 'custom') {
 			return;
 		}
 
-		const lat = Number(values.latitude);
-		if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+		const latText = values.latitude.trim();
+		const lat = Number(latText);
+		if (!latText || !Number.isFinite(lat) || lat < -90 || lat > 90) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				message: '纬度范围必须是 -90 到 90',
 				path: ['latitude'],
 			});
 		}
-		const lng = Number(values.longitude);
-		if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
+		const lngText = values.longitude.trim();
+		const lng = Number(lngText);
+		if (!lngText || !Number.isFinite(lng) || lng < -180 || lng > 180) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				message: '经度范围必须是 -180 到 180',
