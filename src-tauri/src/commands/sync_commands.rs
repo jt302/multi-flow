@@ -443,10 +443,6 @@ mod tests {
     use crate::services::profile_service::ProfileService;
     use crate::services::proxy_service::ProxyService;
     use crate::services::resource_service::ResourceService;
-    use crate::services::rpa_artifact_service::RpaArtifactService;
-    use crate::services::rpa_flow_service::RpaFlowService;
-    use crate::services::rpa_run_service::RpaRunService;
-    use crate::services::rpa_task_service::RpaTaskService;
     use crate::services::sync_manager_service::SyncManagerService;
     use crate::state::AppState;
 
@@ -508,9 +504,6 @@ mod tests {
         let device_preset_service = DevicePresetService::from_db(db.clone());
         let engine_session_service = EngineSessionService::from_db(db.clone());
         let proxy_service = ProxyService::from_db(db.clone());
-        let rpa_flow_service = RpaFlowService::from_db(db.clone());
-        let rpa_task_service = RpaTaskService::from_db(db.clone());
-        let rpa_run_service = RpaRunService::from_db(db.clone());
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("time")
@@ -518,10 +511,6 @@ mod tests {
         let resource_dir = std::env::temp_dir().join(format!("multi-flow-sync-cmd-test-{unique}"));
         let resource_service =
             ResourceService::from_data_dir(&resource_dir).expect("resource service");
-        let artifact_service = RpaArtifactService::new(
-            std::env::temp_dir().join(format!("multi-flow-sync-artifacts-{unique}")),
-        )
-        .expect("artifact service");
         let mut local_api_server = LocalApiServer::new("127.0.0.1:18180");
         local_api_server.mark_started();
 
@@ -531,10 +520,6 @@ mod tests {
             device_preset_service: Mutex::new(device_preset_service),
             engine_session_service: Mutex::new(engine_session_service),
             proxy_service: Mutex::new(proxy_service),
-            rpa_flow_service: Mutex::new(rpa_flow_service),
-            rpa_task_service: Mutex::new(rpa_task_service),
-            rpa_run_service: Mutex::new(rpa_run_service),
-            rpa_artifact_service: Mutex::new(artifact_service),
             resource_service: Mutex::new(resource_service),
             engine_manager: Mutex::new(EngineManager::new()),
             local_api_server: Mutex::new(local_api_server),

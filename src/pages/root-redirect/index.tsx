@@ -7,10 +7,5 @@ export function RootRedirectPage() {
 	if (standalone === 'logs') {
 		return <Navigate to="/logs?standalone=1" replace />;
 	}
-	if (standalone === 'rpa-editor') {
-		params.delete('standalone');
-		const nextSearch = params.toString();
-		return <Navigate to={`/rpa-editor${nextSearch ? `?${nextSearch}` : ''}`} replace />;
-	}
 	return <Navigate to="/dashboard" replace />;
 }

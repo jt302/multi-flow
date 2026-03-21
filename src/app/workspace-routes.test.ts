@@ -3,25 +3,22 @@ import test from 'node:test';
 
 import {
 	NAV_PATHS,
-	RPA_PATHS,
 	SETTINGS_RECYCLE_BIN_PATH,
 	isWorkspacePath,
 	resolveNavFromPath,
 	resolvePathFromNav,
 } from './workspace-routes.ts';
 
-test('workspace routes resolve explicit nav paths including rpa children', () => {
-	assert.equal(NAV_PATHS.rpa, '/rpa/flows');
-	assert.equal(RPA_PATHS.flows, '/rpa/flows');
-	assert.equal(RPA_PATHS.tasks, '/rpa/tasks');
-	assert.equal(RPA_PATHS.runs, '/rpa/runs');
+test('workspace routes resolve explicit nav paths without retired rpa entries', () => {
+	assert.equal('rpa' in NAV_PATHS, false);
 	assert.equal(resolveNavFromPath('/dashboard'), 'dashboard');
-	assert.equal(resolveNavFromPath('/rpa'), 'rpa');
-	assert.equal(resolveNavFromPath('/rpa/flows'), 'rpa');
-	assert.equal(resolveNavFromPath('/rpa/tasks'), 'rpa');
-	assert.equal(resolveNavFromPath('/rpa/runs'), 'rpa');
+	assert.equal(resolveNavFromPath('/rpa'), null);
+	assert.equal(resolveNavFromPath('/rpa/flows'), null);
+	assert.equal(resolveNavFromPath('/rpa/tasks'), null);
+	assert.equal(resolveNavFromPath('/rpa/runs'), null);
+	assert.equal(isWorkspacePath('/rpa'), false);
+	assert.equal(isWorkspacePath('/rpa/flows'), false);
 	assert.equal(resolvePathFromNav('settings'), '/settings');
-	assert.equal(resolvePathFromNav('rpa'), '/rpa/flows');
 });
 
 test('workspace routes treat recycle bin as settings child path', () => {

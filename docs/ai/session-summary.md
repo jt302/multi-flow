@@ -62,57 +62,19 @@
   - `engine_manager` 已支持启动参数注入，但“地理位置精确覆盖（lat/lng）”仍待后续接入 CDP override（当前为参数校验与预留传递）。
   - 尚未推送 Tauri events 到前端。
 
-## 2026-03-09（RPA v1 首版骨架）
+## 2026-03-21（移除 RPA 相关功能）
 
-- 新增 RPA 后端骨架：
-  - `rpa_flows / rpa_flow_targets / rpa_runs / rpa_run_instances / rpa_run_steps` 数据表与 SeaORM entity
-  - `rpa_flow_service / rpa_run_service / rpa_artifact_service / rpa_runtime_service`
-  - 任务状态、实例状态、步骤日志与调试产物目录持久化
-- 新增 RPA 命令层：
-  - 流程创建、更新、列表、详情、删除、恢复
-  - 流程运行、任务列表、任务详情、步骤详情、取消任务、取消实例、人工继续实例
-- 新增运行态接入：
-  - `engine_manager` 暴露当前运行环境的 `session_id / pid / debug_port / magic_port`
-  - RPA 运行时可直接驱动现有 Chromium 运行实例
-- 前端 RPA 入口已完成拆分：
-  - `/rpa` 仅保留流程列表与“新建流程”入口
-  - 新建/编辑流程通过新的独立 RPA 编辑窗口打开
-  - 独立窗口内部拆成“页面容器 / 编辑 hook / 流程设计 / 运行中心 / 离开弹窗”几块，缓解原单页拥挤问题
-- RPA 回收站已接入现有设置页入口：
-  - `/rpa` 主列表仅显示 active 流程，归档后立即隐藏
-  - 设置页回收站新增 `RPA 流程` 区块
-  - 回收站中的 RPA 流程支持恢复与彻底删除
-  - 彻底删除仅移除流程定义与目标绑定，历史 run snapshot 保留
-- 新增独立编辑窗口链路：
-  - Tauri 新增 `open_rpa_flow_editor_window`
-  - 路由新增 `/rpa-editor` 与 `/?standalone=rpa-editor` 重定向
-  - 已支持从列表页继续编辑指定流程，或直接以 create mode 打开新草稿
-- 当前限制：
-  - 节点配置仍以 JSON 配置为主，尚未做专用表单面板
-  - 人工接管后的“跳转到指定浏览器上下文继续操作”仍是基础态
-  - 页面自动化节点已接入 CDP 执行通道，但覆盖面与健壮性仍需继续打磨
-
-## 2026-03-11（RPA 导航重构 + Task 模型落地）
-
-- RPA 信息架构重构：
-  - 路由改为 `/rpa/flows`（流程管理）/`/rpa/tasks`（任务管理）/`/rpa/runs`（运行记录）
-  - `/rpa` 自动重定向到 `/rpa/flows`
-  - 侧边栏 `RPA` 升级为二级子菜单，顶栏命令面板新增三个子页面快捷跳转
-- 后端任务模型落地：
-  - 新增 `rpa_tasks / rpa_task_targets` 表与 SeaORM entity
-  - `rpa_runs` 增加 `task_id / task_name` 字段用于运行快照关联
-  - 新增 `rpa_task_service`：任务创建、更新、删除（软删）、启停、立即执行请求组装
-  - 新增 RPA task 命令：`create/update/list/get/delete/toggle/run`
-  - `list_rpa_runs` 支持 `task_id / status / trigger_source / 时间范围` 过滤
-- 调度器能力：
-  - 新增 `rpa_scheduler` 后台循环，扫描 `enabled + active + scheduled + next_run_at<=now` 任务
-  - 调度触发来源标记为 `task_schedule`，手动任务执行标记为 `task_manual`，编辑器调试为 `debug_manual`
-  - 调度策略为“仅应用运行时触发，不补跑错过窗口”
-- 前端页面重构：
-  - 流程页保留流程清单与编辑入口，并增加跳转到任务管理/运行记录入口
-  - 新增任务管理页：任务表单（`react-hook-form + zodResolver`）+ 列表 + 启停/执行/删除
-  - 新增运行记录页：筛选面板 + run/instance/step 三栏详情
-  - 编辑器页移除“运行中心”Tab，改为“临时调试运行”面板；正式运行从任务管理发起
+- 按“彻底移除”目标删除 RPA 前端入口：
+  - 删除 `RPA` 主导航、`/rpa*` 路由、独立编辑窗口与相关 query/action/store
+  - 回收站不再展示或操作 RPA 流程
+- 删除 RPA 后端运行链路：
+  - 移除 `commands/rpa_commands`、`services/rpa_*`、`rpa_scheduler`
+  - `AppState` 与应用启动阶段不再初始化、恢复或调度任何 RPA 运行态
+- 数据与本地产物清理：
+  - 新增 `m20260321_000014_drop_rpa_tables`，升级时删除历史 `rpa_*` 表
+  - 启动时清理遗留 `rpa-artifacts` 目录
+- 文档同步：
+  - `docs/ai` 与工作台相关文案已移除把 RPA 视为当前产品能力的表述
 
 ## 2026-03-13（窗口同步按新协议重构）
 

@@ -6,9 +6,7 @@ use sea_orm::{
     QueryFilter, QueryOrder, Set,
 };
 
-use crate::db::entities::{
-    profile, profile_group, profile_proxy_binding, rpa_flow_target, rpa_run_instance,
-};
+use crate::db::entities::{profile, profile_group, profile_proxy_binding};
 use crate::error::{AppError, AppResult};
 use crate::fingerprint_catalog;
 use crate::font_catalog;
@@ -294,16 +292,6 @@ impl ProfileService {
         self.db_query(
             profile_proxy_binding::Entity::delete_many()
                 .filter(profile_proxy_binding::Column::ProfileId.eq(stored.id))
-                .exec(&self.db),
-        )?;
-        self.db_query(
-            rpa_flow_target::Entity::delete_many()
-                .filter(rpa_flow_target::Column::ProfileId.eq(stored.id))
-                .exec(&self.db),
-        )?;
-        self.db_query(
-            rpa_run_instance::Entity::delete_many()
-                .filter(rpa_run_instance::Column::ProfileId.eq(stored.id))
                 .exec(&self.db),
         )?;
         self.db_query(profile::Entity::delete_by_id(stored.id).exec(&self.db))?;

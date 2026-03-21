@@ -9,12 +9,7 @@ import {
 	TableRow,
 } from '@/components/ui';
 import { ConfirmActionDialog, DataSection, PageHeader } from '@/components/common';
-import { useRpaFlowsQuery } from '@/entities/rpa/model/use-rpa-flows-query';
-import { useRpaActions } from '@/features/rpa/model/use-rpa-actions';
-import {
-	countDeletedRecycleBinItems,
-	getDeletedRpaFlows,
-} from '@/features/recycle-bin/model/rpa-recycle-bin';
+import { countDeletedRecycleBinItems } from '@/features/recycle-bin/model/recycle-bin-counts';
 
 import type { RecycleBinPageProps } from '@/features/recycle-bin/model-types';
 import { RecycleBinSection } from './recycle-bin-section';
@@ -31,7 +26,7 @@ function formatDeletedAt(ts: number | null | undefined): string {
 }
 
 type PurgeTarget = {
-	kind: 'profile' | 'proxy' | 'group' | 'rpa';
+	kind: 'profile' | 'proxy' | 'group';
 	id: string;
 	name: string;
 };
@@ -94,21 +89,14 @@ export function RecycleBinPage({
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [purgeTarget, setPurgeTarget] = useState<PurgeTarget | null>(null);
-	const rpaFlowsQuery = useRpaFlowsQuery(true);
-	const rpaActions = useRpaActions();
 
 	const deletedProfiles = useMemo(() => profiles.filter((item) => item.lifecycle === 'deleted'), [profiles]);
 	const deletedProxies = useMemo(() => proxies.filter((item) => item.lifecycle === 'deleted'), [proxies]);
 	const deletedGroups = useMemo(() => groups.filter((item) => item.lifecycle === 'deleted'), [groups]);
-	const deletedRpaFlows = useMemo(
-		() => getDeletedRpaFlows(rpaFlowsQuery.data ?? []),
-		[rpaFlowsQuery.data],
-	);
 	const totalDeleted = countDeletedRecycleBinItems({
 		profiles,
 		proxies,
 		groups,
-		rpaFlows: rpaFlowsQuery.data ?? [],
 	});
 
 	const runAction = async (action: () => Promise<void>) => {
@@ -135,9 +123,6 @@ export function RecycleBinPage({
 				return;
 			case 'group':
 				await onPurgeGroup(purgeTarget.id);
-				return;
-			case 'rpa':
-				await rpaActions.purgeFlow(purgeTarget.id);
 				return;
 		}
 	};
@@ -213,26 +198,6 @@ export function RecycleBinPage({
 							void runAction(() => onRestoreGroup(item.id));
 						}}
 						onPurge={() => setPurgeTarget({ kind: 'group', id: item.id, name: item.name })}
-					/>
-				)}
-			</RecycleBinSection>
-
-			<RecycleBinSection
-				title="RPA 流程"
-				items={deletedRpaFlows}
-				footer={
-					rpaFlowsQuery.error ? <p className="text-xs text-destructive">加载 RPA 回收站失败</p> : null
-				}
-			>
-				{(item) => (
-					<DeletedItemRow
-						key={item.id}
-						item={item}
-						pending={pending}
-						onRestore={() => {
-							void runAction(() => rpaActions.restoreFlow(item.id));
-						}}
-						onPurge={() => setPurgeTarget({ kind: 'rpa', id: item.id, name: item.name })}
 					/>
 				)}
 			</RecycleBinSection>

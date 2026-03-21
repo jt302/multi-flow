@@ -3,7 +3,7 @@ import type { NavItem, NavSection } from './workspace-types';
 export const WORKSPACE_SECTIONS: Record<NavItem['id'], NavSection> = {
 	dashboard: {
 		title: '全局运行总览',
-		desc: '聚合展示环境状态、代理健康与 RPA 执行统计。',
+		desc: '聚合展示环境状态、代理健康与窗口同步概况。',
 		tableTitle: '最近活跃会话',
 		rows: [
 			{ name: 'AirDrop-001', group: 'AirDrop', status: '运行中', geo: 'US / New York', last: '刚刚' },
@@ -49,16 +49,6 @@ export const WORKSPACE_SECTIONS: Record<NavItem['id'], NavSection> = {
 			{ name: 'AirDrop-001', group: 'AirDrop', status: '运行中', geo: '1 窗口 / 3 标签', last: '刚刚' },
 			{ name: 'Brand-UK-02', group: '品牌号', status: '运行中', geo: '2 窗口 / 6 标签', last: '2 分钟前' },
 			{ name: 'Farm-DE-11', group: 'Farm', status: '待机', geo: '0 窗口 / 0 标签', last: '离线' },
-		],
-	},
-	rpa: {
-		title: 'RPA 流程中心',
-		desc: '流程入口只保留清单，节点编排与任务调试在独立编辑窗口完成。',
-		tableTitle: 'RPA 任务会话',
-		rows: [
-			{ name: 'Airdrop Batch #12', group: '自动任务', status: '运行中', geo: 'US / New York', last: '刚刚' },
-			{ name: 'Farm Mission #4', group: '自动任务', status: '待机', geo: 'DE / Frankfurt', last: '18 分钟前' },
-			{ name: 'Captcha Queue #2', group: '人工接管', status: '告警', geo: 'GB / London', last: '2 分钟前' },
 		],
 	},
 	settings: {

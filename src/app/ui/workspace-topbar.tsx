@@ -2,7 +2,7 @@ import { Logs, MonitorCog, MoonStar, Search, ShieldCheck, Sun } from 'lucide-rea
 import { useEffect, useMemo, useState } from 'react';
 
 import { WORKSPACE_NAV_ITEMS } from '@/app/model/workspace-nav-items';
-import { resolvePathFromNav, RPA_PATHS } from '@/app/workspace-routes';
+import { resolvePathFromNav } from '@/app/workspace-routes';
 import type { NavId } from '@/app/model/workspace-types';
 import {
 	Breadcrumb,
@@ -41,17 +41,7 @@ export function WorkspaceTopbar({
 	const activeLabel = WORKSPACE_NAV_ITEMS.find((item) => item.id === activeNav)?.label ?? '';
 
 	const navCommands = useMemo(
-		() =>
-			WORKSPACE_NAV_ITEMS.flatMap((item) => {
-				if (item.id !== 'rpa') {
-					return [{ label: item.label, path: resolvePathFromNav(item.id) }];
-				}
-				return [
-					{ label: 'RPA / 流程管理', path: RPA_PATHS.flows },
-					{ label: 'RPA / 任务管理', path: RPA_PATHS.tasks },
-					{ label: 'RPA / 运行记录', path: RPA_PATHS.runs },
-				];
-			}),
+		() => WORKSPACE_NAV_ITEMS.map((item) => ({ label: item.label, path: resolvePathFromNav(item.id) })),
 		[],
 	);
 

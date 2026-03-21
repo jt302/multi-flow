@@ -15,43 +15,27 @@ import {
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
-	SidebarMenuSub,
-	SidebarMenuSubButton,
-	SidebarMenuSubItem,
 	useSidebar,
 } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { WORKSPACE_NAV_ITEMS } from '@/app/model/workspace-nav-items';
-import { RPA_PATHS } from '@/app/workspace-routes';
 import type { NavId } from '@/app/model/workspace-types';
 
 type WorkspaceSidebarProps = {
 	activeNav: NavId;
-	activePath: string;
 	onNavChange: (nav: NavId) => void;
-	onPathNavigate: (path: string) => void;
 	isRunning: boolean;
 	onToggleRunning: () => void;
 };
 
-const RPA_SUB_NAVS = [
-	{ id: 'flows', label: '流程管理', path: RPA_PATHS.flows },
-	{ id: 'tasks', label: '任务管理', path: RPA_PATHS.tasks },
-	{ id: 'runs', label: '运行记录', path: RPA_PATHS.runs },
-] as const;
-
 export function WorkspaceSidebar({
 	activeNav,
-	activePath,
 	onNavChange,
-	onPathNavigate,
 	isRunning,
 	onToggleRunning,
 }: WorkspaceSidebarProps) {
 	const { state } = useSidebar();
 	const collapsed = state === 'collapsed';
-	const normalizedActivePath =
-		activePath.endsWith('/') && activePath !== '/' ? activePath.slice(0, -1) : activePath;
 
 	return (
 		<>
@@ -119,27 +103,6 @@ export function WorkspaceSidebar({
 											</span>
 											{collapsed ? null : <span>{item.label}</span>}
 										</SidebarMenuButton>
-										{item.id === 'rpa' && !collapsed ? (
-											<SidebarMenuSub>
-												{RPA_SUB_NAVS.map((subItem) => (
-													<SidebarMenuSubItem key={subItem.id}>
-														<SidebarMenuSubButton
-															asChild
-															isActive={normalizedActivePath === subItem.path}
-														>
-															<button
-																type="button"
-																aria-label={subItem.label}
-																className="cursor-pointer"
-																onClick={() => onPathNavigate(subItem.path)}
-															>
-																<span>{subItem.label}</span>
-															</button>
-														</SidebarMenuSubButton>
-													</SidebarMenuSubItem>
-												))}
-											</SidebarMenuSub>
-										) : null}
 									</SidebarMenuItem>
 								);
 							})}
@@ -165,7 +128,7 @@ export function WorkspaceSidebar({
 				) : (
 					<Card className="border-sidebar-border/60 bg-sidebar-accent/45">
 						<CardHeader className="p-3 pb-1.5">
-							<p className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/65">RPA 状态</p>
+							<p className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/65">运行状态</p>
 						</CardHeader>
 						<CardContent className="flex flex-col gap-2 p-3 pt-0">
 							<div className="flex items-center justify-between text-xs">

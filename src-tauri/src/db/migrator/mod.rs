@@ -12,6 +12,7 @@ mod m20260310_000011_add_proxy_locale_fields;
 mod m20260310_000012_add_proxy_target_site_checks;
 mod m20260310_000012_rebuild_proxy_runtime_instances;
 mod m20260311_000013_create_rpa_tasks;
+mod m20260321_000014_drop_rpa_tables;
 
 use sea_orm_migration::prelude::*;
 
@@ -35,6 +36,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260310_000012_rebuild_proxy_runtime_instances::Migration),
             Box::new(m20260310_000012_add_proxy_target_site_checks::Migration),
             Box::new(m20260311_000013_create_rpa_tasks::Migration),
+            Box::new(m20260321_000014_drop_rpa_tables::Migration),
         ]
     }
 }
@@ -42,6 +44,7 @@ impl MigratorTrait for Migrator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sea_orm::{ConnectionTrait, Database, Statement};
 
     #[test]
     fn includes_legacy_rebuild_proxy_runtime_instances_migration() {
@@ -54,5 +57,38 @@ mod tests {
             names.contains(&"m20260310_000012_rebuild_proxy_runtime_instances".to_string()),
             "missing legacy migration for already-applied local databases"
         );
+    }
+
+    #[test]
+    fn includes_drop_rpa_migration_and_removes_rpa_tables() {
+        tauri::async_runtime::block_on(async {
+            let names = Migrator::migrations()
+                .into_iter()
+                .map(|migration| migration.name().to_string())
+                .collect::<Vec<_>>();
+            assert!(
+                names.contains(&"m20260321_000014_drop_rpa_tables".to_string()),
+                "missing rpa drop migration for removing legacy automation tables"
+            );
+
+            let db = Database::connect("sqlite::memory:").await.expect("connect");
+            Migrator::up(&db, None).await.expect("run migrations");
+
+            let rows = db
+                .query_all(Statement::from_string(
+                    db.get_database_backend(),
+                    "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'rpa_%' ORDER BY name"
+                        .to_string(),
+                ))
+                .await
+                .expect("query sqlite master");
+            let tables = rows
+                .iter()
+                .filter_map(|row| row.try_get::<String>("", "name").ok())
+                .collect::<Vec<_>>();
+
+            assert!(!tables.iter().any(|name| name == "rpa_flows"));
+            assert!(!tables.iter().any(|name| name == "rpa_tasks"));
+        });
     }
 }
