@@ -120,6 +120,7 @@ export function FingerprintSettingsSection({
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value="real">真实（不覆盖）</SelectItem>
+							<SelectItem value="follow_ip">跟随 IP</SelectItem>
 							<SelectItem value="replace">替换（指定 IP）</SelectItem>
 							<SelectItem value="disable">禁用</SelectItem>
 						</SelectContent>

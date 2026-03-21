@@ -36,6 +36,20 @@ type ProfileDetailPageProps = {
 	onEditProfile: (profileId: string) => void;
 };
 
+function formatWebRtcModeLabel(value: string | undefined) {
+	switch (value) {
+		case 'follow_ip':
+			return '跟随 IP';
+		case 'replace':
+			return '替换（指定 IP）';
+		case 'disable':
+			return '禁用';
+		case 'real':
+		default:
+			return '真实（不覆盖）';
+	}
+}
+
 function DetailMetric({
 	label,
 	value,
@@ -317,7 +331,10 @@ export function ProfileDetailPage({
 						<DetailMetric label="浏览器版本" value={source?.browserVersion || basic?.browserVersion || '未设置'} />
 						<DetailMetric label="策略 / Seed Policy" value={`${source?.strategy || 'template'} / ${source?.seedPolicy || 'fixed'}`} />
 						<DetailMetric label="Catalog" value={source?.catalogVersion || '未设置'} />
-						<DetailMetric label="WebRTC" value={fingerprint?.webRtcMode || 'real'} />
+						<DetailMetric
+							label="WebRTC"
+							value={formatWebRtcModeLabel(fingerprint?.webRtcMode)}
+						/>
 					</CardContent>
 				</Card>
 

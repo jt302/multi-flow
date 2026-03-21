@@ -119,3 +119,10 @@
 - [x] `ip` 模式启动时优先使用绑定代理 GEO，缺失时回退本机公网 IP 的本地 GeoIP 查询结果
 - [x] `custom` 模式改为注入 Chromium 正式参数 `--custom-geolocation-*`
 - [x] 启动链路支持 `--auto-allow-geolocation`，不再依赖内部 `--multi-flow-geolocation`
+
+## 本轮新增（WebRTC 跟随 IP）
+
+- [x] 环境指纹设置新增 WebRTC 模式 `follow_ip`，前端文案显示为“跟随 IP”
+- [x] 新环境默认 WebRTC 策略改为“跟随 IP”，旧环境继续保持原保存值
+- [x] `follow_ip` 模式启动时优先使用绑定代理 `exit_ip`，缺失时回退本机公网 IP
+- [x] 若 `follow_ip` 无法解析目标 IP，则不阻塞启动并回退为不注入 `--webrtc-ip-override`

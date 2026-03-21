@@ -26,7 +26,7 @@ export const profileFormSchema = z
 		language: z.string(),
 		timezoneId: z.string(),
 		customFontListText: z.string(),
-		webRtcMode: z.enum(['real', 'replace', 'disable']),
+		webRtcMode: z.enum(['real', 'follow_ip', 'replace', 'disable']),
 		webrtcIpOverride: z.string(),
 		headless: z.boolean(),
 		disableImages: z.boolean(),
@@ -173,10 +173,25 @@ export function resolveProxySuggestedValues(
 }
 
 export function normalizeWebRtcMode(value?: string): WebRtcMode {
-	if (value === 'replace' || value === 'disable' || value === 'real') {
+	if (
+		value === 'replace' ||
+		value === 'disable' ||
+		value === 'real' ||
+		value === 'follow_ip'
+	) {
 		return value;
 	}
 	return 'real';
+}
+
+export function resolveInitialWebRtcMode(
+	value: string | undefined,
+	hasInitialProfile: boolean,
+): WebRtcMode {
+	if (value) {
+		return normalizeWebRtcMode(value);
+	}
+	return hasInitialProfile ? 'real' : 'follow_ip';
 }
 
 export function buildAcceptLanguages(language: string): string | undefined {
