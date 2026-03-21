@@ -136,3 +136,10 @@
 - [x] 启动参数已切换为 `--custom-resolution-width/height/dpr`
 - [x] 启动链路使用与 `custom-resolution` 同步的 `--window-size`，并继续停止注入 `--force-device-scale-factor`、`--geoip-database`
 - [x] `--use-mobile-user-agent` 与 `--touch-events=enabled` 改为仅在移动机型预设下开启
+
+## 本轮新增（环境安全退出）
+
+- [x] 环境级关闭改为优先调用 Chromium `safe_quit`，不再先发 `set_closed`
+- [x] `safe_quit` 成功后最多等待 `3s`，轮询间隔 `100ms`
+- [x] 若 `safe_quit` 失败、返回异常或超时未退出，则回退到强杀 Chromium 进程
+- [x] 窗口级关闭继续使用 `set_closed`，不升级为整个应用退出

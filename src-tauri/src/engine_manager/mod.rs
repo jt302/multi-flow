@@ -3,7 +3,7 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::error::{AppError, AppResult};
 use crate::logger;
@@ -18,6 +18,8 @@ const MAGIC_HTTP_REQUEST_TIMEOUT_SECS: u64 = 2;
 const MAGIC_HTTP_MAX_RETRIES: usize = 8;
 const MAGIC_HTTP_RETRY_DELAY_MS: u64 = 120;
 const MAGIC_HTTP_PATHS: [&str; 4] = ["/", "/cmd", "/command", "/magic"];
+const SAFE_QUIT_WAIT_TIMEOUT_MS: u64 = 3_000;
+const SAFE_QUIT_POLL_INTERVAL_MS: u64 = 100;
 
 struct SessionRecord {
     session: EngineSession,
@@ -226,18 +228,7 @@ impl EngineManager {
             magic_port,
         } = &mut record.process
         {
-            let _ = try_magic_close(profile_id, *magic_port);
-            logger::info(
-                "engine_manager",
-                format!(
-                    "close_profile terminating chromium profile_id={profile_id} profile_name=\"{profile_name}\" pid={} debug_port={} magic_port={}",
-                    child.id(),
-                    debug_port,
-                    magic_port
-                ),
-            );
-            let _ = child.kill();
-            let _ = child.wait();
+            shutdown_chromium_process(profile_id, &profile_name, child, *debug_port, *magic_port);
         }
         logger::info(
             "engine_manager",
@@ -1574,8 +1565,8 @@ fn is_magic_server_alive(port: u16) -> bool {
     false
 }
 
-fn try_magic_close(profile_id: &str, port: u16) -> AppResult<()> {
-    let payload = json!({ "cmd": "set_closed" });
+fn try_magic_safe_quit(profile_id: &str, port: u16) -> AppResult<()> {
+    let payload = json!({ "cmd": "safe_quit" });
     for path in MAGIC_HTTP_PATHS {
         let response = match send_magic_http_request(port, path, &payload) {
             Ok(result) => result,
@@ -1586,18 +1577,168 @@ fn try_magic_close(profile_id: &str, port: u16) -> AppResult<()> {
         }
         let parsed = serde_json::from_str::<Value>(&response.body).map_err(|err| {
             AppError::Validation(format!(
-                "magic close response parse failed profile_id={profile_id} path={path}: {err}"
+                "magic safe_quit response parse failed profile_id={profile_id} path={path}: {err}"
             ))
         })?;
         if parsed.get("status").and_then(Value::as_str) == Some("ok") {
             logger::info(
                 "engine_manager.magic",
-                format!("magic close success profile_id={profile_id} path={path}"),
+                format!("magic safe_quit success profile_id={profile_id} path={path}"),
             );
             return Ok(());
         }
     }
-    Ok(())
+    Err(AppError::Validation(format!(
+        "magic safe_quit failed profile_id={profile_id} port={port}"
+    )))
+}
+
+fn wait_for_child_exit(
+    profile_id: &str,
+    profile_name: &str,
+    child: &mut Child,
+    timeout: Duration,
+    poll_interval: Duration,
+) -> AppResult<bool> {
+    let pid = child.id();
+    let deadline = Instant::now() + timeout;
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                logger::info(
+                    "engine_manager",
+                    format!(
+                        "chromium exited after safe_quit profile_id={profile_id} profile_name=\"{profile_name}\" pid={pid} status={status}"
+                    ),
+                );
+                return Ok(true);
+            }
+            Ok(None) => {
+                let now = Instant::now();
+                if now >= deadline {
+                    return Ok(false);
+                }
+                let remaining = deadline.saturating_duration_since(now);
+                std::thread::sleep(poll_interval.min(remaining));
+            }
+            Err(err) => {
+                return Err(AppError::Validation(format!(
+                    "check chromium exit failed profile_id={profile_id} profile_name=\"{profile_name}\" pid={pid}: {err}"
+                )));
+            }
+        }
+    }
+}
+
+fn force_kill_child(profile_id: &str, profile_name: &str, child: &mut Child) {
+    let pid = child.id();
+    match child.try_wait() {
+        Ok(Some(status)) => {
+            logger::info(
+                "engine_manager",
+                format!(
+                    "chromium already exited before force kill profile_id={profile_id} profile_name=\"{profile_name}\" pid={pid} status={status}"
+                ),
+            );
+            return;
+        }
+        Ok(None) => {}
+        Err(err) => {
+            logger::warn(
+                "engine_manager",
+                format!(
+                    "pre-kill status check failed profile_id={profile_id} profile_name=\"{profile_name}\" pid={pid}: {err}"
+                ),
+            );
+        }
+    }
+
+    logger::warn(
+        "engine_manager",
+        format!(
+            "force killing chromium profile_id={profile_id} profile_name=\"{profile_name}\" pid={pid}"
+        ),
+    );
+    if let Err(err) = child.kill() {
+        logger::warn(
+            "engine_manager",
+            format!(
+                "chromium force kill failed profile_id={profile_id} profile_name=\"{profile_name}\" pid={pid}: {err}"
+            ),
+        );
+    }
+    match child.wait() {
+        Ok(status) => {
+            logger::info(
+                "engine_manager",
+                format!(
+                    "chromium force kill completed profile_id={profile_id} profile_name=\"{profile_name}\" pid={pid} status={status}"
+                ),
+            );
+        }
+        Err(err) => {
+            logger::warn(
+                "engine_manager",
+                format!(
+                    "chromium wait after force kill failed profile_id={profile_id} profile_name=\"{profile_name}\" pid={pid}: {err}"
+                ),
+            );
+        }
+    }
+}
+
+fn shutdown_chromium_process(
+    profile_id: &str,
+    profile_name: &str,
+    child: &mut Child,
+    debug_port: u16,
+    magic_port: u16,
+) {
+    let pid = child.id();
+    let graceful_exit = match try_magic_safe_quit(profile_id, magic_port) {
+        Ok(()) => match wait_for_child_exit(
+            profile_id,
+            profile_name,
+            child,
+            Duration::from_millis(SAFE_QUIT_WAIT_TIMEOUT_MS),
+            Duration::from_millis(SAFE_QUIT_POLL_INTERVAL_MS),
+        ) {
+            Ok(true) => true,
+            Ok(false) => {
+                logger::warn(
+                    "engine_manager",
+                    format!(
+                        "safe_quit timed out profile_id={profile_id} profile_name=\"{profile_name}\" pid={pid} debug_port={debug_port} magic_port={magic_port} timeout_ms={SAFE_QUIT_WAIT_TIMEOUT_MS}"
+                    ),
+                );
+                false
+            }
+            Err(err) => {
+                logger::warn(
+                    "engine_manager",
+                    format!(
+                        "safe_quit wait failed profile_id={profile_id} profile_name=\"{profile_name}\" pid={pid} debug_port={debug_port} magic_port={magic_port}: {err}"
+                    ),
+                );
+                false
+            }
+        },
+        Err(err) => {
+            logger::warn(
+                "engine_manager",
+                format!(
+                    "safe_quit request failed profile_id={profile_id} profile_name=\"{profile_name}\" pid={pid} debug_port={debug_port} magic_port={magic_port}: {err}"
+                ),
+            );
+            false
+        }
+    };
+
+    if graceful_exit {
+        return;
+    }
+
+    force_kill_child(profile_id, profile_name, child);
 }
 
 fn parse_magic_window(entry: &Value) -> Option<ProfileWindow> {
@@ -1854,7 +1995,74 @@ fn profile_window_state(profile_id: &str, record: &SessionRecord) -> ProfileWind
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
     use std::path::PathBuf;
+    use std::process::{Command, Stdio};
+    use std::sync::{Arc, Mutex};
+    use std::thread;
+    use std::time::Instant;
+
+    fn spawn_magic_test_server<F>(handler: F) -> (u16, thread::JoinHandle<()>)
+    where
+        F: FnOnce(String) -> (u16, String) + Send + 'static,
+    {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind test magic server");
+        let port = listener.local_addr().expect("listener addr").port();
+        let handle = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept request");
+            let mut buffer = [0u8; 8192];
+            let bytes_read = stream.read(&mut buffer).expect("read request");
+            let request = String::from_utf8_lossy(&buffer[..bytes_read]).to_string();
+            let (status_code, body) = handler(request);
+            let response = format!(
+                "HTTP/1.1 {status_code} TEST\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            stream
+                .write_all(response.as_bytes())
+                .expect("write response");
+        });
+        (port, handle)
+    }
+
+    fn spawn_sleeping_child() -> Child {
+        Command::new("/bin/sh")
+            .arg("-lc")
+            .arg("sleep 30")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn sleeping child")
+    }
+
+    fn insert_chromium_session(manager: &mut EngineManager, profile_id: &str, magic_port: u16) {
+        let child = spawn_sleeping_child();
+        let session = EngineSession {
+            profile_id: profile_id.to_string(),
+            session_id: 1,
+            pid: Some(child.id()),
+            started_at: now_ts(),
+        };
+        manager.sessions.insert(
+            profile_id.to_string(),
+            SessionRecord {
+                session,
+                profile_name: profile_id.to_string(),
+                process: EngineProcess::Chromium {
+                    child,
+                    debug_port: 19222,
+                    magic_port,
+                },
+                launch_args: Vec::new(),
+                extra_args: Vec::new(),
+                windows: build_default_windows(Vec::new()),
+                next_window_id: 2,
+                next_tab_id: 2,
+            },
+        );
+    }
 
     #[test]
     fn mock_mode_open_close_works() {
@@ -2014,6 +2222,83 @@ mod tests {
         assert!(
             !args.iter().any(|arg| arg.starts_with("--geoip-database=")),
             "geoip-database should be absent from chromium args: {args:?}"
+        );
+    }
+
+    #[test]
+    fn close_profile_requests_safe_quit_before_process_cleanup() {
+        let commands = Arc::new(Mutex::new(Vec::<String>::new()));
+        let commands_clone = Arc::clone(&commands);
+        let (magic_port, server) = spawn_magic_test_server(move |request| {
+            commands_clone.lock().expect("commands lock").push(request);
+            (200, r#"{"status":"ok"}"#.to_string())
+        });
+        let mut manager = EngineManager::new();
+        insert_chromium_session(&mut manager, "pf_safe_quit", magic_port);
+
+        let closed = manager
+            .close_profile("pf_safe_quit")
+            .expect("close chromium profile");
+        assert_eq!(closed.profile_id, "pf_safe_quit");
+
+        server.join().expect("join test magic server");
+        let requests = commands.lock().expect("commands lock");
+        assert_eq!(requests.len(), 1, "expected one magic request");
+        assert!(
+            requests[0].contains("\"cmd\":\"safe_quit\""),
+            "expected safe_quit request, got: {}",
+            requests[0]
+        );
+    }
+
+    #[test]
+    fn close_profile_waits_for_safe_quit_timeout_before_force_kill() {
+        let (magic_port, server) =
+            spawn_magic_test_server(|_| (200, r#"{"status":"ok"}"#.to_string()));
+        let mut manager = EngineManager::new();
+        insert_chromium_session(&mut manager, "pf_timeout", magic_port);
+
+        let started_at = Instant::now();
+        manager
+            .close_profile("pf_timeout")
+            .expect("close chromium profile");
+        let elapsed = started_at.elapsed();
+
+        server.join().expect("join test magic server");
+        assert!(
+            elapsed >= Duration::from_millis(2800),
+            "expected safe_quit timeout wait before force kill, elapsed={elapsed:?}"
+        );
+    }
+
+    #[test]
+    fn close_profile_falls_back_to_force_kill_when_safe_quit_rejected() {
+        let commands = Arc::new(Mutex::new(Vec::<String>::new()));
+        let commands_clone = Arc::clone(&commands);
+        let (magic_port, server) = spawn_magic_test_server(move |request| {
+            commands_clone.lock().expect("commands lock").push(request);
+            (500, r#"{"status":"error","message":"boom"}"#.to_string())
+        });
+        let mut manager = EngineManager::new();
+        insert_chromium_session(&mut manager, "pf_fallback", magic_port);
+
+        let started_at = Instant::now();
+        manager
+            .close_profile("pf_fallback")
+            .expect("close chromium profile");
+        let elapsed = started_at.elapsed();
+
+        server.join().expect("join test magic server");
+        let requests = commands.lock().expect("commands lock");
+        assert_eq!(requests.len(), 1, "expected one magic request");
+        assert!(
+            requests[0].contains("\"cmd\":\"safe_quit\""),
+            "expected safe_quit request, got: {}",
+            requests[0]
+        );
+        assert!(
+            elapsed < Duration::from_secs(2),
+            "expected immediate force kill fallback, elapsed={elapsed:?}"
         );
     }
 }
