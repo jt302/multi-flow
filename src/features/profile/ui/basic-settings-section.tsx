@@ -201,7 +201,7 @@ export function BasicSettingsSection({
 						<SelectContent>
 							{devicePresets.map((item) => (
 								<SelectItem key={item.id} value={item.id}>
-									{item.label} · {item.viewportWidth}x{item.viewportHeight} · DPR {item.deviceScaleFactor}
+									{item.label} · 分辨率 {item.viewportWidth}x{item.viewportHeight} · DPR {item.deviceScaleFactor}
 								</SelectItem>
 							))}
 						</SelectContent>
@@ -211,7 +211,7 @@ export function BasicSettingsSection({
 							? '设备预设加载中...'
 							: devicePresetsError
 								? `设备预设加载失败：${devicePresetsError}`
-								: '预设会决定 UA、UA metadata、窗口尺寸、DPR、GL、字体、CPU、RAM 等整套指纹参数'}
+								: '预设会决定 UA、UA metadata、默认分辨率、DPR、GL、字体、CPU、RAM 等整套指纹参数'}
 					</p>
 				</div>
 				<div>

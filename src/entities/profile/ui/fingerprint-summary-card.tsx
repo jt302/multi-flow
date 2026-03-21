@@ -85,7 +85,7 @@ export function FingerprintSummaryCard({
 								value={mergedPreviewSnapshot.customPlatform || '未设置'}
 							/>
 							<SummaryMetric
-								label="窗口 / DPR"
+								label="分辨率 / DPR"
 								value={
 									mergedPreviewSnapshot.windowWidth &&
 									mergedPreviewSnapshot.windowHeight

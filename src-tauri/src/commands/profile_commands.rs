@@ -1009,7 +1009,6 @@ fn resolve_launch_options(
         startup_urls,
         proxy_server,
         web_rtc_policy: None,
-        geoip_database_path: geoip_database,
         headless: options.headless.unwrap_or(false),
         disable_images: options.disable_images.unwrap_or(false),
         toolbar_text,
@@ -1346,6 +1345,8 @@ fn resolve_runtime_fingerprint_snapshot(
             || timezone_override.as_deref() != snapshot.time_zone.as_deref()
             || fingerprint_seed != snapshot.fingerprint_seed;
         if !should_re_resolve {
+            let mut snapshot = snapshot;
+            apply_fingerprint_resolution_overrides(&mut snapshot, fingerprint);
             return Ok(snapshot);
         }
     }
@@ -1404,6 +1405,7 @@ fn resolve_runtime_fingerprint_snapshot(
     .map_err(error_to_string)?;
     let mut snapshot = snapshot;
     snapshot.custom_font_list = Some(fonts);
+    apply_fingerprint_resolution_overrides(&mut snapshot, fingerprint);
 
     Ok(snapshot)
 }
@@ -1478,19 +1480,45 @@ fn append_snapshot_args(extra_args: &mut Vec<String>, snapshot: &ProfileFingerpr
     }
     if let Some(touch_points) = snapshot.custom_touch_points {
         extra_args.push(format!("--custom-touch-points={touch_points}"));
-        extra_args.push("--touch-events=enabled".to_string());
+        if snapshot.mobile == Some(true) {
+            extra_args.push("--touch-events=enabled".to_string());
+        }
     }
     if snapshot.mobile == Some(true) {
         extra_args.push("--use-mobile-user-agent".to_string());
+    }
+    if let Some(width) = snapshot.window_width {
+        extra_args.push(format!("--custom-resolution-width={width}"));
+    }
+    if let Some(height) = snapshot.window_height {
+        extra_args.push(format!("--custom-resolution-height={height}"));
     }
     if let (Some(width), Some(height)) = (snapshot.window_width, snapshot.window_height) {
         extra_args.push(format!("--window-size={width},{height}"));
     }
     if let Some(device_scale_factor) = snapshot.device_scale_factor {
         extra_args.push(format!(
-            "--force-device-scale-factor={}",
+            "--custom-resolution-dpr={}",
             format_device_scale_factor(device_scale_factor)
         ));
+    }
+}
+
+fn apply_fingerprint_resolution_overrides(
+    snapshot: &mut ProfileFingerprintSnapshot,
+    fingerprint: Option<&crate::models::ProfileFingerprintSettings>,
+) {
+    let Some(fingerprint) = fingerprint else {
+        return;
+    };
+    if let Some(width) = fingerprint.viewport_width {
+        snapshot.window_width = Some(width);
+    }
+    if let Some(height) = fingerprint.viewport_height {
+        snapshot.window_height = Some(height);
+    }
+    if let Some(device_scale_factor) = fingerprint.device_scale_factor {
+        snapshot.device_scale_factor = Some(device_scale_factor);
     }
 }
 
@@ -2277,14 +2305,11 @@ mod tests {
 
     #[test]
     fn resolve_web_rtc_override_ip_falls_back_to_local_public_ip_for_follow_ip_mode() {
-        let ip = resolve_web_rtc_override_ip_with(
-            "pf_000001",
-            WebRtcMode::FollowIp,
-            None,
-            None,
-            || Ok("198.51.100.5".to_string()),
-        )
-        .expect("resolve web rtc override ip");
+        let ip =
+            resolve_web_rtc_override_ip_with("pf_000001", WebRtcMode::FollowIp, None, None, || {
+                Ok("198.51.100.5".to_string())
+            })
+            .expect("resolve web rtc override ip");
 
         assert_eq!(ip.as_deref(), Some("198.51.100.5"));
     }
@@ -2655,6 +2680,96 @@ mod tests {
     }
 
     #[test]
+    fn resolve_launch_options_prefers_profile_resolution_override() {
+        let preset_service = new_test_device_preset_service();
+        let options = resolve_launch_options(
+            &preset_service,
+            "pf_000001",
+            "resolution-profile",
+            Some(&ProfileSettings {
+                basic: Some(crate::models::ProfileBasicSettings {
+                    platform: Some("macos".to_string()),
+                    device_preset_id: Some("macos_macbook_pro_14".to_string()),
+                    browser_version: Some("144.0.7559.97".to_string()),
+                    ..Default::default()
+                }),
+                fingerprint: Some(crate::models::ProfileFingerprintSettings {
+                    viewport_width: Some(1728),
+                    viewport_height: Some(1117),
+                    device_scale_factor: Some(1.5),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            OpenProfileOptions::default(),
+            None,
+            None,
+            None,
+            Some("144.0.7559.97"),
+        )
+        .expect("resolve launch options");
+
+        assert!(options
+            .extra_args
+            .iter()
+            .any(|item| item == "--custom-resolution-width=1728"));
+        assert!(options
+            .extra_args
+            .iter()
+            .any(|item| item == "--custom-resolution-height=1117"));
+        assert!(options
+            .extra_args
+            .iter()
+            .any(|item| item == "--custom-resolution-dpr=1.5"));
+        assert!(options
+            .extra_args
+            .iter()
+            .any(|item| item == "--window-size=1728,1117"));
+        assert!(!options
+            .extra_args
+            .iter()
+            .any(|item| item.starts_with("--force-device-scale-factor=")));
+    }
+
+    #[test]
+    fn append_snapshot_args_only_enables_mobile_flags_for_mobile_snapshots() {
+        let mut extra_args = Vec::new();
+        append_snapshot_args(
+            &mut extra_args,
+            &ProfileFingerprintSnapshot {
+                mobile: Some(false),
+                custom_touch_points: Some(5),
+                window_width: Some(1512),
+                window_height: Some(982),
+                device_scale_factor: Some(2.0),
+                ..Default::default()
+            },
+        );
+
+        assert!(extra_args
+            .iter()
+            .any(|item| item == "--custom-touch-points=5"));
+        assert!(extra_args
+            .iter()
+            .any(|item| item == "--custom-resolution-width=1512"));
+        assert!(extra_args
+            .iter()
+            .any(|item| item == "--custom-resolution-height=982"));
+        assert!(extra_args
+            .iter()
+            .any(|item| item == "--custom-resolution-dpr=2"));
+        assert!(extra_args
+            .iter()
+            .any(|item| item == "--window-size=1512,982"));
+        assert!(!extra_args
+            .iter()
+            .any(|item| item == "--touch-events=enabled"));
+        assert!(!extra_args
+            .iter()
+            .any(|item| item == "--use-mobile-user-agent"));
+    }
+
+    #[test]
     fn resolve_launch_options_applies_android_mobile_flags() {
         let preset_service = new_test_device_preset_service();
         let options = resolve_launch_options(
@@ -2697,11 +2812,23 @@ mod tests {
         assert!(options
             .extra_args
             .iter()
-            .any(|item| item == "--window-size=412,915"));
+            .any(|item| item == "--custom-resolution-width=412"));
         assert!(options
             .extra_args
             .iter()
-            .any(|item| item == "--force-device-scale-factor=2.625"));
+            .any(|item| item == "--custom-resolution-height=915"));
+        assert!(options
+            .extra_args
+            .iter()
+            .any(|item| item == "--custom-resolution-dpr=2.625"));
+        assert!(options
+            .extra_args
+            .iter()
+            .any(|item| item == "--window-size=412,915"));
+        assert!(!options
+            .extra_args
+            .iter()
+            .any(|item| item.starts_with("--force-device-scale-factor=")));
         assert!(options.extra_args.iter().any(|item| {
             item.starts_with(
                 "--custom-ua-metadata=platform=Android|platform_version=14.0.0|arch=arm|bitness=64|mobile=1|brands=Google Chrome:144,Chromium:144|form_factors=Mobile",
@@ -2762,11 +2889,23 @@ mod tests {
         assert!(options
             .extra_args
             .iter()
-            .any(|item| item == "--window-size=393,852"));
+            .any(|item| item == "--custom-resolution-width=393"));
         assert!(options
             .extra_args
             .iter()
-            .any(|item| item == "--force-device-scale-factor=3"));
+            .any(|item| item == "--custom-resolution-height=852"));
+        assert!(options
+            .extra_args
+            .iter()
+            .any(|item| item == "--custom-resolution-dpr=3"));
+        assert!(options
+            .extra_args
+            .iter()
+            .any(|item| item == "--window-size=393,852"));
+        assert!(!options
+            .extra_args
+            .iter()
+            .any(|item| item.starts_with("--force-device-scale-factor=")));
         assert!(options.extra_args.iter().any(|item| {
             item.starts_with(
                 "--custom-ua-metadata=platform=iOS|platform_version=17.0.0|arch=arm|bitness=64|mobile=1|brands=Google Chrome:144,Chromium:144|form_factors=Mobile",

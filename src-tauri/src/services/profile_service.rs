@@ -497,6 +497,27 @@ fn normalize_profile_settings(
             .webrtc_ip_override
             .take()
             .and_then(trim_to_option);
+        if let Some(value) = fingerprint.viewport_width {
+            if value == 0 {
+                return Err(AppError::Validation(
+                    "viewportWidth must be greater than 0".to_string(),
+                ));
+            }
+        }
+        if let Some(value) = fingerprint.viewport_height {
+            if value == 0 {
+                return Err(AppError::Validation(
+                    "viewportHeight must be greater than 0".to_string(),
+                ));
+            }
+        }
+        if let Some(value) = fingerprint.device_scale_factor {
+            if value <= 0.0 {
+                return Err(AppError::Validation(
+                    "deviceScaleFactor must be greater than 0".to_string(),
+                ));
+            }
+        }
         if !has_strong_fingerprint_context {
             if let Some(value) = fingerprint.custom_cpu_cores {
                 if value == 0 {
@@ -561,6 +582,9 @@ fn normalize_profile_settings(
             && fingerprint.font_list_mode.is_none()
             && fingerprint.web_rtc_mode.is_none()
             && fingerprint.webrtc_ip_override.is_none()
+            && fingerprint.viewport_width.is_none()
+            && fingerprint.viewport_height.is_none()
+            && fingerprint.device_scale_factor.is_none()
             && fingerprint.custom_cpu_cores.is_none()
             && fingerprint.custom_ram_gb.is_none()
             && fingerprint.custom_font_list.is_none()
@@ -736,6 +760,7 @@ fn hydrate_strong_fingerprint_settings(
                 && previous_source.is_none()
                 && previous_snapshot.is_none(),
         );
+        apply_resolution_overrides(&mut snapshot, fingerprint);
         snapshot
     };
 
@@ -807,6 +832,21 @@ fn apply_legacy_fingerprint_overrides(
     }
     if let Some(custom_font_list) = fingerprint.custom_font_list.clone() {
         snapshot.custom_font_list = Some(custom_font_list);
+    }
+}
+
+fn apply_resolution_overrides(
+    snapshot: &mut ProfileFingerprintSnapshot,
+    fingerprint: &ProfileFingerprintSettings,
+) {
+    if let Some(width) = fingerprint.viewport_width {
+        snapshot.window_width = Some(width);
+    }
+    if let Some(height) = fingerprint.viewport_height {
+        snapshot.window_height = Some(height);
+    }
+    if let Some(device_scale_factor) = fingerprint.device_scale_factor {
+        snapshot.device_scale_factor = Some(device_scale_factor);
     }
 }
 
@@ -1223,6 +1263,52 @@ mod tests {
             snapshot.custom_font_list.as_ref(),
             Some(&vec!["Arial".to_string(), "Helvetica".to_string()])
         );
+    }
+
+    #[test]
+    fn fingerprint_resolution_overrides_are_persisted_into_snapshot() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProfileService::from_db(db);
+
+        let profile = service
+            .create_profile(CreateProfileRequest {
+                name: "resolution-profile".to_string(),
+                group: None,
+                note: None,
+                proxy_id: None,
+                settings: Some(ProfileSettings {
+                    basic: Some(ProfileBasicSettings {
+                        platform: Some("macos".to_string()),
+                        browser_version: Some("144.0.7559.97".to_string()),
+                        device_preset_id: Some("macos_macbook_pro_14".to_string()),
+                        ..Default::default()
+                    }),
+                    fingerprint: Some(ProfileFingerprintSettings {
+                        fingerprint_source: Some(ProfileFingerprintSource {
+                            platform: Some("macos".to_string()),
+                            device_preset_id: Some("macos_macbook_pro_14".to_string()),
+                            browser_version: Some("144.0.7559.97".to_string()),
+                            ..Default::default()
+                        }),
+                        viewport_width: Some(1728),
+                        viewport_height: Some(1117),
+                        device_scale_factor: Some(1.5),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+            })
+            .expect("create profile with resolution override");
+
+        let snapshot = profile
+            .settings
+            .as_ref()
+            .and_then(|settings| settings.fingerprint.as_ref())
+            .and_then(|fingerprint| fingerprint.fingerprint_snapshot.as_ref())
+            .expect("fingerprint snapshot");
+        assert_eq!(snapshot.window_width, Some(1728));
+        assert_eq!(snapshot.window_height, Some(1117));
+        assert_eq!(snapshot.device_scale_factor, Some(1.5));
     }
 
     #[test]

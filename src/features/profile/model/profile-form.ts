@@ -1,6 +1,7 @@
 import { z } from 'zod/v3';
 
 import type {
+	ProfileDevicePresetItem,
 	ProfileFingerprintSnapshot,
 	ProfileFingerprintSource,
 	WebRtcMode,
@@ -37,6 +38,9 @@ export const profileFormSchema = z
 		latitude: z.string(),
 		longitude: z.string(),
 		accuracy: z.string(),
+		viewportWidth: z.number().int().min(1, '分辨率宽度必须大于 0'),
+		viewportHeight: z.number().int().min(1, '分辨率高度必须大于 0'),
+		deviceScaleFactor: z.number().positive('DPR 必须大于 0'),
 		fingerprintSeed: z.number().int().nonnegative().nullable(),
 	})
 	.superRefine((values, ctx) => {
@@ -120,8 +124,17 @@ export const profileFormSchema = z
 	});
 
 export type ProfileFormValues = z.infer<typeof profileFormSchema>;
+export type ProfileResolutionValues = Pick<
+	ProfileFormValues,
+	'viewportWidth' | 'viewportHeight' | 'deviceScaleFactor'
+>;
 
 export type ProxySuggestionFieldSource = 'manual' | 'proxy' | 'empty';
+
+type ResolutionPresetInput = Pick<
+	ProfileDevicePresetItem,
+	'viewportWidth' | 'viewportHeight' | 'deviceScaleFactor'
+>;
 
 type ProxyLocaleSuggestionInput = {
 	suggestedLanguage?: string;
@@ -287,10 +300,45 @@ export function generateRandomFingerprintSeed() {
 	return bytes[0] || Math.floor(Math.random() * 0xffffffff);
 }
 
+export function buildResolutionValuesFromPreset(
+	preset: ResolutionPresetInput | null | undefined,
+): ProfileResolutionValues | null {
+	if (!preset) {
+		return null;
+	}
+	return {
+		viewportWidth: preset.viewportWidth,
+		viewportHeight: preset.viewportHeight,
+		deviceScaleFactor: preset.deviceScaleFactor,
+	};
+}
+
+export function resolveInitialResolutionValues(
+	storedValues:
+		| Partial<ProfileResolutionValues>
+		| null
+		| undefined,
+	preset: ResolutionPresetInput | null | undefined,
+): ProfileResolutionValues | null {
+	if (
+		typeof storedValues?.viewportWidth === 'number' &&
+		typeof storedValues?.viewportHeight === 'number' &&
+		typeof storedValues?.deviceScaleFactor === 'number'
+	) {
+		return {
+			viewportWidth: storedValues.viewportWidth,
+			viewportHeight: storedValues.viewportHeight,
+			deviceScaleFactor: storedValues.deviceScaleFactor,
+		};
+	}
+	return buildResolutionValuesFromPreset(preset);
+}
+
 export function mergePreviewSnapshot(
 	snapshot: ProfileFingerprintSnapshot | null,
 	language: string,
 	timezoneId: string,
+	resolution?: Partial<ProfileResolutionValues> | null,
 ): ProfileFingerprintSnapshot | null {
 	if (!snapshot) {
 		return null;
@@ -304,5 +352,17 @@ export function mergePreviewSnapshot(
 			? buildAcceptLanguages(trimmedLanguage)
 			: snapshot.acceptLanguages,
 		timeZone: trimmedTimezone || snapshot.timeZone,
+		windowWidth:
+			typeof resolution?.viewportWidth === 'number'
+				? resolution.viewportWidth
+				: snapshot.windowWidth,
+		windowHeight:
+			typeof resolution?.viewportHeight === 'number'
+				? resolution.viewportHeight
+				: snapshot.windowHeight,
+		deviceScaleFactor:
+			typeof resolution?.deviceScaleFactor === 'number'
+				? resolution.deviceScaleFactor
+				: snapshot.deviceScaleFactor,
 	};
 }

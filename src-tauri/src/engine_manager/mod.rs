@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
 use std::io::{BufRead, BufReader};
+use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
 
@@ -63,7 +63,6 @@ pub struct EngineLaunchOptions {
     pub startup_urls: Vec<String>,
     pub proxy_server: Option<String>,
     pub web_rtc_policy: Option<String>,
-    pub geoip_database_path: Option<PathBuf>,
     pub headless: bool,
     pub disable_images: bool,
     pub toolbar_text: Option<String>,
@@ -85,7 +84,9 @@ pub struct EngineManager {
 
 impl EngineManager {
     fn profile_name_for(&self, profile_id: &str) -> Option<&str> {
-        self.sessions.get(profile_id).map(|record| record.profile_name.as_str())
+        self.sessions
+            .get(profile_id)
+            .map(|record| record.profile_name.as_str())
     }
 
     #[allow(dead_code)]
@@ -1483,11 +1484,6 @@ fn build_chromium_launch_args(
     {
         args.push(format!("--force-webrtc-ip-handling-policy={policy}"));
     }
-    if let Some(geoip_path) = options.geoip_database_path.as_ref() {
-        if geoip_path.is_file() {
-            args.push(format!("--geoip-database={}", geoip_path.to_string_lossy()));
-        }
-    }
     if options.headless {
         args.push("--headless=new".to_string());
     }
@@ -2000,6 +1996,24 @@ mod tests {
         assert!(
             args.iter().any(|arg| arg == "--v=1"),
             "expected chromium verbose logging level in args: {args:?}"
+        );
+    }
+
+    #[test]
+    fn build_chromium_launch_args_never_adds_geoip_database_flag() {
+        let options = EngineLaunchOptions::default();
+        let args = build_chromium_launch_args(
+            &PathBuf::from("/tmp/multi-flow-tests/user-data"),
+            &PathBuf::from("/tmp/multi-flow-tests/cache-data"),
+            19222,
+            19322,
+            &options,
+        )
+        .expect("build args");
+
+        assert!(
+            !args.iter().any(|arg| arg.starts_with("--geoip-database=")),
+            "geoip-database should be absent from chromium args: {args:?}"
         );
     }
 }
