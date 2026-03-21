@@ -6,7 +6,7 @@ export type ProfileActionState =
 	| 'restoring'
 	| 'recovering';
 
-export type WebRtcMode = 'real' | 'replace' | 'disable';
+export type WebRtcMode = 'real' | 'follow_ip' | 'replace' | 'disable';
 export type FingerprintStrategy = 'template' | 'random_bundle';
 export type FingerprintSeedPolicy = 'fixed' | 'per_launch';
 export type FontListMode = 'preset' | 'random' | 'custom';

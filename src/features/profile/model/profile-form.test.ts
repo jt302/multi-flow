@@ -7,6 +7,7 @@ import {
 	buildFingerprintSource,
 	generateRandomFingerprintSeed,
 	profileFormSchema,
+	resolveInitialWebRtcMode,
 	resolveProxySuggestedValues,
 } from './profile-form.ts';
 
@@ -25,7 +26,7 @@ function buildFormValues(overrides: Record<string, unknown> = {}) {
 		language: '',
 		timezoneId: '',
 		customFontListText: 'Arial\nHelvetica',
-		webRtcMode: 'real',
+		webRtcMode: 'follow_ip',
 		webrtcIpOverride: '',
 		headless: false,
 		disableImages: false,
@@ -62,6 +63,12 @@ test('profile form schema rejects non http startup urls in multi line input', ()
 		return;
 	}
 	assert.equal(result.error.issues[0]?.path[0], 'startupUrls');
+});
+
+test('resolveInitialWebRtcMode defaults new profiles to follow_ip but preserves legacy real', () => {
+	assert.equal(resolveInitialWebRtcMode(undefined, false), 'follow_ip');
+	assert.equal(resolveInitialWebRtcMode(undefined, true), 'real');
+	assert.equal(resolveInitialWebRtcMode('replace', true), 'replace');
 });
 
 test('profile form schema accepts ip geolocation mode without manual coordinates', () => {

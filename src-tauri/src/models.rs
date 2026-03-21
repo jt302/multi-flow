@@ -315,6 +315,7 @@ pub struct OpenProfileResponse {
 pub enum WebRtcMode {
     #[serde(alias = "default", alias = "proxy_only")]
     Real,
+    FollowIp,
     Replace,
     Disable,
 }

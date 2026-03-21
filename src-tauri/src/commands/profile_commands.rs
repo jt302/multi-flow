@@ -939,24 +939,18 @@ fn resolve_launch_options(
 
     let mut extra_args = Vec::new();
     let web_rtc_mode = options.web_rtc_mode.unwrap_or(WebRtcMode::Real);
+    let web_rtc_override_ip = resolve_web_rtc_override_ip(
+        profile_id,
+        web_rtc_mode.clone(),
+        options.webrtc_ip_override.as_deref(),
+        bound_proxy,
+    )?;
     match web_rtc_mode {
         WebRtcMode::Real => {}
-        WebRtcMode::Replace => {
-            let ip = options
-                .webrtc_ip_override
-                .as_deref()
-                .and_then(trim_str_to_option)
-                .ok_or_else(|| {
-                    format!(
-                        "validation failed: replace webRtc mode requires webrtcIpOverride for {profile_id}"
-                    )
-                })?;
-            if ip.parse::<std::net::IpAddr>().is_err() {
-                return Err(format!(
-                    "validation failed: invalid webrtcIpOverride for {profile_id}"
-                ));
+        WebRtcMode::FollowIp | WebRtcMode::Replace => {
+            if let Some(ip) = web_rtc_override_ip {
+                extra_args.push(format!("--webrtc-ip-override={ip}"));
             }
-            extra_args.push(format!("--webrtc-ip-override={ip}"));
         }
         WebRtcMode::Disable => {
             extra_args.push("--disable-webrtc".to_string());
@@ -1151,6 +1145,85 @@ fn fetch_public_ip() -> Result<String, String> {
     }
 
     Err("all public ip lookup endpoints failed".to_string())
+}
+
+fn resolve_web_rtc_override_ip(
+    profile_id: &str,
+    web_rtc_mode: WebRtcMode,
+    webrtc_ip_override: Option<&str>,
+    bound_proxy: Option<&Proxy>,
+) -> Result<Option<String>, String> {
+    resolve_web_rtc_override_ip_with(
+        profile_id,
+        web_rtc_mode,
+        webrtc_ip_override,
+        bound_proxy,
+        fetch_public_ip,
+    )
+}
+
+fn resolve_web_rtc_override_ip_with<F>(
+    profile_id: &str,
+    web_rtc_mode: WebRtcMode,
+    webrtc_ip_override: Option<&str>,
+    bound_proxy: Option<&Proxy>,
+    public_ip_resolver: F,
+) -> Result<Option<String>, String>
+where
+    F: Fn() -> Result<String, String>,
+{
+    match web_rtc_mode {
+        WebRtcMode::Real | WebRtcMode::Disable => Ok(None),
+        WebRtcMode::Replace => {
+            let ip = webrtc_ip_override
+                .and_then(trim_str_to_option)
+                .ok_or_else(|| {
+                    format!(
+                        "validation failed: replace webRtc mode requires webrtcIpOverride for {profile_id}"
+                    )
+                })?;
+            if ip.parse::<std::net::IpAddr>().is_err() {
+                return Err(format!(
+                    "validation failed: invalid webrtcIpOverride for {profile_id}"
+                ));
+            }
+            Ok(Some(ip.to_string()))
+        }
+        WebRtcMode::FollowIp => {
+            if let Some(ip) = bound_proxy
+                .and_then(|proxy| proxy.exit_ip.as_deref())
+                .and_then(trim_str_to_option)
+            {
+                if ip.parse::<std::net::IpAddr>().is_ok() {
+                    return Ok(Some(ip.to_string()));
+                }
+            }
+            match public_ip_resolver() {
+                Ok(ip) => {
+                    let ip = ip.trim();
+                    if ip.parse::<std::net::IpAddr>().is_err() {
+                        logger::warn(
+                            "profile_cmd",
+                            format!(
+                                "skip web rtc follow_ip override because public ip is invalid profile_id={profile_id} ip={ip}"
+                            ),
+                        );
+                        return Ok(None);
+                    }
+                    Ok(Some(ip.to_string()))
+                }
+                Err(err) => {
+                    logger::warn(
+                        "profile_cmd",
+                        format!(
+                            "skip web rtc follow_ip override because public ip fetch failed profile_id={profile_id} err={err}"
+                        ),
+                    );
+                    Ok(None)
+                }
+            }
+        }
+    }
 }
 
 fn merge_open_options(
@@ -2150,6 +2223,70 @@ mod tests {
         )
         .expect_err("invalid geolocation should fail");
         assert!(err.contains("invalid latitude"));
+    }
+
+    #[test]
+    fn resolve_web_rtc_override_ip_prefers_proxy_exit_ip_for_follow_ip_mode() {
+        let proxy = Proxy {
+            id: "px_000001".to_string(),
+            name: "proxy-us".to_string(),
+            protocol: "http".to_string(),
+            host: "127.0.0.1".to_string(),
+            port: 8080,
+            username: None,
+            password: None,
+            country: Some("US".to_string()),
+            region: None,
+            city: None,
+            provider: None,
+            note: None,
+            check_status: Some("ok".to_string()),
+            check_message: None,
+            last_checked_at: None,
+            exit_ip: Some("203.0.113.10".to_string()),
+            latitude: Some(37.7749),
+            longitude: Some(-122.4194),
+            geo_accuracy_meters: Some(20.0),
+            suggested_language: Some("en-US".to_string()),
+            suggested_timezone: Some("America/Los_Angeles".to_string()),
+            language_source: Some("ip".to_string()),
+            custom_language: None,
+            effective_language: Some("en-US".to_string()),
+            timezone_source: Some("ip".to_string()),
+            custom_timezone: None,
+            effective_timezone: Some("America/Los_Angeles".to_string()),
+            target_site_checks: None,
+            expires_at: None,
+            lifecycle: ProxyLifecycle::Active,
+            created_at: 1,
+            updated_at: 1,
+            deleted_at: None,
+        };
+
+        let ip = resolve_web_rtc_override_ip_with(
+            "pf_000001",
+            WebRtcMode::FollowIp,
+            None,
+            Some(&proxy),
+            || Ok("198.51.100.5".to_string()),
+        )
+        .expect("resolve web rtc override ip");
+
+        assert_eq!(ip.as_deref(), Some("203.0.113.10"));
+    }
+
+    #[test]
+    fn resolve_web_rtc_override_ip_falls_back_to_local_public_ip_for_follow_ip_mode() {
+        let ip = resolve_web_rtc_override_ip_with(
+            "pf_000001",
+            WebRtcMode::FollowIp,
+            None,
+            None,
+            || Ok("198.51.100.5".to_string()),
+        )
+        .expect("resolve web rtc override ip");
+
+        assert_eq!(ip.as_deref(), Some("198.51.100.5"));
     }
 
     #[test]

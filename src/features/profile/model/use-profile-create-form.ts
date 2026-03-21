@@ -25,11 +25,11 @@ import {
 	DEFAULT_STARTUP_URL,
 	generateRandomFingerprintSeed,
 	mergePreviewSnapshot,
-	normalizeWebRtcMode,
 	parseCustomFontList,
 	parseStartupUrls,
 	profileFormSchema,
 	randomizeFontList,
+	resolveInitialWebRtcMode,
 	resolveProxySuggestedValues,
 	type ProxySuggestionFieldSource,
 	type ProfileFormValues,
@@ -129,7 +129,10 @@ export function useProfileCreateForm({
 				initialFingerprint?.customFontList?.join('\n') ??
 				initialFingerprint?.fingerprintSnapshot?.customFontList?.join('\n') ??
 				'',
-			webRtcMode: normalizeWebRtcMode(initialFingerprint?.webRtcMode),
+			webRtcMode: resolveInitialWebRtcMode(
+				initialFingerprint?.webRtcMode,
+				Boolean(initialProfile),
+			),
 			webrtcIpOverride: initialFingerprint?.webrtcIpOverride ?? '',
 			headless: initialAdvanced?.headless ?? false,
 			disableImages: initialAdvanced?.disableImages ?? false,
