@@ -104,7 +104,10 @@ fn cleanup_rpa_artifacts_dir(app: &AppHandle) -> AppResult<()> {
         fs::remove_dir_all(&artifacts_dir)?;
         logger::info(
             "state",
-            format!("removed legacy rpa artifacts directory: {}", artifacts_dir.display()),
+            format!(
+                "removed legacy rpa artifacts directory: {}",
+                artifacts_dir.display()
+            ),
         );
     }
     Ok(())
