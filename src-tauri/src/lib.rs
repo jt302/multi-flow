@@ -23,7 +23,6 @@ mod font_catalog;
 mod local_api_server;
 mod logger;
 mod models;
-mod rpa_scheduler;
 mod runtime_guard;
 mod services;
 mod state;
@@ -56,7 +55,6 @@ pub fn run() {
             app.manage(app_state);
             setup_native_menu(app)?;
             start_runtime_guard(app.handle().clone());
-            rpa_scheduler::start_rpa_scheduler(app.handle().clone());
             logger::info("app", "tauri setup completed");
             Ok(())
         })
@@ -103,29 +101,6 @@ pub fn run() {
             commands::proxy_commands::bind_profile_proxy,
             commands::proxy_commands::unbind_profile_proxy,
             commands::proxy_commands::get_profile_proxy,
-            commands::rpa_commands::create_rpa_flow,
-            commands::rpa_commands::update_rpa_flow,
-            commands::rpa_commands::list_rpa_flows,
-            commands::rpa_commands::get_rpa_flow,
-            commands::rpa_commands::delete_rpa_flow,
-            commands::rpa_commands::restore_rpa_flow,
-            commands::rpa_commands::purge_rpa_flow,
-            commands::rpa_commands::create_rpa_task,
-            commands::rpa_commands::update_rpa_task,
-            commands::rpa_commands::list_rpa_tasks,
-            commands::rpa_commands::get_rpa_task,
-            commands::rpa_commands::delete_rpa_task,
-            commands::rpa_commands::toggle_rpa_task_enabled,
-            commands::rpa_commands::run_rpa_task,
-            commands::rpa_commands::run_rpa_flow,
-            commands::rpa_commands::list_rpa_runs,
-            commands::rpa_commands::get_rpa_run_details,
-            commands::rpa_commands::list_rpa_run_steps,
-            commands::rpa_commands::cancel_rpa_run,
-            commands::rpa_commands::cancel_rpa_run_instance,
-            commands::rpa_commands::resume_rpa_instance,
-            commands::rpa_commands::open_rpa_flow_editor_window,
-            commands::rpa_commands::close_rpa_flow_editor_window,
             commands::resource_commands::list_resources,
             commands::resource_commands::download_resource,
             commands::resource_commands::install_chromium_resource,

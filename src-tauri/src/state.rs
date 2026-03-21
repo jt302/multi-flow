@@ -19,10 +19,6 @@ use crate::services::profile_group_service::ProfileGroupService;
 use crate::services::profile_service::ProfileService;
 use crate::services::proxy_service::ProxyService;
 use crate::services::resource_service::ResourceService;
-use crate::services::rpa_artifact_service::RpaArtifactService;
-use crate::services::rpa_flow_service::RpaFlowService;
-use crate::services::rpa_run_service::RpaRunService;
-use crate::services::rpa_task_service::RpaTaskService;
 use crate::services::sync_manager_service::SyncManagerService;
 
 pub struct AppState {
@@ -31,10 +27,6 @@ pub struct AppState {
     pub device_preset_service: Mutex<DevicePresetService>,
     pub engine_session_service: Mutex<EngineSessionService>,
     pub proxy_service: Mutex<ProxyService>,
-    pub rpa_flow_service: Mutex<RpaFlowService>,
-    pub rpa_task_service: Mutex<RpaTaskService>,
-    pub rpa_run_service: Mutex<RpaRunService>,
-    pub rpa_artifact_service: Mutex<RpaArtifactService>,
     pub resource_service: Mutex<ResourceService>,
     pub engine_manager: Mutex<EngineManager>,
     pub local_api_server: Mutex<LocalApiServer>,
@@ -50,15 +42,12 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
     let device_preset_service = DevicePresetService::from_db(db.clone());
     let engine_session_service = EngineSessionService::from_db(db.clone());
     let proxy_service = ProxyService::from_db(db.clone());
-    let rpa_flow_service = RpaFlowService::from_db(db.clone());
-    let rpa_task_service = RpaTaskService::from_db(db.clone());
-    let rpa_run_service = RpaRunService::from_db(db.clone());
     let resource_service = ResourceService::from_app_handle(app)?;
     let engine_manager = build_engine_manager(app)?;
-    let rpa_artifact_service = build_rpa_artifact_service(app)?;
     let local_api_server = LocalApiServer::new(DEFAULT_PROXY_DAEMON_BIND_ADDRESS);
     let chromium_magic_adapter_service = ChromiumMagicAdapterService::new();
     let sync_manager_service = SyncManagerService::new(None, None);
+    cleanup_rpa_artifacts_dir(app)?;
 
     let app_state = AppState {
         profile_group_service: Mutex::new(profile_group_service),
@@ -66,10 +55,6 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
         device_preset_service: Mutex::new(device_preset_service),
         engine_session_service: Mutex::new(engine_session_service),
         proxy_service: Mutex::new(proxy_service),
-        rpa_flow_service: Mutex::new(rpa_flow_service),
-        rpa_task_service: Mutex::new(rpa_task_service),
-        rpa_run_service: Mutex::new(rpa_run_service),
-        rpa_artifact_service: Mutex::new(rpa_artifact_service),
         resource_service: Mutex::new(resource_service),
         engine_manager: Mutex::new(engine_manager),
         local_api_server: Mutex::new(local_api_server),
@@ -77,28 +62,6 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
         sync_manager_service: Mutex::new(sync_manager_service),
         require_real_engine: true,
     };
-    let interrupted = app_state
-        .rpa_run_service
-        .lock()
-        .map_err(|_| {
-            crate::error::AppError::Validation("rpa run service lock poisoned".to_string())
-        })?
-        .mark_incomplete_runs_interrupted()?;
-    logger::info(
-        "state",
-        format!("startup rpa interrupted instances marked={interrupted}"),
-    );
-    let skipped_schedules = app_state
-        .rpa_task_service
-        .lock()
-        .map_err(|_| {
-            crate::error::AppError::Validation("rpa task service lock poisoned".to_string())
-        })?
-        .skip_missed_schedules(crate::models::now_ts())?;
-    logger::info(
-        "state",
-        format!("startup rpa skipped missed schedules={skipped_schedules}"),
-    );
     let affected = runtime_guard::reconcile_runtime_state(&app_state)?;
     logger::info(
         "state",
@@ -127,7 +90,7 @@ fn build_engine_manager(app: &AppHandle) -> AppResult<EngineManager> {
     Ok(manager)
 }
 
-fn build_rpa_artifact_service(app: &AppHandle) -> AppResult<RpaArtifactService> {
+fn cleanup_rpa_artifacts_dir(app: &AppHandle) -> AppResult<()> {
     let data_dir = app
         .path()
         .app_local_data_dir()
@@ -136,7 +99,15 @@ fn build_rpa_artifact_service(app: &AppHandle) -> AppResult<RpaArtifactService> 
             crate::error::AppError::Validation(format!("failed to resolve app data dir: {err}"))
         })?;
     fs::create_dir_all(&data_dir)?;
-    RpaArtifactService::new(data_dir.join("rpa-artifacts"))
+    let artifacts_dir = data_dir.join("rpa-artifacts");
+    if artifacts_dir.exists() {
+        fs::remove_dir_all(&artifacts_dir)?;
+        logger::info(
+            "state",
+            format!("removed legacy rpa artifacts directory: {}", artifacts_dir.display()),
+        );
+    }
+    Ok(())
 }
 
 fn resolve_chromium_executable(data_dir: &Path) -> Option<PathBuf> {

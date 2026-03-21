@@ -1,4 +1,4 @@
-import { BarChart3, Bot, Globe2 } from 'lucide-react';
+import { BarChart3, Globe2, PanelsTopLeft } from 'lucide-react';
 
 import { Badge, Card, CardContent, CardHeader, CardTitle, Icon } from '@/components/ui';
 import { DataSection } from '@/components/common';
@@ -43,12 +43,12 @@ export function DashboardPage({ resolvedMode, useCustomColor, preset }: Dashboar
 					<Card className="p-3">
 						<CardHeader className="p-0">
 							<CardTitle className="flex items-center gap-2 text-sm">
-								<Icon icon={Bot} size={14} />
-								RPA 队列
+								<Icon icon={PanelsTopLeft} size={14} />
+								窗口同步
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="p-0 pt-2 text-xs text-muted-foreground">
-							自动任务正在执行中，<Badge className="ml-1">3 个任务活跃</Badge>
+							当前主从同步会话稳定运行，<Badge className="ml-1">2 组会话活跃</Badge>
 						</CardContent>
 					</Card>
 				</div>

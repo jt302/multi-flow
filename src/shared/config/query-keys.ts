@@ -8,20 +8,5 @@ export const queryKeys = {
 	windowStates: ['window-states'] as const,
 	syncTargets: ['sync-targets'] as const,
 	displayMonitors: ['display-monitors'] as const,
-	rpaFlowsRoot: ['rpa-flows'] as const,
-	rpaFlows: (includeDeleted: boolean) => ['rpa-flows', includeDeleted] as const,
-	rpaTasksRoot: ['rpa-tasks'] as const,
-	rpaTasks: (includeDeleted: boolean) => ['rpa-tasks', includeDeleted] as const,
-	rpaRunsRoot: ['rpa-runs'] as const,
-	rpaRuns: (filters: {
-		limit?: number;
-		taskId?: string;
-		status?: string;
-		triggerSource?: string;
-		createdFrom?: number;
-		createdTo?: number;
-	}) => ['rpa-runs', filters] as const,
-	rpaRunDetails: (runId: string | null) => ['rpa-run-details', runId] as const,
-	rpaRunSteps: (instanceId: string | null) => ['rpa-run-steps', instanceId] as const,
 	profileProxyBindings: (profileIds: string[]) => ['profile-proxy-bindings', ...profileIds] as const,
 };
