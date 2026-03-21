@@ -165,7 +165,10 @@ fn spawn_sync_manager_sidecar(app: &AppHandle, bind_host: &str, port: u16) -> Ap
         .map_err(|err| {
             logger::error(
                 "sync_manager",
-                format!("resolve sync manager sidecar failed host={} port={} err={err}", bind_host, port),
+                format!(
+                    "resolve sync manager sidecar failed host={} port={} err={err}",
+                    bind_host, port
+                ),
             );
             AppError::Validation(format!("resolve sync manager sidecar failed: {err}"))
         })?;
@@ -176,7 +179,10 @@ fn spawn_sync_manager_sidecar(app: &AppHandle, bind_host: &str, port: u16) -> Ap
         .map_err(|err| {
             logger::error(
                 "sync_manager",
-                format!("spawn sync manager sidecar failed host={} port={} err={err}", bind_host, port),
+                format!(
+                    "spawn sync manager sidecar failed host={} port={} err={err}",
+                    bind_host, port
+                ),
             );
             AppError::Validation(format!("spawn sync manager sidecar failed: {err}"))
         })?;
