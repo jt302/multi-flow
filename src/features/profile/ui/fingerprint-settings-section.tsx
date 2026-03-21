@@ -41,6 +41,9 @@ export function FingerprintSettingsSection({
 	const timezoneId = 'profile-timezone';
 	const customFontListId = 'profile-custom-font-list';
 	const webrtcIpOverrideId = 'profile-webrtc-ip-override';
+	const viewportWidthId = 'profile-viewport-width';
+	const viewportHeightId = 'profile-viewport-height';
+	const deviceScaleFactorId = 'profile-device-scale-factor';
 	const randomFingerprintId = 'profile-random-fingerprint';
 
 	return (
@@ -132,6 +135,34 @@ export function FingerprintSettingsSection({
 							<Input id={webrtcIpOverrideId} {...register('webrtcIpOverride')} placeholder="例如 8.8.8.8" />
 					</div>
 				) : null}
+				<div>
+					<label htmlFor={viewportWidthId} className="mb-1 block text-xs text-muted-foreground">分辨率宽度</label>
+					<Input
+						id={viewportWidthId}
+						type="number"
+						{...register('viewportWidth', { valueAsNumber: true })}
+					/>
+				</div>
+				<div>
+					<label htmlFor={viewportHeightId} className="mb-1 block text-xs text-muted-foreground">分辨率高度</label>
+					<Input
+						id={viewportHeightId}
+						type="number"
+						{...register('viewportHeight', { valueAsNumber: true })}
+					/>
+				</div>
+				<div className="md:col-span-2">
+					<label htmlFor={deviceScaleFactorId} className="mb-1 block text-xs text-muted-foreground">DPR</label>
+					<Input
+						id={deviceScaleFactorId}
+						type="number"
+						step="0.125"
+						{...register('deviceScaleFactor', { valueAsNumber: true })}
+					/>
+					<p className="mt-1 text-[11px] text-muted-foreground">
+						初始值来自当前机型预设；如果切换机型预设，这里的分辨率会重置成新预设默认值。
+					</p>
+				</div>
 				<div className="md:col-span-2 flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
 					<div>
 						<p className="text-xs text-muted-foreground">Fingerprint Seed</p>

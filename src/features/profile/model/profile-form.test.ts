@@ -4,9 +4,12 @@ import assert from 'node:assert/strict';
 import {
 	DEFAULT_STARTUP_URL,
 	applyProxySuggestionValue,
+	buildResolutionValuesFromPreset,
 	buildFingerprintSource,
 	generateRandomFingerprintSeed,
+	mergePreviewSnapshot,
 	profileFormSchema,
+	resolveInitialResolutionValues,
 	resolveInitialWebRtcMode,
 	resolveProxySuggestedValues,
 } from './profile-form.ts';
@@ -38,6 +41,9 @@ function buildFormValues(overrides: Record<string, unknown> = {}) {
 		latitude: '',
 		longitude: '',
 		accuracy: '',
+		viewportWidth: 1512,
+		viewportHeight: 982,
+		deviceScaleFactor: 2,
 		fingerprintSeed: 123456789,
 		...overrides,
 	};
@@ -69,6 +75,45 @@ test('resolveInitialWebRtcMode defaults new profiles to follow_ip but preserves 
 	assert.equal(resolveInitialWebRtcMode(undefined, false), 'follow_ip');
 	assert.equal(resolveInitialWebRtcMode(undefined, true), 'real');
 	assert.equal(resolveInitialWebRtcMode('replace', true), 'replace');
+});
+
+test('resolveInitialResolutionValues prefers stored env override over preset defaults', () => {
+	const values = resolveInitialResolutionValues(
+		{
+			viewportWidth: 1728,
+			viewportHeight: 1117,
+			deviceScaleFactor: 1.5,
+		},
+		{
+			viewportWidth: 1512,
+			viewportHeight: 982,
+			deviceScaleFactor: 2,
+		},
+	);
+
+	assert.deepEqual(values, {
+		viewportWidth: 1728,
+		viewportHeight: 1117,
+		deviceScaleFactor: 1.5,
+	});
+});
+
+test('resolveInitialResolutionValues falls back to preset defaults when env override is missing', () => {
+	const values = resolveInitialResolutionValues(undefined, {
+		viewportWidth: 393,
+		viewportHeight: 852,
+		deviceScaleFactor: 3,
+	});
+
+	assert.deepEqual(values, {
+		viewportWidth: 393,
+		viewportHeight: 852,
+		deviceScaleFactor: 3,
+	});
+});
+
+test('buildResolutionValuesFromPreset returns null without preset', () => {
+	assert.equal(buildResolutionValuesFromPreset(null), null);
 });
 
 test('profile form schema accepts ip geolocation mode without manual coordinates', () => {
@@ -168,6 +213,29 @@ test('buildFingerprintSource maps random fingerprint to per-launch seed policy',
 	});
 	assert.equal(random.strategy, 'random_bundle');
 	assert.equal(random.seedPolicy, 'per_launch');
+});
+
+test('mergePreviewSnapshot applies env resolution override onto preview snapshot', () => {
+	const merged = mergePreviewSnapshot(
+		{
+			windowWidth: 1512,
+			windowHeight: 982,
+			deviceScaleFactor: 2,
+			language: 'en-US',
+			timeZone: 'America/Los_Angeles',
+		},
+		'',
+		'',
+		{
+			viewportWidth: 1728,
+			viewportHeight: 1117,
+			deviceScaleFactor: 1.5,
+		},
+	);
+
+	assert.equal(merged?.windowWidth, 1728);
+	assert.equal(merged?.windowHeight, 1117);
+	assert.equal(merged?.deviceScaleFactor, 1.5);
 });
 
 test('generateRandomFingerprintSeed returns a positive integer seed', () => {

@@ -106,6 +106,9 @@ export type ProfileFingerprintSettings = {
 	customFontList?: string[];
 	webRtcMode?: WebRtcMode;
 	webrtcIpOverride?: string;
+	viewportWidth?: number;
+	viewportHeight?: number;
+	deviceScaleFactor?: number;
 };
 
 export type ProfileAdvancedSettings = {

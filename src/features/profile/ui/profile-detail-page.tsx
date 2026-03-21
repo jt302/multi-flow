@@ -360,7 +360,7 @@ export function ProfileDetailPage({
 								value={snapshot?.customPlatform || '未设置'}
 							/>
 							<DetailMetric
-								label="窗口 / DPR"
+								label="分辨率 / DPR"
 								value={
 									snapshot?.windowWidth && snapshot?.windowHeight
 										? `${snapshot.windowWidth}x${snapshot.windowHeight} · ${snapshot.deviceScaleFactor ?? '-'}x`

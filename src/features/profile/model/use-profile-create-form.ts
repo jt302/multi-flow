@@ -21,6 +21,7 @@ import { detectClientPlatform } from '@/shared/lib/platform';
 import {
 	applyProxySuggestionValue,
 	buildFingerprintSource,
+	buildResolutionValuesFromPreset,
 	compareVersions,
 	DEFAULT_STARTUP_URL,
 	generateRandomFingerprintSeed,
@@ -29,6 +30,7 @@ import {
 	parseStartupUrls,
 	profileFormSchema,
 	randomizeFontList,
+	resolveInitialResolutionValues,
 	resolveInitialWebRtcMode,
 	resolveProxySuggestedValues,
 	type ProxySuggestionFieldSource,
@@ -65,12 +67,26 @@ export function useProfileCreateForm({
 	const initialBasic = initialProfile?.settings?.basic;
 	const initialFingerprint = initialProfile?.settings?.fingerprint;
 	const initialAdvanced = initialProfile?.settings?.advanced;
+	const initialResolutionOverride = useMemo(
+		() => ({
+			viewportWidth: initialFingerprint?.viewportWidth,
+			viewportHeight: initialFingerprint?.viewportHeight,
+			deviceScaleFactor: initialFingerprint?.deviceScaleFactor,
+		}),
+		[
+			initialFingerprint?.deviceScaleFactor,
+			initialFingerprint?.viewportHeight,
+			initialFingerprint?.viewportWidth,
+		],
+	);
 	const initialGeolocationMode =
 		initialAdvanced?.geolocationMode ??
 		(initialAdvanced?.geolocation ? 'custom' : 'off');
 	const hostPlatform = detectClientPlatform();
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const initialRandomFontsApplied = useRef(false);
+	const resolutionInitialized = useRef(false);
+	const lastAppliedResolutionPresetId = useRef<string | null>(null);
 	const [proxySuggestionSource, setProxySuggestionSource] = useState<{
 		language: ProxySuggestionFieldSource;
 		timezoneId: ProxySuggestionFieldSource;
@@ -143,6 +159,15 @@ export function useProfileCreateForm({
 			latitude: initialAdvanced?.geolocation?.latitude?.toString() ?? '',
 			longitude: initialAdvanced?.geolocation?.longitude?.toString() ?? '',
 			accuracy: initialAdvanced?.geolocation?.accuracy?.toString() ?? '',
+			viewportWidth:
+				initialResolutionOverride.viewportWidth ??
+				initialFingerprint?.fingerprintSnapshot?.windowWidth,
+			viewportHeight:
+				initialResolutionOverride.viewportHeight ??
+				initialFingerprint?.fingerprintSnapshot?.windowHeight,
+			deviceScaleFactor:
+				initialResolutionOverride.deviceScaleFactor ??
+				initialFingerprint?.fingerprintSnapshot?.deviceScaleFactor,
 			fingerprintSeed:
 				initialAdvanced?.fixedFingerprintSeed ??
 				initialFingerprint?.fingerprintSnapshot?.fingerprintSeed ??
@@ -165,6 +190,9 @@ export function useProfileCreateForm({
 	const language = watch('language');
 	const timezoneId = watch('timezoneId');
 	const geolocationMode = watch('geolocationMode');
+	const viewportWidth = watch('viewportWidth');
+	const viewportHeight = watch('viewportHeight');
+	const deviceScaleFactor = watch('deviceScaleFactor');
 
 	const availableProxies = useMemo(
 		() => proxies.filter((item) => item.lifecycle === 'active'),
@@ -270,6 +298,11 @@ export function useProfileCreateForm({
 		queryFn: () => listFingerprintPresets(platform, browserVersion),
 		enabled: Boolean(platform && browserVersion),
 	});
+	const selectedDevicePreset = useMemo(() => {
+		return (
+			(devicePresetsQuery.data ?? []).find((item) => item.id === devicePresetId) ?? null
+		);
+	}, [devicePresetId, devicePresetsQuery.data]);
 
 	useEffect(() => {
 		const items = devicePresetsQuery.data ?? [];
@@ -284,6 +317,52 @@ export function useProfileCreateForm({
 			shouldValidate: true,
 		});
 	}, [devicePresetId, devicePresetsQuery.data, setValue]);
+
+	useEffect(() => {
+		const presetResolution = buildResolutionValuesFromPreset(selectedDevicePreset);
+		if (!presetResolution || !selectedDevicePreset) {
+			return;
+		}
+		if (!resolutionInitialized.current) {
+			const initialResolution = resolveInitialResolutionValues(
+				initialResolutionOverride,
+				selectedDevicePreset,
+			);
+			if (initialResolution) {
+				setValue('viewportWidth', initialResolution.viewportWidth, {
+					shouldDirty: false,
+					shouldValidate: true,
+				});
+				setValue('viewportHeight', initialResolution.viewportHeight, {
+					shouldDirty: false,
+					shouldValidate: true,
+				});
+				setValue('deviceScaleFactor', initialResolution.deviceScaleFactor, {
+					shouldDirty: false,
+					shouldValidate: true,
+				});
+			}
+			resolutionInitialized.current = true;
+			lastAppliedResolutionPresetId.current = selectedDevicePreset.id;
+			return;
+		}
+		if (lastAppliedResolutionPresetId.current === selectedDevicePreset.id) {
+			return;
+		}
+		setValue('viewportWidth', presetResolution.viewportWidth, {
+			shouldDirty: true,
+			shouldValidate: true,
+		});
+		setValue('viewportHeight', presetResolution.viewportHeight, {
+			shouldDirty: true,
+			shouldValidate: true,
+		});
+		setValue('deviceScaleFactor', presetResolution.deviceScaleFactor, {
+			shouldDirty: true,
+			shouldValidate: true,
+		});
+		lastAppliedResolutionPresetId.current = selectedDevicePreset.id;
+	}, [initialResolutionOverride, selectedDevicePreset, setValue]);
 
 	const fontFamiliesQuery = useQuery({
 		queryKey: ['profile-font-families', platform],
@@ -378,8 +457,20 @@ export function useProfileCreateForm({
 	}, [customFonts.length, previewQuery.data, previewQuery.isError]);
 
 	const mergedPreviewSnapshot = useMemo(
-		() => mergePreviewSnapshot(previewSnapshot, language, timezoneId),
-		[language, previewSnapshot, timezoneId],
+		() =>
+			mergePreviewSnapshot(previewSnapshot, language, timezoneId, {
+				viewportWidth,
+				viewportHeight,
+				deviceScaleFactor,
+			}),
+		[
+			deviceScaleFactor,
+			language,
+			previewSnapshot,
+			timezoneId,
+			viewportHeight,
+			viewportWidth,
+		],
 	);
 
 	const regenerateFingerprintSeed = useCallback(() => {
@@ -398,7 +489,16 @@ export function useProfileCreateForm({
 			.map((line) => line.trim())
 			.filter(Boolean);
 		const source = buildFingerprintSource(values);
-		let snapshot = mergePreviewSnapshot(previewSnapshot, values.language, values.timezoneId);
+		let snapshot = mergePreviewSnapshot(
+			previewSnapshot,
+			values.language,
+			values.timezoneId,
+			{
+				viewportWidth: values.viewportWidth,
+				viewportHeight: values.viewportHeight,
+				deviceScaleFactor: values.deviceScaleFactor,
+			},
+		);
 		if (!snapshot) {
 			snapshot = mergePreviewSnapshot(
 				await previewFingerprintBundle(source, {
@@ -408,6 +508,11 @@ export function useProfileCreateForm({
 				}),
 				values.language,
 				values.timezoneId,
+				{
+					viewportWidth: values.viewportWidth,
+					viewportHeight: values.viewportHeight,
+					deviceScaleFactor: values.deviceScaleFactor,
+				},
 			);
 		}
 		if (!snapshot) {
@@ -453,6 +558,9 @@ export function useProfileCreateForm({
 						values.webRtcMode === 'replace'
 							? values.webrtcIpOverride.trim() || undefined
 							: undefined,
+					viewportWidth: values.viewportWidth,
+					viewportHeight: values.viewportHeight,
+					deviceScaleFactor: values.deviceScaleFactor,
 				},
 				advanced: {
 					headless: values.headless,
@@ -509,6 +617,9 @@ export function useProfileCreateForm({
 			language,
 			timezoneId,
 			geolocationMode,
+			viewportWidth,
+			viewportHeight,
+			deviceScaleFactor,
 			autoAllowGeolocation: watch('autoAllowGeolocation'),
 			proxySuggestionSource,
 			selectedProxy,

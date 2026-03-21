@@ -126,3 +126,13 @@
 - [x] 新环境默认 WebRTC 策略改为“跟随 IP”，旧环境继续保持原保存值
 - [x] `follow_ip` 模式启动时优先使用绑定代理 `exit_ip`，缺失时回退本机公网 IP
 - [x] 若 `follow_ip` 无法解析目标 IP，则不阻塞启动并回退为不注入 `--webrtc-ip-override`
+
+## 本轮新增（自定义分辨率参数）
+
+- [x] 机型预设中的 `viewportWidth / viewportHeight / deviceScaleFactor` 统一作为默认分辨率参数
+- [x] 环境创建/编辑页新增可编辑分辨率字段，初始值来自机型预设，切换预设时重置为新预设默认值
+- [x] 环境分辨率修改仅保存到环境自身 `fingerprint settings`，不会回写机型预设
+- [x] 运行态快照优先使用环境分辨率覆盖，缺失时回退机型预设默认值
+- [x] 启动参数已切换为 `--custom-resolution-width/height/dpr`
+- [x] 启动链路使用与 `custom-resolution` 同步的 `--window-size`，并继续停止注入 `--force-device-scale-factor`、`--geoip-database`
+- [x] `--use-mobile-user-agent` 与 `--touch-events=enabled` 改为仅在移动机型预设下开启

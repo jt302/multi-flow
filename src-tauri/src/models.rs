@@ -183,6 +183,9 @@ pub struct ProfileFingerprintSettings {
     pub font_list_mode: Option<FontListMode>,
     pub web_rtc_mode: Option<WebRtcMode>,
     pub webrtc_ip_override: Option<String>,
+    pub viewport_width: Option<u32>,
+    pub viewport_height: Option<u32>,
+    pub device_scale_factor: Option<f32>,
     /// 历史兼容字段，仅用于旧数据懒迁移；运行时应优先读取 fingerprint_snapshot.custom_cpu_cores。
     pub custom_cpu_cores: Option<u32>,
     /// 历史兼容字段，仅用于旧数据懒迁移；运行时应优先读取 fingerprint_snapshot.custom_ram_gb。

@@ -26,7 +26,7 @@ function PresetListItem({
 			<div className="min-w-0 pr-36">
 				<p className="truncate text-sm font-medium">{item.label}</p>
 				<p className="mt-1 text-xs text-muted-foreground">
-					{item.platform} · {item.viewportWidth}x{item.viewportHeight} · DPR {item.deviceScaleFactor}
+					{item.platform} · 分辨率 {item.viewportWidth}x{item.viewportHeight} · DPR {item.deviceScaleFactor}
 				</p>
 			</div>
 
