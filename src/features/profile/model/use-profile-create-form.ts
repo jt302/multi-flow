@@ -65,6 +65,9 @@ export function useProfileCreateForm({
 	const initialBasic = initialProfile?.settings?.basic;
 	const initialFingerprint = initialProfile?.settings?.fingerprint;
 	const initialAdvanced = initialProfile?.settings?.advanced;
+	const initialGeolocationMode =
+		initialAdvanced?.geolocationMode ??
+		(initialAdvanced?.geolocation ? 'custom' : 'off');
 	const hostPlatform = detectClientPlatform();
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const initialRandomFontsApplied = useRef(false);
@@ -75,7 +78,12 @@ export function useProfileCreateForm({
 	}>(() => ({
 		language: initialFingerprint?.fingerprintSnapshot?.language ? 'manual' : 'empty',
 		timezoneId: initialFingerprint?.fingerprintSnapshot?.timeZone ? 'manual' : 'empty',
-		geolocation: initialAdvanced?.geolocation ? 'manual' : 'empty',
+		geolocation:
+			initialGeolocationMode === 'custom'
+				? 'manual'
+				: initialAdvanced?.geolocationMode === 'ip'
+					? 'proxy'
+					: 'empty',
 	}));
 	const [previewSnapshot, setPreviewSnapshot] =
 		useState<ProfileFingerprintSnapshot | null>(
@@ -127,7 +135,8 @@ export function useProfileCreateForm({
 			disableImages: initialAdvanced?.disableImages ?? false,
 			randomFingerprint: initialAdvanced?.randomFingerprint ?? false,
 			customLaunchArgsText: initialAdvanced?.customLaunchArgs?.join('\n') ?? '',
-			geoEnabled: Boolean(initialAdvanced?.geolocation),
+			geolocationMode: initialGeolocationMode,
+			autoAllowGeolocation: initialAdvanced?.autoAllowGeolocation ?? false,
 			latitude: initialAdvanced?.geolocation?.latitude?.toString() ?? '',
 			longitude: initialAdvanced?.geolocation?.longitude?.toString() ?? '',
 			accuracy: initialAdvanced?.geolocation?.accuracy?.toString() ?? '',
@@ -152,7 +161,7 @@ export function useProfileCreateForm({
 	const fingerprintSeed = watch('fingerprintSeed');
 	const language = watch('language');
 	const timezoneId = watch('timezoneId');
-	const geoEnabled = watch('geoEnabled');
+	const geolocationMode = watch('geolocationMode');
 
 	const availableProxies = useMemo(
 		() => proxies.filter((item) => item.lifecycle === 'active'),
@@ -189,20 +198,6 @@ export function useProfileCreateForm({
 		);
 		if (nextTimezone !== getValues('timezoneId')) {
 			setValue('timezoneId', nextTimezone, { shouldDirty: false, shouldValidate: true });
-		}
-
-		if (proxySuggestionSource.geolocation !== 'manual') {
-			if (proxySuggestedValues.geolocation) {
-				setValue('geoEnabled', true, { shouldDirty: false, shouldValidate: true });
-				setValue('latitude', proxySuggestedValues.geolocation.latitude, { shouldDirty: false, shouldValidate: true });
-				setValue('longitude', proxySuggestedValues.geolocation.longitude, { shouldDirty: false, shouldValidate: true });
-				setValue('accuracy', proxySuggestedValues.geolocation.accuracy, { shouldDirty: false, shouldValidate: true });
-			} else {
-				setValue('geoEnabled', false, { shouldDirty: false, shouldValidate: true });
-				setValue('latitude', '', { shouldDirty: false, shouldValidate: true });
-				setValue('longitude', '', { shouldDirty: false, shouldValidate: true });
-				setValue('accuracy', '', { shouldDirty: false, shouldValidate: true });
-			}
 		}
 
 		setProxySuggestionSource((prev) => {
@@ -249,17 +244,6 @@ export function useProfileCreateForm({
 		});
 		setValue('language', proxySuggestedValues.language, { shouldDirty: false, shouldValidate: true });
 		setValue('timezoneId', proxySuggestedValues.timezoneId, { shouldDirty: false, shouldValidate: true });
-		if (proxySuggestedValues.geolocation) {
-			setValue('geoEnabled', true, { shouldDirty: false, shouldValidate: true });
-			setValue('latitude', proxySuggestedValues.geolocation.latitude, { shouldDirty: false, shouldValidate: true });
-			setValue('longitude', proxySuggestedValues.geolocation.longitude, { shouldDirty: false, shouldValidate: true });
-			setValue('accuracy', proxySuggestedValues.geolocation.accuracy, { shouldDirty: false, shouldValidate: true });
-			return;
-		}
-		setValue('geoEnabled', false, { shouldDirty: false, shouldValidate: true });
-		setValue('latitude', '', { shouldDirty: false, shouldValidate: true });
-		setValue('longitude', '', { shouldDirty: false, shouldValidate: true });
-		setValue('accuracy', '', { shouldDirty: false, shouldValidate: true });
 	}, [proxySuggestedValues, setValue]);
 
 	useEffect(() => {
@@ -431,7 +415,7 @@ export function useProfileCreateForm({
 		let geolocation:
 			| { latitude: number; longitude: number; accuracy?: number }
 			| undefined;
-		if (values.geoEnabled) {
+		if (values.geolocationMode === 'custom') {
 			const accuracy = values.accuracy.trim() ? Number(values.accuracy.trim()) : undefined;
 			geolocation = {
 				latitude: Number(values.latitude),
@@ -470,6 +454,8 @@ export function useProfileCreateForm({
 				advanced: {
 					headless: values.headless,
 					disableImages: values.disableImages,
+					geolocationMode: values.geolocationMode,
+					autoAllowGeolocation: values.autoAllowGeolocation,
 					customLaunchArgs: customLaunchArgs.length ? customLaunchArgs : undefined,
 					randomFingerprint: values.randomFingerprint,
 					fixedFingerprintSeed:
@@ -519,7 +505,8 @@ export function useProfileCreateForm({
 			fingerprintSeed,
 			language,
 			timezoneId,
-			geoEnabled,
+			geolocationMode,
+			autoAllowGeolocation: watch('autoAllowGeolocation'),
 			proxySuggestionSource,
 			selectedProxy,
 			name: watch('name'),

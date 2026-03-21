@@ -18,8 +18,9 @@ use crate::error::{AppError, AppResult};
 use crate::logger;
 use crate::models::{
     now_ts, BatchCheckProxiesRequest, BatchProxyActionItem, BatchProxyActionResponse,
-    CreateProxyRequest, ImportProxiesRequest, ListProxiesQuery, ListProxiesResponse,
-    ProfileProxyBinding, Proxy, ProxyLifecycle, ProxyTargetSiteCheck, UpdateProxyRequest,
+    CreateProxyRequest, GeolocationOverride, ImportProxiesRequest, ListProxiesQuery,
+    ListProxiesResponse, ProfileProxyBinding, Proxy, ProxyLifecycle, ProxyTargetSiteCheck,
+    UpdateProxyRequest,
 };
 
 const LIFECYCLE_ACTIVE: &str = "active";
@@ -1413,6 +1414,28 @@ fn lookup_geoip_city(geoip_database_path: &Path, exit_ip: &str) -> AppResult<Geo
         .lookup::<GeoIpCityRecord>(address)
         .map_err(|err| AppError::Validation(format!("geoip lookup failed: {err}")))?;
     record.ok_or_else(|| AppError::Validation(format!("geoip record missing for ip: {exit_ip}")))
+}
+
+pub(crate) fn lookup_geoip_geolocation(
+    geoip_database_path: &Path,
+    exit_ip: &str,
+) -> AppResult<GeolocationOverride> {
+    let geo = lookup_geoip_city(geoip_database_path, exit_ip)?;
+    let location = geo
+        .location
+        .ok_or_else(|| AppError::Validation(format!("geoip location missing for ip: {exit_ip}")))?;
+    let latitude = location
+        .latitude
+        .ok_or_else(|| AppError::Validation(format!("geoip latitude missing for ip: {exit_ip}")))?;
+    let longitude = location.longitude.ok_or_else(|| {
+        AppError::Validation(format!("geoip longitude missing for ip: {exit_ip}"))
+    })?;
+
+    Ok(GeolocationOverride {
+        latitude,
+        longitude,
+        accuracy: location.accuracy_radius.map(f64::from),
+    })
 }
 
 fn extract_geo_name(record: &GeoIpNameRecord) -> Option<String> {

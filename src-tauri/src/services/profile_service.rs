@@ -11,9 +11,10 @@ use crate::error::{AppError, AppResult};
 use crate::fingerprint_catalog;
 use crate::font_catalog;
 use crate::models::{
-    now_ts, CreateProfileRequest, FingerprintSeedPolicy, FontListMode, ListProfilesQuery,
-    ListProfilesResponse, Profile, ProfileFingerprintSettings, ProfileFingerprintSnapshot,
-    ProfileFingerprintSource, ProfileLifecycle, ProfileSettings, UserAgentMode,
+    now_ts, CreateProfileRequest, FingerprintSeedPolicy, FontListMode, GeolocationMode,
+    ListProfilesQuery, ListProfilesResponse, Profile, ProfileFingerprintSettings,
+    ProfileFingerprintSnapshot, ProfileFingerprintSource, ProfileLifecycle, ProfileSettings,
+    UserAgentMode,
 };
 use crate::services::device_preset_service::DevicePresetService;
 
@@ -569,7 +570,18 @@ fn normalize_profile_settings(
     }
 
     if let Some(advanced) = value.advanced.as_mut() {
-        if let Some(geo) = advanced.geolocation.as_ref() {
+        let geolocation_mode = advanced.geolocation_mode.clone().or_else(|| {
+            advanced
+                .geolocation
+                .as_ref()
+                .map(|_| GeolocationMode::Custom)
+        });
+        if geolocation_mode == Some(GeolocationMode::Custom) {
+            let Some(geo) = advanced.geolocation.as_ref() else {
+                return Err(AppError::Validation(
+                    "custom geolocation mode requires coordinates".to_string(),
+                ));
+            };
             if !(-90.0..=90.0).contains(&geo.latitude) {
                 return Err(AppError::Validation(
                     "invalid geolocation latitude".to_string(),
@@ -601,6 +613,8 @@ fn normalize_profile_settings(
         });
         if advanced.headless.is_none()
             && advanced.disable_images.is_none()
+            && advanced.geolocation_mode.is_none()
+            && advanced.auto_allow_geolocation.is_none()
             && advanced.geolocation.is_none()
             && advanced.custom_launch_args.is_none()
             && advanced.random_fingerprint.is_none()
@@ -742,6 +756,8 @@ fn hydrate_strong_fingerprint_settings(
     if settings.advanced.as_ref().is_some_and(|advanced| {
         advanced.headless.is_none()
             && advanced.disable_images.is_none()
+            && advanced.geolocation_mode.is_none()
+            && advanced.auto_allow_geolocation.is_none()
             && advanced.geolocation.is_none()
             && advanced.custom_launch_args.is_none()
             && advanced.random_fingerprint.is_none()

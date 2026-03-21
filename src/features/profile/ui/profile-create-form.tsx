@@ -109,10 +109,7 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 									onRestoreProxySuggestions={restoreProxySuggestedValues}
 									hasProxySuggestions={Boolean(
 										values.selectedProxy?.effectiveLanguage ||
-										values.selectedProxy?.effectiveTimezone ||
-										(values.selectedProxy &&
-											values.selectedProxy.latitude !== null &&
-											values.selectedProxy.longitude !== null),
+										values.selectedProxy?.effectiveTimezone,
 									)}
 									onRegenerateFonts={() => {
 										void regenerateFontList().catch((error) => {
@@ -131,11 +128,16 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 
 								<AdvancedSettingsSection
 									form={form}
-									geoEnabled={values.geoEnabled}
+									geolocationMode={values.geolocationMode}
 									headless={values.headless}
 									disableImages={values.disableImages}
+									autoAllowGeolocation={values.autoAllowGeolocation}
 									geolocationSource={values.proxySuggestionSource.geolocation}
-									onMarkGeolocationManual={() => markProxyFieldManual('geolocation')}
+									hasProxyGeolocation={Boolean(
+										values.selectedProxy &&
+											values.selectedProxy.latitude !== null &&
+											values.selectedProxy.longitude !== null,
+									)}
 								/>
 
 								<FormErrorList errors={errors} submitError={submitError} />

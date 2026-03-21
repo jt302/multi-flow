@@ -1,5 +1,8 @@
 use std::fs;
+use std::path::Path;
+use std::time::Duration;
 
+use reqwest::blocking::Client;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::engine_manager::EngineLaunchOptions;
@@ -10,18 +13,31 @@ use crate::logger;
 use crate::models::{
     BatchProfileActionItem, BatchProfileActionRequest, BatchProfileActionResponse,
     BatchSetProfileGroupRequest, ClearProfileCacheResponse, CreateProfileRequest, FontListMode,
-    GeolocationOverride, ListProfilesQuery, ListProfilesResponse, LocalApiServerStatus,
-    OpenProfileOptions, OpenProfileResponse, Profile, ProfileDevicePreset,
+    GeolocationMode, GeolocationOverride, ListProfilesQuery, ListProfilesResponse,
+    LocalApiServerStatus, OpenProfileOptions, OpenProfileResponse, Profile, ProfileDevicePreset,
     ProfileFingerprintSnapshot, ProfileFingerprintSource, ProfileRuntimeDetails, ProfileSettings,
     Proxy, SaveProfileDevicePresetRequest, SetProfileGroupRequest, UpdateProfileVisualRequest,
     WebRtcMode,
 };
 use crate::runtime_guard;
 use crate::services::device_preset_service::DevicePresetService;
+use crate::services::proxy_service::lookup_geoip_geolocation;
 use crate::state::AppState;
 
 const DEFAULT_STARTUP_URL: &str = "https://www.browserscan.net/";
 const RESOURCE_PROGRESS_EVENT: &str = "resource_download_progress";
+const PUBLIC_IP_LOOKUP_TIMEOUT_SECS: u64 = 5;
+const PUBLIC_IP_LOOKUP_URLS: &[&str] = &[
+    "https://api.ipify.org?format=json",
+    "https://api64.ipify.org?format=json",
+    "https://api.ip.sb/ip",
+    "https://ifconfig.me/ip",
+];
+
+#[derive(serde::Deserialize)]
+struct PublicIpResponse {
+    ip: Option<String>,
+}
 
 #[tauri::command]
 pub fn create_profile(
@@ -884,29 +900,14 @@ fn resolve_launch_options(
         normalize_startup_urls(options.startup_urls.clone(), options.startup_url.clone())
             .map_err(|_| format!("validation failed: invalid startupUrl for {profile_id}"))?
             .unwrap_or_else(|| vec![DEFAULT_STARTUP_URL.to_string()]);
-    let geolocation = options
-        .geolocation
-        .clone()
-        .or_else(|| bound_proxy.and_then(default_geolocation_from_proxy));
-    if let Some(geo) = geolocation.as_ref() {
-        if !(-90.0..=90.0).contains(&geo.latitude) {
-            return Err(format!(
-                "validation failed: invalid latitude for {profile_id}"
-            ));
-        }
-        if !(-180.0..=180.0).contains(&geo.longitude) {
-            return Err(format!(
-                "validation failed: invalid longitude for {profile_id}"
-            ));
-        }
-        if let Some(accuracy) = geo.accuracy {
-            if accuracy <= 0.0 {
-                return Err(format!(
-                    "validation failed: invalid geolocation accuracy for {profile_id}"
-                ));
-            }
-        }
-    }
+    let geolocation_mode = resolve_effective_geolocation_mode(&options);
+    let geolocation = resolve_effective_geolocation(
+        profile_id,
+        geolocation_mode,
+        options.geolocation.clone(),
+        bound_proxy,
+        geoip_database.as_deref(),
+    )?;
     let proxy_server = if let Some(proxy_server) = daemon_proxy_server.and_then(trim_to_option) {
         Some(proxy_server)
     } else {
@@ -962,10 +963,14 @@ fn resolve_launch_options(
         }
     }
     if let Some(geo) = geolocation {
-        extra_args.push(format!(
-            "--multi-flow-geolocation={},{}",
-            geo.latitude, geo.longitude
-        ));
+        extra_args.push(format!("--custom-geolocation-latitude={}", geo.latitude));
+        extra_args.push(format!("--custom-geolocation-longitude={}", geo.longitude));
+        if let Some(accuracy) = geo.accuracy {
+            extra_args.push(format!("--custom-geolocation-accuracy={accuracy}"));
+        }
+    }
+    if options.auto_allow_geolocation.unwrap_or(false) {
+        extra_args.push("--auto-allow-geolocation".to_string());
     }
     if let Some(seed) = runtime_snapshot
         .fingerprint_seed
@@ -1022,6 +1027,132 @@ fn resolve_launch_options(
     })
 }
 
+fn resolve_effective_geolocation_mode(options: &OpenProfileOptions) -> GeolocationMode {
+    options
+        .geolocation_mode
+        .clone()
+        .or_else(|| {
+            options
+                .geolocation
+                .as_ref()
+                .map(|_| GeolocationMode::Custom)
+        })
+        .unwrap_or(GeolocationMode::Off)
+}
+
+fn resolve_effective_geolocation(
+    profile_id: &str,
+    geolocation_mode: GeolocationMode,
+    geolocation: Option<GeolocationOverride>,
+    bound_proxy: Option<&Proxy>,
+    geoip_database: Option<&Path>,
+) -> Result<Option<GeolocationOverride>, String> {
+    let resolved = match geolocation_mode {
+        GeolocationMode::Off => None,
+        GeolocationMode::Custom => Some(geolocation.ok_or_else(|| {
+            format!("validation failed: missing geolocation coordinates for {profile_id}")
+        })?),
+        GeolocationMode::Ip => bound_proxy
+            .and_then(default_geolocation_from_proxy)
+            .or_else(|| resolve_local_public_geolocation(profile_id, geoip_database)),
+    };
+
+    if let Some(geo) = resolved.as_ref() {
+        validate_geolocation(profile_id, geo)?;
+    }
+
+    Ok(resolved)
+}
+
+fn validate_geolocation(profile_id: &str, geo: &GeolocationOverride) -> Result<(), String> {
+    if !(-90.0..=90.0).contains(&geo.latitude) {
+        return Err(format!(
+            "validation failed: invalid latitude for {profile_id}"
+        ));
+    }
+    if !(-180.0..=180.0).contains(&geo.longitude) {
+        return Err(format!(
+            "validation failed: invalid longitude for {profile_id}"
+        ));
+    }
+    if let Some(accuracy) = geo.accuracy {
+        if accuracy <= 0.0 {
+            return Err(format!(
+                "validation failed: invalid geolocation accuracy for {profile_id}"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn resolve_local_public_geolocation(
+    profile_id: &str,
+    geoip_database: Option<&Path>,
+) -> Option<GeolocationOverride> {
+    let geoip_database = geoip_database?;
+    let public_ip = match fetch_public_ip() {
+        Ok(value) => value,
+        Err(err) => {
+            logger::warn(
+                "profile_cmd",
+                format!(
+                    "skip local public geolocation lookup because public ip fetch failed profile_id={profile_id} err={err}"
+                ),
+            );
+            return None;
+        }
+    };
+
+    match lookup_geoip_geolocation(geoip_database, &public_ip) {
+        Ok(geo) => Some(geo),
+        Err(err) => {
+            logger::warn(
+                "profile_cmd",
+                format!(
+                    "skip local public geolocation lookup because geoip lookup failed profile_id={profile_id} ip={public_ip} err={err}"
+                ),
+            );
+            None
+        }
+    }
+}
+
+fn fetch_public_ip() -> Result<String, String> {
+    let client = Client::builder()
+        .timeout(Duration::from_secs(PUBLIC_IP_LOOKUP_TIMEOUT_SECS))
+        .build()
+        .map_err(|err| format!("failed to build public ip client: {err}"))?;
+
+    for url in PUBLIC_IP_LOOKUP_URLS {
+        let response = match client.get(*url).send() {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        if !response.status().is_success() {
+            continue;
+        }
+        if url.ends_with("format=json") {
+            let payload = match response.json::<PublicIpResponse>() {
+                Ok(value) => value,
+                Err(_) => continue,
+            };
+            if let Some(ip) = payload.ip.and_then(trim_to_option) {
+                return Ok(ip);
+            }
+            continue;
+        }
+        let body = match response.text() {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        if let Some(ip) = trim_to_option(body) {
+            return Ok(ip);
+        }
+    }
+
+    Err("all public ip lookup endpoints failed".to_string())
+}
+
 fn merge_open_options(
     settings: Option<&ProfileSettings>,
     user_options: Option<OpenProfileOptions>,
@@ -1056,6 +1187,13 @@ fn merge_open_options(
             merged.webrtc_ip_override = fingerprint.webrtc_ip_override.clone();
         }
         if let Some(advanced) = settings.advanced.as_ref() {
+            merged.geolocation_mode = advanced.geolocation_mode.clone().or_else(|| {
+                advanced
+                    .geolocation
+                    .as_ref()
+                    .map(|_| GeolocationMode::Custom)
+            });
+            merged.auto_allow_geolocation = advanced.auto_allow_geolocation;
             merged.geolocation = advanced.geolocation.clone();
             merged.headless = advanced.headless;
             merged.disable_images = advanced.disable_images;
@@ -1078,6 +1216,12 @@ fn merge_open_options(
         if overrides.startup_urls.is_some() {
             merged.startup_urls = overrides.startup_urls;
             merged.startup_url = None;
+        }
+        if overrides.geolocation_mode.is_some() {
+            merged.geolocation_mode = overrides.geolocation_mode;
+        }
+        if overrides.auto_allow_geolocation.is_some() {
+            merged.auto_allow_geolocation = overrides.auto_allow_geolocation;
         }
         if overrides.geolocation.is_some() {
             merged.geolocation = overrides.geolocation;
@@ -1604,6 +1748,8 @@ mod tests {
     use std::sync::Mutex;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use serde_json::json;
+
     use super::*;
     use crate::db;
     use crate::engine_manager::EngineManager;
@@ -1636,8 +1782,7 @@ mod tests {
             std::env::temp_dir().join(format!("multi-flow-resource-cmd-test-{unique}"));
         let resource_service =
             ResourceService::from_data_dir(&resource_dir).expect("resource service");
-        let profiles_root =
-            std::env::temp_dir().join(format!("multi-flow-profile-root-{unique}"));
+        let profiles_root = std::env::temp_dir().join(format!("multi-flow-profile-root-{unique}"));
         std::fs::create_dir_all(&profiles_root).expect("profiles root");
         let mut local_api_server = LocalApiServer::new("127.0.0.1:18180");
         local_api_server.mark_started();
@@ -1768,12 +1913,15 @@ mod tests {
                 .expect("create profile")
         };
 
-        let details =
-            build_profile_runtime_details(&state, &profile.id).expect("runtime details");
+        let details = build_profile_runtime_details(&state, &profile.id).expect("runtime details");
 
         assert!(details.profile_root_dir.ends_with(&profile.id));
-        assert!(details.user_data_dir.ends_with(&format!("{}/user-data", profile.id)));
-        assert!(details.cache_data_dir.ends_with(&format!("{}/cache-data", profile.id)));
+        assert!(details
+            .user_data_dir
+            .ends_with(&format!("{}/user-data", profile.id)));
+        assert!(details
+            .cache_data_dir
+            .ends_with(&format!("{}/cache-data", profile.id)));
         assert!(details.runtime_handle.is_none());
         assert!(details.launch_args.is_none());
     }
@@ -1803,8 +1951,7 @@ mod tests {
         std::fs::create_dir_all(&cache_dir).expect("create cache dir");
         std::fs::write(cache_dir.join("temp.bin"), b"cache").expect("write cache");
 
-        let response =
-            clear_profile_cache_inner(&state, &profile.id).expect("clear cache");
+        let response = clear_profile_cache_inner(&state, &profile.id).expect("clear cache");
         assert_eq!(response.profile_id, profile.id);
         assert!(cache_dir.exists());
         assert!(!cache_dir.join("temp.bin").exists());
@@ -2003,6 +2150,148 @@ mod tests {
         )
         .expect_err("invalid geolocation should fail");
         assert!(err.contains("invalid latitude"));
+    }
+
+    #[test]
+    fn resolve_launch_options_uses_chromium_geolocation_switches_for_custom_mode() {
+        let preset_service = new_test_device_preset_service();
+        let options: OpenProfileOptions = serde_json::from_value(json!({
+            "geolocationMode": "custom",
+            "geolocation": {
+                "latitude": 31.2304,
+                "longitude": 121.4737,
+                "accuracy": 15.5
+            }
+        }))
+        .expect("deserialize open options");
+
+        let resolved = resolve_launch_options(
+            &preset_service,
+            "pf_000001",
+            "test-profile",
+            None,
+            options,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("resolve launch options");
+
+        assert!(resolved
+            .extra_args
+            .iter()
+            .any(|arg| arg == "--custom-geolocation-latitude=31.2304"));
+        assert!(resolved
+            .extra_args
+            .iter()
+            .any(|arg| arg == "--custom-geolocation-longitude=121.4737"));
+        assert!(resolved
+            .extra_args
+            .iter()
+            .any(|arg| arg == "--custom-geolocation-accuracy=15.5"));
+        assert!(resolved
+            .extra_args
+            .iter()
+            .all(|arg| !arg.starts_with("--multi-flow-geolocation=")));
+    }
+
+    #[test]
+    fn resolve_launch_options_adds_auto_allow_geolocation_switch() {
+        let preset_service = new_test_device_preset_service();
+        let options: OpenProfileOptions = serde_json::from_value(json!({
+            "geolocationMode": "off",
+            "autoAllowGeolocation": true
+        }))
+        .expect("deserialize open options");
+
+        let resolved = resolve_launch_options(
+            &preset_service,
+            "pf_000001",
+            "test-profile",
+            None,
+            options,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("resolve launch options");
+
+        assert!(resolved
+            .extra_args
+            .iter()
+            .any(|arg| arg == "--auto-allow-geolocation"));
+    }
+
+    #[test]
+    fn resolve_launch_options_prefers_proxy_geolocation_in_ip_mode() {
+        let preset_service = new_test_device_preset_service();
+        let proxy = Proxy {
+            id: "px_000001".to_string(),
+            name: "proxy-us".to_string(),
+            protocol: "http".to_string(),
+            host: "127.0.0.1".to_string(),
+            port: 8080,
+            username: None,
+            password: None,
+            country: Some("US".to_string()),
+            region: None,
+            city: None,
+            provider: None,
+            note: None,
+            check_status: Some("ok".to_string()),
+            check_message: None,
+            last_checked_at: None,
+            exit_ip: Some("8.8.8.8".to_string()),
+            latitude: Some(37.7749),
+            longitude: Some(-122.4194),
+            geo_accuracy_meters: Some(20.0),
+            suggested_language: Some("en-US".to_string()),
+            suggested_timezone: Some("America/Los_Angeles".to_string()),
+            language_source: Some("ip".to_string()),
+            custom_language: None,
+            effective_language: Some("en-US".to_string()),
+            timezone_source: Some("ip".to_string()),
+            custom_timezone: None,
+            effective_timezone: Some("America/Los_Angeles".to_string()),
+            target_site_checks: None,
+            expires_at: None,
+            lifecycle: ProxyLifecycle::Active,
+            created_at: 1,
+            updated_at: 1,
+            deleted_at: None,
+        };
+        let options: OpenProfileOptions = serde_json::from_value(json!({
+            "geolocationMode": "ip"
+        }))
+        .expect("deserialize open options");
+
+        let resolved = resolve_launch_options(
+            &preset_service,
+            "pf_000001",
+            "test-profile",
+            None,
+            options,
+            Some(&proxy),
+            None,
+            None,
+            None,
+        )
+        .expect("resolve launch options");
+
+        assert!(resolved
+            .extra_args
+            .iter()
+            .any(|arg| arg == "--custom-geolocation-latitude=37.7749"));
+        assert!(resolved
+            .extra_args
+            .iter()
+            .any(|arg| arg == "--custom-geolocation-longitude=-122.4194"));
+        assert!(resolved
+            .extra_args
+            .iter()
+            .any(|arg| arg == "--custom-geolocation-accuracy=20"));
     }
 
     #[test]

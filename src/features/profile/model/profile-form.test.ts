@@ -31,6 +31,8 @@ function buildFormValues(overrides: Record<string, unknown> = {}) {
 		disableImages: false,
 		randomFingerprint: false,
 		customLaunchArgsText: '',
+		geolocationMode: 'off',
+		autoAllowGeolocation: false,
 		geoEnabled: false,
 		latitude: '',
 		longitude: '',
@@ -60,6 +62,36 @@ test('profile form schema rejects non http startup urls in multi line input', ()
 		return;
 	}
 	assert.equal(result.error.issues[0]?.path[0], 'startupUrls');
+});
+
+test('profile form schema accepts ip geolocation mode without manual coordinates', () => {
+	const result = profileFormSchema.safeParse(
+		buildFormValues({
+			geolocationMode: 'ip',
+			geoEnabled: false,
+			latitude: '',
+			longitude: '',
+			accuracy: '',
+		}),
+	);
+	assert.equal(result.success, true);
+});
+
+test('profile form schema requires valid coordinates in custom geolocation mode', () => {
+	const result = profileFormSchema.safeParse(
+		buildFormValues({
+			geolocationMode: 'custom',
+			geoEnabled: false,
+			latitude: '',
+			longitude: '',
+			accuracy: '',
+		}),
+	);
+	assert.equal(result.success, false);
+	if (result.success) {
+		return;
+	}
+	assert.equal(result.error.issues[0]?.path[0], 'latitude');
 });
 
 test('resolveProxySuggestedValues maps proxy portrait into profile fields', () => {
