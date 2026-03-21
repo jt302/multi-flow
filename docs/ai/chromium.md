@@ -5,7 +5,7 @@
 本文档基于当前源码、旧版接入文档 [`chromium-old.md`](/Users/tt/Developer/Personal/chromium/chromium-old.md) 和当前项目接入约定整理而成。
 
 本文档只描述当前代码中已经存在的实际接口和行为，不描述未实现的理想能力。
-如果后续把本文档抽取到 skill / 快照包场景，建议把这里引用到的 Chromium 源码路径替换成同目录快照副本，并在文件头注明是否为摘录版。
+
 ## 1. 总览
 
 这个定制版 Chromium 内置了一套 `Magic Controller` 控制面，提供两类接口：
@@ -456,6 +456,25 @@ agent 不要假设所有接口都严格遵守同一个返回模板。
 }
 ```
 
+#### `safe_quit`
+
+安全退出整个 Chromium 应用。
+
+```json
+{
+	"cmd": "safe_quit"
+}
+```
+
+说明：
+
+- 这个命令调用后会立即返回 `status=ok`，表示“已发起退出流程”
+- 它不等待进程真正结束
+- 调用方应自行等待控制端口断开或浏览器进程退出
+- `set_closed` 和 `safe_quit` 语义不同：
+  - `set_closed` 只关闭当前活动窗口
+  - `safe_quit` 退出整个应用
+
 #### `set_restored`
 
 恢复当前活动窗口。
@@ -529,7 +548,217 @@ agent 不要假设所有接口都严格遵守同一个返回模板。
 - `custom-bg-color`
 - `toolbar-text`
 - `fingerprint-seed`
+- `enable-automation-detection-shield`
 - 其他 Chromium 启动参数
+
+#### `get_host_name`
+
+读取当前 Chromium 进程内生效的主机名。
+
+请求：
+
+```json
+{
+	"cmd": "get_host_name"
+}
+```
+
+返回示例：
+
+```json
+{
+	"status": "ok",
+	"data": {
+		"host_name": "test-host-name",
+		"overridden": true
+	}
+}
+```
+
+说明：
+
+- `host_name` 是当前 Chromium 进程实际使用的主机名
+- `overridden=true` 表示启动时传入了 `--custom-host-name`
+- 这是只读调试接口，不提供运行时修改
+- 这项覆盖只保证 Chromium 可控代码路径，不承诺替换系统级所有 hostname 读取
+
+#### `get_mac_address`
+
+读取当前 Chromium 进程内生效的自定义 MAC 地址覆盖值。
+
+请求：
+
+```json
+{
+	"cmd": "get_mac_address"
+}
+```
+
+返回示例：
+
+```json
+{
+	"status": "ok",
+	"data": {
+		"mac_address": "AA:BB:CC:DD:EE:FF",
+		"overridden": true
+	}
+}
+```
+
+说明：
+
+- `mac_address` 是当前 Chromium 进程网络接口导出层实际使用的 MAC 地址覆盖值
+- `overridden=true` 表示启动时传入了合法的 `--custom-mac-address`
+- 如果未配置或配置非法，返回空字符串和 `overridden=false`
+- 这是只读调试接口，不提供运行时修改
+- 这项覆盖只作用于 Chromium 可控的网络接口导出路径，不是系统级 MAC 欺骗
+
+#### `get_managed_extensions`
+
+读取当前 profile 下由 `extension-state-file` 接管的扩展状态。
+
+请求：
+
+```json
+{
+	"cmd": "get_managed_extensions"
+}
+```
+
+#### `get_managed_cookies`
+
+读取当前 profile 下由 `cookie-state-file` 接管的 Cookie 状态。
+
+请求：
+
+```json
+{
+	"cmd": "get_managed_cookies"
+}
+```
+
+返回示例：
+
+```json
+{
+	"status": "ok",
+	"data": [
+		{
+			"cookie_id": "ck_001",
+			"url": "https://example.com/",
+			"name": "sid",
+			"domain": ".example.com",
+			"path": "/",
+			"secure": true,
+			"http_only": true,
+			"same_site": "none",
+			"expires": "2030-12-31T23:59:59Z",
+			"managed": true,
+			"status": "set",
+			"last_error": ""
+		}
+	]
+}
+```
+
+说明：
+
+- 这是只读调试接口，不负责运行中写入或删除 Cookie
+- 返回内容是 profile 持久化状态和当前运行态 Cookie 注入结果的合并视图
+- 主要用于 Tauri 管理中心在启动后核对模板和实际 Cookie 状态
+
+#### `export_cookie_state`
+
+把当前 profile 中的 Cookie 导出成与 `--cookie-state-file` 兼容的 JSON 结构。
+
+请求：
+
+按站点导出：
+
+```json
+{
+	"cmd": "export_cookie_state",
+	"mode": "url",
+	"url": "https://example.com/",
+	"environment_id": "env_copy"
+}
+```
+
+导出整个 profile：
+
+```json
+{
+	"cmd": "export_cookie_state",
+	"mode": "all",
+	"environment_id": "env_copy"
+}
+```
+
+返回示例：
+
+```json
+{
+	"status": "ok",
+	"data": {
+		"environment_id": "env_copy",
+		"managed_cookies": [
+			{
+				"cookie_id": "ck_7A8B...",
+				"url": "https://example.com/",
+				"name": "sid",
+				"value": "abc123",
+				"domain": ".example.com",
+				"path": "/",
+				"secure": true,
+				"http_only": true,
+				"same_site": "none",
+				"expires": "2030-12-31T23:59:59Z"
+			}
+		]
+	}
+}
+```
+
+说明：
+
+- `mode` 目前只支持 `url` 和 `all`
+- `mode=url` 时必须传 `url`，且只接受 `http` / `https`
+- `environment_id` 可选；传入什么就原样写回导出结果
+- `cookie_id` 由 Chromium 按 `name + domain + path` 生成稳定 ID，便于后续直接回填到 `cookie-state-file`
+- `mode=all` 时会为每条 Cookie 自动生成一个可回放的 `url`
+- 当前不导出 partitioned cookies，因为现有 `cookie-state-file` 结构还不支持 partition key
+- 这是只读导出接口，不会修改 `cookies.managed_cookie_state`
+- 当前不会自动写出本地文件，只会把结果放在 HTTP 响应的 `data` 字段里
+
+保存到当前目录示例：
+
+```bash
+python3 - <<'PY'
+import json, urllib.request
+payload = json.dumps({
+    "cmd": "export_cookie_state",
+    "mode": "all",
+    "environment_id": "env_copy",
+}).encode()
+req = urllib.request.Request(
+    "http://127.0.0.1:9999/",
+    data=payload,
+    headers={"Content-Type": "application/json"},
+    method="POST",
+)
+with urllib.request.urlopen(req) as resp:
+    result = json.loads(resp.read().decode())
+with open("exported-cookie-state.json", "w", encoding="utf-8") as f:
+    json.dump(result["data"], f, ensure_ascii=False, indent=2)
+PY
+```
+
+执行后会在当前目录生成：
+
+```text
+./exported-cookie-state.json
+```
 
 ### 5.4 浏览器窗口查询
 
@@ -871,6 +1100,7 @@ WebSocket 主要用于同步功能。
 如果你正在实现 Rust sidecar，建议优先阅读独立整理的同步接入文档：
 
 - [sidecar-integration.md](/Users/tt/Developer/Personal/chromium/sidecar-integration.md)
+
 ### 6.1 客户端请求
 
 #### `sync.subscribe_events`
@@ -1177,6 +1407,7 @@ HTTP `path` 当前不参与路由，路由只看 JSON 里的 `cmd`。
 - `set_minimized`
 - `get_minimized`
 - `set_closed`
+- `safe_quit`
 - `set_restored`
 - `set_fullscreen`
 - `get_fullscreen`
@@ -1371,39 +1602,81 @@ Chromium 实际接收的仍是这些注入结果：
 
 以下参数直接定义在 [base_switches.cc:198](/Users/tt/Developer/Personal/chromium/src/base/base_switches.cc:198) 一带。
 
-| 参数                        | 常量名                   | 用途                           | 示例                                                      |
-| --------------------------- | ------------------------ | ------------------------------ | --------------------------------------------------------- | ----------------------- | -------- | ---------- | -------- | ------------------------------------- | --------------------- |
-| `--custom-bg-color`         | `kCustomBackgroundColor` | 启动时设置窗口背景色           | `--custom-bg-color=#1E1E1E`                               |
-| `--custom-ua-metadata`      | `kCustomUAMetadata`      | 自定义 `Sec-CH-UA*` 相关元数据 | `--custom-ua-metadata=platform=Windows                    | platform_version=13.0.0 | arch=x86 | bitness=64 | mobile=0 | brands=Google Chrome:144,Chromium:144 | form_factors=Desktop` |
-| `--custom-cpu-cores`        | `kCustomCpuCores`        | 自定义 CPU 核心数              | `--custom-cpu-cores=8`                                    |
-| `--custom-ram-gb`           | `kCustomRamGb`           | 自定义内存大小，单位 GB        | `--custom-ram-gb=16`                                      |
-| `--custom-gl-vendor`        | `kCustomGlVendor`        | 自定义 GL 供应商               | `--custom-gl-vendor=NVIDIA`                               |
-| `--custom-gl-renderer`      | `kCustomGlRenderer`      | 自定义 GL 渲染器               | `--custom-gl-renderer=NVIDIA GeForce RTX 4090`            |
-| `--custom-touch-points`     | `kCustomTouchPoints`     | 自定义触摸点数                 | `--custom-touch-points=5`                                 |
-| `--custom-main-language`    | `kCustomMainLanguage`    | 自定义主语言                   | `--custom-main-language=en-US`                            |
-| `--custom-languages`        | `kCustomLanguages`       | 自定义语言列表                 | `--custom-languages=en-US,zh-CN`                          |
-| `--custom-accept-languages` | `kCustomAcceptLanguages` | 自定义 Accept-Language 值      | `--custom-accept-languages=en-US,en,zh-CN`                |
-| `--custom-time-zone`        | `kCustomTimeZone`        | 自定义时区                     | `--custom-time-zone=Asia/Shanghai`                        |
-| `--webrtc-ip-override`      | `kWebrtcIpOverride`      | 覆盖 WebRTC 暴露 IP            | `--webrtc-ip-override=203.0.113.10`                       |
-| `--custom-platform`         | `kCustomPlatform`        | 自定义平台标识                 | `--custom-platform=Win32`                                 |
-| `--custom-font-list`        | `kCustomFontList`        | 自定义字体列表                 | `--custom-font-list=Arial,Verdana,Tahoma,Microsoft YaHei` |
+| 参数                             | 常量名                        | 用途                              | 示例                                                      |
+| -------------------------------- | ----------------------------- | --------------------------------- | --------------------------------------------------------- | ----------------------- | -------- | ---------- | -------- | ------------------------------------- | --------------------- |
+| `--custom-bg-color`              | `kCustomBackgroundColor`      | 启动时设置窗口背景色              | `--custom-bg-color=#1E1E1E`                               |
+| `--custom-ua-metadata`           | `kCustomUAMetadata`           | 自定义 `Sec-CH-UA*` 相关元数据    | `--custom-ua-metadata=platform=Windows                    | platform_version=13.0.0 | arch=x86 | bitness=64 | mobile=0 | brands=Google Chrome:144,Chromium:144 | form_factors=Desktop` |
+| `--custom-cpu-cores`             | `kCustomCpuCores`             | 自定义 CPU 核心数                 | `--custom-cpu-cores=8`                                    |
+| `--custom-ram-gb`                | `kCustomRamGb`                | 自定义内存大小，单位 GB           | `--custom-ram-gb=16`                                      |
+| `--custom-gl-vendor`             | `kCustomGlVendor`             | 自定义 GL 供应商                  | `--custom-gl-vendor=NVIDIA`                               |
+| `--custom-gl-renderer`           | `kCustomGlRenderer`           | 自定义 GL 渲染器                  | `--custom-gl-renderer=NVIDIA GeForce RTX 4090`            |
+| `--custom-touch-points`          | `kCustomTouchPoints`          | 自定义触摸点数                    | `--custom-touch-points=5`                                 |
+| `--custom-main-language`         | `kCustomMainLanguage`         | 自定义主语言                      | `--custom-main-language=en-US`                            |
+| `--custom-languages`             | `kCustomLanguages`            | 自定义语言列表                    | `--custom-languages=en-US,zh-CN`                          |
+| `--custom-accept-languages`      | `kCustomAcceptLanguages`      | 自定义 Accept-Language 值         | `--custom-accept-languages=en-US,en,zh-CN`                |
+| `--custom-time-zone`             | `kCustomTimeZone`             | 自定义时区                        | `--custom-time-zone=Asia/Shanghai`                        |
+| `--custom-geolocation-latitude`  | `kCustomGeolocationLatitude`  | 自定义地理位置纬度                | `--custom-geolocation-latitude=37.422`                    |
+| `--custom-geolocation-longitude` | `kCustomGeolocationLongitude` | 自定义地理位置经度                | `--custom-geolocation-longitude=-122.084`                 |
+| `--custom-geolocation-accuracy`  | `kCustomGeolocationAccuracy`  | 自定义地理位置精确度，单位米      | `--custom-geolocation-accuracy=15.5`                      |
+| `--custom-resolution-width`      | `kCustomResolutionWidth`      | 自定义页面分辨率宽度，单位 CSS px | `--custom-resolution-width=1366`                          |
+| `--custom-resolution-height`     | `kCustomResolutionHeight`     | 自定义页面分辨率高度，单位 CSS px | `--custom-resolution-height=768`                          |
+| `--custom-resolution-dpr`        | `kCustomResolutionDpr`        | 自定义页面 DPR                    | `--custom-resolution-dpr=1.0`                             |
+| `--custom-image-loading-mode`    | `kCustomImageLoadingMode`     | 自定义图片加载策略模式            | `--custom-image-loading-mode=block`                       |
+| `--custom-image-max-area`        | `kCustomImageMaxArea`         | 自定义图片最大像素面积阈值        | `--custom-image-max-area=1024`                            |
+| `--custom-mac-address`           | `kCustomMacAddress`           | 自定义 Chromium 导出的 MAC 地址   | `--custom-mac-address=AA:BB:CC:DD:EE:FF`                  |
+| `--custom-host-name`             | `kCustomHostName`             | 自定义 Chromium 可见主机名        | `--custom-host-name=test-host-name`                       |
+| `--webrtc-ip-override`           | `kWebrtcIpOverride`           | 覆盖 WebRTC 暴露 IP               | `--webrtc-ip-override=203.0.113.10`                       |
+| `--custom-platform`              | `kCustomPlatform`             | 自定义平台标识                    | `--custom-platform=Win32`                                 |
+| `--custom-font-list`             | `kCustomFontList`             | 自定义字体列表                    | `--custom-font-list=Arial,Verdana,Tahoma,Microsoft YaHei` |
 
 ### 13.2 其他强相关启动参数
 
 这些参数虽然不属于 `kCustom*` 命名，但对当前 app 同样是强依赖：
 
-| 参数                          | 用途                                   | 示例                                                                                                                           |
-| ----------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `--user-agent`                | 自定义 UA                              | `--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36` |
-| `--fingerprint-seed`          | 自定义指纹种子                         | `--fingerprint-seed=178172`                                                                                                    |
-| `--toolbar-text`              | 地址栏和刷新按钮之间显示自定义标识文字 | `--toolbar-text=实例-01`                                                                                                       |
-| `--magic-socket-server-port`  | 启动 Chromium 内置 HTTP/WS 控制服务    | `--magic-socket-server-port=9999`                                                                                              |
-| `--window-size`               | 窗口尺寸                               | `--window-size=393,852`                                                                                                        |
-| `--force-device-scale-factor` | 设备缩放因子 / DPR                     | `--force-device-scale-factor=3`                                                                                                |
-| `--touch-events=enabled`      | 显式开启触摸事件                       | `--touch-events=enabled`                                                                                                       |
-| `--use-mobile-user-agent`     | 使用移动端 UA 行为                     | `--use-mobile-user-agent`                                                                                                      |
-| `--lang`                      | 浏览器语言                             | `--lang=en-US`                                                                                                                 |
-| `TZ`                          | 进程时区环境变量                       | `TZ=Asia/Shanghai`                                                                                                             |
+| 参数                                   | 用途                                       | 示例                                                                                                                           |
+| -------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `--user-agent`                         | 自定义 UA                                  | `--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36` |
+| `--fingerprint-seed`                   | 自定义指纹种子                             | `--fingerprint-seed=178172`                                                                                                    |
+| `--toolbar-text`                       | 地址栏和刷新按钮之间显示自定义标识文字     | `--toolbar-text=实例-01`                                                                                                       |
+| `--magic-socket-server-port`           | 启动 Chromium 内置 HTTP/WS 控制服务        | `--magic-socket-server-port=9999`                                                                                              |
+| `--auto-allow-geolocation`             | 地理位置权限请求静默自动通过，不弹授权框   | `--auto-allow-geolocation`                                                                                                     |
+| `--extension-state-file`               | 启动时加载受管理扩展目标状态 JSON 文件     | `--extension-state-file=/Users/tt/app_data/environments/env_001/runtime/extension-state.json`                                  |
+| `--cookie-state-file`                  | 启动时加载受管理 Cookie 目标状态 JSON 文件 | `--cookie-state-file=/Users/tt/app_data/environments/env_001/runtime/cookie-state.json`                                        |
+| `--enable-port-scan-protection`        | 启用普通网页端口扫描保护                   | `--enable-port-scan-protection`                                                                                                |
+| `--enable-automation-detection-shield` | 启用自动化检测隔绝                         | `--enable-automation-detection-shield`                                                                                         |
+| `--window-size`                        | 窗口尺寸                                   | `--window-size=393,852`                                                                                                        |
+| `--force-device-scale-factor`          | 设备缩放因子 / DPR                         | `--force-device-scale-factor=3`                                                                                                |
+| `--touch-events=enabled`               | 显式开启触摸事件                           | `--touch-events=enabled`                                                                                                       |
+| `--use-mobile-user-agent`              | 使用移动端 UA 行为                         | `--use-mobile-user-agent`                                                                                                      |
+| `--lang`                               | 浏览器语言                                 | `--lang=en-US`                                                                                                                 |
+| `TZ`                                   | 进程时区环境变量                           | `TZ=Asia/Shanghai`                                                                                                             |
+
+说明：
+
+- 当同时传入 `custom-resolution-width/height/dpr` 与 `window-size`、`force-device-scale-factor` 时，以 `custom-resolution-*` 为准
+- `custom-resolution-*` 同时影响 `screen.width/height`、`screen.availWidth/availHeight`、`window.innerWidth/innerHeight` 和 `window.devicePixelRatio`
+- `extension-state-file` 当前只支持绝对路径，文件内容必须包含 `managed_extensions` 数组
+- `extension-state-file` 当前只管理由该文件声明的受管理扩展，不接管用户手动安装的其他扩展
+- `extension-state-file` 当前真正影响安装决策的字段是 `extension_id`、`source_path`、`source_type`、`version`、`enabled`
+- `extension-state-file` 里的 `environment_id` 和 `package_id` 当前会被解析和回写，但不参与安装/更新/启用决策
+- `cookie-state-file` 当前只支持绝对路径，文件内容必须包含 `managed_cookies` 数组
+- `cookie-state-file` 当前只对当前启动 profile 做一次性注入，不提供运行中热更新
+- `cookie-state-file` 当前真正影响写入决策的字段是 `url`、`name`、`value`、`domain`、`path`、`secure`、`http_only`、`same_site`、`expires`
+- `cookie-state-file` 里的 `environment_id` 和 `cookie_id` 当前会被解析和回写，但不参与 Cookie 内容决策
+- `enable-port-scan-protection` 默认关闭；开启后只对 `http/https` 普通网页上下文生效
+- `enable-port-scan-protection` 当前会直接阻断普通网页到私网/loopback 的 PNA 请求、`ws/wss` 本地端口探测，并收紧普通网页的 Direct Sockets / WebRTC 本地网络探测能力
+- `enable-port-scan-protection` 当前不影响 `chrome://`、`devtools://`、`chrome-extension://`、IWA 和浏览器内部受信页面
+- `custom-image-loading-mode` 默认关闭；当前支持 `block` 和 `max-area`
+- `custom-image-loading-mode=block` 时，会阻断普通 `http/https` 网页上下文中的图片子资源请求；不影响 `chrome://`、`chrome-extension://`、favicon 和浏览器内部资源
+- `custom-image-loading-mode=max-area` 时，必须同时传入正整数 `custom-image-max-area`；按图片固有像素面积 `width * height` 判定，超过阈值则阻断
+- `custom-image-loading-mode=max-area` 当前只对能在浏览器侧解析出尺寸的图片格式生效；暂时无法判定尺寸时默认放行
+- `enable-automation-detection-shield` 默认关闭；开启后优先收口网页脚本可见的自动化信号，不会关闭 `remote-debugging-port` 或 `magic-socket-server-port`
+- `enable-automation-detection-shield` 当前会强制关闭 Blink `AutomationControlled`，并在 headless 运行时去掉 UA / UA-CH 中的 `HeadlessChrome` 暴露
+- `enable-automation-detection-shield` 当前还会在 headless 运行时把 `screen.width/height`、`screen.availWidth/availHeight`、CSS `device-width/device-height` 媒体查询归一化到稳定桌面屏幕值，并把 `navigator.connection` 归一化成固定桌面网络特征
+- 当同时启用 `enable-automation-detection-shield` 与 `custom-resolution-*` 时，设备屏幕暴露面仍以 `custom-resolution-*` 为准
+- `enable-automation-detection-shield` 当前不伪造 `chrome.runtime`，也不覆盖 Canvas / WebGL / AudioContext 等指纹面
+- `custom-mac-address` 当前只覆盖 Chromium 可控的网络接口导出路径，不承诺替换系统网卡真实 MAC，也不覆盖 BSSID、Bluetooth 或其他系统级 MAC 语义
+- `custom-host-name` 当前覆盖的是 Chromium 可控的 hostname 读取路径，不承诺替换系统框架或系统外部进程看到的真实主机名
 
 ### 13.3 参数详细说明
 
@@ -1439,6 +1712,108 @@ platform=Windows|platform_version=13.0.0|arch=x86|bitness=64|mobile=0|brands=Goo
 - Windows 风格平台通常映射到 `Win32`
 - macOS 风格平台通常映射到 `MacIntel`
 
+#### `--custom-image-loading-mode` / `--custom-image-max-area`
+
+这两个参数用于控制普通网页中的图片子资源加载策略。
+
+支持的模式：
+
+- `--custom-image-loading-mode=block`
+- `--custom-image-loading-mode=max-area`
+
+说明：
+
+- 不传 `custom-image-loading-mode` 时功能关闭
+- `block` 模式下，普通 `http/https` 网页图片会直接被浏览器侧阻断
+- `max-area` 模式下，必须同时传 `--custom-image-max-area=<positive integer>`
+- `custom-image-max-area` 表示图片固有像素面积上限，也就是 `width * height`
+- 当前只控制普通网页图片子资源，不覆盖 `chrome://`、`chrome-extension://`、favicon 和浏览器内部资源
+- 当前浏览器侧无法及时解析出尺寸的图片，默认放行，以兼容性优先
+
+示例：
+
+```text
+--custom-image-loading-mode=block
+```
+
+```text
+--custom-image-loading-mode=max-area
+--custom-image-max-area=1024
+```
+
+#### `--custom-host-name`
+
+该参数用于覆盖 Chromium 进程内可控代码路径读取到的主机名。
+
+示例：
+
+```text
+--custom-host-name=test-host-name
+```
+
+当前行为：
+
+- `net::GetHostName()` 会优先返回这个值
+- 当前仓库里依赖该统一入口的调用点会跟着一起变化
+- 例如策略路径里的 `${machine_name}` 变量展开，会使用覆盖后的值
+- 未传时仍回落到系统真实 hostname
+
+边界说明：
+
+- 这是 Chromium 进程内的覆盖，不是系统级 hostname 劫持
+- 系统框架、系统命令或其他进程仍可能看到真实主机名
+- 当前 `Magic HTTP` 可通过 `get_host_name` 查询当前生效值，但不能运行时修改
+- 当前仓库的 `start.py` 可通过环境变量 `CHROMIUM_CUSTOM_HOST_NAME` 透传这个参数
+
+#### `--custom-mac-address`
+
+该参数用于覆盖 Chromium 进程内网络接口导出路径看到的 MAC 地址。
+
+示例：
+
+```text
+--custom-mac-address=AA:BB:CC:DD:EE:FF
+```
+
+当前行为：
+
+- `net::GetNetworkList()` 返回前会把每个 `NetworkInterface.mac_address` 统一改成这个值
+- 原本未填充 `mac_address` 的平台路径，在 override 生效后也会补上该值
+- `NetworkService::GetNetworkList()` 等依赖该导出链路的 Chromium 内部调用方会看到覆盖后的值
+- 输入必须是合法 EUI-48 地址；非法值会被忽略，并回落到原始行为
+
+边界说明：
+
+- 这是 Chromium 进程内网络接口导出层的覆盖，不是系统级 MAC 欺骗
+- 不会修改操作系统真实网卡地址
+- 当前不覆盖 Wi-Fi BSSID、Bluetooth MAC、Nearby/Sharing/Fast Pair 等其他 MAC 语义
+- 当前 `Magic HTTP` 可通过 `get_mac_address` 查询当前生效值，但不能运行时修改
+- 当前仓库的 `start.py` 可通过环境变量 `CHROMIUM_CUSTOM_MAC_ADDRESS` 透传这个参数
+
+#### `--enable-port-scan-protection`
+
+该参数用于开启普通网页上下文的端口扫描保护。
+
+示例：
+
+```text
+--enable-port-scan-protection
+```
+
+当前行为：
+
+- 普通 `http/https` 页面访问私网、loopback、本地网络目标时，会走直接阻断而不是 warning
+- 普通 `http/https` 页面发起到 `localhost`、loopback、私网目标的 `ws/wss` 握手会被直接拒绝
+- 普通网页上下文里的 Direct Sockets 会被拒绝
+- 普通网页上下文里的 WebRTC 会强制使用 `disable_non_proxied_udp`，并保持 mDNS 混淆开启
+- `chrome://`、`devtools://`、`chrome-extension://`、IWA 和浏览器内部受信页面不受影响
+
+边界说明：
+
+- 这是 Chromium 可控范围内的探测防护，不是系统级 100% 阻断
+- 当前不提供 allowlist，也不提供运行时开关
+- 当前仓库的 `start.py` 可通过环境变量 `CHROMIUM_ENABLE_PORT_SCAN_PROTECTION=1` 透传这个参数
+
 #### `--custom-gl-vendor` / `--custom-gl-renderer`
 
 这两个值必须成对匹配，不能随便拼接。
@@ -1468,6 +1843,173 @@ Arial,Verdana,Tahoma,Microsoft YaHei
 
 - 桌面平台通常不传，或为 `0`
 - 移动平台通常为 `5`
+
+#### `--extension-state-file`
+
+该参数用于把“当前指纹环境需要启用哪些扩展”交给 Chromium 在启动时一次性收敛。
+
+当前支持的 JSON 结构：
+
+```json
+{
+	"environment_id": "env_001",
+	"managed_extensions": [
+		{
+			"package_id": "pkg_001",
+			"extension_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			"source_path": "/abs/path/demo.crx",
+			"source_type": "crx",
+			"version": "1.2.3",
+			"enabled": true
+		}
+	]
+}
+```
+
+当前 v1 行为：
+
+- `source_path` 必须是绝对路径
+- `source_type` 目前只支持 `crx`
+- 缺失扩展会静默安装
+- 已安装旧版本会静默更新
+- 已安装新版本会拒绝降级，并写入错误状态
+- 模板里 `enabled=false` 时会禁用扩展
+- 上一次受管理但本次已从模板移除的扩展，会执行 `disable + unmanage`
+- 不会自动卸载用户手动安装的非受管理扩展
+
+字段说明：
+
+| 字段                 | 类型     | 是否必填 | 当前是否参与行为决策 | 说明                                                                                   |
+| -------------------- | -------- | -------- | -------------------- | -------------------------------------------------------------------------------------- |
+| `environment_id`     | `string` | 否       | 否                   | 环境标识。当前只会解析，不参与安装、更新、启用、禁用判断。                             |
+| `managed_extensions` | `array`  | 是       | 是                   | 受管理扩展目标列表。缺失时整个 state file 无效。                                       |
+| `package_id`         | `string` | 是       | 否                   | 上层管理系统自定义包 ID。当前会被持久化到 `Preferences` 和调试输出，但不参与收敛决策。 |
+| `extension_id`       | `string` | 是       | 是                   | 扩展真实 ID。用于匹配已安装扩展、校验安装结果、执行启用/禁用。                         |
+| `source_path`        | `string` | 是       | 是                   | 本地 `.crx` 绝对路径。安装时直接从这里读取。                                           |
+| `source_type`        | `string` | 是       | 是                   | 来源类型。当前只允许 `"crx"`。                                                         |
+| `version`            | `string` | 是       | 是                   | 目标版本。用于安装校验、更新判断、阻止降级。                                           |
+| `enabled`            | `bool`   | 是       | 是                   | 目标启用状态。安装完成后以及同版本收敛时会据此启用或禁用。                             |
+
+当前最小可用条目：
+
+```json
+{
+	"package_id": "pkg_demo",
+	"extension_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	"source_path": "/abs/path/demo.crx",
+	"source_type": "crx",
+	"version": "1.2.3",
+	"enabled": true
+}
+```
+
+补充说明：
+
+- 当前实现对单个扩展条目是严格解析，缺少必填字段会导致整个 `state.json` 被判无效，不是跳过该条
+- `Preferences` 和 `get_managed_extensions` 里还会看到 `status`、`last_error`、`managed`、`installed`、`current_version` 等字段，但这些是运行态/调试输出，不是 `state.json` 输入字段
+
+#### `--cookie-state-file`
+
+该参数用于把“当前 profile 需要在启动时注入哪些 Cookie”交给 Chromium 在启动早期一次性收敛。
+
+当前支持的 JSON 结构：
+
+```json
+{
+	"environment_id": "env_001",
+	"managed_cookies": [
+		{
+			"cookie_id": "ck_001",
+			"url": "https://example.com/",
+			"name": "sid",
+			"value": "abc123",
+			"domain": ".example.com",
+			"path": "/",
+			"secure": true,
+			"http_only": true,
+			"same_site": "none",
+			"expires": "2030-12-31T23:59:59Z"
+		}
+	]
+}
+```
+
+当前 v1 行为：
+
+- `cookie-state-file` 必须是绝对路径
+- Cookie 始终写入当前启动所使用的 profile
+- 缺失 `managed_cookies` 时整个 state file 无效
+- `url` 目前只接受 `http` / `https`
+- `same_site` 目前支持 `unspecified`、`none`、`no_restriction`、`lax`、`strict`
+- `same_site=none` 要求 `secure=true`
+- 未传 `domain` 时默认使用 `url.host`
+- 未传 `path` 时默认使用 `/`
+- 未传 `secure` 时默认跟随 `url` 是否为 HTTPS
+- 未传 `http_only` 时默认 `false`
+- 未传 `expires` 时写入 session cookie
+- 若 `expires` 已早于当前时间，则按删除语义处理该条 Cookie
+- 当前不会因为某条 Cookie 从模板移除就自动删除 profile 中的已有 Cookie；只会停止管理并移除调试状态
+- 当前不会把 Cookie 写入 app 包，也不会写入全局系统目录，只会落到这次启动对应的 `user-data-dir`
+
+当前写入位置：
+
+- 若使用默认 profile 启动，则写入 Chromium 默认用户目录下的当前 profile
+- 若显式传入 `--user-data-dir=/path/to/profile`，则写入该目录下的当前 profile
+- 调试状态保存在 `user-data-dir/Default/Preferences` 的 `cookies.managed_cookie_state`
+- 真正的 Cookie 数据保存在该 profile 自己的 Cookie 存储中，不写进 app 包
+- 当前 mac 手工测试验证过的常见路径是 `user-data-dir/Default/Cookies`
+- 例如当前仓库的 `start.py` 默认把 `user-data-dir` 固定到仓库根目录下的 `profile`，对应的实际落盘路径就是 `./profile/Default/Cookies`
+
+字段说明：
+
+| 字段              | 类型     | 是否必填 | 当前是否参与行为决策 | 说明                                                                                   |
+| ----------------- | -------- | -------- | -------------------- | -------------------------------------------------------------------------------------- |
+| `environment_id`  | `string` | 否       | 否                   | 环境标识。当前只会解析，不参与写入或删除判断。                                         |
+| `managed_cookies` | `array`  | 是       | 是                   | 受管理 Cookie 目标列表。缺失时整个 state file 无效。                                   |
+| `cookie_id`       | `string` | 是       | 否                   | 上层管理系统自定义 Cookie ID。当前用于 `Preferences` 和调试输出索引。                  |
+| `url`             | `string` | 是       | 是                   | 目标 URL。用于确定 Cookie 上下文，也用于删除匹配。                                     |
+| `name`            | `string` | 是       | 是                   | Cookie 名称。                                                                          |
+| `value`           | `string` | 是       | 是                   | Cookie 值。                                                                            |
+| `domain`          | `string` | 否       | 是                   | Cookie Domain。缺省时使用 `url.host`。                                                 |
+| `path`            | `string` | 否       | 是                   | Cookie Path。缺省时使用 `/`。                                                          |
+| `secure`          | `bool`   | 否       | 是                   | 是否写入 Secure Cookie。缺省时随 URL 协议推断。                                        |
+| `http_only`       | `bool`   | 否       | 是                   | 是否写入 HttpOnly Cookie。                                                             |
+| `same_site`       | `string` | 否       | 是                   | SameSite 策略。缺省为 `unspecified`。                                                  |
+| `expires`         | `string` | 否       | 是                   | 过期时间。可解析时写入持久 Cookie；缺省表示 session cookie；若早于当前时间则执行删除。 |
+
+当前最小可用条目：
+
+```json
+{
+	"cookie_id": "ck_demo",
+	"url": "https://example.com/",
+	"name": "sid",
+	"value": "abc123"
+}
+```
+
+补充说明：
+
+- 当前实现对单个 Cookie 条目是严格解析，缺少必填字段会导致整个 `cookie-state.json` 被判无效，不是跳过该条
+- `Preferences` 和 `get_managed_cookies` 里会看到 `status`、`last_error`、`managed` 等字段，但这些是运行态/调试输出，不是 `cookie-state.json` 输入字段
+- 当前 `cookie-state-file` 只负责启动时一次性注入模板中的 Cookie，不会接管用户运行过程中新增的其他 Cookie
+- 当前仓库里的 `start.py` 默认会附加：
+
+```bash
+--cookie-state-file=/Users/tt/Developer/Personal/chromium/cookie-state.test.json
+```
+
+- 若设置 `CHROMIUM_COOKIE_STATE_FILE`，则会覆盖 `start.py` 里的默认测试文件：
+
+```bash
+CHROMIUM_COOKIE_STATE_FILE=/abs/path/cookie-state.json python3 start.py
+```
+
+- 当前仓库里的 `start.py` 还把 `user-data-dir` 固定到了仓库根目录下的 `profile` 目录，因此上面的命令默认会把 Cookie 写入：
+
+```text
+/Users/tt/Developer/Personal/chromium/profile/Default/Cookies
+```
 
 ### 13.4 参数一致性规则
 
@@ -1531,6 +2073,8 @@ Arial,Verdana,Tahoma,Microsoft YaHei
 - 若未自定义 UA，则使用预设 UA
 - 若未自定义字体列表，则使用对应平台默认字体集
 
+如果已经显式传入 `--custom-resolution-width`、`--custom-resolution-height`、`--custom-resolution-dpr`，则设备预设里的 `window-size` / `force-device-scale-factor` 只作为兜底，不再覆盖自定义分辨率。
+
 ### 14.3 默认字体策略
 
 - `android`：Android 风格字体集，如 `Roboto`、`Noto Sans`、`Noto Sans CJK`、`Noto Color Emoji`
@@ -1547,6 +2091,11 @@ Arial,Verdana,Tahoma,Microsoft YaHei
   - `DPR`
   - 更具体的 UA
   - 更具体的字体集合
+- 自定义分辨率参数负责页面可见尺寸覆写：
+  - `custom-resolution-width`
+  - `custom-resolution-height`
+  - `custom-resolution-dpr`
+  - 优先级高于 `window-size` / `force-device-scale-factor`
 
 ## 15. 真实请求 / 响应样例
 
@@ -1780,9 +2329,14 @@ Arial,Verdana,Tahoma,Microsoft YaHei
    - `custom-touch-points`
    - `custom-ua-metadata.mobile`
 2. 设备层
-   - `window-size`
-   - `force-device-scale-factor`
-   - 字体列表
+
+- `window-size`
+- `force-device-scale-factor`
+- `custom-resolution-width`
+- `custom-resolution-height`
+- `custom-resolution-dpr`
+- 字体列表
+
 3. 指纹层
    - `user-agent`
    - `custom-ua-metadata`
@@ -1795,4 +2349,4 @@ Arial,Verdana,Tahoma,Microsoft YaHei
 1. 先生成平台与设备预设
 2. 再生成 UA / metadata / GL / fonts
 3. 做一致性校验
-4. 最后调用 `get_switches`、`get_active_browser`、`get_sync_status` 做运行期确认
+4. 最后调用 `get_switches`、`get_active_browser`、`get_sync_status`、`get_managed_extensions` 做运行期确认
