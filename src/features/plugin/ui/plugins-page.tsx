@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { Download, PackageCheck, Puzzle, RefreshCcw, Trash2 } from 'lucide-react';
+import { openUrl } from '@tauri-apps/plugin-opener';
+import { Download, ExternalLink, PackageCheck, Puzzle, RefreshCcw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -196,6 +197,18 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 		}
 	};
 
+	const openPluginStore = async (plugin: PluginPackage) => {
+		if (!plugin.storeUrl?.trim()) {
+			toast.error('当前插件缺少商店地址');
+			return;
+		}
+		try {
+			await openUrl(plugin.storeUrl);
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : '打开商店页面失败');
+		}
+	};
+
 	const installToTargets = async (packageId: string, profileIds: string[]) => {
 		if (profileIds.length === 0) {
 			toast.error('请至少选择一个环境');
@@ -319,6 +332,17 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 									</div>
 								</div>
 								<div className="flex flex-wrap items-center gap-2">
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										className="cursor-pointer"
+										disabled={!plugin.storeUrl?.trim()}
+										onClick={() => void openPluginStore(plugin)}
+									>
+										<Icon icon={ExternalLink} size={12} />
+										在商店中打开
+									</Button>
 									<Button
 										type="button"
 										variant="outline"
