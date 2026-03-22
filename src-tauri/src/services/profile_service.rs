@@ -11,8 +11,8 @@ use crate::error::{AppError, AppResult};
 use crate::fingerprint_catalog;
 use crate::font_catalog;
 use crate::models::{
-    now_ts, CreateProfileRequest, FingerprintSeedPolicy, FontListMode, GeolocationMode,
-    ListProfilesQuery, ListProfilesResponse, Profile, ProfileFingerprintSettings,
+    now_ts, CookieStateFile, CreateProfileRequest, FingerprintSeedPolicy, FontListMode,
+    GeolocationMode, ListProfilesQuery, ListProfilesResponse, Profile, ProfileFingerprintSettings,
     ProfileFingerprintSnapshot, ProfileFingerprintSource, ProfileLifecycle, ProfileSettings,
     UserAgentMode,
 };
@@ -683,8 +683,18 @@ fn normalize_profile_settings(
                 Some(normalized)
             }
         });
+        advanced.cookie_state_json = advanced.cookie_state_json.take().and_then(trim_to_option);
+        if let Some(cookie_state_json) = advanced.cookie_state_json.as_deref() {
+            let cookie_state = parse_cookie_state_json(cookie_state_json)
+                .map_err(|err| AppError::Validation(format!("cookieStateJson {err}")))?;
+            advanced.cookie_state_json =
+                Some(serde_json::to_string_pretty(&cookie_state).map_err(|err| {
+                    AppError::Validation(format!("cookieStateJson serialize failed: {err}"))
+                })?);
+        }
         if advanced.headless.is_none()
             && advanced.disable_images.is_none()
+            && advanced.cookie_state_json.is_none()
             && advanced.geolocation_mode.is_none()
             && advanced.auto_allow_geolocation.is_none()
             && advanced.geolocation.is_none()
@@ -913,6 +923,26 @@ fn is_valid_custom_mac_address(value: &str) -> bool {
         && parts
             .iter()
             .all(|part| part.len() == 2 && part.chars().all(|ch| ch.is_ascii_hexdigit()))
+}
+
+fn parse_cookie_state_json(value: &str) -> Result<CookieStateFile, String> {
+    let parsed = serde_json::from_str::<CookieStateFile>(value)
+        .map_err(|err| format!("must be valid JSON: {err}"))?;
+    for cookie in &parsed.managed_cookies {
+        if cookie.cookie_id.trim().is_empty()
+            || cookie.url.trim().is_empty()
+            || cookie.name.trim().is_empty()
+        {
+            return Err("must include cookie_id, url, name, value for each cookie".to_string());
+        }
+        if !matches!(
+            cookie.url.trim(),
+            url if url.starts_with("http://") || url.starts_with("https://")
+        ) {
+            return Err("url must start with http:// or https://".to_string());
+        }
+    }
+    Ok(parsed)
 }
 
 fn apply_font_list_mode(
@@ -1409,6 +1439,77 @@ mod tests {
             .and_then(|settings| settings.fingerprint.as_ref())
             .expect("fingerprint settings");
         assert_eq!(fingerprint.do_not_track_enabled, Some(true));
+    }
+
+    #[test]
+    fn cookie_state_json_is_preserved_in_advanced_settings() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProfileService::from_db(db);
+
+        let profile = service
+            .create_profile(CreateProfileRequest {
+                name: "cookie-profile".to_string(),
+                group: None,
+                note: None,
+                proxy_id: None,
+                settings: Some(ProfileSettings {
+                    basic: Some(ProfileBasicSettings {
+                        platform: Some("macos".to_string()),
+                        browser_version: Some("144.0.7559.97".to_string()),
+                        device_preset_id: Some("macos_macbook_pro_14".to_string()),
+                        ..Default::default()
+                    }),
+                    advanced: Some(crate::models::ProfileAdvancedSettings {
+                        cookie_state_json: Some(
+                            r#"{"environment_id":"env_1","managed_cookies":[{"cookie_id":"ck_1","url":"https://example.com/","name":"sid","value":"abc"}]}"#
+                                .to_string(),
+                        ),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+            })
+            .expect("create profile with cookie state");
+
+        let advanced = profile
+            .settings
+            .as_ref()
+            .and_then(|settings| settings.advanced.as_ref())
+            .expect("advanced settings");
+        assert!(advanced
+            .cookie_state_json
+            .as_deref()
+            .is_some_and(|value| value.contains("\"managed_cookies\"")));
+    }
+
+    #[test]
+    fn invalid_cookie_state_json_is_rejected() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProfileService::from_db(db);
+
+        let err = service
+            .create_profile(CreateProfileRequest {
+                name: "invalid-cookie-profile".to_string(),
+                group: None,
+                note: None,
+                proxy_id: None,
+                settings: Some(ProfileSettings {
+                    basic: Some(ProfileBasicSettings {
+                        platform: Some("macos".to_string()),
+                        browser_version: Some("144.0.7559.97".to_string()),
+                        device_preset_id: Some("macos_macbook_pro_14".to_string()),
+                        ..Default::default()
+                    }),
+                    advanced: Some(crate::models::ProfileAdvancedSettings {
+                        cookie_state_json: Some(r#"{"managed_cookies":"bad"}"#.to_string()),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+            })
+            .expect_err("invalid cookie state should fail");
+
+        assert!(err.to_string().contains("cookieStateJson"));
     }
 
     #[test]

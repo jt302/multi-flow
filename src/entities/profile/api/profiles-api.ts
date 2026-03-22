@@ -2,12 +2,15 @@ import type {
 	BatchProfileActionResponse,
 	ClearProfileCacheResponse,
 	CreateProfilePayload,
+	ExportProfileCookiesPayload,
+	ExportProfileCookiesResponse,
 	FontListMode,
 	ProfileDevicePresetItem,
 	ProfileFingerprintSnapshot,
 	ProfileFingerprintSource,
 	ProfileItem,
 	ProfileLifecycle,
+	ReadProfileCookiesResponse,
 	ProfileRuntimeDetails,
 	ProfileSettings,
 	SaveProfileDevicePresetPayload,
@@ -174,6 +177,26 @@ export async function clearProfileCache(
 	profileId: string,
 ): Promise<ClearProfileCacheResponse> {
 	return tauriInvoke<ClearProfileCacheResponse>('clear_profile_cache', { profileId });
+}
+
+export async function readProfileCookies(
+	profileId: string,
+): Promise<ReadProfileCookiesResponse> {
+	return tauriInvoke<ReadProfileCookiesResponse>('read_profile_cookies', { profileId });
+}
+
+export async function exportProfileCookies(
+	profileId: string,
+	payload: ExportProfileCookiesPayload,
+): Promise<ExportProfileCookiesResponse> {
+	return tauriInvoke<ExportProfileCookiesResponse>('export_profile_cookies', {
+		profileId,
+		payload: {
+			mode: payload.mode,
+			url: payload.url?.trim() ? payload.url : null,
+			exportPath: payload.exportPath?.trim() ? payload.exportPath : null,
+		},
+	});
 }
 
 export async function openProfile(

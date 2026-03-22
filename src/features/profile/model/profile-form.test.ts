@@ -6,9 +6,11 @@ import {
 	applyProxySuggestionValue,
 	buildResolutionValuesFromPreset,
 	buildFingerprintSource,
+	deriveCookieSiteUrls,
 	generateRandomCustomDeviceName,
 	generateRandomCustomMacAddress,
 	generateRandomFingerprintSeed,
+	mergeCookieStateJson,
 	mergePreviewSnapshot,
 	profileFormSchema,
 	resolveInitialCustomDeviceIdentityValues,
@@ -43,6 +45,7 @@ function buildFormValues(overrides: Record<string, unknown> = {}) {
 		disableImages: false,
 		randomFingerprint: false,
 		customLaunchArgsText: '',
+		cookieStateJson: '',
 		geolocationMode: 'off',
 		autoAllowGeolocation: false,
 		geoEnabled: false,
@@ -146,6 +149,28 @@ test('profile form schema accepts do not track toggle', () => {
 	assert.equal(result.success, true);
 });
 
+test('profile form schema accepts empty cookie state json', () => {
+	const result = profileFormSchema.safeParse(
+		buildFormValues({
+			cookieStateJson: '',
+		}),
+	);
+	assert.equal(result.success, true);
+});
+
+test('profile form schema rejects invalid cookie state json', () => {
+	const result = profileFormSchema.safeParse(
+		buildFormValues({
+			cookieStateJson: '{"managed_cookies":"bad"}',
+		}),
+	);
+	assert.equal(result.success, false);
+	if (result.success) {
+		return;
+	}
+	assert.equal(result.error.issues[0]?.path[0], 'cookieStateJson');
+});
+
 test('profile form schema accepts real device name and mac address modes without custom values', () => {
 	const result = profileFormSchema.safeParse(
 		buildFormValues({
@@ -208,6 +233,99 @@ test('generateRandomCustomMacAddress returns locally administered unicast mac', 
 	const firstOctet = Number.parseInt(value.slice(0, 2), 16);
 	assert.equal(firstOctet & 0b10, 0b10);
 	assert.equal(firstOctet & 0b1, 0);
+});
+
+test('mergeCookieStateJson merges cookies by name domain path and preserves target environment id', () => {
+	const merged = mergeCookieStateJson(
+		JSON.stringify({
+			environment_id: 'env_main',
+			managed_cookies: [
+				{
+					cookie_id: 'ck_1',
+					url: 'https://example.com/',
+					name: 'sid',
+					value: 'old',
+					domain: '.example.com',
+					path: '/',
+				},
+			],
+		}),
+		JSON.stringify({
+			environment_id: 'env_other',
+			managed_cookies: [
+				{
+					cookie_id: 'ck_2',
+					url: 'https://example.com/',
+					name: 'sid',
+					value: 'new',
+					domain: '.example.com',
+					path: '/',
+				},
+				{
+					cookie_id: 'ck_3',
+					url: 'https://accounts.example.com/',
+					name: 'token',
+					value: 'abc',
+					domain: 'accounts.example.com',
+					path: '/',
+				},
+			],
+		}),
+		'env_main',
+	);
+
+	assert.deepEqual(JSON.parse(merged), {
+		environment_id: 'env_main',
+		managed_cookies: [
+			{
+				cookie_id: 'ck_2',
+				url: 'https://example.com/',
+				name: 'sid',
+				value: 'new',
+				domain: '.example.com',
+				path: '/',
+			},
+			{
+				cookie_id: 'ck_3',
+				url: 'https://accounts.example.com/',
+				name: 'token',
+				value: 'abc',
+				domain: 'accounts.example.com',
+				path: '/',
+			},
+		],
+	});
+});
+
+test('deriveCookieSiteUrls returns unique sorted site urls from cookie state', () => {
+	const sites = deriveCookieSiteUrls({
+		environment_id: 'env_1',
+		managed_cookies: [
+			{
+				cookie_id: 'ck_1',
+				url: 'https://example.com/',
+				name: 'sid',
+				value: '1',
+			},
+			{
+				cookie_id: 'ck_2',
+				url: 'https://accounts.example.com/path',
+				name: 'token',
+				value: '2',
+			},
+			{
+				cookie_id: 'ck_3',
+				url: 'https://example.com/other',
+				name: 'sid2',
+				value: '3',
+			},
+		],
+	});
+
+	assert.deepEqual(sites, [
+		'https://accounts.example.com/',
+		'https://example.com/',
+	]);
 });
 
 test('profile form schema requires valid coordinates in custom geolocation mode', () => {

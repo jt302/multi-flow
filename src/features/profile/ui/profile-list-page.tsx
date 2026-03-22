@@ -32,6 +32,8 @@ export function ProfileListPage({
 	onBatchSetProfileGroup,
 	onDeleteProfile,
 	onRestoreProfile,
+	onReadProfileCookies,
+	onExportProfileCookies,
 	onRefreshProfiles,
 }: ProfileListPageProps) {
 	const section = WORKSPACE_SECTIONS.profiles;
@@ -281,6 +283,8 @@ export function ProfileListPage({
 						onFocusProfileWindow={onFocusProfileWindow}
 						onDeleteProfile={onDeleteProfile}
 						onRestoreProfile={onRestoreProfile}
+						onReadProfileCookies={onReadProfileCookies}
+						onExportProfileCookies={onExportProfileCookies}
 						onRunAction={runAction}
 						onErrorReset={() => setError(null)}
 					/>

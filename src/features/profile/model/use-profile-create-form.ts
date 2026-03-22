@@ -7,6 +7,7 @@ import {
 	listFingerprintPresets,
 	listProfileFontFamilies,
 	previewFingerprintBundle,
+	readProfileCookies,
 } from '@/entities/profile/api/profiles-api';
 import type {
 	CreateProfilePayload,
@@ -28,6 +29,7 @@ import {
 	generateRandomCustomMacAddress,
 	generateRandomFingerprintSeed,
 	mergePreviewSnapshot,
+	normalizeCookieStateJson,
 	parseCustomFontList,
 	parseStartupUrls,
 	profileFormSchema,
@@ -70,6 +72,14 @@ export function useProfileCreateForm({
 	const initialBasic = initialProfile?.settings?.basic;
 	const initialFingerprint = initialProfile?.settings?.fingerprint;
 	const initialAdvanced = initialProfile?.settings?.advanced;
+	const initialCookieStateJson = useMemo(
+		() =>
+			normalizeCookieStateJson(
+				initialAdvanced?.cookieStateJson,
+				initialProfile?.id,
+			),
+		[initialAdvanced?.cookieStateJson, initialProfile?.id],
+	);
 	const initialResolutionOverride = useMemo(
 		() => ({
 			viewportWidth: initialFingerprint?.viewportWidth,
@@ -168,6 +178,7 @@ export function useProfileCreateForm({
 			disableImages: initialAdvanced?.disableImages ?? false,
 			randomFingerprint: initialAdvanced?.randomFingerprint ?? false,
 			customLaunchArgsText: initialAdvanced?.customLaunchArgs?.join('\n') ?? '',
+			cookieStateJson: initialCookieStateJson,
 			geolocationMode: initialGeolocationMode,
 			autoAllowGeolocation: initialAdvanced?.autoAllowGeolocation ?? false,
 			latitude: initialAdvanced?.geolocation?.latitude?.toString() ?? '',
@@ -209,6 +220,7 @@ export function useProfileCreateForm({
 	const viewportWidth = watch('viewportWidth');
 	const viewportHeight = watch('viewportHeight');
 	const deviceScaleFactor = watch('deviceScaleFactor');
+	const cookieStateJson = watch('cookieStateJson');
 
 	const availableProxies = useMemo(
 		() => proxies.filter((item) => item.lifecycle === 'active'),
@@ -385,6 +397,31 @@ export function useProfileCreateForm({
 		queryFn: () => listProfileFontFamilies(platform),
 		enabled: Boolean(platform),
 	});
+
+	const runtimeCookieStateLoaded = useRef(false);
+	const runtimeCookieStateQuery = useQuery({
+		queryKey: ['profile-cookie-state', initialProfile?.id],
+		queryFn: () => readProfileCookies(initialProfile!.id),
+		enabled: mode === 'edit' && Boolean(initialProfile?.id),
+	});
+
+	useEffect(() => {
+		if (runtimeCookieStateLoaded.current) {
+			return;
+		}
+		if (!runtimeCookieStateQuery.data) {
+			return;
+		}
+		if (getValues('cookieStateJson') !== initialCookieStateJson) {
+			runtimeCookieStateLoaded.current = true;
+			return;
+		}
+		runtimeCookieStateLoaded.current = true;
+		setValue('cookieStateJson', runtimeCookieStateQuery.data.json, {
+			shouldDirty: false,
+			shouldValidate: true,
+		});
+	}, [getValues, initialCookieStateJson, runtimeCookieStateQuery.data, setValue]);
 
 	const regenerateFontList = useCallback(async () => {
 		if (!platform) {
@@ -612,6 +649,11 @@ export function useProfileCreateForm({
 					randomFingerprint: values.randomFingerprint,
 					fixedFingerprintSeed:
 						values.fingerprintSeed ?? snapshot.fingerprintSeed,
+					cookieStateJson:
+						normalizeCookieStateJson(
+							values.cookieStateJson,
+							initialProfile?.id,
+						) || undefined,
 					geolocation,
 				},
 			},
@@ -668,12 +710,18 @@ export function useProfileCreateForm({
 			viewportWidth,
 			viewportHeight,
 			deviceScaleFactor,
+			cookieStateJson,
 			autoAllowGeolocation: watch('autoAllowGeolocation'),
 			proxySuggestionSource,
 			selectedProxy,
 			name: watch('name'),
 			headless: watch('headless'),
 			disableImages: watch('disableImages'),
+			runtimeCookieStateLoading: runtimeCookieStateQuery.isLoading,
+			runtimeCookieStateError:
+				runtimeCookieStateQuery.error instanceof Error
+					? runtimeCookieStateQuery.error.message
+					: null,
 		} as const,
 		setValue,
 	};

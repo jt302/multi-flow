@@ -1,6 +1,7 @@
 import { z } from 'zod/v3';
 
 import type {
+	CookieStateFile,
 	ProfileDevicePresetItem,
 	ProfileFingerprintSnapshot,
 	ProfileFingerprintSource,
@@ -41,6 +42,7 @@ export const profileFormSchema = z
 		disableImages: z.boolean(),
 		randomFingerprint: z.boolean(),
 		customLaunchArgsText: z.string(),
+		cookieStateJson: z.string(),
 		geolocationMode: z.enum(['off', 'ip', 'custom']),
 		autoAllowGeolocation: z.boolean(),
 		latitude: z.string(),
@@ -119,6 +121,17 @@ export const profileFormSchema = z
 			}
 		}
 
+		if (values.cookieStateJson.trim()) {
+			const cookieState = parseCookieStateJson(values.cookieStateJson);
+			if (!cookieState.ok) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: cookieState.error,
+					path: ['cookieStateJson'],
+				});
+			}
+		}
+
 		const fontList = values.customFontListText
 			.split('\n')
 			.map((item) => item.trim())
@@ -183,6 +196,10 @@ export type CustomDeviceIdentityValues = {
 	macAddressMode: DeviceIdentityMode;
 	customMacAddress: string;
 };
+
+type CookieStateParseResult =
+	| { ok: true; value: CookieStateFile }
+	| { ok: false; error: string };
 
 type ResolutionPresetInput = Pick<
 	ProfileDevicePresetItem,
@@ -336,6 +353,141 @@ export function generateRandomCustomMacAddress() {
 	return Array.from(bytes, (value) =>
 		value.toString(16).padStart(2, '0').toUpperCase(),
 	).join(':');
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isValidCookieEntry(value: unknown): value is CookieStateFile['managed_cookies'][number] {
+	if (!isRecord(value)) {
+		return false;
+	}
+	return (
+		typeof value.cookie_id === 'string' &&
+		typeof value.url === 'string' &&
+		typeof value.name === 'string' &&
+		typeof value.value === 'string'
+	);
+}
+
+export function parseCookieStateJson(input: string): CookieStateParseResult {
+	const trimmed = input.trim();
+	if (!trimmed) {
+		return {
+			ok: false,
+			error: 'Cookie JSON 不能为空',
+		};
+	}
+
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(trimmed);
+	} catch {
+		return {
+			ok: false,
+			error: 'Cookie JSON 必须是合法 JSON',
+		};
+	}
+
+	if (!isRecord(parsed)) {
+		return {
+			ok: false,
+			error: 'Cookie JSON 顶层必须是对象',
+		};
+	}
+
+	if (!Array.isArray(parsed.managed_cookies)) {
+		return {
+			ok: false,
+			error: 'Cookie JSON 必须包含 managed_cookies 数组',
+		};
+	}
+
+	if (!parsed.managed_cookies.every(isValidCookieEntry)) {
+		return {
+			ok: false,
+			error: 'Cookie JSON 中每条 Cookie 至少需要 cookie_id、url、name、value',
+		};
+	}
+
+	return {
+		ok: true,
+		value: parsed as CookieStateFile,
+	};
+}
+
+export function normalizeCookieStateJson(
+	input: string | null | undefined,
+	environmentId?: string | null,
+) {
+	const trimmed = input?.trim() ?? '';
+	if (!trimmed) {
+		return '';
+	}
+	const parsed = parseCookieStateJson(trimmed);
+	if (!parsed.ok) {
+		return trimmed;
+	}
+	const normalized: CookieStateFile = {
+		...parsed.value,
+		environment_id:
+			parsed.value.environment_id?.trim() || environmentId?.trim() || undefined,
+	};
+	return `${JSON.stringify(normalized, null, 2)}\n`;
+}
+
+export function mergeCookieStateJson(
+	currentInput: string,
+	incomingInput: string,
+	environmentId?: string | null,
+) {
+	const current = parseCookieStateJson(currentInput);
+	if (!current.ok) {
+		throw new Error(current.error);
+	}
+	const incoming = parseCookieStateJson(incomingInput);
+	if (!incoming.ok) {
+		throw new Error(incoming.error);
+	}
+
+	const merged = new Map<string, CookieStateFile['managed_cookies'][number]>();
+	for (const cookie of current.value.managed_cookies) {
+		const key = `${cookie.name}\u0000${cookie.domain ?? ''}\u0000${cookie.path ?? ''}`;
+		merged.set(key, cookie);
+	}
+	for (const cookie of incoming.value.managed_cookies) {
+		const key = `${cookie.name}\u0000${cookie.domain ?? ''}\u0000${cookie.path ?? ''}`;
+		merged.set(key, cookie);
+	}
+
+	return `${JSON.stringify(
+		{
+			environment_id:
+				current.value.environment_id?.trim() ||
+				environmentId?.trim() ||
+				undefined,
+			managed_cookies: Array.from(merged.values()),
+		} satisfies CookieStateFile,
+		null,
+		2,
+	)}\n`;
+}
+
+export function deriveCookieSiteUrls(cookieState: CookieStateFile) {
+	const sites = new Set<string>();
+	for (const cookie of cookieState.managed_cookies) {
+		try {
+			const parsed = new URL(cookie.url);
+			if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+				continue;
+			}
+			sites.add(`${parsed.origin}/`);
+		} catch {
+			continue;
+		}
+	}
+	return Array.from(sites).sort((left, right) => left.localeCompare(right));
 }
 
 export function resolveInitialCustomDeviceIdentityValues(

@@ -1,7 +1,15 @@
+import { useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 
 import {
+	Button,
 	Checkbox,
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
 	Input,
 	Select,
 	SelectContent,
@@ -11,11 +19,18 @@ import {
 	Textarea,
 } from '@/components/ui';
 
-import type { ProfileFormValues } from '../model/profile-form';
+import {
+	mergeCookieStateJson,
+	type ProfileFormValues,
+} from '../model/profile-form';
 import { SectionTitle } from './section-title';
 
 type AdvancedSettingsSectionProps = {
 	form: UseFormReturn<ProfileFormValues>;
+	cookieStateJson: string;
+	profileId?: string;
+	cookieStateLoading?: boolean;
+	cookieStateError?: string | null;
 	geolocationMode: 'off' | 'ip' | 'custom';
 	headless: boolean;
 	disableImages: boolean;
@@ -26,6 +41,10 @@ type AdvancedSettingsSectionProps = {
 
 export function AdvancedSettingsSection({
 	form,
+	cookieStateJson,
+	profileId,
+	cookieStateLoading = false,
+	cookieStateError = null,
 	geolocationMode,
 	headless,
 	disableImages,
@@ -34,11 +53,16 @@ export function AdvancedSettingsSection({
 	hasProxyGeolocation,
 }: AdvancedSettingsSectionProps) {
 	const { register, setValue } = form;
+	const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
+	const [mergeCookieText, setMergeCookieText] = useState('');
+	const [mergeError, setMergeError] = useState<string | null>(null);
 	const headlessId = 'profile-headless';
 	const disableImagesId = 'profile-disable-images';
 	const autoAllowGeolocationId = 'profile-auto-allow-geolocation';
 	const geolocationModeId = 'profile-geolocation-mode';
 	const launchArgsId = 'profile-custom-launch-args';
+	const cookieStateJsonId = 'profile-cookie-state-json';
+	const mergeCookieStateJsonId = 'profile-merge-cookie-state-json';
 	const latitudeId = 'profile-latitude';
 	const longitudeId = 'profile-longitude';
 	const accuracyId = 'profile-accuracy';
@@ -127,6 +151,48 @@ export function AdvancedSettingsSection({
 					地理位置权限始终允许
 				</label>
 				<div>
+					<div className="mb-1 flex items-center justify-between gap-2">
+						<label htmlFor={cookieStateJsonId} className="block text-xs text-muted-foreground">
+							Cookie JSON
+						</label>
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							className="h-7 cursor-pointer rounded-md px-2 text-[11px]"
+							onClick={() => {
+								setMergeCookieText('');
+								setMergeError(null);
+								setMergeDialogOpen(true);
+							}}
+						>
+							合并 Cookie
+						</Button>
+					</div>
+					<Textarea
+						id={cookieStateJsonId}
+						{...register('cookieStateJson')}
+						placeholder={'{\n  "environment_id": "env_001",\n  "managed_cookies": []\n}'}
+						className="min-h-[180px] font-mono text-[12px]"
+					/>
+					<p className="mt-1 text-[11px] text-muted-foreground">
+						仅支持 Chromium `cookie-state-file` 兼容 JSON。保存环境后会写入环境本地 Cookie 文件，启动时会注入到当前 profile。
+					</p>
+					{cookieStateLoading ? (
+						<p className="mt-1 text-[11px] text-muted-foreground">
+							正在读取环境本地 Cookie 文件...
+						</p>
+					) : null}
+					{cookieStateError ? (
+						<p className="mt-1 text-[11px] text-destructive">{cookieStateError}</p>
+					) : null}
+					{cookieStateJson.trim() ? (
+						<p className="mt-1 text-[11px] text-muted-foreground">
+							当前已填写环境本地 Cookie 文件内容。
+						</p>
+					) : null}
+				</div>
+				<div>
 					<label htmlFor={launchArgsId} className="mb-1 block text-xs text-muted-foreground">
 						自定义启动参数（每行一个）
 					</label>
@@ -160,6 +226,76 @@ export function AdvancedSettingsSection({
 					</div>
 				) : null}
 			</div>
+			<Dialog open={mergeDialogOpen} onOpenChange={setMergeDialogOpen}>
+				<DialogContent className="max-w-2xl">
+					<DialogHeader>
+						<DialogTitle>合并 Cookie</DialogTitle>
+						<DialogDescription>
+							输入另一段 Cookie JSON，确认后会按 name + domain + path 合并，后输入覆盖先输入。
+						</DialogDescription>
+					</DialogHeader>
+					<div className="space-y-2">
+						<label htmlFor={mergeCookieStateJsonId} className="block text-xs text-muted-foreground">
+							待合并 Cookie JSON
+						</label>
+						<Textarea
+							id={mergeCookieStateJsonId}
+							value={mergeCookieText}
+							onChange={(event) => {
+								setMergeCookieText(event.target.value);
+								if (mergeError) {
+									setMergeError(null);
+								}
+							}}
+							placeholder={'{\n  "managed_cookies": []\n}'}
+							className="min-h-[220px] font-mono text-[12px]"
+						/>
+						{mergeError ? (
+							<p className="text-xs text-destructive">{mergeError}</p>
+						) : null}
+					</div>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							className="cursor-pointer"
+							onClick={() => setMergeDialogOpen(false)}
+						>
+							取消
+						</Button>
+						<Button
+							type="button"
+							className="cursor-pointer"
+							onClick={() => {
+								try {
+									const merged = mergeCookieStateJson(
+										cookieStateJson.trim()
+											? cookieStateJson
+											: '{\n  "managed_cookies": []\n}',
+										mergeCookieText,
+										profileId,
+									);
+									setValue('cookieStateJson', merged, {
+										shouldDirty: true,
+										shouldValidate: true,
+									});
+									setMergeDialogOpen(false);
+									setMergeCookieText('');
+									setMergeError(null);
+								} catch (error) {
+									setMergeError(
+										error instanceof Error
+											? error.message
+											: '合并 Cookie 失败',
+									);
+								}
+							}}
+						>
+							确认合并
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

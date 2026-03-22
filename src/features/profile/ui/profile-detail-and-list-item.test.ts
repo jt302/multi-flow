@@ -28,3 +28,22 @@ test('profile list page adds one-click stop action for all filtered running prof
 	assert.equal(toolbarFile.includes('onStopAllRunning'), true);
 	assert.equal(filtersFile.includes('一键停止运行中'), true);
 });
+
+test('profile list item exposes cookie export actions', () => {
+	const file = readFileSync(new URL('./profile-list-item.tsx', import.meta.url), 'utf8');
+
+	assert.equal(file.includes('导出 Cookie'), true);
+	assert.equal(file.includes('按站点导出'), true);
+	assert.equal(file.includes('导出整个 profile'), true);
+	assert.equal(file.includes('@tauri-apps/plugin-dialog'), true);
+	assert.equal(file.includes('save({'), true);
+});
+
+test('advanced settings section exposes cookie json input and merge action', () => {
+	const file = readFileSync(new URL('./advanced-settings-section.tsx', import.meta.url), 'utf8');
+
+	assert.equal(file.includes('Cookie JSON'), true);
+	assert.equal(file.includes('合并 Cookie'), true);
+	assert.equal(file.includes('cookie-state-file'), true);
+	assert.equal(file.includes('环境本地 Cookie 文件'), true);
+});
