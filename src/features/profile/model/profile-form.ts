@@ -27,6 +27,7 @@ export const profileFormSchema = z
 		language: z.string(),
 		timezoneId: z.string(),
 		customFontListText: z.string(),
+		doNotTrackEnabled: z.boolean(),
 		webRtcMode: z.enum(['real', 'follow_ip', 'replace', 'disable']),
 		webrtcIpOverride: z.string(),
 		headless: z.boolean(),

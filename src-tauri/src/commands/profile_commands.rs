@@ -966,6 +966,9 @@ fn resolve_launch_options(
     if options.auto_allow_geolocation.unwrap_or(false) {
         extra_args.push("--auto-allow-geolocation".to_string());
     }
+    if options.do_not_track_enabled.unwrap_or(false) {
+        extra_args.push("--enable-do-not-track".to_string());
+    }
     if let Some(seed) = runtime_snapshot
         .fingerprint_seed
         .or(options.fingerprint_seed)
@@ -1255,6 +1258,7 @@ fn merge_open_options(
                         .then(|| fingerprint.timezone_id.clone())
                         .flatten()
                 });
+            merged.do_not_track_enabled = fingerprint.do_not_track_enabled;
             merged.web_rtc_mode = fingerprint.web_rtc_mode.clone();
             merged.webrtc_ip_override = fingerprint.webrtc_ip_override.clone();
         }
@@ -1303,6 +1307,9 @@ fn merge_open_options(
         }
         if overrides.webrtc_ip_override.is_some() {
             merged.webrtc_ip_override = overrides.webrtc_ip_override;
+        }
+        if overrides.do_not_track_enabled.is_some() {
+            merged.do_not_track_enabled = overrides.do_not_track_enabled;
         }
         if overrides.headless.is_some() {
             merged.headless = overrides.headless;
@@ -2384,6 +2391,33 @@ mod tests {
             .extra_args
             .iter()
             .any(|arg| arg == "--auto-allow-geolocation"));
+    }
+
+    #[test]
+    fn resolve_launch_options_adds_enable_do_not_track_switch() {
+        let preset_service = new_test_device_preset_service();
+        let options: OpenProfileOptions = serde_json::from_value(json!({
+            "doNotTrackEnabled": true
+        }))
+        .expect("deserialize open options");
+
+        let resolved = resolve_launch_options(
+            &preset_service,
+            "pf_000001",
+            "test-profile",
+            None,
+            options,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("resolve launch options");
+
+        assert!(resolved
+            .extra_args
+            .iter()
+            .any(|arg| arg == "--enable-do-not-track"));
     }
 
     #[test]

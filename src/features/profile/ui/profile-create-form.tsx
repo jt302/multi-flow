@@ -99,6 +99,7 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 
 								<FingerprintSettingsSection
 									form={form}
+									doNotTrackEnabled={values.doNotTrackEnabled}
 									webRtcMode={values.webRtcMode}
 									randomFingerprint={values.randomFingerprint}
 									fingerprintSeed={values.fingerprintSeed}

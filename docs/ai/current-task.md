@@ -143,3 +143,9 @@
 - [x] `safe_quit` 成功后最多等待 `3s`，轮询间隔 `100ms`
 - [x] 若 `safe_quit` 失败、返回异常或超时未退出，则回退到强杀 Chromium 进程
 - [x] 窗口级关闭继续使用 `set_closed`，不升级为整个应用退出
+
+## 本轮新增（Do Not Track）
+
+- [x] 新建 / 编辑环境新增 Do Not Track 开关，默认关闭，并补充说明文案
+- [x] Do Not Track 配置持久化到环境 `fingerprint settings`
+- [x] 启动环境时会按配置注入 `--enable-do-not-track`

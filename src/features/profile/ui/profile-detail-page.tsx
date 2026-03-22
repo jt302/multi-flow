@@ -335,6 +335,10 @@ export function ProfileDetailPage({
 							label="WebRTC"
 							value={formatWebRtcModeLabel(fingerprint?.webRtcMode)}
 						/>
+						<DetailMetric
+							label="Do Not Track"
+							value={fingerprint?.doNotTrackEnabled ? '开启' : '关闭'}
+						/>
 					</CardContent>
 				</Card>
 

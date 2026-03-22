@@ -580,6 +580,7 @@ fn normalize_profile_settings(
             && fingerprint.language.is_none()
             && fingerprint.timezone_id.is_none()
             && fingerprint.font_list_mode.is_none()
+            && fingerprint.do_not_track_enabled.is_none()
             && fingerprint.web_rtc_mode.is_none()
             && fingerprint.webrtc_ip_override.is_none()
             && fingerprint.viewport_width.is_none()
@@ -1309,6 +1310,41 @@ mod tests {
         assert_eq!(snapshot.window_width, Some(1728));
         assert_eq!(snapshot.window_height, Some(1117));
         assert_eq!(snapshot.device_scale_factor, Some(1.5));
+    }
+
+    #[test]
+    fn do_not_track_setting_is_preserved_in_fingerprint_settings() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProfileService::from_db(db);
+
+        let profile = service
+            .create_profile(CreateProfileRequest {
+                name: "dnt-profile".to_string(),
+                group: None,
+                note: None,
+                proxy_id: None,
+                settings: Some(ProfileSettings {
+                    basic: Some(ProfileBasicSettings {
+                        platform: Some("macos".to_string()),
+                        browser_version: Some("144.0.7559.97".to_string()),
+                        device_preset_id: Some("macos_macbook_pro_14".to_string()),
+                        ..Default::default()
+                    }),
+                    fingerprint: Some(ProfileFingerprintSettings {
+                        do_not_track_enabled: Some(true),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+            })
+            .expect("create profile with do not track");
+
+        let fingerprint = profile
+            .settings
+            .as_ref()
+            .and_then(|settings| settings.fingerprint.as_ref())
+            .expect("fingerprint settings");
+        assert_eq!(fingerprint.do_not_track_enabled, Some(true));
     }
 
     #[test]

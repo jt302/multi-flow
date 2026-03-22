@@ -145,6 +145,7 @@ export function useProfileCreateForm({
 				initialFingerprint?.customFontList?.join('\n') ??
 				initialFingerprint?.fingerprintSnapshot?.customFontList?.join('\n') ??
 				'',
+			doNotTrackEnabled: initialFingerprint?.doNotTrackEnabled ?? false,
 			webRtcMode: resolveInitialWebRtcMode(
 				initialFingerprint?.webRtcMode,
 				Boolean(initialProfile),
@@ -553,6 +554,7 @@ export function useProfileCreateForm({
 					timezoneId: values.timezoneId.trim() || undefined,
 					fontListMode: 'custom',
 					customFontList: parseCustomFontList(values.customFontListText),
+					doNotTrackEnabled: values.doNotTrackEnabled,
 					webRtcMode: values.webRtcMode,
 					webrtcIpOverride:
 						values.webRtcMode === 'replace'
@@ -611,6 +613,7 @@ export function useProfileCreateForm({
 			proxyId,
 			devicePresetId,
 			customFontListText,
+			doNotTrackEnabled: watch('doNotTrackEnabled'),
 			webRtcMode,
 			randomFingerprint,
 			fingerprintSeed,
