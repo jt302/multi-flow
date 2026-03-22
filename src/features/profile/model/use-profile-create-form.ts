@@ -24,12 +24,15 @@ import {
 	buildResolutionValuesFromPreset,
 	compareVersions,
 	DEFAULT_STARTUP_URL,
+	generateRandomCustomDeviceName,
+	generateRandomCustomMacAddress,
 	generateRandomFingerprintSeed,
 	mergePreviewSnapshot,
 	parseCustomFontList,
 	parseStartupUrls,
 	profileFormSchema,
 	randomizeFontList,
+	resolveInitialCustomDeviceIdentityValues,
 	resolveInitialResolutionValues,
 	resolveInitialWebRtcMode,
 	resolveProxySuggestedValues,
@@ -105,6 +108,12 @@ export function useProfileCreateForm({
 		useState<ProfileFingerprintSnapshot | null>(
 			initialFingerprint?.fingerprintSnapshot ?? null,
 		);
+	const [initialDeviceIdentityValues] = useState(() =>
+		resolveInitialCustomDeviceIdentityValues(initialFingerprint, {
+			deviceName: generateRandomCustomDeviceName(),
+			macAddress: generateRandomCustomMacAddress(),
+		}),
+	);
 	const [previewFingerprintSeed, setPreviewFingerprintSeed] = useState<number>(() => {
 		return (
 			initialAdvanced?.fixedFingerprintSeed ??
@@ -145,6 +154,10 @@ export function useProfileCreateForm({
 				initialFingerprint?.customFontList?.join('\n') ??
 				initialFingerprint?.fingerprintSnapshot?.customFontList?.join('\n') ??
 				'',
+			deviceNameMode: initialDeviceIdentityValues.deviceNameMode,
+			customDeviceName: initialDeviceIdentityValues.customDeviceName,
+			macAddressMode: initialDeviceIdentityValues.macAddressMode,
+			customMacAddress: initialDeviceIdentityValues.customMacAddress,
 			doNotTrackEnabled: initialFingerprint?.doNotTrackEnabled ?? false,
 			webRtcMode: resolveInitialWebRtcMode(
 				initialFingerprint?.webRtcMode,
@@ -185,6 +198,8 @@ export function useProfileCreateForm({
 	const proxyId = watch('proxyId');
 	const devicePresetId = watch('devicePresetId');
 	const customFontListText = watch('customFontListText');
+	const deviceNameMode = watch('deviceNameMode');
+	const macAddressMode = watch('macAddressMode');
 	const webRtcMode = watch('webRtcMode');
 	const randomFingerprint = watch('randomFingerprint');
 	const fingerprintSeed = watch('fingerprintSeed');
@@ -483,6 +498,20 @@ export function useProfileCreateForm({
 		});
 	}, [setValue]);
 
+	const regenerateCustomDeviceName = useCallback(() => {
+		setValue('customDeviceName', generateRandomCustomDeviceName(), {
+			shouldDirty: true,
+			shouldValidate: true,
+		});
+	}, [setValue]);
+
+	const regenerateCustomMacAddress = useCallback(() => {
+		setValue('customMacAddress', generateRandomCustomMacAddress(), {
+			shouldDirty: true,
+			shouldValidate: true,
+		});
+	}, [setValue]);
+
 	const onFormSubmit = handleSubmit(async (values) => {
 		setSubmitError(null);
 		const customLaunchArgs = values.customLaunchArgsText
@@ -554,6 +583,16 @@ export function useProfileCreateForm({
 					timezoneId: values.timezoneId.trim() || undefined,
 					fontListMode: 'custom',
 					customFontList: parseCustomFontList(values.customFontListText),
+					deviceNameMode: values.deviceNameMode,
+					customDeviceName:
+						values.deviceNameMode === 'custom'
+							? values.customDeviceName.trim() || undefined
+							: undefined,
+					macAddressMode: values.macAddressMode,
+					customMacAddress:
+						values.macAddressMode === 'custom'
+							? values.customMacAddress.trim() || undefined
+							: undefined,
 					doNotTrackEnabled: values.doNotTrackEnabled,
 					webRtcMode: values.webRtcMode,
 					webrtcIpOverride:
@@ -601,6 +640,8 @@ export function useProfileCreateForm({
 		resourceStatusLabel,
 		regenerateFontList,
 		regenerateFingerprintSeed,
+		regenerateCustomDeviceName,
+		regenerateCustomMacAddress,
 		markProxyFieldManual,
 		restoreProxySuggestedValues,
 		onFormSubmit,
@@ -613,6 +654,10 @@ export function useProfileCreateForm({
 			proxyId,
 			devicePresetId,
 			customFontListText,
+			deviceNameMode,
+			customDeviceName: watch('customDeviceName'),
+			macAddressMode,
+			customMacAddress: watch('customMacAddress'),
 			doNotTrackEnabled: watch('doNotTrackEnabled'),
 			webRtcMode,
 			randomFingerprint,

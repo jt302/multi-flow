@@ -10,6 +10,7 @@ export type WebRtcMode = 'real' | 'follow_ip' | 'replace' | 'disable';
 export type FingerprintStrategy = 'template' | 'random_bundle';
 export type FingerprintSeedPolicy = 'fixed' | 'per_launch';
 export type FontListMode = 'preset' | 'random' | 'custom';
+export type CustomValueMode = 'real' | 'custom';
 
 export type ProfileBasicSettings = {
 	browserKind?: string;
@@ -104,6 +105,10 @@ export type ProfileFingerprintSettings = {
 	timezoneId?: string;
 	fontListMode?: FontListMode;
 	customFontList?: string[];
+	deviceNameMode?: CustomValueMode;
+	customDeviceName?: string;
+	macAddressMode?: CustomValueMode;
+	customMacAddress?: string;
 	doNotTrackEnabled?: boolean;
 	webRtcMode?: WebRtcMode;
 	webrtcIpOverride?: string;

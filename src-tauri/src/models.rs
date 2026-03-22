@@ -181,6 +181,10 @@ pub struct ProfileFingerprintSettings {
     pub language: Option<String>,
     pub timezone_id: Option<String>,
     pub font_list_mode: Option<FontListMode>,
+    pub device_name_mode: Option<CustomValueMode>,
+    pub custom_device_name: Option<String>,
+    pub mac_address_mode: Option<CustomValueMode>,
+    pub custom_mac_address: Option<String>,
     pub do_not_track_enabled: Option<bool>,
     pub web_rtc_mode: Option<WebRtcMode>,
     pub webrtc_ip_override: Option<String>,
@@ -340,6 +344,13 @@ pub enum GeolocationMode {
     Custom,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CustomValueMode {
+    Real,
+    Custom,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenProfileOptions {
@@ -351,6 +362,10 @@ pub struct OpenProfileOptions {
     pub geolocation_mode: Option<GeolocationMode>,
     pub auto_allow_geolocation: Option<bool>,
     pub geolocation: Option<GeolocationOverride>,
+    pub device_name_mode: Option<CustomValueMode>,
+    pub custom_device_name: Option<String>,
+    pub mac_address_mode: Option<CustomValueMode>,
+    pub custom_mac_address: Option<String>,
     pub do_not_track_enabled: Option<bool>,
     pub web_rtc_mode: Option<WebRtcMode>,
     pub webrtc_ip_override: Option<String>,

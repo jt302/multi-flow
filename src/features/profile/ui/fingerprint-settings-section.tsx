@@ -9,6 +9,10 @@ import { SectionTitle } from './section-title';
 
 type FingerprintSettingsSectionProps = {
 	form: UseFormReturn<ProfileFormValues>;
+	deviceNameMode: 'real' | 'custom';
+	customDeviceName: string;
+	macAddressMode: 'real' | 'custom';
+	customMacAddress: string;
 	doNotTrackEnabled: boolean;
 	webRtcMode: WebRtcMode;
 	randomFingerprint: boolean;
@@ -16,6 +20,8 @@ type FingerprintSettingsSectionProps = {
 	availableFontFamiliesCount: number;
 	onRegenerateFonts: () => void;
 	onRegenerateFingerprintSeed: () => void;
+	onRegenerateCustomDeviceName: () => void;
+	onRegenerateCustomMacAddress: () => void;
 	languageSource: string;
 	timezoneSource: string;
 	onMarkManual: (field: 'language' | 'timezoneId') => void;
@@ -25,6 +31,10 @@ type FingerprintSettingsSectionProps = {
 
 export function FingerprintSettingsSection({
 	form,
+	deviceNameMode,
+	customDeviceName,
+	macAddressMode,
+	customMacAddress,
 	doNotTrackEnabled,
 	webRtcMode,
 	randomFingerprint,
@@ -32,6 +42,8 @@ export function FingerprintSettingsSection({
 	availableFontFamiliesCount,
 	onRegenerateFonts,
 	onRegenerateFingerprintSeed,
+	onRegenerateCustomDeviceName,
+	onRegenerateCustomMacAddress,
 	languageSource,
 	timezoneSource,
 	onMarkManual,
@@ -42,6 +54,10 @@ export function FingerprintSettingsSection({
 	const languageId = 'profile-language';
 	const timezoneId = 'profile-timezone';
 	const customFontListId = 'profile-custom-font-list';
+	const deviceNameModeId = 'profile-device-name-mode';
+	const customDeviceNameId = 'profile-custom-device-name';
+	const macAddressModeId = 'profile-mac-address-mode';
+	const customMacAddressId = 'profile-custom-mac-address';
 	const doNotTrackEnabledId = 'profile-do-not-track-enabled';
 	const webrtcIpOverrideId = 'profile-webrtc-ip-override';
 	const viewportWidthId = 'profile-viewport-width';
@@ -110,6 +126,102 @@ export function FingerprintSettingsSection({
 						当前平台字体池 {availableFontFamiliesCount} 项。进入页面会先随机生成一套，可继续手动修改。
 					</p>
 				</div>
+				<div className="md:col-span-2">
+					<p className="mb-1 text-xs text-muted-foreground">设备名称</p>
+					<Select
+						value={deviceNameMode}
+						onValueChange={(value) =>
+							setValue('deviceNameMode', value as 'real' | 'custom', {
+								shouldDirty: true,
+								shouldValidate: true,
+							})
+						}
+					>
+						<SelectTrigger id={deviceNameModeId}>
+							<SelectValue placeholder="选择设备名称模式" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="real">真实</SelectItem>
+							<SelectItem value="custom">自定义</SelectItem>
+						</SelectContent>
+					</Select>
+					<p className="mt-1 text-[11px] text-muted-foreground">
+						覆盖 Chromium 进程内可见的主机名，不影响系统真实设备名。
+					</p>
+				</div>
+				{deviceNameMode === 'custom' ? (
+					<div className="md:col-span-2">
+						<div className="mb-1 flex items-center justify-between gap-2">
+							<label htmlFor={customDeviceNameId} className="text-xs text-muted-foreground">自定义设备名称</label>
+							<Button
+								type="button"
+								size="sm"
+								variant="ghost"
+								className="h-7 cursor-pointer rounded-md px-2 text-[11px]"
+								onClick={onRegenerateCustomDeviceName}
+							>
+								<Icon icon={Sparkles} size={12} />
+								随机生成
+							</Button>
+						</div>
+						<Input
+							id={customDeviceNameId}
+							{...register('customDeviceName')}
+							placeholder="例如 device-a1b2c3d4"
+						/>
+						<p className="mt-1 text-[11px] text-muted-foreground">
+							当前值：{customDeviceName}
+						</p>
+					</div>
+				) : null}
+				<div className="md:col-span-2">
+					<p className="mb-1 text-xs text-muted-foreground">MAC 地址</p>
+					<Select
+						value={macAddressMode}
+						onValueChange={(value) =>
+							setValue('macAddressMode', value as 'real' | 'custom', {
+								shouldDirty: true,
+								shouldValidate: true,
+							})
+						}
+					>
+						<SelectTrigger id={macAddressModeId}>
+							<SelectValue placeholder="选择 MAC 地址模式" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="real">真实</SelectItem>
+							<SelectItem value="custom">自定义</SelectItem>
+						</SelectContent>
+					</Select>
+					<p className="mt-1 text-[11px] text-muted-foreground">
+						覆盖 Chromium 导出的网络接口 MAC，不修改系统真实网卡地址。
+					</p>
+				</div>
+				{macAddressMode === 'custom' ? (
+					<div className="md:col-span-2">
+						<div className="mb-1 flex items-center justify-between gap-2">
+							<label htmlFor={customMacAddressId} className="text-xs text-muted-foreground">自定义 MAC 地址</label>
+							<Button
+								type="button"
+								size="sm"
+								variant="ghost"
+								className="h-7 cursor-pointer rounded-md px-2 text-[11px]"
+								onClick={onRegenerateCustomMacAddress}
+							>
+								<Icon icon={Sparkles} size={12} />
+								随机生成
+							</Button>
+						</div>
+						<Input
+							id={customMacAddressId}
+							{...register('customMacAddress')}
+							placeholder="例如 A2:11:22:33:44:55"
+						/>
+						<p className="mt-1 text-[11px] text-muted-foreground">
+							当前值：{customMacAddress}
+						</p>
+					</div>
+				) : null}
 				<div className="md:col-span-2">
 					<label
 						htmlFor={doNotTrackEnabledId}

@@ -545,6 +545,49 @@ fn normalize_profile_settings(
                 Some(normalized)
             }
         });
+        fingerprint.custom_device_name = fingerprint
+            .custom_device_name
+            .take()
+            .and_then(trim_to_option);
+        fingerprint.custom_mac_address = fingerprint
+            .custom_mac_address
+            .take()
+            .and_then(|value| trim_to_option(value).map(|item| item.to_uppercase()));
+        if matches!(
+            fingerprint.device_name_mode,
+            Some(crate::models::CustomValueMode::Custom)
+        ) {
+            let Some(device_name) = fingerprint.custom_device_name.as_deref() else {
+                return Err(AppError::Validation(
+                    "custom deviceName mode requires customDeviceName".to_string(),
+                ));
+            };
+            if !is_valid_custom_device_name(device_name) {
+                return Err(AppError::Validation(
+                    "customDeviceName must use ASCII letters, numbers, or hyphen with length 1-63"
+                        .to_string(),
+                ));
+            }
+        } else {
+            fingerprint.custom_device_name = None;
+        }
+        if matches!(
+            fingerprint.mac_address_mode,
+            Some(crate::models::CustomValueMode::Custom)
+        ) {
+            let Some(mac_address) = fingerprint.custom_mac_address.as_deref() else {
+                return Err(AppError::Validation(
+                    "custom macAddress mode requires customMacAddress".to_string(),
+                ));
+            };
+            if !is_valid_custom_mac_address(mac_address) {
+                return Err(AppError::Validation(
+                    "customMacAddress must be a valid EUI-48 address".to_string(),
+                ));
+            }
+        } else {
+            fingerprint.custom_mac_address = None;
+        }
         if !has_strong_fingerprint_context {
             if let Some(mode) = fingerprint.user_agent_mode.as_ref() {
                 if matches!(mode, crate::models::UserAgentMode::Custom)
@@ -580,6 +623,10 @@ fn normalize_profile_settings(
             && fingerprint.language.is_none()
             && fingerprint.timezone_id.is_none()
             && fingerprint.font_list_mode.is_none()
+            && fingerprint.device_name_mode.is_none()
+            && fingerprint.custom_device_name.is_none()
+            && fingerprint.mac_address_mode.is_none()
+            && fingerprint.custom_mac_address.is_none()
             && fingerprint.do_not_track_enabled.is_none()
             && fingerprint.web_rtc_mode.is_none()
             && fingerprint.webrtc_ip_override.is_none()
@@ -849,6 +896,23 @@ fn apply_resolution_overrides(
     if let Some(device_scale_factor) = fingerprint.device_scale_factor {
         snapshot.device_scale_factor = Some(device_scale_factor);
     }
+}
+
+fn is_valid_custom_device_name(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    !bytes.is_empty()
+        && bytes.len() <= 63
+        && bytes
+            .iter()
+            .all(|byte| byte.is_ascii_alphanumeric() || *byte == b'-')
+}
+
+fn is_valid_custom_mac_address(value: &str) -> bool {
+    let parts = value.split(':').collect::<Vec<_>>();
+    parts.len() == 6
+        && parts
+            .iter()
+            .all(|part| part.len() == 2 && part.chars().all(|ch| ch.is_ascii_hexdigit()))
 }
 
 fn apply_font_list_mode(
@@ -1345,6 +1409,59 @@ mod tests {
             .and_then(|settings| settings.fingerprint.as_ref())
             .expect("fingerprint settings");
         assert_eq!(fingerprint.do_not_track_enabled, Some(true));
+    }
+
+    #[test]
+    fn custom_device_identity_settings_are_preserved_in_fingerprint_settings() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProfileService::from_db(db);
+
+        let profile = service
+            .create_profile(CreateProfileRequest {
+                name: "device-identity-profile".to_string(),
+                group: None,
+                note: None,
+                proxy_id: None,
+                settings: Some(ProfileSettings {
+                    basic: Some(ProfileBasicSettings {
+                        platform: Some("macos".to_string()),
+                        browser_version: Some("144.0.7559.97".to_string()),
+                        device_preset_id: Some("macos_macbook_pro_14".to_string()),
+                        ..Default::default()
+                    }),
+                    fingerprint: Some(ProfileFingerprintSettings {
+                        device_name_mode: Some(crate::models::CustomValueMode::Custom),
+                        custom_device_name: Some("device-a1b2c3d4".to_string()),
+                        mac_address_mode: Some(crate::models::CustomValueMode::Custom),
+                        custom_mac_address: Some("A2:11:22:33:44:55".to_string()),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+            })
+            .expect("create profile with custom device identity");
+
+        let fingerprint = profile
+            .settings
+            .as_ref()
+            .and_then(|settings| settings.fingerprint.as_ref())
+            .expect("fingerprint settings");
+        assert_eq!(
+            fingerprint.device_name_mode,
+            Some(crate::models::CustomValueMode::Custom)
+        );
+        assert_eq!(
+            fingerprint.custom_device_name.as_deref(),
+            Some("device-a1b2c3d4")
+        );
+        assert_eq!(
+            fingerprint.mac_address_mode,
+            Some(crate::models::CustomValueMode::Custom)
+        );
+        assert_eq!(
+            fingerprint.custom_mac_address.as_deref(),
+            Some("A2:11:22:33:44:55")
+        );
     }
 
     #[test]

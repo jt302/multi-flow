@@ -149,3 +149,11 @@
 - [x] 新建 / 编辑环境新增 Do Not Track 开关，默认关闭，并补充说明文案
 - [x] Do Not Track 配置持久化到环境 `fingerprint settings`
 - [x] 启动环境时会按配置注入 `--enable-do-not-track`
+
+## 本轮新增（自定义设备名称与 MAC 地址）
+
+- [x] 环境指纹设置新增设备名称与 MAC 地址两组模式：`real / custom`
+- [x] 新建环境进入页面即生成随机候选设备名称与 MAC 地址，编辑环境保留已保存的自定义值
+- [x] `custom` 模式下展示输入框与随机按钮，并校验设备名称和 MAC 地址格式
+- [x] 自定义设备名称与 MAC 地址仅保存到环境自身 `fingerprint settings`，不写回机型预设
+- [x] 启动环境时会按配置注入 `--custom-host-name` 与 `--custom-mac-address`
