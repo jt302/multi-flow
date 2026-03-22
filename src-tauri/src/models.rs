@@ -199,12 +199,20 @@ pub struct ProfileFingerprintSettings {
     pub custom_font_list: Option<Vec<String>>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfilePluginSelection {
+    pub package_id: String,
+    pub enabled: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileAdvancedSettings {
     pub headless: Option<bool>,
     pub disable_images: Option<bool>,
     pub cookie_state_json: Option<String>,
+    pub plugin_selections: Option<Vec<ProfilePluginSelection>>,
     pub geolocation_mode: Option<GeolocationMode>,
     pub auto_allow_geolocation: Option<bool>,
     pub geolocation: Option<GeolocationOverride>,
@@ -426,6 +434,79 @@ pub struct ExportProfileCookiesRequest {
 pub struct ExportProfileCookiesResponse {
     pub path: String,
     pub cookie_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginPackage {
+    pub package_id: String,
+    pub extension_id: String,
+    pub name: String,
+    pub version: String,
+    pub description: Option<String>,
+    pub icon_path: Option<String>,
+    pub crx_path: String,
+    pub source_type: String,
+    pub store_url: Option<String>,
+    pub update_url: Option<String>,
+    pub latest_version: Option<String>,
+    pub update_status: Option<String>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct SavePluginPackageInput {
+    pub package_id: String,
+    pub extension_id: String,
+    pub name: String,
+    pub version: String,
+    pub description: Option<String>,
+    pub icon_path: Option<String>,
+    pub crx_path: String,
+    pub source_type: String,
+    pub store_url: Option<String>,
+    pub update_url: Option<String>,
+    pub latest_version: Option<String>,
+    pub update_status: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub struct ManagedExtension {
+    pub package_id: String,
+    pub extension_id: String,
+    pub source_path: String,
+    pub source_type: String,
+    pub version: String,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub struct ExtensionStateFile {
+    pub environment_id: Option<String>,
+    pub managed_extensions: Vec<ManagedExtension>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadPluginByExtensionIdRequest {
+    pub extension_id: String,
+    pub proxy_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallPluginToProfilesRequest {
+    pub package_id: String,
+    pub profile_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateProfilePluginsRequest {
+    pub selections: Vec<ProfilePluginSelection>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -41,6 +41,7 @@
   - `profile_proxy_bindings`
   - `engine_sessions`
   - `device_presets`
+  - `plugin_packages`
   - `profiles.settings_json`（Profile 创建时完整配置持久化）
 - 约束：
   - 软删除字段统一 `deleted_at`
@@ -79,7 +80,6 @@
     - `expiresAt` 用于代理资产过期展示，不参与 Chromium 启动参数本身
   - 代理检测依赖 GeoIP 资源时，后端会自动确保 `GeoLite2-City.mmdb` 已下载；设置页同步展示该资源状态
   - 若 Profile 保存了默认启动配置，启动时先加载默认配置，再叠加运行时传入参数
-  - 若存在 GeoIP 资源文件则注入 `--geoip-database`
   - 启动时语言 / 时区 / 地理位置优先级：
     - Profile 显式配置
     - 绑定代理最终生效值（语言 / 时区）或最近检测画像（经纬度）
@@ -128,10 +128,17 @@
     - `--custom-cpu-cores`
     - `--custom-ram-gb`
     - `--custom-font-list`
+    - `--custom-resolution-width`
+    - `--custom-resolution-height`
+    - `--custom-resolution-dpr`
     - `--window-size`
-    - `--force-device-scale-factor`
     - `--fingerprint-seed`
     - 移动端补 `--use-mobile-user-agent`、`--touch-events=enabled`
+  - 环境插件当前采用“插件库 + 环境本地状态文件”双层模型：
+    - 全局插件包记录持久化到 `plugin_packages`
+    - 每个环境固定维护 `extensions/extension-state.json`
+    - 启动时若状态文件存在且合法，会注入 `--extension-state-file`
+    - 插件安装/卸载/更新只改环境配置和本地状态文件；运行中的环境需要重启后生效
   - 每个环境目录除 `user-data` 外，额外创建 `cache-data` 并注入独立 `--disk-cache-dir`
   - 默认在代理场景启用 WebRTC `disable_non_proxied_udp` 策略
   - 启动时按当前宿主系统 + `browserVersion` 解析资源：

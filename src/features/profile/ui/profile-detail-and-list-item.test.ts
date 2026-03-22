@@ -39,6 +39,14 @@ test('profile list item exposes cookie export actions', () => {
 	assert.equal(file.includes('save({'), true);
 });
 
+test('profile list item exposes profile plugin management entry', () => {
+	const file = readFileSync(new URL('./profile-list-item.tsx', import.meta.url), 'utf8');
+
+	assert.equal(file.includes('插件管理'), true);
+	assert.equal(file.includes('环境插件管理'), true);
+	assert.equal(file.includes('updateProfilePlugins'), true);
+});
+
 test('advanced settings section exposes cookie json input and merge action', () => {
 	const file = readFileSync(new URL('./advanced-settings-section.tsx', import.meta.url), 'utf8');
 
@@ -46,4 +54,39 @@ test('advanced settings section exposes cookie json input and merge action', () 
 	assert.equal(file.includes('合并 Cookie'), true);
 	assert.equal(file.includes('cookie-state-file'), true);
 	assert.equal(file.includes('环境本地 Cookie 文件'), true);
+});
+
+test('profile create form includes plugin selection section', () => {
+	const file = readFileSync(new URL('./profile-create-form.tsx', import.meta.url), 'utf8');
+
+	assert.equal(file.includes('PluginsSettingsSection'), true);
+	assert.equal(file.includes('pluginPackagesQuery'), true);
+});
+
+test('plugins page exposes proxy selector for download and update actions', () => {
+	const file = readFileSync(new URL('../../plugin/ui/plugins-page.tsx', import.meta.url), 'utf8');
+
+	assert.equal(file.includes('useProxiesQuery'), true);
+	assert.equal(file.includes('下载代理'), true);
+	assert.equal(file.includes('selectedDownloadProxyId'), true);
+});
+
+test('plugins page renders plugin icon and name in library cards', () => {
+	const file = readFileSync(new URL('../../plugin/ui/plugins-page.tsx', import.meta.url), 'utf8');
+
+	assert.equal(file.includes('plugin.iconPath'), true);
+	assert.equal(file.includes('plugin.name} 图标'), true);
+	assert.equal(file.includes('<img'), true);
+	assert.equal(file.includes('convertFileSrc'), true);
+});
+
+test('tauri config enables asset protocol for app data icons', () => {
+	const file = readFileSync(
+		new URL('../../../../src-tauri/tauri.conf.json', import.meta.url),
+		'utf8',
+	);
+
+	assert.equal(file.includes('"assetProtocol"'), true);
+	assert.equal(file.includes('"enable": true'), true);
+	assert.equal(file.includes('"$APPDATA/**"'), true);
 });

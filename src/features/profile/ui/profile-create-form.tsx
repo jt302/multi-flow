@@ -15,6 +15,7 @@ import { AdvancedSettingsSection } from './advanced-settings-section';
 import { BasicSettingsSection } from './basic-settings-section';
 import { FingerprintSettingsSection } from './fingerprint-settings-section';
 import { FormErrorList } from './form-error-list';
+import { PluginsSettingsSection } from './plugins-settings-section';
 import { ProxySettingsSection } from './proxy-settings-section';
 
 type ProfileCreateFormProps = {
@@ -37,6 +38,7 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 		hostChromiumVersions,
 		availableProxies,
 		devicePresetsQuery,
+		pluginPackagesQuery,
 		fontFamiliesQuery,
 		previewQuery,
 		selectedResource,
@@ -133,6 +135,18 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 									form={form}
 									availableProxies={availableProxies}
 									proxyId={values.proxyId}
+								/>
+
+								<PluginsSettingsSection
+									form={form}
+									packages={pluginPackagesQuery.data ?? []}
+									pluginSelections={values.pluginSelections}
+									loading={pluginPackagesQuery.isLoading}
+									error={
+										pluginPackagesQuery.error instanceof Error
+											? pluginPackagesQuery.error.message
+											: null
+									}
 								/>
 
 								<AdvancedSettingsSection

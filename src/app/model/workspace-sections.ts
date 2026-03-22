@@ -21,6 +21,16 @@ export const WORKSPACE_SECTIONS: Record<NavItem['id'], NavSection> = {
 			{ name: 'Brand-TikTok-01', group: '品牌号', status: '告警', geo: 'GB / London', last: '3 分钟前' },
 		],
 	},
+	plugins: {
+		title: '插件库管理',
+		desc: '集中下载、更新、卸载插件，并按筛选条件批量安装到环境。',
+		tableTitle: '插件安装样例',
+		rows: [
+			{ name: 'Proxy Helper', group: '工具类', status: '已下载', geo: '3 个环境', last: '可检查更新' },
+			{ name: 'Wallet Demo', group: '钱包类', status: '已下载', geo: '12 个环境', last: '需重启生效' },
+			{ name: 'Locale Switcher', group: '调试类', status: '待下载', geo: '未安装', last: '通过扩展 ID 导入' },
+		],
+	},
 	groups: {
 		title: '分组管理',
 		desc: '统一管理业务分组、备注与归档策略，创建环境时可直接关联。',

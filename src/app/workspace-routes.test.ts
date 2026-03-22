@@ -18,6 +18,8 @@ test('workspace routes resolve explicit nav paths without retired rpa entries', 
 	assert.equal(resolveNavFromPath('/rpa/runs'), null);
 	assert.equal(isWorkspacePath('/rpa'), false);
 	assert.equal(isWorkspacePath('/rpa/flows'), false);
+	assert.equal(resolveNavFromPath('/plugins'), 'plugins');
+	assert.equal(resolvePathFromNav('plugins'), '/plugins');
 	assert.equal(resolvePathFromNav('settings'), '/settings');
 });
 

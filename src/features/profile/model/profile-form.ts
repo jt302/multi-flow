@@ -6,6 +6,7 @@ import type {
 	ProfileFingerprintSnapshot,
 	ProfileFingerprintSource,
 	ProfileFingerprintSettings,
+	ProfilePluginSelection,
 	WebRtcMode,
 } from '@/entities/profile/model/types';
 
@@ -43,6 +44,12 @@ export const profileFormSchema = z
 		randomFingerprint: z.boolean(),
 		customLaunchArgsText: z.string(),
 		cookieStateJson: z.string(),
+		pluginSelections: z.array(
+			z.object({
+				packageId: z.string().trim().min(1, '插件包 ID 不能为空'),
+				enabled: z.boolean(),
+			}),
+		),
 		geolocationMode: z.enum(['off', 'ip', 'custom']),
 		autoAllowGeolocation: z.boolean(),
 		latitude: z.string(),
@@ -488,6 +495,23 @@ export function deriveCookieSiteUrls(cookieState: CookieStateFile) {
 		}
 	}
 	return Array.from(sites).sort((left, right) => left.localeCompare(right));
+}
+
+export function dedupeProfilePluginSelections(
+	selections: ProfilePluginSelection[],
+): ProfilePluginSelection[] {
+	const merged = new Map<string, ProfilePluginSelection>();
+	for (const selection of selections) {
+		const packageId = selection.packageId.trim();
+		if (!packageId) {
+			continue;
+		}
+		merged.set(packageId, {
+			packageId,
+			enabled: selection.enabled,
+		});
+	}
+	return Array.from(merged.values());
 }
 
 export function resolveInitialCustomDeviceIdentityValues(

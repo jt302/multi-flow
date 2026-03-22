@@ -692,9 +692,30 @@ fn normalize_profile_settings(
                     AppError::Validation(format!("cookieStateJson serialize failed: {err}"))
                 })?);
         }
+        advanced.plugin_selections = advanced.plugin_selections.take().and_then(|items| {
+            let normalized = items
+                .into_iter()
+                .filter_map(|item| {
+                    let package_id = item.package_id.trim();
+                    if package_id.is_empty() {
+                        return None;
+                    }
+                    Some(crate::models::ProfilePluginSelection {
+                        package_id: package_id.to_string(),
+                        enabled: item.enabled,
+                    })
+                })
+                .collect::<Vec<_>>();
+            if normalized.is_empty() {
+                None
+            } else {
+                Some(normalized)
+            }
+        });
         if advanced.headless.is_none()
             && advanced.disable_images.is_none()
             && advanced.cookie_state_json.is_none()
+            && advanced.plugin_selections.is_none()
             && advanced.geolocation_mode.is_none()
             && advanced.auto_allow_geolocation.is_none()
             && advanced.geolocation.is_none()
@@ -839,6 +860,7 @@ fn hydrate_strong_fingerprint_settings(
     if settings.advanced.as_ref().is_some_and(|advanced| {
         advanced.headless.is_none()
             && advanced.disable_images.is_none()
+            && advanced.plugin_selections.is_none()
             && advanced.geolocation_mode.is_none()
             && advanced.auto_allow_geolocation.is_none()
             && advanced.geolocation.is_none()

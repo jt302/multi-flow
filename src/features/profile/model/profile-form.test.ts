@@ -46,6 +46,7 @@ function buildFormValues(overrides: Record<string, unknown> = {}) {
 		randomFingerprint: false,
 		customLaunchArgsText: '',
 		cookieStateJson: '',
+		pluginSelections: [],
 		geolocationMode: 'off',
 		autoAllowGeolocation: false,
 		geoEnabled: false,
