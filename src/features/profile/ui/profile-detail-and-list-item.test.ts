@@ -82,6 +82,14 @@ test('plugins page renders plugin icon and name in library cards', () => {
 	assert.equal(file.includes('convertFileSrc'), true);
 });
 
+test('plugins page exposes open-in-store action', () => {
+	const file = readFileSync(new URL('../../plugin/ui/plugins-page.tsx', import.meta.url), 'utf8');
+
+	assert.equal(file.includes('在商店中打开'), true);
+	assert.equal(file.includes('@tauri-apps/plugin-opener'), true);
+	assert.equal(file.includes('plugin.storeUrl'), true);
+});
+
 test('tauri config enables asset protocol for app data icons', () => {
 	const file = readFileSync(
 		new URL('../../../../src-tauri/tauri.conf.json', import.meta.url),
