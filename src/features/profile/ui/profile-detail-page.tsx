@@ -50,6 +50,10 @@ function formatWebRtcModeLabel(value: string | undefined) {
 	}
 }
 
+function formatCustomValueModeLabel(value: string | undefined) {
+	return value === 'custom' ? '自定义' : '真实';
+}
+
 function DetailMetric({
 	label,
 	value,
@@ -334,6 +338,22 @@ export function ProfileDetailPage({
 						<DetailMetric
 							label="WebRTC"
 							value={formatWebRtcModeLabel(fingerprint?.webRtcMode)}
+						/>
+						<DetailMetric
+							label="设备名称"
+							value={
+								fingerprint?.deviceNameMode === 'custom'
+									? `自定义 · ${fingerprint.customDeviceName || '未设置'}`
+									: formatCustomValueModeLabel(fingerprint?.deviceNameMode)
+							}
+						/>
+						<DetailMetric
+							label="MAC 地址"
+							value={
+								fingerprint?.macAddressMode === 'custom'
+									? `自定义 · ${fingerprint.customMacAddress || '未设置'}`
+									: formatCustomValueModeLabel(fingerprint?.macAddressMode)
+							}
 						/>
 						<DetailMetric
 							label="Do Not Track"

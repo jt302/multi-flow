@@ -44,6 +44,8 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 		resourceStatusLabel,
 		regenerateFontList,
 		regenerateFingerprintSeed,
+		regenerateCustomDeviceName,
+		regenerateCustomMacAddress,
 		markProxyFieldManual,
 		restoreProxySuggestedValues,
 		onFormSubmit,
@@ -99,6 +101,10 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 
 								<FingerprintSettingsSection
 									form={form}
+									deviceNameMode={values.deviceNameMode}
+									customDeviceName={values.customDeviceName}
+									macAddressMode={values.macAddressMode}
+									customMacAddress={values.customMacAddress}
 									doNotTrackEnabled={values.doNotTrackEnabled}
 									webRtcMode={values.webRtcMode}
 									randomFingerprint={values.randomFingerprint}
@@ -119,6 +125,8 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 										});
 									}}
 									onRegenerateFingerprintSeed={regenerateFingerprintSeed}
+									onRegenerateCustomDeviceName={regenerateCustomDeviceName}
+									onRegenerateCustomMacAddress={regenerateCustomMacAddress}
 								/>
 
 								<ProxySettingsSection

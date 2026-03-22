@@ -6,9 +6,12 @@ import {
 	applyProxySuggestionValue,
 	buildResolutionValuesFromPreset,
 	buildFingerprintSource,
+	generateRandomCustomDeviceName,
+	generateRandomCustomMacAddress,
 	generateRandomFingerprintSeed,
 	mergePreviewSnapshot,
 	profileFormSchema,
+	resolveInitialCustomDeviceIdentityValues,
 	resolveInitialResolutionValues,
 	resolveInitialWebRtcMode,
 	resolveProxySuggestedValues,
@@ -29,6 +32,10 @@ function buildFormValues(overrides: Record<string, unknown> = {}) {
 		language: '',
 		timezoneId: '',
 		customFontListText: 'Arial\nHelvetica',
+		deviceNameMode: 'real',
+		customDeviceName: '',
+		macAddressMode: 'real',
+		customMacAddress: '',
 		doNotTrackEnabled: false,
 		webRtcMode: 'follow_ip',
 		webrtcIpOverride: '',
@@ -137,6 +144,70 @@ test('profile form schema accepts do not track toggle', () => {
 		}),
 	);
 	assert.equal(result.success, true);
+});
+
+test('profile form schema accepts real device name and mac address modes without custom values', () => {
+	const result = profileFormSchema.safeParse(
+		buildFormValues({
+			deviceNameMode: 'real',
+			customDeviceName: '',
+			macAddressMode: 'real',
+			customMacAddress: '',
+		}),
+	);
+	assert.equal(result.success, true);
+});
+
+test('profile form schema requires valid custom device name and mac address in custom mode', () => {
+	const result = profileFormSchema.safeParse(
+		buildFormValues({
+			deviceNameMode: 'custom',
+			customDeviceName: 'bad name',
+			macAddressMode: 'custom',
+			customMacAddress: 'ZZ:11:22:33:44:55',
+		}),
+	);
+	assert.equal(result.success, false);
+	if (result.success) {
+		return;
+	}
+	assert.equal(result.error.issues[0]?.path[0], 'customDeviceName');
+	assert.equal(result.error.issues[1]?.path[0], 'customMacAddress');
+});
+
+test('resolveInitialCustomDeviceIdentityValues preserves saved custom values', () => {
+	const values = resolveInitialCustomDeviceIdentityValues(
+		{
+			deviceNameMode: 'custom',
+			customDeviceName: 'device-a1b2c3d4',
+			macAddressMode: 'custom',
+			customMacAddress: 'A2:11:22:33:44:55',
+		},
+		{
+			deviceName: 'device-deadbeef',
+			macAddress: 'AE:12:34:56:78:90',
+		},
+	);
+
+	assert.deepEqual(values, {
+		deviceNameMode: 'custom',
+		customDeviceName: 'device-a1b2c3d4',
+		macAddressMode: 'custom',
+		customMacAddress: 'A2:11:22:33:44:55',
+	});
+});
+
+test('generateRandomCustomDeviceName returns expected format', () => {
+	const value = generateRandomCustomDeviceName();
+	assert.match(value, /^device-[0-9a-f]{8}$/);
+});
+
+test('generateRandomCustomMacAddress returns locally administered unicast mac', () => {
+	const value = generateRandomCustomMacAddress();
+	assert.match(value, /^[0-9A-F]{2}(?::[0-9A-F]{2}){5}$/);
+	const firstOctet = Number.parseInt(value.slice(0, 2), 16);
+	assert.equal(firstOctet & 0b10, 0b10);
+	assert.equal(firstOctet & 0b1, 0);
 });
 
 test('profile form schema requires valid coordinates in custom geolocation mode', () => {

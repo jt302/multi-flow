@@ -4,10 +4,13 @@ import type {
 	ProfileDevicePresetItem,
 	ProfileFingerprintSnapshot,
 	ProfileFingerprintSource,
+	ProfileFingerprintSettings,
 	WebRtcMode,
 } from '@/entities/profile/model/types';
 
 export const DEFAULT_STARTUP_URL = 'https://www.browserscan.net/';
+const DEVICE_NAME_PATTERN = /^[A-Za-z0-9-]{1,63}$/;
+const MAC_ADDRESS_PATTERN = /^[0-9A-F]{2}(?::[0-9A-F]{2}){5}$/i;
 
 export const profileFormSchema = z
 	.object({
@@ -27,6 +30,10 @@ export const profileFormSchema = z
 		language: z.string(),
 		timezoneId: z.string(),
 		customFontListText: z.string(),
+		deviceNameMode: z.enum(['real', 'custom']),
+		customDeviceName: z.string(),
+		macAddressMode: z.enum(['real', 'custom']),
+		customMacAddress: z.string(),
 		doNotTrackEnabled: z.boolean(),
 		webRtcMode: z.enum(['real', 'follow_ip', 'replace', 'disable']),
 		webrtcIpOverride: z.string(),
@@ -74,6 +81,40 @@ export const profileFormSchema = z
 					code: z.ZodIssueCode.custom,
 					message: 'WebRTC 选择替换时，必须填写 IP',
 					path: ['webrtcIpOverride'],
+				});
+			}
+		}
+
+		if (values.deviceNameMode === 'custom') {
+			const deviceName = values.customDeviceName.trim();
+			if (!deviceName) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: '设备名称选择自定义时不能为空',
+					path: ['customDeviceName'],
+				});
+			} else if (!DEVICE_NAME_PATTERN.test(deviceName)) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: '设备名称仅支持 ASCII 字母、数字和连字符，长度 1-63',
+					path: ['customDeviceName'],
+				});
+			}
+		}
+
+		if (values.macAddressMode === 'custom') {
+			const macAddress = values.customMacAddress.trim();
+			if (!macAddress) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: 'MAC 地址选择自定义时不能为空',
+					path: ['customMacAddress'],
+				});
+			} else if (!MAC_ADDRESS_PATTERN.test(macAddress)) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: 'MAC 地址必须是合法的 AA:BB:CC:DD:EE:FF 格式',
+					path: ['customMacAddress'],
 				});
 			}
 		}
@@ -131,6 +172,17 @@ export type ProfileResolutionValues = Pick<
 >;
 
 export type ProxySuggestionFieldSource = 'manual' | 'proxy' | 'empty';
+export type DeviceIdentityMode = 'real' | 'custom';
+export type DeviceIdentityRandomValues = {
+	deviceName: string;
+	macAddress: string;
+};
+export type CustomDeviceIdentityValues = {
+	deviceNameMode: DeviceIdentityMode;
+	customDeviceName: string;
+	macAddressMode: DeviceIdentityMode;
+	customMacAddress: string;
+};
 
 type ResolutionPresetInput = Pick<
 	ProfileDevicePresetItem,
@@ -260,6 +312,50 @@ export function randomizeFontList(pool: string[]): string[] {
 		Math.min(shuffled.length, Math.round(shuffled.length * keepRatio)),
 	);
 	return shuffled.slice(0, targetCount);
+}
+
+export function generateRandomCustomDeviceName() {
+	const bytes = new Uint32Array(1);
+	globalThis.crypto?.getRandomValues?.(bytes);
+	const suffix = (bytes[0] || Math.floor(Math.random() * 0xffffffff))
+		.toString(16)
+		.padStart(8, '0')
+		.slice(-8);
+	return `device-${suffix}`;
+}
+
+export function generateRandomCustomMacAddress() {
+	const bytes = new Uint8Array(6);
+	globalThis.crypto?.getRandomValues?.(bytes);
+	if (bytes.every((value) => value === 0)) {
+		for (let index = 0; index < bytes.length; index += 1) {
+			bytes[index] = Math.floor(Math.random() * 256);
+		}
+	}
+	bytes[0] = (bytes[0] | 0x02) & 0xfe;
+	return Array.from(bytes, (value) =>
+		value.toString(16).padStart(2, '0').toUpperCase(),
+	).join(':');
+}
+
+export function resolveInitialCustomDeviceIdentityValues(
+	storedValues:
+		| Pick<
+				ProfileFingerprintSettings,
+				'deviceNameMode' | 'customDeviceName' | 'macAddressMode' | 'customMacAddress'
+		  >
+		| null
+		| undefined,
+	randomValues: DeviceIdentityRandomValues,
+): CustomDeviceIdentityValues {
+	return {
+		deviceNameMode: storedValues?.deviceNameMode === 'custom' ? 'custom' : 'real',
+		customDeviceName:
+			storedValues?.customDeviceName?.trim() || randomValues.deviceName,
+		macAddressMode: storedValues?.macAddressMode === 'custom' ? 'custom' : 'real',
+		customMacAddress:
+			storedValues?.customMacAddress?.trim() || randomValues.macAddress,
+	};
 }
 
 function versionParts(version: string) {

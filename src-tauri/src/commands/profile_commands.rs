@@ -12,8 +12,8 @@ use crate::font_catalog;
 use crate::logger;
 use crate::models::{
     BatchProfileActionItem, BatchProfileActionRequest, BatchProfileActionResponse,
-    BatchSetProfileGroupRequest, ClearProfileCacheResponse, CreateProfileRequest, FontListMode,
-    GeolocationMode, GeolocationOverride, ListProfilesQuery, ListProfilesResponse,
+    BatchSetProfileGroupRequest, ClearProfileCacheResponse, CreateProfileRequest, CustomValueMode,
+    FontListMode, GeolocationMode, GeolocationOverride, ListProfilesQuery, ListProfilesResponse,
     LocalApiServerStatus, OpenProfileOptions, OpenProfileResponse, Profile, ProfileDevicePreset,
     ProfileFingerprintSnapshot, ProfileFingerprintSource, ProfileRuntimeDetails, ProfileSettings,
     Proxy, SaveProfileDevicePresetRequest, SetProfileGroupRequest, UpdateProfileVisualRequest,
@@ -966,6 +966,43 @@ fn resolve_launch_options(
     if options.auto_allow_geolocation.unwrap_or(false) {
         extra_args.push("--auto-allow-geolocation".to_string());
     }
+    match resolve_effective_custom_value_mode(options.device_name_mode) {
+        CustomValueMode::Real => {}
+        CustomValueMode::Custom => {
+            let value = options
+                .custom_device_name
+                .as_deref()
+                .and_then(trim_str_to_option)
+                .ok_or_else(|| {
+                    format!("validation failed: custom device name is required for {profile_id}")
+                })?;
+            if !is_valid_custom_device_name(&value) {
+                return Err(format!(
+                    "validation failed: invalid custom device name for {profile_id}"
+                ));
+            }
+            extra_args.push(format!("--custom-host-name={value}"));
+        }
+    }
+    match resolve_effective_custom_value_mode(options.mac_address_mode) {
+        CustomValueMode::Real => {}
+        CustomValueMode::Custom => {
+            let value = options
+                .custom_mac_address
+                .as_deref()
+                .and_then(trim_str_to_option)
+                .ok_or_else(|| {
+                    format!("validation failed: custom mac address is required for {profile_id}")
+                })?
+                .to_uppercase();
+            if !is_valid_custom_mac_address(&value) {
+                return Err(format!(
+                    "validation failed: invalid custom mac address for {profile_id}"
+                ));
+            }
+            extra_args.push(format!("--custom-mac-address={value}"));
+        }
+    }
     if options.do_not_track_enabled.unwrap_or(false) {
         extra_args.push("--enable-do-not-track".to_string());
     }
@@ -1034,6 +1071,27 @@ fn resolve_effective_geolocation_mode(options: &OpenProfileOptions) -> Geolocati
                 .map(|_| GeolocationMode::Custom)
         })
         .unwrap_or(GeolocationMode::Off)
+}
+
+fn resolve_effective_custom_value_mode(mode: Option<CustomValueMode>) -> CustomValueMode {
+    mode.unwrap_or(CustomValueMode::Real)
+}
+
+fn is_valid_custom_device_name(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    !bytes.is_empty()
+        && bytes.len() <= 63
+        && bytes
+            .iter()
+            .all(|byte| byte.is_ascii_alphanumeric() || *byte == b'-')
+}
+
+fn is_valid_custom_mac_address(value: &str) -> bool {
+    let parts = value.split(':').collect::<Vec<_>>();
+    parts.len() == 6
+        && parts
+            .iter()
+            .all(|part| part.len() == 2 && part.chars().all(|ch| ch.is_ascii_hexdigit()))
 }
 
 fn resolve_effective_geolocation(
@@ -1258,6 +1316,10 @@ fn merge_open_options(
                         .then(|| fingerprint.timezone_id.clone())
                         .flatten()
                 });
+            merged.device_name_mode = fingerprint.device_name_mode;
+            merged.custom_device_name = fingerprint.custom_device_name.clone();
+            merged.mac_address_mode = fingerprint.mac_address_mode;
+            merged.custom_mac_address = fingerprint.custom_mac_address.clone();
             merged.do_not_track_enabled = fingerprint.do_not_track_enabled;
             merged.web_rtc_mode = fingerprint.web_rtc_mode.clone();
             merged.webrtc_ip_override = fingerprint.webrtc_ip_override.clone();
@@ -1301,6 +1363,18 @@ fn merge_open_options(
         }
         if overrides.geolocation.is_some() {
             merged.geolocation = overrides.geolocation;
+        }
+        if overrides.device_name_mode.is_some() {
+            merged.device_name_mode = overrides.device_name_mode;
+        }
+        if overrides.custom_device_name.is_some() {
+            merged.custom_device_name = overrides.custom_device_name;
+        }
+        if overrides.mac_address_mode.is_some() {
+            merged.mac_address_mode = overrides.mac_address_mode;
+        }
+        if overrides.custom_mac_address.is_some() {
+            merged.custom_mac_address = overrides.custom_mac_address;
         }
         if overrides.web_rtc_mode.is_some() {
             merged.web_rtc_mode = overrides.web_rtc_mode;
@@ -2418,6 +2492,40 @@ mod tests {
             .extra_args
             .iter()
             .any(|arg| arg == "--enable-do-not-track"));
+    }
+
+    #[test]
+    fn resolve_launch_options_adds_custom_device_identity_switches() {
+        let preset_service = new_test_device_preset_service();
+        let options: OpenProfileOptions = serde_json::from_value(json!({
+            "deviceNameMode": "custom",
+            "customDeviceName": "device-a1b2c3d4",
+            "macAddressMode": "custom",
+            "customMacAddress": "A2:11:22:33:44:55"
+        }))
+        .expect("deserialize open options");
+
+        let resolved = resolve_launch_options(
+            &preset_service,
+            "pf_000001",
+            "test-profile",
+            None,
+            options,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("resolve launch options");
+
+        assert!(resolved
+            .extra_args
+            .iter()
+            .any(|arg| arg == "--custom-host-name=device-a1b2c3d4"));
+        assert!(resolved
+            .extra_args
+            .iter()
+            .any(|arg| arg == "--custom-mac-address=A2:11:22:33:44:55"));
     }
 
     #[test]
