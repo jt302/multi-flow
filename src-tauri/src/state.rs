@@ -15,6 +15,7 @@ use crate::runtime_guard;
 use crate::services::chromium_magic_adapter_service::ChromiumMagicAdapterService;
 use crate::services::device_preset_service::DevicePresetService;
 use crate::services::engine_session_service::EngineSessionService;
+use crate::services::app_preference_service::AppPreferenceService;
 use crate::services::plugin_package_service::PluginPackageService;
 use crate::services::profile_group_service::ProfileGroupService;
 use crate::services::profile_service::ProfileService;
@@ -26,6 +27,7 @@ pub struct AppState {
     pub profile_group_service: Mutex<ProfileGroupService>,
     pub profile_service: Mutex<ProfileService>,
     pub device_preset_service: Mutex<DevicePresetService>,
+    pub app_preference_service: Mutex<AppPreferenceService>,
     pub plugin_package_service: Mutex<PluginPackageService>,
     pub engine_session_service: Mutex<EngineSessionService>,
     pub proxy_service: Mutex<ProxyService>,
@@ -42,6 +44,7 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
     let profile_group_service = ProfileGroupService::from_db(db.clone());
     let profile_service = ProfileService::from_db(db.clone());
     let device_preset_service = DevicePresetService::from_db(db.clone());
+    let app_preference_service = AppPreferenceService::from_app_handle(app)?;
     let plugin_package_service = PluginPackageService::from_db(db.clone());
     let engine_session_service = EngineSessionService::from_db(db.clone());
     let proxy_service = ProxyService::from_db(db.clone());
@@ -56,6 +59,7 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
         profile_group_service: Mutex::new(profile_group_service),
         profile_service: Mutex::new(profile_service),
         device_preset_service: Mutex::new(device_preset_service),
+        app_preference_service: Mutex::new(app_preference_service),
         plugin_package_service: Mutex::new(plugin_package_service),
         engine_session_service: Mutex::new(engine_session_service),
         proxy_service: Mutex::new(proxy_service),

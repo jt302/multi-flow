@@ -69,6 +69,8 @@ test('plugins page exposes proxy selector for download and update actions', () =
 	assert.equal(file.includes('useProxiesQuery'), true);
 	assert.equal(file.includes('下载代理'), true);
 	assert.equal(file.includes('selectedDownloadProxyId'), true);
+	assert.equal(file.includes('readPluginDownloadPreference'), true);
+	assert.equal(file.includes('updatePluginDownloadPreference'), true);
 });
 
 test('plugins page renders plugin icon and name in library cards', () => {
