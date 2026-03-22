@@ -104,6 +104,7 @@ export type ProfileFingerprintSettings = {
 	timezoneId?: string;
 	fontListMode?: FontListMode;
 	customFontList?: string[];
+	doNotTrackEnabled?: boolean;
 	webRtcMode?: WebRtcMode;
 	webrtcIpOverride?: string;
 	viewportWidth?: number;

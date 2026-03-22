@@ -29,6 +29,7 @@ function buildFormValues(overrides: Record<string, unknown> = {}) {
 		language: '',
 		timezoneId: '',
 		customFontListText: 'Arial\nHelvetica',
+		doNotTrackEnabled: false,
 		webRtcMode: 'follow_ip',
 		webrtcIpOverride: '',
 		headless: false,
@@ -124,6 +125,15 @@ test('profile form schema accepts ip geolocation mode without manual coordinates
 			latitude: '',
 			longitude: '',
 			accuracy: '',
+		}),
+	);
+	assert.equal(result.success, true);
+});
+
+test('profile form schema accepts do not track toggle', () => {
+	const result = profileFormSchema.safeParse(
+		buildFormValues({
+			doNotTrackEnabled: true,
 		}),
 	);
 	assert.equal(result.success, true);

@@ -9,6 +9,7 @@ import { SectionTitle } from './section-title';
 
 type FingerprintSettingsSectionProps = {
 	form: UseFormReturn<ProfileFormValues>;
+	doNotTrackEnabled: boolean;
 	webRtcMode: WebRtcMode;
 	randomFingerprint: boolean;
 	fingerprintSeed: number | null;
@@ -24,6 +25,7 @@ type FingerprintSettingsSectionProps = {
 
 export function FingerprintSettingsSection({
 	form,
+	doNotTrackEnabled,
 	webRtcMode,
 	randomFingerprint,
 	fingerprintSeed,
@@ -40,6 +42,7 @@ export function FingerprintSettingsSection({
 	const languageId = 'profile-language';
 	const timezoneId = 'profile-timezone';
 	const customFontListId = 'profile-custom-font-list';
+	const doNotTrackEnabledId = 'profile-do-not-track-enabled';
 	const webrtcIpOverrideId = 'profile-webrtc-ip-override';
 	const viewportWidthId = 'profile-viewport-width';
 	const viewportHeightId = 'profile-viewport-height';
@@ -106,6 +109,28 @@ export function FingerprintSettingsSection({
 					<p className="mt-1 text-[11px] text-muted-foreground">
 						当前平台字体池 {availableFontFamiliesCount} 项。进入页面会先随机生成一套，可继续手动修改。
 					</p>
+				</div>
+				<div className="md:col-span-2">
+					<label
+						htmlFor={doNotTrackEnabledId}
+						className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-sm"
+					>
+						<Checkbox
+							id={doNotTrackEnabledId}
+							checked={doNotTrackEnabled}
+							onCheckedChange={(checked) =>
+								setValue('doNotTrackEnabled', checked === true, {
+									shouldDirty: true,
+								})
+							}
+						/>
+						<div>
+							<p className="font-medium text-foreground">Do Not Track</p>
+							<p className="mt-1 text-xs text-muted-foreground">
+								发送“Do Not Track”请求给网站，要求网站不收集或不跟踪您的浏览数据。
+							</p>
+						</div>
+					</label>
 				</div>
 				<div className="md:col-span-2">
 					<p className="mb-1 text-xs text-muted-foreground">WebRTC</p>
