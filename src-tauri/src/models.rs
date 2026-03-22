@@ -204,6 +204,7 @@ pub struct ProfileFingerprintSettings {
 pub struct ProfileAdvancedSettings {
     pub headless: Option<bool>,
     pub disable_images: Option<bool>,
+    pub cookie_state_json: Option<String>,
     pub geolocation_mode: Option<GeolocationMode>,
     pub auto_allow_geolocation: Option<bool>,
     pub geolocation: Option<GeolocationOverride>,
@@ -373,6 +374,58 @@ pub struct OpenProfileOptions {
     pub disable_images: Option<bool>,
     pub custom_launch_args: Option<Vec<String>>,
     pub fingerprint_seed: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub struct ManagedCookie {
+    pub cookie_id: String,
+    pub url: String,
+    pub name: String,
+    pub value: String,
+    pub domain: Option<String>,
+    pub path: Option<String>,
+    pub secure: Option<bool>,
+    pub http_only: Option<bool>,
+    pub same_site: Option<String>,
+    pub expires: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub struct CookieStateFile {
+    pub environment_id: Option<String>,
+    pub managed_cookies: Vec<ManagedCookie>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadProfileCookiesResponse {
+    pub json: String,
+    pub cookie_count: usize,
+    pub site_urls: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ExportProfileCookiesMode {
+    All,
+    Site,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportProfileCookiesRequest {
+    pub mode: ExportProfileCookiesMode,
+    pub url: Option<String>,
+    pub export_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportProfileCookiesResponse {
+    pub path: String,
+    pub cookie_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

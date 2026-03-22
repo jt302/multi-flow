@@ -24,6 +24,8 @@ export function ProfilesPage({
 	onBatchSetProfileGroup,
 	onDeleteProfile,
 	onRestoreProfile,
+	onReadProfileCookies,
+	onExportProfileCookies,
 	onRefreshProfiles,
 	navigationIntent,
 	onConsumeNavigationIntent,
@@ -80,6 +82,8 @@ export function ProfilesPage({
 			onBatchSetProfileGroup={onBatchSetProfileGroup}
 			onDeleteProfile={onDeleteProfile}
 			onRestoreProfile={onRestoreProfile}
+			onReadProfileCookies={onReadProfileCookies}
+			onExportProfileCookies={onExportProfileCookies}
 			onRefreshProfiles={onRefreshProfiles}
 		/>
 	);

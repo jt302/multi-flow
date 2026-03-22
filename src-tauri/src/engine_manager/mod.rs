@@ -8,8 +8,8 @@ use std::time::{Duration, Instant};
 use crate::error::{AppError, AppResult};
 use crate::logger;
 use crate::models::{
-    now_ts, EngineRuntimeHandle, EngineSession, ProfileWindow, ProfileWindowState, WindowBounds,
-    WindowTab,
+    now_ts, CookieStateFile, EngineRuntimeHandle, EngineSession, ExportProfileCookiesMode,
+    ProfileWindow, ProfileWindowState, WindowBounds, WindowTab,
 };
 use serde_json::{json, Value};
 
@@ -72,6 +72,7 @@ pub struct EngineLaunchOptions {
     pub custom_cpu_cores: Option<u32>,
     pub custom_ram_gb: Option<u32>,
     pub custom_font_list: Option<Vec<String>>,
+    pub cookie_state_file: Option<PathBuf>,
     pub extra_args: Vec<String>,
 }
 
@@ -284,6 +285,45 @@ impl EngineManager {
             EngineProcess::Chromium { .. } => Ok(Some(record.extra_args.clone())),
             EngineProcess::Mock => Ok(None),
         }
+    }
+
+    pub fn export_profile_cookie_state(
+        &self,
+        profile_id: &str,
+        mode: ExportProfileCookiesMode,
+        url: Option<&str>,
+        environment_id: Option<&str>,
+    ) -> AppResult<CookieStateFile> {
+        let Some(magic_port) = self.chromium_magic_port_for_profile(profile_id)? else {
+            return Err(AppError::NotFound(format!(
+                "running session not found: {profile_id}"
+            )));
+        };
+        let mut payload = match mode {
+            ExportProfileCookiesMode::All => json!({
+                "cmd": "export_cookie_state",
+                "mode": "all",
+            }),
+            ExportProfileCookiesMode::Site => json!({
+                "cmd": "export_cookie_state",
+                "mode": "url",
+                "url": url.unwrap_or_default(),
+            }),
+        };
+        if let Some(value) = environment_id.and_then(trim_to_option) {
+            payload["environment_id"] = Value::String(value);
+        }
+        let response = self.chromium_magic_command(profile_id, magic_port, payload)?;
+        let data = response.get("data").cloned().ok_or_else(|| {
+            AppError::Validation(format!(
+                "magic export_cookie_state missing data profile_id={profile_id}"
+            ))
+        })?;
+        serde_json::from_value::<CookieStateFile>(data).map_err(|err| {
+            AppError::Validation(format!(
+                "magic export_cookie_state invalid data profile_id={profile_id}: {err}"
+            ))
+        })
     }
 
     pub fn profile_data_dirs(&self, profile_id: &str) -> AppResult<(PathBuf, PathBuf, PathBuf)> {
@@ -1512,6 +1552,12 @@ fn build_chromium_launch_args(
             args.push(format!("--custom-font-list={joined}"));
         }
     }
+    if let Some(cookie_state_file) = options.cookie_state_file.as_ref() {
+        args.push(format!(
+            "--cookie-state-file={}",
+            cookie_state_file.to_string_lossy()
+        ));
+    }
     for extra in &options.extra_args {
         if let Some(arg) = trim_to_option(extra) {
             args.push(arg);
@@ -2223,6 +2269,28 @@ mod tests {
             !args.iter().any(|arg| arg.starts_with("--geoip-database=")),
             "geoip-database should be absent from chromium args: {args:?}"
         );
+    }
+
+    #[test]
+    fn build_chromium_launch_args_adds_cookie_state_file_when_configured() {
+        let options = EngineLaunchOptions {
+            cookie_state_file: Some(PathBuf::from(
+                "/tmp/multi-flow-tests/runtime/cookie-state.json",
+            )),
+            ..Default::default()
+        };
+        let args = build_chromium_launch_args(
+            &PathBuf::from("/tmp/multi-flow-tests/user-data"),
+            &PathBuf::from("/tmp/multi-flow-tests/cache-data"),
+            19222,
+            19322,
+            &options,
+        )
+        .expect("build args");
+
+        assert!(args.iter().any(|arg| {
+            arg == "--cookie-state-file=/tmp/multi-flow-tests/runtime/cookie-state.json"
+        }));
     }
 
     #[test]

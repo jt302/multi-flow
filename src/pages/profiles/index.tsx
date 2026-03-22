@@ -147,6 +147,8 @@ export function ProfilesRoutePage() {
 			onBatchSetProfileGroup={profileActions.batchSetProfileGroup}
 			onDeleteProfile={profileActions.deleteProfile}
 			onRestoreProfile={profileActions.restoreProfile}
+			onReadProfileCookies={profileActions.readProfileCookies}
+			onExportProfileCookies={profileActions.exportProfileCookies}
 			onRefreshProfiles={refreshProfilesAndBindings}
 			navigationIntent={navigation.intent}
 			onConsumeNavigationIntent={navigation.onConsumeNavigationIntent}

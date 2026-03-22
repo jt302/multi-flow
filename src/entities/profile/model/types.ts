@@ -12,6 +12,41 @@ export type FingerprintSeedPolicy = 'fixed' | 'per_launch';
 export type FontListMode = 'preset' | 'random' | 'custom';
 export type CustomValueMode = 'real' | 'custom';
 
+export type ManagedCookie = {
+	cookie_id: string;
+	url: string;
+	name: string;
+	value: string;
+	domain?: string;
+	path?: string;
+	secure?: boolean;
+	http_only?: boolean;
+	same_site?: string;
+	expires?: string;
+};
+
+export type CookieStateFile = {
+	environment_id?: string;
+	managed_cookies: ManagedCookie[];
+};
+
+export type ReadProfileCookiesResponse = {
+	json: string;
+	cookieCount: number;
+	siteUrls: string[];
+};
+
+export type ExportProfileCookiesPayload = {
+	mode: 'all' | 'site';
+	url?: string;
+	exportPath?: string;
+};
+
+export type ExportProfileCookiesResponse = {
+	path: string;
+	cookieCount: number;
+};
+
 export type ProfileBasicSettings = {
 	browserKind?: string;
 	browserVersion?: string;
@@ -120,6 +155,7 @@ export type ProfileFingerprintSettings = {
 export type ProfileAdvancedSettings = {
 	headless?: boolean;
 	disableImages?: boolean;
+	cookieStateJson?: string;
 	geolocationMode?: 'off' | 'ip' | 'custom';
 	autoAllowGeolocation?: boolean;
 	customLaunchArgs?: string[];

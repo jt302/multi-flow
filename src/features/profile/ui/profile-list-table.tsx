@@ -8,8 +8,11 @@ import {
 } from '@/components/ui';
 import type { GroupItem } from '@/entities/group/model/types';
 import type {
+	ExportProfileCookiesPayload,
+	ExportProfileCookiesResponse,
 	ProfileActionState,
 	ProfileItem,
+	ReadProfileCookiesResponse,
 } from '@/entities/profile/model/types';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import type { ResourceItem } from '@/entities/resource/model/types';
@@ -49,6 +52,11 @@ type ProfileListTableProps = {
 	onFocusProfileWindow: (profileId: string) => Promise<void>;
 	onDeleteProfile: (profileId: string) => Promise<void>;
 	onRestoreProfile: (profileId: string) => Promise<void>;
+	onReadProfileCookies: (profileId: string) => Promise<ReadProfileCookiesResponse>;
+	onExportProfileCookies: (
+		profileId: string,
+		payload: ExportProfileCookiesPayload,
+	) => Promise<ExportProfileCookiesResponse>;
 	onRunAction: (action: () => Promise<void>) => Promise<void>;
 	onErrorReset: () => void;
 };
@@ -78,6 +86,8 @@ export function ProfileListTable({
 	onFocusProfileWindow,
 	onDeleteProfile,
 	onRestoreProfile,
+	onReadProfileCookies,
+	onExportProfileCookies,
 	onRunAction,
 	onErrorReset,
 }: ProfileListTableProps) {
@@ -154,6 +164,8 @@ export function ProfileListTable({
 									onFocusProfileWindow={onFocusProfileWindow}
 									onDeleteProfile={onDeleteProfile}
 									onRestoreProfile={onRestoreProfile}
+									onReadProfileCookies={onReadProfileCookies}
+									onExportProfileCookies={onExportProfileCookies}
 								/>
 							);
 						})}

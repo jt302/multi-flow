@@ -7,8 +7,10 @@ import {
 	createProfile as createProfileApi,
 	createProfileDevicePreset as createProfileDevicePresetApi,
 	deleteProfile as deleteProfileApi,
+	exportProfileCookies as exportProfileCookiesApi,
 	openProfile as openProfileApi,
 	purgeProfile as purgeProfileApi,
+	readProfileCookies as readProfileCookiesApi,
 	restoreProfile as restoreProfileApi,
 	setProfileGroup as setProfileGroupApi,
 	batchSetProfileGroup as batchSetProfileGroupApi,
@@ -19,6 +21,7 @@ import {
 import type {
 	BatchProfileActionResponse,
 	CreateProfilePayload,
+	ExportProfileCookiesPayload,
 	ProfileActionState,
 	SaveProfileDevicePresetPayload,
 } from '@/entities/profile/model/types';
@@ -369,6 +372,26 @@ export function useProfileActions({
 		}
 	};
 
+	const readProfileCookies = async (profileId: string) => {
+		return readProfileCookiesApi(profileId);
+	};
+
+	const exportProfileCookies = async (
+		profileId: string,
+		payload: ExportProfileCookiesPayload,
+	) => {
+		try {
+			const result = await exportProfileCookiesApi(profileId, payload);
+			toast.success('Cookie 已导出', {
+				description: result.path,
+			});
+			return result;
+		} catch (error) {
+			toast.error('导出 Cookie 失败');
+			throw error;
+		}
+	};
+
 	return {
 		createProfile,
 		createDevicePreset,
@@ -384,5 +407,7 @@ export function useProfileActions({
 		batchCloseProfiles,
 		setProfileGroup,
 		batchSetProfileGroup,
+		readProfileCookies,
+		exportProfileCookies,
 	};
 }

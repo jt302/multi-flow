@@ -32,6 +32,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .on_menu_event(|app, event| {
             if event.id().as_ref() == MENU_ID_OPEN_DATA_DIR {
                 let _ = open_data_dir(app);
@@ -76,6 +77,8 @@ pub fn run() {
             commands::profile_commands::update_profile_visual,
             commands::profile_commands::get_profile_runtime_details,
             commands::profile_commands::clear_profile_cache,
+            commands::profile_commands::read_profile_cookies,
+            commands::profile_commands::export_profile_cookies,
             commands::profile_commands::set_profile_group,
             commands::profile_commands::batch_set_profile_group,
             commands::profile_commands::list_profile_font_families,

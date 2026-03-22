@@ -157,3 +157,12 @@
 - [x] `custom` 模式下展示输入框与随机按钮，并校验设备名称和 MAC 地址格式
 - [x] 自定义设备名称与 MAC 地址仅保存到环境自身 `fingerprint settings`，不写回机型预设
 - [x] 启动环境时会按配置注入 `--custom-host-name` 与 `--custom-mac-address`
+
+## 本轮新增（环境 Cookie 本地文件持久化）
+
+- [x] 环境高级设置保留 Cookie JSON 输入，保存环境后会写入每个环境自己的本地 `cookies/cookie-state.json`
+- [x] 编辑环境时默认读取环境本地 Cookie 文件；若本地文件不存在，会用旧 `advanced.cookieStateJson` 首次初始化并回显
+- [x] Cookie 输入区“合并 Cookie”仍按 `name + domain + path` 合并，但真正持久化发生在点击页面保存之后
+- [x] 启动环境时优先把环境本地 `cookies/cookie-state.json` 作为 `--cookie-state-file` 传给 Chromium
+- [x] 关闭运行中环境前会先尝试导出全量 Cookie，覆盖写回环境本地 Cookie 文件；失败只记日志，不阻塞关闭
+- [x] 环境列表 Cookie 导出改为仅停止状态可用，按站点和整环境导出都从本地 Cookie 文件读取，并通过保存对话框选择目标路径

@@ -1,8 +1,10 @@
 use std::fs;
 use std::path::Path;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use reqwest::blocking::Client;
+use reqwest::Url;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::engine_manager::EngineLaunchOptions;
@@ -12,12 +14,14 @@ use crate::font_catalog;
 use crate::logger;
 use crate::models::{
     BatchProfileActionItem, BatchProfileActionRequest, BatchProfileActionResponse,
-    BatchSetProfileGroupRequest, ClearProfileCacheResponse, CreateProfileRequest, CustomValueMode,
-    FontListMode, GeolocationMode, GeolocationOverride, ListProfilesQuery, ListProfilesResponse,
-    LocalApiServerStatus, OpenProfileOptions, OpenProfileResponse, Profile, ProfileDevicePreset,
+    BatchSetProfileGroupRequest, ClearProfileCacheResponse, CookieStateFile, CreateProfileRequest,
+    CustomValueMode, ExportProfileCookiesMode, ExportProfileCookiesRequest,
+    ExportProfileCookiesResponse, FontListMode, GeolocationMode, GeolocationOverride,
+    ListProfilesQuery, ListProfilesResponse, LocalApiServerStatus, ManagedCookie,
+    OpenProfileOptions, OpenProfileResponse, Profile, ProfileDevicePreset,
     ProfileFingerprintSnapshot, ProfileFingerprintSource, ProfileRuntimeDetails, ProfileSettings,
-    Proxy, SaveProfileDevicePresetRequest, SetProfileGroupRequest, UpdateProfileVisualRequest,
-    WebRtcMode,
+    Proxy, ReadProfileCookiesResponse, SaveProfileDevicePresetRequest, SetProfileGroupRequest,
+    UpdateProfileVisualRequest, WebRtcMode,
 };
 use crate::runtime_guard;
 use crate::services::device_preset_service::DevicePresetService;
@@ -72,6 +76,7 @@ pub fn create_profile(
             .bind_profile_proxy(&created.id, &proxy_id)
             .map_err(error_to_string)?;
     }
+    sync_profile_cookie_state_from_settings_quietly(&state, &created.id, created.settings.as_ref());
 
     logger::info(
         "profile_cmd",
@@ -213,6 +218,7 @@ pub fn update_profile(
     } else {
         unbind_profile_proxy_if_exists(&proxy_service, &profile_id)?;
     }
+    sync_profile_cookie_state_from_settings_quietly(&state, &updated.id, updated.settings.as_ref());
     Ok(updated)
 }
 
@@ -275,6 +281,25 @@ pub fn clear_profile_cache(
     clear_profile_cache_inner(&state, &profile_id)
 }
 
+#[tauri::command]
+pub fn read_profile_cookies(
+    state: State<'_, AppState>,
+    profile_id: String,
+) -> Result<ReadProfileCookiesResponse, String> {
+    runtime_guard::reconcile_runtime_state(&state).map_err(error_to_string)?;
+    read_profile_cookies_inner(&state, &profile_id)
+}
+
+#[tauri::command]
+pub fn export_profile_cookies(
+    state: State<'_, AppState>,
+    profile_id: String,
+    payload: ExportProfileCookiesRequest,
+) -> Result<ExportProfileCookiesResponse, String> {
+    runtime_guard::reconcile_runtime_state(&state).map_err(error_to_string)?;
+    export_profile_cookies_inner(&state, &profile_id, payload)
+}
+
 fn clear_profile_cache_inner(
     state: &AppState,
     profile_id: &str,
@@ -307,6 +332,401 @@ fn clear_profile_cache_inner(
         profile_id: profile_id.to_string(),
         cache_data_dir: cache_data_dir.to_string_lossy().to_string(),
     })
+}
+
+fn read_profile_cookies_inner(
+    state: &AppState,
+    profile_id: &str,
+) -> Result<ReadProfileCookiesResponse, String> {
+    let profile = state
+        .profile_service
+        .lock()
+        .map_err(|_| "profile service lock poisoned".to_string())?
+        .get_profile(profile_id)
+        .map_err(error_to_string)?;
+    let cookie_state = {
+        let engine_manager = state
+            .engine_manager
+            .lock()
+            .map_err(|_| "engine manager lock poisoned".to_string())?;
+        load_profile_cookie_state_from_storage(
+            profile_id,
+            profile.settings.as_ref(),
+            &engine_manager,
+        )?
+        .unwrap_or_else(|| empty_cookie_state(profile_id))
+    };
+    let json = serde_json::to_string_pretty(&cookie_state)
+        .map_err(|err| format!("serialize cookie state failed: {err}"))?;
+    Ok(ReadProfileCookiesResponse {
+        json: format!("{json}\n"),
+        cookie_count: cookie_state.managed_cookies.len(),
+        site_urls: collect_cookie_site_urls(&cookie_state),
+    })
+}
+
+fn export_profile_cookies_inner(
+    state: &AppState,
+    profile_id: &str,
+    payload: ExportProfileCookiesRequest,
+) -> Result<ExportProfileCookiesResponse, String> {
+    let profile_service = state
+        .profile_service
+        .lock()
+        .map_err(|_| "profile service lock poisoned".to_string())?;
+    let profile = profile_service
+        .get_profile(profile_id)
+        .map_err(error_to_string)?;
+    drop(profile_service);
+
+    let export_mode = payload.mode;
+    let export_url = match export_mode {
+        ExportProfileCookiesMode::All => None,
+        ExportProfileCookiesMode::Site => Some(
+            payload
+                .url
+                .as_deref()
+                .and_then(trim_str_to_option)
+                .ok_or_else(|| "按站点导出时必须选择 URL".to_string())?,
+        ),
+    };
+    let export_path = payload
+        .export_path
+        .as_deref()
+        .and_then(trim_str_to_option)
+        .ok_or_else(|| "导出 Cookie 时必须选择保存路径".to_string())?;
+    let cookie_state = {
+        let engine_manager = state
+            .engine_manager
+            .lock()
+            .map_err(|_| "engine manager lock poisoned".to_string())?;
+        load_profile_cookie_state_from_storage(
+            profile_id,
+            profile.settings.as_ref(),
+            &engine_manager,
+        )?
+        .unwrap_or_else(|| empty_cookie_state(profile_id))
+    };
+    let export_cookie_state = match export_mode {
+        ExportProfileCookiesMode::All => cookie_state,
+        ExportProfileCookiesMode::Site => {
+            filter_cookie_state_by_site_label(&cookie_state, &export_url.expect("site export url"))?
+        }
+    };
+    if export_cookie_state.managed_cookies.is_empty() {
+        return Err("当前环境没有可导出的 Cookie".to_string());
+    }
+
+    let file_path = PathBuf::from(export_path);
+    if let Some(parent) = file_path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|err| format!("create cookie export directory failed: {err}"))?;
+    }
+    let content = serde_json::to_string_pretty(&export_cookie_state)
+        .map_err(|err| format!("serialize cookie export failed: {err}"))?;
+    fs::write(&file_path, format!("{content}\n"))
+        .map_err(|err| format!("write cookie export file failed: {err}"))?;
+
+    Ok(ExportProfileCookiesResponse {
+        path: file_path.to_string_lossy().to_string(),
+        cookie_count: export_cookie_state.managed_cookies.len(),
+    })
+}
+
+fn prepare_cookie_state_file(
+    profile_id: &str,
+    settings: Option<&ProfileSettings>,
+    engine_manager: &crate::engine_manager::EngineManager,
+) -> Result<Option<PathBuf>, String> {
+    let cookie_state =
+        load_profile_cookie_state_from_storage(profile_id, settings, engine_manager)?;
+    let Some(cookie_state) = cookie_state else {
+        return Ok(None);
+    };
+    let path = resolve_profile_cookie_state_path(engine_manager, profile_id)?;
+    if !path.exists() {
+        write_cookie_state_file(
+            path.parent()
+                .ok_or_else(|| "resolve cookie directory failed".to_string())?,
+            &cookie_state,
+        )?;
+    }
+    Ok(Some(path))
+}
+
+fn resolve_profile_cookie_state_path(
+    engine_manager: &crate::engine_manager::EngineManager,
+    profile_id: &str,
+) -> Result<PathBuf, String> {
+    Ok(engine_manager
+        .profile_data_dirs(profile_id)
+        .map_err(error_to_string)?
+        .0
+        .join("cookies")
+        .join("cookie-state.json"))
+}
+
+fn empty_cookie_state(profile_id: &str) -> CookieStateFile {
+    CookieStateFile {
+        environment_id: Some(profile_id.to_string()),
+        managed_cookies: Vec::new(),
+    }
+}
+
+fn load_profile_cookie_state_from_storage(
+    profile_id: &str,
+    settings: Option<&ProfileSettings>,
+    engine_manager: &crate::engine_manager::EngineManager,
+) -> Result<Option<CookieStateFile>, String> {
+    let path = resolve_profile_cookie_state_path(engine_manager, profile_id)?;
+    if path.exists() {
+        let content = fs::read_to_string(&path)
+            .map_err(|err| format!("read cookie state file failed: {err}"))?;
+        let mut cookie_state = parse_cookie_state_json(&content)?;
+        if cookie_state
+            .environment_id
+            .as_deref()
+            .and_then(trim_str_to_option)
+            .is_none()
+        {
+            cookie_state.environment_id = Some(profile_id.to_string());
+            write_cookie_state_file(
+                path.parent()
+                    .ok_or_else(|| "resolve cookie directory failed".to_string())?,
+                &cookie_state,
+            )?;
+        }
+        return Ok(Some(cookie_state));
+    }
+
+    let cookie_state_json = settings
+        .and_then(|value| value.advanced.as_ref())
+        .and_then(|value| value.cookie_state_json.as_deref())
+        .and_then(trim_str_to_option);
+    let Some(cookie_state_json) = cookie_state_json else {
+        return Ok(None);
+    };
+    let mut cookie_state = parse_cookie_state_json(&cookie_state_json)?;
+    if cookie_state
+        .environment_id
+        .as_deref()
+        .and_then(trim_str_to_option)
+        .is_none()
+    {
+        cookie_state.environment_id = Some(profile_id.to_string());
+    }
+    write_cookie_state_file(
+        path.parent()
+            .ok_or_else(|| "resolve cookie directory failed".to_string())?,
+        &cookie_state,
+    )?;
+    Ok(Some(cookie_state))
+}
+
+fn parse_cookie_state_json(value: &str) -> Result<CookieStateFile, String> {
+    let parsed = serde_json::from_str::<CookieStateFile>(value)
+        .map_err(|err| format!("cookieStateJson must be valid JSON: {err}"))?;
+    for cookie in &parsed.managed_cookies {
+        validate_managed_cookie(cookie)?;
+    }
+    Ok(parsed)
+}
+
+fn validate_managed_cookie(cookie: &ManagedCookie) -> Result<(), String> {
+    if cookie.cookie_id.trim().is_empty()
+        || cookie.url.trim().is_empty()
+        || cookie.name.trim().is_empty()
+    {
+        return Err(
+            "cookieStateJson must include cookie_id, url, name, value for each cookie".to_string(),
+        );
+    }
+    let parsed = Url::parse(cookie.url.trim())
+        .map_err(|err| format!("cookieStateJson url is invalid: {err}"))?;
+    if parsed.scheme() != "http" && parsed.scheme() != "https" {
+        return Err("cookieStateJson url must start with http:// or https://".to_string());
+    }
+    Ok(())
+}
+
+fn write_cookie_state_file(
+    runtime_dir: &Path,
+    cookie_state: &CookieStateFile,
+) -> Result<PathBuf, String> {
+    fs::create_dir_all(runtime_dir)
+        .map_err(|err| format!("create runtime cookie directory failed: {err}"))?;
+    let path = runtime_dir.join("cookie-state.json");
+    let content = serde_json::to_string_pretty(cookie_state)
+        .map_err(|err| format!("serialize cookieStateJson failed: {err}"))?;
+    fs::write(&path, format!("{content}\n"))
+        .map_err(|err| format!("write cookie state file failed: {err}"))?;
+    Ok(path)
+}
+
+fn sync_profile_cookie_state_from_settings_quietly(
+    state: &AppState,
+    profile_id: &str,
+    settings: Option<&ProfileSettings>,
+) {
+    let engine_manager = match state.engine_manager.lock() {
+        Ok(value) => value,
+        Err(_) => {
+            logger::warn(
+                "profile_cmd",
+                format!(
+                    "skip syncing cookie state because engine manager lock poisoned profile_id={profile_id}"
+                ),
+            );
+            return;
+        }
+    };
+    let path = match resolve_profile_cookie_state_path(&engine_manager, profile_id) {
+        Ok(value) => value,
+        Err(err) => {
+            logger::warn(
+                "profile_cmd",
+                format!("resolve cookie state path failed profile_id={profile_id}: {err}"),
+            );
+            return;
+        }
+    };
+    let cookie_state_json = settings
+        .and_then(|value| value.advanced.as_ref())
+        .and_then(|value| value.cookie_state_json.as_deref())
+        .and_then(trim_str_to_option);
+    let Some(cookie_state_json) = cookie_state_json else {
+        if path.exists() {
+            if let Err(err) = fs::remove_file(&path) {
+                logger::warn(
+                    "profile_cmd",
+                    format!("remove cookie state file failed profile_id={profile_id}: {err}"),
+                );
+            }
+        }
+        return;
+    };
+
+    match parse_cookie_state_json(&cookie_state_json) {
+        Ok(mut cookie_state) => {
+            if cookie_state
+                .environment_id
+                .as_deref()
+                .and_then(trim_str_to_option)
+                .is_none()
+            {
+                cookie_state.environment_id = Some(profile_id.to_string());
+            }
+            if let Err(err) = write_cookie_state_file(
+                path.parent().unwrap_or_else(|| Path::new(".")),
+                &cookie_state,
+            ) {
+                logger::warn(
+                    "profile_cmd",
+                    format!("sync cookie state file failed profile_id={profile_id}: {err}"),
+                );
+            }
+        }
+        Err(err) => logger::warn(
+            "profile_cmd",
+            format!("skip syncing invalid cookie state profile_id={profile_id}: {err}"),
+        ),
+    }
+}
+
+fn collect_cookie_site_urls(cookie_state: &CookieStateFile) -> Vec<String> {
+    let mut sites = cookie_state
+        .managed_cookies
+        .iter()
+        .filter_map(|cookie| extract_cookie_site_label(&cookie.url).ok())
+        .collect::<Vec<_>>();
+    sites.sort();
+    sites.dedup();
+    sites
+}
+
+fn extract_cookie_site_label(url: &str) -> Result<String, String> {
+    let parsed = Url::parse(url).map_err(|err| format!("invalid cookie url: {err}"))?;
+    if parsed.scheme() != "http" && parsed.scheme() != "https" {
+        return Err("cookie url must start with http:// or https://".to_string());
+    }
+    Ok(format!(
+        "{}://{}/",
+        parsed.scheme(),
+        parsed.host_str().unwrap_or_default()
+    ))
+}
+
+fn filter_cookie_state_by_site_label(
+    cookie_state: &CookieStateFile,
+    site_label: &str,
+) -> Result<CookieStateFile, String> {
+    let expected = extract_cookie_site_label(site_label)?;
+    let managed_cookies = cookie_state
+        .managed_cookies
+        .iter()
+        .filter(|cookie| {
+            extract_cookie_site_label(&cookie.url)
+                .map(|value| value == expected)
+                .unwrap_or(false)
+        })
+        .cloned()
+        .collect();
+    Ok(CookieStateFile {
+        environment_id: cookie_state.environment_id.clone(),
+        managed_cookies,
+    })
+}
+
+fn snapshot_running_profile_cookie_state_quietly(
+    profile_id: &str,
+    engine_manager: &crate::engine_manager::EngineManager,
+) {
+    let cookie_state = match engine_manager.export_profile_cookie_state(
+        profile_id,
+        ExportProfileCookiesMode::All,
+        None,
+        Some(profile_id),
+    ) {
+        Ok(value) => value,
+        Err(err) => {
+            logger::warn(
+                "profile_cmd",
+                format!(
+                    "skip cookie snapshot because export failed profile_id={profile_id}: {err}"
+                ),
+            );
+            return;
+        }
+    };
+    let path = match resolve_profile_cookie_state_path(engine_manager, profile_id) {
+        Ok(value) => value,
+        Err(err) => {
+            logger::warn(
+                "profile_cmd",
+                format!(
+                    "skip cookie snapshot because resolve path failed profile_id={profile_id}: {err}"
+                ),
+            );
+            return;
+        }
+    };
+    if let Err(err) = write_cookie_state_file(
+        path.parent().unwrap_or_else(|| Path::new(".")),
+        &cookie_state,
+    ) {
+        logger::warn(
+            "profile_cmd",
+            format!("write cookie snapshot failed profile_id={profile_id}: {err}"),
+        );
+        return;
+    }
+    logger::info(
+        "profile_cmd",
+        format!(
+            "cookie snapshot saved before close profile_id={profile_id} path={}",
+            path.to_string_lossy()
+        ),
+    );
 }
 
 #[tauri::command]
@@ -487,6 +907,7 @@ fn do_delete_profile(state: &AppState, profile_id: &str) -> Result<Profile, Stri
         .map_err(|_| "engine manager lock poisoned".to_string())?;
 
     if engine_manager.is_running(profile_id) {
+        snapshot_running_profile_cookie_state_quietly(profile_id, &engine_manager);
         let _ = engine_manager.close_profile(profile_id);
     }
     let _ = engine_session_service.delete_session(profile_id);
@@ -808,11 +1229,16 @@ pub(crate) fn do_open_profile(
     let geoip_database = resource_service.resolve_geoip_database_path();
     let mut merged_options = merge_open_options(profile_snapshot.settings.as_ref(), user_options);
     merged_options.fingerprint_seed = Some(fingerprint_seed);
+    let cookie_state_file = prepare_cookie_state_file(
+        profile_id,
+        profile_snapshot.settings.as_ref(),
+        &engine_manager,
+    )?;
     let device_preset_service = state
         .device_preset_service
         .lock()
         .map_err(|_| "device preset service lock poisoned".to_string())?;
-    let launch_options = resolve_launch_options(
+    let mut launch_options = resolve_launch_options(
         &device_preset_service,
         profile_id,
         &profile_snapshot.name,
@@ -823,6 +1249,7 @@ pub(crate) fn do_open_profile(
         geoip_database,
         Some(resolved_browser_version.as_str()),
     )?;
+    launch_options.cookie_state_file = cookie_state_file;
     logger::info(
         "profile_cmd",
         format!(
@@ -1056,6 +1483,7 @@ fn resolve_launch_options(
         custom_cpu_cores,
         custom_ram_gb,
         custom_font_list,
+        cookie_state_file: None,
         extra_args,
     })
 }
@@ -1866,6 +2294,7 @@ pub(crate) fn do_close_profile(state: &AppState, profile_id: &str) -> Result<Pro
             "profile_cmd",
             format!("do_close_profile engine_manager session found profile_id={profile_id}"),
         );
+        snapshot_running_profile_cookie_state_quietly(profile_id, &engine_manager);
         engine_manager
             .close_profile(profile_id)
             .map_err(error_to_string)?;
@@ -1937,8 +2366,9 @@ mod tests {
     use crate::engine_manager::EngineManager;
     use crate::local_api_server::LocalApiServer;
     use crate::models::{
-        CreateProfileRequest, GeolocationOverride, OpenProfileOptions, Proxy, ProxyLifecycle,
-        WebRtcMode,
+        CookieStateFile, CreateProfileRequest, ExportProfileCookiesMode,
+        ExportProfileCookiesRequest, GeolocationOverride, ManagedCookie, OpenProfileOptions,
+        ProfileSettings, Proxy, ProxyLifecycle, WebRtcMode,
     };
     use crate::services::chromium_magic_adapter_service::ChromiumMagicAdapterService;
     use crate::services::device_preset_service::DevicePresetService;
@@ -2142,6 +2572,244 @@ mod tests {
         let err = clear_profile_cache_inner(&state, &profile.id)
             .expect_err("running profile should reject");
         assert!(err.contains("不能清理 cache"));
+    }
+
+    #[test]
+    fn read_profile_cookies_reads_local_cookie_file_for_stopped_profile() {
+        let state = new_test_state();
+        let profile = {
+            let service = state.profile_service.lock().expect("profile service lock");
+            service
+                .create_profile(CreateProfileRequest {
+                    name: "cookie-reader".to_string(),
+                    group: None,
+                    note: None,
+                    proxy_id: None,
+                    settings: None,
+                })
+                .expect("create profile")
+        };
+        let cookie_path = resolve_profile_cookie_state_path(
+            &state.engine_manager.lock().expect("engine manager lock"),
+            &profile.id,
+        )
+        .expect("cookie path");
+        write_cookie_state_file(
+            cookie_path.parent().expect("cookie parent"),
+            &CookieStateFile {
+                environment_id: Some(profile.id.clone()),
+                managed_cookies: vec![ManagedCookie {
+                    cookie_id: "ck_1".to_string(),
+                    url: "https://example.com/".to_string(),
+                    name: "sid".to_string(),
+                    value: "abc".to_string(),
+                    domain: Some(".example.com".to_string()),
+                    path: Some("/".to_string()),
+                    secure: Some(true),
+                    http_only: Some(true),
+                    same_site: Some("none".to_string()),
+                    expires: None,
+                }],
+            },
+        )
+        .expect("write cookie state");
+
+        let response = read_profile_cookies_inner(&state, &profile.id).expect("read cookies");
+
+        assert_eq!(response.cookie_count, 1);
+        assert_eq!(response.site_urls, vec!["https://example.com/"]);
+        assert!(response.json.contains("\"managed_cookies\""));
+    }
+
+    #[test]
+    fn prepare_cookie_state_file_migrates_legacy_cookie_state_into_profile_cookie_dir() {
+        let state = new_test_state();
+        let profile_id = "pf_cookie_migrate";
+        let settings = ProfileSettings {
+            advanced: Some(crate::models::ProfileAdvancedSettings {
+                cookie_state_json: Some(
+                    r#"{
+  "managed_cookies": [
+    {
+      "cookie_id": "ck_legacy",
+      "url": "https://legacy.example.com/",
+      "name": "sid",
+      "value": "legacy"
+    }
+  ]
+}"#
+                    .to_string(),
+                ),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        let path = prepare_cookie_state_file(
+            profile_id,
+            Some(&settings),
+            &state.engine_manager.lock().expect("engine manager lock"),
+        )
+        .expect("prepare cookie state file")
+        .expect("cookie path");
+
+        assert!(path.ends_with(&format!("{profile_id}/cookies/cookie-state.json")));
+        let written = std::fs::read_to_string(&path).expect("read cookie state");
+        assert!(written.contains("\"environment_id\": \"pf_cookie_migrate\""));
+        assert!(written.contains("\"ck_legacy\""));
+    }
+
+    #[test]
+    fn export_profile_cookies_writes_selected_path_for_stopped_profile() {
+        let state = new_test_state();
+        let profile = {
+            let service = state.profile_service.lock().expect("profile service lock");
+            service
+                .create_profile(CreateProfileRequest {
+                    name: "cookie-exporter".to_string(),
+                    group: None,
+                    note: None,
+                    proxy_id: None,
+                    settings: None,
+                })
+                .expect("create profile")
+        };
+        let cookie_path = resolve_profile_cookie_state_path(
+            &state.engine_manager.lock().expect("engine manager lock"),
+            &profile.id,
+        )
+        .expect("cookie path");
+        write_cookie_state_file(
+            cookie_path.parent().expect("cookie parent"),
+            &CookieStateFile {
+                environment_id: Some(profile.id.clone()),
+                managed_cookies: vec![ManagedCookie {
+                    cookie_id: "ck_1".to_string(),
+                    url: "https://example.com/".to_string(),
+                    name: "sid".to_string(),
+                    value: "abc".to_string(),
+                    domain: Some(".example.com".to_string()),
+                    path: Some("/".to_string()),
+                    secure: Some(true),
+                    http_only: Some(true),
+                    same_site: Some("none".to_string()),
+                    expires: None,
+                }],
+            },
+        )
+        .expect("write cookie state");
+        let export_path = std::env::temp_dir().join(format!("{}-cookie-export.json", profile.id));
+        if export_path.exists() {
+            std::fs::remove_file(&export_path).expect("remove old export");
+        }
+
+        let response = export_profile_cookies_inner(
+            &state,
+            &profile.id,
+            ExportProfileCookiesRequest {
+                mode: ExportProfileCookiesMode::All,
+                url: None,
+                export_path: Some(export_path.to_string_lossy().to_string()),
+            },
+        )
+        .expect("export cookies");
+
+        assert_eq!(response.path, export_path.to_string_lossy());
+        let exported = std::fs::read_to_string(export_path).expect("read export");
+        assert!(exported.contains("\"managed_cookies\""));
+        assert!(exported.contains("\"ck_1\""));
+    }
+
+    #[test]
+    fn write_cookie_state_file_creates_runtime_cookie_state_json() {
+        let state = new_test_state();
+        let profile_id = "pf_cookie_state";
+        let runtime_dir = state
+            .engine_manager
+            .lock()
+            .expect("engine manager lock")
+            .profile_data_dirs(profile_id)
+            .expect("profile dirs")
+            .0
+            .join("runtime");
+
+        let path = write_cookie_state_file(
+            &runtime_dir,
+            &CookieStateFile {
+                environment_id: Some(profile_id.to_string()),
+                managed_cookies: vec![ManagedCookie {
+                    cookie_id: "ck_1".to_string(),
+                    url: "https://example.com/".to_string(),
+                    name: "sid".to_string(),
+                    value: "abc".to_string(),
+                    domain: Some(".example.com".to_string()),
+                    path: Some("/".to_string()),
+                    secure: Some(true),
+                    http_only: Some(true),
+                    same_site: Some("none".to_string()),
+                    expires: None,
+                }],
+            },
+        )
+        .expect("write cookie state file");
+
+        assert!(path.ends_with("cookie-state.json"));
+        let written = std::fs::read_to_string(path).expect("read cookie state");
+        assert!(written.contains("\"managed_cookies\""));
+        assert!(written.contains("\"environment_id\""));
+    }
+
+    #[test]
+    fn collect_cookie_site_urls_returns_unique_sorted_urls() {
+        let sites = collect_cookie_site_urls(&CookieStateFile {
+            environment_id: Some("env_1".to_string()),
+            managed_cookies: vec![
+                ManagedCookie {
+                    cookie_id: "ck_1".to_string(),
+                    url: "https://example.com/path".to_string(),
+                    name: "sid".to_string(),
+                    value: "1".to_string(),
+                    domain: None,
+                    path: None,
+                    secure: None,
+                    http_only: None,
+                    same_site: None,
+                    expires: None,
+                },
+                ManagedCookie {
+                    cookie_id: "ck_2".to_string(),
+                    url: "https://accounts.example.com/".to_string(),
+                    name: "token".to_string(),
+                    value: "2".to_string(),
+                    domain: None,
+                    path: None,
+                    secure: None,
+                    http_only: None,
+                    same_site: None,
+                    expires: None,
+                },
+                ManagedCookie {
+                    cookie_id: "ck_3".to_string(),
+                    url: "https://example.com/another".to_string(),
+                    name: "sid2".to_string(),
+                    value: "3".to_string(),
+                    domain: None,
+                    path: None,
+                    secure: None,
+                    http_only: None,
+                    same_site: None,
+                    expires: None,
+                },
+            ],
+        });
+
+        assert_eq!(
+            sites,
+            vec![
+                "https://accounts.example.com/".to_string(),
+                "https://example.com/".to_string()
+            ]
+        );
     }
 
     #[test]

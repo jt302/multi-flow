@@ -137,6 +137,10 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 
 								<AdvancedSettingsSection
 									form={form}
+									cookieStateJson={values.cookieStateJson}
+									profileId={props.initialProfile?.id}
+									cookieStateLoading={values.runtimeCookieStateLoading}
+									cookieStateError={values.runtimeCookieStateError}
 									geolocationMode={values.geolocationMode}
 									headless={values.headless}
 									disableImages={values.disableImages}

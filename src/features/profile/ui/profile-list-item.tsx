@@ -1,5 +1,6 @@
 import {
 	Eye,
+	FileDown,
 	Globe,
 	Loader2,
 	Monitor,
@@ -13,6 +14,8 @@ import {
 	Type,
 	Wrench,
 } from 'lucide-react';
+import { useState } from 'react';
+import { save } from '@tauri-apps/plugin-dialog';
 
 import {
 	Badge,
@@ -33,6 +36,11 @@ import {
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 	Icon,
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
 	TableCell,
 	TableRow,
 } from '@/components/ui';
@@ -42,8 +50,11 @@ import {
 	resolvePlatformMeta,
 } from '@/entities/profile/lib/profile-list';
 import type {
+	ExportProfileCookiesPayload,
+	ExportProfileCookiesResponse,
 	ProfileActionState,
 	ProfileItem,
+	ReadProfileCookiesResponse,
 } from '@/entities/profile/model/types';
 import type { GroupItem } from '@/entities/group/model/types';
 import type { ProxyItem } from '@/entities/proxy/model/types';
@@ -80,6 +91,11 @@ type ProfileListItemProps = {
 	onFocusProfileWindow: (profileId: string) => Promise<void>;
 	onDeleteProfile: (profileId: string) => Promise<void>;
 	onRestoreProfile: (profileId: string) => Promise<void>;
+	onReadProfileCookies: (profileId: string) => Promise<ReadProfileCookiesResponse>;
+	onExportProfileCookies: (
+		profileId: string,
+		payload: ExportProfileCookiesPayload,
+	) => Promise<ExportProfileCookiesResponse>;
 };
 
 function resolveRunningLabel(running: boolean, actionState?: ProfileActionState) {
@@ -134,6 +150,28 @@ function resolveProxyConnectivity(proxy?: ProxyItem): {
 	}
 }
 
+function sanitizeCookieExportLabel(value: string) {
+	const normalized = value
+		.trim()
+		.replace(/[^A-Za-z0-9._-]+/g, '-')
+		.replace(/-+/g, '-')
+		.replace(/^-|-$/g, '');
+	return normalized || 'profile';
+}
+
+async function selectCookieExportPath(profileName: string, scope: string) {
+	const profileLabel = sanitizeCookieExportLabel(profileName);
+	const scopeLabel = sanitizeCookieExportLabel(scope);
+	const selected = await save({
+		defaultPath: `${profileLabel}-cookies-${scopeLabel}.json`,
+		filters: [{ name: 'JSON', extensions: ['json'] }],
+	});
+	if (!selected) {
+		return null;
+	}
+	return Array.isArray(selected) ? selected[0] ?? null : selected;
+}
+
 export function ProfileListItem({
 	item,
 	groups,
@@ -156,6 +194,8 @@ export function ProfileListItem({
 	onFocusProfileWindow,
 	onDeleteProfile,
 	onRestoreProfile,
+	onReadProfileCookies,
+	onExportProfileCookies,
 }: ProfileListItemProps) {
 	const actionPending = Boolean(actionState);
 	const runLabel = resolveRunningLabel(item.running, actionState);
@@ -182,6 +222,44 @@ export function ProfileListItem({
 	const editConfigDisabled = actionPending || item.running;
 	const isBgEditing = quickEdit?.profileId === item.id && quickEdit.field === 'background';
 	const isToolbarEditing = quickEdit?.profileId === item.id && quickEdit.field === 'toolbar';
+	const [siteExportDialogOpen, setSiteExportDialogOpen] = useState(false);
+	const [cookieSiteUrls, setCookieSiteUrls] = useState<string[]>([]);
+	const [selectedCookieSiteUrl, setSelectedCookieSiteUrl] = useState('');
+	const [cookieSiteLoading, setCookieSiteLoading] = useState(false);
+	const [cookieSiteExporting, setCookieSiteExporting] = useState(false);
+	const [cookieSiteError, setCookieSiteError] = useState<string | null>(null);
+
+	const openSiteExportDialog = async () => {
+		setCookieSiteError(null);
+		setCookieSiteLoading(true);
+		try {
+			const result = await onReadProfileCookies(item.id);
+			setCookieSiteUrls(result.siteUrls);
+			setSelectedCookieSiteUrl(result.siteUrls[0] ?? '');
+			setSiteExportDialogOpen(true);
+			if (result.siteUrls.length === 0) {
+				setCookieSiteError('当前环境没有可导出的站点 Cookie。');
+			}
+		} catch (error) {
+			setCookieSiteError(error instanceof Error ? error.message : '读取 Cookie 站点失败');
+			setCookieSiteUrls([]);
+			setSelectedCookieSiteUrl('');
+			setSiteExportDialogOpen(true);
+		} finally {
+			setCookieSiteLoading(false);
+		}
+	};
+
+	const exportAllCookies = async () => {
+		const exportPath = await selectCookieExportPath(item.name, 'all');
+		if (!exportPath) {
+			return;
+		}
+		await onExportProfileCookies(item.id, {
+			mode: 'all',
+			exportPath,
+		});
+	};
 
 	return (
 		<>
@@ -382,6 +460,34 @@ export function ProfileListItem({
 											<Icon icon={Wrench} size={13} />
 											修改环境配置
 										</DropdownMenuItem>
+										{!item.running ? (
+											<DropdownMenuSub>
+												<DropdownMenuSubTrigger className="cursor-pointer">
+													<Icon icon={FileDown} size={13} />
+													导出 Cookie
+												</DropdownMenuSubTrigger>
+												<DropdownMenuSubContent className="w-52">
+													<DropdownMenuItem
+														className="cursor-pointer"
+														disabled={actionPending}
+														onClick={() => {
+															void onRunAction(exportAllCookies);
+														}}
+													>
+														导出整个 profile
+													</DropdownMenuItem>
+													<DropdownMenuItem
+														className="cursor-pointer"
+														disabled={actionPending}
+														onClick={() => {
+															void openSiteExportDialog();
+														}}
+													>
+														按站点导出
+													</DropdownMenuItem>
+												</DropdownMenuSubContent>
+											</DropdownMenuSub>
+										) : null}
 										<DropdownMenuSeparator />
 										<DropdownMenuItem
 											className="cursor-pointer text-destructive focus:text-destructive"
@@ -473,6 +579,105 @@ export function ProfileListItem({
 					</TableCell>
 				</TableRow>
 			) : null}
+
+			<Dialog
+				open={siteExportDialogOpen}
+				onOpenChange={(open) => {
+					setSiteExportDialogOpen(open);
+					if (!open) {
+						setCookieSiteError(null);
+					}
+				}}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>按站点导出 Cookie</DialogTitle>
+						<DialogDescription>
+							从当前环境本地 Cookie 文件中选择一个站点导出。
+						</DialogDescription>
+					</DialogHeader>
+					<div className="space-y-3">
+						<div>
+							<p className="mb-1 text-xs text-muted-foreground">站点</p>
+							<Select
+								value={selectedCookieSiteUrl}
+								onValueChange={setSelectedCookieSiteUrl}
+								disabled={cookieSiteLoading || cookieSiteUrls.length === 0}
+							>
+								<SelectTrigger className="cursor-pointer">
+									<SelectValue
+										placeholder={
+											cookieSiteLoading ? '读取中...' : '选择站点'
+										}
+									/>
+								</SelectTrigger>
+								<SelectContent>
+									{cookieSiteUrls.map((siteUrl) => (
+										<SelectItem key={siteUrl} value={siteUrl}>
+											{siteUrl}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+						{cookieSiteError ? (
+							<p className="text-xs text-destructive">{cookieSiteError}</p>
+						) : null}
+					</div>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							className="cursor-pointer"
+							onClick={() => setSiteExportDialogOpen(false)}
+						>
+							取消
+						</Button>
+						<Button
+							type="button"
+							className="cursor-pointer"
+							disabled={
+								cookieSiteLoading ||
+								cookieSiteExporting ||
+								!selectedCookieSiteUrl
+							}
+							onClick={() => {
+								setCookieSiteExporting(true);
+								void (async () => {
+									try {
+										const exportPath = await selectCookieExportPath(
+											item.name,
+											selectedCookieSiteUrl,
+										);
+										if (!exportPath) {
+											return;
+										}
+										await onExportProfileCookies(item.id, {
+											mode: 'site',
+											url: selectedCookieSiteUrl,
+											exportPath,
+										});
+										setSiteExportDialogOpen(false);
+									} catch (error) {
+										setCookieSiteError(
+											error instanceof Error
+												? error.message
+												: '按站点导出 Cookie 失败',
+										);
+									} finally {
+										setCookieSiteExporting(false);
+									}
+								})();
+							}}
+						>
+							{cookieSiteExporting ? (
+								<Icon icon={Loader2} size={12} className="animate-spin" />
+							) : null}
+							确认导出
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</>
 	);
 }

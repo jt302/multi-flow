@@ -2,9 +2,12 @@ import type { GroupItem } from '@/entities/group/model/types';
 import type {
 	BatchProfileActionResponse,
 	CreateProfilePayload,
+	ExportProfileCookiesPayload,
+	ExportProfileCookiesResponse,
 	ProfileActionState,
 	ProfileItem,
 	ProfileProxyBindingMap,
+	ReadProfileCookiesResponse,
 } from '@/entities/profile/model/types';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import type { ResourceItem } from '@/entities/resource/model/types';
@@ -31,6 +34,11 @@ export type ProfilesPageProps = {
 	onBatchSetProfileGroup: (profileIds: string[], groupName?: string) => Promise<BatchProfileActionResponse>;
 	onDeleteProfile: (profileId: string) => Promise<void>;
 	onRestoreProfile: (profileId: string) => Promise<void>;
+	onReadProfileCookies: (profileId: string) => Promise<ReadProfileCookiesResponse>;
+	onExportProfileCookies: (
+		profileId: string,
+		payload: ExportProfileCookiesPayload,
+	) => Promise<ExportProfileCookiesResponse>;
 	onRefreshProfiles: () => Promise<void>;
 	navigationIntent?: {
 		profileId: string;
