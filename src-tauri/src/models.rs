@@ -496,6 +496,12 @@ pub struct DownloadPluginByExtensionIdRequest {
     pub proxy_id: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginDownloadPreference {
+    pub proxy_id: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstallPluginToProfilesRequest {

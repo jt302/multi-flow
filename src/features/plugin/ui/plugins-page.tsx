@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { Download, PackageCheck, Puzzle, RefreshCcw, Trash2 } from 'lucide-react';
@@ -35,7 +35,9 @@ import {
 	downloadPluginByExtensionId,
 	installPluginToProfiles,
 	listPluginPackages,
+	readPluginDownloadPreference,
 	uninstallPluginPackage,
+	updatePluginDownloadPreference,
 	updatePluginPackage,
 } from '@/entities/plugin/api/plugins-api';
 import type { PluginPackage } from '@/entities/plugin/model/types';
@@ -68,6 +70,7 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 	const [selectedDownloadProxyId, setSelectedDownloadProxyId] = useState(
 		DIRECT_DOWNLOAD_PROXY_VALUE,
 	);
+	const preferenceHydratedRef = useRef(false);
 
 	const pluginPackagesQuery = useQuery({
 		queryKey: ['plugin-packages'],
@@ -103,6 +106,58 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 	);
 	const refreshAll = async () => {
 		await Promise.all([pluginPackagesQuery.refetch(), onRefreshProfiles()]);
+	};
+
+	useEffect(() => {
+		let cancelled = false;
+		void (async () => {
+			try {
+				const preference = await readPluginDownloadPreference();
+				if (cancelled) {
+					return;
+				}
+				setSelectedDownloadProxyId(
+					preference.proxyId?.trim() || DIRECT_DOWNLOAD_PROXY_VALUE,
+				);
+			} catch (error) {
+				if (cancelled) {
+					return;
+				}
+				toast.error(
+					error instanceof Error ? error.message : '读取插件下载代理偏好失败',
+				);
+			} finally {
+				if (!cancelled) {
+					preferenceHydratedRef.current = true;
+				}
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
+	const handleDownloadProxyChange = (value: string) => {
+		const previousValue = selectedDownloadProxyId;
+		setSelectedDownloadProxyId(value);
+		if (!preferenceHydratedRef.current) {
+			return;
+		}
+		void (async () => {
+			try {
+				const saved = await updatePluginDownloadPreference(
+					value === DIRECT_DOWNLOAD_PROXY_VALUE ? null : value,
+				);
+				setSelectedDownloadProxyId(
+					saved.proxyId?.trim() || DIRECT_DOWNLOAD_PROXY_VALUE,
+				);
+			} catch (error) {
+				setSelectedDownloadProxyId(previousValue);
+				toast.error(
+					error instanceof Error ? error.message : '保存插件下载代理偏好失败',
+				);
+			}
+		})();
 	};
 
 	const handleDownload = async () => {
@@ -183,7 +238,7 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 						/>
 						<Select
 							value={selectedDownloadProxyId}
-							onValueChange={setSelectedDownloadProxyId}
+							onValueChange={handleDownloadProxyChange}
 						>
 							<SelectTrigger className="min-w-[220px] cursor-pointer">
 								<SelectValue placeholder="下载代理" />
@@ -456,12 +511,15 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 					<div className="max-h-[360px] space-y-2 overflow-y-auto">
 						{activeFilteredProfiles.map((profile) => {
 							const checked = selectedProfileIds.includes(profile.id);
+							const selectId = `plugin-install-profile-${profile.id}`;
 							return (
 								<label
+									htmlFor={selectId}
 									key={profile.id}
 									className="flex items-start gap-3 rounded-lg border border-border/60 px-3 py-3 text-sm"
 								>
 									<Checkbox
+										id={selectId}
 										checked={checked}
 										className="mt-0.5 cursor-pointer"
 										onCheckedChange={(next) => {

@@ -439,6 +439,7 @@ mod tests {
     use crate::services::chromium_magic_adapter_service::ChromiumMagicAdapterService;
     use crate::services::device_preset_service::DevicePresetService;
     use crate::services::engine_session_service::EngineSessionService;
+    use crate::services::app_preference_service::AppPreferenceService;
     use crate::services::plugin_package_service::PluginPackageService;
     use crate::services::profile_group_service::ProfileGroupService;
     use crate::services::profile_service::ProfileService;
@@ -513,6 +514,7 @@ mod tests {
         let resource_dir = std::env::temp_dir().join(format!("multi-flow-sync-cmd-test-{unique}"));
         let resource_service =
             ResourceService::from_data_dir(&resource_dir).expect("resource service");
+        let app_preference_service = AppPreferenceService::from_data_dir(resource_dir.clone());
         let mut local_api_server = LocalApiServer::new("127.0.0.1:18180");
         local_api_server.mark_started();
 
@@ -520,6 +522,7 @@ mod tests {
             profile_group_service: Mutex::new(profile_group_service),
             profile_service: Mutex::new(profile_service),
             device_preset_service: Mutex::new(device_preset_service),
+            app_preference_service: Mutex::new(app_preference_service),
             plugin_package_service: Mutex::new(plugin_package_service),
             engine_session_service: Mutex::new(engine_session_service),
             proxy_service: Mutex::new(proxy_service),

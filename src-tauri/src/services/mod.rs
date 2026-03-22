@@ -1,3 +1,4 @@
+pub mod app_preference_service;
 pub mod chromium_magic_adapter_service;
 pub mod device_preset_service;
 pub mod engine_session_service;

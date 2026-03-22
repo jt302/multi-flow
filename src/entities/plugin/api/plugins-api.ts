@@ -1,12 +1,25 @@
 import type { BatchProfileActionResponse, ProfileItem, ProfilePluginSelection } from '@/entities/profile/model/types';
 import type {
 	InstallPluginToProfilesPayload,
+	PluginDownloadPreference,
 	PluginPackage,
 } from '@/entities/plugin/model/types';
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
 
 export async function listPluginPackages(): Promise<PluginPackage[]> {
 	return tauriInvoke<PluginPackage[]>('list_plugin_packages');
+}
+
+export async function readPluginDownloadPreference(): Promise<PluginDownloadPreference> {
+	return tauriInvoke<PluginDownloadPreference>('read_plugin_download_preference');
+}
+
+export async function updatePluginDownloadPreference(
+	proxyId?: string | null,
+): Promise<PluginDownloadPreference> {
+	return tauriInvoke<PluginDownloadPreference>('update_plugin_download_preference', {
+		proxyId: proxyId?.trim() || null,
+	});
 }
 
 export async function downloadPluginByExtensionId(

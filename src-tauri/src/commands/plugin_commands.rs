@@ -15,7 +15,8 @@ use crate::logger;
 use crate::models::{
     BatchProfileActionItem, BatchProfileActionResponse, CreateProfileRequest,
     DownloadPluginByExtensionIdRequest, InstallPluginToProfilesRequest, PluginPackage,
-    ProfileAdvancedSettings, ProfilePluginSelection, UpdateProfilePluginsRequest,
+    PluginDownloadPreference, ProfileAdvancedSettings, ProfilePluginSelection,
+    UpdateProfilePluginsRequest,
 };
 use crate::state::AppState;
 
@@ -76,6 +77,73 @@ pub fn list_plugin_packages(state: State<'_, AppState>) -> Result<Vec<PluginPack
         .lock()
         .map_err(|_| "plugin package service lock poisoned".to_string())?;
     service.list_packages().map_err(error_to_string)
+}
+
+#[tauri::command]
+pub async fn read_plugin_download_preference(
+    app: AppHandle,
+) -> Result<PluginDownloadPreference, String> {
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app_handle.state::<AppState>();
+        read_plugin_download_preference_inner(&state)
+    })
+    .await
+    .map_err(|err| format!("读取插件下载代理偏好任务执行失败: {err}"))?
+}
+
+fn read_plugin_download_preference_inner(
+    state: &AppState,
+) -> Result<PluginDownloadPreference, String> {
+    let saved_proxy_id = {
+        let service = state
+            .app_preference_service
+            .lock()
+            .map_err(|_| "app preference service lock poisoned".to_string())?;
+        service
+            .read_plugin_download_proxy_id()
+            .map_err(error_to_string)?
+    };
+    let proxy_id = validate_saved_plugin_download_proxy_id(state, saved_proxy_id)?;
+    Ok(PluginDownloadPreference { proxy_id })
+}
+
+#[tauri::command]
+pub async fn update_plugin_download_preference(
+    app: AppHandle,
+    proxy_id: Option<String>,
+) -> Result<PluginDownloadPreference, String> {
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app_handle.state::<AppState>();
+        update_plugin_download_preference_inner(&state, proxy_id)
+    })
+    .await
+    .map_err(|err| format!("更新插件下载代理偏好任务执行失败: {err}"))?
+}
+
+fn update_plugin_download_preference_inner(
+    state: &AppState,
+    proxy_id: Option<String>,
+) -> Result<PluginDownloadPreference, String> {
+    let normalized_proxy_id = normalize_optional_proxy_id(proxy_id);
+    if let Some(proxy_id) = normalized_proxy_id.as_deref() {
+        let service = state
+            .proxy_service
+            .lock()
+            .map_err(|_| "proxy service lock poisoned".to_string())?;
+        service.get_proxy(proxy_id).map_err(error_to_string)?;
+    }
+    let service = state
+        .app_preference_service
+        .lock()
+        .map_err(|_| "app preference service lock poisoned".to_string())?;
+    service
+        .save_plugin_download_proxy_id(normalized_proxy_id.clone())
+        .map_err(error_to_string)?;
+    Ok(PluginDownloadPreference {
+        proxy_id: normalized_proxy_id,
+    })
 }
 
 #[tauri::command]
@@ -843,6 +911,33 @@ fn resolve_plugin_proxy(
         username: proxy.username,
         password: proxy.password,
     }))
+}
+
+fn validate_saved_plugin_download_proxy_id(
+    state: &AppState,
+    proxy_id: Option<String>,
+) -> Result<Option<String>, String> {
+    let Some(proxy_id) = normalize_optional_proxy_id(proxy_id) else {
+        return Ok(None);
+    };
+    let lookup_result = {
+        let service = state
+            .proxy_service
+            .lock()
+            .map_err(|_| "proxy service lock poisoned".to_string())?;
+        service.get_proxy(&proxy_id)
+    };
+    if lookup_result.is_ok() {
+        return Ok(Some(proxy_id));
+    }
+    let service = state
+        .app_preference_service
+        .lock()
+        .map_err(|_| "app preference service lock poisoned".to_string())?;
+    service
+        .save_plugin_download_proxy_id(None)
+        .map_err(error_to_string)?;
+    Ok(None)
 }
 
 fn build_plugin_reqwest_proxy(proxy: &PluginProxyConfig) -> Result<ReqwestProxy, String> {

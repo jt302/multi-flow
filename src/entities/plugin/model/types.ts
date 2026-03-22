@@ -28,6 +28,10 @@ export type InstallPluginToProfilesPayload = {
 	profileIds: string[];
 };
 
+export type PluginDownloadPreference = {
+	proxyId?: string | null;
+};
+
 export type UpdateProfilePluginsPayload = {
 	selections: ProfilePluginSelection[];
 };

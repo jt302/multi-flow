@@ -112,6 +112,8 @@ pub fn run() {
             commands::log_commands::open_log_panel_window,
             commands::log_commands::export_backend_logs,
             commands::plugin_commands::list_plugin_packages,
+            commands::plugin_commands::read_plugin_download_preference,
+            commands::plugin_commands::update_plugin_download_preference,
             commands::plugin_commands::download_plugin_by_extension_id,
             commands::plugin_commands::check_plugin_update,
             commands::plugin_commands::update_plugin_package,
