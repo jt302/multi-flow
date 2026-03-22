@@ -1644,6 +1644,7 @@ Chromium 实际接收的仍是这些注入结果：
 | `--cookie-state-file`                  | 启动时加载受管理 Cookie 目标状态 JSON 文件 | `--cookie-state-file=/Users/tt/app_data/environments/env_001/runtime/cookie-state.json`                                        |
 | `--enable-port-scan-protection`        | 启用普通网页端口扫描保护                   | `--enable-port-scan-protection`                                                                                                |
 | `--enable-automation-detection-shield` | 启用自动化检测隔绝                         | `--enable-automation-detection-shield`                                                                                         |
+| `--enable-do-not-track`                | 启动时为当前 profile 开启 Do Not Track     | `--enable-do-not-track`                                                                                                        |
 | `--window-size`                        | 窗口尺寸                                   | `--window-size=393,852`                                                                                                        |
 | `--force-device-scale-factor`          | 设备缩放因子 / DPR                         | `--force-device-scale-factor=3`                                                                                                |
 | `--touch-events=enabled`               | 显式开启触摸事件                           | `--touch-events=enabled`                                                                                                       |
@@ -1675,6 +1676,9 @@ Chromium 实际接收的仍是这些注入结果：
 - `enable-automation-detection-shield` 当前还会在 headless 运行时把 `screen.width/height`、`screen.availWidth/availHeight`、CSS `device-width/device-height` 媒体查询归一化到稳定桌面屏幕值，并把 `navigator.connection` 归一化成固定桌面网络特征
 - 当同时启用 `enable-automation-detection-shield` 与 `custom-resolution-*` 时，设备屏幕暴露面仍以 `custom-resolution-*` 为准
 - `enable-automation-detection-shield` 当前不伪造 `chrome.runtime`，也不覆盖 Canvas / WebGL / AudioContext 等指纹面
+- `enable-do-not-track` 默认关闭；开启后会在当前启动 profile 上打开 `prefs::kEnableDoNotTrack`
+- `enable-do-not-track` 会复用 Chromium 原生 DNT 链路，请求自动带上 `DNT: 1`，页面侧 `navigator.doNotTrack` 返回 `"1"`
+- `enable-do-not-track` 作用域是当前 profile；不提供运行中的 HTTP / WebSocket 热切换
 - `custom-mac-address` 当前只覆盖 Chromium 可控的网络接口导出路径，不承诺替换系统网卡真实 MAC，也不覆盖 BSSID、Bluetooth 或其他系统级 MAC 语义
 - `custom-host-name` 当前覆盖的是 Chromium 可控的 hostname 读取路径，不承诺替换系统框架或系统外部进程看到的真实主机名
 
