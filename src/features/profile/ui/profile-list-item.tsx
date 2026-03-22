@@ -8,14 +8,17 @@ import {
 	FolderTree,
 	Palette,
 	Play,
+	Puzzle,
 	RotateCcw,
 	Square,
 	Trash2,
 	Type,
 	Wrench,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { save } from '@tauri-apps/plugin-dialog';
+import { useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 import {
 	Badge,
@@ -54,8 +57,11 @@ import type {
 	ExportProfileCookiesResponse,
 	ProfileActionState,
 	ProfileItem,
+	ProfilePluginSelection,
 	ReadProfileCookiesResponse,
 } from '@/entities/profile/model/types';
+import { listPluginPackages, readProfilePlugins, updateProfilePlugins } from '@/entities/plugin/api/plugins-api';
+import type { PluginPackage } from '@/entities/plugin/model/types';
 import type { GroupItem } from '@/entities/group/model/types';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import type { ResourceItem } from '@/entities/resource/model/types';
@@ -96,6 +102,7 @@ type ProfileListItemProps = {
 		profileId: string,
 		payload: ExportProfileCookiesPayload,
 	) => Promise<ExportProfileCookiesResponse>;
+	onRefreshProfiles: () => Promise<void>;
 };
 
 function resolveRunningLabel(running: boolean, actionState?: ProfileActionState) {
@@ -196,6 +203,7 @@ export function ProfileListItem({
 	onRestoreProfile,
 	onReadProfileCookies,
 	onExportProfileCookies,
+	onRefreshProfiles,
 }: ProfileListItemProps) {
 	const actionPending = Boolean(actionState);
 	const runLabel = resolveRunningLabel(item.running, actionState);
@@ -228,6 +236,26 @@ export function ProfileListItem({
 	const [cookieSiteLoading, setCookieSiteLoading] = useState(false);
 	const [cookieSiteExporting, setCookieSiteExporting] = useState(false);
 	const [cookieSiteError, setCookieSiteError] = useState<string | null>(null);
+	const [pluginDialogOpen, setPluginDialogOpen] = useState(false);
+	const [pluginDraft, setPluginDraft] = useState<ProfilePluginSelection[]>([]);
+	const [pluginSaving, setPluginSaving] = useState(false);
+	const pluginPackagesQuery = useQuery<PluginPackage[]>({
+		queryKey: ['plugin-packages'],
+		queryFn: listPluginPackages,
+		enabled: pluginDialogOpen,
+	});
+	const profilePluginsQuery = useQuery({
+		queryKey: ['profile-plugins', item.id, pluginDialogOpen],
+		queryFn: () => readProfilePlugins(item.id),
+		enabled: pluginDialogOpen,
+	});
+
+	useEffect(() => {
+		if (!pluginDialogOpen || !profilePluginsQuery.data) {
+			return;
+		}
+		setPluginDraft(profilePluginsQuery.data);
+	}, [pluginDialogOpen, profilePluginsQuery.data]);
 
 	const openSiteExportDialog = async () => {
 		setCookieSiteError(null);
@@ -460,6 +488,15 @@ export function ProfileListItem({
 											<Icon icon={Wrench} size={13} />
 											修改环境配置
 										</DropdownMenuItem>
+										<DropdownMenuItem
+											className="cursor-pointer"
+											onClick={() => {
+												setPluginDialogOpen(true);
+											}}
+										>
+											<Icon icon={Puzzle} size={13} />
+											插件管理
+										</DropdownMenuItem>
 										{!item.running ? (
 											<DropdownMenuSub>
 												<DropdownMenuSubTrigger className="cursor-pointer">
@@ -579,6 +616,157 @@ export function ProfileListItem({
 					</TableCell>
 				</TableRow>
 			) : null}
+
+			<Dialog open={pluginDialogOpen} onOpenChange={setPluginDialogOpen}>
+				<DialogContent className="max-w-2xl">
+					<DialogHeader>
+						<DialogTitle>环境插件管理</DialogTitle>
+						<DialogDescription>
+							为当前环境选择要安装的已下载插件。运行中的环境保存后需要重启才会生效。
+						</DialogDescription>
+					</DialogHeader>
+					<div className="space-y-3">
+						{pluginPackagesQuery.isLoading || profilePluginsQuery.isLoading ? (
+							<p className="text-sm text-muted-foreground">正在读取插件配置...</p>
+						) : null}
+						{pluginPackagesQuery.error instanceof Error ? (
+							<p className="text-sm text-destructive">
+								{pluginPackagesQuery.error.message}
+							</p>
+						) : null}
+						{profilePluginsQuery.error instanceof Error ? (
+							<p className="text-sm text-destructive">
+								{profilePluginsQuery.error.message}
+							</p>
+						) : null}
+							{(pluginPackagesQuery.data ?? []).map((plugin) => {
+								const selected =
+									pluginDraft.find((entry) => entry.packageId === plugin.packageId) ??
+									null;
+								const installId = `profile-plugin-install-${item.id}-${plugin.packageId}`;
+								const enabledId = `profile-plugin-enabled-${item.id}-${plugin.packageId}`;
+								return (
+								<div
+									key={plugin.packageId}
+									className="rounded-lg border border-border/60 px-3 py-3"
+								>
+									<div className="flex flex-wrap items-start justify-between gap-3">
+											<label
+												htmlFor={installId}
+												className="flex min-w-0 flex-1 items-start gap-3 text-sm"
+											>
+												<Checkbox
+													id={installId}
+													checked={Boolean(selected)}
+												className="mt-0.5 cursor-pointer"
+												onCheckedChange={(checked) => {
+													setPluginDraft((prev) => {
+														if (checked !== true) {
+															return prev.filter(
+																(entry) =>
+																	entry.packageId !== plugin.packageId,
+															);
+														}
+														return [
+															...prev.filter(
+																(entry) =>
+																	entry.packageId !== plugin.packageId,
+															),
+															{ packageId: plugin.packageId, enabled: true },
+														];
+													});
+												}}
+											/>
+											<div className="min-w-0 flex-1">
+												<div className="flex flex-wrap items-center gap-2">
+													<p className="font-medium text-foreground">
+														{plugin.name}
+													</p>
+													<Badge variant="outline">v{plugin.version}</Badge>
+												</div>
+												<p className="mt-1 text-xs text-muted-foreground">
+													{plugin.description?.trim() || '暂无描述'}
+												</p>
+											</div>
+										</label>
+											<label
+												htmlFor={enabledId}
+												className="flex items-center gap-2 text-xs text-muted-foreground"
+											>
+												<Checkbox
+													id={enabledId}
+													checked={selected?.enabled ?? false}
+												disabled={!selected}
+												className="cursor-pointer"
+												onCheckedChange={(checked) => {
+													setPluginDraft((prev) =>
+														prev.map((entry) =>
+															entry.packageId === plugin.packageId
+																? {
+																		...entry,
+																		enabled: checked === true,
+																	}
+																: entry,
+														),
+													);
+												}}
+											/>
+											启用
+										</label>
+									</div>
+								</div>
+							);
+						})}
+						{!pluginPackagesQuery.isLoading && (pluginPackagesQuery.data?.length ?? 0) === 0 ? (
+							<p className="text-sm text-muted-foreground">
+								当前还没有已下载插件，请先到插件页下载。
+							</p>
+						) : null}
+					</div>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							className="cursor-pointer"
+							onClick={() => setPluginDialogOpen(false)}
+						>
+							取消
+						</Button>
+						<Button
+							type="button"
+							className="cursor-pointer"
+							disabled={pluginSaving}
+							onClick={() => {
+								setPluginSaving(true);
+								void (async () => {
+									try {
+										await updateProfilePlugins(item.id, pluginDraft);
+										await onRefreshProfiles();
+										toast.success('环境插件已更新');
+										if (item.running) {
+											toast.info('当前环境正在运行，重启后插件变更才会生效');
+										}
+										setPluginDialogOpen(false);
+									} catch (error) {
+										toast.error(
+											error instanceof Error
+												? error.message
+												: '更新环境插件失败',
+										);
+									} finally {
+										setPluginSaving(false);
+									}
+								})();
+							}}
+						>
+							{pluginSaving ? (
+								<Icon icon={Loader2} size={12} className="animate-spin" />
+							) : null}
+							保存插件配置
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 
 			<Dialog
 				open={siteExportDialogOpen}

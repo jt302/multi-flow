@@ -166,3 +166,14 @@
 - [x] 启动环境时优先把环境本地 `cookies/cookie-state.json` 作为 `--cookie-state-file` 传给 Chromium
 - [x] 关闭运行中环境前会先尝试导出全量 Cookie，覆盖写回环境本地 Cookie 文件；失败只记日志，不阻塞关闭
 - [x] 环境列表 Cookie 导出改为仅停止状态可用，按站点和整环境导出都从本地 Cookie 文件读取，并通过保存对话框选择目标路径
+
+## 本轮新增（插件管理与环境插件安装）
+
+- [x] 新增独立主导航页“插件”，支持通过 Chrome Web Store 扩展 ID 下载 CRX、展示插件库、检查更新、更新插件与卸载插件
+- [x] 新增数据库表 `plugin_packages`，持久化插件包元数据与本地 `crxPath / iconPath / latestVersion / updateStatus`
+- [x] 每个环境固定维护本地 `extensions/extension-state.json`，启动时若存在且合法会注入 `--extension-state-file`
+- [x] 创建 / 编辑环境页新增插件选择区，数据源来自已下载插件库，支持多选并单独设置启用状态
+- [x] 插件管理页“安装到环境”改为目标环境选择弹窗，支持按关键词 / 分组 / 运行态 / 生命周期筛选后批量安装
+- [x] 环境列表更多菜单新增“插件管理”，可直接管理当前环境已选插件；运行中环境修改后统一提示重启生效
+- [x] 插件更新与卸载会同步重写所有受影响环境的本地 `extension-state.json`
+- [x] 插件页新增“下载代理”选择器，下载 / 检查更新 / 更新插件支持复用现有 HTTP/HTTPS/SOCKS5 代理访问 Chrome Web Store

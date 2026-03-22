@@ -566,6 +566,16 @@ impl ProxyService {
         Ok(to_api_proxy(updated))
     }
 
+    pub fn get_proxy(&self, proxy_id: &str) -> AppResult<Proxy> {
+        let stored = self.find_proxy_model(proxy_id)?;
+        if stored.lifecycle == LIFECYCLE_DELETED {
+            return Err(AppError::Conflict(format!(
+                "proxy already deleted: {proxy_id}"
+            )));
+        }
+        Ok(to_api_proxy(stored))
+    }
+
     pub fn purge_proxy(&self, proxy_id: &str) -> AppResult<()> {
         let stored = self.find_proxy_model(proxy_id)?;
         if stored.lifecycle != LIFECYCLE_DELETED {

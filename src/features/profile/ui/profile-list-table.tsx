@@ -57,6 +57,7 @@ type ProfileListTableProps = {
 		profileId: string,
 		payload: ExportProfileCookiesPayload,
 	) => Promise<ExportProfileCookiesResponse>;
+	onRefreshProfiles: () => Promise<void>;
 	onRunAction: (action: () => Promise<void>) => Promise<void>;
 	onErrorReset: () => void;
 };
@@ -88,6 +89,7 @@ export function ProfileListTable({
 	onRestoreProfile,
 	onReadProfileCookies,
 	onExportProfileCookies,
+	onRefreshProfiles,
 	onRunAction,
 	onErrorReset,
 }: ProfileListTableProps) {
@@ -166,6 +168,7 @@ export function ProfileListTable({
 									onRestoreProfile={onRestoreProfile}
 									onReadProfileCookies={onReadProfileCookies}
 									onExportProfileCookies={onExportProfileCookies}
+									onRefreshProfiles={onRefreshProfiles}
 								/>
 							);
 						})}

@@ -1,5 +1,6 @@
 pub mod device_preset;
 pub mod engine_session;
+pub mod plugin_package;
 pub mod profile;
 pub mod profile_group;
 pub mod profile_proxy_binding;

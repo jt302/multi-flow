@@ -47,6 +47,11 @@ export type ExportProfileCookiesResponse = {
 	cookieCount: number;
 };
 
+export type ProfilePluginSelection = {
+	packageId: string;
+	enabled: boolean;
+};
+
 export type ProfileBasicSettings = {
 	browserKind?: string;
 	browserVersion?: string;
@@ -156,6 +161,7 @@ export type ProfileAdvancedSettings = {
 	headless?: boolean;
 	disableImages?: boolean;
 	cookieStateJson?: string;
+	pluginSelections?: ProfilePluginSelection[];
 	geolocationMode?: 'off' | 'ip' | 'custom';
 	autoAllowGeolocation?: boolean;
 	customLaunchArgs?: string[];

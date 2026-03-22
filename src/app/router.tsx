@@ -12,6 +12,9 @@ const DashboardRoutePage = lazy(() =>
 const ProfilesRoutePage = lazy(() =>
 	import('@/pages/profiles').then((module) => ({ default: module.ProfilesRoutePage })),
 );
+const PluginsRoutePage = lazy(() =>
+	import('@/pages/plugins').then((module) => ({ default: module.PluginsRoutePage })),
+);
 const GroupsRoutePage = lazy(() =>
 	import('@/pages/groups').then((module) => ({ default: module.GroupsRoutePage })),
 );
@@ -36,6 +39,7 @@ export function AppRouter() {
 			<Route element={<WorkspaceLayout />}>
 				<Route path="/dashboard" element={<DashboardRoutePage />} />
 				<Route path="/profiles" element={<ProfilesRoutePage />} />
+				<Route path="/plugins" element={<PluginsRoutePage />} />
 				<Route path="/groups" element={<GroupsRoutePage />} />
 				<Route path="/proxy" element={<ProxyRoutePage />} />
 				<Route path="/windows" element={<WindowsRoutePage />} />

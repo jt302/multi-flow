@@ -16,11 +16,12 @@ use crate::models::{
     BatchProfileActionItem, BatchProfileActionRequest, BatchProfileActionResponse,
     BatchSetProfileGroupRequest, ClearProfileCacheResponse, CookieStateFile, CreateProfileRequest,
     CustomValueMode, ExportProfileCookiesMode, ExportProfileCookiesRequest,
-    ExportProfileCookiesResponse, FontListMode, GeolocationMode, GeolocationOverride,
-    ListProfilesQuery, ListProfilesResponse, LocalApiServerStatus, ManagedCookie,
-    OpenProfileOptions, OpenProfileResponse, Profile, ProfileDevicePreset,
-    ProfileFingerprintSnapshot, ProfileFingerprintSource, ProfileRuntimeDetails, ProfileSettings,
-    Proxy, ReadProfileCookiesResponse, SaveProfileDevicePresetRequest, SetProfileGroupRequest,
+    ExportProfileCookiesResponse, ExtensionStateFile, FontListMode, GeolocationMode,
+    GeolocationOverride, ListProfilesQuery, ListProfilesResponse, LocalApiServerStatus,
+    ManagedCookie, ManagedExtension, OpenProfileOptions, OpenProfileResponse, Profile,
+    ProfileDevicePreset, ProfileFingerprintSnapshot, ProfileFingerprintSource,
+    ProfilePluginSelection, ProfileRuntimeDetails, ProfileSettings, Proxy,
+    ReadProfileCookiesResponse, SaveProfileDevicePresetRequest, SetProfileGroupRequest,
     UpdateProfileVisualRequest, WebRtcMode,
 };
 use crate::runtime_guard;
@@ -58,6 +59,7 @@ pub fn create_profile(
         ),
     );
     let requested_proxy_id = payload.proxy_id.clone();
+    validate_plugin_selections_from_settings(&state, payload.settings.as_ref())?;
     let profile_service = state
         .profile_service
         .lock()
@@ -77,6 +79,7 @@ pub fn create_profile(
             .map_err(error_to_string)?;
     }
     sync_profile_cookie_state_from_settings_quietly(&state, &created.id, created.settings.as_ref());
+    sync_profile_extension_state_from_settings_quietly(&state, &created.id, created.settings.as_ref());
 
     logger::info(
         "profile_cmd",
@@ -198,6 +201,7 @@ pub fn update_profile(
                 .to_string(),
         );
     }
+    validate_plugin_selections_from_settings(&state, payload.settings.as_ref())?;
     let updated = profile_service
         .update_profile(&profile_id, payload.clone())
         .map_err(error_to_string)?;
@@ -219,6 +223,7 @@ pub fn update_profile(
         unbind_profile_proxy_if_exists(&proxy_service, &profile_id)?;
     }
     sync_profile_cookie_state_from_settings_quietly(&state, &updated.id, updated.settings.as_ref());
+    sync_profile_extension_state_from_settings_quietly(&state, &updated.id, updated.settings.as_ref());
     Ok(updated)
 }
 
@@ -454,6 +459,31 @@ fn prepare_cookie_state_file(
     Ok(Some(path))
 }
 
+fn prepare_extension_state_file(
+    state: &AppState,
+    profile_id: &str,
+    settings: Option<&ProfileSettings>,
+    engine_manager: &crate::engine_manager::EngineManager,
+) -> Result<Option<PathBuf>, String> {
+    let extension_state =
+        load_profile_extension_state_from_storage(state, profile_id, settings, engine_manager)?;
+    let Some(extension_state) = extension_state else {
+        return Ok(None);
+    };
+    if extension_state.managed_extensions.is_empty() {
+        return Ok(None);
+    }
+    let path = resolve_profile_extension_state_path(engine_manager, profile_id)?;
+    if !path.exists() {
+        write_extension_state_file(
+            path.parent()
+                .ok_or_else(|| "resolve extension directory failed".to_string())?,
+            &extension_state,
+        )?;
+    }
+    Ok(Some(path))
+}
+
 fn resolve_profile_cookie_state_path(
     engine_manager: &crate::engine_manager::EngineManager,
     profile_id: &str,
@@ -464,6 +494,18 @@ fn resolve_profile_cookie_state_path(
         .0
         .join("cookies")
         .join("cookie-state.json"))
+}
+
+fn resolve_profile_extension_state_path(
+    engine_manager: &crate::engine_manager::EngineManager,
+    profile_id: &str,
+) -> Result<PathBuf, String> {
+    Ok(engine_manager
+        .profile_data_dirs(profile_id)
+        .map_err(error_to_string)?
+        .0
+        .join("extensions")
+        .join("extension-state.json"))
 }
 
 fn empty_cookie_state(profile_id: &str) -> CookieStateFile {
@@ -523,11 +565,64 @@ fn load_profile_cookie_state_from_storage(
     Ok(Some(cookie_state))
 }
 
+fn load_profile_extension_state_from_storage(
+    state: &AppState,
+    profile_id: &str,
+    settings: Option<&ProfileSettings>,
+    engine_manager: &crate::engine_manager::EngineManager,
+) -> Result<Option<ExtensionStateFile>, String> {
+    let path = resolve_profile_extension_state_path(engine_manager, profile_id)?;
+    if path.exists() {
+        let content = fs::read_to_string(&path)
+            .map_err(|err| format!("read extension state file failed: {err}"))?;
+        let mut extension_state = parse_extension_state_json(&content)?;
+        if extension_state
+            .environment_id
+            .as_deref()
+            .and_then(trim_str_to_option)
+            .is_none()
+        {
+            extension_state.environment_id = Some(profile_id.to_string());
+            write_extension_state_file(
+                path.parent()
+                    .ok_or_else(|| "resolve extension directory failed".to_string())?,
+                &extension_state,
+            )?;
+        }
+        return Ok(Some(extension_state));
+    }
+
+    let selections = settings
+        .and_then(|value| value.advanced.as_ref())
+        .and_then(|value| value.plugin_selections.as_ref())
+        .cloned()
+        .unwrap_or_default();
+    if selections.is_empty() {
+        return Ok(None);
+    }
+    let extension_state = build_extension_state_from_selections(state, profile_id, &selections)?;
+    write_extension_state_file(
+        path.parent()
+            .ok_or_else(|| "resolve extension directory failed".to_string())?,
+        &extension_state,
+    )?;
+    Ok(Some(extension_state))
+}
+
 fn parse_cookie_state_json(value: &str) -> Result<CookieStateFile, String> {
     let parsed = serde_json::from_str::<CookieStateFile>(value)
         .map_err(|err| format!("cookieStateJson must be valid JSON: {err}"))?;
     for cookie in &parsed.managed_cookies {
         validate_managed_cookie(cookie)?;
+    }
+    Ok(parsed)
+}
+
+fn parse_extension_state_json(value: &str) -> Result<ExtensionStateFile, String> {
+    let parsed = serde_json::from_str::<ExtensionStateFile>(value)
+        .map_err(|err| format!("extensionStateJson must be valid JSON: {err}"))?;
+    for extension in &parsed.managed_extensions {
+        validate_managed_extension(extension)?;
     }
     Ok(parsed)
 }
@@ -549,6 +644,27 @@ fn validate_managed_cookie(cookie: &ManagedCookie) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_managed_extension(extension: &ManagedExtension) -> Result<(), String> {
+    if extension.package_id.trim().is_empty()
+        || extension.extension_id.trim().is_empty()
+        || extension.source_path.trim().is_empty()
+        || extension.source_type.trim().is_empty()
+        || extension.version.trim().is_empty()
+    {
+        return Err(
+            "extensionStateJson must include package_id, extension_id, source_path, source_type and version"
+                .to_string(),
+        );
+    }
+    if extension.source_type.trim() != "crx" {
+        return Err("extensionStateJson source_type currently only supports crx".to_string());
+    }
+    if !Path::new(extension.source_path.trim()).is_absolute() {
+        return Err("extensionStateJson source_path must be an absolute path".to_string());
+    }
+    Ok(())
+}
+
 fn write_cookie_state_file(
     runtime_dir: &Path,
     cookie_state: &CookieStateFile,
@@ -561,6 +677,89 @@ fn write_cookie_state_file(
     fs::write(&path, format!("{content}\n"))
         .map_err(|err| format!("write cookie state file failed: {err}"))?;
     Ok(path)
+}
+
+fn write_extension_state_file(
+    runtime_dir: &Path,
+    extension_state: &ExtensionStateFile,
+) -> Result<PathBuf, String> {
+    fs::create_dir_all(runtime_dir)
+        .map_err(|err| format!("create extension state directory failed: {err}"))?;
+    let path = runtime_dir.join("extension-state.json");
+    let content = serde_json::to_string_pretty(extension_state)
+        .map_err(|err| format!("serialize extensionStateJson failed: {err}"))?;
+    fs::write(&path, format!("{content}\n"))
+        .map_err(|err| format!("write extension state file failed: {err}"))?;
+    Ok(path)
+}
+
+fn build_extension_state_from_selections(
+    state: &AppState,
+    profile_id: &str,
+    selections: &[ProfilePluginSelection],
+) -> Result<ExtensionStateFile, String> {
+    let plugin_package_service = state
+        .plugin_package_service
+        .lock()
+        .map_err(|_| "plugin package service lock poisoned".to_string())?;
+    let mut managed_extensions = Vec::with_capacity(selections.len());
+    for selection in selections {
+        let package = plugin_package_service
+            .get_package(&selection.package_id)
+            .map_err(error_to_string)?;
+        let source_path = PathBuf::from(&package.crx_path);
+        if !source_path.is_file() {
+            return Err(format!(
+                "plugin package file missing for {}",
+                package.package_id
+            ));
+        }
+        managed_extensions.push(ManagedExtension {
+            package_id: package.package_id,
+            extension_id: package.extension_id,
+            source_path: source_path.to_string_lossy().to_string(),
+            source_type: package.source_type,
+            version: package.version,
+            enabled: selection.enabled,
+        });
+    }
+    Ok(ExtensionStateFile {
+        environment_id: Some(profile_id.to_string()),
+        managed_extensions,
+    })
+}
+
+fn validate_plugin_selections_from_settings(
+    state: &AppState,
+    settings: Option<&ProfileSettings>,
+) -> Result<(), String> {
+    let selections = settings
+        .and_then(|value| value.advanced.as_ref())
+        .and_then(|value| value.plugin_selections.as_ref())
+        .cloned()
+        .unwrap_or_default();
+    if selections.is_empty() {
+        return Ok(());
+    }
+    let plugin_package_service = state
+        .plugin_package_service
+        .lock()
+        .map_err(|_| "plugin package service lock poisoned".to_string())?;
+    for selection in selections {
+        if selection.package_id.trim().is_empty() {
+            return Err("validation failed: plugin package id is required".to_string());
+        }
+        let package = plugin_package_service
+            .get_package(&selection.package_id)
+            .map_err(error_to_string)?;
+        if !Path::new(&package.crx_path).is_file() {
+            return Err(format!(
+                "validation failed: plugin package file missing for {}",
+                package.name
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn sync_profile_cookie_state_from_settings_quietly(
@@ -631,6 +830,98 @@ fn sync_profile_cookie_state_from_settings_quietly(
             format!("skip syncing invalid cookie state profile_id={profile_id}: {err}"),
         ),
     }
+}
+
+pub(crate) fn sync_profile_extension_state_from_settings_quietly(
+    state: &AppState,
+    profile_id: &str,
+    settings: Option<&ProfileSettings>,
+) {
+    let engine_manager = match state.engine_manager.lock() {
+        Ok(value) => value,
+        Err(_) => {
+            logger::warn(
+                "profile_cmd",
+                format!(
+                    "skip syncing extension state because engine manager lock poisoned profile_id={profile_id}"
+                ),
+            );
+            return;
+        }
+    };
+    let path = match resolve_profile_extension_state_path(&engine_manager, profile_id) {
+        Ok(value) => value,
+        Err(err) => {
+            logger::warn(
+                "profile_cmd",
+                format!("resolve extension state path failed profile_id={profile_id}: {err}"),
+            );
+            return;
+        }
+    };
+    let selections = settings
+        .and_then(|value| value.advanced.as_ref())
+        .and_then(|value| value.plugin_selections.as_ref())
+        .cloned()
+        .unwrap_or_default();
+    if selections.is_empty() {
+        if path.exists() {
+            if let Err(err) = fs::remove_file(&path) {
+                logger::warn(
+                    "profile_cmd",
+                    format!("remove extension state file failed profile_id={profile_id}: {err}"),
+                );
+            }
+        }
+        return;
+    }
+
+    match build_extension_state_from_selections(state, profile_id, &selections) {
+        Ok(extension_state) => {
+            if let Err(err) = write_extension_state_file(
+                path.parent().unwrap_or_else(|| Path::new(".")),
+                &extension_state,
+            ) {
+                logger::warn(
+                    "profile_cmd",
+                    format!("sync extension state file failed profile_id={profile_id}: {err}"),
+                );
+            }
+        }
+        Err(err) => logger::warn(
+            "profile_cmd",
+            format!("skip syncing invalid extension state profile_id={profile_id}: {err}"),
+        ),
+    }
+}
+
+pub(crate) fn read_profile_plugin_selections_from_storage(
+    state: &AppState,
+    profile_id: &str,
+    settings: Option<&ProfileSettings>,
+) -> Result<Vec<ProfilePluginSelection>, String> {
+    let engine_manager = state
+        .engine_manager
+        .lock()
+        .map_err(|_| "engine manager lock poisoned".to_string())?;
+    let path = resolve_profile_extension_state_path(&engine_manager, profile_id)?;
+    if path.exists() {
+        let content = fs::read_to_string(&path)
+            .map_err(|err| format!("read extension state file failed: {err}"))?;
+        let parsed = parse_extension_state_json(&content)?;
+        return Ok(parsed
+            .managed_extensions
+            .into_iter()
+            .map(|item| ProfilePluginSelection {
+                package_id: item.package_id,
+                enabled: item.enabled,
+            })
+            .collect());
+    }
+    Ok(settings
+        .and_then(|value| value.advanced.as_ref())
+        .and_then(|value| value.plugin_selections.clone())
+        .unwrap_or_default())
 }
 
 fn collect_cookie_site_urls(cookie_state: &CookieStateFile) -> Vec<String> {
@@ -1234,6 +1525,12 @@ pub(crate) fn do_open_profile(
         profile_snapshot.settings.as_ref(),
         &engine_manager,
     )?;
+    let extension_state_file = prepare_extension_state_file(
+        state,
+        profile_id,
+        profile_snapshot.settings.as_ref(),
+        &engine_manager,
+    )?;
     let device_preset_service = state
         .device_preset_service
         .lock()
@@ -1250,6 +1547,7 @@ pub(crate) fn do_open_profile(
         Some(resolved_browser_version.as_str()),
     )?;
     launch_options.cookie_state_file = cookie_state_file;
+    launch_options.extension_state_file = extension_state_file;
     logger::info(
         "profile_cmd",
         format!(
@@ -1484,6 +1782,7 @@ fn resolve_launch_options(
         custom_ram_gb,
         custom_font_list,
         cookie_state_file: None,
+        extension_state_file: None,
         extra_args,
     })
 }
@@ -2368,11 +2667,13 @@ mod tests {
     use crate::models::{
         CookieStateFile, CreateProfileRequest, ExportProfileCookiesMode,
         ExportProfileCookiesRequest, GeolocationOverride, ManagedCookie, OpenProfileOptions,
-        ProfileSettings, Proxy, ProxyLifecycle, WebRtcMode,
+        ProfileAdvancedSettings, ProfilePluginSelection, ProfileSettings, Proxy, ProxyLifecycle,
+        SavePluginPackageInput, WebRtcMode,
     };
     use crate::services::chromium_magic_adapter_service::ChromiumMagicAdapterService;
     use crate::services::device_preset_service::DevicePresetService;
     use crate::services::engine_session_service::EngineSessionService;
+    use crate::services::plugin_package_service::PluginPackageService;
     use crate::services::profile_group_service::ProfileGroupService;
     use crate::services::profile_service::ProfileService;
     use crate::services::proxy_service::ProxyService;
@@ -2384,6 +2685,7 @@ mod tests {
         let profile_group_service = ProfileGroupService::from_db(db.clone());
         let profile_service = ProfileService::from_db(db.clone());
         let device_preset_service = DevicePresetService::from_db(db.clone());
+        let plugin_package_service = PluginPackageService::from_db(db.clone());
         let engine_session_service = EngineSessionService::from_db(db.clone());
         let proxy_service = ProxyService::from_db(db.clone());
         let unique = SystemTime::now()
@@ -2403,6 +2705,7 @@ mod tests {
             profile_group_service: Mutex::new(profile_group_service),
             profile_service: Mutex::new(profile_service),
             device_preset_service: Mutex::new(device_preset_service),
+            plugin_package_service: Mutex::new(plugin_package_service),
             engine_session_service: Mutex::new(engine_session_service),
             proxy_service: Mutex::new(proxy_service),
             resource_service: Mutex::new(resource_service),
@@ -2657,6 +2960,64 @@ mod tests {
         let written = std::fs::read_to_string(&path).expect("read cookie state");
         assert!(written.contains("\"environment_id\": \"pf_cookie_migrate\""));
         assert!(written.contains("\"ck_legacy\""));
+    }
+
+    #[test]
+    fn prepare_extension_state_file_generates_profile_extension_state_from_plugin_selections() {
+        let state = new_test_state();
+        let package_dir = std::env::temp_dir().join("multi-flow-plugin-test-pkg");
+        std::fs::create_dir_all(&package_dir).expect("create plugin test dir");
+        let crx_path = package_dir.join("demo.crx");
+        std::fs::write(&crx_path, b"crx").expect("write demo crx");
+
+        {
+            let service = state
+                .plugin_package_service
+                .lock()
+                .expect("plugin package service lock");
+            service
+                .save_package(SavePluginPackageInput {
+                    package_id: "pkg_demo".to_string(),
+                    extension_id: "abcdefghijklmnopabcdefghijklmnop".to_string(),
+                    name: "Demo Plugin".to_string(),
+                    version: "1.2.3".to_string(),
+                    description: Some("demo".to_string()),
+                    icon_path: None,
+                    crx_path: crx_path.to_string_lossy().to_string(),
+                    source_type: "crx".to_string(),
+                    store_url: None,
+                    update_url: None,
+                    latest_version: Some("1.2.3".to_string()),
+                    update_status: Some("up_to_date".to_string()),
+                })
+                .expect("save plugin package");
+        }
+
+        let settings = ProfileSettings {
+            advanced: Some(ProfileAdvancedSettings {
+                plugin_selections: Some(vec![ProfilePluginSelection {
+                    package_id: "pkg_demo".to_string(),
+                    enabled: true,
+                }]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        let path = prepare_extension_state_file(
+            &state,
+            "pf_extension_state",
+            Some(&settings),
+            &state.engine_manager.lock().expect("engine manager lock"),
+        )
+        .expect("prepare extension state file")
+        .expect("extension path");
+
+        assert!(path.ends_with("pf_extension_state/extensions/extension-state.json"));
+        let written = std::fs::read_to_string(path).expect("read extension state");
+        assert!(written.contains("\"managed_extensions\""));
+        assert!(written.contains("\"package_id\": \"pkg_demo\""));
+        assert!(written.contains("\"source_type\": \"crx\""));
     }
 
     #[test]

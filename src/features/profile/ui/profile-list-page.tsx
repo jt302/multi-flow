@@ -285,6 +285,7 @@ export function ProfileListPage({
 						onRestoreProfile={onRestoreProfile}
 						onReadProfileCookies={onReadProfileCookies}
 						onExportProfileCookies={onExportProfileCookies}
+						onRefreshProfiles={onRefreshProfiles}
 						onRunAction={runAction}
 						onErrorReset={() => setError(null)}
 					/>

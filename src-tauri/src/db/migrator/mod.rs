@@ -13,6 +13,7 @@ mod m20260310_000012_add_proxy_target_site_checks;
 mod m20260310_000012_rebuild_proxy_runtime_instances;
 mod m20260311_000013_create_rpa_tasks;
 mod m20260321_000014_drop_rpa_tables;
+mod m20260322_000015_create_plugin_packages;
 
 use sea_orm_migration::prelude::*;
 
@@ -37,6 +38,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260310_000012_add_proxy_target_site_checks::Migration),
             Box::new(m20260311_000013_create_rpa_tasks::Migration),
             Box::new(m20260321_000014_drop_rpa_tables::Migration),
+            Box::new(m20260322_000015_create_plugin_packages::Migration),
         ]
     }
 }
@@ -89,6 +91,33 @@ mod tests {
 
             assert!(!tables.iter().any(|name| name == "rpa_flows"));
             assert!(!tables.iter().any(|name| name == "rpa_tasks"));
+        });
+    }
+
+    #[test]
+    fn includes_plugin_packages_migration_and_creates_table() {
+        tauri::async_runtime::block_on(async {
+            let names = Migrator::migrations()
+                .into_iter()
+                .map(|migration| migration.name().to_string())
+                .collect::<Vec<_>>();
+            assert!(
+                names.contains(&"m20260322_000015_create_plugin_packages".to_string()),
+                "missing plugin packages migration"
+            );
+
+            let db = Database::connect("sqlite::memory:").await.expect("connect");
+            Migrator::up(&db, None).await.expect("run migrations");
+
+            let rows = db
+                .query_all(Statement::from_string(
+                    db.get_database_backend(),
+                    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'plugin_packages'"
+                        .to_string(),
+                ))
+                .await
+                .expect("query sqlite master");
+            assert_eq!(rows.len(), 1, "plugin_packages table should exist");
         });
     }
 }

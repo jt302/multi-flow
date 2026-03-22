@@ -3,6 +3,7 @@ import type { NavId } from './model/workspace-types';
 export const NAV_PATHS: Record<NavId, string> = {
 	dashboard: '/dashboard',
 	profiles: '/profiles',
+	plugins: '/plugins',
 	groups: '/groups',
 	proxy: '/proxy',
 	windows: '/windows',

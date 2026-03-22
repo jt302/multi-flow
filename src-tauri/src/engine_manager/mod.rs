@@ -73,6 +73,7 @@ pub struct EngineLaunchOptions {
     pub custom_ram_gb: Option<u32>,
     pub custom_font_list: Option<Vec<String>>,
     pub cookie_state_file: Option<PathBuf>,
+    pub extension_state_file: Option<PathBuf>,
     pub extra_args: Vec<String>,
 }
 
@@ -1558,6 +1559,12 @@ fn build_chromium_launch_args(
             cookie_state_file.to_string_lossy()
         ));
     }
+    if let Some(extension_state_file) = options.extension_state_file.as_ref() {
+        args.push(format!(
+            "--extension-state-file={}",
+            extension_state_file.to_string_lossy()
+        ));
+    }
     for extra in &options.extra_args {
         if let Some(arg) = trim_to_option(extra) {
             args.push(arg);
@@ -2290,6 +2297,28 @@ mod tests {
 
         assert!(args.iter().any(|arg| {
             arg == "--cookie-state-file=/tmp/multi-flow-tests/runtime/cookie-state.json"
+        }));
+    }
+
+    #[test]
+    fn build_chromium_launch_args_adds_extension_state_file_when_configured() {
+        let options = EngineLaunchOptions {
+            extension_state_file: Some(PathBuf::from(
+                "/tmp/multi-flow-tests/runtime/extension-state.json",
+            )),
+            ..Default::default()
+        };
+        let args = build_chromium_launch_args(
+            &PathBuf::from("/tmp/multi-flow-tests/user-data"),
+            &PathBuf::from("/tmp/multi-flow-tests/cache-data"),
+            19222,
+            19322,
+            &options,
+        )
+        .expect("build args");
+
+        assert!(args.iter().any(|arg| {
+            arg == "--extension-state-file=/tmp/multi-flow-tests/runtime/extension-state.json"
         }));
     }
 
