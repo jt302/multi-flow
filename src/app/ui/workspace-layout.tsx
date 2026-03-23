@@ -5,13 +5,7 @@ import { toast } from 'sonner';
 import { useThemeSettings } from '@/entities/theme/model/use-theme-settings';
 import { resolveSonnerTheme } from '@/entities/theme/model/sonner-theme';
 import { openLogPanelWindow } from '@/entities/log-entry/api/logs-api';
-import {
-	Card,
-	ScrollArea,
-	Sidebar,
-	SidebarProvider,
-	Toaster,
-} from '@/components/ui';
+import { Card, Sidebar, SidebarProvider, Toaster } from '@/components/ui';
 import { resolveNavFromPath, resolvePathFromNav } from '@/app/workspace-routes';
 import { buildWorkspaceLayoutOutletContext } from '@/app/model/workspace-layout-context';
 import type {
@@ -112,7 +106,7 @@ export function WorkspaceLayout() {
 				} as CSSProperties
 			}
 		>
-			<div className="relative h-dvh w-full overflow-hidden p-3 md:p-5">
+			<div className="relative h-dvh w-full overflow-hidden p-4">
 				<div
 					aria-hidden
 					className="pointer-events-none absolute inset-0 opacity-75"
@@ -135,8 +129,8 @@ export function WorkspaceLayout() {
 						/>
 					</Sidebar>
 
-					<section className="flex min-h-0 min-w-0 flex-1 basis-0 flex-col gap-3 bg-transparent md:pl-2">
-						<Card className="w-full shrink-0 border-border/60 bg-card/84 p-4 backdrop-blur-2xl md:p-5">
+					<section className="flex min-h-0 min-w-0 flex-1 basis-0 flex-col gap-3 bg-transparent">
+						<Card className="w-full shrink-0 border-border/60 bg-card/84 px-4 py-2 backdrop-blur-2xl">
 							<WorkspaceTopbar
 								activeNav={activeNav}
 								themeMode={themeState.themeMode}
@@ -146,8 +140,8 @@ export function WorkspaceLayout() {
 							/>
 						</Card>
 						<Card className="min-h-0 w-full flex-1 overflow-hidden border-border/60 bg-card/84 p-0 backdrop-blur-2xl">
-							<ScrollArea className="h-full w-full p-4 md:p-5">
-								<div className="w-full min-w-0">
+							<div className="h-full w-full overflow-y-auto p-4 md:p-5">
+								<div className="flex h-full min-h-0 w-full min-w-0 flex-col">
 									<Suspense
 										fallback={
 											<Card className="p-6 text-sm text-muted-foreground">
@@ -158,7 +152,7 @@ export function WorkspaceLayout() {
 										<Outlet context={outletContext} />
 									</Suspense>
 								</div>
-							</ScrollArea>
+							</div>
 						</Card>
 					</section>
 				</div>
