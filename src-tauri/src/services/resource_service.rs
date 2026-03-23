@@ -148,7 +148,7 @@ impl ResourceService {
         }
 
         let temp_path = target_path.with_extension("download");
-        let (bytes, _total) = tauri::async_runtime::block_on(async {
+        let (bytes, _total) = crate::runtime_compat::block_on_compat(async {
             let client = reqwest::Client::builder()
                 .user_agent("multi-flow-resource/0.1")
                 .build()?;
@@ -419,7 +419,7 @@ impl ResourceService {
     }
 
     fn fetch_manifest(&self, url: &str) -> AppResult<ResourceManifest> {
-        tauri::async_runtime::block_on(async {
+        crate::runtime_compat::block_on_compat(async {
             let client = reqwest::Client::builder()
                 .user_agent("multi-flow-manifest/0.1")
                 .build()?;

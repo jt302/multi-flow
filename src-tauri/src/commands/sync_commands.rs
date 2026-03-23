@@ -25,10 +25,7 @@ fn ensure_sync_sidecar_started_inner(
     app: Option<&AppHandle>,
     state: &AppState,
 ) -> AppResult<EnsureSyncSidecarStartedResponse> {
-    let mut service = state
-        .sync_manager_service
-        .lock()
-        .map_err(|_| AppError::Validation("sync manager service lock poisoned".to_string()))?;
+    let mut service = state.lock_sync_manager_service();
     service.ensure_started(app)
 }
 
@@ -41,14 +38,8 @@ pub fn list_sync_targets(state: State<'_, AppState>) -> Result<ListSyncTargetsRe
         );
     }
     let states = collect_window_states(&state)?;
-    let profile_service = state
-        .profile_service
-        .lock()
-        .map_err(|_| "profile service lock poisoned".to_string())?;
-    let engine_manager = state
-        .engine_manager
-        .lock()
-        .map_err(|_| "engine manager lock poisoned".to_string())?;
+    let profile_service = state.lock_profile_service();
+    let engine_manager = state.lock_engine_manager();
 
     let items = states
         .into_iter()
@@ -62,10 +53,7 @@ pub fn list_sync_targets(state: State<'_, AppState>) -> Result<ListSyncTargetsRe
                 .ok()
                 .and_then(|handle| handle.magic_port);
             let adapter_port = magic_socket_server_port.and_then(|port| {
-                state
-                    .chromium_magic_adapter_service
-                    .lock()
-                    .ok()
+                Some(state.lock_chromium_magic_adapter_service())
                     .and_then(|mut service| {
                         service
                             .ensure_adapter(&state_item.profile_id, "127.0.0.1", port)

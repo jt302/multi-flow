@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::net::TcpListener;
 use std::time::Duration;
 
-use reqwest::blocking::Client;
+use reqwest::{Client, Proxy as ReqwestProxy};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -10,6 +10,10 @@ use crate::logger;
 use crate::models::{now_ts, LocalApiServerStatus, Proxy};
 
 pub const DEFAULT_PROXY_DAEMON_BIND_ADDRESS: &str = "127.0.0.1:18180";
+const PROXY_RUNTIME_PROBE_URLS: [&str; 2] = [
+    "https://api.ipify.org?format=json",
+    "https://www.google.com/generate_204",
+];
 
 #[derive(Debug, Clone)]
 struct ProxyRuntimeInstance {
@@ -76,11 +80,14 @@ impl LocalApiServer {
 
     pub fn check_daemon_health(&self) -> bool {
         let endpoint = format!("http://{}/proxy/list", self.bind_address);
-        self.client
-            .get(endpoint)
-            .send()
-            .map(|response| response.status().is_success())
-            .unwrap_or(false)
+        crate::runtime_compat::block_on_compat(async {
+            self.client
+                .get(endpoint)
+                .send()
+                .await
+                .map(|response| response.status().is_success())
+                .unwrap_or(false)
+        })
     }
 
     pub fn start_proxy_runtime(
@@ -140,16 +147,21 @@ impl LocalApiServer {
             ),
         );
         let endpoint = format!("http://{}/proxy/start", self.bind_address);
-        let response = self
-            .client
-            .post(endpoint)
-            .json(&request)
-            .send()
-            .map_err(|err| format!("proxy daemon start request failed: {err}"))?;
-        let status = response.status();
-        let body = response
-            .text()
-            .map_err(|err| format!("proxy daemon start response read failed: {err}"))?;
+        let (status, body) = crate::runtime_compat::block_on_compat(async {
+            let response = self
+                .client
+                .post(endpoint)
+                .json(&request)
+                .send()
+                .await
+                .map_err(|err| format!("proxy daemon start request failed: {err}"))?;
+            let status = response.status();
+            let body = response
+                .text()
+                .await
+                .map_err(|err| format!("proxy daemon start response read failed: {err}"))?;
+            Ok::<_, String>((status, body))
+        })?;
         logger::info(
             "proxy_daemon",
             format!(
@@ -180,10 +192,12 @@ impl LocalApiServer {
                 listen_port: resolved_port,
             },
         );
-        Ok(build_daemon_proxy_server(
-            proxy_type.as_str(),
-            resolved_port,
-        ))
+        let proxy_server = build_daemon_proxy_server(proxy_type.as_str(), resolved_port);
+        if let Err(err) = self.verify_proxy_runtime(&proxy_server) {
+            let _ = self.stop_proxy_runtime(profile_id);
+            return Err(format!("proxy runtime upstream probe failed: {err}"));
+        }
+        Ok(proxy_server)
     }
 
     pub fn stop_proxy_runtime(&mut self, profile_id: &str) -> Result<(), String> {
@@ -201,12 +215,20 @@ impl LocalApiServer {
                 profile_id, runtime.proxy_id, runtime.listen_port
             ),
         );
-        let response = self
-            .client
-            .post(endpoint)
-            .send()
-            .map_err(|err| format!("proxy daemon stop request failed: {err}"))?;
-        let status = response.status();
+        let (status, body) = crate::runtime_compat::block_on_compat(async {
+            let response = self
+                .client
+                .post(endpoint)
+                .send()
+                .await
+                .map_err(|err| format!("proxy daemon stop request failed: {err}"))?;
+            let status = response.status();
+            let body = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "read body failed".to_string());
+            Ok::<_, String>((status, body))
+        })?;
         logger::info(
             "proxy_daemon",
             format!(
@@ -217,9 +239,6 @@ impl LocalApiServer {
             ),
         );
         if !status.is_success() {
-            let body = response
-                .text()
-                .unwrap_or_else(|_| "read body failed".to_string());
             return Err(format!(
                 "proxy daemon stop failed status={} body={body}",
                 status.as_u16()
@@ -234,6 +253,37 @@ impl LocalApiServer {
             bind_address: self.bind_address.clone(),
             started_at: self.started_at,
         }
+    }
+
+    fn verify_proxy_runtime(&self, proxy_server: &str) -> Result<(), String> {
+        let proxy = ReqwestProxy::all(proxy_server)
+            .map_err(|err| format!("build proxy probe config failed: {err}"))?;
+        let client = Client::builder()
+            .timeout(Duration::from_secs(5))
+            .proxy(proxy)
+            .build()
+            .map_err(|err| format!("build proxy probe client failed: {err}"))?;
+
+        crate::runtime_compat::block_on_compat(async move {
+            let mut last_error = None;
+            for url in PROXY_RUNTIME_PROBE_URLS {
+                match client.get(url).send().await {
+                    Ok(response) if response.status().is_success() => return Ok(()),
+                    Ok(response) => {
+                        last_error = Some(format!(
+                            "probe {} returned status {}",
+                            url,
+                            response.status().as_u16()
+                        ));
+                    }
+                    Err(err) => {
+                        last_error = Some(format!("probe {} failed: {err}", url));
+                    }
+                }
+            }
+
+            Err(last_error.unwrap_or_else(|| "proxy runtime probe failed".to_string()))
+        })
     }
 }
 

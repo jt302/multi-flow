@@ -1,5 +1,7 @@
 use std::fs;
+use std::panic;
 use std::process::Command;
+use std::sync::Once;
 use std::thread;
 use std::time::Duration;
 
@@ -13,6 +15,7 @@ const MENU_ID_OPEN_LOG_PANEL: &str = "open_log_panel";
 const PROXY_DAEMON_SIDECAR_NAME: &str = "proxy-daemon";
 const PROXY_DAEMON_RUST_LOG_ENV: &str = "MULTI_FLOW_PROXY_DAEMON_RUST_LOG";
 const DEFAULT_PROXY_DAEMON_RUST_LOG: &str = "info";
+static PANIC_HOOK_ONCE: Once = Once::new();
 
 mod commands;
 mod db;
@@ -23,6 +26,7 @@ mod font_catalog;
 mod local_api_server;
 mod logger;
 mod models;
+mod runtime_compat;
 mod runtime_guard;
 mod services;
 mod state;
@@ -46,6 +50,7 @@ pub fn run() {
             logger::init(&app.handle())
                 .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))
                 .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })?;
+            install_panic_hook();
             let app_state = state::build_app_state(&app.handle()).map_err(|err| {
                 let io_err = std::io::Error::new(std::io::ErrorKind::Other, err.to_string());
                 Box::new(io_err) as Box<dyn std::error::Error>
@@ -146,6 +151,31 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+fn install_panic_hook() {
+    PANIC_HOOK_ONCE.call_once(|| {
+        let default_hook = panic::take_hook();
+        panic::set_hook(Box::new(move |panic_info| {
+            let location = panic_info
+                .location()
+                .map(|location| format!("{}:{}", location.file(), location.line()))
+                .unwrap_or_else(|| "unknown".to_string());
+            let payload = if let Some(message) = panic_info.payload().downcast_ref::<&str>() {
+                (*message).to_string()
+            } else if let Some(message) = panic_info.payload().downcast_ref::<String>() {
+                message.clone()
+            } else {
+                "non-string panic payload".to_string()
+            };
+            let backtrace = std::backtrace::Backtrace::force_capture();
+            logger::error(
+                "panic",
+                format!("panic at {location}: {payload}\nbacktrace:\n{backtrace}"),
+            );
+            default_hook(panic_info);
+        }));
+    });
 }
 
 fn setup_native_menu(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {

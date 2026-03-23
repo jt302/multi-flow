@@ -845,7 +845,7 @@ impl ProxyService {
     where
         F: Future<Output = Result<T, sea_orm::DbErr>>,
     {
-        tauri::async_runtime::block_on(future).map_err(AppError::from)
+        crate::runtime_compat::block_on_compat(future).map_err(AppError::from)
     }
 }
 
@@ -1089,7 +1089,7 @@ fn parse_import_line(line: &str) -> AppResult<ParsedImportLine> {
 fn lookup_exit_ip_through_proxy(stored: &proxy::Model) -> AppResult<String> {
     let client = build_proxy_http_client(stored, Duration::from_secs(4))?;
 
-    tauri::async_runtime::block_on(async move {
+    crate::runtime_compat::block_on_compat(async move {
         let mut last_error: Option<AppError> = None;
         for url in resolve_exit_ip_urls()? {
             match lookup_exit_ip_from_url(&client, &url).await {
@@ -1153,7 +1153,7 @@ fn probe_target_sites_through_proxy(stored: &proxy::Model) -> Vec<ProxyTargetSit
         }
     };
 
-    tauri::async_runtime::block_on(async move {
+    crate::runtime_compat::block_on_compat(async move {
         let mut checks = Vec::with_capacity(TARGET_SITE_CHECK_TARGETS.len());
         for (site, url) in TARGET_SITE_CHECK_TARGETS {
             let started_at = Instant::now();

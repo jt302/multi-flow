@@ -14,6 +14,9 @@ mod m20260310_000012_rebuild_proxy_runtime_instances;
 mod m20260311_000013_create_rpa_tasks;
 mod m20260321_000014_drop_rpa_tables;
 mod m20260322_000015_create_plugin_packages;
+mod m20260322_000016_create_agent_tasks;
+mod m20260323_000016_create_agent_runtime_tables;
+mod m20260323_000017_drop_agent_tables;
 
 use sea_orm_migration::prelude::*;
 
@@ -39,6 +42,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20260311_000013_create_rpa_tasks::Migration),
             Box::new(m20260321_000014_drop_rpa_tables::Migration),
             Box::new(m20260322_000015_create_plugin_packages::Migration),
+            Box::new(m20260322_000016_create_agent_tasks::Migration),
+            Box::new(m20260323_000016_create_agent_runtime_tables::Migration),
+            Box::new(m20260323_000017_drop_agent_tables::Migration),
         ]
     }
 }
@@ -119,5 +125,53 @@ mod tests {
                 .expect("query sqlite master");
             assert_eq!(rows.len(), 1, "plugin_packages table should exist");
         });
+    }
+
+    #[test]
+    fn includes_drop_agent_migration_and_removes_tables() {
+        tauri::async_runtime::block_on(async {
+            let names = Migrator::migrations()
+                .into_iter()
+                .map(|migration| migration.name().to_string())
+                .collect::<Vec<_>>();
+            assert!(
+                names.contains(&"m20260323_000017_drop_agent_tables".to_string()),
+                "missing agent drop migration"
+            );
+
+            let db = Database::connect("sqlite::memory:").await.expect("connect");
+            Migrator::up(&db, None).await.expect("run migrations");
+
+            for table in [
+                "agent_provider_profiles",
+                "agent_sessions",
+                "agent_session_events",
+                "agent_handoffs",
+            ] {
+                let rows = db
+                    .query_all(Statement::from_string(
+                        db.get_database_backend(),
+                        format!(
+                            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = '{table}'"
+                        ),
+                    ))
+                    .await
+                    .expect("query sqlite master");
+                assert_eq!(rows.len(), 0, "{table} table should be removed");
+            }
+        });
+    }
+
+    #[test]
+    fn includes_legacy_agent_tasks_compat_migration() {
+        let names = Migrator::migrations()
+            .into_iter()
+            .map(|migration| migration.name().to_string())
+            .collect::<Vec<_>>();
+
+        assert!(
+            names.contains(&"m20260322_000016_create_agent_tasks".to_string()),
+            "missing compatibility migration for previously applied agent tasks version"
+        );
     }
 }

@@ -21,10 +21,7 @@ pub fn list_open_profile_windows(
             format!("list_open_profile_windows reconcile failed: {err}"),
         );
     }
-    let mut engine_manager = state
-        .engine_manager
-        .lock()
-        .map_err(|_| "engine manager lock poisoned".to_string())?;
+    let mut engine_manager = state.lock_engine_manager();
     let mut states = engine_manager.list_window_states();
     drop(engine_manager);
 
@@ -33,14 +30,8 @@ pub fn list_open_profile_windows(
         .map(|item| item.profile_id.clone())
         .collect::<HashSet<_>>();
 
-    let profile_service = state
-        .profile_service
-        .lock()
-        .map_err(|_| "profile service lock poisoned".to_string())?;
-    let engine_session_service = state
-        .engine_session_service
-        .lock()
-        .map_err(|_| "engine session service lock poisoned".to_string())?;
+    let profile_service = state.lock_profile_service();
+    let engine_session_service = state.lock_engine_session_service();
     let running_profile_ids = profile_service
         .list_running_profile_ids()
         .map_err(error_to_string)?;
@@ -74,10 +65,7 @@ pub fn open_profile_tab(
         "window_cmd",
         format!("open_profile_tab request profile_id={profile_id} url={url:?}"),
     );
-    let mut engine_manager = state
-        .engine_manager
-        .lock()
-        .map_err(|_| "engine manager lock poisoned".to_string())?;
+    let mut engine_manager = state.lock_engine_manager();
     let result = engine_manager
         .open_tab(&profile_id, url)
         .map_err(error_to_string);
@@ -104,10 +92,7 @@ pub fn close_profile_tab(
         "window_cmd",
         format!("close_profile_tab request profile_id={profile_id} tab_id={tab_id:?}"),
     );
-    let mut engine_manager = state
-        .engine_manager
-        .lock()
-        .map_err(|_| "engine manager lock poisoned".to_string())?;
+    let mut engine_manager = state.lock_engine_manager();
     let result = engine_manager
         .close_tab(&profile_id, tab_id)
         .map_err(error_to_string);
@@ -134,10 +119,7 @@ pub fn close_inactive_tabs(
         "window_cmd",
         format!("close_inactive_tabs request profile_id={profile_id} window_id={window_id:?}"),
     );
-    let mut engine_manager = state
-        .engine_manager
-        .lock()
-        .map_err(|_| "engine manager lock poisoned".to_string())?;
+    let mut engine_manager = state.lock_engine_manager();
     let result = engine_manager
         .close_inactive_tabs(&profile_id, window_id)
         .map_err(error_to_string);
@@ -164,10 +146,7 @@ pub fn open_profile_window(
         "window_cmd",
         format!("open_profile_window request profile_id={profile_id} url={url:?}"),
     );
-    let mut engine_manager = state
-        .engine_manager
-        .lock()
-        .map_err(|_| "engine manager lock poisoned".to_string())?;
+    let mut engine_manager = state.lock_engine_manager();
     let result = engine_manager
         .open_window(&profile_id, url)
         .map_err(error_to_string);
@@ -194,10 +173,7 @@ pub fn close_profile_window(
         "window_cmd",
         format!("close_profile_window request profile_id={profile_id} window_id={window_id:?}"),
     );
-    let mut engine_manager = state
-        .engine_manager
-        .lock()
-        .map_err(|_| "engine manager lock poisoned".to_string())?;
+    let mut engine_manager = state.lock_engine_manager();
     let result = engine_manager
         .close_window(&profile_id, window_id)
         .map_err(error_to_string);
@@ -224,10 +200,7 @@ pub fn focus_profile_window(
         "window_cmd",
         format!("focus_profile_window request profile_id={profile_id} window_id={window_id:?}"),
     );
-    let mut engine_manager = state
-        .engine_manager
-        .lock()
-        .map_err(|_| "engine manager lock poisoned".to_string())?;
+    let mut engine_manager = state.lock_engine_manager();
     let result = engine_manager
         .focus_window(&profile_id, window_id)
         .map_err(error_to_string);
@@ -257,10 +230,7 @@ pub fn set_profile_window_bounds(
             "set_profile_window_bounds request profile_id={profile_id} window_id={window_id:?} bounds={bounds:?}"
         ),
     );
-    let mut engine_manager = state
-        .engine_manager
-        .lock()
-        .map_err(|_| "engine manager lock poisoned".to_string())?;
+    let mut engine_manager = state.lock_engine_manager();
     let result = engine_manager
         .set_window_bounds(&profile_id, bounds, window_id)
         .map_err(error_to_string);
@@ -291,10 +261,7 @@ pub fn activate_tab(
         "window_cmd",
         format!("activate_tab request profile_id={profile_id} tab_id={tab_id}"),
     );
-    let mut engine_manager = state
-        .engine_manager
-        .lock()
-        .map_err(|_| "engine manager lock poisoned".to_string())?;
+    let mut engine_manager = state.lock_engine_manager();
     let result = engine_manager
         .activate_tab(&profile_id, tab_id)
         .map_err(error_to_string);
@@ -324,10 +291,7 @@ pub fn activate_tab_by_index(
             "activate_tab_by_index request profile_id={profile_id} index={index} window_id={window_id:?}"
         ),
     );
-    let mut engine_manager = state
-        .engine_manager
-        .lock()
-        .map_err(|_| "engine manager lock poisoned".to_string())?;
+    let mut engine_manager = state.lock_engine_manager();
     let result = engine_manager
         .activate_tab_by_index(&profile_id, index as usize, window_id)
         .map_err(error_to_string);
@@ -425,10 +389,7 @@ where
         "window_cmd",
         format!("{action_name} request profile_count={}", profile_ids.len()),
     );
-    let mut engine_manager = state
-        .engine_manager
-        .lock()
-        .map_err(|_| "engine manager lock poisoned".to_string())?;
+    let mut engine_manager = state.lock_engine_manager();
     let mut items = Vec::with_capacity(profile_ids.len());
     let mut success_count = 0usize;
 
