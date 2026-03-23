@@ -1,15 +1,11 @@
 import { Logs, MonitorCog, MoonStar, Search, ShieldCheck, Sun } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
+import { WORKSPACE_SECTIONS } from '@/app/model/workspace-sections';
 import { WORKSPACE_NAV_ITEMS } from '@/app/model/workspace-nav-items';
 import { resolvePathFromNav } from '@/app/workspace-routes';
 import type { NavId } from '@/app/model/workspace-types';
 import {
-	Breadcrumb,
-	BreadcrumbItem,
-	BreadcrumbList,
-	BreadcrumbPage,
-	BreadcrumbSeparator,
 	Button,
 	CommandDialog,
 	CommandEmpty,
@@ -38,7 +34,7 @@ export function WorkspaceTopbar({
 	onNavigate,
 }: WorkspaceTopbarProps) {
 	const [commandOpen, setCommandOpen] = useState(false);
-	const activeLabel = WORKSPACE_NAV_ITEMS.find((item) => item.id === activeNav)?.label ?? '';
+	const section = WORKSPACE_SECTIONS[activeNav];
 
 	const navCommands = useMemo(
 		() => WORKSPACE_NAV_ITEMS.map((item) => ({ label: item.label, path: resolvePathFromNav(item.id) })),
@@ -58,22 +54,12 @@ export function WorkspaceTopbar({
 
 	return (
 		<>
-			<header className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-				<div className="flex min-w-0 items-center gap-2">
+			<header className="flex items-center justify-between gap-3">
+				<div className="flex min-w-0 items-center gap-3">
 					<SidebarTrigger className="shrink-0" />
 					<div className="min-w-0">
-						<Breadcrumb>
-							<BreadcrumbList>
-								<BreadcrumbItem>
-									<BreadcrumbPage className="text-xs uppercase tracking-[0.2em] text-muted-foreground">workspace</BreadcrumbPage>
-								</BreadcrumbItem>
-								<BreadcrumbSeparator />
-								<BreadcrumbItem>
-									<BreadcrumbPage className="truncate text-xs uppercase tracking-[0.2em] text-muted-foreground">{activeLabel}</BreadcrumbPage>
-								</BreadcrumbItem>
-							</BreadcrumbList>
-						</Breadcrumb>
-						<p className="truncate text-sm font-medium">Command + Navigation</p>
+						<p className="truncate text-sm font-semibold">{section.title}</p>
+						<p className="truncate text-xs text-muted-foreground">{section.desc}</p>
 					</div>
 				</div>
 
