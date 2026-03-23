@@ -127,7 +127,7 @@ impl PluginPackageService {
     where
         F: Future<Output = Result<T, sea_orm::DbErr>>,
     {
-        tauri::async_runtime::block_on(future).map_err(AppError::from)
+        crate::runtime_compat::block_on_compat(future).map_err(AppError::from)
     }
 }
 

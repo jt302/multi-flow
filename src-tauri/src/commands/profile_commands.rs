@@ -3,7 +3,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use reqwest::blocking::Client;
+use reqwest::Client;
 use reqwest::Url;
 use tauri::{AppHandle, Emitter, State};
 
@@ -767,18 +767,7 @@ fn sync_profile_cookie_state_from_settings_quietly(
     profile_id: &str,
     settings: Option<&ProfileSettings>,
 ) {
-    let engine_manager = match state.engine_manager.lock() {
-        Ok(value) => value,
-        Err(_) => {
-            logger::warn(
-                "profile_cmd",
-                format!(
-                    "skip syncing cookie state because engine manager lock poisoned profile_id={profile_id}"
-                ),
-            );
-            return;
-        }
-    };
+    let engine_manager = state.lock_engine_manager();
     let path = match resolve_profile_cookie_state_path(&engine_manager, profile_id) {
         Ok(value) => value,
         Err(err) => {
@@ -837,18 +826,7 @@ pub(crate) fn sync_profile_extension_state_from_settings_quietly(
     profile_id: &str,
     settings: Option<&ProfileSettings>,
 ) {
-    let engine_manager = match state.engine_manager.lock() {
-        Ok(value) => value,
-        Err(_) => {
-            logger::warn(
-                "profile_cmd",
-                format!(
-                    "skip syncing extension state because engine manager lock poisoned profile_id={profile_id}"
-                ),
-            );
-            return;
-        }
-    };
+    let engine_manager = state.lock_engine_manager();
     let path = match resolve_profile_extension_state_path(&engine_manager, profile_id) {
         Ok(value) => value,
         Err(err) => {
@@ -900,10 +878,7 @@ pub(crate) fn read_profile_plugin_selections_from_storage(
     profile_id: &str,
     settings: Option<&ProfileSettings>,
 ) -> Result<Vec<ProfilePluginSelection>, String> {
-    let engine_manager = state
-        .engine_manager
-        .lock()
-        .map_err(|_| "engine manager lock poisoned".to_string())?;
+    let engine_manager = state.lock_engine_manager();
     let path = resolve_profile_extension_state_path(&engine_manager, profile_id)?;
     if path.exists() {
         let content = fs::read_to_string(&path)
@@ -1402,35 +1377,18 @@ pub(crate) fn do_open_profile(
         "profile_cmd",
         format!("do_open_profile start profile_id={profile_id}"),
     );
-    let profile_service = state
-        .profile_service
-        .lock()
-        .map_err(|_| "profile service lock poisoned".to_string())?;
-    let engine_session_service = state
-        .engine_session_service
-        .lock()
-        .map_err(|_| "engine session service lock poisoned".to_string())?;
-    let proxy_service = state
-        .proxy_service
-        .lock()
-        .map_err(|_| "proxy service lock poisoned".to_string())?;
-    let resource_service = state
-        .resource_service
-        .lock()
-        .map_err(|_| "resource service lock poisoned".to_string())?;
-    let mut engine_manager = state
-        .engine_manager
-        .lock()
-        .map_err(|_| "engine manager lock poisoned".to_string())?;
-
-    profile_service
-        .ensure_profile_openable(profile_id)
-        .map_err(error_to_string)?;
-    let mut profile_snapshot = profile_service
-        .get_profile(profile_id)
-        .map_err(error_to_string)?;
-    let fingerprint_seed =
-        resolve_fingerprint_seed(profile_id, &mut profile_snapshot, &profile_service)?;
+    let (mut profile_snapshot, fingerprint_seed) = {
+        let profile_service = state.lock_profile_service();
+        profile_service
+            .ensure_profile_openable(profile_id)
+            .map_err(error_to_string)?;
+        let mut profile_snapshot = profile_service
+            .get_profile(profile_id)
+            .map_err(error_to_string)?;
+        let fingerprint_seed =
+            resolve_fingerprint_seed(profile_id, &mut profile_snapshot, &profile_service)?;
+        (profile_snapshot, fingerprint_seed)
+    };
 
     let preferred_chromium_version = profile_snapshot
         .settings
@@ -1438,47 +1396,51 @@ pub(crate) fn do_open_profile(
         .and_then(|settings| settings.basic.as_ref())
         .and_then(|basic| basic.browser_version.as_deref())
         .and_then(trim_str_to_option);
-    let (resource_id, resolved_browser_version, chromium_executable) = if state.require_real_engine
-    {
-        resource_service
-            .ensure_chromium_version_available(
-                preferred_chromium_version.as_deref(),
-                |resource_id, stage, downloaded, total| {
-                    if let (Some(app), Some(task_id)) = (app, task_id) {
-                        emit_resource_progress(
-                            app,
-                            task_id,
-                            resource_id,
-                            stage,
-                            downloaded,
-                            total,
-                            match stage {
-                                "download" => "环境启动前自动下载浏览器版本",
-                                "install" => "环境启动前自动安装浏览器版本",
-                                "done" => "浏览器版本已就绪",
-                                _ => "处理中",
-                            },
-                        );
-                    }
-                },
-            )
-            .map_err(error_to_string)?
-    } else {
-        let resolved_browser_version = preferred_chromium_version
-            .clone()
-            .or_else(|| {
-                resource_service
-                    .latest_host_compatible_chromium_version()
-                    .ok()
-                    .flatten()
-            })
-            .unwrap_or_else(|| fingerprint_catalog::default_browser_version().to_string());
-        let chromium_executable = preferred_chromium_version
-            .as_deref()
-            .and_then(|version| resource_service.resolve_chromium_executable_for_version(version))
-            .or_else(|| resource_service.resolve_active_chromium_executable())
-            .unwrap_or_default();
-        (String::new(), resolved_browser_version, chromium_executable)
+    let (resource_id, resolved_browser_version, chromium_executable) = {
+        let resource_service = state.lock_resource_service();
+        if state.require_real_engine {
+            resource_service
+                .ensure_chromium_version_available(
+                    preferred_chromium_version.as_deref(),
+                    |resource_id, stage, downloaded, total| {
+                        if let (Some(app), Some(task_id)) = (app, task_id) {
+                            emit_resource_progress(
+                                app,
+                                task_id,
+                                resource_id,
+                                stage,
+                                downloaded,
+                                total,
+                                match stage {
+                                    "download" => "环境启动前自动下载浏览器版本",
+                                    "install" => "环境启动前自动安装浏览器版本",
+                                    "done" => "浏览器版本已就绪",
+                                    _ => "处理中",
+                                },
+                            );
+                        }
+                    },
+                )
+                .map_err(error_to_string)?
+        } else {
+            let resolved_browser_version = preferred_chromium_version
+                .clone()
+                .or_else(|| {
+                    resource_service
+                        .latest_host_compatible_chromium_version()
+                        .ok()
+                        .flatten()
+                })
+                .unwrap_or_else(|| fingerprint_catalog::default_browser_version().to_string());
+            let chromium_executable = preferred_chromium_version
+                .as_deref()
+                .and_then(|version| {
+                    resource_service.resolve_chromium_executable_for_version(version)
+                })
+                .or_else(|| resource_service.resolve_active_chromium_executable())
+                .unwrap_or_default();
+            (String::new(), resolved_browser_version, chromium_executable)
+        }
     };
     let active_chromium = chromium_executable
         .is_file()
@@ -1504,20 +1466,19 @@ pub(crate) fn do_open_profile(
             .browser_version = Some(resolved_browser_version.clone());
     }
 
-    let bound_proxy = proxy_service
+    let bound_proxy = state
+        .lock_proxy_service()
         .get_profile_proxy(profile_id)
         .map_err(error_to_string)?;
     let daemon_proxy_server = match bound_proxy.as_ref() {
         Some(proxy) => {
-            let mut local_api_server = state
-                .local_api_server
-                .lock()
-                .map_err(|_| "local api server lock poisoned".to_string())?;
+            let mut local_api_server = state.lock_local_api_server();
             Some(local_api_server.start_proxy_runtime(profile_id, proxy)?)
         }
         None => None,
     };
-    let geoip_database = resource_service.resolve_geoip_database_path();
+    let geoip_database = state.lock_resource_service().resolve_geoip_database_path();
+    let mut engine_manager = state.lock_engine_manager();
     let mut merged_options = merge_open_options(profile_snapshot.settings.as_ref(), user_options);
     merged_options.fingerprint_seed = Some(fingerprint_seed);
     let cookie_state_file = prepare_cookie_state_file(
@@ -1531,10 +1492,7 @@ pub(crate) fn do_open_profile(
         profile_snapshot.settings.as_ref(),
         &engine_manager,
     )?;
-    let device_preset_service = state
-        .device_preset_service
-        .lock()
-        .map_err(|_| "device preset service lock poisoned".to_string())?;
+    let device_preset_service = state.lock_device_preset_service();
     let mut launch_options = resolve_launch_options(
         &device_preset_service,
         profile_id,
@@ -1568,17 +1526,23 @@ pub(crate) fn do_open_profile(
         launch_options.toolbar_text.clone(),
     );
 
-    let profile = match profile_service.mark_profile_running(profile_id, true) {
-        Ok(profile) => profile,
-        Err(err) => {
-            let _ = engine_manager.close_profile(profile_id);
-            stop_profile_proxy_runtime_quietly(state, profile_id);
-            return Err(error_to_string(err));
+    let profile = {
+        let profile_service = state.lock_profile_service();
+        match profile_service.mark_profile_running(profile_id, true) {
+            Ok(profile) => profile,
+            Err(err) => {
+                let _ = engine_manager.close_profile(profile_id);
+                stop_profile_proxy_runtime_quietly(state, profile_id);
+                return Err(error_to_string(err));
+            }
         }
     };
-    if let Err(err) = engine_session_service.save_session(profile_id, &session) {
+    if let Err(err) = state
+        .lock_engine_session_service()
+        .save_session(profile_id, &session)
+    {
         let _ = engine_manager.close_profile(profile_id);
-        let _ = profile_service.mark_profile_running(profile_id, false);
+        let _ = state.lock_profile_service().mark_profile_running(profile_id, false);
         stop_profile_proxy_runtime_quietly(state, profile_id);
         return Err(error_to_string(err));
     }
@@ -1903,35 +1867,36 @@ fn fetch_public_ip() -> Result<String, String> {
         .timeout(Duration::from_secs(PUBLIC_IP_LOOKUP_TIMEOUT_SECS))
         .build()
         .map_err(|err| format!("failed to build public ip client: {err}"))?;
-
-    for url in PUBLIC_IP_LOOKUP_URLS {
-        let response = match client.get(*url).send() {
-            Ok(value) => value,
-            Err(_) => continue,
-        };
-        if !response.status().is_success() {
-            continue;
-        }
-        if url.ends_with("format=json") {
-            let payload = match response.json::<PublicIpResponse>() {
+    crate::runtime_compat::block_on_compat(async move {
+        for url in PUBLIC_IP_LOOKUP_URLS {
+            let response = match client.get(*url).send().await {
                 Ok(value) => value,
                 Err(_) => continue,
             };
-            if let Some(ip) = payload.ip.and_then(trim_to_option) {
+            if !response.status().is_success() {
+                continue;
+            }
+            if url.ends_with("format=json") {
+                let payload = match response.json::<PublicIpResponse>().await {
+                    Ok(value) => value,
+                    Err(_) => continue,
+                };
+                if let Some(ip) = payload.ip.and_then(trim_to_option) {
+                    return Ok(ip);
+                }
+                continue;
+            }
+            let body = match response.text().await {
+                Ok(value) => value,
+                Err(_) => continue,
+            };
+            if let Some(ip) = trim_to_option(body) {
                 return Ok(ip);
             }
-            continue;
         }
-        let body = match response.text() {
-            Ok(value) => value,
-            Err(_) => continue,
-        };
-        if let Some(ip) = trim_to_option(body) {
-            return Ok(ip);
-        }
-    }
 
-    Err("all public ip lookup endpoints failed".to_string())
+        Err("all public ip lookup endpoints failed".to_string())
+    })
 }
 
 fn resolve_web_rtc_override_ip(
@@ -2633,18 +2598,7 @@ fn error_to_string(err: AppError) -> String {
 }
 
 fn stop_profile_proxy_runtime_quietly(state: &AppState, profile_id: &str) {
-    let mut local_api_server = match state.local_api_server.lock() {
-        Ok(value) => value,
-        Err(_) => {
-            logger::warn(
-                "profile_cmd",
-                format!(
-                    "skip stopping proxy daemon runtime because local api server lock poisoned profile_id={profile_id}"
-                ),
-            );
-            return;
-        }
-    };
+    let mut local_api_server = state.lock_local_api_server();
     if let Err(err) = local_api_server.stop_proxy_runtime(profile_id) {
         logger::warn(
             "profile_cmd",
@@ -4155,5 +4109,22 @@ mod tests {
 
         let closed = do_close_profile(&state, &profile.id).expect("close stale profile");
         assert!(!closed.running);
+    }
+
+    #[test]
+    fn do_open_profile_recovers_from_poisoned_profile_service_lock() {
+        let state = new_test_state();
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = state.profile_service.lock().expect("profile service lock");
+            panic!("poison profile service lock");
+        }));
+
+        let err = do_open_profile(&state, None, None, "pf_999999", None)
+            .expect_err("missing profile should still fail");
+
+        assert!(
+            err.contains("profile not found"),
+            "unexpected error after poisoned lock recovery: {err}"
+        );
     }
 }

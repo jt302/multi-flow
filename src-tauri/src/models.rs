@@ -525,6 +525,7 @@ pub struct UpdateProfileVisualRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BatchProfileActionRequest {
+    #[serde(alias = "profile_ids")]
     pub profile_ids: Vec<String>,
 }
 
@@ -537,7 +538,9 @@ pub struct SetProfileGroupRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BatchSetProfileGroupRequest {
+    #[serde(alias = "profile_ids")]
     pub profile_ids: Vec<String>,
+    #[serde(alias = "group_name")]
     pub group_name: Option<String>,
 }
 
@@ -561,12 +564,14 @@ pub struct BatchProfileActionResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BatchWindowActionRequest {
+    #[serde(alias = "profile_ids")]
     pub profile_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BatchWindowOpenRequest {
+    #[serde(alias = "profile_ids")]
     pub profile_ids: Vec<String>,
     pub url: Option<String>,
 }
@@ -906,4 +911,36 @@ pub fn now_ts() -> i64 {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_secs() as i64)
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::{BatchProfileActionRequest, BatchSetProfileGroupRequest, BatchWindowOpenRequest};
+
+    #[test]
+    fn batch_requests_accept_snake_case_profile_ids() {
+        let batch_profile: BatchProfileActionRequest = serde_json::from_value(json!({
+            "profile_ids": ["pf_000013", "pf_000014"]
+        }))
+        .expect("deserialize batch profile action request");
+        assert_eq!(batch_profile.profile_ids.len(), 2);
+
+        let batch_group: BatchSetProfileGroupRequest = serde_json::from_value(json!({
+            "profile_ids": ["pf_000013"],
+            "group_name": "macOS"
+        }))
+        .expect("deserialize batch set group request");
+        assert_eq!(batch_group.profile_ids, vec!["pf_000013".to_string()]);
+        assert_eq!(batch_group.group_name.as_deref(), Some("macOS"));
+
+        let batch_window: BatchWindowOpenRequest = serde_json::from_value(json!({
+            "profile_ids": ["pf_000013", "pf_000014"],
+            "url": "https://www.google.com"
+        }))
+        .expect("deserialize batch window open request");
+        assert_eq!(batch_window.profile_ids.len(), 2);
+        assert_eq!(batch_window.url.as_deref(), Some("https://www.google.com"));
+    }
 }

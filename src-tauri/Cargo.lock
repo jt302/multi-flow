@@ -2596,6 +2596,7 @@ dependencies = [
 name = "multi-flow"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "axum",
  "chromiumoxide",
  "chromiumoxide_cdp",
@@ -2613,8 +2614,10 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
  "tauri-plugin-shell",
+ "thiserror 2.0.18",
  "tokio",
  "tokio-tungstenite",
+ "uuid",
  "zip",
 ]
 

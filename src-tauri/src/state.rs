@@ -1,7 +1,7 @@
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 
 use tauri::AppHandle;
 use tauri::Manager;
@@ -37,6 +37,64 @@ pub struct AppState {
     pub chromium_magic_adapter_service: Mutex<ChromiumMagicAdapterService>,
     pub sync_manager_service: Mutex<SyncManagerService>,
     pub require_real_engine: bool,
+}
+
+impl AppState {
+    pub fn lock_profile_service(&self) -> MutexGuard<'_, ProfileService> {
+        recover_lock(&self.profile_service, "state", "profile service")
+    }
+
+    pub fn lock_device_preset_service(&self) -> MutexGuard<'_, DevicePresetService> {
+        recover_lock(&self.device_preset_service, "state", "device preset service")
+    }
+
+    pub fn lock_engine_session_service(&self) -> MutexGuard<'_, EngineSessionService> {
+        recover_lock(&self.engine_session_service, "state", "engine session service")
+    }
+
+    pub fn lock_proxy_service(&self) -> MutexGuard<'_, ProxyService> {
+        recover_lock(&self.proxy_service, "state", "proxy service")
+    }
+
+    pub fn lock_resource_service(&self) -> MutexGuard<'_, ResourceService> {
+        recover_lock(&self.resource_service, "state", "resource service")
+    }
+
+    pub fn lock_engine_manager(&self) -> MutexGuard<'_, EngineManager> {
+        recover_lock(&self.engine_manager, "state", "engine manager")
+    }
+
+    pub fn lock_local_api_server(&self) -> MutexGuard<'_, LocalApiServer> {
+        recover_lock(&self.local_api_server, "state", "local api server")
+    }
+
+    pub fn lock_chromium_magic_adapter_service(
+        &self,
+    ) -> MutexGuard<'_, ChromiumMagicAdapterService> {
+        recover_lock(
+            &self.chromium_magic_adapter_service,
+            "state",
+            "chromium magic adapter service",
+        )
+    }
+
+    pub fn lock_sync_manager_service(&self) -> MutexGuard<'_, SyncManagerService> {
+        recover_lock(&self.sync_manager_service, "state", "sync manager service")
+    }
+}
+
+fn recover_lock<'a, T>(
+    mutex: &'a Mutex<T>,
+    scope: &'static str,
+    target: &'static str,
+) -> MutexGuard<'a, T> {
+    match mutex.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            logger::warn(scope, format!("{target} lock poisoned, recovering inner state"));
+            poisoned.into_inner()
+        }
+    }
 }
 
 pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {

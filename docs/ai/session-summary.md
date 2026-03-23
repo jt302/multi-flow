@@ -6,6 +6,16 @@
 - 当前进度：Profile 与 Proxy 基础模型均已迁移到 SeaORM，包含启动迁移与历史 JSON 一次性导入（Profile）。
 - 当前优先：推进分页筛选、集成测试、引擎真实进程管理与 Local API/MCP。
 
+## 2026-03-23
+
+- 本轮已彻底移除内置会话自动化模块：
+  - 删除前后端入口、页面、状态、命令、运行时模块与数据实体引用
+  - 新增迁移删除历史会话自动化相关表
+- 保留并收口的全局 UI 调整：
+  - `WorkspaceTopbar` 左侧已改为“菜单展开/收起图标 + 当前页面 title/description”
+  - `PageHeader` 已改为 actions-only：无 actions 时不渲染，有 actions 时只保留页面内右对齐操作行
+  - 工作区外层与主内容区的 padding 已统一收紧，顶部工具栏外层 card 上下边距同步缩小
+
 ## 2026-03-07（本轮）
 
 - 完成 Tauri 后端 M0 第一版：

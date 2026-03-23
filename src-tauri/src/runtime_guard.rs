@@ -1,23 +1,14 @@
 use std::process::Command;
 
-use crate::error::{AppError, AppResult};
+use crate::error::AppResult;
 use crate::logger;
 use crate::models::ProfileLifecycle;
 use crate::state::AppState;
 
 pub fn reconcile_runtime_state(state: &AppState) -> AppResult<usize> {
-    let profile_service = state
-        .profile_service
-        .lock()
-        .map_err(|_| lock_poisoned("profile service"))?;
-    let engine_session_service = state
-        .engine_session_service
-        .lock()
-        .map_err(|_| lock_poisoned("engine session service"))?;
-    let mut engine_manager = state
-        .engine_manager
-        .lock()
-        .map_err(|_| lock_poisoned("engine manager"))?;
+    let profile_service = state.lock_profile_service();
+    let engine_session_service = state.lock_engine_session_service();
+    let mut engine_manager = state.lock_engine_manager();
 
     let mut affected = 0usize;
 
@@ -182,6 +173,76 @@ pub fn terminate_process(pid: u32) {
     }
 }
 
-fn lock_poisoned(target: &str) -> AppError {
-    AppError::Validation(format!("{target} lock poisoned"))
+#[cfg(test)]
+mod tests {
+    use std::sync::Mutex;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use crate::db;
+    use crate::engine_manager::EngineManager;
+    use crate::local_api_server::LocalApiServer;
+    use crate::services::app_preference_service::AppPreferenceService;
+    use crate::services::chromium_magic_adapter_service::ChromiumMagicAdapterService;
+    use crate::services::device_preset_service::DevicePresetService;
+    use crate::services::engine_session_service::EngineSessionService;
+    use crate::services::plugin_package_service::PluginPackageService;
+    use crate::services::profile_group_service::ProfileGroupService;
+    use crate::services::profile_service::ProfileService;
+    use crate::services::proxy_service::ProxyService;
+    use crate::services::resource_service::ResourceService;
+    use crate::services::sync_manager_service::SyncManagerService;
+    use crate::state::AppState;
+
+    fn new_test_state() -> AppState {
+        let db = db::init_test_database().expect("init test db");
+        let profile_group_service = ProfileGroupService::from_db(db.clone());
+        let profile_service = ProfileService::from_db(db.clone());
+        let device_preset_service = DevicePresetService::from_db(db.clone());
+        let plugin_package_service = PluginPackageService::from_db(db.clone());
+        let engine_session_service = EngineSessionService::from_db(db.clone());
+        let proxy_service = ProxyService::from_db(db.clone());
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time")
+            .as_nanos();
+        let resource_dir =
+            std::env::temp_dir().join(format!("multi-flow-runtime-guard-test-{unique}"));
+        let resource_service =
+            ResourceService::from_data_dir(&resource_dir).expect("resource service");
+        let app_preference_service = AppPreferenceService::from_data_dir(resource_dir.clone());
+        let mut local_api_server = LocalApiServer::new("127.0.0.1:18180");
+        local_api_server.mark_started();
+
+        AppState {
+            profile_group_service: Mutex::new(profile_group_service),
+            profile_service: Mutex::new(profile_service),
+            device_preset_service: Mutex::new(device_preset_service),
+            app_preference_service: Mutex::new(app_preference_service),
+            plugin_package_service: Mutex::new(plugin_package_service),
+            engine_session_service: Mutex::new(engine_session_service),
+            proxy_service: Mutex::new(proxy_service),
+            resource_service: Mutex::new(resource_service),
+            engine_manager: Mutex::new(EngineManager::new()),
+            local_api_server: Mutex::new(local_api_server),
+            chromium_magic_adapter_service: Mutex::new(ChromiumMagicAdapterService::new()),
+            sync_manager_service: Mutex::new(SyncManagerService::new_mock(None, None)),
+            require_real_engine: false,
+        }
+    }
+
+    #[test]
+    fn reconcile_runtime_state_recovers_from_poisoned_profile_service_lock() {
+        let state = new_test_state();
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = state.profile_service.lock().expect("profile service lock");
+            panic!("poison profile service lock");
+        }));
+
+        let result = super::reconcile_runtime_state(&state);
+
+        assert!(
+            result.is_ok(),
+            "expected poisoned profile service lock to recover, got {result:?}"
+        );
+    }
 }

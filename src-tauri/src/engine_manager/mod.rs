@@ -2064,9 +2064,38 @@ mod tests {
         let port = listener.local_addr().expect("listener addr").port();
         let handle = thread::spawn(move || {
             let (mut stream, _) = listener.accept().expect("accept request");
-            let mut buffer = [0u8; 8192];
-            let bytes_read = stream.read(&mut buffer).expect("read request");
-            let request = String::from_utf8_lossy(&buffer[..bytes_read]).to_string();
+            let mut buffer = Vec::new();
+            let mut chunk = [0u8; 4096];
+            let mut expected_total = None::<usize>;
+            loop {
+                let bytes_read = stream.read(&mut chunk).expect("read request");
+                if bytes_read == 0 {
+                    break;
+                }
+                buffer.extend_from_slice(&chunk[..bytes_read]);
+                if expected_total.is_none() {
+                    if let Some(header_end) = buffer.windows(4).position(|item| item == b"\r\n\r\n") {
+                        let header_bytes = &buffer[..header_end + 4];
+                        let header_text = String::from_utf8_lossy(header_bytes);
+                        let content_length = header_text
+                            .lines()
+                            .find_map(|line| {
+                                let lower = line.to_ascii_lowercase();
+                                lower
+                                    .strip_prefix("content-length:")
+                                    .and_then(|value| value.trim().parse::<usize>().ok())
+                            })
+                            .unwrap_or(0);
+                        expected_total = Some(header_end + 4 + content_length);
+                    }
+                }
+                if let Some(expected_total) = expected_total {
+                    if buffer.len() >= expected_total {
+                        break;
+                    }
+                }
+            }
+            let request = String::from_utf8_lossy(&buffer).to_string();
             let (status_code, body) = handler(request);
             let response = format!(
                 "HTTP/1.1 {status_code} TEST\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
