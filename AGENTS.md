@@ -57,8 +57,6 @@
 - [当前任务清单](docs/ai/current-task.md)
 - [项目背景与路线](docs/ai/project-context.md)
 - [会话摘要与阶段记录](docs/ai/session-summary.md)
-- [React 规则](docs/ai/react-rules.md)
-- [component library 规则](docs/ai/component-library.md)
 - [Proxy Daemon 用法说明](docs/ai/proxy-daemon.md)
 - [自研 chromium 项目位置](/Users/tt/Developer/Personal/chromium)
 - [sync-manger 项目位置](/Users/tt/Developer/Personal/Rust/multi-flow-sync-manager)
