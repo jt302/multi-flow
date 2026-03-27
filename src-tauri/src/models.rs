@@ -918,14 +918,14 @@ pub fn now_ts() -> i64 {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ScriptStep {
-    Navigate { url: String },
+    Navigate { url: String, #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
     Wait { ms: u64 },
     Evaluate { expression: String, result_key: Option<String> },
     Click { selector: String },
     Type { selector: String, text: String },
-    Screenshot,
-    Magic { command: String, params: serde_json::Value },
-    Cdp { method: String, params: Option<serde_json::Value> },
+    Screenshot { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    Magic { command: String, params: serde_json::Value, #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    Cdp { method: String, params: Option<serde_json::Value>, #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -935,6 +935,8 @@ pub struct StepResult {
     pub status: String,
     pub output: Option<String>,
     pub duration_ms: u64,
+    #[serde(skip_serializing_if = "std::collections::HashMap::is_empty", default)]
+    pub vars_set: std::collections::HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -980,6 +982,19 @@ pub struct AutomationProgressEvent {
     pub output: Option<String>,
     pub duration_ms: u64,
     pub run_status: String,
+    /// 当前步骤写入的变量（key -> value）
+    #[serde(skip_serializing_if = "std::collections::HashMap::is_empty", default)]
+    pub vars_set: std::collections::HashMap<String, String>,
+    /// 嵌套步骤路径（顶层步骤为 [index]，控制流内部步骤为 [outer, inner, ...]）
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub step_path: Vec<usize>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutomationVariablesUpdatedEvent {
+    pub run_id: String,
+    pub vars: std::collections::HashMap<String, String>,
 }
 
 #[cfg(test)]

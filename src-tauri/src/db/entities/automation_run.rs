@@ -13,6 +13,8 @@ pub struct Model {
     pub started_at: i64,
     pub finished_at: Option<i64>,
     pub error: Option<String>,
+    pub variables_json: Option<String>,
+    pub cancelled_at: Option<i64>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

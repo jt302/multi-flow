@@ -6,6 +6,7 @@ import type {
 	AutomationProgressEvent,
 	AutomationRun,
 	AutomationScript,
+	AutomationVariablesUpdatedEvent,
 	CreateAutomationScriptPayload,
 } from '@/entities/automation/model/types';
 
@@ -50,5 +51,20 @@ export async function listenAutomationProgress(
 			onProgress(event.payload);
 		}
 	});
+	return unlisten;
+}
+
+export async function listenAutomationVariablesUpdated(
+	runId: string,
+	onUpdate: (event: AutomationVariablesUpdatedEvent) => void,
+): Promise<() => void> {
+	const unlisten = await listen<AutomationVariablesUpdatedEvent>(
+		'automation_variables_updated',
+		(event) => {
+			if (event.payload.runId === runId) {
+				onUpdate(event.payload);
+			}
+		},
+	);
 	return unlisten;
 }

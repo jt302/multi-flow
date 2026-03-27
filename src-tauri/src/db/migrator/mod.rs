@@ -18,6 +18,7 @@ mod m20260322_000016_create_agent_tasks;
 mod m20260323_000016_create_agent_runtime_tables;
 mod m20260323_000017_drop_agent_tables;
 mod m20260326_000018_create_automation_scripts;
+mod m20260327_000019_automation_v2;
 
 use sea_orm_migration::prelude::*;
 
@@ -47,6 +48,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260323_000016_create_agent_runtime_tables::Migration),
             Box::new(m20260323_000017_drop_agent_tables::Migration),
             Box::new(m20260326_000018_create_automation_scripts::Migration),
+            Box::new(m20260327_000019_automation_v2::Migration),
         ]
     }
 }
@@ -175,6 +177,30 @@ mod tests {
             names.contains(&"m20260322_000016_create_agent_tasks".to_string()),
             "missing compatibility migration for previously applied agent tasks version"
         );
+    }
+
+    #[test]
+    fn includes_automation_v2_migration_and_adds_columns() {
+        tauri::async_runtime::block_on(async {
+            let names = Migrator::migrations()
+                .into_iter()
+                .map(|migration| migration.name().to_string())
+                .collect::<Vec<_>>();
+            assert!(
+                names.contains(&"m20260327_000019_automation_v2".to_string()),
+                "missing automation v2 migration"
+            );
+
+            let db = Database::connect("sqlite::memory:").await.expect("connect");
+            Migrator::up(&db, None).await.expect("run migrations");
+
+            // 检查新列存在（SELECT 不报错即可）
+            db.execute_unprepared(
+                "SELECT variables_json, cancelled_at FROM automation_runs LIMIT 0",
+            )
+            .await
+            .expect("automation_runs should have variables_json and cancelled_at columns");
+        });
     }
 
     #[test]

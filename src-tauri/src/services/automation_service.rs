@@ -126,6 +126,8 @@ impl AutomationService {
             started_at: Set(now),
             finished_at: Set(None),
             error: Set(None),
+            variables_json: Set(None),
+            cancelled_at: Set(None),
         };
         self.db_query(model.insert(&self.db))?;
         Ok(id)
@@ -138,6 +140,7 @@ impl AutomationService {
         results_json: Option<&str>,
         error: Option<&str>,
         finished_at: Option<i64>,
+        variables_json: Option<&str>,
     ) -> AppResult<()> {
         let model = self.find_run_model(run_id)?;
         let mut active: automation_run::ActiveModel = model.into();
@@ -145,6 +148,9 @@ impl AutomationService {
         active.results_json = Set(results_json.map(|s| s.to_string()));
         active.error = Set(error.map(|s| s.to_string()));
         active.finished_at = Set(finished_at);
+        if let Some(vj) = variables_json {
+            active.variables_json = Set(Some(vj.to_string()));
+        }
         self.db_query(active.update(&self.db))?;
         Ok(())
     }
