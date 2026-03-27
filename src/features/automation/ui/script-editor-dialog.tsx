@@ -49,6 +49,10 @@ const STEP_KINDS = [
 	{ value: 'magic', label: 'Magic 指令' },
 	{ value: 'cdp', label: 'CDP 调用' },
 	{ value: 'wait_for_user', label: '人工介入 wait_for_user' },
+	{ value: 'condition', label: '条件分支 condition' },
+	{ value: 'loop', label: '循环 loop' },
+	{ value: 'break', label: '跳出循环 break' },
+	{ value: 'continue', label: '继续下一轮 continue' },
 ];
 
 function defaultStep(kind: string): ScriptStep {
@@ -62,6 +66,10 @@ function defaultStep(kind: string): ScriptStep {
 		case 'magic': return { kind: 'magic', command: '', params: {} };
 		case 'cdp': return { kind: 'cdp', method: '' };
 		case 'wait_for_user': return { kind: 'wait_for_user', message: '' };
+		case 'condition': return { kind: 'condition', condition_expr: '', then_steps: [], else_steps: [] };
+		case 'loop': return { kind: 'loop', mode: 'count', count: 3, body_steps: [] };
+		case 'break': return { kind: 'break' };
+		case 'continue': return { kind: 'continue' };
 		default: return { kind: 'wait', ms: 1000 };
 	}
 }
@@ -77,7 +85,8 @@ export function ScriptEditorDialog({ open, script, onOpenChange, onSave, isSavin
 	} = useForm<FormValues>({
 		defaultValues: { name: '', description: '', steps: [] },
 	});
-	const { fields, append, remove, update } = useFieldArray({ control, name: 'steps' });
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const { fields, append, remove, update } = useFieldArray({ control: control as any, name: 'steps' });
 
 	useEffect(() => {
 		if (open) {
@@ -304,6 +313,33 @@ function StepFields({
 					/>
 				</div>
 			);
+		case 'condition':
+			return (
+				<Input
+					{...register(`steps.${index}.condition_expr` as `steps.${number}.condition_expr`)}
+					placeholder='条件表达式，如 {{status}} == "ok"'
+					className="h-8 text-xs font-mono"
+				/>
+			);
+		case 'loop':
+			return (
+				<div className="space-y-1.5">
+					<Input
+						{...register(`steps.${index}.count` as `steps.${number}.count`, { valueAsNumber: true })}
+						type="number"
+						placeholder="循环次数"
+						className="h-8 text-xs"
+					/>
+					<Input
+						{...register(`steps.${index}.iter_var` as `steps.${number}.iter_var`)}
+						placeholder="迭代变量名（可选）"
+						className="h-8 text-xs"
+					/>
+				</div>
+			);
+		case 'break':
+		case 'continue':
+			return <p className="text-xs text-muted-foreground">{kind === 'break' ? '跳出当前循环' : '跳到下一次迭代'}</p>;
 		default:
 			return null;
 	}

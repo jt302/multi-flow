@@ -1,4 +1,5 @@
 export type WaitForUserTimeout = 'continue' | 'fail';
+export type LoopMode = 'count' | 'while';
 
 export type ScriptStep =
 	| { kind: 'navigate'; url: string; output_key?: string }
@@ -16,7 +17,24 @@ export type ScriptStep =
 			output_key?: string;
 			timeout_ms?: number;
 			on_timeout?: WaitForUserTimeout;
-	  };
+	  }
+	| {
+			kind: 'condition';
+			condition_expr: string;
+			then_steps: ScriptStep[];
+			else_steps?: ScriptStep[];
+	  }
+	| {
+			kind: 'loop';
+			mode?: LoopMode;
+			count?: number;
+			condition_expr?: string;
+			max_iterations?: number;
+			iter_var?: string;
+			body_steps: ScriptStep[];
+	  }
+	| { kind: 'break' }
+	| { kind: 'continue' };
 
 export type AutomationScript = {
 	id: string;

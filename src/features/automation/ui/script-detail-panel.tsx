@@ -261,6 +261,16 @@ function StepSummary({ step }: { step: AutomationScript['steps'][number] }) {
 			return <span className="text-muted-foreground">{step.command}</span>;
 		case 'cdp':
 			return <span className="text-muted-foreground">{step.method}</span>;
+		case 'wait_for_user':
+			return <span className="text-muted-foreground">{step.message.slice(0, 60)}</span>;
+		case 'condition':
+			return <span className="text-muted-foreground font-mono text-xs">{step.condition_expr.slice(0, 60)}</span>;
+		case 'loop':
+			return <span className="text-muted-foreground">{step.mode === 'while' ? `while ${step.condition_expr ?? ''}` : `×${step.count ?? 1}`}</span>;
+		case 'break':
+			return <span className="text-muted-foreground">break</span>;
+		case 'continue':
+			return <span className="text-muted-foreground">continue</span>;
 		default:
 			return null;
 	}
