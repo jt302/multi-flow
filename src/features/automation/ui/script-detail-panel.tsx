@@ -271,6 +271,26 @@ function StepSummary({ step }: { step: AutomationScript['steps'][number] }) {
 			return <span className="text-muted-foreground">break</span>;
 		case 'continue':
 			return <span className="text-muted-foreground">continue</span>;
+		// CDP 具名步骤
+		case 'cdp_navigate':
+			return <span className="text-muted-foreground">{step.url}</span>;
+		case 'cdp_reload':
+			return <span className="text-muted-foreground">刷新页面</span>;
+		case 'cdp_evaluate':
+			return <span className="text-muted-foreground font-mono text-xs">{step.expression.slice(0, 60)}</span>;
+		case 'cdp_click':
+		case 'cdp_wait_for_selector':
+		case 'cdp_get_text':
+		case 'cdp_scroll_to':
+			return <span className="text-muted-foreground">{step.selector}</span>;
+		case 'cdp_type':
+			return <span className="text-muted-foreground">"{step.text}" → {step.selector}</span>;
+		case 'cdp_get_attribute':
+			return <span className="text-muted-foreground">{step.selector}[{step.attribute}]</span>;
+		case 'cdp_set_input_value':
+			return <span className="text-muted-foreground">"{step.value}" → {step.selector}</span>;
+		case 'cdp_screenshot':
+			return <span className="text-muted-foreground">截图{step.output_path ? ` → ${step.output_path}` : ''}</span>;
 		// Magic 具名步骤
 		case 'magic_set_bounds':
 			return <span className="text-muted-foreground">{step.x},{step.y} {step.width}×{step.height}</span>;

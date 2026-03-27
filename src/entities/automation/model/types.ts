@@ -36,6 +36,26 @@ export type ScriptStep =
 	| { kind: 'break' }
 	| { kind: 'continue' }
 
+	// ── CDP 具名步骤 ──────────────────────────────────────────────────────────
+	| { kind: 'cdp_navigate'; url: string; output_key?: string }
+	| { kind: 'cdp_reload'; ignore_cache?: boolean }
+	| { kind: 'cdp_evaluate'; expression: string; output_key?: string }
+	| { kind: 'cdp_click'; selector: string }
+	| { kind: 'cdp_type'; selector: string; text: string }
+	| { kind: 'cdp_scroll_to'; selector?: string; x?: number; y?: number }
+	| { kind: 'cdp_wait_for_selector'; selector: string; timeout_ms?: number }
+	| { kind: 'cdp_get_text'; selector: string; output_key?: string }
+	| { kind: 'cdp_get_attribute'; selector: string; attribute: string; output_key?: string }
+	| { kind: 'cdp_set_input_value'; selector: string; value: string }
+	| {
+			kind: 'cdp_screenshot';
+			format?: string;
+			quality?: number;
+			output_path?: string;
+			output_key_base64?: string;
+			output_key_file_path?: string;
+	  }
+
 	// ── Magic Controller 具名步骤 ─────────────────────────────────────────────
 
 	// 窗口外观
