@@ -6,11 +6,15 @@ import {
 	Background,
 	BackgroundVariant,
 	Controls,
+	type Connection,
 	type Edge,
+	type EdgeChange,
 	type Node,
 	type NodeChange,
 	ReactFlow,
 	ReactFlowProvider,
+	addEdge,
+	applyEdgeChanges,
 	useReactFlow,
 } from '@xyflow/react';
 import { ArrowLeft, Loader2, Minus, Play, Plus, Square, Trash2, Variable } from 'lucide-react';
@@ -309,13 +313,34 @@ function buildNodes(steps: ScriptStep[], positions: PositionsMap, liveStatuses: 
 	});
 }
 
-function buildEdges(count: number): Edge[] {
+function buildDefaultEdges(count: number): Edge[] {
 	return Array.from({ length: count - 1 }, (_, i) => ({
 		id: `e-${i}-${i + 1}`,
 		source: `step-${i}`,
 		target: `step-${i + 1}`,
 		type: 'smoothstep',
 	}));
+}
+
+type StoredEdge = { id: string; source: string; target: string };
+
+function parseCanvasData(json: string | null, stepCount: number): { positions: PositionsMap; edges: Edge[] } {
+	if (!json) return { positions: {}, edges: buildDefaultEdges(stepCount) };
+	try {
+		const parsed = JSON.parse(json) as Record<string, unknown>;
+		if ('positions' in parsed || 'edges' in parsed) {
+			// 新格式：{ positions: {...}, edges: [...] }
+			const positions = (parsed.positions ?? {}) as PositionsMap;
+			const edges = ((parsed.edges ?? []) as StoredEdge[]).map((e) => ({
+				...e, type: 'smoothstep',
+			}));
+			return { positions, edges };
+		}
+		// 旧格式：直接是 { 'step-0': {x,y}, ... }
+		return { positions: parsed as PositionsMap, edges: buildDefaultEdges(stepCount) };
+	} catch {
+		return { positions: {}, edges: buildDefaultEdges(stepCount) };
+	}
 }
 
 // ─── Variables Schema Dialog ──────────────────────────────────────────────────
@@ -456,14 +481,15 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 	// 当页面在独立新窗口中（history 只有一条记录）时隐藏返回按钮
 	const isStandaloneWindow = window.history.length <= 1;
 
-	const [positions, setPositions] = useState<PositionsMap>(() => {
-		try { return script.canvasPositionsJson ? JSON.parse(script.canvasPositionsJson) : {}; }
-		catch { return {}; }
-	});
-	const positionsRef = useRef<PositionsMap>(positions);
+	const [{ positions: initPos, edges: initEdges }] = useState(() =>
+		parseCanvasData(script.canvasPositionsJson, script.steps.length)
+	);
+	const [positions, setPositions] = useState<PositionsMap>(initPos);
+	const [edges, setEdges] = useState<Edge[]>(initEdges);
+	const positionsRef = useRef<PositionsMap>(initPos);
+	const edgesRef = useRef<Edge[]>(initEdges);
 
 	const nodes = useMemo(() => buildNodes(steps, positions, liveStatuses), [steps, positions, liveStatuses]);
-	const edges = useMemo(() => buildEdges(steps.length), [steps.length]);
 
 	const saveScript = useCallback(async (newSteps: ScriptStep[]) => {
 		setSaving(true);
@@ -474,10 +500,14 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 		}
 	}, [script.id, script.name, script.description]);
 
-	const schedulePositionSave = useCallback((pos: PositionsMap) => {
+	const scheduleCanvasSave = useCallback((pos: PositionsMap, edgs: Edge[]) => {
 		if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
 		saveTimerRef.current = setTimeout(() => {
-			void updateScriptCanvasPositions(script.id, JSON.stringify(pos));
+			const data = {
+				positions: pos,
+				edges: edgs.map((e) => ({ id: e.id, source: e.source, target: e.target })),
+			};
+			void updateScriptCanvasPositions(script.id, JSON.stringify(data));
 		}, 500);
 	}, [script.id]);
 
@@ -490,9 +520,27 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 			const next = { ...positionsRef.current, ...updates };
 			positionsRef.current = next;
 			setPositions(next);
-			schedulePositionSave(next);
+			scheduleCanvasSave(next, edgesRef.current);
 		}
-	}, [schedulePositionSave]);
+	}, [scheduleCanvasSave]);
+
+	const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+		setEdges((prev) => {
+			const next = applyEdgeChanges(changes, prev);
+			edgesRef.current = next;
+			scheduleCanvasSave(positionsRef.current, next);
+			return next;
+		});
+	}, [scheduleCanvasSave]);
+
+	const onConnect = useCallback((connection: Connection) => {
+		setEdges((prev) => {
+			const next = addEdge({ ...connection, type: 'smoothstep' }, prev);
+			edgesRef.current = next;
+			scheduleCanvasSave(positionsRef.current, next);
+			return next;
+		});
+	}, [scheduleCanvasSave]);
 
 	const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
 		const idx = parseInt(node.id.replace('step-', ''), 10);
@@ -502,10 +550,26 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 	const onPaneClick = useCallback(() => setSelectedIndex(null), []);
 
 	const addStep = useCallback(async (kind: string) => {
+		const newIndex = steps.length;
 		const newSteps = [...steps, defaultStep(kind)];
 		setSteps(newSteps);
+		// 自动连线：从最后一个步骤连到新步骤
+		if (newIndex > 0) {
+			const newEdge: Edge = {
+				id: `e-${newIndex - 1}-${newIndex}`,
+				source: `step-${newIndex - 1}`,
+				target: `step-${newIndex}`,
+				type: 'smoothstep',
+			};
+			setEdges((prev) => {
+				const next = [...prev, newEdge];
+				edgesRef.current = next;
+				scheduleCanvasSave(positionsRef.current, next);
+				return next;
+			});
+		}
 		await saveScript(newSteps);
-	}, [steps, saveScript]);
+	}, [steps, saveScript, scheduleCanvasSave]);
 
 	const updateStep = useCallback(async (index: number, step: ScriptStep) => {
 		const newSteps = steps.map((s, i) => i === index ? step : s);
@@ -517,8 +581,36 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 		const newSteps = steps.filter((_, i) => i !== index);
 		setSteps(newSteps);
 		setSelectedIndex(null);
+		// 删除步骤：移除涉及该节点的边，并将后续节点索引减一
+		const deletedId = `step-${index}`;
+		setEdges((prev) => {
+			const remapped = prev
+				.filter((e) => e.source !== deletedId && e.target !== deletedId)
+				.map((e) => {
+					const si = parseInt(e.source.replace('step-', ''), 10);
+					const ti = parseInt(e.target.replace('step-', ''), 10);
+					const newSource = si > index ? `step-${si - 1}` : e.source;
+					const newTarget = ti > index ? `step-${ti - 1}` : e.target;
+					return { ...e, source: newSource, target: newTarget };
+				});
+			edgesRef.current = remapped;
+			// 同时清理 positions
+			const newPos = { ...positionsRef.current };
+			delete newPos[deletedId];
+			for (let j = index + 1; j <= steps.length; j++) {
+				const oldKey = `step-${j}`;
+				if (newPos[oldKey]) {
+					newPos[`step-${j - 1}`] = newPos[oldKey];
+					delete newPos[oldKey];
+				}
+			}
+			positionsRef.current = newPos;
+			setPositions(newPos);
+			scheduleCanvasSave(newPos, remapped);
+			return remapped;
+		});
 		await saveScript(newSteps);
-	}, [steps, saveScript]);
+	}, [steps, saveScript, scheduleCanvasSave]);
 
 	useEffect(() => {
 		void fitView({ padding: 0.2, duration: 300 });
@@ -613,11 +705,14 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 						edges={edges}
 						nodeTypes={NODE_TYPES}
 						onNodesChange={onNodesChange}
+						onEdgesChange={onEdgesChange}
+						onConnect={onConnect}
 						onNodeClick={onNodeClick}
 						onPaneClick={onPaneClick}
 						fitView
 						fitViewOptions={{ padding: 0.2 }}
-						deleteKeyCode={null}
+						deleteKeyCode="Backspace"
+						connectionLineType={"smoothstep" as never}
 					>
 						<Background variant={BackgroundVariant.Dots} gap={20} size={1} />
 						<Controls />
