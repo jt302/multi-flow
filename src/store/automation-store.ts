@@ -2,11 +2,20 @@ import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 
 import type {
+	AutomationHumanRequiredEvent,
 	AutomationProgressEvent,
 	AutomationVariablesUpdatedEvent,
 	RunStatus,
 	StepResult,
 } from '@/entities/automation/model/types';
+
+type HumanInterventionState = {
+	runId: string;
+	message: string;
+	inputLabel: string | null;
+	timeoutMs: number | null;
+	stepPath: number[];
+} | null;
 
 type AutomationStoreState = {
 	activeRunId: string | null;
@@ -15,12 +24,15 @@ type AutomationStoreState = {
 	liveStepResults: StepResult[];
 	liveRunStatus: RunStatus;
 	liveVariables: Record<string, string>;
+	humanIntervention: HumanInterventionState;
 };
 
 type AutomationStoreActions = {
 	startRun: (runId: string, scriptId: string, stepTotal: number) => void;
 	onProgress: (event: AutomationProgressEvent) => void;
 	onVariablesUpdated: (event: AutomationVariablesUpdatedEvent) => void;
+	onHumanRequired: (event: AutomationHumanRequiredEvent) => void;
+	onHumanDismissed: (runId: string) => void;
 	reset: () => void;
 };
 
@@ -33,6 +45,7 @@ const INITIAL_STATE: AutomationStoreState = {
 	liveStepResults: [],
 	liveRunStatus: 'pending',
 	liveVariables: {},
+	humanIntervention: null,
 };
 
 export const automationStore = createStore<AutomationStore>()((set) => ({
@@ -45,6 +58,7 @@ export const automationStore = createStore<AutomationStore>()((set) => ({
 			liveStepResults: [],
 			liveRunStatus: 'running',
 			liveVariables: {},
+			humanIntervention: null,
 		}),
 	onProgress: (event) =>
 		set((state) => {
@@ -62,7 +76,6 @@ export const automationStore = createStore<AutomationStore>()((set) => ({
 			} else {
 				results.push(result);
 			}
-			// 将本步骤写入的变量合并到 liveVariables
 			const liveVariables = event.varsSet
 				? { ...state.liveVariables, ...event.varsSet }
 				: state.liveVariables;
@@ -72,6 +85,22 @@ export const automationStore = createStore<AutomationStore>()((set) => ({
 		set((state) => {
 			if (state.activeRunId !== event.runId) return state;
 			return { liveVariables: { ...event.vars } };
+		}),
+	onHumanRequired: (event) =>
+		set({
+			humanIntervention: {
+				runId: event.runId,
+				message: event.message,
+				inputLabel: event.inputLabel,
+				timeoutMs: event.timeoutMs,
+				stepPath: event.stepPath,
+			},
+			liveRunStatus: 'waiting_human' as RunStatus,
+		}),
+	onHumanDismissed: (runId) =>
+		set((state) => {
+			if (state.humanIntervention?.runId !== runId) return state;
+			return { humanIntervention: null };
 		}),
 	reset: () => set({ ...INITIAL_STATE }),
 }));

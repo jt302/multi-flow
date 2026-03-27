@@ -3,8 +3,11 @@ import { listen } from '@tauri-apps/api/event';
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
 
 import type {
+	AutomationHumanDismissedEvent,
+	AutomationHumanRequiredEvent,
 	AutomationProgressEvent,
 	AutomationRun,
+	AutomationRunCancelledEvent,
 	AutomationScript,
 	AutomationVariablesUpdatedEvent,
 	CreateAutomationScriptPayload,
@@ -67,4 +70,36 @@ export async function listenAutomationVariablesUpdated(
 		},
 	);
 	return unlisten;
+}
+
+export async function listenAutomationHumanRequired(
+	onEvent: (event: AutomationHumanRequiredEvent) => void,
+): Promise<() => void> {
+	return listen<AutomationHumanRequiredEvent>('automation_human_required', (event) => {
+		onEvent(event.payload);
+	});
+}
+
+export async function listenAutomationHumanDismissed(
+	onEvent: (event: AutomationHumanDismissedEvent) => void,
+): Promise<() => void> {
+	return listen<AutomationHumanDismissedEvent>('automation_human_dismissed', (event) => {
+		onEvent(event.payload);
+	});
+}
+
+export async function listenAutomationRunCancelled(
+	onEvent: (event: AutomationRunCancelledEvent) => void,
+): Promise<() => void> {
+	return listen<AutomationRunCancelledEvent>('automation_run_cancelled', (event) => {
+		onEvent(event.payload);
+	});
+}
+
+export async function resumeAutomationRun(runId: string, input?: string): Promise<void> {
+	return tauriInvoke<void>('resume_automation_run', { runId, input });
+}
+
+export async function cancelAutomationRun(runId: string): Promise<void> {
+	return tauriInvoke<void>('cancel_automation_run', { runId });
 }

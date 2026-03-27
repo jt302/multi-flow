@@ -48,6 +48,7 @@ const STEP_KINDS = [
 	{ value: 'screenshot', label: '截图 screenshot' },
 	{ value: 'magic', label: 'Magic 指令' },
 	{ value: 'cdp', label: 'CDP 调用' },
+	{ value: 'wait_for_user', label: '人工介入 wait_for_user' },
 ];
 
 function defaultStep(kind: string): ScriptStep {
@@ -60,6 +61,7 @@ function defaultStep(kind: string): ScriptStep {
 		case 'screenshot': return { kind: 'screenshot' };
 		case 'magic': return { kind: 'magic', command: '', params: {} };
 		case 'cdp': return { kind: 'cdp', method: '' };
+		case 'wait_for_user': return { kind: 'wait_for_user', message: '' };
 		default: return { kind: 'wait', ms: 1000 };
 	}
 }
@@ -286,6 +288,21 @@ function StepFields({
 					placeholder="CDP 方法，如 Page.reload"
 					className="h-8 text-xs font-mono"
 				/>
+			);
+		case 'wait_for_user':
+			return (
+				<div className="space-y-1.5">
+					<Input
+						{...register(`steps.${index}.message` as `steps.${number}.message`)}
+						placeholder="提示信息，支持 {{变量}}"
+						className="h-8 text-xs"
+					/>
+					<Input
+						{...register(`steps.${index}.input_label` as `steps.${number}.input_label`)}
+						placeholder="输入框标签（留空则无输入框）"
+						className="h-8 text-xs"
+					/>
+				</div>
 			);
 		default:
 			return null;

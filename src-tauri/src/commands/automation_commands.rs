@@ -6,8 +6,9 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::logger;
 use crate::models::{
-    AutomationProgressEvent, AutomationRun, AutomationScript, AutomationVariablesUpdatedEvent,
-    CreateAutomationScriptRequest, ScriptStep, StepResult,
+    AutomationHumanDismissedEvent, AutomationHumanRequiredEvent, AutomationProgressEvent,
+    AutomationRun, AutomationRunCancelledEvent, AutomationScript, AutomationVariablesUpdatedEvent,
+    CreateAutomationScriptRequest, ScriptStep, StepResult, WaitForUserTimeout,
 };
 use crate::services::automation_cdp_client::CdpClient;
 use crate::services::automation_interpolation::RunVariables;
@@ -118,6 +119,57 @@ pub async fn run_automation_script(
     Ok(run_id)
 }
 
+/// 恢复因 WaitForUser 步骤暂停的运行
+#[tauri::command]
+pub async fn resume_automation_run(
+    state: State<'_, AppState>,
+    run_id: String,
+    input: Option<String>,
+) -> Result<(), String> {
+    let sender = state
+        .active_run_channels
+        .lock()
+        .map_err(|_| "lock poisoned".to_string())?
+        .remove(&run_id);
+    match sender {
+        Some(tx) => {
+            let _ = tx.send(input);
+            Ok(())
+        }
+        None => Err(format!("no waiting run: {run_id}")),
+    }
+}
+
+/// 取消正在执行的运行
+#[tauri::command]
+pub async fn cancel_automation_run(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    run_id: String,
+) -> Result<(), String> {
+    // 标记取消
+    state
+        .cancel_tokens
+        .lock()
+        .map_err(|_| "lock poisoned".to_string())?
+        .insert(run_id.clone(), true);
+
+    // 若当前在 WaitForUser，用 None 唤醒它（让它感知取消）
+    if let Ok(mut channels) = state.active_run_channels.lock() {
+        if let Some(tx) = channels.remove(&run_id) {
+            let _ = tx.send(None);
+        }
+    }
+
+    let _ = app.emit(
+        "automation_run_cancelled",
+        AutomationRunCancelledEvent { run_id },
+    );
+    Ok(())
+}
+
+// ─── 执行引擎 ─────────────────────────────────────────────────────────────────
+
 async fn execute_script(
     app: AppHandle,
     run_id: String,
@@ -132,8 +184,15 @@ async fn execute_script(
     let mut results: Vec<StepResult> = Vec::with_capacity(step_total);
     let mut vars = RunVariables::new();
     let mut run_failed = false;
+    let mut run_cancelled = false;
 
     for (index, step) in steps.iter().enumerate() {
+        // 取消检查
+        if is_cancelled(&app, &run_id) {
+            run_cancelled = true;
+            break;
+        }
+
         emit_progress(
             &app,
             &run_id,
@@ -151,21 +210,34 @@ async fn execute_script(
         let result = if run_failed {
             Ok((None, HashMap::new()))
         } else {
-            execute_step(cdp.as_ref(), &http_client, magic_port, step, &vars).await
+            execute_step(cdp.as_ref(), &http_client, magic_port, step, &vars, &app, &run_id, index).await
         };
         let duration_ms = start.elapsed().as_millis() as u64;
 
+        // 步骤执行后再次检查（WaitForUser 返回时可能已被取消）
+        if is_cancelled(&app, &run_id) {
+            run_cancelled = true;
+            // 记录取消前最后一步结果
+            if let Ok((output, vars_set)) = result {
+                results.push(StepResult {
+                    index,
+                    status: "skipped".to_string(),
+                    output,
+                    duration_ms,
+                    vars_set,
+                });
+            }
+            break;
+        }
+
         match result {
             Ok((output, vars_set)) => {
-                // 将本步骤写入的变量存入运行时 vars
                 for (k, v) in &vars_set {
                     vars.set(k, v.clone());
                 }
-                // 变量有变化时发送 variables_updated 事件
                 if !vars_set.is_empty() {
                     emit_variables_updated(&app, &run_id, vars.snapshot());
                 }
-
                 let step_status = if run_failed { "skipped" } else { "success" };
                 results.push(StepResult {
                     index,
@@ -211,12 +283,22 @@ async fn execute_script(
             }
         }
 
-        // Persist incremental results
         persist_run_progress(&app, &run_id, &results, "running", None, None);
     }
 
+    // 清理取消令牌
+    if let Ok(mut tokens) = app.state::<AppState>().cancel_tokens.lock() {
+        tokens.remove(&run_id);
+    }
+
     // Finalize
-    let final_status = if run_failed { "failed" } else { "success" };
+    let final_status = if run_cancelled {
+        "cancelled"
+    } else if run_failed {
+        "failed"
+    } else {
+        "success"
+    };
     let error_msg = if run_failed {
         results
             .iter()
@@ -250,12 +332,16 @@ async fn execute_script(
 }
 
 /// 执行单个步骤，返回 (output, vars_set)
+#[allow(clippy::too_many_arguments)]
 async fn execute_step(
     cdp: Option<&CdpClient>,
     http_client: &reqwest::Client,
     magic_port: Option<u16>,
     step: &ScriptStep,
     vars: &RunVariables,
+    app: &AppHandle,
+    run_id: &str,
+    step_index: usize,
 ) -> Result<(Option<String>, HashMap<String, String>), String> {
     match step {
         ScriptStep::Navigate { url, output_key } => {
@@ -272,10 +358,7 @@ async fn execute_step(
             tokio::time::sleep(Duration::from_millis(*ms)).await;
             Ok((None, HashMap::new()))
         }
-        ScriptStep::Evaluate {
-            expression,
-            result_key,
-        } => {
+        ScriptStep::Evaluate { expression, result_key } => {
             let expression = vars.interpolate(expression);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
             let result = cdp
@@ -366,11 +449,7 @@ async fn execute_step(
             }
             Ok((data, vars_set))
         }
-        ScriptStep::Magic {
-            command,
-            params,
-            output_key,
-        } => {
+        ScriptStep::Magic { command, params, output_key } => {
             let command = vars.interpolate(command);
             let params = vars.interpolate_value(params);
             let port = magic_port.ok_or_else(|| {
@@ -397,11 +476,7 @@ async fn execute_step(
             }
             Ok((Some(body), vars_set))
         }
-        ScriptStep::Cdp {
-            method,
-            params,
-            output_key,
-        } => {
+        ScriptStep::Cdp { method, params, output_key } => {
             let method = vars.interpolate(method);
             let params = params
                 .as_ref()
@@ -416,8 +491,99 @@ async fn execute_step(
             }
             Ok((output, vars_set))
         }
+        ScriptStep::WaitForUser {
+            message,
+            input_label,
+            output_key,
+            timeout_ms,
+            on_timeout,
+        } => {
+            let message = vars.interpolate(message);
+
+            // 创建 oneshot channel
+            let (tx, rx) = tokio::sync::oneshot::channel::<Option<String>>();
+
+            // 存入 AppState（unwrap_or_else 避免临时变量生命周期问题）
+            {
+                let app_state = app.state::<AppState>();
+                let mut guard = app_state
+                    .active_run_channels
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                guard.insert(run_id.to_string(), tx);
+            }
+
+            // 发送人工介入事件
+            let _ = app.emit(
+                "automation_human_required",
+                AutomationHumanRequiredEvent {
+                    run_id: run_id.to_string(),
+                    message: message.clone(),
+                    input_label: input_label.clone(),
+                    timeout_ms: *timeout_ms,
+                    step_path: vec![step_index],
+                },
+            );
+
+            // 等待用户响应（或超时）
+            let user_input = if let Some(ms) = timeout_ms {
+                match tokio::time::timeout(Duration::from_millis(*ms), rx).await {
+                    Ok(Ok(input)) => input, // 用户响应（Some = 输入, None = 取消）
+                    Ok(Err(_)) => None,     // sender dropped
+                    Err(_) => {
+                        // 超时 — 清理 channel 条目
+                        {
+                            let app_state = app.state::<AppState>();
+                            app_state
+                                .active_run_channels
+                                .lock()
+                                .unwrap_or_else(|e| e.into_inner())
+                                .remove(run_id);
+                        }
+                        // 根据策略决定行为
+                        match on_timeout {
+                            WaitForUserTimeout::Continue => Some(String::new()),
+                            WaitForUserTimeout::Fail => {
+                                emit_human_dismissed(app, run_id);
+                                return Err(format!("WaitForUser timed out after {ms}ms"));
+                            }
+                        }
+                    }
+                }
+            } else {
+                // 无超时，无限等待
+                match rx.await {
+                    Ok(input) => input,
+                    Err(_) => None,
+                }
+            };
+
+            emit_human_dismissed(app, run_id);
+
+            // None 表示取消（由 cancel_automation_run 触发）
+            if user_input.is_none() && is_cancelled(app, run_id) {
+                return Err("cancelled".to_string());
+            }
+
+            let mut vars_set = HashMap::new();
+            if let (Some(key), Some(val)) = (output_key, &user_input) {
+                vars_set.insert(key.clone(), val.clone());
+            }
+            let output = user_input.map(|s| if s.is_empty() { "(timeout)".to_string() } else { s });
+            Ok((output, vars_set))
+        }
     }
 }
+
+fn is_cancelled(app: &AppHandle, run_id: &str) -> bool {
+    app.state::<AppState>()
+        .cancel_tokens
+        .lock()
+        .map(|tokens| tokens.get(run_id).copied().unwrap_or(false))
+        .unwrap_or(false)
+}
+
+// ─── 事件发送工具函数 ──────────────────────────────────────────────────────────
 
 #[allow(clippy::too_many_arguments)]
 fn emit_progress(
@@ -456,6 +622,13 @@ fn emit_variables_updated(app: &AppHandle, run_id: &str, vars: HashMap<String, S
     if let Err(e) = app.emit("automation_variables_updated", &event) {
         logger::warn("automation", format!("emit variables_updated failed: {e}"));
     }
+}
+
+fn emit_human_dismissed(app: &AppHandle, run_id: &str) {
+    let _ = app.emit(
+        "automation_human_dismissed",
+        AutomationHumanDismissedEvent { run_id: run_id.to_string() },
+    );
 }
 
 fn persist_run_progress(
