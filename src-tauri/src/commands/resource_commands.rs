@@ -32,7 +32,7 @@ pub fn list_resources(state: State<'_, AppState>) -> Result<ResourceCatalogRespo
 }
 
 #[tauri::command]
-pub fn download_resource(
+pub async fn download_resource(
     app: AppHandle,
     state: State<'_, AppState>,
     resource_id: String,
@@ -40,64 +40,37 @@ pub fn download_resource(
     task_id: Option<String>,
 ) -> Result<ResourceDownloadResponse, String> {
     let task_id = task_id.unwrap_or_else(|| format!("download-{}", crate::models::now_ts()));
-    let resource_service = state
+    let service = state
         .resource_service
         .lock()
-        .map_err(|_| "resource service lock poisoned".to_string())?;
-    emit_progress(
-        &app,
-        &task_id,
-        &resource_id,
-        "start",
-        0,
-        None,
-        "开始下载资源",
-    );
-    let result = resource_service.download_resource_with_progress(
-        &resource_id,
-        force.unwrap_or(false),
-        |downloaded, total| {
-            emit_progress(
-                &app,
-                &task_id,
-                &resource_id,
-                "download",
-                downloaded,
-                total,
-                "下载中",
-            );
-        },
-    );
+        .map_err(|_| "resource service lock poisoned".to_string())?
+        .clone();
+    emit_progress(&app, &task_id, &resource_id, "start", 0, None, "开始下载资源");
+    let app_c = app.clone();
+    let task_id_c = task_id.clone();
+    let resource_id_c = resource_id.clone();
+    let force = force.unwrap_or(false);
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        service.download_resource_with_progress(&resource_id_c, force, |downloaded, total| {
+            emit_progress(&app_c, &task_id_c, &resource_id_c, "download", downloaded, total, "下载中");
+        })
+    })
+    .await
+    .map_err(|e| format!("task join error: {e}"))?;
     match result {
         Ok(response) => {
-            emit_progress(
-                &app,
-                &task_id,
-                &resource_id,
-                "done",
-                response.bytes,
-                Some(response.bytes),
-                "已完成",
-            );
+            emit_progress(&app, &task_id, &resource_id, "done", response.bytes, Some(response.bytes), "已完成");
             Ok(response)
         }
         Err(err) => {
-            emit_progress(
-                &app,
-                &task_id,
-                &resource_id,
-                "error",
-                0,
-                None,
-                &format!("失败: {}", err),
-            );
+            emit_progress(&app, &task_id, &resource_id, "error", 0, None, &format!("失败: {}", err));
             Err(error_to_string(err))
         }
     }
 }
 
 #[tauri::command]
-pub fn install_chromium_resource(
+pub async fn install_chromium_resource(
     app: AppHandle,
     state: State<'_, AppState>,
     resource_id: String,
@@ -107,56 +80,48 @@ pub fn install_chromium_resource(
     task_id: Option<String>,
 ) -> Result<ResourceInstallResponse, String> {
     let task_id = task_id.unwrap_or_else(|| format!("install-{}", crate::models::now_ts()));
-    let resource_service = state
+    let service = state
         .resource_service
         .lock()
-        .map_err(|_| "resource service lock poisoned".to_string())?;
-
-    emit_progress(
-        &app,
-        &task_id,
-        &resource_id,
-        "start",
-        0,
-        None,
-        "开始下载资源",
-    );
-
-    let result = resource_service.install_chromium_resource_with_progress(
-        &resource_id,
-        force_download.unwrap_or(false),
-        force_install.unwrap_or(false),
-        activate.unwrap_or(true),
-        |stage, downloaded, total| {
-            emit_progress(
-                &app,
-                &task_id,
-                &resource_id,
-                stage,
-                downloaded,
-                total,
-                match stage {
-                    "download" => "下载中",
-                    "install" => "安装并激活中",
-                    "done" => "已完成",
-                    _ => "处理中",
-                },
-            );
-        },
-    );
-
+        .map_err(|_| "resource service lock poisoned".to_string())?
+        .clone();
+    emit_progress(&app, &task_id, &resource_id, "start", 0, None, "开始下载资源");
+    let app_c = app.clone();
+    let task_id_c = task_id.clone();
+    let resource_id_c = resource_id.clone();
+    let force_download = force_download.unwrap_or(false);
+    let force_install = force_install.unwrap_or(false);
+    let activate = activate.unwrap_or(true);
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        service.install_chromium_resource_with_progress(
+            &resource_id_c,
+            force_download,
+            force_install,
+            activate,
+            |stage, downloaded, total| {
+                emit_progress(
+                    &app_c,
+                    &task_id_c,
+                    &resource_id_c,
+                    stage,
+                    downloaded,
+                    total,
+                    match stage {
+                        "download" => "下载中",
+                        "install" => "安装并激活中",
+                        "done" => "已完成",
+                        _ => "处理中",
+                    },
+                );
+            },
+        )
+    })
+    .await
+    .map_err(|e| format!("task join error: {e}"))?;
     match result {
         Ok(response) => Ok(response),
         Err(err) => {
-            emit_progress(
-                &app,
-                &task_id,
-                &resource_id,
-                "error",
-                0,
-                None,
-                &format!("失败: {}", err),
-            );
+            emit_progress(&app, &task_id, &resource_id, "error", 0, None, &format!("失败: {}", err));
             Err(error_to_string(err))
         }
     }

@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use reqwest::Client;
 use reqwest::Url;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::engine_manager::EngineLaunchOptions;
 use crate::error::AppError;
@@ -1500,18 +1500,34 @@ pub(crate) fn do_open_profile(
             stop_profile_proxy_runtime_quietly(state, profile_id);
             error_to_string(err)
         })?;
-    let _ = engine_manager.apply_profile_visual_overrides(
-        profile_id,
-        launch_options.background_color.clone(),
-        launch_options.toolbar_text.clone(),
-    );
+
+    // Release engine_manager lock before any blocking HTTP calls.
+    // apply_profile_visual_overrides contacts the Magic Controller which is not yet ready
+    // immediately after Chromium spawns — retrying with 2s timeouts would block for up to
+    // 64 seconds and freeze the IPC thread. Run it in a background thread instead.
+    drop(engine_manager);
+
+    if let Some(app) = app {
+        let app = app.clone();
+        let profile_id_bg = profile_id.to_string();
+        let background_color = launch_options.background_color.clone();
+        let toolbar_text = launch_options.toolbar_text.clone();
+        std::thread::spawn(move || {
+            let state = app.state::<AppState>();
+            let _ = state.lock_engine_manager().apply_profile_visual_overrides(
+                &profile_id_bg,
+                background_color,
+                toolbar_text,
+            );
+        });
+    }
 
     let profile = {
         let profile_service = state.lock_profile_service();
         match profile_service.mark_profile_running(profile_id, true) {
             Ok(profile) => profile,
             Err(err) => {
-                let _ = engine_manager.close_profile(profile_id);
+                let _ = state.lock_engine_manager().close_profile(profile_id);
                 stop_profile_proxy_runtime_quietly(state, profile_id);
                 return Err(error_to_string(err));
             }
@@ -1521,7 +1537,7 @@ pub(crate) fn do_open_profile(
         .lock_engine_session_service()
         .save_session(profile_id, &session)
     {
-        let _ = engine_manager.close_profile(profile_id);
+        let _ = state.lock_engine_manager().close_profile(profile_id);
         let _ = state.lock_profile_service().mark_profile_running(profile_id, false);
         stop_profile_proxy_runtime_quietly(state, profile_id);
         return Err(error_to_string(err));
