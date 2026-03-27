@@ -6,6 +6,8 @@ import {
 	Background,
 	BackgroundVariant,
 	Controls,
+	Handle,
+	Position,
 	type Connection,
 	type Edge,
 	type EdgeChange,
@@ -138,14 +140,18 @@ function StepNodeComponent({ data }: { data: StepNodeData }) {
 	const summary = getStepSummary(step);
 
 	return (
-		<div className={`min-w-[160px] max-w-[220px] rounded-lg border bg-background shadow-sm px-3 py-2 cursor-pointer ${ringClass}`}>
-			<div className="flex items-center gap-1.5 mb-1">
-				<span className="text-[10px] text-muted-foreground font-mono">#{index + 1}</span>
-				<span className={`text-[10px] font-medium px-1 rounded border ${colorClass}`}>{group}</span>
+		<>
+			<Handle type="target" position={Position.Top} className="!w-2 !h-2 !bg-border !border-muted-foreground" />
+			<div className={`min-w-[160px] max-w-[220px] rounded-lg border bg-background shadow-sm px-3 py-2 cursor-pointer ${ringClass}`}>
+				<div className="flex items-center gap-1.5 mb-1">
+					<span className="text-[10px] text-muted-foreground font-mono">#{index + 1}</span>
+					<span className={`text-[10px] font-medium px-1 rounded border ${colorClass}`}>{group}</span>
+				</div>
+				<div className="text-xs font-semibold truncate">{label}</div>
+				{summary && <div className="text-[10px] text-muted-foreground truncate mt-0.5">{summary}</div>}
 			</div>
-			<div className="text-xs font-semibold truncate">{label}</div>
-			{summary && <div className="text-[10px] text-muted-foreground truncate mt-0.5">{summary}</div>}
-		</div>
+			<Handle type="source" position={Position.Bottom} className="!w-2 !h-2 !bg-border !border-muted-foreground" />
+		</>
 	);
 }
 
@@ -308,6 +314,8 @@ function buildNodes(steps: ScriptStep[], positions: PositionsMap, liveStatuses: 
 			position: pos,
 			width: 220,
 			height: 70,
+			sourcePosition: Position.Bottom,
+			targetPosition: Position.Top,
 			data: { step, index: i, stepStatus: liveStatuses[i] } as StepNodeData,
 		};
 	});
