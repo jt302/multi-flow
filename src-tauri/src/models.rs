@@ -996,6 +996,135 @@ pub enum ScriptStep {
     Break,
     /// 跳到循环下一次迭代
     Continue,
+
+    // ── Magic Controller 具名步骤 ─────────────────────────────────────────────
+
+    // 窗口外观
+    MagicSetBounds {
+        x: i32, y: i32, width: u32, height: u32,
+        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+    },
+    MagicGetBounds { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    MagicSetMaximized,
+    MagicSetMinimized,
+    MagicSetClosed,
+    MagicSetRestored,
+    MagicSetFullscreen,
+    MagicSetBgColor {
+        #[serde(skip_serializing_if = "Option::is_none")] r: Option<u8>,
+        #[serde(skip_serializing_if = "Option::is_none")] g: Option<u8>,
+        #[serde(skip_serializing_if = "Option::is_none")] b: Option<u8>,
+    },
+    MagicSetToolbarText { text: String },
+    MagicSetAppTopMost,
+    MagicSetMasterIndicatorVisible {
+        #[serde(skip_serializing_if = "Option::is_none")] visible: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")] label: Option<String>,
+    },
+
+    // 标签页与窗口操作
+    MagicOpenNewTab {
+        url: String,
+        #[serde(skip_serializing_if = "Option::is_none")] browser_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+    },
+    MagicCloseTab { tab_id: i64 },
+    MagicActivateTab { tab_id: i64 },
+    MagicActivateTabByIndex {
+        index: u32,
+        #[serde(skip_serializing_if = "Option::is_none")] browser_id: Option<i64>,
+    },
+    MagicCloseInactiveTabs,
+    MagicOpenNewWindow { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    MagicTypeString {
+        text: String,
+        #[serde(skip_serializing_if = "Option::is_none")] tab_id: Option<i64>,
+    },
+
+    // 浏览器信息查询
+    MagicGetBrowsers { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    MagicGetActiveBrowser { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    MagicGetTabs {
+        browser_id: i64,
+        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+    },
+    MagicGetActiveTabs { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    MagicGetSwitches { key: String, #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    MagicGetHostName { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    MagicGetMacAddress { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+
+    // 书签
+    MagicGetBookmarks { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    MagicCreateBookmark {
+        parent_id: String, title: String, url: String,
+        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+    },
+    MagicCreateBookmarkFolder {
+        parent_id: String, title: String,
+        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+    },
+    MagicUpdateBookmark {
+        node_id: String,
+        #[serde(skip_serializing_if = "Option::is_none")] title: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")] url: Option<String>,
+    },
+    MagicMoveBookmark { node_id: String, new_parent_id: String },
+    MagicRemoveBookmark { node_id: String },
+    MagicBookmarkCurrentTab {
+        #[serde(skip_serializing_if = "Option::is_none")] browser_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")] parent_id: Option<String>,
+    },
+    MagicUnbookmarkCurrentTab {
+        #[serde(skip_serializing_if = "Option::is_none")] browser_id: Option<i64>,
+    },
+    MagicIsCurrentTabBookmarked {
+        #[serde(skip_serializing_if = "Option::is_none")] browser_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+    },
+    MagicExportBookmarkState {
+        #[serde(skip_serializing_if = "Option::is_none")] environment_id: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+    },
+
+    // Cookie
+    MagicGetManagedCookies { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    MagicExportCookieState {
+        mode: String,
+        #[serde(skip_serializing_if = "Option::is_none")] url: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")] environment_id: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+    },
+
+    // 扩展
+    MagicGetManagedExtensions { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    MagicTriggerExtensionAction {
+        extension_id: String,
+        #[serde(skip_serializing_if = "Option::is_none")] browser_id: Option<i64>,
+    },
+    MagicCloseExtensionPopup {
+        #[serde(skip_serializing_if = "Option::is_none")] browser_id: Option<i64>,
+    },
+
+    // 同步模式
+    MagicToggleSyncMode {
+        role: String,
+        #[serde(skip_serializing_if = "Option::is_none")] browser_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")] session_id: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+    },
+    MagicGetSyncMode { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    MagicGetIsMaster { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    MagicGetSyncStatus { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+
+    // 截图（整个 app 壳）
+    MagicCaptureAppShell {
+        #[serde(skip_serializing_if = "Option::is_none")] browser_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")] format: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")] mode: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")] output_path: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")] output_key_base64: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")] output_key_file_path: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
