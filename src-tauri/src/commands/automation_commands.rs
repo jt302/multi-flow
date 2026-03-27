@@ -96,6 +96,7 @@ pub async fn run_automation_script(
     state: State<'_, AppState>,
     script_id: String,
     profile_id: String,
+    initial_vars: Option<HashMap<String, String>>,
 ) -> Result<String, String> {
     let (steps, steps_json) = {
         let svc = state.lock_automation_service();
@@ -115,7 +116,7 @@ pub async fn run_automation_script(
         let svc = state.lock_automation_service();
         svc.create_run(&script_id, &profile_id, &steps_json).map_err(error_to_string)?
     };
-    tauri::async_runtime::spawn(execute_script(app, run_id.clone(), debug_port, magic_port, steps));
+    tauri::async_runtime::spawn(execute_script(app, run_id.clone(), debug_port, magic_port, steps, initial_vars.unwrap_or_default()));
     Ok(run_id)
 }
 
@@ -126,6 +127,7 @@ pub async fn run_automation_script_debug(
     state: State<'_, AppState>,
     script_id: String,
     profile_id: String,
+    initial_vars: Option<HashMap<String, String>>,
 ) -> Result<String, String> {
     let (steps, steps_json) = {
         let svc = state.lock_automation_service();
@@ -162,7 +164,7 @@ pub async fn run_automation_script_debug(
         let svc = state.lock_automation_service();
         svc.create_run(&script_id, &profile_id, &steps_json).map_err(error_to_string)?
     };
-    tauri::async_runtime::spawn(execute_script(app, run_id.clone(), debug_port, magic_port, debug_steps));
+    tauri::async_runtime::spawn(execute_script(app, run_id.clone(), debug_port, magic_port, debug_steps, initial_vars.unwrap_or_default()));
     Ok(run_id)
 }
 
@@ -250,12 +252,14 @@ async fn execute_script(
     debug_port: Option<u16>,
     magic_port: Option<u16>,
     steps: Vec<ScriptStep>,
+    initial_vars: HashMap<String, String>,
 ) {
     let step_total = steps.len();
     let cdp = debug_port.map(CdpClient::new);
     let http_client = reqwest::Client::new();
     let mut results: Vec<StepResult> = Vec::with_capacity(step_total);
     let mut vars = RunVariables::new();
+    for (k, v) in initial_vars { vars.set(&k, v); }
 
     let signal = execute_steps(
         steps,

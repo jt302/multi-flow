@@ -65,6 +65,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::automation_canvas_commands::open_automation_canvas_window,
             commands::automation_commands::list_automation_scripts,
             commands::automation_commands::create_automation_script,
             commands::automation_commands::update_automation_script,
