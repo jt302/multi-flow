@@ -17,6 +17,7 @@ import {
 	ReactFlowProvider,
 	addEdge,
 	applyEdgeChanges,
+	applyNodeChanges,
 	useReactFlow,
 } from '@xyflow/react';
 import { ArrowLeft, Loader2, Minus, Play, Plus, Square, Trash2, Variable } from 'lucide-react';
@@ -496,12 +497,21 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 	const [{ positions: initPos, edges: initEdges }] = useState(() =>
 		parseCanvasData(script.canvasPositionsJson, script.steps.length)
 	);
-	const [positions, setPositions] = useState<PositionsMap>(initPos);
+	// nodes 存在 state 中，用 applyNodeChanges 驱动，避免拖拽时重建数组导致节点消失
+	const [nodes, setNodes] = useState<Node[]>(() => buildNodes(script.steps, initPos, {}));
 	const [edges, setEdges] = useState<Edge[]>(initEdges);
 	const positionsRef = useRef<PositionsMap>(initPos);
 	const edgesRef = useRef<Edge[]>(initEdges);
 
-	const nodes = useMemo(() => buildNodes(steps, positions, liveStatuses), [steps, positions, liveStatuses]);
+	// liveStatuses 变化时同步到 nodes.data（不触发节点重建）
+	useEffect(() => {
+		setNodes((prev) => prev.map((n) => {
+			const idx = parseInt(n.id.replace('step-', ''), 10);
+			const status = liveStatuses[idx];
+			if ((n.data as StepNodeData).stepStatus === status) return n;
+			return { ...n, data: { ...(n.data as StepNodeData), stepStatus: status } };
+		}));
+	}, [liveStatuses]);
 
 	const saveScript = useCallback(async (newSteps: ScriptStep[]) => {
 		setSaving(true);
@@ -524,15 +534,16 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 	}, [script.id]);
 
 	const onNodesChange = useCallback((changes: NodeChange[]) => {
-		const updates: PositionsMap = {};
+		// 用 applyNodeChanges 驱动视图，避免自己重建节点数组打断拖拽
+		setNodes((nds) => applyNodeChanges(changes, nds) as Node[]);
+		// 拖拽结束时（dragging: false）才持久化位置
 		for (const c of changes) {
-			if (c.type === 'position' && c.position) updates[c.id] = c.position;
-		}
-		if (Object.keys(updates).length > 0) {
-			const next = { ...positionsRef.current, ...updates };
-			positionsRef.current = next;
-			setPositions(next);
-			scheduleCanvasSave(next, edgesRef.current);
+			if (c.type === 'position' && c.position) {
+				positionsRef.current = { ...positionsRef.current, [c.id]: c.position };
+				if (!c.dragging) {
+					scheduleCanvasSave(positionsRef.current, edgesRef.current);
+				}
+			}
 		}
 	}, [scheduleCanvasSave]);
 
@@ -562,10 +573,26 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 	const onPaneClick = useCallback(() => setSelectedIndex(null), []);
 
 	const addStep = useCallback(async (kind: string) => {
+		const step = defaultStep(kind);
 		const newIndex = steps.length;
-		const newSteps = [...steps, defaultStep(kind)];
+		const newSteps = [...steps, step];
 		setSteps(newSteps);
-		// 自动连线：从最后一个步骤连到新步骤
+		// 新节点放在最后一个节点的正下方
+		const lastPos = positionsRef.current[`step-${newIndex - 1}`] ?? { x: 120, y: 0 };
+		const newPos = { x: lastPos.x, y: lastPos.y + 140 };
+		positionsRef.current = { ...positionsRef.current, [`step-${newIndex}`]: newPos };
+		setNodes((prev) => [
+			...prev,
+			{
+				id: `step-${newIndex}`,
+				type: 'step',
+				position: newPos,
+				sourcePosition: Position.Bottom,
+				targetPosition: Position.Top,
+				data: { step, index: newIndex, stepStatus: undefined } as StepNodeData,
+			},
+		]);
+		// 自动连线
 		if (newIndex > 0) {
 			const connection: Edge = {
 				id: `e-${newIndex - 1}-${newIndex}`,
@@ -586,6 +613,10 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 	const updateStep = useCallback(async (index: number, step: ScriptStep) => {
 		const newSteps = steps.map((s, i) => i === index ? step : s);
 		setSteps(newSteps);
+		// 更新对应节点的 data
+		setNodes((prev) => prev.map((n) =>
+			n.id === `step-${index}` ? { ...n, data: { ...(n.data as StepNodeData), step } } : n
+		));
 		await saveScript(newSteps);
 	}, [steps, saveScript]);
 
@@ -593,20 +624,33 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 		const newSteps = steps.filter((_, i) => i !== index);
 		setSteps(newSteps);
 		setSelectedIndex(null);
-		// 删除步骤：移除涉及该节点的边，并将后续节点索引减一
 		const deletedId = `step-${index}`;
+		// 重新映射节点 id 和 data.index
+		setNodes((prev) => {
+			return prev
+				.filter((n) => n.id !== deletedId)
+				.map((n) => {
+					const i = parseInt(n.id.replace('step-', ''), 10);
+					if (i <= index) return n;
+					const newId = `step-${i - 1}`;
+					return { ...n, id: newId, data: { ...(n.data as StepNodeData), index: i - 1 } };
+				});
+		});
+		// 重新映射边
 		setEdges((prev) => {
 			const remapped = prev
 				.filter((e) => e.source !== deletedId && e.target !== deletedId)
 				.map((e) => {
 					const si = parseInt(e.source.replace('step-', ''), 10);
 					const ti = parseInt(e.target.replace('step-', ''), 10);
-					const newSource = si > index ? `step-${si - 1}` : e.source;
-					const newTarget = ti > index ? `step-${ti - 1}` : e.target;
-					return { ...e, source: newSource, target: newTarget };
+					return {
+						...e,
+						source: si > index ? `step-${si - 1}` : e.source,
+						target: ti > index ? `step-${ti - 1}` : e.target,
+					};
 				});
 			edgesRef.current = remapped;
-			// 同时清理 positions
+			// 清理并重映射 positions
 			const newPos = { ...positionsRef.current };
 			delete newPos[deletedId];
 			for (let j = index + 1; j <= steps.length; j++) {
@@ -617,7 +661,6 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 				}
 			}
 			positionsRef.current = newPos;
-			setPositions(newPos);
 			scheduleCanvasSave(newPos, remapped);
 			return remapped;
 		});
