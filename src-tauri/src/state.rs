@@ -12,6 +12,7 @@ use crate::error::AppResult;
 use crate::local_api_server::{LocalApiServer, DEFAULT_PROXY_DAEMON_BIND_ADDRESS};
 use crate::logger;
 use crate::runtime_guard;
+use crate::services::automation_service::AutomationService;
 use crate::services::chromium_magic_adapter_service::ChromiumMagicAdapterService;
 use crate::services::device_preset_service::DevicePresetService;
 use crate::services::engine_session_service::EngineSessionService;
@@ -24,6 +25,7 @@ use crate::services::resource_service::ResourceService;
 use crate::services::sync_manager_service::SyncManagerService;
 
 pub struct AppState {
+    pub automation_service: Mutex<AutomationService>,
     pub profile_group_service: Mutex<ProfileGroupService>,
     pub profile_service: Mutex<ProfileService>,
     pub device_preset_service: Mutex<DevicePresetService>,
@@ -40,6 +42,10 @@ pub struct AppState {
 }
 
 impl AppState {
+    pub fn lock_automation_service(&self) -> MutexGuard<'_, AutomationService> {
+        recover_lock(&self.automation_service, "state", "automation service")
+    }
+
     pub fn lock_profile_service(&self) -> MutexGuard<'_, ProfileService> {
         recover_lock(&self.profile_service, "state", "profile service")
     }
@@ -99,6 +105,7 @@ fn recover_lock<'a, T>(
 
 pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
     let db = db::init_database(app)?;
+    let automation_service = AutomationService::from_db(db.clone());
     let profile_group_service = ProfileGroupService::from_db(db.clone());
     let profile_service = ProfileService::from_db(db.clone());
     let device_preset_service = DevicePresetService::from_db(db.clone());
@@ -114,6 +121,7 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
     cleanup_rpa_artifacts_dir(app)?;
 
     let app_state = AppState {
+        automation_service: Mutex::new(automation_service),
         profile_group_service: Mutex::new(profile_group_service),
         profile_service: Mutex::new(profile_service),
         device_preset_service: Mutex::new(device_preset_service),

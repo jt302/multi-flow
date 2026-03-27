@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 
 import type { PresetKey, ThemeMode } from '@/entities/theme/model/types';
 
-export type NavId = 'dashboard' | 'profiles' | 'plugins' | 'groups' | 'proxy' | 'windows' | 'settings';
+export type NavId = 'dashboard' | 'profiles' | 'plugins' | 'groups' | 'proxy' | 'windows' | 'automation' | 'settings';
 
 export type NavItem = {
 	id: NavId;

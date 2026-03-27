@@ -913,6 +913,75 @@ pub fn now_ts() -> i64 {
         .unwrap_or_default()
 }
 
+// ─── Automation ───────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ScriptStep {
+    Navigate { url: String },
+    Wait { ms: u64 },
+    Evaluate { expression: String, result_key: Option<String> },
+    Click { selector: String },
+    Type { selector: String, text: String },
+    Screenshot,
+    Magic { command: String, params: serde_json::Value },
+    Cdp { method: String, params: Option<serde_json::Value> },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StepResult {
+    pub index: usize,
+    pub status: String,
+    pub output: Option<String>,
+    pub duration_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutomationScript {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub steps: Vec<ScriptStep>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutomationRun {
+    pub id: String,
+    pub script_id: String,
+    pub profile_id: String,
+    pub status: String,
+    pub steps: Vec<ScriptStep>,
+    pub results: Option<Vec<StepResult>>,
+    pub started_at: i64,
+    pub finished_at: Option<i64>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateAutomationScriptRequest {
+    pub name: String,
+    pub description: Option<String>,
+    pub steps: Vec<ScriptStep>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutomationProgressEvent {
+    pub run_id: String,
+    pub step_index: usize,
+    pub step_total: usize,
+    pub step_status: String,
+    pub output: Option<String>,
+    pub duration_ms: u64,
+    pub run_status: String,
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;

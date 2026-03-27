@@ -61,6 +61,12 @@ export const WORKSPACE_SECTIONS: Record<NavItem['id'], NavSection> = {
 			{ name: 'Farm-DE-11', group: 'Farm', status: '待机', geo: '0 窗口 / 0 标签', last: '离线' },
 		],
 	},
+	automation: {
+		title: '自动化',
+		desc: '创建并运行 RPA 自动化脚本，通过 CDP 和 Magic Controller 操控浏览器环境。',
+		tableTitle: '最近运行记录',
+		rows: [],
+	},
 	settings: {
 		title: '系统设置',
 		desc: '管理主题、资源版本策略和运行参数的默认行为。',

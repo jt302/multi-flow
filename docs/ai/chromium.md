@@ -626,6 +626,251 @@ agent 不要假设所有接口都严格遵守同一个返回模板。
 }
 ```
 
+#### `trigger_extension_action`
+
+按扩展 `extension_id` 触发一次目标窗口当前活动标签页上的扩展工具栏 action。
+
+这个接口模拟的是“用户点击扩展图标”的行为语义，不是运行时安装/启用扩展：
+
+- 如果扩展配置了 popup，通常会打开 popup
+- 如果扩展走 `chrome.action.onClicked`，会派发点击事件
+- 如果扩展没有 toolbar action，或当前标签页上 action 不可用，会返回错误
+
+请求：
+
+```json
+{
+	"cmd": "trigger_extension_action",
+	"extension_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	"browser_id": 123
+}
+```
+
+参数说明：
+
+- `extension_id`：必填，扩展真实 ID
+- `browser_id`：可选；目标窗口 ID。不传时默认当前活动窗口
+
+返回示例：
+
+```json
+{
+	"status": "ok",
+	"data": {
+		"browser_id": 123,
+		"extension_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"dispatched": true
+	}
+}
+```
+
+说明：
+
+- 这是按 `extension_id` 寻址，不按工具栏位置、扩展菜单顺序或显示状态寻址
+- 扩展即使没有固定到工具栏、而是藏在扩展按钮展开后的列表里，只要它本身存在 toolbar action，仍可触发
+- 不会自动激活目标窗口、展开扩展菜单或把扩展 pin 到工具栏
+- 成功只表示“点击动作已派发”，不保证一定出现 popup；部分扩展会只触发 `onClicked`、side panel 或其他非 popup 行为
+- 当前典型错误包括：
+  - `Browser not found`
+  - `Failed to get active browser`
+  - `Target browser has no toolbar`
+  - `Failed to get extensions container`
+  - `Extension action not found`
+  - `Extension action is not enabled on current tab`
+
+#### `close_extension_popup`
+
+关闭目标窗口当前正在显示的扩展 popup。
+
+这个接口不按 `extension_id` 关闭特定扩展，只处理目标窗口里的“当前活动扩展 popup”。
+
+请求：
+
+```json
+{
+	"cmd": "close_extension_popup",
+	"browser_id": 123
+}
+```
+
+参数说明：
+
+- `browser_id`：可选；目标窗口 ID。不传时默认当前活动窗口
+
+返回示例：
+
+```json
+{
+	"status": "ok",
+	"data": {
+		"browser_id": 123,
+		"closed": true
+	}
+}
+```
+
+说明：
+
+- 该接口只关闭扩展 popup，不关闭浏览器原生菜单、扩展菜单或其他非扩展弹层
+- 不按 `extension_id` 做 popup 归属校验；语义是“确保目标窗口的活动扩展 popup 已关闭”
+- 当目标窗口当前没有扩展 popup 时，仍返回成功 no-op
+- 当前典型错误包括：
+  - `Browser not found`
+  - `Failed to get active browser`
+  - `Target browser has no toolbar`
+  - `Failed to get extensions container`
+
+#### `get_bookmarks`
+
+读取当前 profile 的书签树。
+
+默认返回三大根目录及其递归子树；也支持按 `root` 或 `node_id` 查询。
+
+请求示例：
+
+```json
+{
+	"cmd": "get_bookmarks"
+}
+```
+
+```json
+{
+	"cmd": "get_bookmarks",
+	"root": "bookmark_bar"
+}
+```
+
+```json
+{
+	"cmd": "get_bookmarks",
+	"node_id": "123"
+}
+```
+
+节点字段：
+
+- `node_id`
+- `bookmark_id`
+- `uuid`
+- `type`
+- `title`
+- `url`
+- `parent_id`
+- `index`
+- `managed`
+- `root`
+- `children`
+
+#### `create_bookmark`
+
+在指定文件夹下创建一个 URL 书签。
+
+```json
+{
+	"cmd": "create_bookmark",
+	"parent_id": "123",
+	"title": "Example",
+	"url": "https://example.com/",
+	"index": 0
+}
+```
+
+#### `create_bookmark_folder`
+
+在指定文件夹下创建一个书签文件夹。
+
+```json
+{
+	"cmd": "create_bookmark_folder",
+	"parent_id": "123",
+	"title": "Work",
+	"index": 0
+}
+```
+
+#### `update_bookmark`
+
+更新书签或文件夹标题；URL 书签还支持更新 `url`。
+
+```json
+{
+	"cmd": "update_bookmark",
+	"node_id": "123",
+	"title": "New Title",
+	"url": "https://example.com/new"
+}
+```
+
+#### `move_bookmark`
+
+移动书签或文件夹到新的父目录。
+
+```json
+{
+	"cmd": "move_bookmark",
+	"node_id": "123",
+	"new_parent_id": "456",
+	"index": 2
+}
+```
+
+#### `remove_bookmark`
+
+删除指定书签或文件夹。
+
+```json
+{
+	"cmd": "remove_bookmark",
+	"node_id": "123"
+}
+```
+
+#### `bookmark_current_tab`
+
+收藏当前活动 tab。默认加入书签栏末尾，也可指定 `parent_id`。
+
+```json
+{
+	"cmd": "bookmark_current_tab",
+	"browser_id": 123,
+	"parent_id": "456"
+}
+```
+
+#### `unbookmark_current_tab`
+
+取消收藏当前活动 tab，对应 URL 的用户书签会被删除。
+
+```json
+{
+	"cmd": "unbookmark_current_tab",
+	"browser_id": 123
+}
+```
+
+#### `is_current_tab_bookmarked`
+
+判断当前活动 tab 是否已被用户收藏。
+
+```json
+{
+	"cmd": "is_current_tab_bookmarked",
+	"browser_id": 123
+}
+```
+
+#### `export_bookmark_state`
+
+把当前 profile 的整棵用户书签树导出成与 `--bookmark-state-file` 完全一致的 JSON 结构。
+
+```json
+{
+	"cmd": "export_bookmark_state",
+	"environment_id": "env_001"
+}
+```
+
 #### `get_managed_cookies`
 
 读取当前 profile 下由 `cookie-state-file` 接管的 Cookie 状态。
@@ -759,6 +1004,118 @@ PY
 ```text
 ./exported-cookie-state.json
 ```
+
+#### `capture_app_shell`
+
+截取浏览器整个 app 壳区域。
+
+这里的“app 壳区域”定义为窗口本体，不含系统阴影，包含：
+
+- 标题栏
+- 标签栏
+- 工具栏
+- 页面内容
+
+请求：
+
+```json
+{
+	"cmd": "capture_app_shell",
+	"browser_id": 123,
+	"format": "png",
+	"mode": "inline",
+	"output_path": "/tmp/chromium-shell.png"
+}
+```
+
+参数：
+
+- `browser_id`：可选；不传时截当前活动窗口，传了则截指定窗口
+- `format`：可选，`png | jpeg`，默认 `png`
+- `mode`：可选，`inline | file | both`，默认 `inline`
+- `output_path`：当 `mode=file|both` 时必填，必须是绝对路径
+
+`mode=inline` 返回示例：
+
+```json
+{
+	"status": "ok",
+	"data": {
+		"browser_id": 123,
+		"bounds": {
+			"x": 100,
+			"y": 120,
+			"width": 1440,
+			"height": 900
+		},
+		"format": "png",
+		"mode": "inline",
+		"byte_size": 345678,
+		"base64": "iVBORw0KGgoAAAANSUhEUgAA..."
+	}
+}
+```
+
+`mode=file` 返回示例：
+
+```json
+{
+	"status": "ok",
+	"data": {
+		"browser_id": 123,
+		"bounds": {
+			"x": 100,
+			"y": 120,
+			"width": 1440,
+			"height": 900
+		},
+		"format": "jpeg",
+		"mode": "file",
+		"byte_size": 210345,
+		"output_path": "/tmp/chromium-shell.jpeg"
+	}
+}
+```
+
+`mode=both` 返回示例：
+
+```json
+{
+	"status": "ok",
+	"data": {
+		"browser_id": 123,
+		"bounds": {
+			"x": 100,
+			"y": 120,
+			"width": 1440,
+			"height": 900
+		},
+		"format": "png",
+		"mode": "both",
+		"byte_size": 345678,
+		"base64": "iVBORw0KGgoAAAANSUhEUgAA...",
+		"output_path": "/tmp/chromium-shell.png"
+	}
+}
+```
+
+常见错误：
+
+- `format must be 'png' or 'jpeg'`
+- `mode must be 'inline', 'file', or 'both'`
+- `output_path is required when mode includes file`
+- `output_path must be an absolute path`
+- `Browser not found`
+- `Failed to get active browser`
+- `Target browser is minimized`
+- `Failed to capture app shell`
+- `Failed to write screenshot file`
+
+说明：
+
+- 不会自动激活、恢复、最大化目标窗口
+- 如果目标窗口已最小化，当前会直接报错
+- `base64` 返回的是纯字符串，不带 `data:image/...;base64,` 前缀
 
 ### 5.4 浏览器窗口查询
 
@@ -1415,6 +1772,11 @@ HTTP `path` 当前不参与路由，路由只看 JSON 里的 `cmd`。
 
 如果 agent 需要控制某个指定窗口，先用 `activate_tab` 或其他方式把它变成活动窗口。
 
+例外：
+
+- `capture_app_shell` 可选 `browser_id`
+- 不传 `browser_id` 时，它仍然默认截当前活动窗口
+
 ### 9.4 `close_tab` 只能关活动窗口里的标签页
 
 虽然参数是 `tab_id`，但内部查找逻辑只查当前活动窗口。
@@ -1642,6 +2004,7 @@ Chromium 实际接收的仍是这些注入结果：
 | `--auto-allow-geolocation`             | 地理位置权限请求静默自动通过，不弹授权框   | `--auto-allow-geolocation`                                                                                                     |
 | `--extension-state-file`               | 启动时加载受管理扩展目标状态 JSON 文件     | `--extension-state-file=/Users/tt/app_data/environments/env_001/runtime/extension-state.json`                                  |
 | `--cookie-state-file`                  | 启动时加载受管理 Cookie 目标状态 JSON 文件 | `--cookie-state-file=/Users/tt/app_data/environments/env_001/runtime/cookie-state.json`                                        |
+| `--bookmark-state-file`                | 启动时加载受管理书签目标状态 JSON 文件     | `--bookmark-state-file=/Users/tt/app_data/environments/env_001/runtime/bookmark-state.json`                                    |
 | `--enable-port-scan-protection`        | 启用普通网页端口扫描保护                   | `--enable-port-scan-protection`                                                                                                |
 | `--enable-automation-detection-shield` | 启用自动化检测隔绝                         | `--enable-automation-detection-shield`                                                                                         |
 | `--enable-do-not-track`                | 启动时为当前 profile 开启 Do Not Track     | `--enable-do-not-track`                                                                                                        |
@@ -1664,6 +2027,9 @@ Chromium 实际接收的仍是这些注入结果：
 - `cookie-state-file` 当前只对当前启动 profile 做一次性注入，不提供运行中热更新
 - `cookie-state-file` 当前真正影响写入决策的字段是 `url`、`name`、`value`、`domain`、`path`、`secure`、`http_only`、`same_site`、`expires`
 - `cookie-state-file` 里的 `environment_id` 和 `cookie_id` 当前会被解析和回写，但不参与 Cookie 内容决策
+- `bookmark-state-file` 当前只支持绝对路径
+- `bookmark-state-file` 当前只收敛由该文件声明的受管理书签，不删除或修改用户手动新增的其他书签
+- `bookmark-state-file` 导出格式和 `export_bookmark_state` 返回完全一致
 - `enable-port-scan-protection` 默认关闭；开启后只对 `http/https` 普通网页上下文生效
 - `enable-port-scan-protection` 当前会直接阻断普通网页到私网/loopback 的 PNA 请求、`ws/wss` 本地端口探测，并收紧普通网页的 Direct Sockets / WebRTC 本地网络探测能力
 - `enable-port-scan-protection` 当前不影响 `chrome://`、`devtools://`、`chrome-extension://`、IWA 和浏览器内部受信页面
@@ -1997,6 +2363,52 @@ Arial,Verdana,Tahoma,Microsoft YaHei
 - 当前实现对单个 Cookie 条目是严格解析，缺少必填字段会导致整个 `cookie-state.json` 被判无效，不是跳过该条
 - `Preferences` 和 `get_managed_cookies` 里会看到 `status`、`last_error`、`managed` 等字段，但这些是运行态/调试输出，不是 `cookie-state.json` 输入字段
 - 当前 `cookie-state-file` 只负责启动时一次性注入模板中的 Cookie，不会接管用户运行过程中新增的其他 Cookie
+
+#### `--bookmark-state-file`
+
+该参数用于把“当前 profile 需要收敛到哪些受管理书签”交给 Chromium 在启动后收敛。
+
+当前支持的 JSON 结构：
+
+```json
+{
+	"environment_id": "env_001",
+	"roots": {
+		"bookmark_bar": [
+			{
+				"bookmark_id": "bm_001",
+				"type": "url",
+				"title": "Example",
+				"url": "https://example.com/"
+			},
+			{
+				"bookmark_id": "folder_001",
+				"type": "folder",
+				"title": "Work",
+				"children": []
+			}
+		],
+		"other": [],
+		"mobile": []
+	}
+}
+```
+
+说明：
+
+- `roots.bookmark_bar / other / mobile` 缺失时按空数组处理
+- 每个节点都必须有 `bookmark_id`
+- `type` 只允许 `url | folder`
+- `url` 只允许出现在 `type=url`
+- `children` 只允许出现在 `type=folder`
+- 启动时只收敛受管理书签，不接管用户手动新增的其他书签
+- 同一 `bookmark_id` 在整份文件中必须唯一
+- 当前仓库的 `start.py` 可通过 `CHROMIUM_BOOKMARK_STATE_FILE` 透传这个参数：
+
+```bash
+CHROMIUM_BOOKMARK_STATE_FILE=/abs/path/bookmark-state.json python3 start.py
+```
+
 - 当前仓库里的 `start.py` 默认会附加：
 
 ```bash
