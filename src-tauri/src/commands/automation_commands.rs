@@ -330,6 +330,7 @@ async fn execute_step(
     run_id: &str,
     step_index: usize,
 ) -> Result<(Option<String>, HashMap<String, String>), String> {
+    let get_magic_port = || magic_port.ok_or_else(|| "Magic Controller not available (profile not running)".to_string());
     match step {
         ScriptStep::Navigate { url, output_key } => {
             let url = vars.interpolate(url);
@@ -376,7 +377,7 @@ async fn execute_step(
         }
         ScriptStep::Type { selector: _, text } => {
             let text = vars.interpolate(text);
-            let port = magic_port.ok_or_else(|| "Magic Controller not available".to_string())?;
+            let port = get_magic_port()?;
             http_client.post(format!("http://127.0.0.1:{port}/"))
                 .json(&json!({ "cmd": "type_string", "text": text }))
                 .send().await.map_err(|e| format!("Magic request failed: {e}"))?;
@@ -394,7 +395,7 @@ async fn execute_step(
         ScriptStep::Magic { command, params, output_key } => {
             let command = vars.interpolate(command);
             let params = vars.interpolate_value(params);
-            let port = magic_port.ok_or_else(|| "Magic Controller not available".to_string())?;
+            let port = get_magic_port()?;
             let mut payload = params.clone();
             if let Some(obj) = payload.as_object_mut() {
                 obj.insert("cmd".to_string(), json!(command));
@@ -461,10 +462,323 @@ async fn execute_step(
             let output = user_input.map(|s| if s.is_empty() { "(timeout)".to_string() } else { s });
             Ok((output, vs))
         }
+        // ── Magic 具名步骤 ─────────────────────────────────────────────────────
+        ScriptStep::MagicSetBounds { x, y, width, height, output_key } => {
+            let port = get_magic_port()?;
+            let body = magic_post(http_client, port,
+                json!({ "cmd": "set_bounds", "x": x, "y": y, "width": width, "height": height })).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicGetBounds { output_key } => {
+            let port = get_magic_port()?;
+            let body = magic_post(http_client, port, json!({ "cmd": "get_bounds" })).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicSetMaximized => {
+            let port = get_magic_port()?;
+            magic_post(http_client, port, json!({ "cmd": "set_maximized" })).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicSetMinimized => {
+            let port = get_magic_port()?;
+            magic_post(http_client, port, json!({ "cmd": "set_minimized" })).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicSetClosed => {
+            let port = get_magic_port()?;
+            magic_post(http_client, port, json!({ "cmd": "set_closed" })).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicSetRestored => {
+            let port = get_magic_port()?;
+            magic_post(http_client, port, json!({ "cmd": "set_restored" })).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicSetFullscreen => {
+            let port = get_magic_port()?;
+            magic_post(http_client, port, json!({ "cmd": "set_fullscreen" })).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicSetBgColor { r, g, b } => {
+            let port = get_magic_port()?;
+            let mut payload = json!({ "cmd": "set_bg_color" });
+            if let Some(v) = r { payload["r"] = json!(v); }
+            if let Some(v) = g { payload["g"] = json!(v); }
+            if let Some(v) = b { payload["b"] = json!(v); }
+            magic_post(http_client, port, payload).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicSetToolbarText { text } => {
+            let text = vars.interpolate(text);
+            let port = get_magic_port()?;
+            magic_post(http_client, port, json!({ "cmd": "set_toolbar_text", "text": text })).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicSetAppTopMost => {
+            let port = get_magic_port()?;
+            magic_post(http_client, port, json!({ "cmd": "set_app_top_most" })).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicSetMasterIndicatorVisible { visible, label } => {
+            let port = get_magic_port()?;
+            let mut payload = json!({ "cmd": "set_master_indicator_visible" });
+            if let Some(v) = visible { payload["visible"] = json!(v); }
+            if let Some(l) = label { payload["label"] = json!(vars.interpolate(l)); }
+            magic_post(http_client, port, payload).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicOpenNewTab { url, browser_id, output_key } => {
+            let url = vars.interpolate(url);
+            let port = get_magic_port()?;
+            let mut payload = json!({ "cmd": "open_new_tab", "url": url });
+            if let Some(id) = browser_id { payload["browser_id"] = json!(id); }
+            let body = magic_post(http_client, port, payload).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicCloseTab { tab_id } => {
+            let port = get_magic_port()?;
+            magic_post(http_client, port, json!({ "cmd": "close_tab", "tab_id": tab_id })).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicActivateTab { tab_id } => {
+            let port = get_magic_port()?;
+            magic_post(http_client, port, json!({ "cmd": "activate_tab", "tab_id": tab_id })).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicActivateTabByIndex { index, browser_id } => {
+            let port = get_magic_port()?;
+            let mut payload = json!({ "cmd": "activate_tab_by_index", "index": index });
+            if let Some(id) = browser_id { payload["browser_id"] = json!(id); }
+            magic_post(http_client, port, payload).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicCloseInactiveTabs => {
+            let port = get_magic_port()?;
+            magic_post(http_client, port, json!({ "cmd": "close_inactive_tabs" })).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicOpenNewWindow { output_key } => {
+            let port = get_magic_port()?;
+            let body = magic_post(http_client, port, json!({ "cmd": "open_new_window" })).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicTypeString { text, tab_id } => {
+            let text = vars.interpolate(text);
+            let port = get_magic_port()?;
+            let mut payload = json!({ "cmd": "type_string", "text": text });
+            if let Some(id) = tab_id { payload["tab_id"] = json!(id); }
+            magic_post(http_client, port, payload).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicGetBrowsers { output_key } => {
+            let port = get_magic_port()?;
+            let body = magic_post(http_client, port, json!({ "cmd": "get_browsers" })).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicGetActiveBrowser { output_key } => {
+            let port = get_magic_port()?;
+            let body = magic_post(http_client, port, json!({ "cmd": "get_active_browser" })).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicGetTabs { browser_id, output_key } => {
+            let port = get_magic_port()?;
+            let body = magic_post(http_client, port, json!({ "cmd": "get_tabs", "browser_id": browser_id })).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicGetActiveTabs { output_key } => {
+            let port = get_magic_port()?;
+            let body = magic_post(http_client, port, json!({ "cmd": "get_active_tabs" })).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicGetSwitches { key, output_key } => {
+            let port = get_magic_port()?;
+            let body = magic_post(http_client, port, json!({ "cmd": "get_switches", "key": key })).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicGetHostName { output_key } => {
+            let port = get_magic_port()?;
+            let body = magic_post(http_client, port, json!({ "cmd": "get_host_name" })).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicGetMacAddress { output_key } => {
+            let port = get_magic_port()?;
+            let body = magic_post(http_client, port, json!({ "cmd": "get_mac_address" })).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicGetBookmarks { output_key } => {
+            let port = get_magic_port()?;
+            let body = magic_post(http_client, port, json!({ "cmd": "get_bookmarks" })).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicCreateBookmark { parent_id, title, url, output_key } => {
+            let (title, url) = (vars.interpolate(title), vars.interpolate(url));
+            let port = get_magic_port()?;
+            let body = magic_post(http_client, port,
+                json!({ "cmd": "create_bookmark", "parent_id": parent_id, "title": title, "url": url })).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicCreateBookmarkFolder { parent_id, title, output_key } => {
+            let title = vars.interpolate(title);
+            let port = get_magic_port()?;
+            let body = magic_post(http_client, port,
+                json!({ "cmd": "create_bookmark_folder", "parent_id": parent_id, "title": title })).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicUpdateBookmark { node_id, title, url } => {
+            let port = get_magic_port()?;
+            let mut payload = json!({ "cmd": "update_bookmark", "node_id": node_id });
+            if let Some(t) = title { payload["title"] = json!(vars.interpolate(t)); }
+            if let Some(u) = url { payload["url"] = json!(vars.interpolate(u)); }
+            magic_post(http_client, port, payload).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicMoveBookmark { node_id, new_parent_id } => {
+            let port = get_magic_port()?;
+            magic_post(http_client, port,
+                json!({ "cmd": "move_bookmark", "node_id": node_id, "new_parent_id": new_parent_id })).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicRemoveBookmark { node_id } => {
+            let port = get_magic_port()?;
+            magic_post(http_client, port, json!({ "cmd": "remove_bookmark", "node_id": node_id })).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicBookmarkCurrentTab { browser_id, parent_id } => {
+            let port = get_magic_port()?;
+            let mut payload = json!({ "cmd": "bookmark_current_tab" });
+            if let Some(id) = browser_id { payload["browser_id"] = json!(id); }
+            if let Some(pid) = parent_id { payload["parent_id"] = json!(pid); }
+            magic_post(http_client, port, payload).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicUnbookmarkCurrentTab { browser_id } => {
+            let port = get_magic_port()?;
+            let mut payload = json!({ "cmd": "unbookmark_current_tab" });
+            if let Some(id) = browser_id { payload["browser_id"] = json!(id); }
+            magic_post(http_client, port, payload).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicIsCurrentTabBookmarked { browser_id, output_key } => {
+            let port = get_magic_port()?;
+            let mut payload = json!({ "cmd": "is_current_tab_bookmarked" });
+            if let Some(id) = browser_id { payload["browser_id"] = json!(id); }
+            let body = magic_post(http_client, port, payload).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicExportBookmarkState { environment_id, output_key } => {
+            let port = get_magic_port()?;
+            let mut payload = json!({ "cmd": "export_bookmark_state" });
+            if let Some(eid) = environment_id { payload["environment_id"] = json!(eid); }
+            let body = magic_post(http_client, port, payload).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicGetManagedCookies { output_key } => {
+            let port = get_magic_port()?;
+            let body = magic_post(http_client, port, json!({ "cmd": "get_managed_cookies" })).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicExportCookieState { mode, url, environment_id, output_key } => {
+            let port = get_magic_port()?;
+            let mut payload = json!({ "cmd": "export_cookie_state", "mode": mode });
+            if let Some(u) = url { payload["url"] = json!(vars.interpolate(u)); }
+            if let Some(eid) = environment_id { payload["environment_id"] = json!(eid); }
+            let body = magic_post(http_client, port, payload).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicGetManagedExtensions { output_key } => {
+            let port = get_magic_port()?;
+            let body = magic_post(http_client, port, json!({ "cmd": "get_managed_extensions" })).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicTriggerExtensionAction { extension_id, browser_id } => {
+            let port = get_magic_port()?;
+            let mut payload = json!({ "cmd": "trigger_extension_action", "extension_id": extension_id });
+            if let Some(id) = browser_id { payload["browser_id"] = json!(id); }
+            magic_post(http_client, port, payload).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicCloseExtensionPopup { browser_id } => {
+            let port = get_magic_port()?;
+            let mut payload = json!({ "cmd": "close_extension_popup" });
+            if let Some(id) = browser_id { payload["browser_id"] = json!(id); }
+            magic_post(http_client, port, payload).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicToggleSyncMode { role, browser_id, session_id, output_key } => {
+            let port = get_magic_port()?;
+            let mut payload = json!({ "cmd": "toggle_sync_mode", "role": role });
+            if let Some(id) = browser_id { payload["browser_id"] = json!(id); }
+            if let Some(sid) = session_id { payload["session_id"] = json!(sid); }
+            let body = magic_post(http_client, port, payload).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicGetSyncMode { output_key } => {
+            let port = get_magic_port()?;
+            let body = magic_post(http_client, port, json!({ "cmd": "get_sync_mode" })).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicGetIsMaster { output_key } => {
+            let port = get_magic_port()?;
+            let body = magic_post(http_client, port, json!({ "cmd": "get_is_master" })).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicGetSyncStatus { output_key } => {
+            let port = get_magic_port()?;
+            let body = magic_post(http_client, port, json!({ "cmd": "get_sync_status" })).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicCaptureAppShell {
+            browser_id, format, mode, output_path, output_key_base64, output_key_file_path
+        } => {
+            let port = get_magic_port()?;
+            let mut payload = json!({ "cmd": "capture_app_shell" });
+            if let Some(id) = browser_id { payload["browser_id"] = json!(id); }
+            if let Some(f) = format { payload["format"] = json!(f); }
+            let actual_mode = mode.as_deref().unwrap_or("inline");
+            payload["mode"] = json!(actual_mode);
+            if let Some(p) = output_path { payload["output_path"] = json!(p); }
+            let body = magic_post(http_client, port, payload).await?;
+            let mut vs = HashMap::new();
+            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&body) {
+                if let Some(k) = output_key_base64 {
+                    if let Some(b64) = parsed.get("data").and_then(|d| d.get("base64")).and_then(|v| v.as_str()) {
+                        vs.insert(k.clone(), b64.to_string());
+                    }
+                }
+                if let Some(k) = output_key_file_path {
+                    if let Some(fp) = parsed.get("data").and_then(|d| d.get("output_path")).and_then(|v| v.as_str()) {
+                        vs.insert(k.clone(), fp.to_string());
+                    }
+                }
+            }
+            Ok((Some(body), vs))
+        }
+
         ScriptStep::Condition { .. } | ScriptStep::Loop { .. } | ScriptStep::Break | ScriptStep::Continue => {
             Err("control flow step executed outside execute_steps context".to_string())
         }
     }
+}
+
+/// 发送 Magic Controller HTTP 请求，返回响应体
+async fn magic_post(
+    http_client: &reqwest::Client,
+    port: u16,
+    payload: serde_json::Value,
+) -> Result<String, String> {
+    http_client.post(format!("http://127.0.0.1:{port}/"))
+        .json(&payload)
+        .send().await
+        .map_err(|e| format!("Magic request failed: {e}"))?
+        .text().await
+        .map_err(|e| format!("Magic read body failed: {e}"))
+}
+
+/// 若 output_key 有值则插入 vars map
+fn opt_key(output_key: &Option<String>, value: String) -> HashMap<String, String> {
+    let mut vs = HashMap::new();
+    if let Some(k) = output_key { vs.insert(k.clone(), value); }
+    vs
 }
 
 fn is_cancelled(app: &AppHandle, run_id: &str) -> bool {
