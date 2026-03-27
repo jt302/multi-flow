@@ -1398,49 +1398,29 @@ pub(crate) fn do_open_profile(
         .and_then(trim_str_to_option);
     let (resource_id, resolved_browser_version, chromium_executable) = {
         let resource_service = state.lock_resource_service();
-        if state.require_real_engine {
-            resource_service
-                .ensure_chromium_version_available(
-                    preferred_chromium_version.as_deref(),
-                    |resource_id, stage, downloaded, total| {
-                        if let (Some(app), Some(task_id)) = (app, task_id) {
-                            emit_resource_progress(
-                                app,
-                                task_id,
-                                resource_id,
-                                stage,
-                                downloaded,
-                                total,
-                                match stage {
-                                    "download" => "环境启动前自动下载浏览器版本",
-                                    "install" => "环境启动前自动安装浏览器版本",
-                                    "done" => "浏览器版本已就绪",
-                                    _ => "处理中",
-                                },
-                            );
-                        }
-                    },
-                )
-                .map_err(error_to_string)?
-        } else {
-            let resolved_browser_version = preferred_chromium_version
-                .clone()
-                .or_else(|| {
-                    resource_service
-                        .latest_host_compatible_chromium_version()
-                        .ok()
-                        .flatten()
-                })
-                .unwrap_or_else(|| fingerprint_catalog::default_browser_version().to_string());
-            let chromium_executable = preferred_chromium_version
-                .as_deref()
-                .and_then(|version| {
-                    resource_service.resolve_chromium_executable_for_version(version)
-                })
-                .or_else(|| resource_service.resolve_active_chromium_executable())
-                .unwrap_or_default();
-            (String::new(), resolved_browser_version, chromium_executable)
+        let resolved_browser_version = preferred_chromium_version
+            .clone()
+            .or_else(|| {
+                resource_service
+                    .latest_host_compatible_chromium_version()
+                    .ok()
+                    .flatten()
+            })
+            .unwrap_or_else(|| fingerprint_catalog::default_browser_version().to_string());
+        let chromium_executable = preferred_chromium_version
+            .as_deref()
+            .and_then(|version| resource_service.resolve_chromium_executable_for_version(version))
+            .or_else(|| resource_service.resolve_active_chromium_executable())
+            .unwrap_or_default();
+        // Fast-fail when Chromium is not installed: do NOT auto-download inside this sync
+        // command — it would block the IPC thread for minutes and hang the UI entirely.
+        // Users must download Chromium from Settings → Resources first.
+        if state.require_real_engine && !chromium_executable.is_file() {
+            return Err(
+                "Chromium 未安装，请前往「设置 → 资源」页面下载后再启动环境".to_string(),
+            );
         }
+        (String::new(), resolved_browser_version, chromium_executable)
     };
     let active_chromium = chromium_executable
         .is_file()
@@ -4080,7 +4060,7 @@ mod tests {
 
         let err = do_open_profile(&state, None, None, &profile.id, None)
             .expect_err("should fail when chromium is missing");
-        assert!(err.contains("no chromium build for version 999.0.0.0"));
+        assert!(err.contains("Chromium 未安装"), "unexpected error: {err}");
     }
 
     #[test]
