@@ -34,7 +34,78 @@ export type ScriptStep =
 			body_steps: ScriptStep[];
 	  }
 	| { kind: 'break' }
-	| { kind: 'continue' };
+	| { kind: 'continue' }
+
+	// ── Magic Controller 具名步骤 ─────────────────────────────────────────────
+
+	// 窗口外观
+	| { kind: 'magic_set_bounds'; x: number; y: number; width: number; height: number; output_key?: string }
+	| { kind: 'magic_get_bounds'; output_key?: string }
+	| { kind: 'magic_set_maximized' }
+	| { kind: 'magic_set_minimized' }
+	| { kind: 'magic_set_closed' }
+	| { kind: 'magic_set_restored' }
+	| { kind: 'magic_set_fullscreen' }
+	| { kind: 'magic_set_bg_color'; r?: number; g?: number; b?: number }
+	| { kind: 'magic_set_toolbar_text'; text: string }
+	| { kind: 'magic_set_app_top_most' }
+	| { kind: 'magic_set_master_indicator_visible'; visible?: boolean; label?: string }
+
+	// 标签页与窗口操作
+	| { kind: 'magic_open_new_tab'; url: string; browser_id?: number; output_key?: string }
+	| { kind: 'magic_close_tab'; tab_id: number }
+	| { kind: 'magic_activate_tab'; tab_id: number }
+	| { kind: 'magic_activate_tab_by_index'; index: number; browser_id?: number }
+	| { kind: 'magic_close_inactive_tabs' }
+	| { kind: 'magic_open_new_window'; output_key?: string }
+	| { kind: 'magic_type_string'; text: string; tab_id?: number }
+
+	// 浏览器信息查询
+	| { kind: 'magic_get_browsers'; output_key?: string }
+	| { kind: 'magic_get_active_browser'; output_key?: string }
+	| { kind: 'magic_get_tabs'; browser_id: number; output_key?: string }
+	| { kind: 'magic_get_active_tabs'; output_key?: string }
+	| { kind: 'magic_get_switches'; key: string; output_key?: string }
+	| { kind: 'magic_get_host_name'; output_key?: string }
+	| { kind: 'magic_get_mac_address'; output_key?: string }
+
+	// 书签
+	| { kind: 'magic_get_bookmarks'; output_key?: string }
+	| { kind: 'magic_create_bookmark'; parent_id: string; title: string; url: string; output_key?: string }
+	| { kind: 'magic_create_bookmark_folder'; parent_id: string; title: string; output_key?: string }
+	| { kind: 'magic_update_bookmark'; node_id: string; title?: string; url?: string }
+	| { kind: 'magic_move_bookmark'; node_id: string; new_parent_id: string }
+	| { kind: 'magic_remove_bookmark'; node_id: string }
+	| { kind: 'magic_bookmark_current_tab'; browser_id?: number; parent_id?: string }
+	| { kind: 'magic_unbookmark_current_tab'; browser_id?: number }
+	| { kind: 'magic_is_current_tab_bookmarked'; browser_id?: number; output_key?: string }
+	| { kind: 'magic_export_bookmark_state'; environment_id?: string; output_key?: string }
+
+	// Cookie
+	| { kind: 'magic_get_managed_cookies'; output_key?: string }
+	| { kind: 'magic_export_cookie_state'; mode: string; url?: string; environment_id?: string; output_key?: string }
+
+	// 扩展
+	| { kind: 'magic_get_managed_extensions'; output_key?: string }
+	| { kind: 'magic_trigger_extension_action'; extension_id: string; browser_id?: number }
+	| { kind: 'magic_close_extension_popup'; browser_id?: number }
+
+	// 同步模式
+	| { kind: 'magic_toggle_sync_mode'; role: string; browser_id?: number; session_id?: string; output_key?: string }
+	| { kind: 'magic_get_sync_mode'; output_key?: string }
+	| { kind: 'magic_get_is_master'; output_key?: string }
+	| { kind: 'magic_get_sync_status'; output_key?: string }
+
+	// 截图（app 壳）
+	| {
+			kind: 'magic_capture_app_shell';
+			browser_id?: number;
+			format?: string;
+			mode?: string;
+			output_path?: string;
+			output_key_base64?: string;
+			output_key_file_path?: string;
+	  };
 
 export type AutomationScript = {
 	id: string;

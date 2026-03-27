@@ -271,6 +271,68 @@ function StepSummary({ step }: { step: AutomationScript['steps'][number] }) {
 			return <span className="text-muted-foreground">break</span>;
 		case 'continue':
 			return <span className="text-muted-foreground">continue</span>;
+		// Magic 具名步骤
+		case 'magic_set_bounds':
+			return <span className="text-muted-foreground">{step.x},{step.y} {step.width}×{step.height}</span>;
+		case 'magic_get_bounds': return <span className="text-muted-foreground">获取窗口位置大小</span>;
+		case 'magic_set_maximized': return <span className="text-muted-foreground">最大化</span>;
+		case 'magic_set_minimized': return <span className="text-muted-foreground">最小化</span>;
+		case 'magic_set_closed': return <span className="text-muted-foreground">关闭窗口</span>;
+		case 'magic_set_restored': return <span className="text-muted-foreground">还原</span>;
+		case 'magic_set_fullscreen': return <span className="text-muted-foreground">全屏</span>;
+		case 'magic_set_bg_color':
+			return <span className="text-muted-foreground">rgb({step.r ?? 255},{step.g ?? 255},{step.b ?? 255})</span>;
+		case 'magic_set_toolbar_text':
+			return <span className="text-muted-foreground">{step.text}</span>;
+		case 'magic_set_app_top_most': return <span className="text-muted-foreground">激活窗口</span>;
+		case 'magic_set_master_indicator_visible':
+			return <span className="text-muted-foreground">{step.visible ? '显示' : '隐藏'}主控标记</span>;
+		case 'magic_open_new_tab':
+			return <span className="text-muted-foreground">{step.url}</span>;
+		case 'magic_close_tab':
+		case 'magic_activate_tab':
+			return <span className="text-muted-foreground">tab_id={step.tab_id}</span>;
+		case 'magic_activate_tab_by_index':
+			return <span className="text-muted-foreground">index={step.index}</span>;
+		case 'magic_close_inactive_tabs': return <span className="text-muted-foreground">关闭非活动标签页</span>;
+		case 'magic_open_new_window': return <span className="text-muted-foreground">新建窗口</span>;
+		case 'magic_type_string':
+			return <span className="text-muted-foreground">"{step.text.slice(0, 40)}"</span>;
+		case 'magic_capture_app_shell': return <span className="text-muted-foreground">{step.mode ?? 'inline'}</span>;
+		case 'magic_get_browsers': return <span className="text-muted-foreground">所有浏览器</span>;
+		case 'magic_get_active_browser': return <span className="text-muted-foreground">活动浏览器</span>;
+		case 'magic_get_tabs':
+			return <span className="text-muted-foreground">browser_id={step.browser_id}</span>;
+		case 'magic_get_active_tabs': return <span className="text-muted-foreground">活动标签页</span>;
+		case 'magic_get_switches':
+			return <span className="text-muted-foreground font-mono">{step.key}</span>;
+		case 'magic_get_host_name': return <span className="text-muted-foreground">主机名</span>;
+		case 'magic_get_mac_address': return <span className="text-muted-foreground">MAC地址</span>;
+		case 'magic_get_bookmarks': return <span className="text-muted-foreground">书签树</span>;
+		case 'magic_create_bookmark':
+			return <span className="text-muted-foreground">{step.title} → {step.url.slice(0, 40)}</span>;
+		case 'magic_create_bookmark_folder':
+			return <span className="text-muted-foreground">{step.title}</span>;
+		case 'magic_update_bookmark':
+		case 'magic_remove_bookmark':
+		case 'magic_move_bookmark':
+			return <span className="text-muted-foreground font-mono">node_id={step.node_id}</span>;
+		case 'magic_bookmark_current_tab': return <span className="text-muted-foreground">收藏当前标签</span>;
+		case 'magic_unbookmark_current_tab': return <span className="text-muted-foreground">取消收藏当前标签</span>;
+		case 'magic_is_current_tab_bookmarked': return <span className="text-muted-foreground">查询收藏状态</span>;
+		case 'magic_export_bookmark_state': return <span className="text-muted-foreground">导出书签</span>;
+		case 'magic_get_managed_cookies': return <span className="text-muted-foreground">托管Cookie</span>;
+		case 'magic_export_cookie_state':
+			return <span className="text-muted-foreground">{step.mode}</span>;
+		case 'magic_get_managed_extensions': return <span className="text-muted-foreground">托管扩展</span>;
+		case 'magic_trigger_extension_action':
+			return <span className="text-muted-foreground font-mono">{step.extension_id.slice(0, 16)}...</span>;
+		case 'magic_close_extension_popup': return <span className="text-muted-foreground">关闭扩展Popup</span>;
+		case 'magic_toggle_sync_mode':
+			return <span className="text-muted-foreground">{step.role}</span>;
+		case 'magic_get_sync_mode': return <span className="text-muted-foreground">同步状态</span>;
+		case 'magic_get_is_master': return <span className="text-muted-foreground">是否主控</span>;
+		case 'magic_get_sync_status': return <span className="text-muted-foreground">完整同步状态</span>;
 		default:
 			return null;
 	}
