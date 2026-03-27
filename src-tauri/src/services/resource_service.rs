@@ -36,6 +36,7 @@ struct ManifestResource {
     file_name: String,
 }
 
+#[derive(Clone)]
 pub struct ResourceService {
     data_dir: PathBuf,
 }
