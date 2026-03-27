@@ -462,6 +462,191 @@ async fn execute_step(
             let output = user_input.map(|s| if s.is_empty() { "(timeout)".to_string() } else { s });
             Ok((output, vs))
         }
+        // ── CDP 具名步骤 ──────────────────────────────────────────────────────
+        ScriptStep::CdpNavigate { url, output_key } => {
+            let url = vars.interpolate(url);
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            cdp.call("Page.navigate", json!({ "url": url })).await?;
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key { vs.insert(k.clone(), url.clone()); }
+            Ok((Some(url), vs))
+        }
+        ScriptStep::CdpReload { ignore_cache } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            cdp.call("Page.reload", json!({ "ignoreCache": ignore_cache })).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::CdpEvaluate { expression, output_key } => {
+            let expression = vars.interpolate(expression);
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let result = cdp.call("Runtime.evaluate",
+                json!({ "expression": expression, "returnByValue": true })).await?;
+            let value = result.get("result").and_then(|r| r.get("value")).map(|v| v.to_string());
+            let mut vs = HashMap::new();
+            if let (Some(k), Some(v)) = (output_key, &value) { vs.insert(k.clone(), v.clone()); }
+            Ok((value, vs))
+        }
+        ScriptStep::CdpClick { selector } => {
+            let selector = vars.interpolate(selector);
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let doc = cdp.call("DOM.getDocument", json!({ "depth": 0 })).await?;
+            let root_id = doc.get("root").and_then(|r| r.get("nodeId")).and_then(|v| v.as_i64())
+                .ok_or_else(|| "DOM.getDocument: no root nodeId".to_string())?;
+            let qs = cdp.call("DOM.querySelector", json!({ "nodeId": root_id, "selector": selector })).await?;
+            let node_id = qs.get("nodeId").and_then(|v| v.as_i64())
+                .ok_or_else(|| format!("element not found: {selector}"))?;
+            if node_id == 0 { return Err(format!("element not found: {selector}")); }
+            let bm = cdp.call("DOM.getBoxModel", json!({ "nodeId": node_id })).await?;
+            let content = bm.get("model").and_then(|m| m.get("content")).and_then(|c| c.as_array())
+                .ok_or_else(|| "getBoxModel: no content".to_string())?;
+            let x = (content[0].as_f64().unwrap_or(0.0) + content[2].as_f64().unwrap_or(0.0)) / 2.0;
+            let y = (content[1].as_f64().unwrap_or(0.0) + content[5].as_f64().unwrap_or(0.0)) / 2.0;
+            for ev in ["mousePressed", "mouseReleased"] {
+                cdp.call("Input.dispatchMouseEvent",
+                    json!({ "type": ev, "x": x, "y": y, "button": "left", "clickCount": 1 })).await?;
+            }
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::CdpType { selector, text } => {
+            let selector = vars.interpolate(selector);
+            let text = vars.interpolate(text);
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let doc = cdp.call("DOM.getDocument", json!({ "depth": 0 })).await?;
+            let root_id = doc.get("root").and_then(|r| r.get("nodeId")).and_then(|v| v.as_i64())
+                .ok_or_else(|| "DOM.getDocument: no root nodeId".to_string())?;
+            let qs = cdp.call("DOM.querySelector", json!({ "nodeId": root_id, "selector": selector })).await?;
+            let node_id = qs.get("nodeId").and_then(|v| v.as_i64())
+                .ok_or_else(|| format!("element not found: {selector}"))?;
+            if node_id == 0 { return Err(format!("element not found: {selector}")); }
+            cdp.call("DOM.focus", json!({ "nodeId": node_id })).await?;
+            for ch in text.chars() {
+                cdp.call("Input.dispatchKeyEvent",
+                    json!({ "type": "char", "text": ch.to_string() })).await?;
+            }
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::CdpScrollTo { selector, x, y } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            if let Some(sel) = selector {
+                let sel = vars.interpolate(sel);
+                let doc = cdp.call("DOM.getDocument", json!({ "depth": 0 })).await?;
+                let root_id = doc.get("root").and_then(|r| r.get("nodeId")).and_then(|v| v.as_i64())
+                    .ok_or_else(|| "DOM.getDocument: no root nodeId".to_string())?;
+                let qs = cdp.call("DOM.querySelector", json!({ "nodeId": root_id, "selector": sel })).await?;
+                let node_id = qs.get("nodeId").and_then(|v| v.as_i64())
+                    .ok_or_else(|| format!("element not found: {sel}"))?;
+                if node_id == 0 { return Err(format!("element not found: {sel}")); }
+                cdp.call("DOM.scrollIntoViewIfNeeded", json!({ "nodeId": node_id })).await?;
+            } else {
+                let sx = x.unwrap_or(0);
+                let sy = y.unwrap_or(0);
+                cdp.call("Runtime.evaluate",
+                    json!({ "expression": format!("window.scrollTo({sx},{sy})"), "returnByValue": true })).await?;
+            }
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::CdpWaitForSelector { selector, timeout_ms } => {
+            let selector = vars.interpolate(selector);
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let timeout = timeout_ms.unwrap_or(10_000);
+            let deadline = Instant::now() + Duration::from_millis(timeout);
+            loop {
+                let doc = cdp.call("DOM.getDocument", json!({ "depth": 0 })).await?;
+                let root_id = doc.get("root").and_then(|r| r.get("nodeId")).and_then(|v| v.as_i64()).unwrap_or(1);
+                let qs = cdp.call("DOM.querySelector", json!({ "nodeId": root_id, "selector": selector })).await?;
+                let node_id = qs.get("nodeId").and_then(|v| v.as_i64()).unwrap_or(0);
+                if node_id != 0 { break; }
+                if Instant::now() >= deadline {
+                    return Err(format!("WaitForSelector timeout: {selector}"));
+                }
+                tokio::time::sleep(Duration::from_millis(200)).await;
+            }
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::CdpGetText { selector, output_key } => {
+            let selector = vars.interpolate(selector);
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let doc = cdp.call("DOM.getDocument", json!({ "depth": 0 })).await?;
+            let root_id = doc.get("root").and_then(|r| r.get("nodeId")).and_then(|v| v.as_i64())
+                .ok_or_else(|| "DOM.getDocument: no root nodeId".to_string())?;
+            let qs = cdp.call("DOM.querySelector", json!({ "nodeId": root_id, "selector": selector })).await?;
+            let node_id = qs.get("nodeId").and_then(|v| v.as_i64())
+                .ok_or_else(|| format!("element not found: {selector}"))?;
+            if node_id == 0 { return Err(format!("element not found: {selector}")); }
+            let result = cdp.call("DOM.getOuterHTML", json!({ "nodeId": node_id })).await?;
+            let html = result.get("outerHTML").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            // 简单剥离标签
+            let text = html.replace(|c: char| c == '<', " <")
+                .split('<').filter(|s| !s.starts_with('/') && !s.is_empty())
+                .flat_map(|s| s.splitn(2, '>').nth(1))
+                .collect::<Vec<_>>().join("").trim().to_string();
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key { vs.insert(k.clone(), text.clone()); }
+            Ok((Some(text), vs))
+        }
+        ScriptStep::CdpGetAttribute { selector, attribute, output_key } => {
+            let selector = vars.interpolate(selector);
+            let attribute = vars.interpolate(attribute);
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let doc = cdp.call("DOM.getDocument", json!({ "depth": 0 })).await?;
+            let root_id = doc.get("root").and_then(|r| r.get("nodeId")).and_then(|v| v.as_i64())
+                .ok_or_else(|| "DOM.getDocument: no root nodeId".to_string())?;
+            let qs = cdp.call("DOM.querySelector", json!({ "nodeId": root_id, "selector": selector })).await?;
+            let node_id = qs.get("nodeId").and_then(|v| v.as_i64())
+                .ok_or_else(|| format!("element not found: {selector}"))?;
+            if node_id == 0 { return Err(format!("element not found: {selector}")); }
+            let result = cdp.call("DOM.getAttributes", json!({ "nodeId": node_id })).await?;
+            let attrs = result.get("attributes").and_then(|a| a.as_array()).cloned().unwrap_or_default();
+            let value = attrs.chunks(2)
+                .find(|pair| pair[0].as_str() == Some(&attribute))
+                .and_then(|pair| pair[1].as_str())
+                .map(|s| s.to_string());
+            let value_str = value.unwrap_or_default();
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key { vs.insert(k.clone(), value_str.clone()); }
+            Ok((Some(value_str), vs))
+        }
+        ScriptStep::CdpSetInputValue { selector, value } => {
+            let selector = vars.interpolate(selector);
+            let value = vars.interpolate(value);
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            // 通过 JS 设置 value 并触发 input/change 事件
+            let expr = format!(
+                r#"(function(){{
+                    const el = document.querySelector({sel_json});
+                    if (!el) throw new Error('element not found: {sel_esc}');
+                    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
+                    nativeInputValueSetter.call(el, {val_json});
+                    el.dispatchEvent(new Event('input',{{bubbles:true}}));
+                    el.dispatchEvent(new Event('change',{{bubbles:true}}));
+                }})();"#,
+                sel_json = serde_json::to_string(&selector).unwrap_or_default(),
+                sel_esc = selector.replace('"', "\\\""),
+                val_json = serde_json::to_string(&value).unwrap_or_default(),
+            );
+            cdp.call("Runtime.evaluate", json!({ "expression": expr, "returnByValue": true })).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::CdpScreenshot { format, quality, output_path, output_key_base64, output_key_file_path } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let fmt = format.as_deref().unwrap_or("png");
+            let mut params = json!({ "format": fmt });
+            if let Some(q) = quality { params["quality"] = json!(q); }
+            let result = cdp.call("Page.captureScreenshot", params).await?;
+            let b64 = result.get("data").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key_base64 { vs.insert(k.clone(), b64.clone()); }
+            if let Some(path) = output_path {
+                if !path.is_empty() {
+                    if let Ok(bytes) = base64_decode(&b64) {
+                        let _ = std::fs::write(path, bytes);
+                        if let Some(k) = output_key_file_path { vs.insert(k.clone(), path.clone()); }
+                    }
+                }
+            }
+            Ok((Some(b64), vs))
+        }
+
         // ── Magic 具名步骤 ─────────────────────────────────────────────────────
         ScriptStep::MagicSetBounds { x, y, width, height, output_key } => {
             let port = get_magic_port()?;
@@ -758,6 +943,11 @@ async fn execute_step(
             Err("control flow step executed outside execute_steps context".to_string())
         }
     }
+}
+
+fn base64_decode(s: &str) -> Result<Vec<u8>, String> {
+    use base64::Engine;
+    base64::engine::general_purpose::STANDARD.decode(s).map_err(|e| format!("base64 decode: {e}"))
 }
 
 /// 发送 Magic Controller HTTP 请求，返回响应体

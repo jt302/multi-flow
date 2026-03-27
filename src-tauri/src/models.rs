@@ -1116,6 +1116,51 @@ pub enum ScriptStep {
     MagicGetIsMaster { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
     MagicGetSyncStatus { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
 
+    // ── CDP 具名步骤 ──────────────────────────────────────────────────────────
+
+    CdpNavigate {
+        url: String,
+        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+    },
+    CdpReload {
+        #[serde(default)]
+        ignore_cache: bool,
+    },
+    CdpEvaluate {
+        expression: String,
+        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+    },
+    CdpClick { selector: String },
+    CdpType { selector: String, text: String },
+    CdpScrollTo {
+        #[serde(skip_serializing_if = "Option::is_none")] selector: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")] x: Option<i32>,
+        #[serde(skip_serializing_if = "Option::is_none")] y: Option<i32>,
+    },
+    CdpWaitForSelector {
+        selector: String,
+        #[serde(skip_serializing_if = "Option::is_none")] timeout_ms: Option<u64>,
+    },
+    CdpGetText {
+        selector: String,
+        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+    },
+    CdpGetAttribute {
+        selector: String,
+        attribute: String,
+        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+    },
+    CdpSetInputValue { selector: String, value: String },
+
+    /// 增强截图：支持保存文件和多输出变量
+    CdpScreenshot {
+        #[serde(skip_serializing_if = "Option::is_none")] format: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")] quality: Option<u8>,
+        #[serde(skip_serializing_if = "Option::is_none")] output_path: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")] output_key_base64: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")] output_key_file_path: Option<String>,
+    },
+
     // 截图（整个 app 壳）
     MagicCaptureAppShell {
         #[serde(skip_serializing_if = "Option::is_none")] browser_id: Option<i64>,
