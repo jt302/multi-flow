@@ -1,4 +1,3 @@
-import type { ProfileDevicePresetItem, SaveProfileDevicePresetPayload } from '@/entities/profile/model/types';
 import type { ResourceItem, ResourceProgressState } from '@/entities/resource/model/types';
 import type { PresetKey } from '@/entities/theme/model/types';
 
@@ -24,9 +23,5 @@ export type SettingsPageProps = {
 	onActivateChromium: (version: string) => Promise<void>;
 	onDownloadResource: (resourceId: string, label?: string) => Promise<void>;
 	resourceProgress: ResourceProgressState | null;
-	devicePresets: ProfileDevicePresetItem[];
-	onCreateDevicePreset: (payload: SaveProfileDevicePresetPayload) => Promise<void>;
-	onUpdateDevicePreset: (presetId: string, payload: SaveProfileDevicePresetPayload) => Promise<void>;
-	onRefreshDevicePresets: () => Promise<void>;
 	onOpenRecycleBin?: () => void;
 };

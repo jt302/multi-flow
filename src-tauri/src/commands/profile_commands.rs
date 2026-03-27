@@ -1158,6 +1158,18 @@ pub fn update_profile_device_preset(
         .map_err(error_to_string)
 }
 
+#[tauri::command]
+pub fn delete_profile_device_preset(
+    state: State<'_, AppState>,
+    preset_id: String,
+) -> Result<(), String> {
+    let service = state
+        .device_preset_service
+        .lock()
+        .map_err(|_| "device preset service lock poisoned".to_string())?;
+    service.delete_preset(&preset_id).map_err(error_to_string)
+}
+
 fn do_delete_profile(state: &AppState, profile_id: &str) -> Result<Profile, String> {
     let profile_service = state
         .profile_service

@@ -10,7 +10,6 @@ import {
 	Icon,
 } from '@/components/ui';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
-import { DevicePresetManagerCard } from './device-preset-manager-card';
 import { ResourceManagementCard } from './resource-management-card';
 import { ThemeCustomizerCard } from './theme-customizer-card';
 import { AiProviderConfigCard } from './ai-provider-config-card';
@@ -45,10 +44,6 @@ export function SettingsPage({
 	onActivateChromium,
 	onDownloadResource,
 	resourceProgress,
-	devicePresets,
-	onCreateDevicePreset,
-	onUpdateDevicePreset,
-	onRefreshDevicePresets,
 	onOpenRecycleBin,
 }: SettingsPageProps) {
 	const section = WORKSPACE_SECTIONS.settings;
@@ -110,14 +105,6 @@ export function SettingsPage({
 							void runAction(`download-${resourceId}`, () => onDownloadResource(resourceId, label));
 						}}
 						formatBytes={formatBytes}
-					/>
-
-					<DevicePresetManagerCard
-						devicePresets={devicePresets}
-						pendingKey={pendingKey}
-						onRefreshDevicePresets={onRefreshDevicePresets}
-						onCreateDevicePreset={onCreateDevicePreset}
-						onUpdateDevicePreset={onUpdateDevicePreset}
 					/>
 
 					<Card className="border-border/40 bg-card/60 backdrop-blur-md shadow-sm transition-all duration-300">

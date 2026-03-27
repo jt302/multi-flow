@@ -123,7 +123,9 @@ export function WorkspaceLayout() {
 					>
 						<WorkspaceSidebar
 							activeNav={activeNav}
+							activePath={location.pathname}
 							onNavChange={(nav) => navigate(resolvePathFromNav(nav))}
+							onNavigate={(path) => navigate(path)}
 							isRunning={isRunning}
 							onToggleRunning={() => setIsRunning((prev) => !prev)}
 						/>

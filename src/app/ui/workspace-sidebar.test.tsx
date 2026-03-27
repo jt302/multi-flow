@@ -11,7 +11,9 @@ function renderSidebar(defaultOpen: boolean) {
 			<Sidebar variant="floating" collapsible="icon">
 				<WorkspaceSidebar
 					activeNav="profiles"
+					activePath="/profiles"
 					onNavChange={() => {}}
+					onNavigate={() => {}}
 					isRunning
 					onToggleRunning={() => {}}
 				/>
@@ -39,7 +41,9 @@ test('workspace sidebar 在展开态不再展示 RPA 状态或子菜单', () => 
 			<Sidebar variant="floating" collapsible="icon">
 				<WorkspaceSidebar
 					activeNav="windows"
+					activePath="/windows"
 					onNavChange={() => {}}
+					onNavigate={() => {}}
 					isRunning
 					onToggleRunning={() => {}}
 				/>
