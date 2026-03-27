@@ -40,6 +40,7 @@ type Props = {
 	activeProfiles: ProfileItem[];
 	isRunning: boolean;
 	liveStepResults: StepResult[];
+	liveVariables: Record<string, string>;
 	activeRunId: string | null;
 	onEdit: () => void;
 	onDelete: () => void;
@@ -68,6 +69,7 @@ export function ScriptDetailPanel({
 	activeProfiles,
 	isRunning,
 	liveStepResults,
+	liveVariables,
 	activeRunId,
 	onEdit,
 	onDelete,
@@ -75,8 +77,10 @@ export function ScriptDetailPanel({
 }: Props) {
 	const navigate = useNavigate();
 	const [runPanelOpen, setRunPanelOpen] = useState(true);
+	const [varsPanelOpen, setVarsPanelOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [profilePickerOpen, setProfilePickerOpen] = useState(false);
+	const varEntries = Object.entries(liveVariables);
 
 	const stepResultMap = new Map(liveStepResults.map((r) => [r.index, r]));
 
@@ -195,6 +199,30 @@ export function ScriptDetailPanel({
 					)}
 				</div>
 			</ScrollArea>
+
+			{/* 变量面板 */}
+			{varEntries.length > 0 && (
+				<div className="border-t flex-shrink-0">
+					<button
+						type="button"
+						className="flex items-center justify-between w-full px-5 py-2 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
+						onClick={() => setVarsPanelOpen((v) => !v)}
+					>
+						<span>运行变量 ({varEntries.length})</span>
+						{varsPanelOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+					</button>
+					{varsPanelOpen && (
+						<div className="max-h-40 overflow-auto px-5 py-2 space-y-1">
+							{varEntries.map(([key, value]) => (
+								<div key={key} className="flex items-start gap-2 text-xs">
+									<span className="font-mono text-blue-500 flex-shrink-0">{key}</span>
+									<span className="text-muted-foreground truncate">{String(value).slice(0, 100)}</span>
+								</div>
+							))}
+						</div>
+					)}
+				</div>
+			)}
 
 			{/* 运行历史面板 */}
 			<div className="border-t flex-shrink-0">

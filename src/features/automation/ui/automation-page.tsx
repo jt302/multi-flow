@@ -30,6 +30,7 @@ export function AutomationPage() {
 
 	const liveRunStatus = useAutomationStore((s) => s.liveRunStatus);
 	const liveStepResults = useAutomationStore((s) => s.liveStepResults);
+	const liveVariables = useAutomationStore((s) => s.liveVariables);
 	const activeRunId = useAutomationStore((s) => s.activeRunId);
 	const activeScriptId = useAutomationStore((s) => s.activeScriptId);
 
@@ -128,6 +129,7 @@ export function AutomationPage() {
 						activeProfiles={activeProfiles}
 						isRunning={activeScriptId === selectedScript.id && liveRunStatus === 'running'}
 						liveStepResults={activeScriptId === selectedScript.id ? liveStepResults : []}
+						liveVariables={activeScriptId === selectedScript.id ? liveVariables : {}}
 						activeRunId={activeScriptId === selectedScript.id ? activeRunId : null}
 						onEdit={() => handleEditScript(selectedScript)}
 						onDelete={() => handleDeleteScript(selectedScript.id)}
