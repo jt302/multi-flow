@@ -57,6 +57,7 @@ impl AutomationService {
             steps_json: Set(steps_json),
             created_at: Set(now),
             updated_at: Set(now),
+            canvas_positions_json: Set(None),
         };
         let inserted = self.db_query(model.insert(&self.db))?;
         to_api_script(inserted)
