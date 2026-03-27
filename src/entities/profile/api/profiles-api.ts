@@ -141,6 +141,10 @@ export async function updateProfileDevicePreset(
 	});
 }
 
+export async function deleteProfileDevicePreset(presetId: string): Promise<void> {
+	return tauriInvoke<void>('delete_profile_device_preset', { presetId });
+}
+
 export async function listFingerprintPresets(
 	platform?: string,
 	browserVersion?: string,

@@ -2,7 +2,7 @@ import { lazy } from 'react';
 import { Route, Routes } from 'react-router-dom';
 
 import { WorkspaceLayout } from '@/app/ui/workspace-layout';
-import { SETTINGS_RECYCLE_BIN_PATH } from '@/app/workspace-routes';
+import { PROFILES_DEVICE_PRESETS_PATH, SETTINGS_RECYCLE_BIN_PATH } from '@/app/workspace-routes';
 import { LogPanelPage } from '@/pages/log-panel';
 import { RootRedirectPage } from '@/pages/root-redirect';
 
@@ -36,6 +36,9 @@ const RecycleBinRoutePage = lazy(() =>
 const AutomationCanvasRoutePage = lazy(() =>
 	import('@/pages/automation-canvas').then((module) => ({ default: module.AutomationCanvasRoutePage })),
 );
+const DevicePresetsRoutePage = lazy(() =>
+	import('@/pages/device-presets').then((module) => ({ default: module.DevicePresetsRoutePage })),
+);
 
 export function AppRouter() {
 	return (
@@ -46,6 +49,7 @@ export function AppRouter() {
 			<Route element={<WorkspaceLayout />}>
 				<Route path="/dashboard" element={<DashboardRoutePage />} />
 				<Route path="/profiles" element={<ProfilesRoutePage />} />
+				<Route path={PROFILES_DEVICE_PRESETS_PATH} element={<DevicePresetsRoutePage />} />
 				<Route path="/plugins" element={<PluginsRoutePage />} />
 				<Route path="/groups" element={<GroupsRoutePage />} />
 				<Route path="/proxy" element={<ProxyRoutePage />} />

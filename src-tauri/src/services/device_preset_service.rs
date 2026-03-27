@@ -77,6 +77,13 @@ impl DevicePresetService {
         Ok(to_api_preset(&stored))
     }
 
+    pub fn delete_preset(&self, preset_id: &str) -> AppResult<()> {
+        let model = self.find_preset_model(preset_id)?;
+        let active: device_preset::ActiveModel = model.into();
+        self.db_query(active.delete(&self.db))?;
+        Ok(())
+    }
+
     pub fn update_preset(
         &self,
         preset_id: &str,

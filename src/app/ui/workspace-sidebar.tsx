@@ -1,4 +1,4 @@
-import { Cpu, Play, RefreshCcw } from 'lucide-react';
+import { Cpu, Play, RefreshCcw, Smartphone } from 'lucide-react';
 
 import {
 	Badge,
@@ -15,22 +15,30 @@ import {
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
+	SidebarMenuSub,
+	SidebarMenuSubButton,
+	SidebarMenuSubItem,
 	useSidebar,
 } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { WORKSPACE_NAV_ITEMS } from '@/app/model/workspace-nav-items';
 import type { NavId } from '@/app/model/workspace-types';
+import { PROFILES_DEVICE_PRESETS_PATH } from '@/app/workspace-routes';
 
 type WorkspaceSidebarProps = {
 	activeNav: NavId;
+	activePath: string;
 	onNavChange: (nav: NavId) => void;
+	onNavigate: (path: string) => void;
 	isRunning: boolean;
 	onToggleRunning: () => void;
 };
 
 export function WorkspaceSidebar({
 	activeNav,
+	activePath,
 	onNavChange,
+	onNavigate,
 	isRunning,
 	onToggleRunning,
 }: WorkspaceSidebarProps) {
@@ -69,6 +77,7 @@ export function WorkspaceSidebar({
 							{WORKSPACE_NAV_ITEMS.map((item) => {
 								const active = item.id === activeNav;
 								const ItemIcon = item.icon;
+								const isProfilesItem = item.id === 'profiles';
 								return (
 									<SidebarMenuItem key={item.id}>
 										<SidebarMenuButton
@@ -103,6 +112,21 @@ export function WorkspaceSidebar({
 											</span>
 											{collapsed ? null : <span>{item.label}</span>}
 										</SidebarMenuButton>
+										{isProfilesItem && !collapsed && (
+											<SidebarMenuSub>
+												<SidebarMenuSubItem>
+													<SidebarMenuSubButton
+														type="button"
+														isActive={activePath === PROFILES_DEVICE_PRESETS_PATH}
+														onClick={() => onNavigate(PROFILES_DEVICE_PRESETS_PATH)}
+														className="cursor-pointer"
+													>
+														<Smartphone className="size-3.5" />
+														机型映射
+													</SidebarMenuSubButton>
+												</SidebarMenuSubItem>
+											</SidebarMenuSub>
+										)}
 									</SidebarMenuItem>
 								);
 							})}
