@@ -26,13 +26,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
+import { RunDialog } from '@/features/automation/ui/run-dialog';
 
 // ─── Step kind → display label / group ───────────────────────────────────────
 
@@ -322,18 +318,21 @@ type InnerProps = {
 	isRunning: boolean;
 	activeRunId: string | null;
 	liveStatuses: Record<number, string>;
-	onRun: (profileId: string) => void;
+	onRun: (profileIds: string[], initialVars: Record<string, string>) => void;
+	onDebugRun: (profileId: string, initialVars: Record<string, string>) => void;
 	onCancel: () => void;
 };
 
-function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatuses, onRun, onCancel }: InnerProps) {
+function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatuses, onRun, onDebugRun, onCancel }: InnerProps) {
 	const navigate = useNavigate();
 	const { fitView } = useReactFlow();
 	const [steps, setSteps] = useState<ScriptStep[]>(script.steps);
 	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 	const [saving, setSaving] = useState(false);
-	const [profilePickerOpen, setProfilePickerOpen] = useState(false);
+	const [runDialogOpen, setRunDialogOpen] = useState(false);
 	const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	// 当页面在独立新窗口中（history 只有一条记录）时隐藏返回按钮
+	const isStandaloneWindow = window.history.length <= 1;
 
 	const [positions, setPositions] = useState<PositionsMap>(() => {
 		try { return script.canvasPositionsJson ? JSON.parse(script.canvasPositionsJson) : {}; }
@@ -407,9 +406,11 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 		<div className="flex flex-col h-screen">
 			{/* Toolbar */}
 			<div className="flex items-center gap-2 px-4 h-12 border-b flex-shrink-0 bg-background z-10">
-				<Button size="sm" variant="ghost" className="h-8 px-2 cursor-pointer" onClick={() => navigate('/automation')}>
-					<ArrowLeft className="h-3.5 w-3.5 mr-1" />返回
-				</Button>
+				{!isStandaloneWindow && (
+					<Button size="sm" variant="ghost" className="h-8 px-2 cursor-pointer" onClick={() => navigate('/automation')}>
+						<ArrowLeft className="h-3.5 w-3.5 mr-1" />返回
+					</Button>
+				)}
 				<div className="flex-1 min-w-0 flex items-center gap-2">
 					<span className="text-sm font-semibold truncate">{script.name}</span>
 					{saving && <span className="text-xs text-muted-foreground">保存中...</span>}
@@ -420,23 +421,9 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 						<Square className="h-3.5 w-3.5 mr-1" />取消
 					</Button>
 				) : (
-					<Popover open={profilePickerOpen} onOpenChange={setProfilePickerOpen}>
-						<PopoverTrigger asChild>
-							<Button size="sm" className="h-8 cursor-pointer" disabled={steps.length === 0}>
-								<Play className="h-3.5 w-3.5 mr-1" />运行
-							</Button>
-						</PopoverTrigger>
-						<PopoverContent align="end" className="w-52 p-1">
-							{activeProfiles.length === 0 ? (
-								<p className="px-2 py-1.5 text-sm text-muted-foreground">没有已开启的环境</p>
-							) : activeProfiles.map((p) => (
-								<button key={p.id} type="button"
-									className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent cursor-pointer"
-									onClick={() => { setProfilePickerOpen(false); onRun(p.id); }}
-								>{p.name}</button>
-							))}
-						</PopoverContent>
-					</Popover>
+					<Button size="sm" className="h-8 cursor-pointer" disabled={steps.length === 0} onClick={() => setRunDialogOpen(true)}>
+						<Play className="h-3.5 w-3.5 mr-1" />运行
+					</Button>
 				)}
 				{activeRunId && (
 					<Badge variant="outline" className="text-xs font-mono">
@@ -444,6 +431,15 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 					</Badge>
 				)}
 			</div>
+			<RunDialog
+				open={runDialogOpen}
+				onOpenChange={setRunDialogOpen}
+				activeProfiles={activeProfiles}
+				isRunning={isRunning}
+				disabled={steps.length === 0}
+				onRun={onRun}
+				onDebugRun={onDebugRun}
+			/>
 
 			<div className="flex flex-1 overflow-hidden">
 				{/* Left: Palette */}
@@ -511,11 +507,12 @@ type Props = {
 	isRunning: boolean;
 	activeRunId: string | null;
 	liveStepResults: StepResult[];
-	onRun: (profileId: string) => void;
+	onRun: (profileIds: string[], initialVars: Record<string, string>) => void;
+	onDebugRun: (profileId: string, initialVars: Record<string, string>) => void;
 	onCancel: () => void;
 };
 
-export function AutomationCanvasPage({ script, activeProfiles, isRunning, activeRunId, liveStepResults, onRun, onCancel }: Props) {
+export function AutomationCanvasPage({ script, activeProfiles, isRunning, activeRunId, liveStepResults, onRun, onDebugRun, onCancel }: Props) {
 	const liveStatuses = useMemo<Record<number, string>>(() => {
 		const map: Record<number, string> = {};
 		for (const r of liveStepResults) map[r.index] = r.status;
@@ -531,6 +528,7 @@ export function AutomationCanvasPage({ script, activeProfiles, isRunning, active
 				activeRunId={activeRunId}
 				liveStatuses={liveStatuses}
 				onRun={onRun}
+				onDebugRun={onDebugRun}
 				onCancel={onCancel}
 			/>
 		</ReactFlowProvider>

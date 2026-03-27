@@ -17,7 +17,7 @@ export function AutomationCanvasRoutePage() {
 	const liveRunStatus = useAutomationStore((s) => s.liveRunStatus);
 	const liveStepResults = useAutomationStore((s) => s.liveStepResults);
 
-	const { runScript, cancelRun } = useAutomationActions(scriptId ?? null);
+	const { runScript, debugRun, cancelRun } = useAutomationActions(scriptId ?? null);
 
 	const script = scripts.find((s) => s.id === scriptId);
 
@@ -39,7 +39,14 @@ export function AutomationCanvasRoutePage() {
 			isRunning={isRunning}
 			activeRunId={belongsToThisScript ? activeRunId : null}
 			liveStepResults={belongsToThisScript ? liveStepResults : []}
-			onRun={(profileId) => runScript.mutate({ scriptId: script.id, profileId, stepTotal: script.steps.length })}
+			onRun={(profileIds, initialVars) =>
+				void Promise.all(profileIds.map((profileId) =>
+					runScript.mutateAsync({ scriptId: script.id, profileId, stepTotal: script.steps.length, initialVars: Object.keys(initialVars).length > 0 ? initialVars : undefined })
+				))
+			}
+			onDebugRun={(profileId, initialVars) =>
+				void debugRun.mutateAsync({ scriptId: script.id, profileId, stepTotal: script.steps.length, initialVars: Object.keys(initialVars).length > 0 ? initialVars : undefined })
+			}
 			onCancel={() => { if (activeRunId) cancelRun.mutate(activeRunId); }}
 		/>
 	);

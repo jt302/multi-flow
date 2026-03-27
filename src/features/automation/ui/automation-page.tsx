@@ -1,25 +1,40 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
-import { Plus } from 'lucide-react';
+import { FileInput, Plus } from 'lucide-react';
+import { toast } from 'sonner';
 
+import { openAutomationCanvasWindow } from '@/entities/automation/api/automation-api';
 import { useAutomationRunsQuery } from '@/entities/automation/model/use-automation-runs-query';
 import { useAutomationScriptsQuery } from '@/entities/automation/model/use-automation-scripts-query';
-import type { AutomationScript, ScriptStep } from '@/entities/automation/model/types';
+import type { AutomationScript } from '@/entities/automation/model/types';
 import { useAutomationActions } from '@/features/automation/model/use-automation-actions';
 import { useAutomationStore } from '@/store/automation-store';
 import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import {
+	Dialog,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { ScriptDetailPanel } from './script-detail-panel';
-import { ScriptEditorDialog } from './script-editor-dialog';
 
 export function AutomationPage() {
 	const scriptsQuery = useAutomationScriptsQuery();
 	const scripts = scriptsQuery.data ?? [];
 	const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null);
-	const [editorOpen, setEditorOpen] = useState(false);
-	const [editingScript, setEditingScript] = useState<AutomationScript | null>(null);
+
+	// 元数据编辑对话框
+	const [metaDialogOpen, setMetaDialogOpen] = useState(false);
+	const [metaDialogScript, setMetaDialogScript] = useState<AutomationScript | null>(null);
+	const [metaName, setMetaName] = useState('');
+	const [metaDesc, setMetaDesc] = useState('');
 
 	const selectedScript = scripts.find((s) => s.id === selectedScriptId) ?? null;
 	const runsQuery = useAutomationRunsQuery(selectedScriptId);
@@ -36,33 +51,48 @@ export function AutomationPage() {
 
 	const actions = useAutomationActions(selectedScriptId);
 
+	const importInputRef = useRef<HTMLInputElement>(null);
+
+	// ── 新建脚本：弹出名称对话框 → 创建空脚本 → 开画布窗口 ────────────────────
 	function handleNewScript() {
-		setEditingScript(null);
-		setEditorOpen(true);
+		setMetaDialogScript(null);
+		setMetaName('');
+		setMetaDesc('');
+		setMetaDialogOpen(true);
 	}
 
-	function handleEditScript(script: AutomationScript) {
-		setEditingScript(script);
-		setEditorOpen(true);
+	// ── 编辑元数据（名称/描述） ───────────────────────────────────────────────
+	function handleEditMeta(script: AutomationScript) {
+		setMetaDialogScript(script);
+		setMetaName(script.name);
+		setMetaDesc(script.description ?? '');
+		setMetaDialogOpen(true);
 	}
 
-	async function handleSaveScript(name: string, description: string, steps: ScriptStep[]) {
-		if (editingScript) {
+	async function handleMetaSave() {
+		const name = metaName.trim();
+		if (!name) return;
+		if (metaDialogScript) {
+			// 更新元数据，保留步骤不变
 			await actions.updateScript.mutateAsync({
-				scriptId: editingScript.id,
-				payload: { name, description: description || undefined, steps },
+				scriptId: metaDialogScript.id,
+				payload: { name, description: metaDesc || undefined, steps: metaDialogScript.steps },
 			});
+			setMetaDialogOpen(false);
 		} else {
+			// 新建空脚本 → 开画布窗口
 			const created = await actions.createScript.mutateAsync({
 				name,
-				description: description || undefined,
-				steps,
+				description: metaDesc || undefined,
+				steps: [],
 			});
 			setSelectedScriptId(created.id);
+			setMetaDialogOpen(false);
+			await openAutomationCanvasWindow(created.id, created.name);
 		}
-		setEditorOpen(false);
 	}
 
+	// ── 删除脚本 ─────────────────────────────────────────────────────────────
 	async function handleDeleteScript(scriptId: string) {
 		await actions.deleteScript.mutateAsync(scriptId);
 		if (selectedScriptId === scriptId) {
@@ -70,14 +100,61 @@ export function AutomationPage() {
 		}
 	}
 
-	async function handleRunScript(profileId: string) {
+	// ── 运行 ─────────────────────────────────────────────────────────────────
+	async function handleRun(profileIds: string[], initialVars: Record<string, string>) {
 		if (!selectedScript) return;
-		await actions.runScript.mutateAsync({
+		// 并行发起多环境运行
+		await Promise.all(
+			profileIds.map((profileId) =>
+				actions.runScript.mutateAsync({
+					scriptId: selectedScript.id,
+					profileId,
+					stepTotal: selectedScript.steps.length,
+					initialVars: Object.keys(initialVars).length > 0 ? initialVars : undefined,
+				}),
+			),
+		);
+	}
+
+	async function handleDebugRun(profileId: string, initialVars: Record<string, string>) {
+		if (!selectedScript) return;
+		await actions.debugRun.mutateAsync({
 			scriptId: selectedScript.id,
 			profileId,
 			stepTotal: selectedScript.steps.length,
+			initialVars: Object.keys(initialVars).length > 0 ? initialVars : undefined,
 		});
 	}
+
+	// ── 导入脚本（JSON 文件） ─────────────────────────────────────────────────
+	function handleImportClick() {
+		importInputRef.current?.click();
+	}
+
+	async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+		const file = e.target.files?.[0];
+		if (!file) return;
+		e.target.value = '';
+		try {
+			const text = await file.text();
+			const json = JSON.parse(text) as { name?: string; description?: string; steps?: unknown[] };
+			if (!json.name || !Array.isArray(json.steps)) {
+				toast.error('无效的脚本文件：缺少 name 或 steps 字段');
+				return;
+			}
+			const created = await actions.createScript.mutateAsync({
+				name: json.name,
+				description: json.description ?? undefined,
+				steps: json.steps as never,
+			});
+			setSelectedScriptId(created.id);
+			toast.success(`已导入脚本「${created.name}」（${created.steps.length} 步骤）`);
+		} catch {
+			toast.error('脚本文件解析失败，请确认是有效的 JSON 格式');
+		}
+	}
+
+	const isSaving = actions.createScript.isPending || actions.updateScript.isPending;
 
 	return (
 		<div className="flex h-full">
@@ -85,9 +162,26 @@ export function AutomationPage() {
 			<div className="w-64 flex-shrink-0 border-r flex flex-col">
 				<div className="flex items-center justify-between px-4 py-3 border-b">
 					<span className="text-sm font-medium">自动化脚本</span>
-					<Button size="sm" variant="ghost" className="h-7 w-7 p-0 cursor-pointer" onClick={handleNewScript}>
-						<Plus className="h-4 w-4" />
-					</Button>
+					<div className="flex items-center gap-1">
+						<Button
+							size="sm"
+							variant="ghost"
+							className="h-7 w-7 p-0 cursor-pointer"
+							onClick={handleImportClick}
+							title="导入脚本"
+						>
+							<FileInput className="h-3.5 w-3.5" />
+						</Button>
+						<Button
+							size="sm"
+							variant="ghost"
+							className="h-7 w-7 p-0 cursor-pointer"
+							onClick={handleNewScript}
+							title="新建脚本"
+						>
+							<Plus className="h-4 w-4" />
+						</Button>
+					</div>
 				</div>
 				<ScrollArea className="flex-1">
 					{scripts.length === 0 ? (
@@ -131,9 +225,14 @@ export function AutomationPage() {
 						liveStepResults={activeScriptId === selectedScript.id ? liveStepResults : []}
 						liveVariables={activeScriptId === selectedScript.id ? liveVariables : {}}
 						activeRunId={activeScriptId === selectedScript.id ? activeRunId : null}
-						onEdit={() => handleEditScript(selectedScript)}
+						onEdit={() => handleEditMeta(selectedScript)}
 						onDelete={() => handleDeleteScript(selectedScript.id)}
-						onRun={handleRunScript}
+						onRun={handleRun}
+						onDebugRun={handleDebugRun}
+						onCancel={() => {
+							const runId = activeScriptId === selectedScript.id ? activeRunId : null;
+							if (runId) actions.cancelRun.mutate(runId);
+						}}
 					/>
 				) : (
 					<div className="flex-1 flex items-center justify-center text-muted-foreground">
@@ -145,12 +244,56 @@ export function AutomationPage() {
 				)}
 			</div>
 
-			<ScriptEditorDialog
-				open={editorOpen}
-				script={editingScript}
-				onOpenChange={setEditorOpen}
-				onSave={handleSaveScript}
-				isSaving={actions.createScript.isPending || actions.updateScript.isPending}
+			{/* 新建/编辑元数据对话框 */}
+			<Dialog open={metaDialogOpen} onOpenChange={setMetaDialogOpen}>
+				<DialogContent className="max-w-sm">
+					<DialogHeader>
+						<DialogTitle>{metaDialogScript ? '编辑脚本信息' : '新建脚本'}</DialogTitle>
+					</DialogHeader>
+					<div className="space-y-3 py-1">
+						<div className="space-y-1.5">
+							<Label>脚本名称</Label>
+							<Input
+								value={metaName}
+								onChange={(e) => setMetaName(e.target.value)}
+								placeholder="输入脚本名称"
+								onKeyDown={(e) => e.key === 'Enter' && handleMetaSave()}
+								autoFocus
+							/>
+						</div>
+						<div className="space-y-1.5">
+							<Label>描述（可选）</Label>
+							<Textarea
+								value={metaDesc}
+								onChange={(e) => setMetaDesc(e.target.value)}
+								placeholder="描述这个脚本的用途"
+								rows={2}
+								className="resize-none"
+							/>
+						</div>
+					</div>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setMetaDialogOpen(false)} className="cursor-pointer">
+							取消
+						</Button>
+						<Button
+							onClick={handleMetaSave}
+							disabled={!metaName.trim() || isSaving}
+							className="cursor-pointer"
+						>
+							{metaDialogScript ? '保存' : '创建并打开画布'}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* 隐藏的导入文件输入框 */}
+			<input
+				ref={importInputRef}
+				type="file"
+				accept=".json"
+				className="hidden"
+				onChange={handleImportFile}
 			/>
 		</div>
 	);
