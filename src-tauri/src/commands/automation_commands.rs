@@ -145,6 +145,18 @@ pub fn update_ai_provider_config(
     svc.save_ai_provider_config(config).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub fn update_script_canvas_positions(
+    state: State<'_, AppState>,
+    script_id: String,
+    positions_json: String,
+) -> Result<(), String> {
+    state
+        .lock_automation_service()
+        .update_canvas_positions(&script_id, positions_json)
+        .map_err(error_to_string)
+}
+
 // ─── 执行引擎 ─────────────────────────────────────────────────────────────────
 
 /// 步骤流控信号

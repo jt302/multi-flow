@@ -181,6 +181,19 @@ impl AutomationService {
     {
         crate::runtime_compat::block_on_compat(future).map_err(AppError::from)
     }
+
+    pub fn update_canvas_positions(
+        &self,
+        script_id: &str,
+        positions_json: String,
+    ) -> AppResult<()> {
+        let existing = self.find_script_model(script_id)?;
+        let mut active: automation_script::ActiveModel = existing.into();
+        active.canvas_positions_json = Set(Some(positions_json));
+        active.updated_at = Set(now_ts());
+        self.db_query(active.update(&self.db))?;
+        Ok(())
+    }
 }
 
 fn to_api_script(model: automation_script::Model) -> AppResult<AutomationScript> {
@@ -191,6 +204,7 @@ fn to_api_script(model: automation_script::Model) -> AppResult<AutomationScript>
         name: model.name,
         description: model.description,
         steps,
+        canvas_positions_json: model.canvas_positions_json,
         created_at: model.created_at,
         updated_at: model.updated_at,
     })

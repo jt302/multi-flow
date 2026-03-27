@@ -105,6 +105,13 @@ export async function cancelAutomationRun(runId: string): Promise<void> {
 	return tauriInvoke<void>('cancel_automation_run', { runId });
 }
 
+export async function updateScriptCanvasPositions(
+	scriptId: string,
+	positionsJson: string,
+): Promise<void> {
+	return tauriInvoke<void>('update_script_canvas_positions', { scriptId, positionsJson });
+}
+
 export async function readAiProviderConfig(): Promise<AiProviderConfig> {
 	return tauriInvoke<AiProviderConfig>('read_ai_provider_config');
 }

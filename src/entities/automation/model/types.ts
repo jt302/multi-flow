@@ -155,6 +155,7 @@ export type AutomationScript = {
 	name: string;
 	description: string | null;
 	steps: ScriptStep[];
+	canvasPositionsJson: string | null;
 	createdAt: number;
 	updatedAt: number;
 };

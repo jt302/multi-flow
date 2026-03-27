@@ -33,12 +33,16 @@ const AutomationRoutePage = lazy(() =>
 const RecycleBinRoutePage = lazy(() =>
 	import('@/pages/recycle-bin').then((module) => ({ default: module.RecycleBinRoutePage })),
 );
+const AutomationCanvasRoutePage = lazy(() =>
+	import('@/pages/automation-canvas').then((module) => ({ default: module.AutomationCanvasRoutePage })),
+);
 
 export function AppRouter() {
 	return (
 		<Routes>
 			<Route path="/" element={<RootRedirectPage />} />
 			<Route path="/logs" element={<LogPanelPage />} />
+			<Route path="/automation/:scriptId/canvas" element={<AutomationCanvasRoutePage />} />
 			<Route element={<WorkspaceLayout />}>
 				<Route path="/dashboard" element={<DashboardRoutePage />} />
 				<Route path="/profiles" element={<ProfilesRoutePage />} />
