@@ -13,6 +13,20 @@ const PREFERENCES_FILE_NAME: &str = "app-preferences.json";
 #[serde(rename_all = "camelCase")]
 struct AppPreferencesFile {
     plugin_download_proxy_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ai_provider: Option<AiProviderConfig>,
+}
+
+/// AI Provider 配置（OpenAI 兼容接口）
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AiProviderConfig {
+    /// 接口 base URL，默认 "https://api.openai.com/v1"
+    pub base_url: Option<String>,
+    /// API Key
+    pub api_key: Option<String>,
+    /// 默认模型，默认 "gpt-4o"
+    pub model: Option<String>,
 }
 
 pub struct AppPreferenceService {
@@ -45,6 +59,16 @@ impl AppPreferenceService {
     pub fn save_plugin_download_proxy_id(&self, proxy_id: Option<String>) -> AppResult<()> {
         let mut preferences = self.read_preferences_file()?;
         preferences.plugin_download_proxy_id = trim_to_option(proxy_id);
+        self.write_preferences_file(&preferences)
+    }
+
+    pub fn read_ai_provider_config(&self) -> AppResult<AiProviderConfig> {
+        Ok(self.read_preferences_file()?.ai_provider.unwrap_or_default())
+    }
+
+    pub fn save_ai_provider_config(&self, config: AiProviderConfig) -> AppResult<()> {
+        let mut preferences = self.read_preferences_file()?;
+        preferences.ai_provider = Some(config);
         self.write_preferences_file(&preferences)
     }
 
