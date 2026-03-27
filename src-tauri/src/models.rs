@@ -997,6 +997,37 @@ pub enum ScriptStep {
     /// 跳到循环下一次迭代
     Continue,
 
+    // ── AI 步骤 ───────────────────────────────────────────────────────────────
+
+    /// 文本 / vision prompt，返回 AI 回复文本
+    AiPrompt {
+        /// 提示词，支持 {{var}} 插值
+        prompt: String,
+        /// 变量名，值为 base64 图片（用于 vision）
+        #[serde(skip_serializing_if = "Option::is_none")]
+        image_var: Option<String>,
+        /// 覆盖全局 AI 模型
+        #[serde(skip_serializing_if = "Option::is_none")]
+        model_override: Option<String>,
+        /// 将 AI 回复存入此变量
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+
+    /// 结构化提取：AI 返回 JSON，按映射写入多个变量
+    AiExtract {
+        /// 提示词，支持 {{var}} 插值
+        prompt: String,
+        /// 变量名，值为 base64 图片（用于 vision）
+        #[serde(skip_serializing_if = "Option::is_none")]
+        image_var: Option<String>,
+        /// 输出字段映射列表
+        output_key_map: Vec<AiOutputKeyMapping>,
+        /// 覆盖全局 AI 模型
+        #[serde(skip_serializing_if = "Option::is_none")]
+        model_override: Option<String>,
+    },
+
     // ── Magic Controller 具名步骤 ─────────────────────────────────────────────
 
     // 窗口外观
@@ -1214,6 +1245,16 @@ pub struct CreateAutomationScriptRequest {
     pub name: String,
     pub description: Option<String>,
     pub steps: Vec<ScriptStep>,
+}
+
+/// AiExtract 输出字段映射
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiOutputKeyMapping {
+    /// 点分路径，如 "data.items.0"
+    pub json_path: String,
+    /// 存入的变量名
+    pub var_name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

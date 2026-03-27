@@ -1,5 +1,6 @@
 pub mod app_preference_service;
 pub mod automation_cdp_client;
+pub mod ai_service;
 pub mod automation_interpolation;
 pub mod automation_service;
 pub mod chromium_magic_adapter_service;

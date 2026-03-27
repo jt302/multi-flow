@@ -8,10 +8,12 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::logger;
 use crate::models::{
-    AutomationHumanDismissedEvent, AutomationHumanRequiredEvent, AutomationProgressEvent,
-    AutomationRun, AutomationRunCancelledEvent, AutomationScript, AutomationVariablesUpdatedEvent,
-    CreateAutomationScriptRequest, LoopMode, ScriptStep, StepResult, WaitForUserTimeout,
+    AiOutputKeyMapping, AutomationHumanDismissedEvent, AutomationHumanRequiredEvent,
+    AutomationProgressEvent, AutomationRun, AutomationRunCancelledEvent, AutomationScript,
+    AutomationVariablesUpdatedEvent, CreateAutomationScriptRequest, LoopMode, ScriptStep,
+    StepResult, WaitForUserTimeout,
 };
+use crate::services::ai_service::{build_vision_content, extract_json_path, AiService, ChatMessage};
 use crate::services::automation_cdp_client::CdpClient;
 use crate::services::automation_interpolation::RunVariables;
 use crate::state::AppState;
@@ -119,6 +121,25 @@ pub async fn cancel_automation_run(
     }
     let _ = app.emit("automation_run_cancelled", AutomationRunCancelledEvent { run_id });
     Ok(())
+}
+
+// ─── AI Provider 配置命令 ────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn read_ai_provider_config(
+    state: State<'_, AppState>,
+) -> Result<crate::services::app_preference_service::AiProviderConfig, String> {
+    let svc = state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+    svc.read_ai_provider_config().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_ai_provider_config(
+    state: State<'_, AppState>,
+    config: crate::services::app_preference_service::AiProviderConfig,
+) -> Result<(), String> {
+    let svc = state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+    svc.save_ai_provider_config(config).map_err(|e| e.to_string())
 }
 
 // ─── 执行引擎 ─────────────────────────────────────────────────────────────────
@@ -462,6 +483,47 @@ async fn execute_step(
             let output = user_input.map(|s| if s.is_empty() { "(timeout)".to_string() } else { s });
             Ok((output, vs))
         }
+        // ── AI 步骤 ───────────────────────────────────────────────────────────
+        ScriptStep::AiPrompt { prompt, image_var, model_override, output_key } => {
+            let prompt = vars.interpolate(prompt);
+            let image_b64 = image_var.as_ref().and_then(|k| vars.get(k));
+            let app_state = app.state::<AppState>();
+            let mut config = {
+                let svc = app_state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+                svc.read_ai_provider_config().unwrap_or_default()
+            };
+            if let Some(m) = model_override { config.model = Some(m.clone()); }
+            let content = build_vision_content(&prompt, image_b64.as_deref());
+            let ai = AiService::new(http_client.clone());
+            let reply = ai.chat(&config, vec![ChatMessage { role: "user".into(), content }], None).await?;
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key { vs.insert(k.clone(), reply.clone()); }
+            Ok((Some(reply), vs))
+        }
+        ScriptStep::AiExtract { prompt, image_var, output_key_map, model_override } => {
+            let prompt = vars.interpolate(prompt);
+            let image_b64 = image_var.as_ref().and_then(|k| vars.get(k));
+            let app_state = app.state::<AppState>();
+            let mut config = {
+                let svc = app_state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+                svc.read_ai_provider_config().unwrap_or_default()
+            };
+            if let Some(m) = model_override { config.model = Some(m.clone()); }
+            let content = build_vision_content(&prompt, image_b64.as_deref());
+            let response_format = serde_json::json!({ "type": "json_object" });
+            let ai = AiService::new(http_client.clone());
+            let reply = ai.chat(&config, vec![ChatMessage { role: "user".into(), content }], Some(response_format)).await?;
+            let mut vs = HashMap::new();
+            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&reply) {
+                for AiOutputKeyMapping { json_path, var_name } in output_key_map {
+                    if let Some(v) = extract_json_path(&parsed, json_path) {
+                        vs.insert(var_name.clone(), v);
+                    }
+                }
+            }
+            Ok((Some(reply), vs))
+        }
+
         // ── CDP 具名步骤 ──────────────────────────────────────────────────────
         ScriptStep::CdpNavigate { url, output_key } => {
             let url = vars.interpolate(url);
