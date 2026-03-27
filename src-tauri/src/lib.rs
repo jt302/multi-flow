@@ -71,6 +71,8 @@ pub fn run() {
             commands::automation_commands::delete_automation_script,
             commands::automation_commands::list_automation_runs,
             commands::automation_commands::run_automation_script,
+            commands::automation_commands::resume_automation_run,
+            commands::automation_commands::cancel_automation_run,
             commands::group_commands::create_profile_group,
             commands::group_commands::list_profile_groups,
             commands::group_commands::update_profile_group,

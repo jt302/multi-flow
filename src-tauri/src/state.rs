@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -25,6 +26,12 @@ use crate::services::resource_service::ResourceService;
 use crate::services::sync_manager_service::SyncManagerService;
 
 pub struct AppState {
+    /// oneshot senders for WaitForUser steps: run_id → sender(Option<String>)
+    /// Some(input) = 用户提交输入后继续，None = 取消
+    pub active_run_channels:
+        Mutex<HashMap<String, tokio::sync::oneshot::Sender<Option<String>>>>,
+    /// 取消标志: run_id → true 表示该 run 已被取消
+    pub cancel_tokens: Mutex<HashMap<String, bool>>,
     pub automation_service: Mutex<AutomationService>,
     pub profile_group_service: Mutex<ProfileGroupService>,
     pub profile_service: Mutex<ProfileService>,
@@ -121,6 +128,8 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
     cleanup_rpa_artifacts_dir(app)?;
 
     let app_state = AppState {
+        active_run_channels: Mutex::new(HashMap::new()),
+        cancel_tokens: Mutex::new(HashMap::new()),
         automation_service: Mutex::new(automation_service),
         profile_group_service: Mutex::new(profile_group_service),
         profile_service: Mutex::new(profile_service),

@@ -4,9 +4,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import {
+	cancelAutomationRun,
 	createAutomationScript,
 	deleteAutomationScript,
 	listenAutomationProgress,
+	listenAutomationVariablesUpdated,
 	runAutomationScript,
 	updateAutomationScript,
 } from '@/entities/automation/api/automation-api';
@@ -16,11 +18,11 @@ import { queryKeys } from '@/shared/config/query-keys';
 
 export function useAutomationActions(activeScriptId: string | null) {
 	const queryClient = useQueryClient();
-	const unlistenRef = useRef<(() => void) | null>(null);
+	const unlistenRef = useRef<Array<() => void>>([]);
 
 	useEffect(() => {
 		return () => {
-			unlistenRef.current?.();
+			unlistenRef.current.forEach((u) => u());
 		};
 	}, []);
 
@@ -60,21 +62,37 @@ export function useAutomationActions(activeScriptId: string | null) {
 			const runId = await runAutomationScript(scriptId, profileId);
 			automationStore.getState().startRun(runId, scriptId, stepTotal);
 
-			unlistenRef.current?.();
-			const unlisten = await listenAutomationProgress(runId, (event) => {
-				automationStore.getState().onProgress(event);
-				if (event.runStatus === 'success' || event.runStatus === 'failed') {
-					if (activeScriptId) {
-						queryClient.invalidateQueries({
-							queryKey: queryKeys.automationRuns(activeScriptId),
-						});
+			// 清理上一次监听器
+			unlistenRef.current.forEach((u) => u());
+			unlistenRef.current = [];
+
+			const [unlistenProgress, unlistenVars] = await Promise.all([
+				listenAutomationProgress(runId, (event) => {
+					automationStore.getState().onProgress(event);
+					if (event.runStatus === 'success' || event.runStatus === 'failed' || event.runStatus === 'cancelled') {
+						if (activeScriptId) {
+							queryClient.invalidateQueries({
+								queryKey: queryKeys.automationRuns(activeScriptId),
+							});
+						}
 					}
-				}
-			});
-			unlistenRef.current = unlisten;
+				}),
+				listenAutomationVariablesUpdated(runId, (event) => {
+					automationStore.getState().onVariablesUpdated(event);
+				}),
+			]);
+
+			unlistenRef.current = [unlistenProgress, unlistenVars];
 			return runId;
 		},
 	});
 
-	return { createScript, updateScript, deleteScript, runScript };
+	const cancelRun = useMutation({
+		mutationFn: (runId: string) => cancelAutomationRun(runId),
+		onError: (err: Error) => {
+			toast.error(`取消失败：${err.message}`);
+		},
+	});
+
+	return { createScript, updateScript, deleteScript, runScript, cancelRun };
 }

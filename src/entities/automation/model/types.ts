@@ -1,3 +1,5 @@
+export type WaitForUserTimeout = 'continue' | 'fail';
+
 export type ScriptStep =
 	| { kind: 'navigate'; url: string; output_key?: string }
 	| { kind: 'wait'; ms: number }
@@ -6,7 +8,15 @@ export type ScriptStep =
 	| { kind: 'type'; selector: string; text: string }
 	| { kind: 'screenshot'; output_key?: string }
 	| { kind: 'magic'; command: string; params: Record<string, unknown>; output_key?: string }
-	| { kind: 'cdp'; method: string; params?: Record<string, unknown>; output_key?: string };
+	| { kind: 'cdp'; method: string; params?: Record<string, unknown>; output_key?: string }
+	| {
+			kind: 'wait_for_user';
+			message: string;
+			input_label?: string;
+			output_key?: string;
+			timeout_ms?: number;
+			on_timeout?: WaitForUserTimeout;
+	  };
 
 export type AutomationScript = {
 	id: string;
@@ -18,7 +28,7 @@ export type AutomationScript = {
 };
 
 export type StepStatus = 'pending' | 'running' | 'success' | 'failed' | 'skipped';
-export type RunStatus = 'pending' | 'running' | 'success' | 'failed' | 'cancelled';
+export type RunStatus = 'pending' | 'running' | 'success' | 'failed' | 'cancelled' | 'waiting_human';
 
 export type StepResult = {
 	index: number;
@@ -55,6 +65,22 @@ export type AutomationProgressEvent = {
 export type AutomationVariablesUpdatedEvent = {
 	runId: string;
 	vars: Record<string, string>;
+};
+
+export type AutomationHumanRequiredEvent = {
+	runId: string;
+	message: string;
+	inputLabel: string | null;
+	timeoutMs: number | null;
+	stepPath: number[];
+};
+
+export type AutomationHumanDismissedEvent = {
+	runId: string;
+};
+
+export type AutomationRunCancelledEvent = {
+	runId: string;
 };
 
 export type CreateAutomationScriptPayload = {

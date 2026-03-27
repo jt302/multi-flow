@@ -915,6 +915,16 @@ pub fn now_ts() -> i64 {
 
 // ─── Automation ───────────────────────────────────────────────────────────────
 
+/// 人工介入超时处理策略
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WaitForUserTimeout {
+    /// 超时后继续执行（output_key 存空字符串）
+    Continue,
+    /// 超时后将当前步骤标记为失败
+    Fail,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ScriptStep {
@@ -926,6 +936,23 @@ pub enum ScriptStep {
     Screenshot { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
     Magic { command: String, params: serde_json::Value, #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
     Cdp { method: String, params: Option<serde_json::Value>, #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    /// 暂停脚本，等待人工确认或输入
+    WaitForUser {
+        /// 弹窗显示的提示信息，支持 {{var}} 插值
+        message: String,
+        /// 有值时弹窗显示输入框，label 为输入框描述
+        #[serde(skip_serializing_if = "Option::is_none")]
+        input_label: Option<String>,
+        /// 将用户输入存入此变量
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+        /// 超时毫秒数，None 表示无限等待
+        #[serde(skip_serializing_if = "Option::is_none")]
+        timeout_ms: Option<u64>,
+        /// 超时处理策略，默认 Continue
+        #[serde(default = "default_wait_for_user_timeout")]
+        on_timeout: WaitForUserTimeout,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -990,11 +1017,41 @@ pub struct AutomationProgressEvent {
     pub step_path: Vec<usize>,
 }
 
+fn default_wait_for_user_timeout() -> WaitForUserTimeout {
+    WaitForUserTimeout::Continue
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AutomationVariablesUpdatedEvent {
     pub run_id: String,
     pub vars: std::collections::HashMap<String, String>,
+}
+
+/// 发给前端的人工介入请求事件
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutomationHumanRequiredEvent {
+    pub run_id: String,
+    pub message: String,
+    pub input_label: Option<String>,
+    pub timeout_ms: Option<u64>,
+    /// 当前步骤路径，用于高亮画布节点
+    pub step_path: Vec<usize>,
+}
+
+/// 人工介入已解除（用户点击继续或超时）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutomationHumanDismissedEvent {
+    pub run_id: String,
+}
+
+/// 运行已取消
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutomationRunCancelledEvent {
+    pub run_id: String,
 }
 
 #[cfg(test)]
