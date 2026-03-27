@@ -58,6 +58,7 @@ const STEP_KINDS = [
 	// AI 步骤
 	{ value: 'ai_prompt', label: 'AI 文本/视觉 Prompt', group: 'AI' },
 	{ value: 'ai_extract', label: 'AI 结构化提取', group: 'AI' },
+	{ value: 'ai_agent', label: 'AI Agent 工具调用', group: 'AI' },
 	// CDP 具名
 	{ value: 'cdp_navigate', label: 'CDP 导航', group: 'CDP' },
 	{ value: 'cdp_reload', label: 'CDP 刷新页面', group: 'CDP' },
@@ -142,6 +143,7 @@ function defaultStep(kind: string): ScriptStep {
 		// AI 步骤
 		case 'ai_prompt': return { kind: 'ai_prompt', prompt: '' };
 		case 'ai_extract': return { kind: 'ai_extract', prompt: '', output_key_map: [{ jsonPath: '', varName: '' }] };
+		case 'ai_agent': return { kind: 'ai_agent', system_prompt: '', initial_message: '', max_steps: 10 };
 		// CDP 具名步骤
 		case 'cdp_navigate': return { kind: 'cdp_navigate', url: 'https://' };
 		case 'cdp_reload': return { kind: 'cdp_reload', ignore_cache: false };
@@ -487,6 +489,27 @@ function StepFields({
 					placeholder="AI 提示词，要求输出 JSON（支持 {{变量}} 插值）"
 					className="text-xs min-h-[60px]"
 				/>
+			);
+		case 'ai_agent':
+			return (
+				<div className="space-y-1.5">
+					<Textarea
+						{...register(`steps.${index}.system_prompt` as `steps.${number}.system_prompt`)}
+						placeholder="系统提示词（Agent 角色与能力说明）"
+						className="text-xs min-h-[60px]"
+					/>
+					<Textarea
+						{...register(`steps.${index}.initial_message` as `steps.${number}.initial_message`)}
+						placeholder="初始用户消息（支持 {{变量}} 插值）"
+						className="text-xs min-h-[40px]"
+					/>
+					<Input
+						type="number"
+						{...register(`steps.${index}.max_steps` as `steps.${number}.max_steps`, { valueAsNumber: true })}
+						placeholder="最大循环轮次（默认 10）"
+						className="h-8 text-xs"
+					/>
+				</div>
 			);
 		// ── CDP 具名步骤字段 ─────────────────────────────────────────────────────
 		case 'cdp_navigate':
