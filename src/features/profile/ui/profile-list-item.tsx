@@ -291,7 +291,7 @@ export function ProfileListItem({
 
 	return (
 		<>
-			<TableRow className={cn(index === total - 1 && 'border-b-0')}>
+			<TableRow className={cn('group relative transition-all duration-300 hover:bg-muted/30 hover:shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)]', index === total - 1 && 'border-b-0')}>
 				<TableCell className="w-[86px] align-top">
 					<div className="grid grid-cols-[1rem_2.25rem] items-center justify-center gap-2 pt-1">
 						<Checkbox
@@ -370,7 +370,7 @@ export function ProfileListItem({
 				</TableCell>
 
 				<TableCell className="w-[130px] align-top text-right">
-					<div className="flex justify-end gap-1">
+					<div className="flex justify-end gap-1 opacity-80 transition-opacity duration-300 group-hover:opacity-100">
 						{item.lifecycle === 'active' ? (
 							<>
 								<Button

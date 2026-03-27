@@ -109,17 +109,17 @@ export function WorkspaceLayout() {
 			<div className="relative h-dvh w-full overflow-hidden p-4">
 				<div
 					aria-hidden
-					className="pointer-events-none absolute inset-0 opacity-75"
+					className="pointer-events-none absolute inset-0 opacity-60 transition-opacity duration-1000"
 					style={{
 						background:
-							'radial-gradient(circle at 8% 0%, color-mix(in oklab, var(--primary) 26%, transparent), transparent 42%), radial-gradient(circle at 92% 12%, color-mix(in oklab, var(--primary) 15%, transparent), transparent 40%)',
+							'radial-gradient(circle at 10% 0%, color-mix(in oklab, var(--primary) 15%, transparent), transparent 50%), radial-gradient(circle at 90% 10%, color-mix(in oklab, var(--primary) 10%, transparent), transparent 50%), radial-gradient(circle at 50% 100%, color-mix(in oklab, var(--primary) 8%, transparent), transparent 40%)',
 					}}
 				/>
 				<div className="relative flex h-full min-h-0 w-full">
 					<Sidebar
 						variant="floating"
 						collapsible="icon"
-						className="border-0 [&_[data-slot=sidebar-inner]]:border [&_[data-slot=sidebar-inner]]:border-border/60 [&_[data-slot=sidebar-inner]]:bg-card/92 [&_[data-slot=sidebar-inner]]:backdrop-blur-2xl"
+						className="border-0 [&_[data-slot=sidebar-inner]]:border [&_[data-slot=sidebar-inner]]:border-border/40 [&_[data-slot=sidebar-inner]]:bg-card/70 [&_[data-slot=sidebar-inner]]:backdrop-blur-3xl [&_[data-slot=sidebar-inner]]:shadow-xl [&_[data-slot=sidebar-inner]]:transition-all"
 					>
 						<WorkspaceSidebar
 							activeNav={activeNav}
@@ -129,8 +129,8 @@ export function WorkspaceLayout() {
 						/>
 					</Sidebar>
 
-					<section className="flex min-h-0 min-w-0 flex-1 basis-0 flex-col gap-3 bg-transparent">
-						<Card className="w-full shrink-0 border-border/60 bg-card/84 px-4 py-2 backdrop-blur-2xl">
+					<section className="flex min-h-0 min-w-0 flex-1 basis-0 flex-col gap-4 bg-transparent pl-1 md:pl-2">
+						<Card className="w-full shrink-0 border-border/40 bg-card/60 px-4 py-2.5 backdrop-blur-3xl shadow-sm transition-all duration-300">
 							<WorkspaceTopbar
 								activeNav={activeNav}
 								themeMode={themeState.themeMode}
@@ -139,13 +139,16 @@ export function WorkspaceLayout() {
 								onNavigate={(path) => navigate(path)}
 							/>
 						</Card>
-						<Card className="min-h-0 w-full flex-1 overflow-hidden border-border/60 bg-card/84 p-0 backdrop-blur-2xl">
-							<div className="h-full w-full overflow-y-auto p-4 md:p-5">
-								<div className="flex h-full min-h-0 w-full min-w-0 flex-col">
+						<Card className="min-h-0 w-full flex-1 overflow-hidden border-border/40 bg-card/60 p-0 backdrop-blur-3xl shadow-md transition-all duration-300">
+							<div className="h-full w-full overflow-y-auto p-4 md:p-6 lg:p-8">
+								<div key={location.pathname} className="flex h-full min-h-0 w-full min-w-0 flex-col animate-in fade-in zoom-in-[0.98] duration-500 fill-mode-both">
 									<Suspense
 										fallback={
-											<Card className="p-6 text-sm text-muted-foreground">
-												页面加载中...
+											<Card className="p-6 text-sm text-muted-foreground border-border/40 bg-transparent flex items-center justify-center min-h-[50vh]">
+												<div className="flex flex-col items-center gap-3 opacity-60">
+													<div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+													<span>页面加载中...</span>
+												</div>
 											</Card>
 										}
 									>
