@@ -19,6 +19,7 @@ mod m20260323_000016_create_agent_runtime_tables;
 mod m20260323_000017_drop_agent_tables;
 mod m20260326_000018_create_automation_scripts;
 mod m20260327_000019_automation_v2;
+mod m20260327_000020_automation_canvas;
 
 use sea_orm_migration::prelude::*;
 
@@ -49,6 +50,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260323_000017_drop_agent_tables::Migration),
             Box::new(m20260326_000018_create_automation_scripts::Migration),
             Box::new(m20260327_000019_automation_v2::Migration),
+            Box::new(m20260327_000020_automation_canvas::Migration),
         ]
     }
 }

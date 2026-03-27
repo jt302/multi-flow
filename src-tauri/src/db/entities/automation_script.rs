@@ -10,6 +10,7 @@ pub struct Model {
     pub steps_json: String,
     pub created_at: i64,
     pub updated_at: i64,
+    pub canvas_positions_json: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
