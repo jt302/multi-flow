@@ -3,6 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
 
 import type {
+	AiProviderConfig,
 	AutomationHumanDismissedEvent,
 	AutomationHumanRequiredEvent,
 	AutomationProgressEvent,
@@ -102,4 +103,12 @@ export async function resumeAutomationRun(runId: string, input?: string): Promis
 
 export async function cancelAutomationRun(runId: string): Promise<void> {
 	return tauriInvoke<void>('cancel_automation_run', { runId });
+}
+
+export async function readAiProviderConfig(): Promise<AiProviderConfig> {
+	return tauriInvoke<AiProviderConfig>('read_ai_provider_config');
+}
+
+export async function updateAiProviderConfig(config: AiProviderConfig): Promise<void> {
+	return tauriInvoke<void>('update_ai_provider_config', { config });
 }
