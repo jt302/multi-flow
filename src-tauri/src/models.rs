@@ -925,6 +925,16 @@ pub enum WaitForUserTimeout {
     Fail,
 }
 
+/// Loop 模式
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LoopMode {
+    /// 固定次数循环
+    Count,
+    /// 条件循环
+    While,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ScriptStep {
@@ -953,6 +963,39 @@ pub enum ScriptStep {
         #[serde(default = "default_wait_for_user_timeout")]
         on_timeout: WaitForUserTimeout,
     },
+    /// 条件分支（if/else）
+    Condition {
+        /// 条件表达式，支持 {{var}} 插值和简单比较
+        condition_expr: String,
+        /// 条件为真时执行的步骤
+        then_steps: Vec<ScriptStep>,
+        /// 条件为假时执行的步骤（可为空）
+        #[serde(default)]
+        else_steps: Vec<ScriptStep>,
+    },
+    /// 循环（固定次数或 while 条件）
+    Loop {
+        #[serde(default = "default_loop_mode")]
+        mode: LoopMode,
+        /// Count 模式：循环次数
+        #[serde(skip_serializing_if = "Option::is_none")]
+        count: Option<u64>,
+        /// While 模式：循环条件表达式
+        #[serde(skip_serializing_if = "Option::is_none")]
+        condition_expr: Option<String>,
+        /// While 模式安全上限，防止无限循环
+        #[serde(skip_serializing_if = "Option::is_none")]
+        max_iterations: Option<u64>,
+        /// 当前迭代索引（0起）存入此变量
+        #[serde(skip_serializing_if = "Option::is_none")]
+        iter_var: Option<String>,
+        /// 循环体步骤
+        body_steps: Vec<ScriptStep>,
+    },
+    /// 跳出当前循环
+    Break,
+    /// 跳到循环下一次迭代
+    Continue,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1019,6 +1062,10 @@ pub struct AutomationProgressEvent {
 
 fn default_wait_for_user_timeout() -> WaitForUserTimeout {
     WaitForUserTimeout::Continue
+}
+
+fn default_loop_mode() -> LoopMode {
+    LoopMode::Count
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
