@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use serde_json::json;
@@ -5,10 +6,11 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::logger;
 use crate::models::{
-    AutomationProgressEvent, AutomationRun, AutomationScript, CreateAutomationScriptRequest,
-    ScriptStep, StepResult,
+    AutomationProgressEvent, AutomationRun, AutomationScript, AutomationVariablesUpdatedEvent,
+    CreateAutomationScriptRequest, ScriptStep, StepResult,
 };
 use crate::services::automation_cdp_client::CdpClient;
+use crate::services::automation_interpolation::RunVariables;
 use crate::state::AppState;
 
 fn error_to_string(err: crate::error::AppError) -> String {
@@ -128,6 +130,7 @@ async fn execute_script(
     let cdp = debug_port.map(CdpClient::new);
     let http_client = reqwest::Client::new();
     let mut results: Vec<StepResult> = Vec::with_capacity(step_total);
+    let mut vars = RunVariables::new();
     let mut run_failed = false;
 
     for (index, step) in steps.iter().enumerate() {
@@ -140,24 +143,36 @@ async fn execute_script(
             None,
             0,
             "running",
+            HashMap::new(),
+            vec![index],
         );
 
         let start = Instant::now();
         let result = if run_failed {
-            Ok(None)
+            Ok((None, HashMap::new()))
         } else {
-            execute_step(cdp.as_ref(), &http_client, magic_port, step).await
+            execute_step(cdp.as_ref(), &http_client, magic_port, step, &vars).await
         };
         let duration_ms = start.elapsed().as_millis() as u64;
 
         match result {
-            Ok(output) => {
+            Ok((output, vars_set)) => {
+                // 将本步骤写入的变量存入运行时 vars
+                for (k, v) in &vars_set {
+                    vars.set(k, v.clone());
+                }
+                // 变量有变化时发送 variables_updated 事件
+                if !vars_set.is_empty() {
+                    emit_variables_updated(&app, &run_id, vars.snapshot());
+                }
+
                 let step_status = if run_failed { "skipped" } else { "success" };
                 results.push(StepResult {
                     index,
                     status: step_status.to_string(),
                     output: output.clone(),
                     duration_ms,
+                    vars_set: vars_set.clone(),
                 });
                 emit_progress(
                     &app,
@@ -168,6 +183,8 @@ async fn execute_script(
                     output,
                     duration_ms,
                     "running",
+                    vars_set,
+                    vec![index],
                 );
             }
             Err(err) => {
@@ -177,6 +194,7 @@ async fn execute_script(
                     status: "failed".to_string(),
                     output: Some(err.clone()),
                     duration_ms,
+                    vars_set: HashMap::new(),
                 });
                 emit_progress(
                     &app,
@@ -187,12 +205,14 @@ async fn execute_script(
                     Some(err),
                     duration_ms,
                     "running",
+                    HashMap::new(),
+                    vec![index],
                 );
             }
         }
 
         // Persist incremental results
-        persist_run_progress(&app, &run_id, &results, "running", None);
+        persist_run_progress(&app, &run_id, &results, "running", None, None);
     }
 
     // Finalize
@@ -205,12 +225,15 @@ async fn execute_script(
     } else {
         None
     };
+    let vars_snapshot = vars.snapshot();
+    let vars_json = serde_json::to_string(&vars_snapshot).ok();
     persist_run_progress(
         &app,
         &run_id,
         &results,
         final_status,
         error_msg.as_deref(),
+        vars_json.as_deref(),
     );
     emit_progress(
         &app,
@@ -221,29 +244,39 @@ async fn execute_script(
         None,
         0,
         final_status,
+        HashMap::new(),
+        vec![],
     );
 }
 
+/// 执行单个步骤，返回 (output, vars_set)
 async fn execute_step(
     cdp: Option<&CdpClient>,
     http_client: &reqwest::Client,
     magic_port: Option<u16>,
     step: &ScriptStep,
-) -> Result<Option<String>, String> {
+    vars: &RunVariables,
+) -> Result<(Option<String>, HashMap<String, String>), String> {
     match step {
-        ScriptStep::Navigate { url } => {
+        ScriptStep::Navigate { url, output_key } => {
+            let url = vars.interpolate(url);
             let cdp = cdp.ok_or_else(|| "CDP not available (profile not running)".to_string())?;
             cdp.call("Page.navigate", json!({ "url": url })).await?;
-            Ok(None)
+            let mut vars_set = HashMap::new();
+            if let Some(key) = output_key {
+                vars_set.insert(key.clone(), url.clone());
+            }
+            Ok((Some(url), vars_set))
         }
         ScriptStep::Wait { ms } => {
             tokio::time::sleep(Duration::from_millis(*ms)).await;
-            Ok(None)
+            Ok((None, HashMap::new()))
         }
         ScriptStep::Evaluate {
             expression,
-            result_key: _,
+            result_key,
         } => {
+            let expression = vars.interpolate(expression);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
             let result = cdp
                 .call(
@@ -255,21 +288,21 @@ async fn execute_step(
                 .get("result")
                 .and_then(|r| r.get("value"))
                 .map(|v| v.to_string());
-            Ok(value)
+            let mut vars_set = HashMap::new();
+            if let (Some(key), Some(val)) = (result_key, &value) {
+                vars_set.insert(key.clone(), val.clone());
+            }
+            Ok((value, vars_set))
         }
         ScriptStep::Click { selector } => {
+            let selector = vars.interpolate(selector);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            // Get document root
-            let doc = cdp
-                .call("DOM.getDocument", json!({ "depth": 0 }))
-                .await?;
+            let doc = cdp.call("DOM.getDocument", json!({ "depth": 0 })).await?;
             let root_id = doc
                 .get("root")
                 .and_then(|r| r.get("nodeId"))
                 .and_then(|v| v.as_i64())
                 .ok_or_else(|| "DOM.getDocument: no root nodeId".to_string())?;
-
-            // Query selector
             let qs_result = cdp
                 .call(
                     "DOM.querySelector",
@@ -283,8 +316,6 @@ async fn execute_step(
             if node_id == 0 {
                 return Err(format!("element not found: {selector}"));
             }
-
-            // Get bounding box
             let box_result = cdp
                 .call("DOM.getBoxModel", json!({ "nodeId": node_id }))
                 .await?;
@@ -293,15 +324,10 @@ async fn execute_step(
                 .and_then(|m| m.get("content"))
                 .and_then(|c| c.as_array())
                 .ok_or_else(|| "getBoxModel: no content".to_string())?;
-            // content is [x1,y1, x2,y1, x2,y2, x1,y2]
-            let x = (content[0].as_f64().unwrap_or(0.0)
-                + content[2].as_f64().unwrap_or(0.0))
+            let x = (content[0].as_f64().unwrap_or(0.0) + content[2].as_f64().unwrap_or(0.0))
                 / 2.0;
-            let y = (content[1].as_f64().unwrap_or(0.0)
-                + content[5].as_f64().unwrap_or(0.0))
+            let y = (content[1].as_f64().unwrap_or(0.0) + content[5].as_f64().unwrap_or(0.0))
                 / 2.0;
-
-            // Dispatch mouse events
             for event_type in ["mousePressed", "mouseReleased"] {
                 cdp.call(
                     "Input.dispatchMouseEvent",
@@ -309,10 +335,10 @@ async fn execute_step(
                 )
                 .await?;
             }
-            Ok(None)
+            Ok((None, HashMap::new()))
         }
         ScriptStep::Type { selector: _, text } => {
-            // Use Magic Controller for typing
+            let text = vars.interpolate(text);
             let port = magic_port.ok_or_else(|| {
                 "Magic Controller not available (profile not running)".to_string()
             })?;
@@ -323,23 +349,30 @@ async fn execute_step(
                 .send()
                 .await
                 .map_err(|e| format!("Magic Controller request failed: {e}"))?;
-            Ok(None)
+            Ok((None, HashMap::new()))
         }
-        ScriptStep::Screenshot => {
+        ScriptStep::Screenshot { output_key } => {
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
             let result = cdp
-                .call(
-                    "Page.captureScreenshot",
-                    json!({ "format": "png" }),
-                )
+                .call("Page.captureScreenshot", json!({ "format": "png" }))
                 .await?;
             let data = result
                 .get("data")
                 .and_then(|v| v.as_str())
                 .map(|s| format!("data:image/png;base64,{s}"));
-            Ok(data)
+            let mut vars_set = HashMap::new();
+            if let (Some(key), Some(val)) = (output_key, &data) {
+                vars_set.insert(key.clone(), val.clone());
+            }
+            Ok((data, vars_set))
         }
-        ScriptStep::Magic { command, params } => {
+        ScriptStep::Magic {
+            command,
+            params,
+            output_key,
+        } => {
+            let command = vars.interpolate(command);
+            let params = vars.interpolate_value(params);
             let port = magic_port.ok_or_else(|| {
                 "Magic Controller not available (profile not running)".to_string()
             })?;
@@ -348,20 +381,40 @@ async fn execute_step(
             if let Some(obj) = payload.as_object_mut() {
                 obj.insert("cmd".to_string(), json!(command));
             }
-            http_client
+            let resp = http_client
                 .post(&url)
                 .json(&payload)
                 .send()
                 .await
                 .map_err(|e| format!("Magic Controller request failed: {e}"))?;
-            Ok(None)
+            let body = resp
+                .text()
+                .await
+                .map_err(|e| format!("Magic Controller read body failed: {e}"))?;
+            let mut vars_set = HashMap::new();
+            if let Some(key) = output_key {
+                vars_set.insert(key.clone(), body.clone());
+            }
+            Ok((Some(body), vars_set))
         }
-        ScriptStep::Cdp { method, params } => {
+        ScriptStep::Cdp {
+            method,
+            params,
+            output_key,
+        } => {
+            let method = vars.interpolate(method);
+            let params = params
+                .as_ref()
+                .map(|p| vars.interpolate_value(p))
+                .unwrap_or(json!({}));
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let result = cdp
-                .call(method, params.clone().unwrap_or(json!({})))
-                .await?;
-            Ok(Some(result.to_string()))
+            let result = cdp.call(&method, params).await?;
+            let output = Some(result.to_string());
+            let mut vars_set = HashMap::new();
+            if let (Some(key), Some(val)) = (output_key, &output) {
+                vars_set.insert(key.clone(), val.clone());
+            }
+            Ok((output, vars_set))
         }
     }
 }
@@ -376,6 +429,8 @@ fn emit_progress(
     output: Option<String>,
     duration_ms: u64,
     run_status: &str,
+    vars_set: HashMap<String, String>,
+    step_path: Vec<usize>,
 ) {
     let event = AutomationProgressEvent {
         run_id: run_id.to_string(),
@@ -385,9 +440,21 @@ fn emit_progress(
         output,
         duration_ms,
         run_status: run_status.to_string(),
+        vars_set,
+        step_path,
     };
     if let Err(e) = app.emit("automation_progress", &event) {
         logger::warn("automation", format!("emit progress failed: {e}"));
+    }
+}
+
+fn emit_variables_updated(app: &AppHandle, run_id: &str, vars: HashMap<String, String>) {
+    let event = AutomationVariablesUpdatedEvent {
+        run_id: run_id.to_string(),
+        vars,
+    };
+    if let Err(e) = app.emit("automation_variables_updated", &event) {
+        logger::warn("automation", format!("emit variables_updated failed: {e}"));
     }
 }
 
@@ -397,6 +464,7 @@ fn persist_run_progress(
     results: &[StepResult],
     status: &str,
     error: Option<&str>,
+    variables_json: Option<&str>,
 ) {
     let results_json = serde_json::to_string(results).ok();
     let finished_at = if status == "running" {
@@ -411,6 +479,7 @@ fn persist_run_progress(
         results_json.as_deref(),
         error,
         finished_at,
+        variables_json,
     );
     if let Err(e) = update_result {
         logger::warn(
