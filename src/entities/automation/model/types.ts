@@ -36,6 +36,22 @@ export type ScriptStep =
 	| { kind: 'break' }
 	| { kind: 'continue' }
 
+	// ── AI 步骤 ───────────────────────────────────────────────────────────────
+	| {
+			kind: 'ai_prompt';
+			prompt: string;
+			image_var?: string;
+			model_override?: string;
+			output_key?: string;
+	  }
+	| {
+			kind: 'ai_extract';
+			prompt: string;
+			image_var?: string;
+			output_key_map: AiOutputKeyMapping[];
+			model_override?: string;
+	  }
+
 	// ── CDP 具名步骤 ──────────────────────────────────────────────────────────
 	| { kind: 'cdp_navigate'; url: string; output_key?: string }
 	| { kind: 'cdp_reload'; ignore_cache?: boolean }
@@ -190,6 +206,17 @@ export type AutomationHumanDismissedEvent = {
 
 export type AutomationRunCancelledEvent = {
 	runId: string;
+};
+
+export type AiOutputKeyMapping = {
+	jsonPath: string;
+	varName: string;
+};
+
+export type AiProviderConfig = {
+	baseUrl?: string;
+	apiKey?: string;
+	model?: string;
 };
 
 export type CreateAutomationScriptPayload = {

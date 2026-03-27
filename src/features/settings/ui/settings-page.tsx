@@ -13,6 +13,7 @@ import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-secti
 import { DevicePresetManagerCard } from './device-preset-manager-card';
 import { ResourceManagementCard } from './resource-management-card';
 import { ThemeCustomizerCard } from './theme-customizer-card';
+import { AiProviderConfigCard } from './ai-provider-config-card';
 import { WORKSPACE_SECTIONS } from '@/app/model/workspace-sections';
 import type { SettingsPageProps } from '@/features/settings/model/types';
 
@@ -115,6 +116,8 @@ export function SettingsPage({
 					onCreateDevicePreset={onCreateDevicePreset}
 					onUpdateDevicePreset={onUpdateDevicePreset}
 				/>
+
+				<AiProviderConfigCard />
 
 				<Card className="p-4">
 					<CardHeader className="p-0">

@@ -55,6 +55,9 @@ const STEP_KINDS = [
 	{ value: 'loop', label: '循环 loop', group: '控制流' },
 	{ value: 'break', label: '跳出循环 break', group: '控制流' },
 	{ value: 'continue', label: '继续下一轮 continue', group: '控制流' },
+	// AI 步骤
+	{ value: 'ai_prompt', label: 'AI 文本/视觉 Prompt', group: 'AI' },
+	{ value: 'ai_extract', label: 'AI 结构化提取', group: 'AI' },
 	// CDP 具名
 	{ value: 'cdp_navigate', label: 'CDP 导航', group: 'CDP' },
 	{ value: 'cdp_reload', label: 'CDP 刷新页面', group: 'CDP' },
@@ -136,6 +139,9 @@ function defaultStep(kind: string): ScriptStep {
 		case 'loop': return { kind: 'loop', mode: 'count', count: 3, body_steps: [] };
 		case 'break': return { kind: 'break' };
 		case 'continue': return { kind: 'continue' };
+		// AI 步骤
+		case 'ai_prompt': return { kind: 'ai_prompt', prompt: '' };
+		case 'ai_extract': return { kind: 'ai_extract', prompt: '', output_key_map: [{ jsonPath: '', varName: '' }] };
 		// CDP 具名步骤
 		case 'cdp_navigate': return { kind: 'cdp_navigate', url: 'https://' };
 		case 'cdp_reload': return { kind: 'cdp_reload', ignore_cache: false };
@@ -465,6 +471,23 @@ function StepFields({
 		case 'continue':
 			return <p className="text-xs text-muted-foreground">{kind === 'break' ? '跳出当前循环' : '跳到下一次迭代'}</p>;
 
+		// ── AI 步骤字段 ──────────────────────────────────────────────────────────
+		case 'ai_prompt':
+			return (
+				<Textarea
+					{...register(`steps.${index}.prompt` as `steps.${number}.prompt`)}
+					placeholder="AI 提示词（支持 {{变量}} 插值）"
+					className="text-xs min-h-[60px]"
+				/>
+			);
+		case 'ai_extract':
+			return (
+				<Textarea
+					{...register(`steps.${index}.prompt` as `steps.${number}.prompt`)}
+					placeholder="AI 提示词，要求输出 JSON（支持 {{变量}} 插值）"
+					className="text-xs min-h-[60px]"
+				/>
+			);
 		// ── CDP 具名步骤字段 ─────────────────────────────────────────────────────
 		case 'cdp_navigate':
 			return (
