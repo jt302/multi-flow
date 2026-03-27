@@ -105,6 +105,17 @@ export async function cancelAutomationRun(runId: string): Promise<void> {
 	return tauriInvoke<void>('cancel_automation_run', { runId });
 }
 
+export async function listActiveAutomationRuns(): Promise<string[]> {
+	return tauriInvoke<string[]>('list_active_automation_runs');
+}
+
+export async function runAutomationScriptDebug(
+	scriptId: string,
+	profileId: string,
+): Promise<string> {
+	return tauriInvoke<string>('run_automation_script_debug', { scriptId, profileId });
+}
+
 export async function updateScriptCanvasPositions(
 	scriptId: string,
 	positionsJson: string,

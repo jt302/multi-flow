@@ -96,6 +96,53 @@ pub async fn run_automation_script(
     Ok(run_id)
 }
 
+/// 调试模式：每步执行后插入 WaitForUser 暂停，让用户逐步检查
+#[tauri::command]
+pub async fn run_automation_script_debug(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    script_id: String,
+    profile_id: String,
+) -> Result<String, String> {
+    let (steps, steps_json) = {
+        let svc = state.lock_automation_service();
+        let script = svc.get_script(&script_id).map_err(error_to_string)?;
+        let steps_json = serde_json::to_string(&script.steps)
+            .map_err(|e| format!("serialize steps failed: {e}"))?;
+        (script.steps, steps_json)
+    };
+    // 在每步之后插入调试暂停步骤
+    let debug_steps: Vec<ScriptStep> = steps
+        .into_iter()
+        .flat_map(|step| {
+            let kind = match &step {
+                ScriptStep::WaitForUser { .. } => None, // 已有等待，不重复插入
+                _ => Some(ScriptStep::WaitForUser {
+                    message: format!("调试暂停 — 步骤已执行。点击继续运行下一步。"),
+                    input_label: None,
+                    output_key: None,
+                    timeout_ms: None,
+                    on_timeout: crate::models::WaitForUserTimeout::Continue,
+                }),
+            };
+            std::iter::once(step).chain(kind)
+        })
+        .collect();
+    let (debug_port, magic_port) = {
+        let em = state.lock_engine_manager();
+        match em.get_runtime_handle(&profile_id) {
+            Ok(handle) => (handle.debug_port, handle.magic_port),
+            Err(_) => (None, None),
+        }
+    };
+    let run_id = {
+        let svc = state.lock_automation_service();
+        svc.create_run(&script_id, &profile_id, &steps_json).map_err(error_to_string)?
+    };
+    tauri::async_runtime::spawn(execute_script(app, run_id.clone(), debug_port, magic_port, debug_steps));
+    Ok(run_id)
+}
+
 #[tauri::command]
 pub async fn resume_automation_run(
     state: State<'_, AppState>,
@@ -155,6 +202,12 @@ pub fn update_script_canvas_positions(
         .lock_automation_service()
         .update_canvas_positions(&script_id, positions_json)
         .map_err(error_to_string)
+}
+
+#[tauri::command]
+pub fn list_active_automation_runs(state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    let tokens = state.cancel_tokens.lock().map_err(|_| "lock poisoned".to_string())?;
+    Ok(tokens.keys().cloned().collect())
 }
 
 // ─── 执行引擎 ─────────────────────────────────────────────────────────────────
