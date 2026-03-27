@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use futures_util::future::BoxFuture;
-use futures_util::FutureExt;
 use serde_json::json;
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -17,12 +16,36 @@ use crate::services::ai_service::{
     build_agent_tools, build_vision_content, extract_json_path,
     AiChatResult, AiService, ChatMessage,
 };
+use crate::services::app_preference_service::AiProviderConfig;
 use crate::services::automation_cdp_client::CdpClient;
 use crate::services::automation_interpolation::RunVariables;
 use crate::state::AppState;
 
 fn error_to_string(err: crate::error::AppError) -> String {
     err.to_string()
+}
+
+/// 通过 CSS 选择器查找 DOM 元素，返回 nodeId
+async fn find_element_by_selector(cdp: &CdpClient, selector: &str) -> Result<i64, String> {
+    let doc = cdp.call("DOM.getDocument", json!({ "depth": 0 })).await?;
+    let root_id = doc.get("root").and_then(|r| r.get("nodeId")).and_then(|v| v.as_i64())
+        .ok_or_else(|| "DOM.getDocument: no root nodeId".to_string())?;
+    let qs = cdp.call("DOM.querySelector", json!({ "nodeId": root_id, "selector": selector })).await?;
+    let node_id = qs.get("nodeId").and_then(|v| v.as_i64())
+        .ok_or_else(|| format!("element not found: {selector}"))?;
+    if node_id == 0 { return Err(format!("element not found: {selector}")); }
+    Ok(node_id)
+}
+
+/// 读取 AI Provider 配置，并应用步骤级 model_override
+fn load_ai_config(app: &AppHandle, model_override: Option<&String>) -> AiProviderConfig {
+    let app_state = app.state::<AppState>();
+    let mut config = {
+        let svc = app_state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+        svc.read_ai_provider_config().unwrap_or_default()
+    };
+    if let Some(m) = model_override { config.model = Some(m.clone()); }
+    config
 }
 
 // ─── Tauri 命令 ───────────────────────────────────────────────────────────────
@@ -555,12 +578,7 @@ async fn execute_step(
         ScriptStep::AiPrompt { prompt, image_var, model_override, output_key } => {
             let prompt = vars.interpolate(prompt);
             let image_b64 = image_var.as_ref().and_then(|k| vars.get(k));
-            let app_state = app.state::<AppState>();
-            let mut config = {
-                let svc = app_state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
-                svc.read_ai_provider_config().unwrap_or_default()
-            };
-            if let Some(m) = model_override { config.model = Some(m.clone()); }
+            let config = load_ai_config(app, model_override.as_ref());
             let content = build_vision_content(&prompt, image_b64.as_deref());
             let ai = AiService::new(http_client.clone());
             let reply = ai.chat(&config, vec![ChatMessage::with_content("user", content)], None).await?;
@@ -571,12 +589,7 @@ async fn execute_step(
         ScriptStep::AiExtract { prompt, image_var, output_key_map, model_override } => {
             let prompt = vars.interpolate(prompt);
             let image_b64 = image_var.as_ref().and_then(|k| vars.get(k));
-            let app_state = app.state::<AppState>();
-            let mut config = {
-                let svc = app_state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
-                svc.read_ai_provider_config().unwrap_or_default()
-            };
-            if let Some(m) = model_override { config.model = Some(m.clone()); }
+            let config = load_ai_config(app, model_override.as_ref());
             let content = build_vision_content(&prompt, image_b64.as_deref());
             let response_format = serde_json::json!({ "type": "json_object" });
             let ai = AiService::new(http_client.clone());
@@ -594,11 +607,7 @@ async fn execute_step(
         ScriptStep::AiAgent { system_prompt, initial_message, max_steps, output_key } => {
             let system_prompt = vars.interpolate(system_prompt);
             let initial_message = vars.interpolate(initial_message);
-            let app_state = app.state::<AppState>();
-            let config = {
-                let svc = app_state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
-                svc.read_ai_provider_config().unwrap_or_default()
-            };
+            let config = load_ai_config(app, None);
             let tools = build_agent_tools();
             let ai = AiService::new(http_client.clone());
 
@@ -611,7 +620,7 @@ async fn execute_step(
             let mut agent_vars: HashMap<String, String> = HashMap::new();
 
             for _round in 0..*max_steps {
-                match ai.chat_with_tools(&config, messages.clone(), &tools).await? {
+                match ai.chat_with_tools(&config, &messages, &tools).await? {
                     AiChatResult::Text(text) => {
                         final_text = text;
                         break;
@@ -695,13 +704,7 @@ async fn execute_step(
         ScriptStep::CdpClick { selector } => {
             let selector = vars.interpolate(selector);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let doc = cdp.call("DOM.getDocument", json!({ "depth": 0 })).await?;
-            let root_id = doc.get("root").and_then(|r| r.get("nodeId")).and_then(|v| v.as_i64())
-                .ok_or_else(|| "DOM.getDocument: no root nodeId".to_string())?;
-            let qs = cdp.call("DOM.querySelector", json!({ "nodeId": root_id, "selector": selector })).await?;
-            let node_id = qs.get("nodeId").and_then(|v| v.as_i64())
-                .ok_or_else(|| format!("element not found: {selector}"))?;
-            if node_id == 0 { return Err(format!("element not found: {selector}")); }
+            let node_id = find_element_by_selector(cdp, &selector).await?;
             let bm = cdp.call("DOM.getBoxModel", json!({ "nodeId": node_id })).await?;
             let content = bm.get("model").and_then(|m| m.get("content")).and_then(|c| c.as_array())
                 .ok_or_else(|| "getBoxModel: no content".to_string())?;
@@ -717,13 +720,7 @@ async fn execute_step(
             let selector = vars.interpolate(selector);
             let text = vars.interpolate(text);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let doc = cdp.call("DOM.getDocument", json!({ "depth": 0 })).await?;
-            let root_id = doc.get("root").and_then(|r| r.get("nodeId")).and_then(|v| v.as_i64())
-                .ok_or_else(|| "DOM.getDocument: no root nodeId".to_string())?;
-            let qs = cdp.call("DOM.querySelector", json!({ "nodeId": root_id, "selector": selector })).await?;
-            let node_id = qs.get("nodeId").and_then(|v| v.as_i64())
-                .ok_or_else(|| format!("element not found: {selector}"))?;
-            if node_id == 0 { return Err(format!("element not found: {selector}")); }
+            let node_id = find_element_by_selector(cdp, &selector).await?;
             cdp.call("DOM.focus", json!({ "nodeId": node_id })).await?;
             for ch in text.chars() {
                 cdp.call("Input.dispatchKeyEvent",
@@ -735,13 +732,7 @@ async fn execute_step(
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
             if let Some(sel) = selector {
                 let sel = vars.interpolate(sel);
-                let doc = cdp.call("DOM.getDocument", json!({ "depth": 0 })).await?;
-                let root_id = doc.get("root").and_then(|r| r.get("nodeId")).and_then(|v| v.as_i64())
-                    .ok_or_else(|| "DOM.getDocument: no root nodeId".to_string())?;
-                let qs = cdp.call("DOM.querySelector", json!({ "nodeId": root_id, "selector": sel })).await?;
-                let node_id = qs.get("nodeId").and_then(|v| v.as_i64())
-                    .ok_or_else(|| format!("element not found: {sel}"))?;
-                if node_id == 0 { return Err(format!("element not found: {sel}")); }
+                let node_id = find_element_by_selector(cdp, &sel).await?;
                 cdp.call("DOM.scrollIntoViewIfNeeded", json!({ "nodeId": node_id })).await?;
             } else {
                 let sx = x.unwrap_or(0);
@@ -772,13 +763,7 @@ async fn execute_step(
         ScriptStep::CdpGetText { selector, output_key } => {
             let selector = vars.interpolate(selector);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let doc = cdp.call("DOM.getDocument", json!({ "depth": 0 })).await?;
-            let root_id = doc.get("root").and_then(|r| r.get("nodeId")).and_then(|v| v.as_i64())
-                .ok_or_else(|| "DOM.getDocument: no root nodeId".to_string())?;
-            let qs = cdp.call("DOM.querySelector", json!({ "nodeId": root_id, "selector": selector })).await?;
-            let node_id = qs.get("nodeId").and_then(|v| v.as_i64())
-                .ok_or_else(|| format!("element not found: {selector}"))?;
-            if node_id == 0 { return Err(format!("element not found: {selector}")); }
+            let node_id = find_element_by_selector(cdp, &selector).await?;
             let result = cdp.call("DOM.getOuterHTML", json!({ "nodeId": node_id })).await?;
             let html = result.get("outerHTML").and_then(|v| v.as_str()).unwrap_or("").to_string();
             // 简单剥离标签
@@ -794,13 +779,7 @@ async fn execute_step(
             let selector = vars.interpolate(selector);
             let attribute = vars.interpolate(attribute);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let doc = cdp.call("DOM.getDocument", json!({ "depth": 0 })).await?;
-            let root_id = doc.get("root").and_then(|r| r.get("nodeId")).and_then(|v| v.as_i64())
-                .ok_or_else(|| "DOM.getDocument: no root nodeId".to_string())?;
-            let qs = cdp.call("DOM.querySelector", json!({ "nodeId": root_id, "selector": selector })).await?;
-            let node_id = qs.get("nodeId").and_then(|v| v.as_i64())
-                .ok_or_else(|| format!("element not found: {selector}"))?;
-            if node_id == 0 { return Err(format!("element not found: {selector}")); }
+            let node_id = find_element_by_selector(cdp, &selector).await?;
             let result = cdp.call("DOM.getAttributes", json!({ "nodeId": node_id })).await?;
             let attrs = result.get("attributes").and_then(|a| a.as_array()).cloned().unwrap_or_default();
             let value = attrs.chunks(2)

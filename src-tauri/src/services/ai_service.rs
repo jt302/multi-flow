@@ -119,7 +119,7 @@ impl AiService {
     pub async fn chat_with_tools(
         &self,
         config: &AiProviderConfig,
-        messages: Vec<ChatMessage>,
+        messages: &[ChatMessage],
         tools: &[Value],
     ) -> Result<AiChatResult, String> {
         let base_url = config.base_url.as_deref()
