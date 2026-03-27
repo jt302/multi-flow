@@ -75,6 +75,7 @@ pub fn run() {
             commands::automation_commands::cancel_automation_run,
             commands::automation_commands::read_ai_provider_config,
             commands::automation_commands::update_ai_provider_config,
+            commands::automation_commands::update_script_canvas_positions,
             commands::group_commands::create_profile_group,
             commands::group_commands::list_profile_groups,
             commands::group_commands::update_profile_group,

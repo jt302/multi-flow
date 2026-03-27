@@ -5,11 +5,13 @@ import {
 	ChevronDown,
 	ChevronUp,
 	Loader2,
+	Network,
 	Pencil,
 	Play,
 	Trash2,
 	XCircle,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 import type { AutomationRun, AutomationScript, StepResult } from '@/entities/automation/model/types';
 import type { ProfileItem } from '@/entities/profile/model/types';
@@ -71,6 +73,7 @@ export function ScriptDetailPanel({
 	onDelete,
 	onRun,
 }: Props) {
+	const navigate = useNavigate();
 	const [runPanelOpen, setRunPanelOpen] = useState(true);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [profilePickerOpen, setProfilePickerOpen] = useState(false);
@@ -88,6 +91,15 @@ export function ScriptDetailPanel({
 					)}
 				</div>
 				<div className="flex items-center gap-2">
+					<Button
+						size="sm"
+						variant="ghost"
+						className="h-8 px-2 cursor-pointer"
+						onClick={() => navigate(`/automation/${script.id}/canvas`)}
+					>
+						<Network className="h-3.5 w-3.5 mr-1" />
+						画布
+					</Button>
 					<Button
 						size="sm"
 						variant="ghost"
