@@ -13,17 +13,25 @@ import {
 	ReactFlowProvider,
 	useReactFlow,
 } from '@xyflow/react';
-import { ArrowLeft, Loader2, Play, Square, Trash2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Minus, Play, Plus, Square, Trash2, Variable } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-import type { AutomationScript, ScriptStep, StepResult } from '@/entities/automation/model/types';
+import type { AutomationScript, ScriptStep, ScriptVarDef, StepResult } from '@/entities/automation/model/types';
 import type { ProfileItem } from '@/entities/profile/model/types';
 import {
 	updateAutomationScript,
 	updateScriptCanvasPositions,
+	updateScriptVariablesSchema,
 } from '@/entities/automation/api/automation-api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+	Dialog,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -310,6 +318,115 @@ function buildEdges(count: number): Edge[] {
 	}));
 }
 
+// ─── Variables Schema Dialog ──────────────────────────────────────────────────
+
+function VariablesSchemaDialog({
+	open,
+	onOpenChange,
+	scriptId,
+	initialVars,
+	onSaved,
+}: {
+	open: boolean;
+	onOpenChange: (v: boolean) => void;
+	scriptId: string;
+	initialVars: ScriptVarDef[];
+	onSaved: (vars: ScriptVarDef[]) => void;
+}) {
+	const [vars, setVars] = useState<ScriptVarDef[]>(initialVars);
+	const [saving, setSaving] = useState(false);
+
+	useEffect(() => {
+		if (open) setVars(initialVars);
+	}, [open, initialVars]);
+
+	function addVar() {
+		setVars((prev) => [...prev, { name: '', defaultValue: '' }]);
+	}
+
+	function removeVar(i: number) {
+		setVars((prev) => prev.filter((_, idx) => idx !== i));
+	}
+
+	function setName(i: number, name: string) {
+		setVars((prev) => prev.map((v, idx) => (idx === i ? { ...v, name } : v)));
+	}
+
+	function setDefault(i: number, defaultValue: string) {
+		setVars((prev) => prev.map((v, idx) => (idx === i ? { ...v, defaultValue } : v)));
+	}
+
+	async function handleSave() {
+		setSaving(true);
+		try {
+			const cleaned = vars.filter((v) => v.name.trim());
+			await updateScriptVariablesSchema(scriptId, JSON.stringify(cleaned));
+			onSaved(cleaned);
+			onOpenChange(false);
+		} finally {
+			setSaving(false);
+		}
+	}
+
+	return (
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent className="max-w-sm">
+				<DialogHeader>
+					<DialogTitle>脚本变量</DialogTitle>
+				</DialogHeader>
+				<div className="space-y-2 py-1">
+					<p className="text-xs text-muted-foreground">
+						定义脚本预期的变量名和默认值，运行时会自动预填到初始变量栏。在步骤中使用 <code className="bg-muted px-1 rounded">{'{{变量名}}'}</code> 引用。
+					</p>
+					{vars.length > 0 && (
+						<div className="space-y-1.5">
+							{vars.map((v, i) => (
+								<div key={i} className="flex items-center gap-1.5">
+									<Input
+										placeholder="变量名"
+										value={v.name}
+										onChange={(e) => setName(i, e.target.value)}
+										className="h-7 text-xs font-mono"
+									/>
+									<span className="text-muted-foreground text-xs flex-shrink-0">=</span>
+									<Input
+										placeholder="默认值（可选）"
+										value={v.defaultValue}
+										onChange={(e) => setDefault(i, e.target.value)}
+										className="h-7 text-xs"
+									/>
+									<button
+										type="button"
+										onClick={() => removeVar(i)}
+										className="text-muted-foreground hover:text-destructive cursor-pointer flex-shrink-0"
+									>
+										<Minus className="h-3.5 w-3.5" />
+									</button>
+								</div>
+							))}
+						</div>
+					)}
+					<button
+						type="button"
+						onClick={addVar}
+						className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+					>
+						<Plus className="h-3 w-3" />添加变量
+					</button>
+				</div>
+				<DialogFooter>
+					<Button variant="outline" onClick={() => onOpenChange(false)} className="cursor-pointer">
+						取消
+					</Button>
+					<Button onClick={() => void handleSave()} disabled={saving} className="cursor-pointer">
+						保存
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
 // ─── Inner canvas (requires ReactFlowProvider context) ───────────────────────
 
 type InnerProps = {
@@ -330,6 +447,11 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 	const [saving, setSaving] = useState(false);
 	const [runDialogOpen, setRunDialogOpen] = useState(false);
+	const [varsDialogOpen, setVarsDialogOpen] = useState(false);
+	const [varsDefs, setVarsDefs] = useState<ScriptVarDef[]>(() => {
+		try { return script.variablesSchemaJson ? JSON.parse(script.variablesSchemaJson) : []; }
+		catch { return []; }
+	});
 	const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	// 当页面在独立新窗口中（history 只有一条记录）时隐藏返回按钮
 	const isStandaloneWindow = window.history.length <= 1;
@@ -416,6 +538,16 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 					{saving && <span className="text-xs text-muted-foreground">保存中...</span>}
 				</div>
 				<span className="text-xs text-muted-foreground">{steps.length} 个步骤</span>
+				<Button
+					size="sm"
+					variant="ghost"
+					className="h-8 px-2 cursor-pointer"
+					onClick={() => setVarsDialogOpen(true)}
+					title="脚本变量"
+				>
+					<Variable className="h-3.5 w-3.5 mr-1" />
+					变量{varsDefs.length > 0 && ` (${varsDefs.length})`}
+				</Button>
 				{isRunning ? (
 					<Button size="sm" variant="destructive" className="h-8 cursor-pointer" onClick={onCancel}>
 						<Square className="h-3.5 w-3.5 mr-1" />取消
@@ -437,13 +569,21 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 				activeProfiles={activeProfiles}
 				isRunning={isRunning}
 				disabled={steps.length === 0}
+				defaultVars={varsDefs.map((v) => ({ key: v.name, value: v.defaultValue }))}
 				onRun={onRun}
 				onDebugRun={onDebugRun}
+			/>
+			<VariablesSchemaDialog
+				open={varsDialogOpen}
+				onOpenChange={setVarsDialogOpen}
+				scriptId={script.id}
+				initialVars={varsDefs}
+				onSaved={setVarsDefs}
 			/>
 
 			<div className="flex flex-1 overflow-hidden">
 				{/* Left: Palette */}
-				<div className="w-44 border-r flex-shrink-0 bg-background flex flex-col overflow-hidden">
+				<div className="w-44 border-r flex-shrink-0 bg-background flex flex-col min-h-0">
 					<div className="px-3 py-2 text-[10px] font-semibold text-muted-foreground border-b uppercase tracking-wide">
 						添加步骤
 					</div>
@@ -486,7 +626,7 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 
 				{/* Right: Properties */}
 				{selectedIndex !== null && steps[selectedIndex] && (
-					<div className="w-64 border-l flex-shrink-0 bg-background flex flex-col overflow-hidden">
+					<div className="w-64 border-l flex-shrink-0 bg-background flex flex-col min-h-0">
 						<StepPropertiesPanel
 							step={steps[selectedIndex]}
 							onUpdate={(s) => void updateStep(selectedIndex, s)}

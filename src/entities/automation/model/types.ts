@@ -150,12 +150,15 @@ export type ScriptStep =
 			output_key_file_path?: string;
 	  };
 
+export type ScriptVarDef = { name: string; defaultValue: string };
+
 export type AutomationScript = {
 	id: string;
 	name: string;
 	description: string | null;
 	steps: ScriptStep[];
 	canvasPositionsJson: string | null;
+	variablesSchemaJson: string | null;
 	createdAt: number;
 	updatedAt: number;
 };

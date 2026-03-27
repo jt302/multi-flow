@@ -132,6 +132,13 @@ export async function updateScriptCanvasPositions(
 	return tauriInvoke<void>('update_script_canvas_positions', { scriptId, positionsJson });
 }
 
+export async function updateScriptVariablesSchema(
+	scriptId: string,
+	schemaJson: string,
+): Promise<void> {
+	return tauriInvoke<void>('update_script_variables_schema', { scriptId, schemaJson });
+}
+
 export async function readAiProviderConfig(): Promise<AiProviderConfig> {
 	return tauriInvoke<AiProviderConfig>('read_ai_provider_config');
 }

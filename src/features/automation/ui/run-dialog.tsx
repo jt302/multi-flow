@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Bug, Minus, Play, Plus } from 'lucide-react';
 
@@ -24,6 +24,7 @@ type Props = {
 	activeProfiles: ProfileItem[];
 	isRunning: boolean;
 	disabled: boolean;
+	defaultVars?: VarEntry[];
 	onRun: (profileIds: string[], initialVars: Record<string, string>) => void;
 	onDebugRun: (profileId: string, initialVars: Record<string, string>) => void;
 };
@@ -34,12 +35,21 @@ export function RunDialog({
 	activeProfiles,
 	isRunning,
 	disabled,
+	defaultVars,
 	onRun,
 	onDebugRun,
 }: Props) {
 	const [selectedIds, setSelectedIds] = useState<string[]>([]);
-	const [varEntries, setVarEntries] = useState<VarEntry[]>([]);
+	const [varEntries, setVarEntries] = useState<VarEntry[]>(() => defaultVars ?? []);
 	const [varsOpen, setVarsOpen] = useState(false);
+
+	// 每次弹窗打开时重置为脚本默认变量
+	useEffect(() => {
+		if (open) {
+			setVarEntries(defaultVars ?? []);
+			setVarsOpen((defaultVars ?? []).length > 0);
+		}
+	}, [open, defaultVars]);
 
 	const allSelected = activeProfiles.length > 0 && selectedIds.length === activeProfiles.length;
 

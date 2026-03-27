@@ -11,6 +11,7 @@ pub struct Model {
     pub created_at: i64,
     pub updated_at: i64,
     pub canvas_positions_json: Option<String>,
+    pub variables_schema_json: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
