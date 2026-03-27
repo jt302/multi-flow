@@ -55,6 +55,18 @@ const STEP_KINDS = [
 	{ value: 'loop', label: '循环 loop', group: '控制流' },
 	{ value: 'break', label: '跳出循环 break', group: '控制流' },
 	{ value: 'continue', label: '继续下一轮 continue', group: '控制流' },
+	// CDP 具名
+	{ value: 'cdp_navigate', label: 'CDP 导航', group: 'CDP' },
+	{ value: 'cdp_reload', label: 'CDP 刷新页面', group: 'CDP' },
+	{ value: 'cdp_evaluate', label: 'CDP 执行JS', group: 'CDP' },
+	{ value: 'cdp_click', label: 'CDP 点击', group: 'CDP' },
+	{ value: 'cdp_type', label: 'CDP 输入', group: 'CDP' },
+	{ value: 'cdp_scroll_to', label: 'CDP 滚动', group: 'CDP' },
+	{ value: 'cdp_wait_for_selector', label: 'CDP 等待元素', group: 'CDP' },
+	{ value: 'cdp_get_text', label: 'CDP 获取文本', group: 'CDP' },
+	{ value: 'cdp_get_attribute', label: 'CDP 获取属性', group: 'CDP' },
+	{ value: 'cdp_set_input_value', label: 'CDP 设置输入值', group: 'CDP' },
+	{ value: 'cdp_screenshot', label: 'CDP 截图(增强)', group: 'CDP' },
 	// 窗口外观
 	{ value: 'magic_set_bounds', label: '设置窗口位置大小', group: '窗口外观' },
 	{ value: 'magic_get_bounds', label: '获取窗口位置大小', group: '窗口外观' },
@@ -124,6 +136,18 @@ function defaultStep(kind: string): ScriptStep {
 		case 'loop': return { kind: 'loop', mode: 'count', count: 3, body_steps: [] };
 		case 'break': return { kind: 'break' };
 		case 'continue': return { kind: 'continue' };
+		// CDP 具名步骤
+		case 'cdp_navigate': return { kind: 'cdp_navigate', url: 'https://' };
+		case 'cdp_reload': return { kind: 'cdp_reload', ignore_cache: false };
+		case 'cdp_evaluate': return { kind: 'cdp_evaluate', expression: '' };
+		case 'cdp_click': return { kind: 'cdp_click', selector: '' };
+		case 'cdp_type': return { kind: 'cdp_type', selector: '', text: '' };
+		case 'cdp_scroll_to': return { kind: 'cdp_scroll_to' };
+		case 'cdp_wait_for_selector': return { kind: 'cdp_wait_for_selector', selector: '' };
+		case 'cdp_get_text': return { kind: 'cdp_get_text', selector: '' };
+		case 'cdp_get_attribute': return { kind: 'cdp_get_attribute', selector: '', attribute: '' };
+		case 'cdp_set_input_value': return { kind: 'cdp_set_input_value', selector: '', value: '' };
+		case 'cdp_screenshot': return { kind: 'cdp_screenshot' };
 		// Magic 具名步骤
 		case 'magic_set_bounds': return { kind: 'magic_set_bounds', x: 0, y: 0, width: 1280, height: 800 };
 		case 'magic_get_bounds': return { kind: 'magic_get_bounds' };
@@ -441,6 +465,117 @@ function StepFields({
 		case 'continue':
 			return <p className="text-xs text-muted-foreground">{kind === 'break' ? '跳出当前循环' : '跳到下一次迭代'}</p>;
 
+		// ── CDP 具名步骤字段 ─────────────────────────────────────────────────────
+		case 'cdp_navigate':
+			return (
+				<Input
+					{...register(`steps.${index}.url` as `steps.${number}.url`)}
+					placeholder="https://example.com"
+					className="h-8 text-xs"
+				/>
+			);
+		case 'cdp_reload':
+			return <p className="text-xs text-muted-foreground">刷新当前页面</p>;
+		case 'cdp_evaluate':
+			return (
+				<Textarea
+					{...register(`steps.${index}.expression` as `steps.${number}.expression`)}
+					placeholder="document.title"
+					className="text-xs font-mono min-h-[60px]"
+				/>
+			);
+		case 'cdp_click':
+			return (
+				<Input
+					{...register(`steps.${index}.selector` as `steps.${number}.selector`)}
+					placeholder="CSS 选择器"
+					className="h-8 text-xs font-mono"
+				/>
+			);
+		case 'cdp_type':
+			return (
+				<div className="space-y-1.5">
+					<Input
+						{...register(`steps.${index}.selector` as `steps.${number}.selector`)}
+						placeholder="CSS 选择器"
+						className="h-8 text-xs font-mono"
+					/>
+					<Input
+						{...register(`steps.${index}.text` as `steps.${number}.text`)}
+						placeholder="输入文本（支持 {{变量}}）"
+						className="h-8 text-xs"
+					/>
+				</div>
+			);
+		case 'cdp_scroll_to':
+			return (
+				<Input
+					{...register(`steps.${index}.selector` as `steps.${number}.selector`)}
+					placeholder="CSS 选择器（留空则按 x/y 坐标滚动）"
+					className="h-8 text-xs font-mono"
+				/>
+			);
+		case 'cdp_wait_for_selector':
+			return (
+				<Input
+					{...register(`steps.${index}.selector` as `steps.${number}.selector`)}
+					placeholder="CSS 选择器"
+					className="h-8 text-xs font-mono"
+				/>
+			);
+		case 'cdp_get_text':
+			return (
+				<Input
+					{...register(`steps.${index}.selector` as `steps.${number}.selector`)}
+					placeholder="CSS 选择器"
+					className="h-8 text-xs font-mono"
+				/>
+			);
+		case 'cdp_get_attribute':
+			return (
+				<div className="space-y-1.5">
+					<Input
+						{...register(`steps.${index}.selector` as `steps.${number}.selector`)}
+						placeholder="CSS 选择器"
+						className="h-8 text-xs font-mono"
+					/>
+					<Input
+						{...register(`steps.${index}.attribute` as `steps.${number}.attribute`)}
+						placeholder="属性名，如 href / data-id"
+						className="h-8 text-xs font-mono"
+					/>
+				</div>
+			);
+		case 'cdp_set_input_value':
+			return (
+				<div className="space-y-1.5">
+					<Input
+						{...register(`steps.${index}.selector` as `steps.${number}.selector`)}
+						placeholder="CSS 选择器"
+						className="h-8 text-xs font-mono"
+					/>
+					<Input
+						{...register(`steps.${index}.value` as `steps.${number}.value`)}
+						placeholder="设置的值（支持 {{变量}}）"
+						className="h-8 text-xs"
+					/>
+				</div>
+			);
+		case 'cdp_screenshot':
+			return (
+				<div className="space-y-1.5">
+					<Input
+						{...register(`steps.${index}.output_key_base64` as `steps.${number}.output_key_base64`)}
+						placeholder="base64 存入变量名（可选）"
+						className="h-8 text-xs"
+					/>
+					<Input
+						{...register(`steps.${index}.output_path` as `steps.${number}.output_path`)}
+						placeholder="保存文件路径（可选，需绝对路径）"
+						className="h-8 text-xs"
+					/>
+				</div>
+			);
 		// ── Magic 具名步骤字段 ─────────────────────────────────────────────────────
 		case 'magic_set_bounds':
 			return (
