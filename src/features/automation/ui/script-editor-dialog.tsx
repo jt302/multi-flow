@@ -65,10 +65,17 @@ function defaultStep(kind: string): ScriptStep {
 }
 
 export function ScriptEditorDialog({ open, script, onOpenChange, onSave, isSaving }: Props) {
-	const { register, control, handleSubmit, reset, watch, setValue } = useForm<FormValues>({
+	const {
+		register,
+		control,
+		handleSubmit,
+		reset,
+		watch,
+		formState: { errors },
+	} = useForm<FormValues>({
 		defaultValues: { name: '', description: '', steps: [] },
 	});
-	const { fields, append, remove } = useFieldArray({ control, name: 'steps' });
+	const { fields, append, remove, update } = useFieldArray({ control, name: 'steps' });
 
 	useEffect(() => {
 		if (open) {
@@ -103,7 +110,14 @@ export function ScriptEditorDialog({ open, script, onOpenChange, onSave, isSavin
 					<div className="grid grid-cols-2 gap-3">
 						<div className="space-y-1.5">
 							<Label>名称 *</Label>
-							<Input {...register('name')} placeholder="脚本名称" />
+							<Input
+								{...register('name', { required: '请输入脚本名称' })}
+								placeholder="脚本名称"
+								className={errors.name ? 'border-destructive' : ''}
+							/>
+							{errors.name && (
+								<p className="text-xs text-destructive">{errors.name.message}</p>
+							)}
 						</div>
 						<div className="space-y-1.5">
 							<Label>描述</Label>
@@ -141,8 +155,7 @@ export function ScriptEditorDialog({ open, script, onOpenChange, onSave, isSavin
 												<Select
 													value={kind}
 													onValueChange={(v) => {
-														const newStep = defaultStep(v) as StepFormItem;
-														setValue(`steps.${index}`, newStep);
+														update(index, defaultStep(v) as StepFormItem);
 													}}
 												>
 													<SelectTrigger className="h-8 text-xs cursor-pointer">

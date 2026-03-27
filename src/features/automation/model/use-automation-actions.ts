@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 import {
 	createAutomationScript,
@@ -28,6 +29,9 @@ export function useAutomationActions(activeScriptId: string | null) {
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.automationScripts });
 		},
+		onError: (err: Error) => {
+			toast.error(`创建失败：${err.message}`);
+		},
 	});
 
 	const updateScript = useMutation({
@@ -36,12 +40,18 @@ export function useAutomationActions(activeScriptId: string | null) {
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.automationScripts });
 		},
+		onError: (err: Error) => {
+			toast.error(`保存失败：${err.message}`);
+		},
 	});
 
 	const deleteScript = useMutation({
 		mutationFn: (scriptId: string) => deleteAutomationScript(scriptId),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.automationScripts });
+		},
+		onError: (err: Error) => {
+			toast.error(`删除失败：${err.message}`);
 		},
 	});
 
