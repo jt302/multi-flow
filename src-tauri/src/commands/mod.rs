@@ -1,3 +1,4 @@
+pub mod automation_commands;
 pub mod group_commands;
 pub mod log_commands;
 pub mod plugin_commands;

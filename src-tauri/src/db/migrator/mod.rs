@@ -17,6 +17,7 @@ mod m20260322_000015_create_plugin_packages;
 mod m20260322_000016_create_agent_tasks;
 mod m20260323_000016_create_agent_runtime_tables;
 mod m20260323_000017_drop_agent_tables;
+mod m20260326_000018_create_automation_scripts;
 
 use sea_orm_migration::prelude::*;
 
@@ -45,6 +46,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260322_000016_create_agent_tasks::Migration),
             Box::new(m20260323_000016_create_agent_runtime_tables::Migration),
             Box::new(m20260323_000017_drop_agent_tables::Migration),
+            Box::new(m20260326_000018_create_automation_scripts::Migration),
         ]
     }
 }
@@ -173,5 +175,35 @@ mod tests {
             names.contains(&"m20260322_000016_create_agent_tasks".to_string()),
             "missing compatibility migration for previously applied agent tasks version"
         );
+    }
+
+    #[test]
+    fn includes_automation_scripts_migration_and_creates_tables() {
+        tauri::async_runtime::block_on(async {
+            let names = Migrator::migrations()
+                .into_iter()
+                .map(|migration| migration.name().to_string())
+                .collect::<Vec<_>>();
+            assert!(
+                names.contains(&"m20260326_000018_create_automation_scripts".to_string()),
+                "missing automation scripts migration"
+            );
+
+            let db = Database::connect("sqlite::memory:").await.expect("connect");
+            Migrator::up(&db, None).await.expect("run migrations");
+
+            for table in ["automation_scripts", "automation_runs"] {
+                let rows = db
+                    .query_all(Statement::from_string(
+                        db.get_database_backend(),
+                        format!(
+                            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = '{table}'"
+                        ),
+                    ))
+                    .await
+                    .expect("query sqlite master");
+                assert_eq!(rows.len(), 1, "{table} table should exist");
+            }
+        });
     }
 }

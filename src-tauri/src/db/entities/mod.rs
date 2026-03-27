@@ -1,3 +1,5 @@
+pub mod automation_run;
+pub mod automation_script;
 pub mod device_preset;
 pub mod engine_session;
 pub mod plugin_package;

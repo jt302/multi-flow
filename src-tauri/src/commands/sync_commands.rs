@@ -424,6 +424,7 @@ mod tests {
     use crate::db;
     use crate::engine_manager::EngineManager;
     use crate::local_api_server::LocalApiServer;
+    use crate::services::automation_service::AutomationService;
     use crate::services::chromium_magic_adapter_service::ChromiumMagicAdapterService;
     use crate::services::device_preset_service::DevicePresetService;
     use crate::services::engine_session_service::EngineSessionService;
@@ -507,6 +508,7 @@ mod tests {
         local_api_server.mark_started();
 
         AppState {
+            automation_service: Mutex::new(AutomationService::from_db(db.clone())),
             profile_group_service: Mutex::new(profile_group_service),
             profile_service: Mutex::new(profile_service),
             device_preset_service: Mutex::new(device_preset_service),

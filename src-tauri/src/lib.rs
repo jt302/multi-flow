@@ -65,6 +65,12 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::automation_commands::list_automation_scripts,
+            commands::automation_commands::create_automation_script,
+            commands::automation_commands::update_automation_script,
+            commands::automation_commands::delete_automation_script,
+            commands::automation_commands::list_automation_runs,
+            commands::automation_commands::run_automation_script,
             commands::group_commands::create_profile_group,
             commands::group_commands::list_profile_groups,
             commands::group_commands::update_profile_group,

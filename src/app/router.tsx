@@ -27,6 +27,9 @@ const WindowsRoutePage = lazy(() =>
 const SettingsRoutePage = lazy(() =>
 	import('@/pages/settings').then((module) => ({ default: module.SettingsRoutePage })),
 );
+const AutomationRoutePage = lazy(() =>
+	import('@/pages/automation').then((module) => ({ default: module.AutomationRoutePage })),
+);
 const RecycleBinRoutePage = lazy(() =>
 	import('@/pages/recycle-bin').then((module) => ({ default: module.RecycleBinRoutePage })),
 );
@@ -43,6 +46,7 @@ export function AppRouter() {
 				<Route path="/groups" element={<GroupsRoutePage />} />
 				<Route path="/proxy" element={<ProxyRoutePage />} />
 				<Route path="/windows" element={<WindowsRoutePage />} />
+				<Route path="/automation" element={<AutomationRoutePage />} />
 				<Route path="/settings" element={<SettingsRoutePage />} />
 				<Route path={SETTINGS_RECYCLE_BIN_PATH} element={<RecycleBinRoutePage />} />
 			</Route>
