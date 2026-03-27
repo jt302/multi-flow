@@ -131,6 +131,8 @@ function getStepSummary(step: ScriptStep): string {
 	return '';
 }
 
+const HANDLE_CLS = '!w-2.5 !h-2.5 !bg-muted-foreground/40 hover:!bg-primary !border-0 !rounded-full';
+
 function StepNodeComponent({ data }: { data: StepNodeData }) {
 	const { step, index, stepStatus } = data;
 	const kind = step.kind;
@@ -139,25 +141,41 @@ function StepNodeComponent({ data }: { data: StepNodeData }) {
 	const colorClass = GROUP_COLORS[group] ?? GROUP_COLORS['通用'];
 	const ringClass = stepStatus ? (STEP_STATUS_RING[stepStatus] ?? '') : '';
 	const summary = getStepSummary(step);
+	const isCondition = kind === 'condition';
 
 	return (
 		<div className={`relative min-w-[160px] max-w-[220px] rounded-lg border bg-background shadow-sm px-3 py-2 cursor-pointer ${ringClass}`}>
-			<Handle
-				type="target"
-				position={Position.Top}
-				className="!w-2.5 !h-2.5 !bg-muted-foreground/40 hover:!bg-primary !border-0 !rounded-full"
-			/>
+			<Handle type="target" position={Position.Top} className={HANDLE_CLS} />
 			<div className="flex items-center gap-1.5 mb-1">
 				<span className="text-[10px] text-muted-foreground font-mono">#{index + 1}</span>
 				<span className={`text-[10px] font-medium px-1 rounded border ${colorClass}`}>{group}</span>
 			</div>
 			<div className="text-xs font-semibold truncate">{label}</div>
 			{summary && <div className="text-[10px] text-muted-foreground truncate mt-0.5">{summary}</div>}
-			<Handle
-				type="source"
-				position={Position.Bottom}
-				className="!w-2.5 !h-2.5 !bg-muted-foreground/40 hover:!bg-primary !border-0 !rounded-full"
-			/>
+			{isCondition ? (
+				<>
+					<div className="flex justify-between mt-1.5 text-[9px] text-muted-foreground select-none">
+						<span className="pl-3">then</span>
+						<span className="pr-3">else</span>
+					</div>
+					<Handle
+						type="source"
+						position={Position.Bottom}
+						id="then"
+						style={{ left: '30%' }}
+						className={HANDLE_CLS}
+					/>
+					<Handle
+						type="source"
+						position={Position.Bottom}
+						id="else"
+						style={{ left: '70%' }}
+						className={HANDLE_CLS}
+					/>
+				</>
+			) : (
+				<Handle type="source" position={Position.Bottom} className={HANDLE_CLS} />
+			)}
 		</div>
 	);
 }
@@ -335,7 +353,7 @@ function buildDefaultEdges(count: number): Edge[] {
 	}));
 }
 
-type StoredEdge = { id: string; source: string; target: string };
+type StoredEdge = { id: string; source: string; target: string; sourceHandle?: string | null };
 
 function parseCanvasData(json: string | null, stepCount: number): { positions: PositionsMap; edges: Edge[] } {
 	if (!json) return { positions: {}, edges: buildDefaultEdges(stepCount) };
@@ -345,7 +363,11 @@ function parseCanvasData(json: string | null, stepCount: number): { positions: P
 			// 新格式：{ positions: {...}, edges: [...] }
 			const positions = (parsed.positions ?? {}) as PositionsMap;
 			const edges = ((parsed.edges ?? []) as StoredEdge[]).map((e) => ({
-				...e, type: 'smoothstep',
+				id: e.id,
+				source: e.source,
+				target: e.target,
+				type: 'smoothstep',
+				...(e.sourceHandle ? { sourceHandle: e.sourceHandle } : {}),
 			}));
 			return { positions, edges };
 		}
@@ -527,7 +549,7 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 		saveTimerRef.current = setTimeout(() => {
 			const data = {
 				positions: pos,
-				edges: edgs.map((e) => ({ id: e.id, source: e.source, target: e.target })),
+				edges: edgs.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle ?? null })),
 			};
 			void updateScriptCanvasPositions(script.id, JSON.stringify(data));
 		}, 500);
@@ -558,7 +580,11 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 
 	const onConnect = useCallback((connection: Connection) => {
 		setEdges((prev) => {
-			const next = addEdge({ ...connection, type: 'smoothstep' }, prev);
+			// 移除目标节点上已有的同 targetHandle 入边（单入边约束）
+			const filtered = prev.filter(
+				(e) => !(e.target === connection.target && e.targetHandle === (connection.targetHandle ?? null))
+			);
+			const next = addEdge({ ...connection, type: 'smoothstep' }, filtered);
 			edgesRef.current = next;
 			scheduleCanvasSave(positionsRef.current, next);
 			return next;
