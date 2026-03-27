@@ -230,6 +230,18 @@ pub fn update_script_canvas_positions(
 }
 
 #[tauri::command]
+pub fn update_script_variables_schema(
+    state: State<'_, AppState>,
+    script_id: String,
+    schema_json: String,
+) -> Result<(), String> {
+    state
+        .lock_automation_service()
+        .update_variables_schema(&script_id, schema_json)
+        .map_err(error_to_string)
+}
+
+#[tauri::command]
 pub fn list_active_automation_runs(state: State<'_, AppState>) -> Result<Vec<String>, String> {
     let tokens = state.cancel_tokens.lock().map_err(|_| "lock poisoned".to_string())?;
     Ok(tokens.keys().cloned().collect())
