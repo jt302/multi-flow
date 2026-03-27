@@ -51,6 +51,13 @@ export type ScriptStep =
 			output_key_map: AiOutputKeyMapping[];
 			model_override?: string;
 	  }
+	| {
+			kind: 'ai_agent';
+			system_prompt: string;
+			initial_message: string;
+			max_steps: number;
+			output_key?: string;
+	  }
 
 	// ── CDP 具名步骤 ──────────────────────────────────────────────────────────
 	| { kind: 'cdp_navigate'; url: string; output_key?: string }

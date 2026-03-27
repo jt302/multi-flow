@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use serde_json::Value;
 
 /// 运行时变量存储，支持 `{{key}}` 插值
+#[derive(Clone)]
 pub struct RunVariables {
     vars: HashMap<String, String>,
 }

@@ -1028,6 +1028,19 @@ pub enum ScriptStep {
         model_override: Option<String>,
     },
 
+    /// AI Agent：多轮工具调用循环，AI 可调用其他步骤作为 tool
+    AiAgent {
+        /// 系统提示词
+        system_prompt: String,
+        /// 初始消息，支持 {{var}} 插值
+        initial_message: String,
+        /// 最大循环轮次
+        max_steps: u32,
+        /// 将最终 AI 回复存入此变量
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+
     // ── Magic Controller 具名步骤 ─────────────────────────────────────────────
 
     // 窗口外观

@@ -13,7 +13,10 @@ use crate::models::{
     AutomationVariablesUpdatedEvent, CreateAutomationScriptRequest, LoopMode, ScriptStep,
     StepResult, WaitForUserTimeout,
 };
-use crate::services::ai_service::{build_vision_content, extract_json_path, AiService, ChatMessage};
+use crate::services::ai_service::{
+    build_agent_tools, build_vision_content, extract_json_path,
+    AiChatResult, AiService, ChatMessage,
+};
 use crate::services::automation_cdp_client::CdpClient;
 use crate::services::automation_interpolation::RunVariables;
 use crate::state::AppState;
@@ -495,7 +498,7 @@ async fn execute_step(
             if let Some(m) = model_override { config.model = Some(m.clone()); }
             let content = build_vision_content(&prompt, image_b64.as_deref());
             let ai = AiService::new(http_client.clone());
-            let reply = ai.chat(&config, vec![ChatMessage { role: "user".into(), content }], None).await?;
+            let reply = ai.chat(&config, vec![ChatMessage::with_content("user", content)], None).await?;
             let mut vs = HashMap::new();
             if let Some(k) = output_key { vs.insert(k.clone(), reply.clone()); }
             Ok((Some(reply), vs))
@@ -512,7 +515,7 @@ async fn execute_step(
             let content = build_vision_content(&prompt, image_b64.as_deref());
             let response_format = serde_json::json!({ "type": "json_object" });
             let ai = AiService::new(http_client.clone());
-            let reply = ai.chat(&config, vec![ChatMessage { role: "user".into(), content }], Some(response_format)).await?;
+            let reply = ai.chat(&config, vec![ChatMessage::with_content("user", content)], Some(response_format)).await?;
             let mut vs = HashMap::new();
             if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&reply) {
                 for AiOutputKeyMapping { json_path, var_name } in output_key_map {
@@ -522,6 +525,82 @@ async fn execute_step(
                 }
             }
             Ok((Some(reply), vs))
+        }
+        ScriptStep::AiAgent { system_prompt, initial_message, max_steps, output_key } => {
+            let system_prompt = vars.interpolate(system_prompt);
+            let initial_message = vars.interpolate(initial_message);
+            let app_state = app.state::<AppState>();
+            let config = {
+                let svc = app_state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+                svc.read_ai_provider_config().unwrap_or_default()
+            };
+            let tools = build_agent_tools();
+            let ai = AiService::new(http_client.clone());
+
+            let mut messages: Vec<ChatMessage> = vec![
+                ChatMessage::system(&system_prompt),
+                ChatMessage::user(&initial_message),
+            ];
+
+            let mut final_text = String::new();
+            let mut agent_vars: HashMap<String, String> = HashMap::new();
+
+            for _round in 0..*max_steps {
+                match ai.chat_with_tools(&config, messages.clone(), &tools).await? {
+                    AiChatResult::Text(text) => {
+                        final_text = text;
+                        break;
+                    }
+                    AiChatResult::ToolCalls(calls) => {
+                        // 构建带 tool_calls 字段的 assistant 消息追加到历史
+                        let raw_tool_calls: Vec<serde_json::Value> =
+                            calls.iter().map(|c| c.raw.clone()).collect();
+                        messages.push(ChatMessage {
+                            role: "assistant".into(),
+                            content: crate::services::ai_service::ChatContent::Text(String::new()),
+                            tool_calls: Some(raw_tool_calls),
+                            tool_call_id: None,
+                            name: None,
+                        });
+
+                        for tool_call in &calls {
+                            // 将 kind 字段注入 arguments，构造完整的 ScriptStep JSON
+                            let mut step_json = tool_call.arguments.clone();
+                            if let Some(obj) = step_json.as_object_mut() {
+                                obj.insert("kind".to_string(), serde_json::Value::String(tool_call.name.clone()));
+                            }
+
+                            let tool_result = match serde_json::from_value::<ScriptStep>(step_json) {
+                                Err(e) => format!("step parse error: {e}"),
+                                Ok(inner_step) => {
+                                    // 使用 Box::pin 避免无限递归的 Future 大小问题
+                                    let merged_vars = {
+                                        let mut v = vars.clone();
+                                        for (k, val) in &agent_vars { v.set(k, val.clone()); }
+                                        v
+                                    };
+                                    match Box::pin(execute_step(
+                                        cdp, http_client, magic_port, &inner_step,
+                                        &merged_vars, app, run_id, step_index,
+                                    )).await {
+                                        Ok((output, step_vars)) => {
+                                            for (k, v) in step_vars { agent_vars.insert(k, v); }
+                                            output.unwrap_or_else(|| "ok".to_string())
+                                        }
+                                        Err(e) => format!("step error: {e}"),
+                                    }
+                                }
+                            };
+
+                            messages.push(ChatMessage::tool_result(&tool_call.id, tool_result));
+                        }
+                    }
+                }
+            }
+
+            let mut vs = agent_vars;
+            if let Some(k) = output_key { vs.insert(k.clone(), final_text.clone()); }
+            Ok((Some(final_text), vs))
         }
 
         // ── CDP 具名步骤 ──────────────────────────────────────────────────────

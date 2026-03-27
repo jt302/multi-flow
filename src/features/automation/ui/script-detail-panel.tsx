@@ -276,6 +276,8 @@ function StepSummary({ step }: { step: AutomationScript['steps'][number] }) {
 			return <span className="text-muted-foreground">{step.prompt.slice(0, 60)}</span>;
 		case 'ai_extract':
 			return <span className="text-muted-foreground">{step.prompt.slice(0, 60)}</span>;
+		case 'ai_agent':
+			return <span className="text-muted-foreground">{step.initial_message.slice(0, 60)}</span>;
 		// CDP 具名步骤
 		case 'cdp_navigate':
 			return <span className="text-muted-foreground">{step.url}</span>;

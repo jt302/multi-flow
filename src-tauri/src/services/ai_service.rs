@@ -7,6 +7,49 @@ use super::app_preference_service::AiProviderConfig;
 pub struct ChatMessage {
     pub role: String,
     pub content: ChatContent,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_calls: Option<Vec<Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+}
+
+impl ChatMessage {
+    pub fn user(content: impl Into<String>) -> Self {
+        Self { role: "user".into(), content: ChatContent::Text(content.into()), tool_calls: None, tool_call_id: None, name: None }
+    }
+    pub fn system(content: impl Into<String>) -> Self {
+        Self { role: "system".into(), content: ChatContent::Text(content.into()), tool_calls: None, tool_call_id: None, name: None }
+    }
+    pub fn assistant(content: impl Into<String>) -> Self {
+        Self { role: "assistant".into(), content: ChatContent::Text(content.into()), tool_calls: None, tool_call_id: None, name: None }
+    }
+    pub fn tool_result(tool_call_id: impl Into<String>, content: impl Into<String>) -> Self {
+        Self { role: "tool".into(), content: ChatContent::Text(content.into()), tool_calls: None, tool_call_id: Some(tool_call_id.into()), name: None }
+    }
+    pub fn with_content(role: impl Into<String>, content: ChatContent) -> Self {
+        Self { role: role.into(), content, tool_calls: None, tool_call_id: None, name: None }
+    }
+}
+
+/// AI 工具调用结果
+pub enum AiChatResult {
+    /// 模型返回文本（无 tool_calls）
+    Text(String),
+    /// 模型请求调用工具
+    ToolCalls(Vec<AiToolCall>),
+}
+
+#[derive(Debug, Clone)]
+pub struct AiToolCall {
+    pub id: String,
+    /// 工具名称（对应 ScriptStep 的 kind）
+    pub name: String,
+    /// 工具参数 JSON（字段对应 ScriptStep 变体的字段，不含 kind）
+    pub arguments: Value,
+    /// 原始 tool_call Value（用于追加到消息历史）
+    pub raw: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,23 +101,8 @@ impl AiService {
             body["response_format"] = fmt;
         }
 
-        let mut req = self.http
-            .post(format!("{base_url}/chat/completions"))
-            .header("Content-Type", "application/json")
-            .json(&body);
-        if !api_key.is_empty() {
-            req = req.bearer_auth(api_key);
-        }
-
-        let resp = req.send().await
-            .map_err(|e| format!("AI request failed: {e}"))?;
-        let status = resp.status();
-        let text = resp.text().await
-            .map_err(|e| format!("AI read body failed: {e}"))?;
-        if !status.is_success() {
-            return Err(format!("AI API error {status}: {text}"));
-        }
-        let parsed: Value = serde_json::from_str(&text)
+        let resp_text = self.post_chat(base_url, api_key, &body).await?;
+        let parsed: Value = serde_json::from_str(&resp_text)
             .map_err(|e| format!("AI response parse failed: {e}"))?;
         let content = parsed
             .get("choices").and_then(|c| c.as_array())
@@ -85,6 +113,81 @@ impl AiService {
             .unwrap_or("")
             .to_string();
         Ok(content)
+    }
+
+    /// 支持 tool_calls 的 chat，返回文本或工具调用列表
+    pub async fn chat_with_tools(
+        &self,
+        config: &AiProviderConfig,
+        messages: Vec<ChatMessage>,
+        tools: &[Value],
+    ) -> Result<AiChatResult, String> {
+        let base_url = config.base_url.as_deref()
+            .unwrap_or("https://api.openai.com/v1")
+            .trim_end_matches('/');
+        let api_key = config.api_key.as_deref().unwrap_or("");
+        let model = config.model.as_deref().unwrap_or("gpt-4o");
+
+        let body = json!({
+            "model": model,
+            "messages": messages,
+            "tools": tools,
+            "tool_choice": "auto",
+        });
+
+        let resp_text = self.post_chat(base_url, api_key, &body).await?;
+        let parsed: Value = serde_json::from_str(&resp_text)
+            .map_err(|e| format!("AI response parse failed: {e}"))?;
+
+        let choice = parsed
+            .get("choices").and_then(|c| c.as_array())
+            .and_then(|a| a.first())
+            .ok_or_else(|| "AI response: no choices".to_string())?;
+
+        let finish_reason = choice.get("finish_reason").and_then(|v| v.as_str()).unwrap_or("");
+        let message = choice.get("message").ok_or_else(|| "AI response: no message".to_string())?;
+
+        if finish_reason == "tool_calls" {
+            let calls_raw = message.get("tool_calls")
+                .and_then(|v| v.as_array())
+                .ok_or_else(|| "AI response: finish_reason=tool_calls but no tool_calls array".to_string())?;
+
+            let calls = calls_raw.iter().filter_map(|tc| {
+                let id = tc.get("id")?.as_str()?.to_string();
+                let func = tc.get("function")?;
+                let name = func.get("name")?.as_str()?.to_string();
+                let args_str = func.get("arguments")?.as_str().unwrap_or("{}");
+                let arguments: Value = serde_json::from_str(args_str).unwrap_or(json!({}));
+                Some(AiToolCall { id, name, arguments, raw: tc.clone() })
+            }).collect::<Vec<_>>();
+
+            Ok(AiChatResult::ToolCalls(calls))
+        } else {
+            let content = message.get("content")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            Ok(AiChatResult::Text(content))
+        }
+    }
+
+    async fn post_chat(&self, base_url: &str, api_key: &str, body: &Value) -> Result<String, String> {
+        let mut req = self.http
+            .post(format!("{base_url}/chat/completions"))
+            .header("Content-Type", "application/json")
+            .json(body);
+        if !api_key.is_empty() {
+            req = req.bearer_auth(api_key);
+        }
+        let resp = req.send().await
+            .map_err(|e| format!("AI request failed: {e}"))?;
+        let status = resp.status();
+        let text = resp.text().await
+            .map_err(|e| format!("AI read body failed: {e}"))?;
+        if !status.is_success() {
+            return Err(format!("AI API error {status}: {text}"));
+        }
+        Ok(text)
     }
 }
 
@@ -120,5 +223,119 @@ pub fn extract_json_path(value: &Value, path: &str) -> Option<String> {
     Some(match current {
         Value::String(s) => s.clone(),
         other => other.to_string(),
+    })
+}
+
+/// 构建 AI Agent 可用的工具列表（常用步骤作为 OpenAI function definitions）
+pub fn build_agent_tools() -> Vec<Value> {
+    vec![
+        tool("wait", "等待指定毫秒数", json!({
+            "type": "object",
+            "properties": { "ms": { "type": "integer", "description": "等待时长（毫秒）" } },
+            "required": ["ms"]
+        })),
+        tool("cdp_navigate", "导航到指定 URL", json!({
+            "type": "object",
+            "properties": {
+                "url": { "type": "string", "description": "目标 URL" },
+                "output_key": { "type": "string", "description": "将 URL 存入此变量名" }
+            },
+            "required": ["url"]
+        })),
+        tool("cdp_reload", "重新加载当前页面", json!({
+            "type": "object",
+            "properties": {
+                "ignore_cache": { "type": "boolean", "description": "是否忽略缓存" }
+            }
+        })),
+        tool("cdp_evaluate", "在页面执行 JavaScript 并获取返回值", json!({
+            "type": "object",
+            "properties": {
+                "expression": { "type": "string", "description": "JavaScript 表达式" },
+                "output_key": { "type": "string", "description": "将返回值存入此变量名" }
+            },
+            "required": ["expression"]
+        })),
+        tool("cdp_click", "点击页面元素", json!({
+            "type": "object",
+            "properties": { "selector": { "type": "string", "description": "CSS 选择器" } },
+            "required": ["selector"]
+        })),
+        tool("cdp_type", "向元素输入文本", json!({
+            "type": "object",
+            "properties": {
+                "selector": { "type": "string", "description": "CSS 选择器" },
+                "text": { "type": "string", "description": "要输入的文本" }
+            },
+            "required": ["selector", "text"]
+        })),
+        tool("cdp_get_text", "获取元素的文本内容", json!({
+            "type": "object",
+            "properties": {
+                "selector": { "type": "string", "description": "CSS 选择器" },
+                "output_key": { "type": "string", "description": "将文本存入此变量名" }
+            },
+            "required": ["selector"]
+        })),
+        tool("cdp_wait_for_selector", "等待元素出现在 DOM 中", json!({
+            "type": "object",
+            "properties": {
+                "selector": { "type": "string", "description": "CSS 选择器" },
+                "timeout_ms": { "type": "integer", "description": "超时毫秒数（默认 10000）" }
+            },
+            "required": ["selector"]
+        })),
+        tool("cdp_scroll_to", "滚动页面到指定元素或坐标", json!({
+            "type": "object",
+            "properties": {
+                "selector": { "type": "string", "description": "CSS 选择器（可选）" },
+                "x": { "type": "number", "description": "横向坐标" },
+                "y": { "type": "number", "description": "纵向坐标" }
+            }
+        })),
+        tool("cdp_screenshot", "截取当前页面截图", json!({
+            "type": "object",
+            "properties": {
+                "format": { "type": "string", "enum": ["png", "jpeg"], "description": "图片格式" },
+                "output_key_base64": { "type": "string", "description": "将 base64 截图存入此变量名" },
+                "output_path": { "type": "string", "description": "保存到磁盘的绝对路径" }
+            }
+        })),
+        tool("wait_for_user", "暂停执行，等待人工操作或输入", json!({
+            "type": "object",
+            "properties": {
+                "message": { "type": "string", "description": "展示给用户的消息" },
+                "input_label": { "type": "string", "description": "输入框标签（不填则无输入框）" },
+                "output_key": { "type": "string", "description": "将用户输入存入此变量名" },
+                "timeout_ms": { "type": "integer", "description": "超时毫秒数（不填则无超时）" }
+            },
+            "required": ["message"]
+        })),
+        tool("magic_get_browsers", "获取所有浏览器实例列表", json!({
+            "type": "object",
+            "properties": {
+                "output_key": { "type": "string", "description": "将结果 JSON 存入此变量名" }
+            }
+        })),
+        tool("magic_open_new_tab", "打开新标签页", json!({
+            "type": "object",
+            "properties": {
+                "url": { "type": "string", "description": "要打开的 URL" },
+                "browser_id": { "type": "integer", "description": "目标浏览器 ID（可选）" },
+                "output_key": { "type": "string", "description": "将新标签页 ID 存入此变量名" }
+            },
+            "required": ["url"]
+        })),
+    ]
+}
+
+fn tool(name: &str, description: &str, parameters: Value) -> Value {
+    json!({
+        "type": "function",
+        "function": {
+            "name": name,
+            "description": description,
+            "parameters": parameters
+        }
     })
 }
