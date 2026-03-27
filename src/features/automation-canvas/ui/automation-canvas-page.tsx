@@ -34,7 +34,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { Textarea } from '@/components/ui/textarea';
 import { RunDialog } from '@/features/automation/ui/run-dialog';
 
@@ -274,18 +274,18 @@ function StepPropertiesPanel({
 	else if (['magic_get_browsers', 'magic_get_bounds', 'magic_capture_app_shell'].includes(kind)) { fields.push(okf()); }
 
 	return (
-		<div className="flex flex-col h-full">
-			<div className="flex items-center justify-between px-3 py-2 border-b">
+		<div className="flex flex-col h-full min-h-0">
+			<div className="flex items-center justify-between px-3 py-2 border-b flex-shrink-0">
 				<span className="text-xs font-semibold">{KIND_LABELS[kind] ?? kind}</span>
 				<Button size="sm" variant="ghost" className="h-6 w-6 p-0 cursor-pointer text-destructive hover:text-destructive" onClick={onDelete}>
 					<Trash2 className="h-3 w-3" />
 				</Button>
 			</div>
-			<ScrollArea className="flex-1 p-3">
+			<div className="flex-1 overflow-y-auto min-h-0 p-3">
 				<div className="space-y-3">
 					{fields.length > 0 ? fields : <p className="text-xs text-muted-foreground">此步骤无可编辑字段</p>}
 				</div>
-			</ScrollArea>
+			</div>
 		</div>
 	);
 }
@@ -584,10 +584,10 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 			<div className="flex flex-1 overflow-hidden">
 				{/* Left: Palette */}
 				<div className="w-44 border-r flex-shrink-0 bg-background flex flex-col min-h-0">
-					<div className="px-3 py-2 text-[10px] font-semibold text-muted-foreground border-b uppercase tracking-wide">
+					<div className="px-3 py-2 text-[10px] font-semibold text-muted-foreground border-b uppercase tracking-wide flex-shrink-0">
 						添加步骤
 					</div>
-					<ScrollArea className="flex-1">
+					<div className="flex-1 overflow-y-auto min-h-0">
 						<div className="p-2 space-y-3">
 							{PALETTE_GROUPS.map((group) => (
 								<div key={group.label}>
@@ -603,7 +603,7 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 								</div>
 							))}
 						</div>
-					</ScrollArea>
+					</div>
 				</div>
 
 				{/* Center: Canvas */}
