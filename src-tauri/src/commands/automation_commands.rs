@@ -201,7 +201,7 @@ pub async fn cancel_automation_run(
 #[tauri::command]
 pub fn read_ai_provider_config(
     state: State<'_, AppState>,
-) -> Result<crate::services::app_preference_service::AiProviderConfig, String> {
+) -> Result<AiProviderConfig, String> {
     let svc = state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
     svc.read_ai_provider_config().map_err(|e| e.to_string())
 }
@@ -209,7 +209,7 @@ pub fn read_ai_provider_config(
 #[tauri::command]
 pub fn update_ai_provider_config(
     state: State<'_, AppState>,
-    config: crate::services::app_preference_service::AiProviderConfig,
+    config: AiProviderConfig,
 ) -> Result<(), String> {
     let svc = state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
     svc.save_ai_provider_config(config).map_err(|e| e.to_string())
