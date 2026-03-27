@@ -76,10 +76,11 @@ export function SettingsPage({
 	};
 
 	return (
-		<div className="space-y-3">
-			<ActiveSectionCard label="设置" title={section.title} description={section.desc} />
+		<div className="mx-auto max-w-[1200px] space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+			<ActiveSectionCard label="通用设置" title={section.title} description={section.desc} />
 
-			<div className="space-y-3">
+			<div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+				<div className="space-y-6">
 				<ThemeCustomizerCard
 					useCustomColor={useCustomColor}
 					preset={preset}
@@ -88,55 +89,60 @@ export function SettingsPage({
 					onCustomColorChange={onCustomColorChange}
 					onToggleCustomColor={onToggleCustomColor}
 				/>
-
-				<ResourceManagementCard
-					chromiumItems={chromiumItems}
-					geoItems={geoItems}
-					pendingKey={pendingKey}
-					resourceProgress={resourceProgress}
-					onRefreshResources={() => {
-						void runAction('refresh-resources', onRefreshResources);
-					}}
-					onInstallChromium={(resourceId) => {
-						void runAction(`install-${resourceId}`, () => onInstallChromium(resourceId));
-					}}
-					onActivateChromium={(version) => {
-						void runAction(`activate-${version}`, () => onActivateChromium(version));
-					}}
-					onDownloadResource={(resourceId, label) => {
-						void runAction(`download-${resourceId}`, () => onDownloadResource(resourceId, label));
-					}}
-					formatBytes={formatBytes}
-				/>
-
-				<DevicePresetManagerCard
-					devicePresets={devicePresets}
-					pendingKey={pendingKey}
-					onRefreshDevicePresets={onRefreshDevicePresets}
-					onCreateDevicePreset={onCreateDevicePreset}
-					onUpdateDevicePreset={onUpdateDevicePreset}
-				/>
-
 				<AiProviderConfigCard />
+				</div>
+				<div className="space-y-6">
+					<ResourceManagementCard
+						chromiumItems={chromiumItems}
+						geoItems={geoItems}
+						pendingKey={pendingKey}
+						resourceProgress={resourceProgress}
+						onRefreshResources={() => {
+							void runAction('refresh-resources', onRefreshResources);
+						}}
+						onInstallChromium={(resourceId) => {
+							void runAction(`install-${resourceId}`, () => onInstallChromium(resourceId));
+						}}
+						onActivateChromium={(version) => {
+							void runAction(`activate-${version}`, () => onActivateChromium(version));
+						}}
+						onDownloadResource={(resourceId, label) => {
+							void runAction(`download-${resourceId}`, () => onDownloadResource(resourceId, label));
+						}}
+						formatBytes={formatBytes}
+					/>
 
-				<Card className="p-4">
-					<CardHeader className="p-0">
-						<CardTitle className="text-sm">维护</CardTitle>
-					</CardHeader>
-					<CardContent className="p-0 pt-3">
-						<Button
-							type="button"
-							variant="ghost"
-							size="sm"
-							className="cursor-pointer text-muted-foreground hover:text-foreground"
-							onClick={onOpenRecycleBin}
-							disabled={!onOpenRecycleBin}
-						>
-							<Icon icon={Trash2} size={12} />
-							打开回收站
-						</Button>
-					</CardContent>
-				</Card>
+					<DevicePresetManagerCard
+						devicePresets={devicePresets}
+						pendingKey={pendingKey}
+						onRefreshDevicePresets={onRefreshDevicePresets}
+						onCreateDevicePreset={onCreateDevicePreset}
+						onUpdateDevicePreset={onUpdateDevicePreset}
+					/>
+
+					<Card className="border-border/40 bg-card/60 backdrop-blur-md shadow-sm transition-all duration-300">
+						<CardHeader className="p-4 pb-2 border-b border-border/40">
+							<CardTitle className="text-sm font-medium">高级维护</CardTitle>
+						</CardHeader>
+						<CardContent className="p-4 pt-4 flex items-center justify-between">
+							<div className="space-y-1">
+								<p className="text-sm font-medium leading-none">回收站</p>
+								<p className="text-xs text-muted-foreground">恢复或彻底删除已归档的数据</p>
+							</div>
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								className="cursor-pointer border-border/40 bg-background/50 hover:bg-accent hover:text-accent-foreground backdrop-blur-sm transition-all hover:scale-105"
+								onClick={onOpenRecycleBin}
+								disabled={!onOpenRecycleBin}
+							>
+								<Icon icon={Trash2} size={14} className="mr-1" />
+								打开回收站
+							</Button>
+						</CardContent>
+					</Card>
+				</div>
 			</div>
 		</div>
 	);
