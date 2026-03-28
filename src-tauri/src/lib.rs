@@ -37,6 +37,11 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(
+            tauri_plugin_window_state::Builder::new()
+                .skip_initial_state("main")
+                .build(),
+        )
         .on_menu_event(|app, event| {
             if event.id().as_ref() == MENU_ID_OPEN_DATA_DIR {
                 let _ = open_data_dir(app);
@@ -62,6 +67,11 @@ pub fn run() {
             setup_native_menu(app)?;
             start_runtime_guard(app.handle().clone());
             logger::info("app", "tauri setup completed");
+            // 同步恢复窗口状态（位置和大小），显示由前端控制以避免闪现。
+            if let Some(main_window) = app.get_webview_window("main") {
+                use tauri_plugin_window_state::{StateFlags, WindowExt};
+                let _ = main_window.restore_state(StateFlags::all());
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
