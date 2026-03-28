@@ -6,6 +6,7 @@ import {
 	closeProfile as closeProfileApi,
 	createProfile as createProfileApi,
 	createProfileDevicePreset as createProfileDevicePresetApi,
+	deleteProfileDevicePreset as deleteProfileDevicePresetApi,
 	deleteProfile as deleteProfileApi,
 	exportProfileCookies as exportProfileCookiesApi,
 	openProfile as openProfileApi,
@@ -90,6 +91,17 @@ export function useProfileActions({
 			toast.success('机型映射已更新');
 		} catch (error) {
 			toast.error('更新机型映射失败');
+			throw error;
+		}
+	};
+
+	const deleteDevicePreset = async (presetId: string) => {
+		try {
+			await deleteProfileDevicePresetApi(presetId);
+			await Promise.all([refreshDevicePresets(), refreshProfilesAndBindings()]);
+			toast.success('机型映射已删除');
+		} catch (error) {
+			toast.error('删除机型映射失败');
 			throw error;
 		}
 	};
@@ -396,6 +408,7 @@ export function useProfileActions({
 		createProfile,
 		createDevicePreset,
 		updateDevicePreset,
+		deleteDevicePreset,
 		updateProfile,
 		updateProfileVisual,
 		openProfile,

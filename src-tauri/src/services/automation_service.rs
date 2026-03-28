@@ -58,6 +58,7 @@ impl AutomationService {
             created_at: Set(now),
             updated_at: Set(now),
             canvas_positions_json: Set(None),
+            variables_schema_json: Set(None),
         };
         let inserted = self.db_query(model.insert(&self.db))?;
         to_api_script(inserted)
@@ -194,6 +195,19 @@ impl AutomationService {
         self.db_query(active.update(&self.db))?;
         Ok(())
     }
+
+    pub fn update_variables_schema(
+        &self,
+        script_id: &str,
+        schema_json: String,
+    ) -> AppResult<()> {
+        let existing = self.find_script_model(script_id)?;
+        let mut active: automation_script::ActiveModel = existing.into();
+        active.variables_schema_json = Set(Some(schema_json));
+        active.updated_at = Set(now_ts());
+        self.db_query(active.update(&self.db))?;
+        Ok(())
+    }
 }
 
 fn to_api_script(model: automation_script::Model) -> AppResult<AutomationScript> {
@@ -205,6 +219,7 @@ fn to_api_script(model: automation_script::Model) -> AppResult<AutomationScript>
         description: model.description,
         steps,
         canvas_positions_json: model.canvas_positions_json,
+        variables_schema_json: model.variables_schema_json,
         created_at: model.created_at,
         updated_at: model.updated_at,
     })

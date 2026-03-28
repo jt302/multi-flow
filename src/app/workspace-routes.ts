@@ -12,6 +12,7 @@ export const NAV_PATHS: Record<NavId, string> = {
 };
 
 export const SETTINGS_RECYCLE_BIN_PATH = '/settings/recycle-bin';
+export const PROFILES_DEVICE_PRESETS_PATH = '/profiles/device-presets';
 
 const PATH_TO_NAV: Record<string, NavId> = Object.entries(NAV_PATHS).reduce(
 	(acc, [nav, path]) => {
@@ -22,6 +23,7 @@ const PATH_TO_NAV: Record<string, NavId> = Object.entries(NAV_PATHS).reduce(
 );
 
 PATH_TO_NAV[SETTINGS_RECYCLE_BIN_PATH] = 'settings';
+PATH_TO_NAV[PROFILES_DEVICE_PRESETS_PATH] = 'profiles';
 
 export function resolveNavFromPath(pathname: string): NavId | null {
 	if (!pathname) {

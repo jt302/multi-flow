@@ -42,8 +42,9 @@ export async function listAutomationRuns(scriptId: string): Promise<AutomationRu
 export async function runAutomationScript(
 	scriptId: string,
 	profileId: string,
+	initialVars?: Record<string, string>,
 ): Promise<string> {
-	return tauriInvoke<string>('run_automation_script', { scriptId, profileId });
+	return tauriInvoke<string>('run_automation_script', { scriptId, profileId, initialVars: initialVars ?? null });
 }
 
 export async function listenAutomationProgress(
@@ -112,8 +113,16 @@ export async function listActiveAutomationRuns(): Promise<string[]> {
 export async function runAutomationScriptDebug(
 	scriptId: string,
 	profileId: string,
+	initialVars?: Record<string, string>,
 ): Promise<string> {
-	return tauriInvoke<string>('run_automation_script_debug', { scriptId, profileId });
+	return tauriInvoke<string>('run_automation_script_debug', { scriptId, profileId, initialVars: initialVars ?? null });
+}
+
+export async function openAutomationCanvasWindow(
+	scriptId: string,
+	scriptName: string,
+): Promise<void> {
+	return tauriInvoke<void>('open_automation_canvas_window', { scriptId, scriptName });
 }
 
 export async function updateScriptCanvasPositions(
@@ -121,6 +130,13 @@ export async function updateScriptCanvasPositions(
 	positionsJson: string,
 ): Promise<void> {
 	return tauriInvoke<void>('update_script_canvas_positions', { scriptId, positionsJson });
+}
+
+export async function updateScriptVariablesSchema(
+	scriptId: string,
+	schemaJson: string,
+): Promise<void> {
+	return tauriInvoke<void>('update_script_variables_schema', { scriptId, schemaJson });
 }
 
 export async function readAiProviderConfig(): Promise<AiProviderConfig> {
