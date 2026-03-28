@@ -334,7 +334,7 @@ export function ScriptEditorDialog({ open, script, onOpenChange, onSave, isSavin
 				<DialogFooter className="flex-shrink-0">
 					<Button
 						type="button"
-						variant="outline"
+						variant="ghost"
 						className="cursor-pointer"
 						onClick={() => onOpenChange(false)}
 					>

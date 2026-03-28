@@ -1,12 +1,16 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { FileInput, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { openAutomationCanvasWindow } from '@/entities/automation/api/automation-api';
+import { useQueryClient } from '@tanstack/react-query';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+
+import { listenAutomationScriptUpdated, openAutomationCanvasWindow } from '@/entities/automation/api/automation-api';
 import { useAutomationRunsQuery } from '@/entities/automation/model/use-automation-runs-query';
 import { useAutomationScriptsQuery } from '@/entities/automation/model/use-automation-scripts-query';
 import type { AutomationScript } from '@/entities/automation/model/types';
+import { queryKeys } from '@/shared/config/query-keys';
 import { useAutomationActions } from '@/features/automation/model/use-automation-actions';
 import { useAutomationStore } from '@/store/automation-store';
 import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
@@ -28,6 +32,7 @@ import { ScriptDetailPanel } from './script-detail-panel';
 export function AutomationPage() {
 	const scriptsQuery = useAutomationScriptsQuery();
 	const scripts = scriptsQuery.data ?? [];
+	const queryClient = useQueryClient();
 	const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null);
 
 	// 元数据编辑对话框
@@ -52,6 +57,20 @@ export function AutomationPage() {
 	const actions = useAutomationActions(selectedScriptId);
 
 	const importInputRef = useRef<HTMLInputElement>(null);
+
+	// 监听画布窗口的脚本保存事件，失效缓存确保主窗口同步最新步骤
+	useEffect(() => {
+		let unlistenEvent: (() => void) | undefined;
+		let unlistenFocus: (() => void) | undefined;
+		void listenAutomationScriptUpdated(() => {
+			void queryClient.invalidateQueries({ queryKey: queryKeys.automationScripts });
+		}).then((fn) => { unlistenEvent = fn; });
+		// Tauri 多窗口环境：主窗口重新获得焦点时也刷新（浏览器 focus 事件不可靠）
+		void getCurrentWindow().onFocusChanged(({ payload: focused }) => {
+			if (focused) void queryClient.invalidateQueries({ queryKey: queryKeys.automationScripts });
+		}).then((fn) => { unlistenFocus = fn; });
+		return () => { unlistenEvent?.(); unlistenFocus?.(); };
+	}, [queryClient]);
 
 	// ── 新建脚本：弹出名称对话框 → 创建空脚本 → 开画布窗口 ────────────────────
 	function handleNewScript() {
@@ -273,7 +292,7 @@ export function AutomationPage() {
 						</div>
 					</div>
 					<DialogFooter>
-						<Button variant="outline" onClick={() => setMetaDialogOpen(false)} className="cursor-pointer">
+						<Button variant="ghost" onClick={() => setMetaDialogOpen(false)} className="cursor-pointer">
 							取消
 						</Button>
 						<Button

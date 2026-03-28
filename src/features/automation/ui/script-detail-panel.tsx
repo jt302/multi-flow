@@ -290,12 +290,13 @@ export function ScriptDetailPanel({
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel className="cursor-pointer">取消</AlertDialogCancel>
-						<AlertDialogAction
-							className="cursor-pointer"
-							onClick={onDelete}
-						>
-							删除
+						<AlertDialogCancel asChild>
+							<Button type="button" variant="ghost" className="cursor-pointer">取消</Button>
+						</AlertDialogCancel>
+						<AlertDialogAction asChild>
+							<Button type="button" variant="destructive" className="cursor-pointer" onClick={onDelete}>
+								删除
+							</Button>
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
