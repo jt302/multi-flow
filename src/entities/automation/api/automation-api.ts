@@ -1,4 +1,4 @@
-import { listen } from '@tauri-apps/api/event';
+import { emit, listen } from '@tauri-apps/api/event';
 
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
 
@@ -137,6 +137,18 @@ export async function updateScriptVariablesSchema(
 	schemaJson: string,
 ): Promise<void> {
 	return tauriInvoke<void>('update_script_variables_schema', { scriptId, schemaJson });
+}
+
+export async function emitScriptUpdated(scriptId: string): Promise<void> {
+	await emit('automation_script_updated', { scriptId });
+}
+
+export async function listenAutomationScriptUpdated(
+	onUpdate: (scriptId: string) => void,
+): Promise<() => void> {
+	return listen<{ scriptId: string }>('automation_script_updated', (event) => {
+		onUpdate(event.payload.scriptId);
+	});
 }
 
 export async function readAiProviderConfig(): Promise<AiProviderConfig> {

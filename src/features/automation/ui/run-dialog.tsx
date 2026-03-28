@@ -206,7 +206,7 @@ export function RunDialog({
 
 				<DialogFooter className="gap-2">
 					<Button
-						variant="outline"
+						variant="ghost"
 						onClick={() => onOpenChange(false)}
 						className="cursor-pointer"
 					>

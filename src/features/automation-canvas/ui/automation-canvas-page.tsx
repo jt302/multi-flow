@@ -26,6 +26,7 @@ import { useNavigate } from 'react-router-dom';
 import type { AutomationScript, ScriptStep, ScriptVarDef, StepResult } from '@/entities/automation/model/types';
 import type { ProfileItem } from '@/entities/profile/model/types';
 import {
+	emitScriptUpdated,
 	updateAutomationScript,
 	updateScriptCanvasPositions,
 	updateScriptVariablesSchema,
@@ -106,6 +107,15 @@ const GROUP_COLORS: Record<string, string> = {
 	控制流: 'bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-300',
 	人工介入: 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300',
 	通用: 'bg-muted border-border text-muted-foreground',
+};
+
+const PALETTE_DOT_COLORS: Record<string, string> = {
+	CDP: 'bg-blue-500',
+	Magic: 'bg-purple-500',
+	AI: 'bg-orange-500',
+	控制流: 'bg-green-500',
+	人工介入: 'bg-amber-500',
+	通用: 'bg-muted-foreground/50',
 };
 
 const STEP_STATUS_RING: Record<string, string> = {
@@ -475,7 +485,7 @@ function VariablesSchemaDialog({
 					</button>
 				</div>
 				<DialogFooter>
-					<Button variant="outline" onClick={() => onOpenChange(false)} className="cursor-pointer">
+					<Button variant="ghost" onClick={() => onOpenChange(false)} className="cursor-pointer">
 						取消
 					</Button>
 					<Button onClick={() => void handleSave()} disabled={saving} className="cursor-pointer">
@@ -539,6 +549,7 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 		setSaving(true);
 		try {
 			await updateAutomationScript(script.id, { name: script.name, description: script.description ?? undefined, steps: newSteps });
+			void emitScriptUpdated(script.id);
 		} finally {
 			setSaving(false);
 		}
@@ -556,6 +567,67 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 	}, [script.id]);
 
 	const onNodesChange = useCallback((changes: NodeChange[]) => {
+		// 拦截节点删除（Backspace 键）：同步 steps 状态并持久化到 DB
+		const removeChanges = changes.filter((c) => c.type === 'remove');
+		if (removeChanges.length > 0) {
+			const removedIndices = new Set(
+				removeChanges
+					.map((c) => parseInt(c.id.replace('step-', ''), 10))
+					.filter((i) => !isNaN(i)),
+			);
+			if (removedIndices.size > 0) {
+				const sortedRemoved = [...removedIndices].sort((a, b) => a - b);
+				setSteps((currentSteps) => {
+					const newSteps = currentSteps.filter((_, i) => !removedIndices.has(i));
+					void saveScript(newSteps);
+					return newSteps;
+				});
+				setSelectedIndex(null);
+				// 视觉更新：删除节点并重映射 ID
+				setNodes((prev) => {
+					const afterRemove = applyNodeChanges(changes, prev) as Node[];
+					return afterRemove.map((n) => {
+						const i = parseInt(n.id.replace('step-', ''), 10);
+						if (isNaN(i)) return n;
+						const shift = sortedRemoved.filter((ri) => ri < i).length;
+						if (shift === 0) return n;
+						return { ...n, id: `step-${i - shift}`, data: { ...(n.data as StepNodeData), index: i - shift } };
+					});
+				});
+				// 重映射边
+				setEdges((prev) => {
+					const deletedIds = new Set(removeChanges.map((c) => c.id));
+					const remapped = prev
+						.filter((e) => !deletedIds.has(e.source) && !deletedIds.has(e.target))
+						.map((e) => {
+							const si = parseInt(e.source.replace('step-', ''), 10);
+							const ti = parseInt(e.target.replace('step-', ''), 10);
+							const sShift = sortedRemoved.filter((ri) => ri < si).length;
+							const tShift = sortedRemoved.filter((ri) => ri < ti).length;
+							return {
+								...e,
+								source: sShift > 0 ? `step-${si - sShift}` : e.source,
+								target: tShift > 0 ? `step-${ti - tShift}` : e.target,
+							};
+						});
+					edgesRef.current = remapped;
+					// 清理并重映射 positions
+					const newPos = { ...positionsRef.current };
+					for (const idx of removedIndices) delete newPos[`step-${idx}`];
+					for (let j = steps.length - 1; j >= 0; j--) {
+						const shift = sortedRemoved.filter((ri) => ri < j).length;
+						if (shift > 0 && newPos[`step-${j}`]) {
+							newPos[`step-${j - shift}`] = newPos[`step-${j}`];
+							delete newPos[`step-${j}`];
+						}
+					}
+					positionsRef.current = newPos;
+					scheduleCanvasSave(newPos, remapped);
+					return remapped;
+				});
+				return;
+			}
+		}
 		// 用 applyNodeChanges 驱动视图，避免自己重建节点数组打断拖拽
 		setNodes((nds) => applyNodeChanges(changes, nds) as Node[]);
 		// 拖拽结束时（dragging: false）才持久化位置
@@ -567,7 +639,7 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 				}
 			}
 		}
-	}, [scheduleCanvasSave]);
+	}, [scheduleCanvasSave, saveScript, steps]);
 
 	const onEdgesChange = useCallback((changes: EdgeChange[]) => {
 		setEdges((prev) => {
@@ -764,13 +836,18 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 						<div className="p-2 space-y-3">
 							{PALETTE_GROUPS.map((group) => (
 								<div key={group.label}>
-									<div className="text-[10px] font-semibold text-muted-foreground mb-1">{group.label}</div>
+									<div className="px-0.5 mb-1.5">
+										<span className={`inline-flex items-center text-[9px] font-semibold px-1.5 py-0.5 rounded border ${GROUP_COLORS[group.label] ?? GROUP_COLORS['通用']}`}>
+											{group.label}
+										</span>
+									</div>
 									{group.kinds.map((kind) => (
 										<button key={kind} type="button"
-											className="w-full text-left text-xs px-2 py-1 rounded hover:bg-accent cursor-pointer truncate block"
+											className="w-full text-left text-xs px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer flex items-center gap-2 mb-0.5 group/item"
 											onClick={() => void addStep(kind)}
 										>
-											{KIND_LABELS[kind] ?? kind}
+											<span className={`w-1 h-3.5 rounded-full flex-shrink-0 opacity-30 group-hover/item:opacity-60 transition-opacity ${PALETTE_DOT_COLORS[group.label] ?? 'bg-muted-foreground/50'}`} />
+											<span className="truncate">{KIND_LABELS[kind] ?? kind}</span>
 										</button>
 									))}
 								</div>
