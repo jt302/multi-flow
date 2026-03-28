@@ -4,6 +4,7 @@ import {
 	CheckCircle,
 	ChevronDown,
 	ChevronUp,
+	Download,
 	Loader2,
 	Network,
 	Pencil,
@@ -11,18 +12,13 @@ import {
 	Trash2,
 	XCircle,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 
+import { openAutomationCanvasWindow } from '@/entities/automation/api/automation-api';
 import type { AutomationRun, AutomationScript, StepResult } from '@/entities/automation/model/types';
 import type { ProfileItem } from '@/entities/profile/model/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from '@/components/ui/popover';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -33,6 +29,7 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { RunDialog } from './run-dialog';
 
 type Props = {
 	script: AutomationScript;
@@ -44,7 +41,9 @@ type Props = {
 	activeRunId: string | null;
 	onEdit: () => void;
 	onDelete: () => void;
-	onRun: (profileId: string) => void;
+	onRun: (profileIds: string[], initialVars: Record<string, string>) => void;
+	onDebugRun: (profileId: string, initialVars: Record<string, string>) => void;
+	onCancel: () => void;
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -63,6 +62,21 @@ function StepStatusIcon({ status }: { status: string }) {
 	return <div className="h-3.5 w-3.5 rounded-full border border-muted-foreground/40 flex-shrink-0" />;
 }
 
+function exportScript(script: AutomationScript) {
+	const json = JSON.stringify(
+		{ name: script.name, description: script.description, steps: script.steps },
+		null,
+		2,
+	);
+	const blob = new Blob([json], { type: 'application/json' });
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = `${script.name.replace(/[^\w\u4e00-\u9fa5-]/g, '_')}.json`;
+	a.click();
+	URL.revokeObjectURL(url);
+}
+
 export function ScriptDetailPanel({
 	script,
 	runs,
@@ -74,12 +88,13 @@ export function ScriptDetailPanel({
 	onEdit,
 	onDelete,
 	onRun,
+	onDebugRun,
+	onCancel,
 }: Props) {
-	const navigate = useNavigate();
 	const [runPanelOpen, setRunPanelOpen] = useState(true);
 	const [varsPanelOpen, setVarsPanelOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
-	const [profilePickerOpen, setProfilePickerOpen] = useState(false);
+	const [runDialogOpen, setRunDialogOpen] = useState(false);
 	const varEntries = Object.entries(liveVariables);
 
 	const stepResultMap = new Map(liveStepResults.map((r) => [r.index, r]));
@@ -94,12 +109,12 @@ export function ScriptDetailPanel({
 						<p className="text-xs text-muted-foreground mt-0.5">{script.description}</p>
 					)}
 				</div>
-				<div className="flex items-center gap-2">
+				<div className="flex items-center gap-1.5">
 					<Button
 						size="sm"
 						variant="ghost"
 						className="h-8 px-2 cursor-pointer"
-						onClick={() => navigate(`/automation/${script.id}/canvas`)}
+						onClick={() => openAutomationCanvasWindow(script.id, script.name)}
 					>
 						<Network className="h-3.5 w-3.5 mr-1" />
 						画布
@@ -116,47 +131,42 @@ export function ScriptDetailPanel({
 					<Button
 						size="sm"
 						variant="ghost"
+						className="h-8 px-2 cursor-pointer"
+						onClick={() => exportScript(script)}
+					>
+						<Download className="h-3.5 w-3.5 mr-1" />
+						导出
+					</Button>
+					<Button
+						size="sm"
+						variant="ghost"
 						className="h-8 px-2 text-destructive hover:text-destructive cursor-pointer"
 						onClick={() => setDeleteOpen(true)}
 					>
 						<Trash2 className="h-3.5 w-3.5 mr-1" />
 						删除
 					</Button>
-					<Popover open={profilePickerOpen} onOpenChange={setProfilePickerOpen}>
-						<PopoverTrigger asChild>
-							<Button
-								size="sm"
-								className="h-8 cursor-pointer"
-								disabled={isRunning || script.steps.length === 0}
-							>
-								{isRunning ? (
-									<Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-								) : (
-									<Play className="h-3.5 w-3.5 mr-1" />
-								)}
-								运行
-							</Button>
-						</PopoverTrigger>
-						<PopoverContent align="end" className="w-52 p-1">
-							{activeProfiles.length === 0 ? (
-								<p className="px-2 py-1.5 text-sm text-muted-foreground">没有已开启的环境</p>
-							) : (
-								activeProfiles.map((p) => (
-									<button
-										key={p.id}
-										type="button"
-										className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent cursor-pointer"
-										onClick={() => {
-											setProfilePickerOpen(false);
-											onRun(p.id);
-										}}
-									>
-										{p.name}
-									</button>
-								))
-							)}
-						</PopoverContent>
-					</Popover>
+					{isRunning ? (
+						<Button
+							size="sm"
+							variant="destructive"
+							className="h-8 cursor-pointer"
+							onClick={onCancel}
+						>
+							<Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+							取消
+						</Button>
+					) : (
+						<Button
+							size="sm"
+							className="h-8 cursor-pointer"
+							disabled={script.steps.length === 0}
+							onClick={() => setRunDialogOpen(true)}
+						>
+							<Play className="h-3.5 w-3.5 mr-1" />
+							运行
+						</Button>
+					)}
 				</div>
 			</div>
 
@@ -165,7 +175,18 @@ export function ScriptDetailPanel({
 				<div className="px-5 py-4">
 					<p className="text-xs font-medium text-muted-foreground mb-3">步骤 ({script.steps.length})</p>
 					{script.steps.length === 0 ? (
-						<p className="text-sm text-muted-foreground">暂无步骤，点击编辑添加</p>
+						<div className="text-center py-8 space-y-2">
+							<p className="text-sm text-muted-foreground">暂无步骤</p>
+							<Button
+								size="sm"
+								variant="outline"
+								className="cursor-pointer"
+								onClick={() => openAutomationCanvasWindow(script.id, script.name)}
+							>
+								<Network className="h-3.5 w-3.5 mr-1.5" />
+								在画布中编排步骤
+							</Button>
+						</div>
 					) : (
 						<div className="space-y-1.5">
 							{script.steps.map((step, i) => {
@@ -279,6 +300,16 @@ export function ScriptDetailPanel({
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
+
+			<RunDialog
+				open={runDialogOpen}
+				onOpenChange={setRunDialogOpen}
+				activeProfiles={activeProfiles}
+				isRunning={isRunning}
+				disabled={script.steps.length === 0}
+				onRun={onRun}
+				onDebugRun={onDebugRun}
+			/>
 		</div>
 	);
 }
@@ -311,14 +342,12 @@ function StepSummary({ step }: { step: AutomationScript['steps'][number] }) {
 			return <span className="text-muted-foreground">break</span>;
 		case 'continue':
 			return <span className="text-muted-foreground">continue</span>;
-		// AI 步骤
 		case 'ai_prompt':
 			return <span className="text-muted-foreground">{step.prompt.slice(0, 60)}</span>;
 		case 'ai_extract':
 			return <span className="text-muted-foreground">{step.prompt.slice(0, 60)}</span>;
 		case 'ai_agent':
 			return <span className="text-muted-foreground">{step.initial_message.slice(0, 60)}</span>;
-		// CDP 具名步骤
 		case 'cdp_navigate':
 			return <span className="text-muted-foreground">{step.url}</span>;
 		case 'cdp_reload':
@@ -338,7 +367,6 @@ function StepSummary({ step }: { step: AutomationScript['steps'][number] }) {
 			return <span className="text-muted-foreground">"{step.value}" → {step.selector}</span>;
 		case 'cdp_screenshot':
 			return <span className="text-muted-foreground">截图{step.output_path ? ` → ${step.output_path}` : ''}</span>;
-		// Magic 具名步骤
 		case 'magic_set_bounds':
 			return <span className="text-muted-foreground">{step.x},{step.y} {step.width}×{step.height}</span>;
 		case 'magic_get_bounds': return <span className="text-muted-foreground">获取窗口位置大小</span>;

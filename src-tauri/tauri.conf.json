@@ -14,7 +14,8 @@
       {
         "title": "multi-flow",
         "width": 1300,
-        "height": 800
+        "height": 800,
+        "visible": false
       }
     ],
     "security": {

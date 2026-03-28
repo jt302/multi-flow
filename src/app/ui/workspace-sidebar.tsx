@@ -1,4 +1,4 @@
-import { Cpu, Play, RefreshCcw } from 'lucide-react';
+import { Cpu, Play, RefreshCcw, Smartphone } from 'lucide-react';
 
 import {
 	Badge,
@@ -15,22 +15,30 @@ import {
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
+	SidebarMenuSub,
+	SidebarMenuSubButton,
+	SidebarMenuSubItem,
 	useSidebar,
 } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { WORKSPACE_NAV_ITEMS } from '@/app/model/workspace-nav-items';
 import type { NavId } from '@/app/model/workspace-types';
+import { PROFILES_DEVICE_PRESETS_PATH } from '@/app/workspace-routes';
 
 type WorkspaceSidebarProps = {
 	activeNav: NavId;
+	activePath: string;
 	onNavChange: (nav: NavId) => void;
+	onNavigate: (path: string) => void;
 	isRunning: boolean;
 	onToggleRunning: () => void;
 };
 
 export function WorkspaceSidebar({
 	activeNav,
+	activePath,
 	onNavChange,
+	onNavigate,
 	isRunning,
 	onToggleRunning,
 }: WorkspaceSidebarProps) {
@@ -41,13 +49,13 @@ export function WorkspaceSidebar({
 		<>
 			<SidebarHeader className={cn('p-3 pb-2', collapsed && 'px-0 pt-2 pb-1')}>
 				{collapsed ? (
-					<div className="mx-auto grid size-11 shrink-0 place-items-center rounded-2xl border border-sidebar-border/65 bg-sidebar-accent/55">
+					<div className="mx-auto grid size-11 shrink-0 place-items-center rounded-2xl border border-sidebar-border/40 bg-sidebar-accent/30 shadow-sm transition-all duration-300">
 						<div className="grid size-8 shrink-0 place-items-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
 							<Cpu className="size-3.5" />
 						</div>
 					</div>
 				) : (
-					<div className="flex items-center gap-3 rounded-2xl border border-sidebar-border/65 bg-sidebar-accent/55 p-2.5">
+					<div className="flex items-center gap-3 rounded-2xl border border-sidebar-border/40 bg-sidebar-accent/30 p-2.5 shadow-sm transition-all duration-300">
 						<div className="grid size-9 place-items-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
 							<Cpu className="size-4" />
 						</div>
@@ -69,6 +77,7 @@ export function WorkspaceSidebar({
 							{WORKSPACE_NAV_ITEMS.map((item) => {
 								const active = item.id === activeNav;
 								const ItemIcon = item.icon;
+								const isProfilesItem = item.id === 'profiles';
 								return (
 									<SidebarMenuItem key={item.id}>
 										<SidebarMenuButton
@@ -79,11 +88,11 @@ export function WorkspaceSidebar({
 											onClick={() => onNavChange(item.id)}
 											tooltip={item.label}
 											className={cn(
-												'h-10 rounded-xl px-2.5',
+												'h-10 rounded-xl px-2.5 transition-all duration-300 active:scale-95',
 												collapsed && 'h-8 justify-center px-0',
 												active
-													? 'border-primary/35 bg-primary/12 shadow-sm'
-													: 'border border-transparent hover:bg-sidebar-accent/80',
+													? 'border-primary/30 bg-primary/10 shadow-sm'
+													: 'border border-transparent hover:bg-sidebar-accent/50 hover:shadow-sm hover:scale-[1.02]',
 											)}
 										>
 											<span
@@ -103,6 +112,21 @@ export function WorkspaceSidebar({
 											</span>
 											{collapsed ? null : <span>{item.label}</span>}
 										</SidebarMenuButton>
+										{isProfilesItem && !collapsed && (
+											<SidebarMenuSub>
+												<SidebarMenuSubItem>
+													<SidebarMenuSubButton
+														type="button"
+														isActive={activePath === PROFILES_DEVICE_PRESETS_PATH}
+														onClick={() => onNavigate(PROFILES_DEVICE_PRESETS_PATH)}
+														className="cursor-pointer"
+													>
+														<Smartphone className="size-3.5" />
+														机型映射
+													</SidebarMenuSubButton>
+												</SidebarMenuSubItem>
+											</SidebarMenuSub>
+										)}
 									</SidebarMenuItem>
 								);
 							})}
@@ -126,7 +150,7 @@ export function WorkspaceSidebar({
 						</Button>
 					</div>
 				) : (
-					<Card className="border-sidebar-border/60 bg-sidebar-accent/45">
+					<Card className="border-sidebar-border/40 bg-sidebar-accent/30 shadow-sm transition-all duration-300">
 						<CardHeader className="p-3 pb-1.5">
 							<p className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/65">运行状态</p>
 						</CardHeader>
