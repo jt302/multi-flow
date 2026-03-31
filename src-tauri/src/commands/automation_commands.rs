@@ -11,7 +11,7 @@ use crate::models::{
     AiOutputKeyMapping, AutomationHumanDismissedEvent, AutomationHumanRequiredEvent,
     AutomationProgressEvent, AutomationRun, AutomationRunCancelledEvent, AutomationScript,
     AutomationVariablesUpdatedEvent, CreateAutomationScriptRequest, LoopMode, ScriptStep,
-    StepResult, WaitForUserTimeout,
+    SelectorType, StepResult, WaitForUserTimeout,
 };
 use crate::services::ai_service::{
     build_agent_tools, build_vision_content, extract_json_path,
@@ -26,16 +26,75 @@ fn error_to_string(err: crate::error::AppError) -> String {
     err.to_string()
 }
 
-/// 通过 CSS 选择器查找 DOM 元素，返回 nodeId
-async fn find_element_by_selector(cdp: &CdpClient, selector: &str) -> Result<i64, String> {
+/// CSS 选择器查找元素
+async fn find_element_by_css(cdp: &CdpClient, selector: &str) -> Result<i64, String> {
     let doc = cdp.call("DOM.getDocument", json!({ "depth": 0 })).await?;
     let root_id = doc.get("root").and_then(|r| r.get("nodeId")).and_then(|v| v.as_i64())
         .ok_or_else(|| "DOM.getDocument: no root nodeId".to_string())?;
     let qs = cdp.call("DOM.querySelector", json!({ "nodeId": root_id, "selector": selector })).await?;
     let node_id = qs.get("nodeId").and_then(|v| v.as_i64())
-        .ok_or_else(|| format!("element not found: {selector}"))?;
-    if node_id == 0 { return Err(format!("element not found: {selector}")); }
+        .ok_or_else(|| format!("element not found (css): {selector}"))?;
+    if node_id == 0 { return Err(format!("element not found (css): {selector}")); }
     Ok(node_id)
+}
+
+/// XPath 查找元素
+async fn find_element_by_xpath(cdp: &CdpClient, xpath: &str) -> Result<i64, String> {
+    let search = cdp.call("DOM.performSearch", json!({ "query": xpath })).await?;
+    let search_id = search.get("searchId").and_then(|v| v.as_str())
+        .ok_or_else(|| "DOM.performSearch: no searchId".to_string())?
+        .to_string();
+    let count = search.get("resultCount").and_then(|v| v.as_i64()).unwrap_or(0);
+    if count == 0 {
+        let _ = cdp.call("DOM.discardSearchResults", json!({ "searchId": &search_id })).await;
+        return Err(format!("element not found (xpath): {xpath}"));
+    }
+    let results = cdp.call("DOM.getSearchResults", json!({
+        "searchId": &search_id, "fromIndex": 0, "toIndex": 1
+    })).await?;
+    let _ = cdp.call("DOM.discardSearchResults", json!({ "searchId": &search_id })).await;
+    let node_id = results.get("nodeIds")
+        .and_then(|v| v.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|v| v.as_i64())
+        .ok_or_else(|| format!("element not found (xpath): {xpath}"))?;
+    if node_id == 0 { return Err(format!("element not found (xpath): {xpath}")); }
+    Ok(node_id)
+}
+
+/// 文本内容匹配查找元素
+async fn find_element_by_text(cdp: &CdpClient, text: &str) -> Result<i64, String> {
+    let escaped = text.replace('\'', "\\'");
+    let xpath = format!("//*[contains(text(), '{escaped}')]");
+    find_element_by_xpath(cdp, &xpath).await
+        .map_err(|_| format!("element not found (text): {text}"))
+}
+
+/// 根据 SelectorType 分派到对应的查找函数
+async fn find_element(cdp: &CdpClient, selector: &str, selector_type: &SelectorType) -> Result<i64, String> {
+    match selector_type {
+        SelectorType::Css => find_element_by_css(cdp, selector).await,
+        SelectorType::Xpath => find_element_by_xpath(cdp, selector).await,
+        SelectorType::Text => find_element_by_text(cdp, selector).await,
+    }
+}
+
+/// 生成在页面 JS 上下文中查找元素的表达式
+fn js_find_element_expr(selector: &str, selector_type: &SelectorType) -> String {
+    match selector_type {
+        SelectorType::Css => format!("document.querySelector({})", serde_json::to_string(selector).unwrap_or_default()),
+        SelectorType::Xpath => format!(
+            "document.evaluate({}, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue",
+            serde_json::to_string(selector).unwrap_or_default()
+        ),
+        SelectorType::Text => {
+            let text_json = serde_json::to_string(selector).unwrap_or_default();
+            format!(
+                "(function(){{ var x = document.evaluate('//*[contains(text(),' + {} + ')]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null); return x.singleNodeValue; }})()",
+                text_json
+            )
+        }
+    }
 }
 
 /// 读取 AI Provider 配置，并应用步骤级 model_override
@@ -133,8 +192,14 @@ pub async fn run_automation_script(
         match handle_result {
             Some(ports) => ports,
             None => {
+                logger::info("automation", format!(
+                    "auto-starting profile profile_id={}", resolved_profile_id
+                ));
                 do_open_profile(&state, Some(&app), None, &resolved_profile_id, None)
                     .map_err(|e| format!("自动启动环境失败: {e}"))?;
+                logger::info("automation", format!(
+                    "profile auto-started profile_id={}", resolved_profile_id
+                ));
                 let em = state.lock_engine_manager();
                 em.get_runtime_handle(&resolved_profile_id)
                     .map(|h| (h.debug_port, h.magic_port))
@@ -147,6 +212,10 @@ pub async fn run_automation_script(
         svc.create_run(&script_id, &resolved_profile_id, &steps_json)
             .map_err(error_to_string)?
     };
+    logger::info("automation", format!(
+        "script started script_id={} profile_id={} run_id={} steps={}",
+        script_id, resolved_profile_id, run_id, steps.len()
+    ));
     tauri::async_runtime::spawn(execute_script(
         app,
         run_id.clone(),
@@ -210,8 +279,14 @@ pub async fn run_automation_script_debug(
         match handle_result {
             Some(ports) => ports,
             None => {
+                logger::info("automation", format!(
+                    "auto-starting profile profile_id={}", resolved_profile_id
+                ));
                 do_open_profile(&state, Some(&app), None, &resolved_profile_id, None)
                     .map_err(|e| format!("自动启动环境失败: {e}"))?;
+                logger::info("automation", format!(
+                    "profile auto-started profile_id={}", resolved_profile_id
+                ));
                 let em = state.lock_engine_manager();
                 em.get_runtime_handle(&resolved_profile_id)
                     .map(|h| (h.debug_port, h.magic_port))
@@ -224,6 +299,10 @@ pub async fn run_automation_script_debug(
         svc.create_run(&script_id, &resolved_profile_id, &steps_json)
             .map_err(error_to_string)?
     };
+    logger::info("automation", format!(
+        "script started (debug) script_id={} profile_id={} run_id={} steps={}",
+        script_id, resolved_profile_id, run_id, debug_steps.len()
+    ));
     tauri::async_runtime::spawn(execute_script(
         app,
         run_id.clone(),
@@ -262,7 +341,8 @@ pub async fn cancel_automation_run(
     if let Ok(mut channels) = state.active_run_channels.lock() {
         if let Some(tx) = channels.remove(&run_id) { let _ = tx.send(None); }
     }
-    let _ = app.emit("automation_run_cancelled", AutomationRunCancelledEvent { run_id });
+    let _ = app.emit("automation_run_cancelled", AutomationRunCancelledEvent { run_id: run_id.clone() });
+    logger::info("automation", format!("run={} cancel requested", run_id));
     Ok(())
 }
 
@@ -377,6 +457,17 @@ async fn execute_script(
     };
     let vars_json = serde_json::to_string(&vars.snapshot()).ok();
     persist_run_progress(&app, &run_id, &results, final_status, error_msg.as_deref(), vars_json.as_deref());
+    match final_status {
+        "success" => logger::info("automation", format!(
+            "run={} completed status=success", run_id
+        )),
+        "cancelled" => logger::info("automation", format!(
+            "run={} completed status=cancelled", run_id
+        )),
+        _ => logger::warn("automation", format!(
+            "run={} completed status=failed error={}", run_id, error_msg.as_deref().unwrap_or("unknown")
+        )),
+    }
     emit_progress(&app, &run_id, step_total.saturating_sub(1), step_total, final_status, None, 0, final_status, HashMap::new(), vec![]);
 }
 
@@ -409,6 +500,13 @@ fn execute_steps<'a>(
                 HashMap::new(), step_path.clone());
 
             let start = Instant::now();
+            let kind_str = serde_json::to_value(&step)
+                .ok()
+                .and_then(|v| v.get("kind").and_then(|k| k.as_str().map(String::from)))
+                .unwrap_or_else(|| "unknown".to_string());
+            logger::info("automation", format!(
+                "run={} step={} kind={} started", run_id, top_index, kind_str
+            ));
 
             match &step {
                 ScriptStep::Break => return FlowSignal::Break,
@@ -488,6 +586,9 @@ fn execute_steps<'a>(
                 script_ai_config,
             )
             .await;
+            if let Err(e) = &result {
+                logger::warn("automation", format!("run={} step={} failed: {}", run_id, top_index, e));
+            }
             let dur = start.elapsed().as_millis() as u64;
 
             if is_cancelled(app, run_id) {
@@ -506,6 +607,9 @@ fn execute_steps<'a>(
                         vars_set: vars_set.clone(),
                     });
                     emit_progress(app, run_id, top_index, step_total, "success", output, dur, "running", vars_set, step_path);
+                    logger::info("automation", format!(
+                        "run={} step={} succeeded duration_ms={}", run_id, top_index, dur
+                    ));
                     if path_prefix.is_empty() {
                         persist_run_progress(app, run_id, results, "running", None, None);
                     }
@@ -565,16 +669,10 @@ async fn execute_step(
             if let (Some(k), Some(v)) = (result_key, &value) { vs.insert(k.clone(), v.clone()); }
             Ok((value, vs))
         }
-        ScriptStep::Click { selector } => {
+        ScriptStep::Click { selector, selector_type } => {
             let selector = vars.interpolate(selector);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let doc = cdp.call("DOM.getDocument", json!({ "depth": 0 })).await?;
-            let root_id = doc.get("root").and_then(|r| r.get("nodeId")).and_then(|v| v.as_i64())
-                .ok_or_else(|| "DOM.getDocument: no root nodeId".to_string())?;
-            let qs = cdp.call("DOM.querySelector", json!({ "nodeId": root_id, "selector": selector })).await?;
-            let node_id = qs.get("nodeId").and_then(|v| v.as_i64())
-                .ok_or_else(|| format!("element not found: {selector}"))?;
-            if node_id == 0 { return Err(format!("element not found: {selector}")); }
+            let node_id = find_element(cdp, &selector, selector_type).await?;
             let bm = cdp.call("DOM.getBoxModel", json!({ "nodeId": node_id })).await?;
             let content = bm.get("model").and_then(|m| m.get("content")).and_then(|c| c.as_array())
                 .ok_or_else(|| "getBoxModel: no content".to_string())?;
@@ -586,7 +684,7 @@ async fn execute_step(
             }
             Ok((None, HashMap::new()))
         }
-        ScriptStep::Type { selector: _, text } => {
+        ScriptStep::Type { selector: _, text, selector_type: _ } => {
             let text = vars.interpolate(text);
             let port = get_magic_port()?;
             http_client.post(format!("http://127.0.0.1:{port}/"))
@@ -800,10 +898,10 @@ async fn execute_step(
             if let (Some(k), Some(v)) = (output_key, &value) { vs.insert(k.clone(), v.clone()); }
             Ok((value, vs))
         }
-        ScriptStep::CdpClick { selector } => {
+        ScriptStep::CdpClick { selector, selector_type } => {
             let selector = vars.interpolate(selector);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let node_id = find_element_by_selector(cdp, &selector).await?;
+            let node_id = find_element(cdp, &selector, selector_type).await?;
             let bm = cdp.call("DOM.getBoxModel", json!({ "nodeId": node_id })).await?;
             let content = bm.get("model").and_then(|m| m.get("content")).and_then(|c| c.as_array())
                 .ok_or_else(|| "getBoxModel: no content".to_string())?;
@@ -815,11 +913,11 @@ async fn execute_step(
             }
             Ok((None, HashMap::new()))
         }
-        ScriptStep::CdpType { selector, text } => {
+        ScriptStep::CdpType { selector, text, selector_type } => {
             let selector = vars.interpolate(selector);
             let text = vars.interpolate(text);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let node_id = find_element_by_selector(cdp, &selector).await?;
+            let node_id = find_element(cdp, &selector, selector_type).await?;
             cdp.call("DOM.focus", json!({ "nodeId": node_id })).await?;
             for ch in text.chars() {
                 cdp.call("Input.dispatchKeyEvent",
@@ -827,11 +925,11 @@ async fn execute_step(
             }
             Ok((None, HashMap::new()))
         }
-        ScriptStep::CdpScrollTo { selector, x, y } => {
+        ScriptStep::CdpScrollTo { selector, selector_type, x, y } => {
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
             if let Some(sel) = selector {
                 let sel = vars.interpolate(sel);
-                let node_id = find_element_by_selector(cdp, &sel).await?;
+                let node_id = find_element(cdp, &sel, selector_type).await?;
                 cdp.call("DOM.scrollIntoViewIfNeeded", json!({ "nodeId": node_id })).await?;
             } else {
                 let sx = x.unwrap_or(0);
@@ -841,17 +939,13 @@ async fn execute_step(
             }
             Ok((None, HashMap::new()))
         }
-        ScriptStep::CdpWaitForSelector { selector, timeout_ms } => {
+        ScriptStep::CdpWaitForSelector { selector, selector_type, timeout_ms } => {
             let selector = vars.interpolate(selector);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
             let timeout = timeout_ms.unwrap_or(10_000);
             let deadline = Instant::now() + Duration::from_millis(timeout);
             loop {
-                let doc = cdp.call("DOM.getDocument", json!({ "depth": 0 })).await?;
-                let root_id = doc.get("root").and_then(|r| r.get("nodeId")).and_then(|v| v.as_i64()).unwrap_or(1);
-                let qs = cdp.call("DOM.querySelector", json!({ "nodeId": root_id, "selector": selector })).await?;
-                let node_id = qs.get("nodeId").and_then(|v| v.as_i64()).unwrap_or(0);
-                if node_id != 0 { break; }
+                if find_element(cdp, &selector, selector_type).await.is_ok() { break; }
                 if Instant::now() >= deadline {
                     return Err(format!("WaitForSelector timeout: {selector}"));
                 }
@@ -859,10 +953,10 @@ async fn execute_step(
             }
             Ok((None, HashMap::new()))
         }
-        ScriptStep::CdpGetText { selector, output_key } => {
+        ScriptStep::CdpGetText { selector, selector_type, output_key } => {
             let selector = vars.interpolate(selector);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let node_id = find_element_by_selector(cdp, &selector).await?;
+            let node_id = find_element(cdp, &selector, selector_type).await?;
             let result = cdp.call("DOM.getOuterHTML", json!({ "nodeId": node_id })).await?;
             let html = result.get("outerHTML").and_then(|v| v.as_str()).unwrap_or("").to_string();
             // 简单剥离标签
@@ -874,11 +968,11 @@ async fn execute_step(
             if let Some(k) = output_key { vs.insert(k.clone(), text.clone()); }
             Ok((Some(text), vs))
         }
-        ScriptStep::CdpGetAttribute { selector, attribute, output_key } => {
+        ScriptStep::CdpGetAttribute { selector, selector_type, attribute, output_key } => {
             let selector = vars.interpolate(selector);
             let attribute = vars.interpolate(attribute);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let node_id = find_element_by_selector(cdp, &selector).await?;
+            let node_id = find_element(cdp, &selector, selector_type).await?;
             let result = cdp.call("DOM.getAttributes", json!({ "nodeId": node_id })).await?;
             let attrs = result.get("attributes").and_then(|a| a.as_array()).cloned().unwrap_or_default();
             let value = attrs.chunks(2)
@@ -890,21 +984,22 @@ async fn execute_step(
             if let Some(k) = output_key { vs.insert(k.clone(), value_str.clone()); }
             Ok((Some(value_str), vs))
         }
-        ScriptStep::CdpSetInputValue { selector, value } => {
+        ScriptStep::CdpSetInputValue { selector, selector_type, value } => {
             let selector = vars.interpolate(selector);
             let value = vars.interpolate(value);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let find_expr = js_find_element_expr(&selector, selector_type);
             // 通过 JS 设置 value 并触发 input/change 事件
             let expr = format!(
                 r#"(function(){{
-                    const el = document.querySelector({sel_json});
+                    const el = {find_expr};
                     if (!el) throw new Error('element not found: {sel_esc}');
                     const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
                     nativeInputValueSetter.call(el, {val_json});
                     el.dispatchEvent(new Event('input',{{bubbles:true}}));
                     el.dispatchEvent(new Event('change',{{bubbles:true}}));
                 }})();"#,
-                sel_json = serde_json::to_string(&selector).unwrap_or_default(),
+                find_expr = find_expr,
                 sel_esc = selector.replace('"', "\\\""),
                 val_json = serde_json::to_string(&value).unwrap_or_default(),
             );
