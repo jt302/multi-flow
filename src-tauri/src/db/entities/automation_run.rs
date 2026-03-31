@@ -15,6 +15,8 @@ pub struct Model {
     pub error: Option<String>,
     pub variables_json: Option<String>,
     pub cancelled_at: Option<i64>,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub logs_json: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

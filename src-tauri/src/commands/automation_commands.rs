@@ -153,16 +153,33 @@ async fn click_element(cdp: &CdpClient, selector: &str, selector_type: &Selector
 }
 
 /// 读取 AI Provider 配置，并应用步骤级 model_override
+/// 优先级：model_override > script_ai_config/ai_config_id > 全局默认
 fn load_ai_config(
     app: &AppHandle,
     script_ai_config: Option<&AiProviderConfig>,
+    ai_config_id: Option<&String>,
     model_override: Option<&String>,
 ) -> AiProviderConfig {
     let app_state = app.state::<AppState>();
-    let mut config = {
-        let svc = app_state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+    let svc = app_state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+
+    // Try resolving by ai_config_id first (multi-model)
+    let mut config = if let Some(cfg_id) = ai_config_id {
+        if let Ok(Some(entry)) = svc.find_ai_config_by_id(cfg_id) {
+            AiProviderConfig {
+                provider: entry.provider,
+                base_url: entry.base_url,
+                api_key: entry.api_key,
+                model: entry.model,
+            }
+        } else {
+            svc.read_ai_provider_config().unwrap_or_default()
+        }
+    } else {
         svc.read_ai_provider_config().unwrap_or_default()
     };
+
+    // Legacy script-level inline config override
     if let Some(script_cfg) = script_ai_config {
         if script_cfg.provider.is_some() { config.provider = script_cfg.provider.clone(); }
         if script_cfg.base_url.is_some() { config.base_url = script_cfg.base_url.clone(); }
@@ -171,6 +188,28 @@ fn load_ai_config(
     }
     if let Some(m) = model_override { config.model = Some(m.clone()); }
     config
+}
+
+/// 在脚本执行前，将 ai_config_id 解析为 AiProviderConfig
+/// 如果有 ai_config_id 且能找到对应配置，则返回该配置；否则回退到 legacy inline ai_config
+fn resolve_script_ai_config(
+    app: &AppHandle,
+    ai_config_id: Option<&String>,
+    legacy_config: Option<AiProviderConfig>,
+) -> Option<AiProviderConfig> {
+    if let Some(cfg_id) = ai_config_id {
+        let app_state = app.state::<AppState>();
+        let svc = app_state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+        if let Ok(Some(entry)) = svc.find_ai_config_by_id(cfg_id) {
+            return Some(AiProviderConfig {
+                provider: entry.provider,
+                base_url: entry.base_url,
+                api_key: entry.api_key,
+                model: entry.model,
+            });
+        }
+    }
+    legacy_config
 }
 
 // ─── Tauri 命令 ───────────────────────────────────────────────────────────────
@@ -222,6 +261,7 @@ pub async fn run_automation_script(
     script_id: String,
     profile_id: Option<String>,
     initial_vars: Option<HashMap<String, String>>,
+    delay_config: Option<crate::models::RunDelayConfig>,
 ) -> Result<String, String> {
     let (steps, steps_json, script_ai_config, associated_profile_ids, step_delay_ms) = {
         let svc = state.lock_automation_service();
@@ -233,10 +273,11 @@ pub async fn run_automation_script(
             .as_ref()
             .and_then(|s| s.step_delay_ms)
             .unwrap_or(0);
+        let ai_config = resolve_script_ai_config(&app, script.ai_config_id.as_ref(), script.ai_config);
         (
             script.steps,
             steps_json,
-            script.ai_config,
+            ai_config,
             script.associated_profile_ids,
             step_delay_ms,
         )
@@ -287,6 +328,7 @@ pub async fn run_automation_script(
         initial_vars.unwrap_or_default(),
         script_ai_config,
         step_delay_ms,
+        delay_config,
     ));
     Ok(run_id)
 }
@@ -310,10 +352,11 @@ pub async fn run_automation_script_debug(
             .as_ref()
             .and_then(|s| s.step_delay_ms)
             .unwrap_or(0);
+        let ai_config = resolve_script_ai_config(&app, script.ai_config_id.as_ref(), script.ai_config);
         (
             script.steps,
             steps_json,
-            script.ai_config,
+            ai_config,
             script.associated_profile_ids,
             step_delay_ms,
         )
@@ -381,6 +424,7 @@ pub async fn run_automation_script_debug(
         initial_vars.unwrap_or_default(),
         script_ai_config,
         step_delay_ms,
+        None,
     ));
     Ok(run_id)
 }
@@ -433,6 +477,62 @@ pub fn update_ai_provider_config(
 ) -> Result<(), String> {
     let svc = state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
     svc.save_ai_provider_config(config).map_err(|e| e.to_string())
+}
+
+// ── Multi-model AI config commands ────────────────────────────────────────────
+
+#[tauri::command]
+pub fn list_ai_configs(
+    state: State<'_, AppState>,
+) -> Result<Vec<crate::services::app_preference_service::AiConfigEntry>, String> {
+    let svc = state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+    svc.list_ai_configs().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_ai_config(
+    state: State<'_, AppState>,
+    entry: crate::services::app_preference_service::AiConfigEntry,
+) -> Result<crate::services::app_preference_service::AiConfigEntry, String> {
+    let svc = state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+    svc.create_ai_config(entry).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_ai_config(
+    state: State<'_, AppState>,
+    entry: crate::services::app_preference_service::AiConfigEntry,
+) -> Result<(), String> {
+    let svc = state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+    svc.update_ai_config(entry).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_ai_config(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
+    let svc = state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+    svc.delete_ai_config(&id).map_err(|e| e.to_string())
+}
+
+// ── Chromium logging toggle ───────────────────────────────────────────────
+
+#[tauri::command]
+pub fn read_chromium_logging_enabled(
+    state: State<'_, AppState>,
+) -> Result<bool, String> {
+    let svc = state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+    svc.read_chromium_logging_enabled().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_chromium_logging_enabled(
+    state: State<'_, AppState>,
+    enabled: bool,
+) -> Result<(), String> {
+    let svc = state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+    svc.save_chromium_logging_enabled(enabled).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -503,11 +603,19 @@ async fn execute_script(
     initial_vars: HashMap<String, String>,
     script_ai_config: Option<AiProviderConfig>,
     step_delay_ms: u16,
+    delay_config: Option<crate::models::RunDelayConfig>,
 ) {
     let step_total = steps.len();
     let cdp = debug_port.map(CdpClient::new);
     let http_client = reqwest::Client::new();
     let mut results: Vec<StepResult> = Vec::with_capacity(step_total);
+    let mut logs: Vec<crate::models::RunLogEntry> = Vec::new();
+    logs.push(log_entry(
+        "info",
+        "flow",
+        format!("脚本开始执行，共 {} 个步骤", step_total),
+        None,
+    ));
     let mut vars = RunVariables::new();
     for (k, v) in initial_vars { vars.set(&k, v); }
 
@@ -524,6 +632,8 @@ async fn execute_script(
         &mut vars,
         script_ai_config.as_ref(),
         step_delay_ms,
+        delay_config.as_ref(),
+        &mut logs,
     )
     .await;
 
@@ -545,8 +655,23 @@ async fn execute_script(
         }
         _ => None,
     };
+    logs.push(log_entry(
+        "info",
+        "flow",
+        format!("脚本执行完成，状态: {}", final_status),
+        None,
+    ));
     let vars_json = serde_json::to_string(&vars.snapshot()).ok();
-    persist_run_progress(&app, &run_id, &results, final_status, error_msg.as_deref(), vars_json.as_deref());
+    let logs_json_str = serde_json::to_string(&logs).ok();
+    persist_run_progress(
+        &app,
+        &run_id,
+        &results,
+        final_status,
+        error_msg.as_deref(),
+        vars_json.as_deref(),
+        logs_json_str.as_deref(),
+    );
     match final_status {
         "success" => logger::info("automation", format!(
             "run={} completed status=success", run_id
@@ -576,6 +701,8 @@ fn execute_steps<'a>(
     vars: &'a mut RunVariables,
     script_ai_config: Option<&'a AiProviderConfig>,
     step_delay_ms: u16,
+    delay_config: Option<&'a crate::models::RunDelayConfig>,
+    logs: &'a mut Vec<crate::models::RunLogEntry>,
 ) -> BoxFuture<'a, FlowSignal> {
     Box::pin(async move {
         for (index, step) in steps.into_iter().enumerate() {
@@ -598,6 +725,12 @@ fn execute_steps<'a>(
             logger::info("automation", format!(
                 "run={} step={} kind={} started", run_id, top_index, kind_str
             ));
+            logs.push(log_entry(
+                "info",
+                "step",
+                format!("步骤 {} [{}] 开始执行", top_index, kind_str),
+                None,
+            ));
 
             match &step {
                 ScriptStep::Break => return FlowSignal::Break,
@@ -606,9 +739,15 @@ fn execute_steps<'a>(
                 ScriptStep::Condition { condition_expr, then_steps, else_steps } => {
                     let expr = vars.interpolate(condition_expr);
                     let is_true = vars.eval_condition(&expr);
+                    logs.push(log_entry(
+                        "info",
+                        "flow",
+                        format!("条件判断: expr={}, result={}", expr, is_true),
+                        None,
+                    ));
                     let branch = if is_true { then_steps.clone() } else { else_steps.clone() };
                     let signal = execute_steps(branch, step_path.clone(), step_total, cdp,
-                        http_client, magic_port, app, run_id, results, vars, script_ai_config, step_delay_ms).await;
+                        http_client, magic_port, app, run_id, results, vars, script_ai_config, step_delay_ms, delay_config, logs).await;
                     match signal {
                         FlowSignal::Normal | FlowSignal::Continue => {}
                         FlowSignal::Break | FlowSignal::Error(_) => return signal,
@@ -629,6 +768,12 @@ fn execute_steps<'a>(
                 ScriptStep::Loop { mode, count, condition_expr, max_iterations, iter_var, body_steps } => {
                     let max = max_iterations.unwrap_or(u64::MAX);
                     let mut iteration: u64 = 0;
+                    logs.push(log_entry(
+                        "info",
+                        "flow",
+                        format!("循环步骤 {} 开始", top_index),
+                        None,
+                    ));
                     loop {
                         if iteration >= max { break; }
                         let should_run = match mode {
@@ -644,7 +789,7 @@ fn execute_steps<'a>(
                         let mut iter_path = step_path.clone();
                         iter_path.push(iteration as usize);
                         let signal = execute_steps(body_steps.clone(), iter_path, step_total, cdp,
-                            http_client, magic_port, app, run_id, results, vars, script_ai_config, step_delay_ms).await;
+                            http_client, magic_port, app, run_id, results, vars, script_ai_config, step_delay_ms, delay_config, logs).await;
                         match signal {
                             FlowSignal::Break => break,
                             FlowSignal::Error(e) => return FlowSignal::Error(e),
@@ -652,6 +797,12 @@ fn execute_steps<'a>(
                         }
                         iteration += 1;
                     }
+                    logs.push(log_entry(
+                        "info",
+                        "flow",
+                        format!("循环步骤 {} 结束，迭代 {} 次", top_index, iteration),
+                        None,
+                    ));
                     let dur = start.elapsed().as_millis() as u64;
                     let loop_output = Some(format!("iterations={iteration}"));
                     results.push(StepResult {
@@ -679,6 +830,7 @@ fn execute_steps<'a>(
                 run_id,
                 top_index,
                 script_ai_config,
+                logs,
             )
             .await;
             if let Err(e) = &result {
@@ -701,18 +853,51 @@ fn execute_steps<'a>(
                         duration_ms: dur,
                         vars_set: vars_set.clone(),
                     });
+                    logs.push(log_entry(
+                        "info",
+                        "step",
+                        format!("步骤 {} 成功 ({}ms)", top_index, dur),
+                        Some(json!({
+                            "output": output.clone(),
+                            "varsSet": vars_set.clone(),
+                        })),
+                    ));
                     emit_progress(app, run_id, top_index, step_total, "success", output, dur, "running", vars_set, step_path);
                     logger::info("automation", format!(
                         "run={} step={} succeeded duration_ms={}", run_id, top_index, dur
                     ));
                     if path_prefix.is_empty() {
-                        persist_run_progress(app, run_id, results, "running", None, None);
+                        let logs_snapshot = serde_json::to_string(&*logs).ok();
+                        persist_run_progress(
+                            app,
+                            run_id,
+                            results,
+                            "running",
+                            None,
+                            None,
+                            logs_snapshot.as_deref(),
+                        );
                     }
                     if step_delay_ms > 0 {
                         tokio::time::sleep(Duration::from_millis(step_delay_ms as u64)).await;
                     }
+                    if let Some(dc) = delay_config {
+                        if dc.enabled && dc.max_seconds > 0.0 {
+                            use rand::Rng;
+                            let min = dc.min_seconds.max(0.0);
+                            let max = dc.max_seconds.max(min);
+                            let delay_secs = rand::thread_rng().gen_range(min..=max);
+                            tokio::time::sleep(Duration::from_secs_f64(delay_secs)).await;
+                        }
+                    }
                 }
                 Err(err) => {
+                    logs.push(log_entry(
+                        "error",
+                        "step",
+                        format!("步骤 {} 失败: {}", top_index, err),
+                        Some(json!({ "error": err.clone() })),
+                    ));
                     results.push(StepResult {
                         index: top_index,
                         status: "failed".to_string(),
@@ -721,7 +906,8 @@ fn execute_steps<'a>(
                         vars_set: HashMap::new(),
                     });
                     emit_progress(app, run_id, top_index, step_total, "failed", Some(err.clone()), dur, "running", HashMap::new(), step_path);
-                    persist_run_progress(app, run_id, results, "running", None, None);
+                    let logs_snapshot = serde_json::to_string(&*logs).ok();
+                    persist_run_progress(app, run_id, results, "running", None, None, logs_snapshot.as_deref());
 
                     // 暂停询问用户是否继续
                     let (tx, rx) = tokio::sync::oneshot::channel::<Option<String>>();
@@ -764,6 +950,7 @@ async fn execute_step(
     run_id: &str,
     step_index: usize,
     script_ai_config: Option<&AiProviderConfig>,
+    logs: &mut Vec<crate::models::RunLogEntry>,
 ) -> Result<(Option<String>, HashMap<String, String>), String> {
     let get_magic_port = || magic_port.ok_or_else(|| "Magic Controller not available (profile not running)".to_string());
     match step {
@@ -886,10 +1073,25 @@ async fn execute_step(
         ScriptStep::AiPrompt { prompt, image_var, model_override, output_key } => {
             let prompt = vars.interpolate(prompt);
             let image_b64 = image_var.as_ref().and_then(|k| vars.get(k));
-            let config = load_ai_config(app, script_ai_config, model_override.as_ref());
+            let config = load_ai_config(app, script_ai_config, None, model_override.as_ref());
             let content = build_vision_content(&prompt, image_b64.as_deref());
             let ai = AiService::new(http_client.clone());
+            logs.push(log_entry(
+                "info",
+                "ai",
+                "AI Prompt 请求".to_string(),
+                Some(json!({
+                    "prompt": &prompt,
+                    "model": config.model.clone(),
+                })),
+            ));
             let reply = ai.chat(&config, vec![ChatMessage::with_content("user", content)], None).await?;
+            logs.push(log_entry(
+                "info",
+                "ai",
+                "AI Prompt 响应".to_string(),
+                Some(json!({ "reply": &reply })),
+            ));
             let mut vs = HashMap::new();
             if let Some(k) = output_key { vs.insert(k.clone(), reply.clone()); }
             Ok((Some(reply), vs))
@@ -897,10 +1099,20 @@ async fn execute_step(
         ScriptStep::AiExtract { prompt, image_var, output_key_map, model_override } => {
             let prompt = vars.interpolate(prompt);
             let image_b64 = image_var.as_ref().and_then(|k| vars.get(k));
-            let config = load_ai_config(app, script_ai_config, model_override.as_ref());
+            let config = load_ai_config(app, script_ai_config, None, model_override.as_ref());
             let content = build_vision_content(&prompt, image_b64.as_deref());
             let response_format = serde_json::json!({ "type": "json_object" });
             let ai = AiService::new(http_client.clone());
+            logs.push(log_entry(
+                "info",
+                "ai",
+                "AI Extract 请求".to_string(),
+                Some(json!({
+                    "prompt": &prompt,
+                    "model": config.model.clone(),
+                    "responseFormat": "json_object",
+                })),
+            ));
             let reply = ai.chat(&config, vec![ChatMessage::with_content("user", content)], Some(response_format)).await?;
             let mut vs = HashMap::new();
             if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&reply) {
@@ -910,12 +1122,21 @@ async fn execute_step(
                     }
                 }
             }
+            logs.push(log_entry(
+                "info",
+                "ai",
+                "AI Extract 响应".to_string(),
+                Some(json!({
+                    "reply": &reply,
+                    "varsSet": &vs,
+                })),
+            ));
             Ok((Some(reply), vs))
         }
         ScriptStep::AiAgent { system_prompt, initial_message, max_steps, output_key } => {
             let system_prompt = vars.interpolate(system_prompt);
             let initial_message = vars.interpolate(initial_message);
-            let config = load_ai_config(app, script_ai_config, None);
+            let config = load_ai_config(app, script_ai_config, None, None);
             let tools = build_agent_tools();
             let ai = AiService::new(http_client.clone());
 
@@ -927,13 +1148,33 @@ async fn execute_step(
             let mut final_text = String::new();
             let mut agent_vars: HashMap<String, String> = HashMap::new();
 
-            for _round in 0..*max_steps {
+            for round in 0..*max_steps {
+                logs.push(log_entry(
+                    "debug",
+                    "ai",
+                    format!("AI Agent 第 {} 轮请求", round + 1),
+                    Some(json!({ "messagesCount": messages.len() })),
+                ));
                 match ai.chat_with_tools(&config, &messages, &tools).await? {
                     AiChatResult::Text(text) => {
+                        logs.push(log_entry(
+                            "info",
+                            "ai",
+                            "AI Agent 返回最终文本".to_string(),
+                            Some(json!({ "text": &text })),
+                        ));
                         final_text = text;
                         break;
                     }
                     AiChatResult::ToolCalls(calls) => {
+                        logs.push(log_entry(
+                            "info",
+                            "ai",
+                            format!("AI Agent 返回 {} 个工具调用", calls.len()),
+                            Some(json!({
+                                "tools": calls.iter().map(|c| c.name.clone()).collect::<Vec<_>>(),
+                            })),
+                        ));
                         // 构建带 tool_calls 字段的 assistant 消息追加到历史
                         let raw_tool_calls: Vec<serde_json::Value> =
                             calls.iter().map(|c| c.raw.clone()).collect();
@@ -963,7 +1204,7 @@ async fn execute_step(
                                     };
                                     match Box::pin(execute_step(
                                         cdp, http_client, magic_port, &inner_step,
-                                        &merged_vars, app, run_id, step_index, script_ai_config,
+                                        &merged_vars, app, run_id, step_index, script_ai_config, logs,
                                     )).await {
                                         Ok((output, step_vars)) => {
                                             for (k, v) in step_vars { agent_vars.insert(k, v); }
@@ -973,6 +1214,12 @@ async fn execute_step(
                                     }
                                 }
                             };
+                            logs.push(log_entry(
+                                "debug",
+                                "ai",
+                                format!("工具 {} 执行结果", tool_call.name),
+                                Some(json!({ "result": &tool_result })),
+                            ));
 
                             messages.push(ChatMessage::tool_result(&tool_call.id, tool_result));
                         }
@@ -1047,7 +1294,27 @@ async fn execute_step(
             let timeout = timeout_ms.unwrap_or(10_000);
             let deadline = Instant::now() + Duration::from_millis(timeout);
             loop {
+                // 先用 DOM API 查找
                 if find_element(cdp, &selector, selector_type).await.is_ok() { break; }
+                // DOM API 失败时，CSS 选择器回退到 JS 查找
+                if *selector_type == SelectorType::Css {
+                    let js = format!(
+                        "!!document.querySelector({})",
+                        serde_json::to_string(&selector).unwrap_or_default()
+                    );
+                    if let Ok(result) = cdp.call("Runtime.evaluate", json!({
+                        "expression": js,
+                        "returnByValue": true,
+                    })).await {
+                        if result.get("result")
+                            .and_then(|r| r.get("value"))
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(false)
+                        {
+                            break;
+                        }
+                    }
+                }
                 if Instant::now() >= deadline {
                     return Err(format!("WaitForSelector timeout: {selector}"));
                 }
@@ -1455,18 +1722,45 @@ fn base64_decode(s: &str) -> Result<Vec<u8>, String> {
     base64::engine::general_purpose::STANDARD.decode(s).map_err(|e| format!("base64 decode: {e}"))
 }
 
-/// 发送 Magic Controller HTTP 请求，返回响应体
+/// 发送 Magic Controller HTTP 请求，尝试多个路径并重试
 async fn magic_post(
     http_client: &reqwest::Client,
     port: u16,
     payload: serde_json::Value,
 ) -> Result<String, String> {
-    http_client.post(format!("http://127.0.0.1:{port}/"))
-        .json(&payload)
-        .send().await
-        .map_err(|e| format!("Magic request failed: {e}"))?
-        .text().await
-        .map_err(|e| format!("Magic read body failed: {e}"))
+    const PATHS: [&str; 4] = ["/", "/cmd", "/command", "/magic"];
+    const MAX_RETRIES: usize = 5;
+    const RETRY_DELAY_MS: u64 = 200;
+
+    let mut last_err = String::from("no attempts made");
+
+    for attempt in 0..MAX_RETRIES {
+        for path in PATHS {
+            let url = format!("http://127.0.0.1:{port}{path}");
+            match http_client.post(&url).json(&payload).send().await {
+                Ok(resp) => {
+                    let status = resp.status();
+                    let body = resp.text().await
+                        .map_err(|e| format!("Magic read body failed: {e}"))?;
+                    if status.as_u16() == 404 {
+                        continue;
+                    }
+                    if status.is_success() {
+                        return Ok(body);
+                    }
+                    last_err = format!("Magic HTTP {status}: {body}");
+                }
+                Err(e) => {
+                    last_err = format!("Magic request failed: {e}");
+                }
+            }
+        }
+        if attempt + 1 < MAX_RETRIES {
+            tokio::time::sleep(Duration::from_millis(RETRY_DELAY_MS)).await;
+        }
+    }
+
+    Err(last_err)
 }
 
 /// 若 output_key 有值则插入 vars map
@@ -1512,15 +1806,31 @@ fn emit_human_dismissed(app: &AppHandle, run_id: &str) {
         AutomationHumanDismissedEvent { run_id: run_id.to_string() });
 }
 
+fn log_entry(
+    level: &str,
+    category: &str,
+    message: String,
+    details: Option<serde_json::Value>,
+) -> crate::models::RunLogEntry {
+    crate::models::RunLogEntry {
+        timestamp: crate::models::now_ts(),
+        level: level.to_string(),
+        category: category.to_string(),
+        message,
+        details,
+    }
+}
+
 fn persist_run_progress(
     app: &AppHandle, run_id: &str, results: &[StepResult],
     status: &str, error: Option<&str>, variables_json: Option<&str>,
+    logs_json: Option<&str>,
 ) {
     let results_json = serde_json::to_string(results).ok();
     let finished_at = if status == "running" { None } else { Some(crate::models::now_ts()) };
     let state = app.state::<AppState>();
     let result = state.lock_automation_service().update_run_status(
-        run_id, status, results_json.as_deref(), error, finished_at, variables_json,
+        run_id, status, results_json.as_deref(), error, finished_at, variables_json, logs_json,
     );
     if let Err(e) = result {
         logger::warn("automation", format!("persist run progress failed run_id={run_id}: {e}"));

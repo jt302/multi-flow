@@ -75,6 +75,7 @@ pub struct EngineLaunchOptions {
     pub cookie_state_file: Option<PathBuf>,
     pub extension_state_file: Option<PathBuf>,
     pub extra_args: Vec<String>,
+    pub logging_enabled: bool,
 }
 
 pub struct EngineManager {
@@ -1324,6 +1325,18 @@ impl EngineManager {
         )))
     }
 
+    fn should_forward_chromium_output(logging_enabled: bool, value: &str) -> bool {
+        if logging_enabled {
+            return true;
+        }
+
+        let upper = value.to_ascii_uppercase();
+        upper.contains("ERROR")
+            || upper.contains("FATAL")
+            || upper.contains("CRASH")
+            || upper.contains("EXCEPTION")
+    }
+
     fn spawn_chromium_if_configured(
         &mut self,
         profile_id: &str,
@@ -1396,14 +1409,19 @@ impl EngineManager {
             );
             AppError::Io(err)
         })?;
+        let logging_enabled = options.logging_enabled;
         if let Some(stdout) = child.stdout.take() {
             let profile_id = profile_id.to_string();
             let profile_name = profile_name.clone();
+            let logging_enabled = logging_enabled;
             std::thread::spawn(move || {
                 let reader = BufReader::new(stdout);
                 for line in reader.lines() {
                     match line {
                         Ok(value) if !value.trim().is_empty() => {
+                            if !Self::should_forward_chromium_output(logging_enabled, &value) {
+                                continue;
+                            }
                             logger::info(
                                 "chromium.stdout",
                                 format!("profile_id={profile_id} profile_name=\"{profile_name}\" {value}"),
@@ -1424,11 +1442,15 @@ impl EngineManager {
         if let Some(stderr) = child.stderr.take() {
             let profile_id = profile_id.to_string();
             let profile_name = profile_name.clone();
+            let logging_enabled = logging_enabled;
             std::thread::spawn(move || {
                 let reader = BufReader::new(stderr);
                 for line in reader.lines() {
                     match line {
                         Ok(value) if !value.trim().is_empty() => {
+                            if !Self::should_forward_chromium_output(logging_enabled, &value) {
+                                continue;
+                            }
                             logger::warn(
                                 "chromium.stderr",
                                 format!("profile_id={profile_id} profile_name=\"{profile_name}\" {value}"),
@@ -1485,9 +1507,11 @@ fn build_chromium_launch_args(
         format!("--magic-socket-server-port={magic_port}"),
         "--no-first-run".to_string(),
         "--no-default-browser-check".to_string(),
-        "--enable-logging=stderr".to_string(),
-        "--v=1".to_string(),
     ];
+    if options.logging_enabled {
+        args.push("--enable-logging=stderr".to_string());
+        args.push("--v=1".to_string());
+    }
     if let Some(language) = options
         .language
         .as_ref()
@@ -2074,7 +2098,8 @@ mod tests {
                 }
                 buffer.extend_from_slice(&chunk[..bytes_read]);
                 if expected_total.is_none() {
-                    if let Some(header_end) = buffer.windows(4).position(|item| item == b"\r\n\r\n") {
+                    if let Some(header_end) = buffer.windows(4).position(|item| item == b"\r\n\r\n")
+                    {
                         let header_bytes = &buffer[..header_end + 4];
                         let header_text = String::from_utf8_lossy(header_bytes);
                         let content_length = header_text
@@ -2269,7 +2294,10 @@ mod tests {
 
     #[test]
     fn build_chromium_launch_args_enables_chromium_stderr_logging() {
-        let options = EngineLaunchOptions::default();
+        let options = EngineLaunchOptions {
+            logging_enabled: true,
+            ..Default::default()
+        };
         let args = build_chromium_launch_args(
             &PathBuf::from("/tmp/multi-flow-tests/user-data"),
             &PathBuf::from("/tmp/multi-flow-tests/cache-data"),

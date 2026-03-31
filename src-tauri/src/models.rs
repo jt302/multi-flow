@@ -1251,11 +1251,36 @@ pub struct StepResult {
     pub vars_set: std::collections::HashMap<String, String>,
 }
 
+/// 运行日志条目
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunLogEntry {
+    /// 时间戳（毫秒）
+    pub timestamp: i64,
+    /// 日志级别: "info" | "warn" | "error" | "debug"
+    pub level: String,
+    /// 分类: "flow" | "step" | "ai" | "cdp" | "magic" | "error"
+    pub category: String,
+    /// 简短消息
+    pub message: String,
+    /// 详细数据（可选，JSON 对象）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<serde_json::Value>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ScriptSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub step_delay_ms: Option<u16>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunDelayConfig {
+    pub enabled: bool,
+    pub min_seconds: f64,
+    pub max_seconds: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1269,6 +1294,7 @@ pub struct AutomationScript {
     pub variables_schema_json: Option<String>,
     pub associated_profile_ids: Vec<String>,
     pub ai_config: Option<AiProviderConfig>,
+    pub ai_config_id: Option<String>,
     pub settings: Option<ScriptSettings>,
     pub created_at: i64,
     pub updated_at: i64,
@@ -1286,6 +1312,8 @@ pub struct AutomationRun {
     pub started_at: i64,
     pub finished_at: Option<i64>,
     pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub logs: Option<Vec<RunLogEntry>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1296,6 +1324,7 @@ pub struct CreateAutomationScriptRequest {
     pub steps: Vec<ScriptStep>,
     pub associated_profile_ids: Option<Vec<String>>,
     pub ai_config: Option<AiProviderConfig>,
+    pub ai_config_id: Option<String>,
     pub settings: Option<ScriptSettings>,
 }
 

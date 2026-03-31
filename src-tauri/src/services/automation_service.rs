@@ -8,7 +8,7 @@ use crate::db::entities::{automation_run, automation_script};
 use crate::error::{AppError, AppResult};
 use crate::models::{
     now_ts, AutomationRun, AutomationScript, CreateAutomationScriptRequest, ScriptStep,
-    ScriptSettings, StepResult,
+    RunLogEntry, ScriptSettings, StepResult,
 };
 use crate::services::app_preference_service::AiProviderConfig;
 
@@ -71,6 +71,7 @@ impl AutomationService {
                     .as_ref()
                     .and_then(|c| serde_json::to_string(c).ok()),
             ),
+            ai_config_id: Set(req.ai_config_id),
             settings_json: Set(
                 req.settings
                     .as_ref()
@@ -111,6 +112,7 @@ impl AutomationService {
                 .as_ref()
                 .and_then(|c| serde_json::to_string(c).ok()),
         );
+        active.ai_config_id = Set(req.ai_config_id);
         active.settings_json = Set(
             req.settings
                 .as_ref()
@@ -163,6 +165,7 @@ impl AutomationService {
             error: Set(None),
             variables_json: Set(None),
             cancelled_at: Set(None),
+            logs_json: Set(None),
         };
         self.db_query(model.insert(&self.db))?;
         Ok(id)
@@ -176,6 +179,7 @@ impl AutomationService {
         error: Option<&str>,
         finished_at: Option<i64>,
         variables_json: Option<&str>,
+        logs_json: Option<&str>,
     ) -> AppResult<()> {
         let model = self.find_run_model(run_id)?;
         let mut active: automation_run::ActiveModel = model.into();
@@ -185,6 +189,9 @@ impl AutomationService {
         active.finished_at = Set(finished_at);
         if let Some(vj) = variables_json {
             active.variables_json = Set(Some(vj.to_string()));
+        }
+        if let Some(lj) = logs_json {
+            active.logs_json = Set(Some(lj.to_string()));
         }
         self.db_query(active.update(&self.db))?;
         Ok(())
@@ -268,6 +275,7 @@ fn to_api_script(model: automation_script::Model) -> AppResult<AutomationScript>
         variables_schema_json: model.variables_schema_json,
         associated_profile_ids,
         ai_config,
+        ai_config_id: model.ai_config_id,
         settings,
         created_at: model.created_at,
         updated_at: model.updated_at,
@@ -285,6 +293,14 @@ fn to_api_run(model: automation_run::Model) -> AppResult<AutomationRun> {
                 .map_err(|e| AppError::Validation(format!("corrupt results_json: {e}")))
         })
         .transpose()?;
+    let logs: Option<Vec<RunLogEntry>> = model
+        .logs_json
+        .as_deref()
+        .map(|s| {
+            serde_json::from_str(s)
+                .map_err(|e| AppError::Validation(format!("corrupt logs_json: {e}")))
+        })
+        .transpose()?;
     Ok(AutomationRun {
         id: model.id,
         script_id: model.script_id,
@@ -295,5 +311,6 @@ fn to_api_run(model: automation_run::Model) -> AppResult<AutomationRun> {
         started_at: model.started_at,
         finished_at: model.finished_at,
         error: model.error,
+        logs,
     })
 }
