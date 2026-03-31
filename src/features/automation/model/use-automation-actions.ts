@@ -91,13 +91,20 @@ export function useAutomationActions(activeScriptId: string | null) {
 			profileId,
 			stepTotal,
 			initialVars,
+			delayConfig,
 		}: {
 			scriptId: string;
 			profileId: string | null;
 			stepTotal: number;
 			initialVars?: Record<string, string>;
+			delayConfig?: { enabled: boolean; minSeconds: number; maxSeconds: number } | null;
 		}) => {
-			const runId = await runAutomationScript(scriptId, profileId, initialVars);
+			const runId = await runAutomationScript(
+				scriptId,
+				profileId,
+				initialVars,
+				delayConfig,
+			);
 			automationStore.getState().startRun(runId, scriptId, stepTotal);
 
 			unlistenRef.current.forEach((u) => u());

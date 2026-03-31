@@ -18,6 +18,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 type VarEntry = { key: string; value: string };
 
+export type RunDelayConfig = {
+	enabled: boolean;
+	minSeconds: number;
+	maxSeconds: number;
+};
+
 type Props = {
 	open: boolean;
 	onOpenChange: (v: boolean) => void;
@@ -27,7 +33,11 @@ type Props = {
 	isRunning: boolean;
 	disabled: boolean;
 	defaultVars?: VarEntry[];
-	onRun: (profileIds: string[], initialVars: Record<string, string>) => void;
+	onRun: (
+		profileIds: string[],
+		initialVars: Record<string, string>,
+		delayConfig?: RunDelayConfig | null,
+	) => void;
 	onDebugRun: (profileId: string, initialVars: Record<string, string>) => void;
 };
 
@@ -44,14 +54,22 @@ export function RunDialog({
 	onDebugRun,
 }: Props) {
 	const [selectedIds, setSelectedIds] = useState<string[]>([]);
-	const [varEntries, setVarEntries] = useState<VarEntry[]>(() => defaultVars ?? []);
+	const [varEntries, setVarEntries] = useState<VarEntry[]>(
+		() => defaultVars ?? [],
+	);
 	const [varsOpen, setVarsOpen] = useState(false);
+	const [delayEnabled, setDelayEnabled] = useState(false);
+	const [delayMinSeconds, setDelayMinSeconds] = useState(1);
+	const [delayMaxSeconds, setDelayMaxSeconds] = useState(5);
 
 	// 每次弹窗打开时重置为脚本默认变量 & 预选关联环境
 	useEffect(() => {
 		if (!open) return;
 		setVarEntries(defaultVars ?? []);
 		setVarsOpen((defaultVars ?? []).length > 0);
+		setDelayEnabled(false);
+		setDelayMinSeconds(1);
+		setDelayMaxSeconds(5);
 		if (associatedProfileIds.length > 0) {
 			setSelectedIds([...associatedProfileIds]);
 		} else {
@@ -61,18 +79,20 @@ export function RunDialog({
 	}, [open]);
 
 	const runningIds = new Set(activeProfiles.map((p) => p.id));
-	const associatedButOffline = allProfiles.filter(
-		(p) => associatedProfileIds.includes(p.id) && !runningIds.has(p.id)
-	);
-	const displayProfiles = [...activeProfiles, ...associatedButOffline];
-	const allSelected = displayProfiles.length > 0 && selectedIds.length === displayProfiles.length;
+	const displayProfiles = associatedProfileIds
+		.map((profileId) => allProfiles.find((profile) => profile.id === profileId))
+		.filter((profile): profile is ProfileItem => profile !== undefined);
+	const allSelected =
+		displayProfiles.length > 0 && selectedIds.length === displayProfiles.length;
 
 	function toggleAll() {
 		setSelectedIds(allSelected ? [] : displayProfiles.map((p) => p.id));
 	}
 
 	function toggleProfile(id: string) {
-		setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+		setSelectedIds((prev) =>
+			prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+		);
 	}
 
 	function addVar() {
@@ -85,11 +105,15 @@ export function RunDialog({
 	}
 
 	function setVarKey(i: number, key: string) {
-		setVarEntries((prev) => prev.map((e, idx) => (idx === i ? { ...e, key } : e)));
+		setVarEntries((prev) =>
+			prev.map((e, idx) => (idx === i ? { ...e, key } : e)),
+		);
 	}
 
 	function setVarValue(i: number, value: string) {
-		setVarEntries((prev) => prev.map((e, idx) => (idx === i ? { ...e, value } : e)));
+		setVarEntries((prev) =>
+			prev.map((e, idx) => (idx === i ? { ...e, value } : e)),
+		);
 	}
 
 	function buildVars(): Record<string, string> {
@@ -102,7 +126,17 @@ export function RunDialog({
 
 	function handleRun() {
 		if (selectedIds.length === 0) return;
-		onRun(selectedIds, buildVars());
+		onRun(
+			selectedIds,
+			buildVars(),
+			delayEnabled
+				? {
+						enabled: true,
+						minSeconds: Math.max(0, Math.min(delayMinSeconds, delayMaxSeconds)),
+						maxSeconds: Math.max(delayMinSeconds, delayMaxSeconds),
+					}
+				: null,
+		);
 		onOpenChange(false);
 	}
 
@@ -114,7 +148,10 @@ export function RunDialog({
 	}
 
 	const canRun = selectedIds.length > 0 && !isRunning && !disabled;
-	const canDebug = (selectedIds.length > 0 || displayProfiles.length > 0) && !isRunning && !disabled;
+	const canDebug =
+		(selectedIds.length > 0 || displayProfiles.length > 0) &&
+		!isRunning &&
+		!disabled;
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -139,7 +176,9 @@ export function RunDialog({
 							)}
 						</div>
 						{displayProfiles.length === 0 ? (
-							<p className="text-sm text-muted-foreground py-2">没有可用的环境</p>
+							<p className="text-sm text-muted-foreground py-2">
+								请先在脚本信息中绑定环境
+							</p>
 						) : (
 							<ScrollArea className="max-h-48">
 								<div className="space-y-1 pr-1">
@@ -155,9 +194,11 @@ export function RunDialog({
 													onCheckedChange={() => toggleProfile(p.id)}
 													className="cursor-pointer"
 												/>
-												<span className="text-sm truncate flex-1">{p.name}</span>
+												<span className="text-sm truncate flex-1">
+													{p.name}
+												</span>
 												{isOffline && (
-													<span className="text-[10px] text-amber-500 bg-amber-500/10 border border-amber-500/30 px-1 rounded flex-shrink-0">
+													<span className="text-[10px] text-amber-500 bg-amber-500/10 border border-amber-500/30 px-1 rounded shrink-0">
 														将自动启动
 													</span>
 												)}
@@ -166,6 +207,64 @@ export function RunDialog({
 									})}
 								</div>
 							</ScrollArea>
+						)}
+					</div>
+
+					<div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+						<div className="flex items-center gap-2">
+							<Checkbox
+								checked={delayEnabled}
+								onCheckedChange={(checked) => setDelayEnabled(checked === true)}
+								className="cursor-pointer"
+							/>
+							<div>
+								<Label className="text-sm">步骤随机延迟</Label>
+								<p className="text-xs text-muted-foreground">
+									每个步骤执行前插入随机延迟，降低操作轨迹一致性的检测风险
+								</p>
+							</div>
+						</div>
+						{delayEnabled && (
+							<div className="grid grid-cols-2 gap-2">
+								<div className="space-y-1">
+									<Label className="text-xs text-muted-foreground">
+										最小秒数
+									</Label>
+									<Input
+										type="number"
+										min={0}
+										step={1}
+										value={delayMinSeconds}
+										onChange={(event) =>
+											setDelayMinSeconds(
+												Number.isNaN(event.target.valueAsNumber)
+													? 0
+													: event.target.valueAsNumber,
+											)
+										}
+										className="h-8 text-sm"
+									/>
+								</div>
+								<div className="space-y-1">
+									<Label className="text-xs text-muted-foreground">
+										最大秒数
+									</Label>
+									<Input
+										type="number"
+										min={0}
+										step={1}
+										value={delayMaxSeconds}
+										onChange={(event) =>
+											setDelayMaxSeconds(
+												Number.isNaN(event.target.valueAsNumber)
+													? 0
+													: event.target.valueAsNumber,
+											)
+										}
+										className="h-8 text-sm"
+									/>
+								</div>
+							</div>
 						)}
 					</div>
 
@@ -198,7 +297,9 @@ export function RunDialog({
 											onChange={(e) => setVarKey(i, e.target.value)}
 											className="h-7 text-xs font-mono"
 										/>
-										<span className="text-muted-foreground text-xs flex-shrink-0">=</span>
+										<span className="text-muted-foreground text-xs shrink-0">
+											=
+										</span>
 										<Input
 											placeholder="初始值"
 											value={entry.value}
@@ -208,7 +309,7 @@ export function RunDialog({
 										<button
 											type="button"
 											onClick={() => removeVar(i)}
-											className="text-muted-foreground hover:text-destructive cursor-pointer flex-shrink-0"
+											className="text-muted-foreground hover:text-destructive cursor-pointer shrink-0"
 										>
 											<Minus className="h-3.5 w-3.5" />
 										</button>
@@ -221,7 +322,9 @@ export function RunDialog({
 					{/* 批量提示 */}
 					{selectedIds.length > 1 && (
 						<p className="text-xs text-muted-foreground">
-							将并行在 {selectedIds.length} 个环境中运行
+							{delayEnabled
+								? `将按顺序在 ${selectedIds.length} 个环境中运行，并插入随机延迟`
+								: `将依次发起 ${selectedIds.length} 个环境的运行任务`}
 						</p>
 					)}
 				</div>

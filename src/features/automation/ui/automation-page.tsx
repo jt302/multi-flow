@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { FileInput, Plus } from 'lucide-react';
+import { FileInput, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
-import { listenAutomationScriptUpdated, openAutomationCanvasWindow } from '@/entities/automation/api/automation-api';
+import {
+	listAiConfigs,
+	listenAutomationScriptUpdated,
+	openAutomationCanvasWindow,
+} from '@/entities/automation/api/automation-api';
 import { useAutomationRunsQuery } from '@/entities/automation/model/use-automation-runs-query';
 import { useAutomationScriptsQuery } from '@/entities/automation/model/use-automation-scripts-query';
 import type { AutomationScript } from '@/entities/automation/model/types';
@@ -18,17 +22,36 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import {
+	Command,
+	CommandEmpty,
+	CommandInput,
+	CommandItem,
+	CommandList,
+} from '@/components/ui/command';
+import {
 	Dialog,
 	DialogContent,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select';
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { ScriptDetailPanel } from './script-detail-panel';
+import type { RunDelayConfig } from './run-dialog';
 
 export function AutomationPage() {
 	const scriptsQuery = useAutomationScriptsQuery();
@@ -38,17 +61,38 @@ export function AutomationPage() {
 
 	// 元数据编辑对话框
 	const [metaDialogOpen, setMetaDialogOpen] = useState(false);
-	const [metaDialogScript, setMetaDialogScript] = useState<AutomationScript | null>(null);
+	const [metaDialogScript, setMetaDialogScript] =
+		useState<AutomationScript | null>(null);
 	const [metaName, setMetaName] = useState('');
 	const [metaDesc, setMetaDesc] = useState('');
 	const [metaAssociatedIds, setMetaAssociatedIds] = useState<string[]>([]);
+	const [metaAiConfigId, setMetaAiConfigId] = useState<string | null>(null);
+	const [profilePickerOpen, setProfilePickerOpen] = useState(false);
 
 	const selectedScript = scripts.find((s) => s.id === selectedScriptId) ?? null;
 	const runsQuery = useAutomationRunsQuery(selectedScriptId);
 	const runs = runsQuery.data ?? [];
 
 	const profilesQuery = useProfilesQuery();
-	const activeProfiles = (profilesQuery.data ?? []).filter((p) => p.lifecycle === 'active');
+	const allProfiles = (profilesQuery.data ?? []).filter(
+		(profile) => profile.lifecycle === 'active',
+	);
+	const activeProfiles = allProfiles.filter((profile) => profile.running);
+	const metaAssociatedProfiles = metaAssociatedIds
+		.map((profileId) => allProfiles.find((profile) => profile.id === profileId))
+		.filter(
+			(profile): profile is (typeof allProfiles)[number] =>
+				profile !== undefined,
+		);
+	const availableBindProfiles = allProfiles.filter(
+		(profile) => !metaAssociatedIds.includes(profile.id),
+	);
+
+	const aiConfigsQuery = useQuery({
+		queryKey: queryKeys.aiConfigs,
+		queryFn: listAiConfigs,
+	});
+	const aiConfigs = aiConfigsQuery.data ?? [];
 
 	const liveRunStatus = useAutomationStore((s) => s.liveRunStatus);
 	const liveStepResults = useAutomationStore((s) => s.liveStepResults);
@@ -65,13 +109,27 @@ export function AutomationPage() {
 		let unlistenEvent: (() => void) | undefined;
 		let unlistenFocus: (() => void) | undefined;
 		void listenAutomationScriptUpdated(() => {
-			void queryClient.invalidateQueries({ queryKey: queryKeys.automationScripts });
-		}).then((fn) => { unlistenEvent = fn; });
+			void queryClient.invalidateQueries({
+				queryKey: queryKeys.automationScripts,
+			});
+		}).then((fn) => {
+			unlistenEvent = fn;
+		});
 		// Tauri 多窗口环境：主窗口重新获得焦点时也刷新（浏览器 focus 事件不可靠）
-		void getCurrentWindow().onFocusChanged(({ payload: focused }) => {
-			if (focused) void queryClient.invalidateQueries({ queryKey: queryKeys.automationScripts });
-		}).then((fn) => { unlistenFocus = fn; });
-		return () => { unlistenEvent?.(); unlistenFocus?.(); };
+		void getCurrentWindow()
+			.onFocusChanged(({ payload: focused }) => {
+				if (focused)
+					void queryClient.invalidateQueries({
+						queryKey: queryKeys.automationScripts,
+					});
+			})
+			.then((fn) => {
+				unlistenFocus = fn;
+			});
+		return () => {
+			unlistenEvent?.();
+			unlistenFocus?.();
+		};
 	}, [queryClient]);
 
 	// ── 新建脚本：弹出名称对话框 → 创建空脚本 → 开画布窗口 ────────────────────
@@ -79,6 +137,9 @@ export function AutomationPage() {
 		setMetaDialogScript(null);
 		setMetaName('');
 		setMetaDesc('');
+		setMetaAssociatedIds([]);
+		setMetaAiConfigId(null);
+		setProfilePickerOpen(false);
 		setMetaDialogOpen(true);
 	}
 
@@ -88,7 +149,20 @@ export function AutomationPage() {
 		setMetaName(script.name);
 		setMetaDesc(script.description ?? '');
 		setMetaAssociatedIds(script.associatedProfileIds ?? []);
+		setMetaAiConfigId(script.aiConfigId ?? null);
+		setProfilePickerOpen(false);
 		setMetaDialogOpen(true);
+	}
+
+	function bindProfile(profileId: string) {
+		setMetaAssociatedIds((prev) =>
+			prev.includes(profileId) ? prev : [...prev, profileId],
+		);
+		setProfilePickerOpen(false);
+	}
+
+	function unbindProfile(profileId: string) {
+		setMetaAssociatedIds((prev) => prev.filter((id) => id !== profileId));
 	}
 
 	async function handleMetaSave() {
@@ -98,7 +172,13 @@ export function AutomationPage() {
 			// 更新元数据，保留步骤不变
 			await actions.updateScript.mutateAsync({
 				scriptId: metaDialogScript.id,
-				payload: { name, description: metaDesc || undefined, steps: metaDialogScript.steps, associatedProfileIds: metaAssociatedIds },
+				payload: {
+					name,
+					description: metaDesc || undefined,
+					steps: metaDialogScript.steps,
+					associatedProfileIds: metaAssociatedIds,
+					aiConfigId: metaAiConfigId,
+				},
 			});
 			setMetaDialogOpen(false);
 		} else {
@@ -107,6 +187,7 @@ export function AutomationPage() {
 				name,
 				description: metaDesc || undefined,
 				steps: [],
+				aiConfigId: metaAiConfigId,
 			});
 			setSelectedScriptId(created.id);
 			setMetaDialogOpen(false);
@@ -123,28 +204,50 @@ export function AutomationPage() {
 	}
 
 	// ── 运行 ─────────────────────────────────────────────────────────────────
-	async function handleRun(profileIds: string[], initialVars: Record<string, string>) {
+	async function handleRun(
+		profileIds: string[],
+		initialVars: Record<string, string>,
+		delayConfig?: RunDelayConfig | null,
+	) {
 		if (!selectedScript) return;
-		// 并行发起多环境运行
-		await Promise.all(
-			profileIds.map((profileId) =>
-				actions.runScript.mutateAsync({
-					scriptId: selectedScript.id,
-					profileId,
-					stepTotal: selectedScript.steps.length,
-					initialVars: Object.keys(initialVars).length > 0 ? initialVars : undefined,
-				}),
-			),
-		);
+		const normalizedDelay =
+			delayConfig && delayConfig.enabled
+				? {
+						enabled: true,
+						minSeconds: Math.max(
+							0,
+							Math.min(delayConfig.minSeconds, delayConfig.maxSeconds),
+						),
+						maxSeconds: Math.max(
+							delayConfig.minSeconds,
+							delayConfig.maxSeconds,
+						),
+					}
+				: null;
+
+		for (const profileId of profileIds) {
+			await actions.runScript.mutateAsync({
+				scriptId: selectedScript.id,
+				profileId,
+				stepTotal: selectedScript.steps.length,
+				initialVars:
+					Object.keys(initialVars).length > 0 ? initialVars : undefined,
+				delayConfig: normalizedDelay,
+			});
+		}
 	}
 
-	async function handleDebugRun(profileId: string, initialVars: Record<string, string>) {
+	async function handleDebugRun(
+		profileId: string,
+		initialVars: Record<string, string>,
+	) {
 		if (!selectedScript) return;
 		await actions.debugRun.mutateAsync({
 			scriptId: selectedScript.id,
 			profileId,
 			stepTotal: selectedScript.steps.length,
-			initialVars: Object.keys(initialVars).length > 0 ? initialVars : undefined,
+			initialVars:
+				Object.keys(initialVars).length > 0 ? initialVars : undefined,
 		});
 	}
 
@@ -159,7 +262,11 @@ export function AutomationPage() {
 		e.target.value = '';
 		try {
 			const text = await file.text();
-			const json = JSON.parse(text) as { name?: string; description?: string; steps?: unknown[] };
+			const json = JSON.parse(text) as {
+				name?: string;
+				description?: string;
+				steps?: unknown[];
+			};
 			if (!json.name || !Array.isArray(json.steps)) {
 				toast.error('无效的脚本文件：缺少 name 或 steps 字段');
 				return;
@@ -170,18 +277,21 @@ export function AutomationPage() {
 				steps: json.steps as never,
 			});
 			setSelectedScriptId(created.id);
-			toast.success(`已导入脚本「${created.name}」（${created.steps.length} 步骤）`);
+			toast.success(
+				`已导入脚本「${created.name}」（${created.steps.length} 步骤）`,
+			);
 		} catch {
 			toast.error('脚本文件解析失败，请确认是有效的 JSON 格式');
 		}
 	}
 
-	const isSaving = actions.createScript.isPending || actions.updateScript.isPending;
+	const isSaving =
+		actions.createScript.isPending || actions.updateScript.isPending;
 
 	return (
 		<div className="flex h-full">
 			{/* 左侧脚本列表 */}
-			<div className="w-64 flex-shrink-0 border-r flex flex-col">
+			<div className="w-64 shrink-0 border-r flex flex-col">
 				<div className="flex items-center justify-between px-4 py-3 border-b">
 					<span className="text-sm font-medium">自动化脚本</span>
 					<div className="flex items-center gap-1">
@@ -243,17 +353,27 @@ export function AutomationPage() {
 						script={selectedScript}
 						runs={runs}
 						activeProfiles={activeProfiles}
-						allProfiles={profilesQuery.data ?? []}
-						isRunning={activeScriptId === selectedScript.id && liveRunStatus === 'running'}
-						liveStepResults={activeScriptId === selectedScript.id ? liveStepResults : []}
-						liveVariables={activeScriptId === selectedScript.id ? liveVariables : {}}
-						activeRunId={activeScriptId === selectedScript.id ? activeRunId : null}
+						allProfiles={allProfiles}
+						isRunning={
+							activeScriptId === selectedScript.id &&
+							liveRunStatus === 'running'
+						}
+						liveStepResults={
+							activeScriptId === selectedScript.id ? liveStepResults : []
+						}
+						liveVariables={
+							activeScriptId === selectedScript.id ? liveVariables : {}
+						}
+						activeRunId={
+							activeScriptId === selectedScript.id ? activeRunId : null
+						}
 						onEdit={() => handleEditMeta(selectedScript)}
 						onDelete={() => handleDeleteScript(selectedScript.id)}
 						onRun={handleRun}
 						onDebugRun={handleDebugRun}
 						onCancel={() => {
-							const runId = activeScriptId === selectedScript.id ? activeRunId : null;
+							const runId =
+								activeScriptId === selectedScript.id ? activeRunId : null;
 							if (runId) actions.cancelRun.mutate(runId);
 						}}
 					/>
@@ -269,11 +389,13 @@ export function AutomationPage() {
 
 			{/* 新建/编辑元数据对话框 */}
 			<Dialog open={metaDialogOpen} onOpenChange={setMetaDialogOpen}>
-				<DialogContent className="max-w-sm">
+				<DialogContent className="max-w-sm max-h-[85vh] flex flex-col">
 					<DialogHeader>
-						<DialogTitle>{metaDialogScript ? '编辑脚本信息' : '新建脚本'}</DialogTitle>
+						<DialogTitle>
+							{metaDialogScript ? '编辑脚本信息' : '新建脚本'}
+						</DialogTitle>
 					</DialogHeader>
-					<div className="space-y-3 py-1">
+					<div className="space-y-3 py-1 overflow-y-auto flex-1">
 						<div className="space-y-1.5">
 							<Label>脚本名称</Label>
 							<Input
@@ -294,33 +416,121 @@ export function AutomationPage() {
 								className="resize-none"
 							/>
 						</div>
-						{metaDialogScript && (profilesQuery.data ?? []).length > 0 && (
+						{metaDialogScript && allProfiles.length > 0 && (
 							<div className="space-y-1.5">
 								<Label className="text-sm">关联环境（可选）</Label>
-								<p className="text-xs text-muted-foreground">运行时自动预选，未启动的环境将自动启动</p>
-								<ScrollArea className="max-h-32">
-									<div className="space-y-1 pr-1">
-										{(profilesQuery.data ?? []).map((p) => (
-											<label key={p.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-muted cursor-pointer">
-												<Checkbox
-													checked={metaAssociatedIds.includes(p.id)}
-													onCheckedChange={(checked) =>
-														setMetaAssociatedIds((prev) =>
-															checked ? [...prev, p.id] : prev.filter((id) => id !== p.id)
-														)
-													}
-													className="cursor-pointer"
-												/>
-												<span className="text-sm truncate">{p.name}</span>
-											</label>
-										))}
+								<p className="text-xs text-muted-foreground">
+									先在这里绑定环境，运行时再勾选本次要执行的环境
+								</p>
+								<div className="rounded-lg border border-border/60 bg-muted/20 p-2 space-y-2">
+									<div className="flex flex-wrap gap-2">
+										{metaAssociatedProfiles.length > 0 ? (
+											metaAssociatedProfiles.map((profile) => (
+												<Badge
+													key={profile.id}
+													variant="secondary"
+													className="flex items-center gap-1 pr-1"
+												>
+													<span className="max-w-45 truncate">
+														{profile.name}
+													</span>
+													<button
+														type="button"
+														onClick={() => unbindProfile(profile.id)}
+														className="rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground cursor-pointer"
+														aria-label={`移除环境 ${profile.name}`}
+													>
+														<X className="h-3 w-3" />
+													</button>
+												</Badge>
+											))
+										) : (
+											<p className="text-xs text-muted-foreground px-1 py-1">
+												当前未绑定环境
+											</p>
+										)}
 									</div>
-								</ScrollArea>
+									<Popover
+										open={profilePickerOpen}
+										onOpenChange={setProfilePickerOpen}
+									>
+										<PopoverTrigger asChild>
+											<Button
+												type="button"
+												variant="outline"
+												size="sm"
+												className="cursor-pointer"
+												disabled={availableBindProfiles.length === 0}
+											>
+												<Plus className="h-3.5 w-3.5 mr-1" />
+												添加环境
+											</Button>
+										</PopoverTrigger>
+										<PopoverContent className="w-70 p-0" align="start">
+											<Command>
+												<CommandInput placeholder="搜索环境名称..." />
+												<CommandList>
+													<CommandEmpty>没有可绑定的环境</CommandEmpty>
+													{availableBindProfiles.map((profile) => (
+														<CommandItem
+															key={profile.id}
+															onSelect={() => bindProfile(profile.id)}
+														>
+															{profile.name}
+														</CommandItem>
+													))}
+												</CommandList>
+											</Command>
+										</PopoverContent>
+									</Popover>
+								</div>
 							</div>
 						)}
+						<div className="space-y-1.5">
+							<Label className="text-sm">AI 配置（可选）</Label>
+							<p className="text-xs text-muted-foreground">
+								{aiConfigs.length > 0
+									? '留空则使用全局 AI 配置'
+									: '请先在设置中添加 AI 配置，或继续使用全局默认配置'}
+							</p>
+							<Select
+								value={metaAiConfigId ?? '__none__'}
+								onValueChange={(v) =>
+									setMetaAiConfigId(v === '__none__' ? null : v)
+								}
+								disabled={aiConfigs.length === 0}
+							>
+								<SelectTrigger className="h-9 text-sm cursor-pointer disabled:cursor-not-allowed">
+									<SelectValue
+										placeholder={
+											aiConfigs.length > 0 ? '使用全局配置' : '请先添加 AI 配置'
+										}
+									/>
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="__none__" className="cursor-pointer">
+										使用全局配置
+									</SelectItem>
+									{aiConfigs.map((c) => (
+										<SelectItem
+											key={c.id}
+											value={c.id}
+											className="cursor-pointer"
+										>
+											{c.name}
+											{c.model ? ` (${c.model})` : ''}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
 					</div>
 					<DialogFooter>
-						<Button variant="ghost" onClick={() => setMetaDialogOpen(false)} className="cursor-pointer">
+						<Button
+							variant="ghost"
+							onClick={() => setMetaDialogOpen(false)}
+							className="cursor-pointer"
+						>
 							取消
 						</Button>
 						<Button
