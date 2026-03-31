@@ -17,15 +17,21 @@ struct AppPreferencesFile {
     ai_provider: Option<AiProviderConfig>,
 }
 
-/// AI Provider 配置（OpenAI 兼容接口）
+/// AI Provider 配置
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct AiProviderConfig {
-    /// 接口 base URL，默认 "https://api.openai.com/v1"
+    /// Provider 类型: "openai"|"openrouter"|"deepseek"|"groq"|"together"|"ollama"|"anthropic"|"gemini"|"custom"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    /// 接口 base URL（覆盖 provider 默认值）
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub base_url: Option<String>,
     /// API Key
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub api_key: Option<String>,
-    /// 默认模型，默认 "gpt-4o"
+    /// 默认模型
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
 }
 
