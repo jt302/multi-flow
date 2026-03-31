@@ -11,7 +11,6 @@ export const NAV_PATHS: Record<NavId, string> = {
 	settings: '/settings',
 };
 
-export const SETTINGS_RECYCLE_BIN_PATH = '/settings/recycle-bin';
 export const PROFILES_DEVICE_PRESETS_PATH = '/profiles/device-presets';
 
 const PATH_TO_NAV: Record<string, NavId> = Object.entries(NAV_PATHS).reduce(
@@ -22,7 +21,6 @@ const PATH_TO_NAV: Record<string, NavId> = Object.entries(NAV_PATHS).reduce(
 	{} as Record<string, NavId>,
 );
 
-PATH_TO_NAV[SETTINGS_RECYCLE_BIN_PATH] = 'settings';
 PATH_TO_NAV[PROFILES_DEVICE_PRESETS_PATH] = 'profiles';
 
 export function resolveNavFromPath(pathname: string): NavId | null {
@@ -39,8 +37,5 @@ export function resolvePathFromNav(nav: NavId): string {
 }
 
 export function isWorkspacePath(pathname: string): boolean {
-	if (pathname === SETTINGS_RECYCLE_BIN_PATH) {
-		return true;
-	}
 	return resolveNavFromPath(pathname) !== null;
 }

@@ -3,7 +3,6 @@ import test from 'node:test';
 
 import {
 	NAV_PATHS,
-	SETTINGS_RECYCLE_BIN_PATH,
 	isWorkspacePath,
 	resolveNavFromPath,
 	resolvePathFromNav,
@@ -23,10 +22,9 @@ test('workspace routes resolve explicit nav paths without retired rpa entries', 
 	assert.equal(resolvePathFromNav('settings'), '/settings');
 });
 
-test('workspace routes treat recycle bin as settings child path', () => {
-	assert.equal(SETTINGS_RECYCLE_BIN_PATH, '/settings/recycle-bin');
-	assert.equal(resolveNavFromPath(SETTINGS_RECYCLE_BIN_PATH), 'settings');
-	assert.equal(isWorkspacePath(SETTINGS_RECYCLE_BIN_PATH), true);
+test('workspace routes no longer expose recycle bin as top-level nav', () => {
+	assert.equal(resolveNavFromPath('/recycle-bin'), null);
+	assert.equal(isWorkspacePath('/recycle-bin'), false);
 });
 
 test('workspace routes keep retired legacy path disabled', () => {

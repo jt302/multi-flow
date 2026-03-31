@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-import { ConfirmActionDialog, DataSection, EmptyState } from '@/components/common';
+import {
+	ConfirmActionDialog,
+	DataSection,
+	EmptyState,
+} from '@/components/common';
 import { filterProfiles } from '@/entities/profile/lib/profile-list';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
@@ -38,27 +42,48 @@ export function ProfileListPage({
 }: ProfileListPageProps) {
 	const section = WORKSPACE_SECTIONS.profiles;
 	const [searchParams, setSearchParams] = useSearchParams();
-	const [stopAllRunningDialogOpen, setStopAllRunningDialogOpen] = useState(false);
+	const [stopAllRunningDialogOpen, setStopAllRunningDialogOpen] =
+		useState(false);
 	const [stopAllRunningPending, setStopAllRunningPending] = useState(false);
 	const error = useProfileListStore((state) => state.error);
 	const filters = useProfileListStore((state) => state.filters);
 	const quickEdit = useProfileListStore((state) => state.quickEdit);
-	const batchGroupTarget = useProfileListStore((state) => state.batchGroupTarget);
-	const batchGroupDialogOpen = useProfileListStore((state) => state.batchGroupDialogOpen);
-	const batchClearGroupDialogOpen = useProfileListStore((state) => state.batchClearGroupDialogOpen);
-	const selectedProfileIds = useProfileListStore((state) => state.selectedProfileIds);
-	const lastBatchOpenResult = useProfileListStore((state) => state.lastBatchOpenResult);
+	const batchGroupTarget = useProfileListStore(
+		(state) => state.batchGroupTarget,
+	);
+	const batchGroupDialogOpen = useProfileListStore(
+		(state) => state.batchGroupDialogOpen,
+	);
+	const batchClearGroupDialogOpen = useProfileListStore(
+		(state) => state.batchClearGroupDialogOpen,
+	);
+	const selectedProfileIds = useProfileListStore(
+		(state) => state.selectedProfileIds,
+	);
+	const lastBatchOpenResult = useProfileListStore(
+		(state) => state.lastBatchOpenResult,
+	);
 	const reset = useProfileListStore((state) => state.reset);
 	const setError = useProfileListStore((state) => state.setError);
 	const patchFilters = useProfileListStore((state) => state.patchFilters);
 	const setQuickEdit = useProfileListStore((state) => state.setQuickEdit);
-	const setBatchGroupTarget = useProfileListStore((state) => state.setBatchGroupTarget);
-	const setBatchGroupDialogOpen = useProfileListStore((state) => state.setBatchGroupDialogOpen);
-	const setBatchClearGroupDialogOpen = useProfileListStore((state) => state.setBatchClearGroupDialogOpen);
+	const setBatchGroupTarget = useProfileListStore(
+		(state) => state.setBatchGroupTarget,
+	);
+	const setBatchGroupDialogOpen = useProfileListStore(
+		(state) => state.setBatchGroupDialogOpen,
+	);
+	const setBatchClearGroupDialogOpen = useProfileListStore(
+		(state) => state.setBatchClearGroupDialogOpen,
+	);
 	const toggleProfile = useProfileListStore((state) => state.toggleProfile);
-	const setSelectedProfiles = useProfileListStore((state) => state.setSelectedProfiles);
+	const setSelectedProfiles = useProfileListStore(
+		(state) => state.setSelectedProfiles,
+	);
 	const clearSelection = useProfileListStore((state) => state.clearSelection);
-	const setBatchOpenResult = useProfileListStore((state) => state.setBatchOpenResult);
+	const setBatchOpenResult = useProfileListStore(
+		(state) => state.setBatchOpenResult,
+	);
 
 	useEffect(() => {
 		reset();
@@ -76,7 +101,8 @@ export function ProfileListPage({
 			return;
 		}
 		const next = new URLSearchParams(searchParams);
-		const nextGroup = patch.groupFilter && patch.groupFilter !== 'all' ? patch.groupFilter : '';
+		const nextGroup =
+			patch.groupFilter && patch.groupFilter !== 'all' ? patch.groupFilter : '';
 		if (nextGroup) {
 			next.set('group', nextGroup);
 		} else {
@@ -94,20 +120,34 @@ export function ProfileListPage({
 
 	const groupOptions = useMemo(() => {
 		const values = groups.map((item) => item.name.trim()).filter(Boolean);
-		return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
+		return Array.from(new Set(values)).sort((a, b) =>
+			a.localeCompare(b, 'zh-Hans-CN'),
+		);
 	}, [groups]);
 
-	const filteredProfiles = useMemo(() => filterProfiles(profiles, filters), [profiles, filters]);
+	const filteredProfiles = useMemo(
+		() => filterProfiles(profiles, filters),
+		[profiles, filters],
+	);
 	const filteredActiveIds = useMemo(
-		() => filteredProfiles.filter((item) => item.lifecycle === 'active').map((item) => item.id),
+		() =>
+			filteredProfiles
+				.filter((item) => item.lifecycle === 'active')
+				.map((item) => item.id),
 		[filteredProfiles],
 	);
 	const filteredStoppedIds = useMemo(
-		() => filteredProfiles.filter((item) => item.lifecycle === 'active' && !item.running).map((item) => item.id),
+		() =>
+			filteredProfiles
+				.filter((item) => item.lifecycle === 'active' && !item.running)
+				.map((item) => item.id),
 		[filteredProfiles],
 	);
 	const filteredRunningIds = useMemo(
-		() => filteredProfiles.filter((item) => item.lifecycle === 'active' && item.running).map((item) => item.id),
+		() =>
+			filteredProfiles
+				.filter((item) => item.lifecycle === 'active' && item.running)
+				.map((item) => item.id),
 		[filteredProfiles],
 	);
 	const selectedStoppedIds = useMemo(() => {
@@ -123,11 +163,15 @@ export function ProfileListPage({
 		return selectedProfileIds.filter((id) => allowed.has(id));
 	}, [filteredActiveIds, selectedProfileIds]);
 	const allFilteredSelected =
-		filteredActiveIds.length > 0 && selectedFilteredActiveIds.length === filteredActiveIds.length;
+		filteredActiveIds.length > 0 &&
+		selectedFilteredActiveIds.length === filteredActiveIds.length;
 	const filteredSelectionIndeterminate =
-		selectedFilteredActiveIds.length > 0 && selectedFilteredActiveIds.length < filteredActiveIds.length;
+		selectedFilteredActiveIds.length > 0 &&
+		selectedFilteredActiveIds.length < filteredActiveIds.length;
 
-	const activeCount = filteredProfiles.filter((item) => item.lifecycle === 'active').length;
+	const activeCount = filteredProfiles.filter(
+		(item) => item.lifecycle === 'active',
+	).length;
 	const runningCount = filteredProfiles.filter((item) => item.running).length;
 
 	const runAction = async (action: () => Promise<void>) => {
@@ -140,11 +184,18 @@ export function ProfileListPage({
 	};
 
 	const isEmpty = filteredProfiles.length === 0;
-	const emptyText = profiles.length === 0 ? '暂无环境，先创建一个环境。' : '没有匹配当前筛选条件的环境。';
+	const emptyText =
+		profiles.length === 0
+			? '暂无环境，先创建一个环境。'
+			: '没有匹配当前筛选条件的环境。';
 
 	return (
-		<div className="flex flex-col gap-3">
-			<ActiveSectionCard label="环境" title={section.title} description={section.desc} />
+		<div className="flex flex-col gap-3 h-full min-h-0">
+			<ActiveSectionCard
+				label="环境"
+				title={section.title}
+				description={section.desc}
+			/>
 
 			<ProfileListStats
 				filteredCount={filteredProfiles.length}
@@ -153,7 +204,11 @@ export function ProfileListPage({
 				runningCount={runningCount}
 			/>
 
-			<DataSection title="环境列表" contentClassName="p-1 pt-0">
+			<DataSection
+				title="环境列表"
+				contentClassName="p-1 pt-0"
+				className="flex-1 min-h-0 overflow-hidden flex flex-col"
+			>
 				<ProfileListToolbar
 					keyword={filters.keyword}
 					groupFilter={filters.groupFilter}
@@ -210,7 +265,10 @@ export function ProfileListPage({
 					onBatchGroupTargetChange={setBatchGroupTarget}
 					onConfirmBatchGroup={() => {
 						void runAction(async () => {
-							await onBatchSetProfileGroup(selectedFilteredActiveIds, batchGroupTarget);
+							await onBatchSetProfileGroup(
+								selectedFilteredActiveIds,
+								batchGroupTarget,
+							);
 							setBatchGroupDialogOpen(false);
 							setBatchGroupTarget('');
 							clearSelection();
@@ -290,7 +348,9 @@ export function ProfileListPage({
 						onErrorReset={() => setError(null)}
 					/>
 				)}
-				{error ? <p className="mt-2 px-1 text-xs text-destructive">{error}</p> : null}
+				{error ? (
+					<p className="mt-2 px-1 text-xs text-destructive">{error}</p>
+				) : null}
 			</DataSection>
 		</div>
 	);

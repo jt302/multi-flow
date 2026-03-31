@@ -6,12 +6,12 @@ import { useResourcesQuery } from '@/entities/resource/model/use-resources-query
 import { useResourceActions } from '@/features/resource/model/use-resource-actions';
 import { useWorkspaceRefresh } from '@/app/model/use-workspace-refresh';
 import type { WorkspaceOutletContext } from '@/app/model/workspace-types';
-import { SETTINGS_RECYCLE_BIN_PATH } from '@/app/workspace-routes';
 import { SettingsPage } from '@/features/settings/ui/settings-page';
 
 export function SettingsRoutePage() {
-	const { theme, navigation } = useOutletContext<WorkspaceOutletContext>();
-	const [resourceProgress, setResourceProgress] = useState<ResourceProgressState | null>(null);
+	const { theme } = useOutletContext<WorkspaceOutletContext>();
+	const [resourceProgress, setResourceProgress] =
+		useState<ResourceProgressState | null>(null);
 	const resourcesQuery = useResourcesQuery();
 	const resources = resourcesQuery.data ?? [];
 	const { refreshResources } = useWorkspaceRefresh();
@@ -31,10 +31,8 @@ export function SettingsRoutePage() {
 			resources={resources}
 			onRefreshResources={refreshResources}
 			onInstallChromium={resourceActions.installChromium}
-			onActivateChromium={resourceActions.activateChromium}
 			onDownloadResource={resourceActions.downloadResource}
 			resourceProgress={resourceProgress}
-			onOpenRecycleBin={() => navigation.onNavigate(SETTINGS_RECYCLE_BIN_PATH)}
 		/>
 	);
 }
