@@ -2605,6 +2605,7 @@ dependencies = [
  "cron",
  "futures-util",
  "maxminddb",
+ "rand 0.8.5",
  "reqwest 0.12.28",
  "sea-orm",
  "sea-orm-migration",
