@@ -2,6 +2,7 @@ import { Download, RefreshCw } from 'lucide-react';
 
 import { Badge, Button, Card, CardTitle, Icon } from '@/components/ui';
 import type { ResourceItem, ResourceProgressState } from '@/entities/resource/model/types';
+import { formatBytes } from '@/shared/lib/format';
 
 type ResourceManagementCardProps = {
 	chromiumItems: ResourceItem[];
@@ -12,7 +13,6 @@ type ResourceManagementCardProps = {
 	onInstallChromium: (resourceId: string) => void;
 	onActivateChromium: (version: string) => void;
 	onDownloadResource: (resourceId: string, label?: string) => void;
-	formatBytes: (input: number | null) => string;
 };
 
 export function ResourceManagementCard({
@@ -24,7 +24,6 @@ export function ResourceManagementCard({
 	onInstallChromium,
 	onActivateChromium,
 	onDownloadResource,
-	formatBytes,
 }: ResourceManagementCardProps) {
 	return (
 		<Card className="p-4">
