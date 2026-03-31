@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { GripVertical, Plus, Trash2 } from 'lucide-react';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
 
-import type { AiProviderConfig, AutomationScript, ScriptStep } from '@/entities/automation/model/types';
+import type { AiProviderConfig, AiProviderType, AutomationScript, ScriptStep } from '@/entities/automation/model/types';
 import { STEP_KINDS, defaultStep } from '@/entities/automation/model/step-registry';
 import type { ProfileItem } from '@/entities/profile/model/types';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,7 @@ type FormValues = {
 	description: string;
 	steps: StepFormItem[];
 	associatedProfileIds: string[];
+	aiProvider: string;
 	aiBaseUrl: string;
 	aiApiKey: string;
 	aiModel: string;
@@ -67,6 +68,7 @@ export function ScriptEditorDialog({ open, script, onOpenChange, activeProfiles,
 			description: '',
 			steps: [],
 			associatedProfileIds: [],
+			aiProvider: '',
 			aiBaseUrl: '',
 			aiApiKey: '',
 			aiModel: '',
@@ -82,6 +84,7 @@ export function ScriptEditorDialog({ open, script, onOpenChange, activeProfiles,
 				description: script?.description ?? '',
 				steps: (script?.steps ?? []) as StepFormItem[],
 				associatedProfileIds: script?.associatedProfileIds ?? [],
+				aiProvider: script?.aiConfig?.provider ?? '',
 				aiBaseUrl: script?.aiConfig?.baseUrl ?? '',
 				aiApiKey: script?.aiConfig?.apiKey ?? '',
 				aiModel: script?.aiConfig?.model ?? '',
@@ -91,8 +94,9 @@ export function ScriptEditorDialog({ open, script, onOpenChange, activeProfiles,
 
 	function onSubmit(values: FormValues) {
 		const aiConfig: AiProviderConfig | null =
-			values.aiBaseUrl || values.aiApiKey || values.aiModel
+			values.aiProvider || values.aiBaseUrl || values.aiApiKey || values.aiModel
 				? {
+						provider: (values.aiProvider as AiProviderType) || undefined,
 						baseUrl: values.aiBaseUrl || undefined,
 						apiKey: values.aiApiKey || undefined,
 						model: values.aiModel || undefined,
@@ -214,6 +218,7 @@ export function ScriptEditorDialog({ open, script, onOpenChange, activeProfiles,
 								<Controller
 									control={control}
 									name="associatedProfileIds"
+									rules={{ validate: (val) => val.length > 0 || '请至少选择一个关联环境' }}
 									render={({ field }) => (
 										<>
 											{activeProfiles.map((profile) => (
@@ -236,6 +241,9 @@ export function ScriptEditorDialog({ open, script, onOpenChange, activeProfiles,
 								/>
 							</div>
 						)}
+						{errors.associatedProfileIds && (
+							<p className="text-xs text-destructive mt-1">{errors.associatedProfileIds.message}</p>
+						)}
 					</div>
 
 					{/* AI 配置 */}
@@ -244,16 +252,76 @@ export function ScriptEditorDialog({ open, script, onOpenChange, activeProfiles,
 						<p className="mb-2 text-xs text-muted-foreground">留空则使用全局 AI 配置</p>
 						<div className="space-y-2">
 							<div>
-								<p className="mb-1 text-xs text-muted-foreground">Base URL</p>
-								<Input {...register('aiBaseUrl')} placeholder="https://api.openai.com/v1" />
+								<p className="mb-1 text-xs text-muted-foreground">Provider</p>
+								<Controller
+									control={control}
+									name="aiProvider"
+									render={({ field }) => (
+										<Select value={field.value} onValueChange={field.onChange}>
+											<SelectTrigger className="h-9 text-sm cursor-pointer">
+												<SelectValue placeholder="使用全局配置" />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="">使用全局配置</SelectItem>
+												<SelectItem value="openai">OpenAI</SelectItem>
+												<SelectItem value="openrouter">OpenRouter</SelectItem>
+												<SelectItem value="deepseek">DeepSeek</SelectItem>
+												<SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
+												<SelectItem value="gemini">Google Gemini</SelectItem>
+												<SelectItem value="groq">Groq</SelectItem>
+												<SelectItem value="together">Together AI</SelectItem>
+												<SelectItem value="ollama">Ollama (本地)</SelectItem>
+												<SelectItem value="custom">自定义</SelectItem>
+											</SelectContent>
+										</Select>
+									)}
+								/>
 							</div>
 							<div>
-								<p className="mb-1 text-xs text-muted-foreground">API Key</p>
-								<Input {...register('aiApiKey')} type="password" placeholder="sk-..." />
+								<p className="mb-1 text-xs text-muted-foreground">Base URL（可选，覆盖默认值）</p>
+								<Input
+									{...register('aiBaseUrl')}
+									placeholder={(() => {
+										const p = watch('aiProvider');
+										const map: Record<string, string> = {
+											openai: 'https://api.openai.com/v1',
+											openrouter: 'https://openrouter.ai/api/v1',
+											deepseek: 'https://api.deepseek.com/v1',
+											groq: 'https://api.groq.com/openai/v1',
+											together: 'https://api.together.xyz/v1',
+											ollama: 'http://localhost:11434/v1',
+											anthropic: 'https://api.anthropic.com',
+											gemini: 'https://generativelanguage.googleapis.com',
+										};
+										return map[p] ?? 'https://api.openai.com/v1';
+									})()}
+								/>
 							</div>
+							{watch('aiProvider') !== 'ollama' && (
+								<div>
+									<p className="mb-1 text-xs text-muted-foreground">API Key</p>
+									<Input {...register('aiApiKey')} type="password" placeholder="sk-..." />
+								</div>
+							)}
 							<div>
 								<p className="mb-1 text-xs text-muted-foreground">模型</p>
-								<Input {...register('aiModel')} placeholder="gpt-4o" />
+								<Input
+									{...register('aiModel')}
+									placeholder={(() => {
+										const p = watch('aiProvider');
+										const map: Record<string, string> = {
+											openai: 'gpt-4o',
+											openrouter: 'openai/gpt-4o',
+											deepseek: 'deepseek-chat',
+											anthropic: 'claude-opus-4-5',
+											gemini: 'gemini-2.0-flash',
+											groq: 'llama-3.3-70b-versatile',
+											together: 'meta-llama/Llama-3-70b-chat-hf',
+											ollama: 'llama3',
+										};
+										return map[p] ?? 'gpt-4o';
+									})()}
+								/>
 							</div>
 						</div>
 					</div>
