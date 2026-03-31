@@ -99,7 +99,7 @@ fn js_find_element_expr(selector: &str, selector_type: &SelectorType) -> String 
 }
 
 /// 点击元素：先尝试 DOM.getBoxModel，失败后回退到 JS getBoundingClientRect
-async fn click_element(cdp: &CdpClient, selector: &str, selector_type: &SelectorType) -> Result<(), String> {
+async fn click_element_once(cdp: &CdpClient, selector: &str, selector_type: &SelectorType) -> Result<(), String> {
     let box_result = async {
         let node_id = find_element(cdp, selector, selector_type).await?;
         let bm = cdp.call("DOM.getBoxModel", json!({ "nodeId": node_id })).await?;
@@ -135,6 +135,23 @@ async fn click_element(cdp: &CdpClient, selector: &str, selector_type: &Selector
     Ok(())
 }
 
+/// 点击元素，失败时最多重试 3 次（每次间隔 300ms）
+async fn click_element(cdp: &CdpClient, selector: &str, selector_type: &SelectorType) -> Result<(), String> {
+    let mut last_err = String::new();
+    for attempt in 0..3u8 {
+        match click_element_once(cdp, selector, selector_type).await {
+            Ok(()) => return Ok(()),
+            Err(e) => {
+                last_err = e;
+                if attempt < 2 {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+                }
+            }
+        }
+    }
+    Err(last_err)
+}
+
 /// 读取 AI Provider 配置，并应用步骤级 model_override
 fn load_ai_config(
     app: &AppHandle,
@@ -147,6 +164,7 @@ fn load_ai_config(
         svc.read_ai_provider_config().unwrap_or_default()
     };
     if let Some(script_cfg) = script_ai_config {
+        if script_cfg.provider.is_some() { config.provider = script_cfg.provider.clone(); }
         if script_cfg.base_url.is_some() { config.base_url = script_cfg.base_url.clone(); }
         if script_cfg.api_key.is_some() { config.api_key = script_cfg.api_key.clone(); }
         if script_cfg.model.is_some() { config.model = script_cfg.model.clone(); }
@@ -445,6 +463,24 @@ pub fn update_script_variables_schema(
 pub fn list_active_automation_runs(state: State<'_, AppState>) -> Result<Vec<String>, String> {
     let tokens = state.cancel_tokens.lock().map_err(|_| "lock poisoned".to_string())?;
     Ok(tokens.keys().cloned().collect())
+}
+
+/// 导出自动化脚本到指定文件路径
+#[tauri::command]
+pub async fn export_automation_script_to_file(
+    state: tauri::State<'_, AppState>,
+    script_id: String,
+    file_path: String,
+) -> Result<(), String> {
+    let script = {
+        let svc = state.automation_service.lock().unwrap_or_else(|e| e.into_inner());
+        svc.get_script(&script_id).map_err(|e| e.to_string())?
+    };
+    let json = serde_json::to_string_pretty(&script)
+        .map_err(|e| format!("序列化失败: {e}"))?;
+    std::fs::write(&file_path, json)
+        .map_err(|e| format!("写入文件失败: {e}"))?;
+    Ok(())
 }
 
 // ─── 执行引擎 ─────────────────────────────────────────────────────────────────
