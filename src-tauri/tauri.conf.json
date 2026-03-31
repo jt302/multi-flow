@@ -12,9 +12,11 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "multi-flow",
         "width": 1300,
         "height": 800,
+        "create": false,
         "visible": false
       }
     ],
