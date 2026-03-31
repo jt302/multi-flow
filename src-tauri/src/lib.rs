@@ -1,17 +1,26 @@
+use std::collections::HashMap;
 use std::fs;
 use std::panic;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Once;
 use std::thread;
 use std::time::Duration;
 
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
-use tauri::{AppHandle, Manager};
+use tauri::plugin::Builder as TauriPluginBuilder;
+use tauri::utils::config::WindowConfig;
+use tauri::{
+    AppHandle, Manager, RunEvent, WebviewWindow, WebviewWindowBuilder, Window, WindowEvent,
+};
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 
 const MENU_ID_OPEN_DATA_DIR: &str = "open_data_dir";
 const MENU_ID_OPEN_LOG_PANEL: &str = "open_log_panel";
+const MAIN_WINDOW_LABEL: &str = "main";
+const MAIN_WINDOW_STATE_FILENAME: &str = "main-window-state.json";
+const PLUGIN_WINDOW_STATE_FILENAME: &str = ".window-state.json";
 const PROXY_DAEMON_SIDECAR_NAME: &str = "proxy-daemon";
 const PROXY_DAEMON_RUST_LOG_ENV: &str = "MULTI_FLOW_PROXY_DAEMON_RUST_LOG";
 const DEFAULT_PROXY_DAEMON_RUST_LOG: &str = "info";
@@ -39,7 +48,16 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_window_state::Builder::new()
-                .skip_initial_state("main")
+                .skip_initial_state(MAIN_WINDOW_LABEL)
+                .build(),
+        )
+        .plugin(
+            TauriPluginBuilder::<tauri::Wry, ()>::new("main-window-state")
+                .on_event(|app, event| {
+                    if let RunEvent::Exit = event {
+                        save_main_window_state_if_needed(app, "app_exit", true);
+                    }
+                })
                 .build(),
         )
         .on_menu_event(|app, event| {
@@ -49,6 +67,21 @@ pub fn run() {
             }
             if event.id().as_ref() == MENU_ID_OPEN_LOG_PANEL {
                 let _ = commands::log_commands::open_log_panel_window(app.clone());
+            }
+        })
+        .on_window_event(|window, event| {
+            if window.label() != MAIN_WINDOW_LABEL {
+                return;
+            }
+
+            match event {
+                WindowEvent::Moved(_) => save_main_window_state(window, "moved", false),
+                WindowEvent::Resized(_) => save_main_window_state(window, "resized", false),
+                WindowEvent::CloseRequested { .. } => {
+                    save_main_window_state(window, "close_requested", true)
+                }
+                WindowEvent::Destroyed => save_main_window_state(window, "destroyed", true),
+                _ => {}
             }
         })
         .setup(|app| {
@@ -66,12 +99,8 @@ pub fn run() {
             app.manage(app_state);
             setup_native_menu(app)?;
             start_runtime_guard(app.handle().clone());
+            build_main_window(app)?;
             logger::info("app", "tauri setup completed");
-            // 同步恢复窗口状态（位置和大小），显示由前端控制以避免闪现。
-            if let Some(main_window) = app.get_webview_window("main") {
-                use tauri_plugin_window_state::{StateFlags, WindowExt};
-                let _ = main_window.restore_state(StateFlags::all());
-            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -389,5 +418,596 @@ fn trim_to_option(input: String) -> Option<String> {
         None
     } else {
         Some(trimmed.to_string())
+    }
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq)]
+struct SavedMainWindowState {
+    width: u32,
+    height: u32,
+    x: i32,
+    y: i32,
+    maximized: bool,
+    fullscreen: bool,
+    #[serde(default)]
+    monitor: Option<SavedMonitorSnapshot>,
+}
+
+impl Default for SavedMainWindowState {
+    fn default() -> Self {
+        Self {
+            width: 0,
+            height: 0,
+            x: 0,
+            y: 0,
+            maximized: false,
+            fullscreen: false,
+            monitor: None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, PartialEq)]
+struct SavedMonitorSnapshot {
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    scale_factor: f64,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+struct SavedPluginWindowState {
+    width: u32,
+    height: u32,
+    x: i32,
+    y: i32,
+    prev_x: i32,
+    prev_y: i32,
+    maximized: bool,
+    fullscreen: bool,
+}
+
+#[derive(Clone, Debug)]
+struct LoadedMainWindowState {
+    state: SavedMainWindowState,
+    source: &'static str,
+}
+
+trait MainWindowStateSource {
+    fn app_handle_owned(&self) -> AppHandle;
+    fn is_maximized_state(&self) -> Result<bool, String>;
+    fn is_minimized_state(&self) -> Result<bool, String>;
+    fn is_fullscreen_state(&self) -> Result<bool, String>;
+    fn inner_size_state(&self) -> Result<(u32, u32), String>;
+    fn outer_position_state(&self) -> Result<(i32, i32), String>;
+    fn current_monitor_snapshot(&self) -> Option<SavedMonitorSnapshot>;
+    fn available_monitor_snapshots(&self) -> Vec<SavedMonitorSnapshot>;
+}
+
+impl MainWindowStateSource for Window {
+    fn app_handle_owned(&self) -> AppHandle {
+        self.app_handle().clone()
+    }
+
+    fn is_maximized_state(&self) -> Result<bool, String> {
+        self.is_maximized()
+            .map_err(|err| format!("read maximized state failed: {err}"))
+    }
+
+    fn is_minimized_state(&self) -> Result<bool, String> {
+        self.is_minimized()
+            .map_err(|err| format!("read minimized state failed: {err}"))
+    }
+
+    fn is_fullscreen_state(&self) -> Result<bool, String> {
+        self.is_fullscreen()
+            .map_err(|err| format!("read fullscreen state failed: {err}"))
+    }
+
+    fn inner_size_state(&self) -> Result<(u32, u32), String> {
+        self.inner_size()
+            .map(|size| (size.width, size.height))
+            .map_err(|err| format!("read inner size failed: {err}"))
+    }
+
+    fn outer_position_state(&self) -> Result<(i32, i32), String> {
+        self.outer_position()
+            .map(|position| (position.x, position.y))
+            .map_err(|err| format!("read outer position failed: {err}"))
+    }
+
+    fn current_monitor_snapshot(&self) -> Option<SavedMonitorSnapshot> {
+        self.current_monitor().ok().flatten().map(saved_monitor_snapshot)
+    }
+
+    fn available_monitor_snapshots(&self) -> Vec<SavedMonitorSnapshot> {
+        self.available_monitors()
+            .unwrap_or_default()
+            .into_iter()
+            .map(saved_monitor_snapshot)
+            .collect()
+    }
+}
+
+impl MainWindowStateSource for WebviewWindow {
+    fn app_handle_owned(&self) -> AppHandle {
+        self.app_handle().clone()
+    }
+
+    fn is_maximized_state(&self) -> Result<bool, String> {
+        self.is_maximized()
+            .map_err(|err| format!("read maximized state failed: {err}"))
+    }
+
+    fn is_minimized_state(&self) -> Result<bool, String> {
+        self.is_minimized()
+            .map_err(|err| format!("read minimized state failed: {err}"))
+    }
+
+    fn is_fullscreen_state(&self) -> Result<bool, String> {
+        self.is_fullscreen()
+            .map_err(|err| format!("read fullscreen state failed: {err}"))
+    }
+
+    fn inner_size_state(&self) -> Result<(u32, u32), String> {
+        self.inner_size()
+            .map(|size| (size.width, size.height))
+            .map_err(|err| format!("read inner size failed: {err}"))
+    }
+
+    fn outer_position_state(&self) -> Result<(i32, i32), String> {
+        self.outer_position()
+            .map(|position| (position.x, position.y))
+            .map_err(|err| format!("read outer position failed: {err}"))
+    }
+
+    fn current_monitor_snapshot(&self) -> Option<SavedMonitorSnapshot> {
+        self.current_monitor().ok().flatten().map(saved_monitor_snapshot)
+    }
+
+    fn available_monitor_snapshots(&self) -> Vec<SavedMonitorSnapshot> {
+        self.available_monitors()
+            .unwrap_or_default()
+            .into_iter()
+            .map(saved_monitor_snapshot)
+            .collect()
+    }
+}
+
+fn build_main_window(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    if app.get_webview_window(MAIN_WINDOW_LABEL).is_some() {
+        return Ok(());
+    }
+
+    let base_config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|window| window.label == MAIN_WINDOW_LABEL)
+        .cloned()
+        .ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "main window config not found in tauri.conf.json",
+            )
+        })?;
+    let handle = app.handle().clone();
+    let window_config = apply_saved_main_window_state(&handle, base_config);
+    let window = WebviewWindowBuilder::from_config(&handle, &window_config)?.build()?;
+
+    let _ = window.show();
+    let _ = window.set_focus();
+    Ok(())
+}
+
+fn apply_saved_main_window_state(app: &AppHandle, mut config: WindowConfig) -> WindowConfig {
+    config.visible = false;
+
+    let Some(loaded) = load_saved_main_window_state(app) else {
+        logger::info("main_window", "no saved state found, using default config");
+        return config;
+    };
+
+    let restored =
+        apply_saved_main_window_state_with_monitors(config, &loaded.state, &collect_saved_monitor_snapshots(app));
+
+    logger::info(
+        "main_window",
+        format!(
+            "restored state from {} x={:?} y={:?} width={} height={} maximized={} fullscreen={}",
+            loaded.source,
+            restored.x,
+            restored.y,
+            restored.width,
+            restored.height,
+            restored.maximized,
+            restored.fullscreen
+        ),
+    );
+
+    restored
+}
+
+fn apply_saved_main_window_state_with_monitors(
+    mut config: WindowConfig,
+    state: &SavedMainWindowState,
+    monitors: &[SavedMonitorSnapshot],
+) -> WindowConfig {
+    config.visible = false;
+
+    let Some(monitor) = find_restore_monitor_for_main_window(monitors, state) else {
+        return config;
+    };
+
+    let (x, y, width, height) = clamp_saved_main_window_bounds(state, monitor);
+    config.center = false;
+    config.x = Some(physical_to_logical(x as f64, monitor.scale_factor));
+    config.y = Some(physical_to_logical(y as f64, monitor.scale_factor));
+    config.width = physical_to_logical(width as f64, monitor.scale_factor);
+    config.height = physical_to_logical(height as f64, monitor.scale_factor);
+    config.maximized = state.maximized;
+    config.fullscreen = state.fullscreen;
+    config
+}
+
+fn save_main_window_state<T: MainWindowStateSource>(
+    window: &T,
+    reason: &str,
+    log_success: bool,
+) {
+    match capture_main_window_state(window).and_then(|state| {
+        let path = main_window_state_path(&window.app_handle_owned())?;
+        save_main_window_state_to_path(&path, &state)?;
+        Ok((path, state))
+    }) {
+        Ok((path, state)) => {
+            if log_success {
+                logger::info(
+                    "main_window",
+                    format!(
+                        "saved state via {reason} at {} x={} y={} width={} height={} maximized={} fullscreen={}",
+                        path.to_string_lossy(),
+                        state.x,
+                        state.y,
+                        state.width,
+                        state.height,
+                        state.maximized,
+                        state.fullscreen
+                    ),
+                );
+            }
+        }
+        Err(err) => {
+            logger::warn("main_window", format!("save state via {reason} failed: {err}"));
+        }
+    }
+}
+
+fn save_main_window_state_if_needed(app: &AppHandle, reason: &str, log_success: bool) {
+    if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+        save_main_window_state(&window, reason, log_success);
+    }
+}
+
+fn capture_main_window_state<T: MainWindowStateSource>(
+    window: &T,
+) -> Result<SavedMainWindowState, String> {
+    let loaded = load_saved_main_window_state(&window.app_handle_owned());
+    let mut state = loaded
+        .as_ref()
+        .map(|loaded| loaded.state.clone())
+        .unwrap_or_default();
+    let had_saved_geometry = loaded.is_some();
+
+    let is_maximized = window.is_maximized_state()?;
+    let is_minimized = window.is_minimized_state()?;
+    state.maximized = is_maximized;
+    state.fullscreen = window.is_fullscreen_state()?;
+
+    if !is_minimized && (!is_maximized || !had_saved_geometry) {
+        let (width, height) = window.inner_size_state()?;
+        let (x, y) = window.outer_position_state()?;
+
+        if width > 0 && height > 0 {
+            state.width = width;
+            state.height = height;
+            state.x = x;
+            state.y = y;
+            state.monitor = capture_monitor_snapshot_for_window(window, x, y, width, height);
+        }
+    }
+
+    Ok(state)
+}
+
+fn load_saved_main_window_state(app: &AppHandle) -> Option<LoadedMainWindowState> {
+    let dedicated_path = main_window_state_path(app).ok()?;
+    if let Some(state) = load_saved_main_window_state_from_path(&dedicated_path) {
+        return Some(LoadedMainWindowState {
+            state,
+            source: MAIN_WINDOW_STATE_FILENAME,
+        });
+    }
+
+    load_saved_main_window_plugin_state(app).map(|state| LoadedMainWindowState {
+        state,
+        source: PLUGIN_WINDOW_STATE_FILENAME,
+    })
+}
+
+fn load_saved_main_window_state_from_path(path: &Path) -> Option<SavedMainWindowState> {
+    let content = fs::read_to_string(path).ok()?;
+    serde_json::from_str(&content).ok()
+}
+
+fn save_main_window_state_to_path(
+    path: &Path,
+    state: &SavedMainWindowState,
+) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|err| format!("create main window state dir failed: {err}"))?;
+    }
+    let content = serde_json::to_vec_pretty(state)
+        .map_err(|err| format!("serialize main window state failed: {err}"))?;
+    fs::write(path, content).map_err(|err| format!("write main window state failed: {err}"))?;
+    Ok(())
+}
+
+fn load_saved_main_window_plugin_state(app: &AppHandle) -> Option<SavedMainWindowState> {
+    let state_file = app_config_dir(app).ok()?.join(PLUGIN_WINDOW_STATE_FILENAME);
+    let content = fs::read_to_string(state_file).ok()?;
+    let state_map: HashMap<String, SavedPluginWindowState> = serde_json::from_str(&content).ok()?;
+    let state = state_map.get(MAIN_WINDOW_LABEL)?;
+    Some(SavedMainWindowState {
+        width: state.width,
+        height: state.height,
+        x: if state.maximized { state.prev_x } else { state.x },
+        y: if state.maximized { state.prev_y } else { state.y },
+        maximized: state.maximized,
+        fullscreen: state.fullscreen,
+        monitor: None,
+    })
+}
+
+fn main_window_state_path(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(app_config_dir(app)?.join(MAIN_WINDOW_STATE_FILENAME))
+}
+
+fn app_config_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_config_dir()
+        .or_else(|_| app.path().app_local_data_dir())
+        .or_else(|_| app.path().app_data_dir())
+        .map_err(|err| format!("resolve app config dir failed: {err}"))
+}
+
+fn collect_saved_monitor_snapshots(app: &AppHandle) -> Vec<SavedMonitorSnapshot> {
+    app.available_monitors()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|monitor| SavedMonitorSnapshot {
+            x: monitor.position().x,
+            y: monitor.position().y,
+            width: monitor.size().width as i32,
+            height: monitor.size().height as i32,
+            scale_factor: monitor.scale_factor(),
+        })
+        .collect()
+}
+
+fn capture_monitor_snapshot_for_window<T: MainWindowStateSource>(
+    window: &T,
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+) -> Option<SavedMonitorSnapshot> {
+    window
+        .current_monitor_snapshot()
+        .or_else(|| {
+            let monitors = window.available_monitor_snapshots();
+            find_monitor_for_saved_main_window(&monitors, x, y, width, height)
+        })
+}
+
+fn find_restore_monitor_for_main_window(
+    monitors: &[SavedMonitorSnapshot],
+    state: &SavedMainWindowState,
+) -> Option<SavedMonitorSnapshot> {
+    find_monitor_for_saved_main_window(monitors, state.x, state.y, state.width, state.height)
+        .or_else(|| {
+            state
+                .monitor
+                .and_then(|saved| find_matching_monitor_for_saved_snapshot(monitors, saved))
+        })
+        .or_else(|| monitors.first().copied())
+}
+
+fn find_matching_monitor_for_saved_snapshot(
+    monitors: &[SavedMonitorSnapshot],
+    saved: SavedMonitorSnapshot,
+) -> Option<SavedMonitorSnapshot> {
+    monitors.iter().copied().min_by(|left, right| {
+        monitor_similarity_score(*left, saved).cmp(&monitor_similarity_score(*right, saved))
+    })
+}
+
+fn monitor_similarity_score(monitor: SavedMonitorSnapshot, saved: SavedMonitorSnapshot) -> i64 {
+    let position_delta = (monitor.x - saved.x).abs() as i64 + (monitor.y - saved.y).abs() as i64;
+    let size_delta =
+        (monitor.width - saved.width).abs() as i64 + (monitor.height - saved.height).abs() as i64;
+    let scale_delta = ((monitor.scale_factor - saved.scale_factor).abs() * 1000.0) as i64;
+
+    position_delta + (size_delta * 4) + scale_delta
+}
+
+fn clamp_saved_main_window_bounds(
+    state: &SavedMainWindowState,
+    monitor: SavedMonitorSnapshot,
+) -> (i32, i32, u32, u32) {
+    let width = state.width.min(monitor.width.max(1) as u32);
+    let height = state.height.min(monitor.height.max(1) as u32);
+    let max_x = monitor.x + monitor.width - width as i32;
+    let max_y = monitor.y + monitor.height - height as i32;
+    let x = state.x.clamp(monitor.x, max_x.max(monitor.x));
+    let y = state.y.clamp(monitor.y, max_y.max(monitor.y));
+
+    (x, y, width, height)
+}
+
+fn find_monitor_for_saved_main_window(
+    monitors: &[SavedMonitorSnapshot],
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+) -> Option<SavedMonitorSnapshot> {
+    monitors.iter().copied().find(|monitor| {
+        let overlap_x = (x + width as i32).min(monitor.x + monitor.width) - x.max(monitor.x);
+        let overlap_y = (y + height as i32).min(monitor.y + monitor.height) - y.max(monitor.y);
+
+        overlap_x >= 50 && overlap_y >= 50
+    })
+}
+
+fn saved_monitor_snapshot(monitor: tauri::Monitor) -> SavedMonitorSnapshot {
+    SavedMonitorSnapshot {
+        x: monitor.position().x,
+        y: monitor.position().y,
+        width: monitor.size().width as i32,
+        height: monitor.size().height as i32,
+        scale_factor: monitor.scale_factor(),
+    }
+}
+
+fn physical_to_logical(value: f64, scale_factor: f64) -> f64 {
+    if scale_factor.is_finite() && scale_factor > 0.0 {
+        value / scale_factor
+    } else {
+        value
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        apply_saved_main_window_state_with_monitors, load_saved_main_window_state_from_path,
+        save_main_window_state_to_path, SavedMainWindowState, SavedMonitorSnapshot,
+    };
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+    use tauri::utils::config::WindowConfig;
+
+    #[test]
+    fn main_window_restore_converts_physical_pixels_to_logical_pixels() {
+        let config = WindowConfig {
+            width: 1300.0,
+            height: 800.0,
+            visible: false,
+            ..WindowConfig::default()
+        };
+        let state = SavedMainWindowState {
+            width: 2600,
+            height: 1600,
+            x: 1260,
+            y: 328,
+            maximized: false,
+            fullscreen: false,
+            monitor: None,
+        };
+        let monitors = [SavedMonitorSnapshot {
+            x: 0,
+            y: 0,
+            width: 5120,
+            height: 2880,
+            scale_factor: 2.0,
+        }];
+
+        let restored = apply_saved_main_window_state_with_monitors(config, &state, &monitors);
+
+        assert_eq!(restored.x, Some(630.0));
+        assert_eq!(restored.y, Some(164.0));
+        assert_eq!(restored.width, 1300.0);
+        assert_eq!(restored.height, 800.0);
+        assert!(!restored.center);
+    }
+
+    #[test]
+    fn main_window_restore_falls_back_to_primary_monitor_when_saved_bounds_are_offscreen() {
+        let config = WindowConfig {
+            width: 1300.0,
+            height: 800.0,
+            visible: false,
+            ..WindowConfig::default()
+        };
+        let state = SavedMainWindowState {
+            width: 2600,
+            height: 1600,
+            x: -6000,
+            y: 400,
+            maximized: false,
+            fullscreen: false,
+            monitor: Some(SavedMonitorSnapshot {
+                x: -6200,
+                y: 0,
+                width: 3456,
+                height: 2234,
+                scale_factor: 2.0,
+            }),
+        };
+        let monitors = [SavedMonitorSnapshot {
+            x: 0,
+            y: 0,
+            width: 3024,
+            height: 1964,
+            scale_factor: 2.0,
+        }];
+
+        let restored = apply_saved_main_window_state_with_monitors(config, &state, &monitors);
+
+        assert_eq!(restored.x, Some(0.0));
+        assert_eq!(restored.y, Some(182.0));
+        assert_eq!(restored.width, 1300.0);
+        assert_eq!(restored.height, 800.0);
+        assert!(!restored.center);
+    }
+
+    #[test]
+    fn main_window_state_round_trip_preserves_geometry() {
+        let path = unique_temp_state_path();
+        let state = SavedMainWindowState {
+            width: 1888,
+            height: 1220,
+            x: 144,
+            y: 88,
+            maximized: true,
+            fullscreen: false,
+            monitor: Some(SavedMonitorSnapshot {
+                x: 0,
+                y: 0,
+                width: 3024,
+                height: 1964,
+                scale_factor: 2.0,
+            }),
+        };
+
+        save_main_window_state_to_path(&path, &state).expect("save state");
+        let loaded = load_saved_main_window_state_from_path(&path).expect("load state");
+
+        assert_eq!(loaded, state);
+
+        let _ = fs::remove_file(path);
+    }
+
+    fn unique_temp_state_path() -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time")
+            .as_nanos();
+        std::env::temp_dir().join(format!("multi-flow-main-window-state-{nanos}.json"))
     }
 }
