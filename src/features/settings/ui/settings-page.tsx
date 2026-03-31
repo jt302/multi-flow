@@ -12,8 +12,8 @@ import {
 import { ThemeCustomizerCard } from './theme-customizer-card';
 import { AiProviderConfigCard } from './ai-provider-config-card';
 import { ResourceManagementCard } from './resource-management-card';
-import { AdvancedMaintenanceCard } from './advanced-maintenance-card';
 import { GeneralSettingsPlaceholder } from './general-settings-placeholder';
+import { RecycleBinRoutePage } from '@/pages/recycle-bin';
 import { cn } from '@/lib/utils';
 
 export function SettingsPage({
@@ -26,14 +26,13 @@ export function SettingsPage({
 	resources,
 	onRefreshResources,
 	onInstallChromium,
-	onActivateChromium,
 	onDownloadResource,
 	resourceProgress,
-	onOpenRecycleBin,
 }: SettingsPageProps) {
 	const section = WORKSPACE_SECTIONS.settings;
 	const [pendingKey, setPendingKey] = useState('');
-	const [activeTab, setActiveTab] = useState<SettingsTabId>(DEFAULT_SETTINGS_TAB);
+	const [activeTab, setActiveTab] =
+		useState<SettingsTabId>(DEFAULT_SETTINGS_TAB);
 
 	const chromiumItems = useMemo(
 		() => resources.filter((item) => item.kind === 'chromium'),
@@ -57,12 +56,16 @@ export function SettingsPage({
 	};
 
 	return (
-		<div className="mx-auto w-full max-w-[1200px] space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-			<ActiveSectionCard label="通用设置" title={section.title} description={section.desc} />
+		<div className="flex h-full min-h-0 w-full flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
+			<ActiveSectionCard
+				label="通用设置"
+				title={section.title}
+				description={section.desc}
+			/>
 
-			<div className="grid grid-cols-[11rem_1fr] gap-6">
+			<div className="grid grid-cols-[11rem_1fr] gap-4 flex-1 min-h-0">
 				{/* 左侧 Tab 导航 */}
-				<nav className="flex flex-col sticky top-6 rounded-xl border border-border/40 bg-card/60 backdrop-blur-md p-2 gap-0.5">
+				<nav className="flex flex-col self-start h-fit rounded-xl border border-border/40 bg-card/60 backdrop-blur-md p-2 gap-0.5">
 					{SETTINGS_TABS.map((tab) => (
 						<button
 							key={tab.id}
@@ -82,7 +85,7 @@ export function SettingsPage({
 				</nav>
 
 				{/* 右侧内容区 */}
-				<div className="min-w-0 w-full self-start">
+				<div className="min-w-0 w-full min-h-0 overflow-y-auto">
 					{activeTab === 'general' && <GeneralSettingsPlaceholder />}
 
 					{activeTab === 'appearance' && (
@@ -106,22 +109,21 @@ export function SettingsPage({
 								void runAction('refresh-resources', onRefreshResources);
 							}}
 							onInstallChromium={(resourceId) => {
-								void runAction(`install-${resourceId}`, () => onInstallChromium(resourceId));
-							}}
-							onActivateChromium={(version) => {
-								void runAction(`activate-${version}`, () => onActivateChromium(version));
+								void runAction(`install-${resourceId}`, () =>
+									onInstallChromium(resourceId),
+								);
 							}}
 							onDownloadResource={(resourceId, label) => {
-								void runAction(`download-${resourceId}`, () => onDownloadResource(resourceId, label));
+								void runAction(`download-${resourceId}`, () =>
+									onDownloadResource(resourceId, label),
+								);
 							}}
 						/>
 					)}
 
 					{activeTab === 'ai' && <AiProviderConfigCard />}
 
-					{activeTab === 'advanced' && (
-						<AdvancedMaintenanceCard onOpenRecycleBin={onOpenRecycleBin} />
-					)}
+					{activeTab === 'recycle-bin' && <RecycleBinRoutePage />}
 				</div>
 			</div>
 		</div>

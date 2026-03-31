@@ -1498,6 +1498,12 @@ pub(crate) fn do_open_profile(
     )?;
     launch_options.cookie_state_file = cookie_state_file;
     launch_options.extension_state_file = extension_state_file;
+    launch_options.logging_enabled = state
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .read_chromium_logging_enabled()
+        .unwrap_or(true);
     logger::info(
         "profile_cmd",
         format!(
@@ -1756,6 +1762,7 @@ fn resolve_launch_options(
         cookie_state_file: None,
         extension_state_file: None,
         extra_args,
+        logging_enabled: true,
     })
 }
 
