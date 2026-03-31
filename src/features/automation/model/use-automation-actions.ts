@@ -93,7 +93,7 @@ export function useAutomationActions(activeScriptId: string | null) {
 			initialVars,
 		}: {
 			scriptId: string;
-			profileId: string;
+			profileId: string | null;
 			stepTotal: number;
 			initialVars?: Record<string, string>;
 		}) => {
@@ -116,7 +116,7 @@ export function useAutomationActions(activeScriptId: string | null) {
 			initialVars,
 		}: {
 			scriptId: string;
-			profileId: string;
+			profileId: string | null;
 			stepTotal: number;
 			initialVars?: Record<string, string>;
 		}) => {

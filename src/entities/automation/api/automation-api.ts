@@ -41,7 +41,7 @@ export async function listAutomationRuns(scriptId: string): Promise<AutomationRu
 
 export async function runAutomationScript(
 	scriptId: string,
-	profileId: string,
+	profileId: string | null,
 	initialVars?: Record<string, string>,
 ): Promise<string> {
 	return tauriInvoke<string>('run_automation_script', { scriptId, profileId, initialVars: initialVars ?? null });
@@ -112,7 +112,7 @@ export async function listActiveAutomationRuns(): Promise<string[]> {
 
 export async function runAutomationScriptDebug(
 	scriptId: string,
-	profileId: string,
+	profileId: string | null,
 	initialVars?: Record<string, string>,
 ): Promise<string> {
 	return tauriInvoke<string>('run_automation_script_debug', { scriptId, profileId, initialVars: initialVars ?? null });
