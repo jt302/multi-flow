@@ -15,12 +15,15 @@ import {
 	type NodeChange,
 	ReactFlow,
 	ReactFlowProvider,
+	SelectionMode,
 	addEdge,
 	applyEdgeChanges,
 	applyNodeChanges,
 	useReactFlow,
 } from '@xyflow/react';
-import { ArrowLeft, Loader2, Minus, Play, Plus, Square, Trash2, Variable } from 'lucide-react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { ArrowLeft, CheckCircle, ChevronDown, Loader2, Minus, Play, Plus, Square, Trash2, Variable } from 'lucide-react';
+import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
 import type { AutomationScript, ScriptStep, ScriptVarDef, StepResult } from '@/entities/automation/model/types';
@@ -52,6 +55,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from '@/components/ui/popover';
+import {
 	Select,
 	SelectContent,
 	SelectItem,
@@ -75,18 +83,19 @@ type StepNodeData = { step: ScriptStep; index: number; stepStatus?: string };
 
 const HANDLE_CLS = '!w-2.5 !h-2.5 !bg-muted-foreground/40 hover:!bg-primary !border-0 !rounded-full';
 
-function StepNodeComponent({ data }: { data: StepNodeData }) {
+function StepNodeComponent({ data, selected }: { data: StepNodeData; selected?: boolean }) {
 	const { step, index, stepStatus } = data;
 	const kind = step.kind;
 	const label = KIND_LABELS[kind] ?? kind;
 	const group = KIND_GROUPS[kind] ?? '通用';
 	const colorClass = GROUP_COLORS[group] ?? GROUP_COLORS['通用'];
 	const ringClass = stepStatus ? (STEP_STATUS_RING[stepStatus] ?? '') : '';
+	const selectedClass = selected ? 'ring-2 ring-primary ring-offset-2' : '';
 	const summary = getStepSummaryText(step);
 	const isCondition = kind === 'condition';
 
 	return (
-		<div className={`relative min-w-[160px] max-w-[220px] rounded-lg border bg-background shadow-sm px-3 py-2 cursor-pointer ${ringClass}`}>
+		<div className={`relative min-w-[160px] max-w-[220px] rounded-lg border bg-background shadow-sm px-3 py-2 cursor-pointer ${selectedClass} ${ringClass}`}>
 			<Handle type="target" position={Position.Top} className={HANDLE_CLS} />
 			<div className="flex items-center gap-1.5 mb-1">
 				<span className="text-[10px] text-muted-foreground font-mono">#{index + 1}</span>
@@ -130,31 +139,120 @@ function StepPropertiesPanel({
 	step,
 	onUpdate,
 	onDelete,
+	varsDefs,
+	stepIndex,
+	allSteps,
 }: {
 	step: ScriptStep;
 	onUpdate: (step: ScriptStep) => void;
 	onDelete: () => void;
+	varsDefs: ScriptVarDef[];
+	stepIndex: number;
+	allSteps: ScriptStep[];
 }) {
 	const s = step as Record<string, unknown>;
 	const kind = step.kind;
+	// 计算可用变量
+	const availableVars: { name: string; source: string }[] = [
+		// 脚本级变量
+		...varsDefs.map((v) => ({ name: v.name, source: '脚本变量' })),
+		// 前置步骤输出变量
+		...allSteps.slice(0, stepIndex).flatMap((stepItem, i) => {
+			const stepRecord = stepItem as Record<string, unknown>;
+			const results: { name: string; source: string }[] = [];
+			if (typeof stepRecord['output_key'] === 'string' && stepRecord['output_key']) {
+				results.push({ name: stepRecord['output_key'] as string, source: `步骤 ${i + 1}` });
+			}
+			if (typeof stepRecord['output_key_base64'] === 'string' && stepRecord['output_key_base64']) {
+				results.push({ name: stepRecord['output_key_base64'] as string, source: `步骤 ${i + 1}` });
+			}
+			if (typeof stepRecord['iter_var'] === 'string' && stepRecord['iter_var']) {
+				results.push({ name: stepRecord['iter_var'] as string, source: `步骤 ${i + 1}` });
+			}
+			return results;
+		}),
+	];
 
 	function tf(key: string, label: string, multi = false) {
 		const value = String(s[key] ?? '');
+		const inputId = `tf-${key}`;
+
+		function insertVar(varName: string) {
+			const insertion = `{{${varName}}}`;
+			const el = document.getElementById(inputId) as HTMLInputElement | HTMLTextAreaElement | null;
+			if (el) {
+				const start = el.selectionStart ?? value.length;
+				const end = el.selectionEnd ?? value.length;
+				const newVal = value.slice(0, start) + insertion + value.slice(end);
+				onUpdate({ ...step, [key]: newVal } as ScriptStep);
+				// 异步设置光标位置
+				setTimeout(() => {
+					el.focus();
+					el.setSelectionRange(start + insertion.length, start + insertion.length);
+				}, 0);
+			} else {
+				// fallback: append at end
+				onUpdate({ ...step, [key]: value + insertion } as ScriptStep);
+			}
+		}
+
+		const varButton = availableVars.length > 0 ? (
+			<Popover>
+				<PopoverTrigger asChild>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						className="h-7 w-7 flex-shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+						title="插入变量"
+					>
+						<Variable className="h-3.5 w-3.5" />
+					</Button>
+				</PopoverTrigger>
+				<PopoverContent className="w-52 p-1" align="end">
+					<div className="text-xs text-muted-foreground px-2 py-1 font-medium">选择变量</div>
+					{availableVars.map((v, i) => (
+						<button
+							key={`${v.name}-${v.source}-${i}`}
+							type="button"
+							className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent cursor-pointer flex items-center justify-between gap-2"
+							onClick={() => insertVar(v.name)}
+						>
+							<span className="font-mono text-blue-500 truncate">{`{{${v.name}}}`}</span>
+							<span className="text-muted-foreground flex-shrink-0">{v.source}</span>
+						</button>
+					))}
+				</PopoverContent>
+			</Popover>
+		) : null;
+
 		return (
 			<div key={key} className="space-y-1">
 				<Label className="text-xs">{label}</Label>
 				{multi ? (
-					<Textarea
-						value={value}
-						onChange={(e) => onUpdate({ ...step, [key]: e.target.value } as ScriptStep)}
-						className="text-xs min-h-[60px]"
-					/>
+					<div className="relative">
+						<Textarea
+							id={inputId}
+							value={value}
+							onChange={(e) => onUpdate({ ...step, [key]: e.target.value } as ScriptStep)}
+							className="text-xs min-h-[60px] pr-8"
+						/>
+						{varButton && (
+							<div className="absolute top-1 right-1">
+								{varButton}
+							</div>
+						)}
+					</div>
 				) : (
-					<Input
-						value={value}
-						onChange={(e) => onUpdate({ ...step, [key]: e.target.value } as ScriptStep)}
-						className="h-8 text-xs"
-					/>
+					<div className="flex gap-1">
+						<Input
+							id={inputId}
+							value={value}
+							onChange={(e) => onUpdate({ ...step, [key]: e.target.value } as ScriptStep)}
+							className="h-8 text-xs flex-1"
+						/>
+						{varButton}
+					</div>
 				)}
 			</div>
 		);
@@ -209,7 +307,52 @@ function StepPropertiesPanel({
 		);
 	}
 
-	const okf = () => tf('output_key', '输出变量名');
+	function outputKeyField(key: string, label: string) {
+		const value = String(s[key] ?? '');
+		return (
+			<div key={key} className="space-y-1">
+				<Label className="text-xs">{label}</Label>
+				<div className="flex gap-1">
+					<Input
+						value={value}
+						onChange={(e) => onUpdate({ ...step, [key]: e.target.value } as ScriptStep)}
+						placeholder="新变量名或选择已有"
+						className="h-8 text-xs flex-1"
+					/>
+					{availableVars.length > 0 && (
+						<Popover>
+							<PopoverTrigger asChild>
+								<Button
+									type="button"
+									variant="ghost"
+									size="icon"
+									className="h-8 w-8 flex-shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+									title="选择已有变量"
+								>
+									<ChevronDown className="h-3.5 w-3.5" />
+								</Button>
+							</PopoverTrigger>
+							<PopoverContent className="w-52 p-1" align="end">
+								<div className="text-xs text-muted-foreground px-2 py-1 font-medium">选择已有变量</div>
+								{availableVars.map((v) => (
+									<button
+										key={`${v.name}-${v.source}`}
+										type="button"
+										className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent cursor-pointer flex items-center justify-between gap-2"
+										onClick={() => onUpdate({ ...step, [key]: v.name } as ScriptStep)}
+									>
+										<span className="font-mono text-blue-500 truncate">{v.name}</span>
+										<span className="text-muted-foreground flex-shrink-0 text-[10px]">{v.source}</span>
+									</button>
+								))}
+							</PopoverContent>
+						</Popover>
+					)}
+				</div>
+			</div>
+		);
+	}
+	const okf = () => outputKeyField('output_key', '输出变量名');
 
 	const fields: React.ReactNode[] = [];
 	if (kind === 'navigate' || kind === 'cdp_navigate') { fields.push(tf('url', 'URL')); fields.push(okf()); }
@@ -219,8 +362,9 @@ function StepPropertiesPanel({
 	else if (kind === 'type' || kind === 'cdp_type') { fields.push(sf()); fields.push(tf('text', '输入文本')); }
 	else if (kind === 'cdp_get_text') { fields.push(sf()); fields.push(okf()); }
 	else if (kind === 'cdp_wait_for_selector') { fields.push(sf()); fields.push(nf('timeout_ms', '超时毫秒数')); }
+	else if (kind === 'cdp_wait_for_page_load') { fields.push(nf('timeout_ms', '超时毫秒数')); }
 	else if (kind === 'cdp_scroll_to') { fields.push(sf('元素选择器（可选）', true)); }
-	else if (kind === 'cdp_screenshot') { fields.push(tf('output_key_base64', 'Base64 变量名')); fields.push(tf('output_path', '保存路径（可选）')); }
+	else if (kind === 'cdp_screenshot') { fields.push(outputKeyField('output_key_base64', 'Base64 变量名')); fields.push(tf('output_path', '保存路径')); }
 	else if (kind === 'wait_for_user') {
 		fields.push(tf('message', '提示消息', true));
 		fields.push(tf('input_label', '输入框标签（留空则无输入框）'));
@@ -309,6 +453,107 @@ function parseCanvasData(json: string | null, stepCount: number): { positions: P
 	} catch {
 		return { positions: {}, edges: buildDefaultEdges(stepCount) };
 	}
+}
+
+/**
+ * 根据画布边对 steps 进行拓扑排序（BFS）
+ * 返回重排后的数组、旧index→新index映射、以及孤立节点数量
+ */
+function topologySortSteps(
+	steps: ScriptStep[],
+	edges: Edge[],
+): {
+	reorderedSteps: ScriptStep[];
+	indexMap: Map<number, number>; // oldIndex → newIndex
+	orphanedCount: number;
+} {
+	const n = steps.length;
+	if (n === 0) return { reorderedSteps: [], indexMap: new Map(), orphanedCount: 0 };
+
+	// 构建邻接表和入度表
+	const adj = new Map<number, number[]>(); // source → targets
+	const inDegree = new Map<number, number>();
+	for (let i = 0; i < n; i++) {
+		adj.set(i, []);
+		inDegree.set(i, 0);
+	}
+
+	// 从 edges 解析 source/target index
+	for (const edge of edges) {
+		const si = parseInt(edge.source.replace('step-', ''), 10);
+		const ti = parseInt(edge.target.replace('step-', ''), 10);
+		if (isNaN(si) || isNaN(ti) || si >= n || ti >= n) continue;
+		adj.get(si)?.push(ti);
+		inDegree.set(ti, (inDegree.get(ti) ?? 0) + 1);
+	}
+
+	// BFS 拓扑排序（Kahn's algorithm）
+	const queue: number[] = [];
+	for (let i = 0; i < n; i++) {
+		if ((inDegree.get(i) ?? 0) === 0) queue.push(i);
+	}
+
+	const order: number[] = [];
+	const visited = new Set<number>();
+	while (queue.length > 0) {
+		// 取最小 index 的根节点（稳定排序）
+		queue.sort((a, b) => a - b);
+		const cur = queue.shift()!;
+		order.push(cur);
+		visited.add(cur);
+		for (const next of (adj.get(cur) ?? [])) {
+			const newDeg = (inDegree.get(next) ?? 0) - 1;
+			inDegree.set(next, newDeg);
+			if (newDeg === 0) queue.push(next);
+		}
+	}
+
+	// 未被访问的节点（孤立或有环）追加到末尾
+	const unvisited: number[] = [];
+	for (let i = 0; i < n; i++) {
+		if (!visited.has(i)) unvisited.push(i);
+	}
+	const finalOrder = [...order, ...unvisited];
+
+	// 构建映射和重排数组
+	const indexMap = new Map<number, number>();
+	finalOrder.forEach((oldIdx, newIdx) => indexMap.set(oldIdx, newIdx));
+	const reorderedSteps = finalOrder.map((i) => steps[i]);
+
+	return { reorderedSteps, indexMap, orphanedCount: unvisited.length };
+}
+
+function validateSteps(stepList: ScriptStep[]): string[] {
+	const errs: string[] = [];
+	stepList.forEach((step, i) => {
+		const s = step as Record<string, unknown>;
+		const label = `步骤 ${i + 1}（${KIND_LABELS[step.kind] ?? step.kind}）`;
+		const empty = (k: string) => !String(s[k] ?? '').trim();
+		if (['navigate', 'cdp_navigate', 'magic_open_new_tab'].includes(step.kind) && empty('url'))
+			errs.push(`${label}：URL 不能为空`);
+		if (['click', 'cdp_click', 'cdp_wait_for_selector', 'cdp_get_text', 'cdp_scroll_to'].includes(step.kind) && empty('selector'))
+			errs.push(`${label}：选择器不能为空`);
+		if (['type', 'cdp_type'].includes(step.kind)) {
+			if (empty('selector')) errs.push(`${label}：选择器不能为空`);
+			if (empty('text')) errs.push(`${label}：输入文本不能为空`);
+		}
+		if (['evaluate', 'cdp_evaluate'].includes(step.kind) && empty('expression'))
+			errs.push(`${label}：JS 表达式不能为空`);
+		if (step.kind === 'ai_prompt' && empty('prompt')) errs.push(`${label}：Prompt 不能为空`);
+		if (step.kind === 'ai_extract' && empty('prompt')) errs.push(`${label}：Prompt 不能为空`);
+		if (step.kind === 'ai_agent' && empty('system_prompt')) errs.push(`${label}：系统提示词不能为空`);
+		if (step.kind === 'cdp_get_attribute') {
+			if (empty('selector')) errs.push(`${label}：选择器不能为空`);
+			if (empty('attribute')) errs.push(`${label}：属性名不能为空`);
+		}
+		if (step.kind === 'cdp_set_input_value') {
+			if (empty('selector')) errs.push(`${label}：选择器不能为空`);
+			if (empty('value')) errs.push(`${label}：值不能为空`);
+		}
+		if (step.kind === 'cdp_screenshot' && empty('output_path'))
+			errs.push(`${label}：保存路径不能为空`);
+	});
+	return errs;
 }
 
 // ─── Variables Schema Dialog ──────────────────────────────────────────────────
@@ -439,8 +684,12 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 	const [steps, setSteps] = useState<ScriptStep[]>(script.steps);
 	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 	const [saving, setSaving] = useState(false);
+	const [savedAt, setSavedAt] = useState<number | null>(null);
+	const [stepDelayMs, setStepDelayMs] = useState<number>(() => script.settings?.stepDelayMs ?? 0);
 	const [runDialogOpen, setRunDialogOpen] = useState(false);
 	const [varsDialogOpen, setVarsDialogOpen] = useState(false);
+	const [closeWarningOpen, setCloseWarningOpen] = useState(false);
+	const [closeWarningItems, setCloseWarningItems] = useState<string[]>([]);
 	const [varsDefs, setVarsDefs] = useState<ScriptVarDef[]>(() => {
 		try { return script.variablesSchemaJson ? JSON.parse(script.variablesSchemaJson) : []; }
 		catch { return []; }
@@ -448,6 +697,10 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 	const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	// 当页面在独立新窗口中（history 只有一条记录）时隐藏返回按钮
 	const isStandaloneWindow = window.history.length <= 1;
+
+	useEffect(() => {
+		setStepDelayMs(script.settings?.stepDelayMs ?? 0);
+	}, [script.id, script.settings?.stepDelayMs]);
 
 	const [{ positions: initPos, edges: initEdges }] = useState(() =>
 		parseCanvasData(script.canvasPositionsJson, script.steps.length)
@@ -468,16 +721,6 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 		}));
 	}, [liveStatuses]);
 
-	const saveScript = useCallback(async (newSteps: ScriptStep[]) => {
-		setSaving(true);
-		try {
-			await updateAutomationScript(script.id, { name: script.name, description: script.description ?? undefined, steps: newSteps });
-			void emitScriptUpdated(script.id);
-		} finally {
-			setSaving(false);
-		}
-	}, [script.id, script.name, script.description]);
-
 	const scheduleCanvasSave = useCallback((pos: PositionsMap, edgs: Edge[]) => {
 		if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
 		saveTimerRef.current = setTimeout(() => {
@@ -488,6 +731,101 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 			void updateScriptCanvasPositions(script.id, JSON.stringify(data));
 		}, 500);
 	}, [script.id]);
+
+	const saveScript = useCallback(async (newSteps: ScriptStep[]) => {
+		setSaving(true);
+		try {
+			// 拓扑排序
+			const currentEdges = edgesRef.current;
+			const { reorderedSteps, indexMap, orphanedCount } = topologySortSteps(newSteps, currentEdges);
+
+			// 如果顺序有变化，同步更新本地状态
+			const orderChanged = reorderedSteps.some((s, i) => s !== newSteps[i]);
+			if (orderChanged) {
+				// 更新 steps state
+				setSteps(reorderedSteps);
+
+				// 重映射 nodes id 和 data.index
+				setNodes((prev) => prev.map((node) => {
+					const oldIdx = parseInt(node.id.replace('step-', ''), 10);
+					if (isNaN(oldIdx)) return node;
+					const newIdx = indexMap.get(oldIdx);
+					if (newIdx === undefined || newIdx === oldIdx) return node;
+					return {
+						...node,
+						id: `step-${newIdx}`,
+						data: { ...(node.data as StepNodeData), index: newIdx },
+					};
+				}));
+
+				// 重映射 edges source/target
+				const remappedEdges = currentEdges.map((e) => {
+					const si = parseInt(e.source.replace('step-', ''), 10);
+					const ti = parseInt(e.target.replace('step-', ''), 10);
+					const newSi = indexMap.get(si);
+					const newTi = indexMap.get(ti);
+					return {
+						...e,
+						source: newSi !== undefined ? `step-${newSi}` : e.source,
+						target: newTi !== undefined ? `step-${newTi}` : e.target,
+					};
+				});
+				setEdges(remappedEdges);
+				edgesRef.current = remappedEdges;
+
+				// 重映射 positions
+				const newPos: PositionsMap = {};
+				for (const [oldKey, pos] of Object.entries(positionsRef.current)) {
+					const oldIdx = parseInt(oldKey.replace('step-', ''), 10);
+					const newIdx = isNaN(oldIdx) ? undefined : indexMap.get(oldIdx);
+					const newKey = newIdx !== undefined ? `step-${newIdx}` : oldKey;
+					newPos[newKey] = pos;
+				}
+				positionsRef.current = newPos;
+				scheduleCanvasSave(newPos, remappedEdges);
+
+				if (selectedIndex !== null) {
+					const mappedIndex = indexMap.get(selectedIndex);
+					setSelectedIndex(mappedIndex ?? null);
+				}
+
+				if (orphanedCount > 0) {
+					toast.warning(`${orphanedCount} 个步骤未连接到流程中，已追加到末尾执行`);
+				}
+			}
+
+			await updateAutomationScript(script.id, {
+				name: script.name,
+				description: script.description ?? undefined,
+				steps: reorderedSteps,
+				settings: stepDelayMs > 0 ? { stepDelayMs } : undefined,
+			});
+			void emitScriptUpdated(script.id);
+			setSavedAt(Date.now());
+		} finally {
+			setSaving(false);
+		}
+	}, [script.id, script.name, script.description, selectedIndex, stepDelayMs, scheduleCanvasSave]);
+
+	useEffect(() => {
+		if (!savedAt) return;
+		const t = setTimeout(() => setSavedAt(null), 3000);
+		return () => clearTimeout(t);
+	}, [savedAt]);
+
+	useEffect(() => {
+		const win = getCurrentWindow();
+		let unlisten: (() => void) | undefined;
+		void win.onCloseRequested(async (event) => {
+			const errs = validateSteps(steps);
+			if (errs.length > 0) {
+				event.preventDefault();
+				setCloseWarningItems(errs);
+				setCloseWarningOpen(true);
+			}
+		}).then((fn) => { unlisten = fn; });
+		return () => { unlisten?.(); };
+	}, [steps]);
 
 	const onNodesChange = useCallback((changes: NodeChange[]) => {
 		// 拦截节点删除（Backspace 键）：同步 steps 状态并持久化到 DB
@@ -569,9 +907,24 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 			const next = applyEdgeChanges(changes, prev);
 			edgesRef.current = next;
 			scheduleCanvasSave(positionsRef.current, next);
+			// 检测因边删除导致的孤立节点
+			const hasRemovals = changes.some((c) => c.type === 'remove');
+			if (hasRemovals && steps.length > 1) {
+				const connected = new Set<string>();
+				for (const e of next) { connected.add(e.source); connected.add(e.target); }
+				const isolated = steps.map((_, i) => `step-${i}`).filter((id) => !connected.has(id));
+				if (isolated.length > 0) {
+					const labels = isolated.map((id) => {
+						const idx = parseInt(id.replace('step-', ''), 10);
+						const s = steps[idx];
+						return s ? `步骤 ${idx + 1}` : id;
+					});
+					toast.warning(`以下步骤未连接到流程中，运行时仍会被执行：${labels.join('、')}`);
+				}
+			}
 			return next;
 		});
-	}, [scheduleCanvasSave]);
+	}, [scheduleCanvasSave, steps]);
 
 	const onConnect = useCallback((connection: Connection) => {
 		setEdges((prev) => {
@@ -703,7 +1056,6 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 				)}
 				<div className="flex-1 min-w-0 flex items-center gap-2">
 					<span className="text-sm font-semibold truncate">{script.name}</span>
-					{saving && <span className="text-xs text-muted-foreground">保存中...</span>}
 				</div>
 				<span className="text-xs text-muted-foreground">{steps.length} 个步骤</span>
 				<Button
@@ -716,6 +1068,43 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 					<Variable className="h-3.5 w-3.5 mr-1" />
 					变量{varsDefs.length > 0 && ` (${varsDefs.length})`}
 				</Button>
+				<div className="flex items-center gap-1.5">
+					<Label className="text-xs text-muted-foreground whitespace-nowrap">步骤延迟</Label>
+					<Input
+						type="number"
+						min={0}
+						max={9999}
+						value={stepDelayMs}
+						onChange={(e) => {
+							const raw = Number(e.target.value);
+							const val = Number.isFinite(raw) ? Math.min(9999, Math.max(0, raw)) : 0;
+							setStepDelayMs(val);
+							setSaving(true);
+							void updateAutomationScript(script.id, {
+								name: script.name,
+								description: script.description ?? undefined,
+								steps,
+								settings: val > 0 ? { stepDelayMs: val } : undefined,
+							})
+								.then(() => {
+									void emitScriptUpdated(script.id);
+									setSavedAt(Date.now());
+								})
+								.finally(() => {
+									setSaving(false);
+								});
+						}}
+						className="h-7 w-20 text-xs"
+					/>
+					<span className="text-xs text-muted-foreground">ms</span>
+				</div>
+				<span className="flex items-center gap-1 text-xs text-muted-foreground">
+					{saving ? (
+						<><Loader2 className="h-3 w-3 animate-spin" />保存中...</>
+					) : savedAt && Date.now() - savedAt < 3000 ? (
+						<><CheckCircle className="h-3 w-3 text-green-500" />已保存</>
+					) : null}
+				</span>
 				{isRunning ? (
 					<Button size="sm" variant="destructive" className="h-8 cursor-pointer" onClick={onCancel}>
 						<Square className="h-3.5 w-3.5 mr-1" />取消
@@ -748,6 +1137,26 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 				initialVars={varsDefs}
 				onSaved={setVarsDefs}
 			/>
+			<Dialog open={closeWarningOpen} onOpenChange={setCloseWarningOpen}>
+				<DialogContent className="max-w-md">
+					<DialogHeader>
+						<DialogTitle>步骤配置不完整</DialogTitle>
+					</DialogHeader>
+					<div className="py-2 space-y-1 max-h-48 overflow-auto">
+						{closeWarningItems.map((item, i) => (
+							<p key={i} className="text-sm text-red-500">{item}</p>
+						))}
+					</div>
+					<DialogFooter className="gap-2">
+						<Button variant="ghost" onClick={() => setCloseWarningOpen(false)} className="cursor-pointer">
+							返回编辑
+						</Button>
+						<Button variant="destructive" onClick={() => { void getCurrentWindow().close(); }} className="cursor-pointer">
+							忽略并关闭
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 
 			<div className="flex flex-1 overflow-hidden">
 				{/* Left: Palette */}
@@ -793,6 +1202,9 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 						fitView
 						fitViewOptions={{ padding: 0.2 }}
 						deleteKeyCode="Backspace"
+						selectionOnDrag={true}
+						panOnDrag={[1, 2]}
+						selectionMode={SelectionMode.Partial}
 						connectionLineType={"smoothstep" as never}
 					>
 						<Background variant={BackgroundVariant.Dots} gap={20} size={1} />
@@ -807,6 +1219,9 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 							step={steps[selectedIndex]}
 							onUpdate={(s) => void updateStep(selectedIndex, s)}
 							onDelete={() => void deleteStep(selectedIndex)}
+							varsDefs={varsDefs}
+							stepIndex={selectedIndex}
+							allSteps={steps}
 						/>
 					</div>
 				)}
