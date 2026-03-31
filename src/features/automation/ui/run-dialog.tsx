@@ -22,6 +22,8 @@ type Props = {
 	open: boolean;
 	onOpenChange: (v: boolean) => void;
 	activeProfiles: ProfileItem[];
+	allProfiles?: ProfileItem[];
+	associatedProfileIds?: string[];
 	isRunning: boolean;
 	disabled: boolean;
 	defaultVars?: VarEntry[];
@@ -33,6 +35,8 @@ export function RunDialog({
 	open,
 	onOpenChange,
 	activeProfiles,
+	allProfiles = [],
+	associatedProfileIds = [],
 	isRunning,
 	disabled,
 	defaultVars,
@@ -43,18 +47,31 @@ export function RunDialog({
 	const [varEntries, setVarEntries] = useState<VarEntry[]>(() => defaultVars ?? []);
 	const [varsOpen, setVarsOpen] = useState(false);
 
-	// 每次弹窗打开时重置为脚本默认变量
+	// 每次弹窗打开时重置为脚本默认变量 & 预选关联环境
 	useEffect(() => {
-		if (open) {
-			setVarEntries(defaultVars ?? []);
-			setVarsOpen((defaultVars ?? []).length > 0);
+		if (!open) return;
+		setVarEntries(defaultVars ?? []);
+		setVarsOpen((defaultVars ?? []).length > 0);
+		if (associatedProfileIds.length > 0) {
+			const preSelected = associatedProfileIds.filter((id) =>
+				activeProfiles.some((p) => p.id === id)
+			);
+			setSelectedIds(preSelected.length > 0 ? preSelected : associatedProfileIds.slice(0, 1));
+		} else {
+			setSelectedIds([]);
 		}
-	}, [open, defaultVars]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- 只在 open 变化时触发
+	}, [open]);
 
-	const allSelected = activeProfiles.length > 0 && selectedIds.length === activeProfiles.length;
+	const runningIds = new Set(activeProfiles.map((p) => p.id));
+	const associatedButOffline = allProfiles.filter(
+		(p) => associatedProfileIds.includes(p.id) && !runningIds.has(p.id)
+	);
+	const displayProfiles = [...activeProfiles, ...associatedButOffline];
+	const allSelected = displayProfiles.length > 0 && selectedIds.length === displayProfiles.length;
 
 	function toggleAll() {
-		setSelectedIds(allSelected ? [] : activeProfiles.map((p) => p.id));
+		setSelectedIds(allSelected ? [] : displayProfiles.map((p) => p.id));
 	}
 
 	function toggleProfile(id: string) {
@@ -93,14 +110,14 @@ export function RunDialog({
 	}
 
 	function handleDebugRun() {
-		const profileId = selectedIds[0] ?? activeProfiles[0]?.id;
+		const profileId = selectedIds[0] ?? displayProfiles[0]?.id;
 		if (!profileId) return;
 		onDebugRun(profileId, buildVars());
 		onOpenChange(false);
 	}
 
 	const canRun = selectedIds.length > 0 && !isRunning && !disabled;
-	const canDebug = (selectedIds.length > 0 || activeProfiles.length > 0) && !isRunning && !disabled;
+	const canDebug = (selectedIds.length > 0 || displayProfiles.length > 0) && !isRunning && !disabled;
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -114,7 +131,7 @@ export function RunDialog({
 					<div className="space-y-2">
 						<div className="flex items-center justify-between">
 							<Label className="text-sm font-medium">选择运行环境</Label>
-							{activeProfiles.length > 1 && (
+							{displayProfiles.length > 1 && (
 								<button
 									type="button"
 									onClick={toggleAll}
@@ -124,24 +141,32 @@ export function RunDialog({
 								</button>
 							)}
 						</div>
-						{activeProfiles.length === 0 ? (
-							<p className="text-sm text-muted-foreground py-2">没有已开启的环境</p>
+						{displayProfiles.length === 0 ? (
+							<p className="text-sm text-muted-foreground py-2">没有可用的环境</p>
 						) : (
 							<ScrollArea className="max-h-48">
 								<div className="space-y-1 pr-1">
-									{activeProfiles.map((p) => (
-										<label
-											key={p.id}
-											className="flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer"
-										>
-											<Checkbox
-												checked={selectedIds.includes(p.id)}
-												onCheckedChange={() => toggleProfile(p.id)}
-												className="cursor-pointer"
-											/>
-											<span className="text-sm truncate">{p.name}</span>
-										</label>
-									))}
+									{displayProfiles.map((p) => {
+										const isOffline = !runningIds.has(p.id);
+										return (
+											<label
+												key={p.id}
+												className="flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer"
+											>
+												<Checkbox
+													checked={selectedIds.includes(p.id)}
+													onCheckedChange={() => toggleProfile(p.id)}
+													className="cursor-pointer"
+												/>
+												<span className="text-sm truncate flex-1">{p.name}</span>
+												{isOffline && (
+													<span className="text-[10px] text-amber-500 bg-amber-500/10 border border-amber-500/30 px-1 rounded flex-shrink-0">
+														将自动启动
+													</span>
+												)}
+											</label>
+										);
+									})}
 								</div>
 							</ScrollArea>
 						)}

@@ -159,6 +159,8 @@ export type AutomationScript = {
 	steps: ScriptStep[];
 	canvasPositionsJson: string | null;
 	variablesSchemaJson: string | null;
+	associatedProfileIds: string[];
+	aiConfig: AiProviderConfig | null;
 	createdAt: number;
 	updatedAt: number;
 };
@@ -234,4 +236,6 @@ export type CreateAutomationScriptPayload = {
 	name: string;
 	description?: string;
 	steps: ScriptStep[];
+	associatedProfileIds?: string[];
+	aiConfig?: AiProviderConfig | null;
 };
