@@ -165,9 +165,9 @@ export function ScriptEditorDialog({ open, script, onOpenChange, activeProfiles,
 								{fields.map((field, index) => {
 									const kind = watch(`steps.${index}.kind`);
 									return (
-										<div key={field.id} className="flex items-start gap-2 p-3 border rounded-md bg-muted/30">
-											<GripVertical className="h-4 w-4 text-muted-foreground mt-1.5 flex-shrink-0" />
-											<div className="flex-1 space-y-2">
+									<div key={field.id} className="flex items-start gap-2 p-3 border rounded-md bg-muted/30">
+										<GripVertical className="h-4 w-4 text-muted-foreground mt-1.5 flex-shrink-0" />
+										<div className="flex-1 space-y-2">
 												<Select
 													value={kind}
 													onValueChange={(v) => {
@@ -185,7 +185,7 @@ export function ScriptEditorDialog({ open, script, onOpenChange, activeProfiles,
 														))}
 													</SelectContent>
 												</Select>
-												<StepFields index={index} kind={kind} register={register} />
+												<StepFields index={index} kind={kind} register={register} control={control} watch={watch} />
 											</div>
 											<Button
 												type="button"
@@ -286,11 +286,57 @@ function StepFields({
 	index,
 	kind,
 	register,
+	control,
+	watch,
 }: {
 	index: number;
 	kind: string;
 	register: ReturnType<typeof useForm<FormValues>>['register'];
+	control: ReturnType<typeof useForm<FormValues>>['control'];
+	watch: ReturnType<typeof useForm<FormValues>>['watch'];
 }) {
+	function selectorPlaceholder(type?: string): string {
+		switch (type) {
+			case 'xpath': return '//div[@id="main"]';
+			case 'text': return '按文本内容匹配';
+			default: return 'CSS 选择器';
+		}
+	}
+
+	function selectorField(customCssPlaceholder?: string) {
+		const selectorTypePath = `steps.${index}.selector_type` as `steps.${number}.selector_type`;
+		const selectorPath = `steps.${index}.selector` as `steps.${number}.selector`;
+		const selectedType = watch(selectorTypePath);
+		const placeholder = selectedType === 'css' && customCssPlaceholder
+			? customCssPlaceholder
+			: selectorPlaceholder(selectedType);
+		return (
+			<div className="flex gap-1.5">
+				<Controller
+					control={control}
+					name={selectorTypePath}
+					render={({ field }) => (
+						<Select value={field.value ?? 'css'} onValueChange={field.onChange}>
+							<SelectTrigger className="h-8 w-[80px] text-xs flex-shrink-0 cursor-pointer">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="css">CSS</SelectItem>
+								<SelectItem value="xpath">XPath</SelectItem>
+								<SelectItem value="text">Text</SelectItem>
+							</SelectContent>
+						</Select>
+					)}
+				/>
+				<Input
+					{...register(selectorPath)}
+					placeholder={placeholder}
+					className="h-8 text-xs font-mono flex-1"
+				/>
+			</div>
+		);
+	}
+
 	switch (kind) {
 		case 'navigate':
 			return (
@@ -318,21 +364,11 @@ function StepFields({
 				/>
 			);
 		case 'click':
-			return (
-				<Input
-					{...register(`steps.${index}.selector` as `steps.${number}.selector`)}
-					placeholder="CSS 选择器"
-					className="h-8 text-xs font-mono"
-				/>
-			);
+			return selectorField();
 		case 'type':
 			return (
 				<div className="space-y-1.5">
-					<Input
-						{...register(`steps.${index}.selector` as `steps.${number}.selector`)}
-						placeholder="CSS 选择器"
-						className="h-8 text-xs font-mono"
-					/>
+					{selectorField()}
 					<Input
 						{...register(`steps.${index}.text` as `steps.${number}.text`)}
 						placeholder="输入文本"
@@ -459,21 +495,11 @@ function StepFields({
 				/>
 			);
 		case 'cdp_click':
-			return (
-				<Input
-					{...register(`steps.${index}.selector` as `steps.${number}.selector`)}
-					placeholder="CSS 选择器"
-					className="h-8 text-xs font-mono"
-				/>
-			);
+			return selectorField();
 		case 'cdp_type':
 			return (
 				<div className="space-y-1.5">
-					<Input
-						{...register(`steps.${index}.selector` as `steps.${number}.selector`)}
-						placeholder="CSS 选择器"
-						className="h-8 text-xs font-mono"
-					/>
+					{selectorField()}
 					<Input
 						{...register(`steps.${index}.text` as `steps.${number}.text`)}
 						placeholder="输入文本（支持 {{变量}}）"
@@ -482,37 +508,15 @@ function StepFields({
 				</div>
 			);
 		case 'cdp_scroll_to':
-			return (
-				<Input
-					{...register(`steps.${index}.selector` as `steps.${number}.selector`)}
-					placeholder="CSS 选择器（留空则按 x/y 坐标滚动）"
-					className="h-8 text-xs font-mono"
-				/>
-			);
+			return selectorField('CSS 选择器（留空则按 x/y 坐标滚动）');
 		case 'cdp_wait_for_selector':
-			return (
-				<Input
-					{...register(`steps.${index}.selector` as `steps.${number}.selector`)}
-					placeholder="CSS 选择器"
-					className="h-8 text-xs font-mono"
-				/>
-			);
+			return selectorField();
 		case 'cdp_get_text':
-			return (
-				<Input
-					{...register(`steps.${index}.selector` as `steps.${number}.selector`)}
-					placeholder="CSS 选择器"
-					className="h-8 text-xs font-mono"
-				/>
-			);
+			return selectorField();
 		case 'cdp_get_attribute':
 			return (
 				<div className="space-y-1.5">
-					<Input
-						{...register(`steps.${index}.selector` as `steps.${number}.selector`)}
-						placeholder="CSS 选择器"
-						className="h-8 text-xs font-mono"
-					/>
+					{selectorField()}
 					<Input
 						{...register(`steps.${index}.attribute` as `steps.${number}.attribute`)}
 						placeholder="属性名，如 href / data-id"
@@ -523,11 +527,7 @@ function StepFields({
 		case 'cdp_set_input_value':
 			return (
 				<div className="space-y-1.5">
-					<Input
-						{...register(`steps.${index}.selector` as `steps.${number}.selector`)}
-						placeholder="CSS 选择器"
-						className="h-8 text-xs font-mono"
-					/>
+					{selectorField()}
 					<Input
 						{...register(`steps.${index}.value` as `steps.${number}.value`)}
 						placeholder="设置的值（支持 {{变量}}）"

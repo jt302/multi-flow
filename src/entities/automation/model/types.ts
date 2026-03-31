@@ -1,3 +1,4 @@
+export type SelectorType = 'css' | 'xpath' | 'text';
 export type WaitForUserTimeout = 'continue' | 'fail';
 export type LoopMode = 'count' | 'while';
 
@@ -5,8 +6,8 @@ export type ScriptStep =
 	| { kind: 'navigate'; url: string; output_key?: string }
 	| { kind: 'wait'; ms: number }
 	| { kind: 'evaluate'; expression: string; result_key?: string }
-	| { kind: 'click'; selector: string }
-	| { kind: 'type'; selector: string; text: string }
+	| { kind: 'click'; selector: string; selector_type?: SelectorType }
+	| { kind: 'type'; selector: string; text: string; selector_type?: SelectorType }
 	| { kind: 'screenshot'; output_key?: string }
 	| { kind: 'magic'; command: string; params: Record<string, unknown>; output_key?: string }
 	| { kind: 'cdp'; method: string; params?: Record<string, unknown>; output_key?: string }
@@ -63,13 +64,13 @@ export type ScriptStep =
 	| { kind: 'cdp_navigate'; url: string; output_key?: string }
 	| { kind: 'cdp_reload'; ignore_cache?: boolean }
 	| { kind: 'cdp_evaluate'; expression: string; output_key?: string }
-	| { kind: 'cdp_click'; selector: string }
-	| { kind: 'cdp_type'; selector: string; text: string }
-	| { kind: 'cdp_scroll_to'; selector?: string; x?: number; y?: number }
-	| { kind: 'cdp_wait_for_selector'; selector: string; timeout_ms?: number }
-	| { kind: 'cdp_get_text'; selector: string; output_key?: string }
-	| { kind: 'cdp_get_attribute'; selector: string; attribute: string; output_key?: string }
-	| { kind: 'cdp_set_input_value'; selector: string; value: string }
+	| { kind: 'cdp_click'; selector: string; selector_type?: SelectorType }
+	| { kind: 'cdp_type'; selector: string; text: string; selector_type?: SelectorType }
+	| { kind: 'cdp_scroll_to'; selector?: string; selector_type?: SelectorType; x?: number; y?: number }
+	| { kind: 'cdp_wait_for_selector'; selector: string; selector_type?: SelectorType; timeout_ms?: number }
+	| { kind: 'cdp_get_text'; selector: string; selector_type?: SelectorType; output_key?: string }
+	| { kind: 'cdp_get_attribute'; selector: string; selector_type?: SelectorType; attribute: string; output_key?: string }
+	| { kind: 'cdp_set_input_value'; selector: string; selector_type?: SelectorType; value: string }
 	| {
 			kind: 'cdp_screenshot';
 			format?: string;

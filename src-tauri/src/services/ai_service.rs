@@ -258,13 +258,17 @@ pub fn build_agent_tools() -> Vec<Value> {
         })),
         tool("cdp_click", "点击页面元素", json!({
             "type": "object",
-            "properties": { "selector": { "type": "string", "description": "CSS 选择器" } },
+            "properties": {
+                "selector": { "type": "string", "description": "元素选择器（CSS/XPath/文本内容，类型由 selector_type 决定）" },
+                "selector_type": { "type": "string", "enum": ["css", "xpath", "text"], "description": "选择器类型，默认 css" }
+            },
             "required": ["selector"]
         })),
         tool("cdp_type", "向元素输入文本", json!({
             "type": "object",
             "properties": {
-                "selector": { "type": "string", "description": "CSS 选择器" },
+                "selector": { "type": "string", "description": "元素选择器（CSS/XPath/文本内容）" },
+                "selector_type": { "type": "string", "enum": ["css", "xpath", "text"], "description": "选择器类型，默认 css" },
                 "text": { "type": "string", "description": "要输入的文本" }
             },
             "required": ["selector", "text"]
@@ -272,7 +276,8 @@ pub fn build_agent_tools() -> Vec<Value> {
         tool("cdp_get_text", "获取元素的文本内容", json!({
             "type": "object",
             "properties": {
-                "selector": { "type": "string", "description": "CSS 选择器" },
+                "selector": { "type": "string", "description": "元素选择器（CSS/XPath/文本内容）" },
+                "selector_type": { "type": "string", "enum": ["css", "xpath", "text"], "description": "选择器类型，默认 css" },
                 "output_key": { "type": "string", "description": "将文本存入此变量名" }
             },
             "required": ["selector"]
@@ -280,7 +285,8 @@ pub fn build_agent_tools() -> Vec<Value> {
         tool("cdp_wait_for_selector", "等待元素出现在 DOM 中", json!({
             "type": "object",
             "properties": {
-                "selector": { "type": "string", "description": "CSS 选择器" },
+                "selector": { "type": "string", "description": "元素选择器（CSS/XPath/文本内容）" },
+                "selector_type": { "type": "string", "enum": ["css", "xpath", "text"], "description": "选择器类型，默认 css" },
                 "timeout_ms": { "type": "integer", "description": "超时毫秒数（默认 10000）" }
             },
             "required": ["selector"]
@@ -288,7 +294,8 @@ pub fn build_agent_tools() -> Vec<Value> {
         tool("cdp_scroll_to", "滚动页面到指定元素或坐标", json!({
             "type": "object",
             "properties": {
-                "selector": { "type": "string", "description": "CSS 选择器（可选）" },
+                "selector": { "type": "string", "description": "元素选择器（CSS/XPath/文本内容，可选）" },
+                "selector_type": { "type": "string", "enum": ["css", "xpath", "text"], "description": "选择器类型，默认 css" },
                 "x": { "type": "number", "description": "横向坐标" },
                 "y": { "type": "number", "description": "纵向坐标" }
             }
