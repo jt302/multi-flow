@@ -10,13 +10,12 @@ use crate::logger;
 use crate::models::{
     AiOutputKeyMapping, AutomationHumanDismissedEvent, AutomationHumanRequiredEvent,
     AutomationProgressEvent, AutomationRun, AutomationRunCancelledEvent, AutomationScript,
-    AutomationStepErrorPauseEvent, AutomationVariablesUpdatedEvent,
-    CreateAutomationScriptRequest, LoopMode, ScriptStep, SelectorType, StepResult,
-    WaitForUserTimeout,
+    AutomationStepErrorPauseEvent, AutomationVariablesUpdatedEvent, CreateAutomationScriptRequest,
+    LoopMode, ScriptStep, SelectorType, StepResult, WaitForUserTimeout,
 };
 use crate::services::ai_service::{
-    build_agent_tools, build_vision_content, extract_json_path,
-    AiChatResult, AiService, ChatMessage,
+    build_agent_tools, build_vision_content, extract_json_path, AiChatResult, AiService,
+    ChatMessage,
 };
 use crate::services::app_preference_service::AiProviderConfig;
 use crate::services::automation_cdp_client::CdpClient;
@@ -30,36 +29,73 @@ fn error_to_string(err: crate::error::AppError) -> String {
 /// CSS 选择器查找元素
 async fn find_element_by_css(cdp: &CdpClient, selector: &str) -> Result<i64, String> {
     let doc = cdp.call("DOM.getDocument", json!({ "depth": 0 })).await?;
-    let root_id = doc.get("root").and_then(|r| r.get("nodeId")).and_then(|v| v.as_i64())
+    let root_id = doc
+        .get("root")
+        .and_then(|r| r.get("nodeId"))
+        .and_then(|v| v.as_i64())
         .ok_or_else(|| "DOM.getDocument: no root nodeId".to_string())?;
-    let qs = cdp.call("DOM.querySelector", json!({ "nodeId": root_id, "selector": selector })).await?;
-    let node_id = qs.get("nodeId").and_then(|v| v.as_i64())
+    let qs = cdp
+        .call(
+            "DOM.querySelector",
+            json!({ "nodeId": root_id, "selector": selector }),
+        )
+        .await?;
+    let node_id = qs
+        .get("nodeId")
+        .and_then(|v| v.as_i64())
         .ok_or_else(|| format!("element not found (css): {selector}"))?;
-    if node_id == 0 { return Err(format!("element not found (css): {selector}")); }
+    if node_id == 0 {
+        return Err(format!("element not found (css): {selector}"));
+    }
     Ok(node_id)
 }
 
 /// XPath 查找元素
 async fn find_element_by_xpath(cdp: &CdpClient, xpath: &str) -> Result<i64, String> {
-    let search = cdp.call("DOM.performSearch", json!({ "query": xpath })).await?;
-    let search_id = search.get("searchId").and_then(|v| v.as_str())
+    let search = cdp
+        .call("DOM.performSearch", json!({ "query": xpath }))
+        .await?;
+    let search_id = search
+        .get("searchId")
+        .and_then(|v| v.as_str())
         .ok_or_else(|| "DOM.performSearch: no searchId".to_string())?
         .to_string();
-    let count = search.get("resultCount").and_then(|v| v.as_i64()).unwrap_or(0);
+    let count = search
+        .get("resultCount")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
     if count == 0 {
-        let _ = cdp.call("DOM.discardSearchResults", json!({ "searchId": &search_id })).await;
+        let _ = cdp
+            .call(
+                "DOM.discardSearchResults",
+                json!({ "searchId": &search_id }),
+            )
+            .await;
         return Err(format!("element not found (xpath): {xpath}"));
     }
-    let results = cdp.call("DOM.getSearchResults", json!({
-        "searchId": &search_id, "fromIndex": 0, "toIndex": 1
-    })).await?;
-    let _ = cdp.call("DOM.discardSearchResults", json!({ "searchId": &search_id })).await;
-    let node_id = results.get("nodeIds")
+    let results = cdp
+        .call(
+            "DOM.getSearchResults",
+            json!({
+                "searchId": &search_id, "fromIndex": 0, "toIndex": 1
+            }),
+        )
+        .await?;
+    let _ = cdp
+        .call(
+            "DOM.discardSearchResults",
+            json!({ "searchId": &search_id }),
+        )
+        .await;
+    let node_id = results
+        .get("nodeIds")
         .and_then(|v| v.as_array())
         .and_then(|arr| arr.first())
         .and_then(|v| v.as_i64())
         .ok_or_else(|| format!("element not found (xpath): {xpath}"))?;
-    if node_id == 0 { return Err(format!("element not found (xpath): {xpath}")); }
+    if node_id == 0 {
+        return Err(format!("element not found (xpath): {xpath}"));
+    }
     Ok(node_id)
 }
 
@@ -67,12 +103,17 @@ async fn find_element_by_xpath(cdp: &CdpClient, xpath: &str) -> Result<i64, Stri
 async fn find_element_by_text(cdp: &CdpClient, text: &str) -> Result<i64, String> {
     let escaped = text.replace('\'', "\\'");
     let xpath = format!("//*[contains(text(), '{escaped}')]");
-    find_element_by_xpath(cdp, &xpath).await
+    find_element_by_xpath(cdp, &xpath)
+        .await
         .map_err(|_| format!("element not found (text): {text}"))
 }
 
 /// 根据 SelectorType 分派到对应的查找函数
-async fn find_element(cdp: &CdpClient, selector: &str, selector_type: &SelectorType) -> Result<i64, String> {
+async fn find_element(
+    cdp: &CdpClient,
+    selector: &str,
+    selector_type: &SelectorType,
+) -> Result<i64, String> {
     match selector_type {
         SelectorType::Css => find_element_by_css(cdp, selector).await,
         SelectorType::Xpath => find_element_by_xpath(cdp, selector).await,
@@ -99,16 +140,26 @@ fn js_find_element_expr(selector: &str, selector_type: &SelectorType) -> String 
 }
 
 /// 点击元素：先尝试 DOM.getBoxModel，失败后回退到 JS getBoundingClientRect
-async fn click_element_once(cdp: &CdpClient, selector: &str, selector_type: &SelectorType) -> Result<(), String> {
+async fn click_element_once(
+    cdp: &CdpClient,
+    selector: &str,
+    selector_type: &SelectorType,
+) -> Result<(), String> {
     let box_result = async {
         let node_id = find_element(cdp, selector, selector_type).await?;
-        let bm = cdp.call("DOM.getBoxModel", json!({ "nodeId": node_id })).await?;
-        let content = bm.get("model").and_then(|m| m.get("content")).and_then(|c| c.as_array())
+        let bm = cdp
+            .call("DOM.getBoxModel", json!({ "nodeId": node_id }))
+            .await?;
+        let content = bm
+            .get("model")
+            .and_then(|m| m.get("content"))
+            .and_then(|c| c.as_array())
             .ok_or_else(|| "getBoxModel: no content".to_string())?;
         let x = (content[0].as_f64().unwrap_or(0.0) + content[2].as_f64().unwrap_or(0.0)) / 2.0;
         let y = (content[1].as_f64().unwrap_or(0.0) + content[5].as_f64().unwrap_or(0.0)) / 2.0;
         Ok::<(f64, f64), String>((x, y))
-    }.await;
+    }
+    .await;
 
     let (x, y) = match box_result {
         Ok(coords) => coords,
@@ -117,26 +168,44 @@ async fn click_element_once(cdp: &CdpClient, selector: &str, selector_type: &Sel
             let expr = format!(
                 "(function(){{ var el = {js_expr}; if(!el) return null; var r = el.getBoundingClientRect(); return {{x: r.x + r.width/2, y: r.y + r.height/2}}; }})()"
             );
-            let result = cdp.call("Runtime.evaluate", json!({ "expression": expr, "returnByValue": true })).await?;
-            let value = result.get("result").and_then(|r| r.get("value"))
+            let result = cdp
+                .call(
+                    "Runtime.evaluate",
+                    json!({ "expression": expr, "returnByValue": true }),
+                )
+                .await?;
+            let value = result
+                .get("result")
+                .and_then(|r| r.get("value"))
                 .ok_or_else(|| format!("element not found: {selector}"))?;
-            let cx = value.get("x").and_then(|v| v.as_f64())
+            let cx = value
+                .get("x")
+                .and_then(|v| v.as_f64())
                 .ok_or_else(|| format!("element has no layout: {selector}"))?;
-            let cy = value.get("y").and_then(|v| v.as_f64())
+            let cy = value
+                .get("y")
+                .and_then(|v| v.as_f64())
                 .ok_or_else(|| format!("element has no layout: {selector}"))?;
             (cx, cy)
         }
     };
 
     for ev in ["mousePressed", "mouseReleased"] {
-        cdp.call("Input.dispatchMouseEvent",
-            json!({ "type": ev, "x": x, "y": y, "button": "left", "clickCount": 1 })).await?;
+        cdp.call(
+            "Input.dispatchMouseEvent",
+            json!({ "type": ev, "x": x, "y": y, "button": "left", "clickCount": 1 }),
+        )
+        .await?;
     }
     Ok(())
 }
 
 /// 点击元素，失败时最多重试 3 次（每次间隔 300ms）
-async fn click_element(cdp: &CdpClient, selector: &str, selector_type: &SelectorType) -> Result<(), String> {
+async fn click_element(
+    cdp: &CdpClient,
+    selector: &str,
+    selector_type: &SelectorType,
+) -> Result<(), String> {
     let mut last_err = String::new();
     for attempt in 0..3u8 {
         match click_element_once(cdp, selector, selector_type).await {
@@ -161,7 +230,10 @@ fn load_ai_config(
     model_override: Option<&String>,
 ) -> AiProviderConfig {
     let app_state = app.state::<AppState>();
-    let svc = app_state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+    let svc = app_state
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
 
     // Try resolving by ai_config_id first (multi-model)
     let mut config = if let Some(cfg_id) = ai_config_id {
@@ -181,12 +253,22 @@ fn load_ai_config(
 
     // Legacy script-level inline config override
     if let Some(script_cfg) = script_ai_config {
-        if script_cfg.provider.is_some() { config.provider = script_cfg.provider.clone(); }
-        if script_cfg.base_url.is_some() { config.base_url = script_cfg.base_url.clone(); }
-        if script_cfg.api_key.is_some() { config.api_key = script_cfg.api_key.clone(); }
-        if script_cfg.model.is_some() { config.model = script_cfg.model.clone(); }
+        if script_cfg.provider.is_some() {
+            config.provider = script_cfg.provider.clone();
+        }
+        if script_cfg.base_url.is_some() {
+            config.base_url = script_cfg.base_url.clone();
+        }
+        if script_cfg.api_key.is_some() {
+            config.api_key = script_cfg.api_key.clone();
+        }
+        if script_cfg.model.is_some() {
+            config.model = script_cfg.model.clone();
+        }
     }
-    if let Some(m) = model_override { config.model = Some(m.clone()); }
+    if let Some(m) = model_override {
+        config.model = Some(m.clone());
+    }
     config
 }
 
@@ -199,7 +281,10 @@ fn resolve_script_ai_config(
 ) -> Option<AiProviderConfig> {
     if let Some(cfg_id) = ai_config_id {
         let app_state = app.state::<AppState>();
-        let svc = app_state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+        let svc = app_state
+            .app_preference_service
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         if let Ok(Some(entry)) = svc.find_ai_config_by_id(cfg_id) {
             return Some(AiProviderConfig {
                 provider: entry.provider,
@@ -218,7 +303,10 @@ fn resolve_script_ai_config(
 pub fn list_automation_scripts(
     state: State<'_, AppState>,
 ) -> Result<Vec<AutomationScript>, String> {
-    state.lock_automation_service().list_scripts().map_err(error_to_string)
+    state
+        .lock_automation_service()
+        .list_scripts()
+        .map_err(error_to_string)
 }
 
 #[tauri::command]
@@ -226,7 +314,10 @@ pub fn create_automation_script(
     state: State<'_, AppState>,
     payload: CreateAutomationScriptRequest,
 ) -> Result<AutomationScript, String> {
-    state.lock_automation_service().create_script(payload).map_err(error_to_string)
+    state
+        .lock_automation_service()
+        .create_script(payload)
+        .map_err(error_to_string)
 }
 
 #[tauri::command]
@@ -235,7 +326,10 @@ pub fn update_automation_script(
     script_id: String,
     payload: CreateAutomationScriptRequest,
 ) -> Result<AutomationScript, String> {
-    state.lock_automation_service().update_script(&script_id, payload).map_err(error_to_string)
+    state
+        .lock_automation_service()
+        .update_script(&script_id, payload)
+        .map_err(error_to_string)
 }
 
 #[tauri::command]
@@ -243,7 +337,10 @@ pub fn delete_automation_script(
     state: State<'_, AppState>,
     script_id: String,
 ) -> Result<(), String> {
-    state.lock_automation_service().delete_script(&script_id).map_err(error_to_string)
+    state
+        .lock_automation_service()
+        .delete_script(&script_id)
+        .map_err(error_to_string)
 }
 
 #[tauri::command]
@@ -251,7 +348,26 @@ pub fn list_automation_runs(
     state: State<'_, AppState>,
     script_id: String,
 ) -> Result<Vec<AutomationRun>, String> {
-    state.lock_automation_service().list_runs(&script_id).map_err(error_to_string)
+    state
+        .lock_automation_service()
+        .list_runs(&script_id)
+        .map_err(error_to_string)
+}
+
+#[tauri::command]
+pub fn delete_automation_run(state: State<'_, AppState>, run_id: String) -> Result<(), String> {
+    state
+        .lock_automation_service()
+        .delete_run(&run_id)
+        .map_err(error_to_string)
+}
+
+#[tauri::command]
+pub fn clear_automation_runs(state: State<'_, AppState>, script_id: String) -> Result<u64, String> {
+    state
+        .lock_automation_service()
+        .delete_runs_by_script(&script_id)
+        .map_err(error_to_string)
 }
 
 #[tauri::command]
@@ -273,7 +389,8 @@ pub async fn run_automation_script(
             .as_ref()
             .and_then(|s| s.step_delay_ms)
             .unwrap_or(0);
-        let ai_config = resolve_script_ai_config(&app, script.ai_config_id.as_ref(), script.ai_config);
+        let ai_config =
+            resolve_script_ai_config(&app, script.ai_config_id.as_ref(), script.ai_config);
         (
             script.steps,
             steps_json,
@@ -295,14 +412,16 @@ pub async fn run_automation_script(
         match handle_result {
             Some(ports) => ports,
             None => {
-                logger::info("automation", format!(
-                    "auto-starting profile profile_id={}", resolved_profile_id
-                ));
+                logger::info(
+                    "automation",
+                    format!("auto-starting profile profile_id={}", resolved_profile_id),
+                );
                 do_open_profile(&state, Some(&app), None, &resolved_profile_id, None)
                     .map_err(|e| format!("自动启动环境失败: {e}"))?;
-                logger::info("automation", format!(
-                    "profile auto-started profile_id={}", resolved_profile_id
-                ));
+                logger::info(
+                    "automation",
+                    format!("profile auto-started profile_id={}", resolved_profile_id),
+                );
                 let em = state.lock_engine_manager();
                 em.get_runtime_handle(&resolved_profile_id)
                     .map(|h| (h.debug_port, h.magic_port))
@@ -315,10 +434,16 @@ pub async fn run_automation_script(
         svc.create_run(&script_id, &resolved_profile_id, &steps_json)
             .map_err(error_to_string)?
     };
-    logger::info("automation", format!(
-        "script started script_id={} profile_id={} run_id={} steps={}",
-        script_id, resolved_profile_id, run_id, steps.len()
-    ));
+    logger::info(
+        "automation",
+        format!(
+            "script started script_id={} profile_id={} run_id={} steps={}",
+            script_id,
+            resolved_profile_id,
+            run_id,
+            steps.len()
+        ),
+    );
     tauri::async_runtime::spawn(execute_script(
         app,
         run_id.clone(),
@@ -352,7 +477,8 @@ pub async fn run_automation_script_debug(
             .as_ref()
             .and_then(|s| s.step_delay_ms)
             .unwrap_or(0);
-        let ai_config = resolve_script_ai_config(&app, script.ai_config_id.as_ref(), script.ai_config);
+        let ai_config =
+            resolve_script_ai_config(&app, script.ai_config_id.as_ref(), script.ai_config);
         (
             script.steps,
             steps_json,
@@ -391,14 +517,16 @@ pub async fn run_automation_script_debug(
         match handle_result {
             Some(ports) => ports,
             None => {
-                logger::info("automation", format!(
-                    "auto-starting profile profile_id={}", resolved_profile_id
-                ));
+                logger::info(
+                    "automation",
+                    format!("auto-starting profile profile_id={}", resolved_profile_id),
+                );
                 do_open_profile(&state, Some(&app), None, &resolved_profile_id, None)
                     .map_err(|e| format!("自动启动环境失败: {e}"))?;
-                logger::info("automation", format!(
-                    "profile auto-started profile_id={}", resolved_profile_id
-                ));
+                logger::info(
+                    "automation",
+                    format!("profile auto-started profile_id={}", resolved_profile_id),
+                );
                 let em = state.lock_engine_manager();
                 em.get_runtime_handle(&resolved_profile_id)
                     .map(|h| (h.debug_port, h.magic_port))
@@ -411,10 +539,16 @@ pub async fn run_automation_script_debug(
         svc.create_run(&script_id, &resolved_profile_id, &steps_json)
             .map_err(error_to_string)?
     };
-    logger::info("automation", format!(
-        "script started (debug) script_id={} profile_id={} run_id={} steps={}",
-        script_id, resolved_profile_id, run_id, debug_steps.len()
-    ));
+    logger::info(
+        "automation",
+        format!(
+            "script started (debug) script_id={} profile_id={} run_id={} steps={}",
+            script_id,
+            resolved_profile_id,
+            run_id,
+            debug_steps.len()
+        ),
+    );
     tauri::async_runtime::spawn(execute_script(
         app,
         run_id.clone(),
@@ -436,10 +570,15 @@ pub async fn resume_automation_run(
     input: Option<String>,
 ) -> Result<(), String> {
     let sender = state
-        .active_run_channels.lock().map_err(|_| "lock poisoned".to_string())?
+        .active_run_channels
+        .lock()
+        .map_err(|_| "lock poisoned".to_string())?
         .remove(&run_id);
     match sender {
-        Some(tx) => { let _ = tx.send(input); Ok(()) }
+        Some(tx) => {
+            let _ = tx.send(input);
+            Ok(())
+        }
         None => Err(format!("no waiting run: {run_id}")),
     }
 }
@@ -450,12 +589,22 @@ pub async fn cancel_automation_run(
     state: State<'_, AppState>,
     run_id: String,
 ) -> Result<(), String> {
-    state.cancel_tokens.lock().map_err(|_| "lock poisoned".to_string())?
+    state
+        .cancel_tokens
+        .lock()
+        .map_err(|_| "lock poisoned".to_string())?
         .insert(run_id.clone(), true);
     if let Ok(mut channels) = state.active_run_channels.lock() {
-        if let Some(tx) = channels.remove(&run_id) { let _ = tx.send(None); }
+        if let Some(tx) = channels.remove(&run_id) {
+            let _ = tx.send(None);
+        }
     }
-    let _ = app.emit("automation_run_cancelled", AutomationRunCancelledEvent { run_id: run_id.clone() });
+    let _ = app.emit(
+        "automation_run_cancelled",
+        AutomationRunCancelledEvent {
+            run_id: run_id.clone(),
+        },
+    );
     logger::info("automation", format!("run={} cancel requested", run_id));
     Ok(())
 }
@@ -463,10 +612,11 @@ pub async fn cancel_automation_run(
 // ─── AI Provider 配置命令 ────────────────────────────────────────────────────
 
 #[tauri::command]
-pub fn read_ai_provider_config(
-    state: State<'_, AppState>,
-) -> Result<AiProviderConfig, String> {
-    let svc = state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+pub fn read_ai_provider_config(state: State<'_, AppState>) -> Result<AiProviderConfig, String> {
+    let svc = state
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     svc.read_ai_provider_config().map_err(|e| e.to_string())
 }
 
@@ -475,8 +625,12 @@ pub fn update_ai_provider_config(
     state: State<'_, AppState>,
     config: AiProviderConfig,
 ) -> Result<(), String> {
-    let svc = state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
-    svc.save_ai_provider_config(config).map_err(|e| e.to_string())
+    let svc = state
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    svc.save_ai_provider_config(config)
+        .map_err(|e| e.to_string())
 }
 
 // ── Multi-model AI config commands ────────────────────────────────────────────
@@ -485,7 +639,10 @@ pub fn update_ai_provider_config(
 pub fn list_ai_configs(
     state: State<'_, AppState>,
 ) -> Result<Vec<crate::services::app_preference_service::AiConfigEntry>, String> {
-    let svc = state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+    let svc = state
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     svc.list_ai_configs().map_err(|e| e.to_string())
 }
 
@@ -494,7 +651,10 @@ pub fn create_ai_config(
     state: State<'_, AppState>,
     entry: crate::services::app_preference_service::AiConfigEntry,
 ) -> Result<crate::services::app_preference_service::AiConfigEntry, String> {
-    let svc = state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+    let svc = state
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     svc.create_ai_config(entry).map_err(|e| e.to_string())
 }
 
@@ -503,27 +663,32 @@ pub fn update_ai_config(
     state: State<'_, AppState>,
     entry: crate::services::app_preference_service::AiConfigEntry,
 ) -> Result<(), String> {
-    let svc = state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+    let svc = state
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     svc.update_ai_config(entry).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn delete_ai_config(
-    state: State<'_, AppState>,
-    id: String,
-) -> Result<(), String> {
-    let svc = state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+pub fn delete_ai_config(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    let svc = state
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     svc.delete_ai_config(&id).map_err(|e| e.to_string())
 }
 
 // ── Chromium logging toggle ───────────────────────────────────────────────
 
 #[tauri::command]
-pub fn read_chromium_logging_enabled(
-    state: State<'_, AppState>,
-) -> Result<bool, String> {
-    let svc = state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
-    svc.read_chromium_logging_enabled().map_err(|e| e.to_string())
+pub fn read_chromium_logging_enabled(state: State<'_, AppState>) -> Result<bool, String> {
+    let svc = state
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    svc.read_chromium_logging_enabled()
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -531,8 +696,12 @@ pub fn update_chromium_logging_enabled(
     state: State<'_, AppState>,
     enabled: bool,
 ) -> Result<(), String> {
-    let svc = state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
-    svc.save_chromium_logging_enabled(enabled).map_err(|e| e.to_string())
+    let svc = state
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    svc.save_chromium_logging_enabled(enabled)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -561,7 +730,10 @@ pub fn update_script_variables_schema(
 
 #[tauri::command]
 pub fn list_active_automation_runs(state: State<'_, AppState>) -> Result<Vec<String>, String> {
-    let tokens = state.cancel_tokens.lock().map_err(|_| "lock poisoned".to_string())?;
+    let tokens = state
+        .cancel_tokens
+        .lock()
+        .map_err(|_| "lock poisoned".to_string())?;
     Ok(tokens.keys().cloned().collect())
 }
 
@@ -573,13 +745,14 @@ pub async fn export_automation_script_to_file(
     file_path: String,
 ) -> Result<(), String> {
     let script = {
-        let svc = state.automation_service.lock().unwrap_or_else(|e| e.into_inner());
+        let svc = state
+            .automation_service
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         svc.get_script(&script_id).map_err(|e| e.to_string())?
     };
-    let json = serde_json::to_string_pretty(&script)
-        .map_err(|e| format!("序列化失败: {e}"))?;
-    std::fs::write(&file_path, json)
-        .map_err(|e| format!("写入文件失败: {e}"))?;
+    let json = serde_json::to_string_pretty(&script).map_err(|e| format!("序列化失败: {e}"))?;
+    std::fs::write(&file_path, json).map_err(|e| format!("写入文件失败: {e}"))?;
     Ok(())
 }
 
@@ -617,7 +790,9 @@ async fn execute_script(
         None,
     ));
     let mut vars = RunVariables::new();
-    for (k, v) in initial_vars { vars.set(&k, v); }
+    for (k, v) in initial_vars {
+        vars.set(&k, v);
+    }
 
     let signal = execute_steps(
         steps,
@@ -648,11 +823,11 @@ async fn execute_script(
         _ => "success",
     };
     let error_msg = match &signal {
-        FlowSignal::Error(msg) if msg != "cancelled" => {
-            results.iter().find(|r| r.status == "failed")
-                .and_then(|r| r.output.clone())
-                .or_else(|| Some(msg.clone()))
-        }
+        FlowSignal::Error(msg) if msg != "cancelled" => results
+            .iter()
+            .find(|r| r.status == "failed")
+            .and_then(|r| r.output.clone())
+            .or_else(|| Some(msg.clone())),
         _ => None,
     };
     logs.push(log_entry(
@@ -673,17 +848,35 @@ async fn execute_script(
         logs_json_str.as_deref(),
     );
     match final_status {
-        "success" => logger::info("automation", format!(
-            "run={} completed status=success", run_id
-        )),
-        "cancelled" => logger::info("automation", format!(
-            "run={} completed status=cancelled", run_id
-        )),
-        _ => logger::warn("automation", format!(
-            "run={} completed status=failed error={}", run_id, error_msg.as_deref().unwrap_or("unknown")
-        )),
+        "success" => logger::info(
+            "automation",
+            format!("run={} completed status=success", run_id),
+        ),
+        "cancelled" => logger::info(
+            "automation",
+            format!("run={} completed status=cancelled", run_id),
+        ),
+        _ => logger::warn(
+            "automation",
+            format!(
+                "run={} completed status=failed error={}",
+                run_id,
+                error_msg.as_deref().unwrap_or("unknown")
+            ),
+        ),
     }
-    emit_progress(&app, &run_id, step_total.saturating_sub(1), step_total, final_status, None, 0, final_status, HashMap::new(), vec![]);
+    emit_progress(
+        &app,
+        &run_id,
+        step_total.saturating_sub(1),
+        step_total,
+        final_status,
+        None,
+        0,
+        final_status,
+        HashMap::new(),
+        vec![],
+    );
 }
 
 /// 递归执行步骤列表（BoxFuture 解决 async 递归无法确定大小的问题）
@@ -714,29 +907,47 @@ fn execute_steps<'a>(
             step_path.push(index);
             let top_index = path_prefix.first().copied().unwrap_or(index);
 
-            emit_progress(app, run_id, top_index, step_total, "running", None, 0, "running",
-                HashMap::new(), step_path.clone());
+            emit_progress(
+                app,
+                run_id,
+                top_index,
+                step_total,
+                "running",
+                None,
+                0,
+                "running",
+                HashMap::new(),
+                step_path.clone(),
+            );
 
             let start = Instant::now();
             let kind_str = serde_json::to_value(&step)
                 .ok()
                 .and_then(|v| v.get("kind").and_then(|k| k.as_str().map(String::from)))
                 .unwrap_or_else(|| "unknown".to_string());
-            logger::info("automation", format!(
-                "run={} step={} kind={} started", run_id, top_index, kind_str
-            ));
+            logger::info(
+                "automation",
+                format!(
+                    "run={} step={} kind={} started",
+                    run_id, top_index, kind_str
+                ),
+            );
             logs.push(log_entry(
                 "info",
                 "step",
                 format!("步骤 {} [{}] 开始执行", top_index, kind_str),
-                None,
+                serde_json::to_value(&step).ok(),
             ));
 
             match &step {
                 ScriptStep::Break => return FlowSignal::Break,
                 ScriptStep::Continue => return FlowSignal::Continue,
 
-                ScriptStep::Condition { condition_expr, then_steps, else_steps } => {
+                ScriptStep::Condition {
+                    condition_expr,
+                    then_steps,
+                    else_steps,
+                } => {
                     let expr = vars.interpolate(condition_expr);
                     let is_true = vars.eval_condition(&expr);
                     logs.push(log_entry(
@@ -745,15 +956,37 @@ fn execute_steps<'a>(
                         format!("条件判断: expr={}, result={}", expr, is_true),
                         None,
                     ));
-                    let branch = if is_true { then_steps.clone() } else { else_steps.clone() };
-                    let signal = execute_steps(branch, step_path.clone(), step_total, cdp,
-                        http_client, magic_port, app, run_id, results, vars, script_ai_config, step_delay_ms, delay_config, logs).await;
+                    let branch = if is_true {
+                        then_steps.clone()
+                    } else {
+                        else_steps.clone()
+                    };
+                    let signal = execute_steps(
+                        branch,
+                        step_path.clone(),
+                        step_total,
+                        cdp,
+                        http_client,
+                        magic_port,
+                        app,
+                        run_id,
+                        results,
+                        vars,
+                        script_ai_config,
+                        step_delay_ms,
+                        delay_config,
+                        logs,
+                    )
+                    .await;
                     match signal {
                         FlowSignal::Normal | FlowSignal::Continue => {}
                         FlowSignal::Break | FlowSignal::Error(_) => return signal,
                     }
                     let dur = start.elapsed().as_millis() as u64;
-                    let cond_output = Some(format!("condition={expr}, branch={}", if is_true { "then" } else { "else" }));
+                    let cond_output = Some(format!(
+                        "condition={expr}, branch={}",
+                        if is_true { "then" } else { "else" }
+                    ));
                     results.push(StepResult {
                         index: top_index,
                         status: "success".to_string(),
@@ -761,11 +994,29 @@ fn execute_steps<'a>(
                         duration_ms: dur,
                         vars_set: HashMap::new(),
                     });
-                    emit_progress(app, run_id, top_index, step_total, "success", cond_output, dur, "running", HashMap::new(), step_path.clone());
+                    emit_progress(
+                        app,
+                        run_id,
+                        top_index,
+                        step_total,
+                        "success",
+                        cond_output,
+                        dur,
+                        "running",
+                        HashMap::new(),
+                        step_path.clone(),
+                    );
                     continue;
                 }
 
-                ScriptStep::Loop { mode, count, condition_expr, max_iterations, iter_var, body_steps } => {
+                ScriptStep::Loop {
+                    mode,
+                    count,
+                    condition_expr,
+                    max_iterations,
+                    iter_var,
+                    body_steps,
+                } => {
                     let max = max_iterations.unwrap_or(u64::MAX);
                     let mut iteration: u64 = 0;
                     logs.push(log_entry(
@@ -775,21 +1026,41 @@ fn execute_steps<'a>(
                         None,
                     ));
                     loop {
-                        if iteration >= max { break; }
+                        if iteration >= max {
+                            break;
+                        }
                         let should_run = match mode {
                             LoopMode::Count => iteration < count.unwrap_or(1),
-                            LoopMode::While => condition_expr.as_ref()
+                            LoopMode::While => condition_expr
+                                .as_ref()
                                 .map(|e| vars.eval_condition(&vars.interpolate(e)))
                                 .unwrap_or(false),
                         };
-                        if !should_run { break; }
+                        if !should_run {
+                            break;
+                        }
                         if let Some(key) = iter_var {
                             vars.set(key, iteration.to_string());
                         }
                         let mut iter_path = step_path.clone();
                         iter_path.push(iteration as usize);
-                        let signal = execute_steps(body_steps.clone(), iter_path, step_total, cdp,
-                            http_client, magic_port, app, run_id, results, vars, script_ai_config, step_delay_ms, delay_config, logs).await;
+                        let signal = execute_steps(
+                            body_steps.clone(),
+                            iter_path,
+                            step_total,
+                            cdp,
+                            http_client,
+                            magic_port,
+                            app,
+                            run_id,
+                            results,
+                            vars,
+                            script_ai_config,
+                            step_delay_ms,
+                            delay_config,
+                            logs,
+                        )
+                        .await;
                         match signal {
                             FlowSignal::Break => break,
                             FlowSignal::Error(e) => return FlowSignal::Error(e),
@@ -812,7 +1083,18 @@ fn execute_steps<'a>(
                         duration_ms: dur,
                         vars_set: HashMap::new(),
                     });
-                    emit_progress(app, run_id, top_index, step_total, "success", loop_output, dur, "running", HashMap::new(), step_path.clone());
+                    emit_progress(
+                        app,
+                        run_id,
+                        top_index,
+                        step_total,
+                        "success",
+                        loop_output,
+                        dur,
+                        "running",
+                        HashMap::new(),
+                        step_path.clone(),
+                    );
                     continue;
                 }
 
@@ -834,7 +1116,10 @@ fn execute_steps<'a>(
             )
             .await;
             if let Err(e) = &result {
-                logger::warn("automation", format!("run={} step={} failed: {}", run_id, top_index, e));
+                logger::warn(
+                    "automation",
+                    format!("run={} step={} failed: {}", run_id, top_index, e),
+                );
             }
             let dur = start.elapsed().as_millis() as u64;
 
@@ -844,8 +1129,12 @@ fn execute_steps<'a>(
 
             match result {
                 Ok((output, vars_set)) => {
-                    for (k, v) in &vars_set { vars.set(k, v.clone()); }
-                    if !vars_set.is_empty() { emit_variables_updated(app, run_id, vars.snapshot()); }
+                    for (k, v) in &vars_set {
+                        vars.set(k, v.clone());
+                    }
+                    if !vars_set.is_empty() {
+                        emit_variables_updated(app, run_id, vars.snapshot());
+                    }
                     results.push(StepResult {
                         index: top_index,
                         status: "success".to_string(),
@@ -862,10 +1151,17 @@ fn execute_steps<'a>(
                             "varsSet": vars_set.clone(),
                         })),
                     ));
-                    emit_progress(app, run_id, top_index, step_total, "success", output, dur, "running", vars_set, step_path);
-                    logger::info("automation", format!(
-                        "run={} step={} succeeded duration_ms={}", run_id, top_index, dur
-                    ));
+                    emit_progress(
+                        app, run_id, top_index, step_total, "success", output, dur, "running",
+                        vars_set, step_path,
+                    );
+                    logger::info(
+                        "automation",
+                        format!(
+                            "run={} step={} succeeded duration_ms={}",
+                            run_id, top_index, dur
+                        ),
+                    );
                     if path_prefix.is_empty() {
                         let logs_snapshot = serde_json::to_string(&*logs).ok();
                         persist_run_progress(
@@ -905,22 +1201,47 @@ fn execute_steps<'a>(
                         duration_ms: dur,
                         vars_set: HashMap::new(),
                     });
-                    emit_progress(app, run_id, top_index, step_total, "failed", Some(err.clone()), dur, "running", HashMap::new(), step_path);
+                    emit_progress(
+                        app,
+                        run_id,
+                        top_index,
+                        step_total,
+                        "failed",
+                        Some(err.clone()),
+                        dur,
+                        "running",
+                        HashMap::new(),
+                        step_path,
+                    );
                     let logs_snapshot = serde_json::to_string(&*logs).ok();
-                    persist_run_progress(app, run_id, results, "running", None, None, logs_snapshot.as_deref());
+                    persist_run_progress(
+                        app,
+                        run_id,
+                        results,
+                        "running",
+                        None,
+                        None,
+                        logs_snapshot.as_deref(),
+                    );
 
                     // 暂停询问用户是否继续
                     let (tx, rx) = tokio::sync::oneshot::channel::<Option<String>>();
                     {
                         let app_state = app.state::<AppState>();
-                        let mut guard = app_state.active_run_channels.lock().unwrap_or_else(|e| e.into_inner());
+                        let mut guard = app_state
+                            .active_run_channels
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner());
                         guard.insert(run_id.to_string(), tx);
                     }
-                    let _ = app.emit("automation_step_error_pause", AutomationStepErrorPauseEvent {
-                        run_id: run_id.to_string(),
-                        step_index: top_index,
-                        error_message: err.clone(),
-                    });
+                    let _ = app.emit(
+                        "automation_step_error_pause",
+                        AutomationStepErrorPauseEvent {
+                            run_id: run_id.to_string(),
+                            step_index: top_index,
+                            error_message: err.clone(),
+                        },
+                    );
                     match rx.await {
                         Ok(Some(ref s)) if s == "continue" => {
                             // 用户选择继续，跳过此步骤，继续下一步
@@ -952,54 +1273,105 @@ async fn execute_step(
     script_ai_config: Option<&AiProviderConfig>,
     logs: &mut Vec<crate::models::RunLogEntry>,
 ) -> Result<(Option<String>, HashMap<String, String>), String> {
-    let get_magic_port = || magic_port.ok_or_else(|| "Magic Controller not available (profile not running)".to_string());
+    let get_magic_port = || {
+        magic_port.ok_or_else(|| "Magic Controller not available (profile not running)".to_string())
+    };
     match step {
         ScriptStep::Navigate { url, output_key } => {
             let url = vars.interpolate(url);
             let cdp = cdp.ok_or_else(|| "CDP not available (profile not running)".to_string())?;
             cdp.call("Page.navigate", json!({ "url": url })).await?;
             let mut vs = HashMap::new();
-            if let Some(k) = output_key { vs.insert(k.clone(), url.clone()); }
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), url.clone());
+            }
             Ok((Some(url), vs))
         }
         ScriptStep::Wait { ms } => {
             tokio::time::sleep(Duration::from_millis(*ms)).await;
             Ok((None, HashMap::new()))
         }
-        ScriptStep::Evaluate { expression, result_key } => {
+        ScriptStep::Evaluate {
+            expression,
+            result_key,
+        } => {
             let expression = vars.interpolate(expression);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let result = cdp.call("Runtime.evaluate",
-                json!({ "expression": expression, "returnByValue": true })).await?;
-            let value = result.get("result").and_then(|r| r.get("value")).map(|v| v.to_string());
+            let result = cdp
+                .call(
+                    "Runtime.evaluate",
+                    json!({ "expression": expression, "returnByValue": true }),
+                )
+                .await?;
+            let value = result
+                .get("result")
+                .and_then(|r| r.get("value"))
+                .map(|v| v.to_string());
             let mut vs = HashMap::new();
-            if let (Some(k), Some(v)) = (result_key, &value) { vs.insert(k.clone(), v.clone()); }
+            if let (Some(k), Some(v)) = (result_key, &value) {
+                vs.insert(k.clone(), v.clone());
+            }
             Ok((value, vs))
         }
-        ScriptStep::Click { selector, selector_type } => {
+        ScriptStep::Click {
+            selector,
+            selector_type,
+        } => {
             let selector = vars.interpolate(selector);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
             click_element(cdp, &selector, selector_type).await?;
             Ok((None, HashMap::new()))
         }
-        ScriptStep::Type { selector: _, text, selector_type: _ } => {
+        ScriptStep::Type {
+            selector: _,
+            text,
+            selector_type: _,
+        } => {
             let text = vars.interpolate(text);
             let port = get_magic_port()?;
-            http_client.post(format!("http://127.0.0.1:{port}/"))
+            http_client
+                .post(format!("http://127.0.0.1:{port}/"))
                 .json(&json!({ "cmd": "type_string", "text": text }))
-                .send().await.map_err(|e| format!("Magic request failed: {e}"))?;
+                .send()
+                .await
+                .map_err(|e| format!("Magic request failed: {e}"))?;
             Ok((None, HashMap::new()))
         }
         ScriptStep::Screenshot { output_key } => {
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let result = cdp.call("Page.captureScreenshot", json!({ "format": "png" })).await?;
-            let data = result.get("data").and_then(|v| v.as_str())
-                .map(|s| format!("data:image/png;base64,{s}"));
+            let result = cdp
+                .call("Page.captureScreenshot", json!({ "format": "png" }))
+                .await?;
+            let b64 = result
+                .get("data")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| "Screenshot: no data in CDP response".to_string())?
+                .to_string();
+            let bytes = base64_decode(&b64)?;
+            let data_dir = app
+                .path()
+                .app_local_data_dir()
+                .or_else(|_| app.path().app_data_dir())
+                .map_err(|e| format!("Screenshot: resolve data dir: {e}"))?;
+            let screenshots_dir = data_dir.join("screenshots");
+            std::fs::create_dir_all(&screenshots_dir)
+                .map_err(|e| format!("Screenshot: create dir: {e}"))?;
+            let filename = format!("screenshot_{}_{}.png", run_id, step_index);
+            let file_path = screenshots_dir.join(&filename);
+            std::fs::write(&file_path, bytes)
+                .map_err(|e| format!("Screenshot: write file: {e}"))?;
+            let path_str = file_path.to_string_lossy().to_string();
             let mut vs = HashMap::new();
-            if let (Some(k), Some(v)) = (output_key, &data) { vs.insert(k.clone(), v.clone()); }
-            Ok((data, vs))
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), path_str.clone());
+            }
+            Ok((Some(path_str), vs))
         }
-        ScriptStep::Magic { command, params, output_key } => {
+        ScriptStep::Magic {
+            command,
+            params,
+            output_key,
+        } => {
             let command = vars.interpolate(command);
             let params = vars.interpolate_value(params);
             let port = get_magic_port()?;
@@ -1007,38 +1379,68 @@ async fn execute_step(
             if let Some(obj) = payload.as_object_mut() {
                 obj.insert("cmd".to_string(), json!(command));
             }
-            let resp = http_client.post(format!("http://127.0.0.1:{port}/"))
-                .json(&payload).send().await.map_err(|e| format!("Magic request failed: {e}"))?;
-            let body = resp.text().await.map_err(|e| format!("Magic read body failed: {e}"))?;
+            let resp = http_client
+                .post(format!("http://127.0.0.1:{port}/"))
+                .json(&payload)
+                .send()
+                .await
+                .map_err(|e| format!("Magic request failed: {e}"))?;
+            let body = resp
+                .text()
+                .await
+                .map_err(|e| format!("Magic read body failed: {e}"))?;
             let mut vs = HashMap::new();
-            if let Some(k) = output_key { vs.insert(k.clone(), body.clone()); }
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), body.clone());
+            }
             Ok((Some(body), vs))
         }
-        ScriptStep::Cdp { method, params, output_key } => {
+        ScriptStep::Cdp {
+            method,
+            params,
+            output_key,
+        } => {
             let method = vars.interpolate(method);
-            let params = params.as_ref().map(|p| vars.interpolate_value(p)).unwrap_or(json!({}));
+            let params = params
+                .as_ref()
+                .map(|p| vars.interpolate_value(p))
+                .unwrap_or(json!({}));
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
             let result = cdp.call(&method, params).await?;
             let output = Some(result.to_string());
             let mut vs = HashMap::new();
-            if let (Some(k), Some(v)) = (output_key, &output) { vs.insert(k.clone(), v.clone()); }
+            if let (Some(k), Some(v)) = (output_key, &output) {
+                vs.insert(k.clone(), v.clone());
+            }
             Ok((output, vs))
         }
-        ScriptStep::WaitForUser { message, input_label, output_key, timeout_ms, on_timeout } => {
+        ScriptStep::WaitForUser {
+            message,
+            input_label,
+            output_key,
+            timeout_ms,
+            on_timeout,
+        } => {
             let message = vars.interpolate(message);
             let (tx, rx) = tokio::sync::oneshot::channel::<Option<String>>();
             {
                 let app_state = app.state::<AppState>();
-                let mut guard = app_state.active_run_channels.lock().unwrap_or_else(|e| e.into_inner());
+                let mut guard = app_state
+                    .active_run_channels
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
                 guard.insert(run_id.to_string(), tx);
             }
-            let _ = app.emit("automation_human_required", AutomationHumanRequiredEvent {
-                run_id: run_id.to_string(),
-                message: message.clone(),
-                input_label: input_label.clone(),
-                timeout_ms: *timeout_ms,
-                step_path: vec![step_index],
-            });
+            let _ = app.emit(
+                "automation_human_required",
+                AutomationHumanRequiredEvent {
+                    run_id: run_id.to_string(),
+                    message: message.clone(),
+                    input_label: input_label.clone(),
+                    timeout_ms: *timeout_ms,
+                    step_path: vec![step_index],
+                },
+            );
             let user_input = if let Some(ms) = timeout_ms {
                 match tokio::time::timeout(Duration::from_millis(*ms), rx).await {
                     Ok(Ok(input)) => input,
@@ -1046,7 +1448,11 @@ async fn execute_step(
                     Err(_) => {
                         {
                             let app_state = app.state::<AppState>();
-                            app_state.active_run_channels.lock().unwrap_or_else(|e| e.into_inner()).remove(run_id);
+                            app_state
+                                .active_run_channels
+                                .lock()
+                                .unwrap_or_else(|e| e.into_inner())
+                                .remove(run_id);
                         }
                         match on_timeout {
                             WaitForUserTimeout::Continue => Some(String::new()),
@@ -1058,19 +1464,35 @@ async fn execute_step(
                     }
                 }
             } else {
-                match rx.await { Ok(input) => input, Err(_) => None }
+                match rx.await {
+                    Ok(input) => input,
+                    Err(_) => None,
+                }
             };
             emit_human_dismissed(app, run_id);
             if user_input.is_none() && is_cancelled(app, run_id) {
                 return Err("cancelled".to_string());
             }
             let mut vs = HashMap::new();
-            if let (Some(k), Some(v)) = (output_key, &user_input) { vs.insert(k.clone(), v.clone()); }
-            let output = user_input.map(|s| if s.is_empty() { "(timeout)".to_string() } else { s });
+            if let (Some(k), Some(v)) = (output_key, &user_input) {
+                vs.insert(k.clone(), v.clone());
+            }
+            let output = user_input.map(|s| {
+                if s.is_empty() {
+                    "(timeout)".to_string()
+                } else {
+                    s
+                }
+            });
             Ok((output, vs))
         }
         // ── AI 步骤 ───────────────────────────────────────────────────────────
-        ScriptStep::AiPrompt { prompt, image_var, model_override, output_key } => {
+        ScriptStep::AiPrompt {
+            prompt,
+            image_var,
+            model_override,
+            output_key,
+        } => {
             let prompt = vars.interpolate(prompt);
             let image_b64 = image_var.as_ref().and_then(|k| vars.get(k));
             let config = load_ai_config(app, script_ai_config, None, model_override.as_ref());
@@ -1085,7 +1507,13 @@ async fn execute_step(
                     "model": config.model.clone(),
                 })),
             ));
-            let reply = ai.chat(&config, vec![ChatMessage::with_content("user", content)], None).await?;
+            let reply = ai
+                .chat(
+                    &config,
+                    vec![ChatMessage::with_content("user", content)],
+                    None,
+                )
+                .await?;
             logs.push(log_entry(
                 "info",
                 "ai",
@@ -1093,10 +1521,17 @@ async fn execute_step(
                 Some(json!({ "reply": &reply })),
             ));
             let mut vs = HashMap::new();
-            if let Some(k) = output_key { vs.insert(k.clone(), reply.clone()); }
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), reply.clone());
+            }
             Ok((Some(reply), vs))
         }
-        ScriptStep::AiExtract { prompt, image_var, output_key_map, model_override } => {
+        ScriptStep::AiExtract {
+            prompt,
+            image_var,
+            output_key_map,
+            model_override,
+        } => {
             let prompt = vars.interpolate(prompt);
             let image_b64 = image_var.as_ref().and_then(|k| vars.get(k));
             let config = load_ai_config(app, script_ai_config, None, model_override.as_ref());
@@ -1113,10 +1548,20 @@ async fn execute_step(
                     "responseFormat": "json_object",
                 })),
             ));
-            let reply = ai.chat(&config, vec![ChatMessage::with_content("user", content)], Some(response_format)).await?;
+            let reply = ai
+                .chat(
+                    &config,
+                    vec![ChatMessage::with_content("user", content)],
+                    Some(response_format),
+                )
+                .await?;
             let mut vs = HashMap::new();
             if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&reply) {
-                for AiOutputKeyMapping { json_path, var_name } in output_key_map {
+                for AiOutputKeyMapping {
+                    json_path,
+                    var_name,
+                } in output_key_map
+                {
                     if let Some(v) = extract_json_path(&parsed, json_path) {
                         vs.insert(var_name.clone(), v);
                     }
@@ -1133,7 +1578,12 @@ async fn execute_step(
             ));
             Ok((Some(reply), vs))
         }
-        ScriptStep::AiAgent { system_prompt, initial_message, max_steps, output_key } => {
+        ScriptStep::AiAgent {
+            system_prompt,
+            initial_message,
+            max_steps,
+            output_key,
+        } => {
             let system_prompt = vars.interpolate(system_prompt);
             let initial_message = vars.interpolate(initial_message);
             let config = load_ai_config(app, script_ai_config, None, None);
@@ -1190,24 +1640,42 @@ async fn execute_step(
                             // 将 kind 字段注入 arguments，构造完整的 ScriptStep JSON
                             let mut step_json = tool_call.arguments.clone();
                             if let Some(obj) = step_json.as_object_mut() {
-                                obj.insert("kind".to_string(), serde_json::Value::String(tool_call.name.clone()));
+                                obj.insert(
+                                    "kind".to_string(),
+                                    serde_json::Value::String(tool_call.name.clone()),
+                                );
                             }
 
-                            let tool_result = match serde_json::from_value::<ScriptStep>(step_json) {
+                            let tool_result = match serde_json::from_value::<ScriptStep>(step_json)
+                            {
                                 Err(e) => format!("step parse error: {e}"),
                                 Ok(inner_step) => {
                                     // 使用 Box::pin 避免无限递归的 Future 大小问题
                                     let merged_vars = {
                                         let mut v = vars.clone();
-                                        for (k, val) in &agent_vars { v.set(k, val.clone()); }
+                                        for (k, val) in &agent_vars {
+                                            v.set(k, val.clone());
+                                        }
                                         v
                                     };
                                     match Box::pin(execute_step(
-                                        cdp, http_client, magic_port, &inner_step,
-                                        &merged_vars, app, run_id, step_index, script_ai_config, logs,
-                                    )).await {
+                                        cdp,
+                                        http_client,
+                                        magic_port,
+                                        &inner_step,
+                                        &merged_vars,
+                                        app,
+                                        run_id,
+                                        step_index,
+                                        script_ai_config,
+                                        logs,
+                                    ))
+                                    .await
+                                    {
                                         Ok((output, step_vars)) => {
-                                            for (k, v) in step_vars { agent_vars.insert(k, v); }
+                                            for (k, v) in step_vars {
+                                                agent_vars.insert(k, v);
+                                            }
                                             output.unwrap_or_else(|| "ok".to_string())
                                         }
                                         Err(e) => format!("step error: {e}"),
@@ -1228,7 +1696,9 @@ async fn execute_step(
             }
 
             let mut vs = agent_vars;
-            if let Some(k) = output_key { vs.insert(k.clone(), final_text.clone()); }
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), final_text.clone());
+            }
             Ok((Some(final_text), vs))
         }
 
@@ -1238,48 +1708,79 @@ async fn execute_step(
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
             cdp.call("Page.navigate", json!({ "url": url })).await?;
             let mut vs = HashMap::new();
-            if let Some(k) = output_key { vs.insert(k.clone(), url.clone()); }
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), url.clone());
+            }
             Ok((Some(url), vs))
         }
         ScriptStep::CdpReload { ignore_cache } => {
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            cdp.call("Page.reload", json!({ "ignoreCache": ignore_cache })).await?;
+            cdp.call("Page.reload", json!({ "ignoreCache": ignore_cache }))
+                .await?;
             Ok((None, HashMap::new()))
         }
-        ScriptStep::CdpEvaluate { expression, output_key } => {
+        ScriptStep::CdpEvaluate {
+            expression,
+            output_key,
+        } => {
             let expression = vars.interpolate(expression);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let result = cdp.call("Runtime.evaluate",
-                json!({ "expression": expression, "returnByValue": true })).await?;
-            let value = result.get("result").and_then(|r| r.get("value")).map(|v| v.to_string());
+            let result = cdp
+                .call(
+                    "Runtime.evaluate",
+                    json!({ "expression": expression, "returnByValue": true }),
+                )
+                .await?;
+            let value = result
+                .get("result")
+                .and_then(|r| r.get("value"))
+                .map(|v| v.to_string());
             let mut vs = HashMap::new();
-            if let (Some(k), Some(v)) = (output_key, &value) { vs.insert(k.clone(), v.clone()); }
+            if let (Some(k), Some(v)) = (output_key, &value) {
+                vs.insert(k.clone(), v.clone());
+            }
             Ok((value, vs))
         }
-        ScriptStep::CdpClick { selector, selector_type } => {
+        ScriptStep::CdpClick {
+            selector,
+            selector_type,
+        } => {
             let selector = vars.interpolate(selector);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
             click_element(cdp, &selector, selector_type).await?;
             Ok((None, HashMap::new()))
         }
-        ScriptStep::CdpType { selector, text, selector_type } => {
+        ScriptStep::CdpType {
+            selector,
+            text,
+            selector_type,
+        } => {
             let selector = vars.interpolate(selector);
             let text = vars.interpolate(text);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
             let node_id = find_element(cdp, &selector, selector_type).await?;
             cdp.call("DOM.focus", json!({ "nodeId": node_id })).await?;
             for ch in text.chars() {
-                cdp.call("Input.dispatchKeyEvent",
-                    json!({ "type": "char", "text": ch.to_string() })).await?;
+                cdp.call(
+                    "Input.dispatchKeyEvent",
+                    json!({ "type": "char", "text": ch.to_string() }),
+                )
+                .await?;
             }
             Ok((None, HashMap::new()))
         }
-        ScriptStep::CdpScrollTo { selector, selector_type, x, y } => {
+        ScriptStep::CdpScrollTo {
+            selector,
+            selector_type,
+            x,
+            y,
+        } => {
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
             if let Some(sel) = selector {
                 let sel = vars.interpolate(sel);
                 let node_id = find_element(cdp, &sel, selector_type).await?;
-                cdp.call("DOM.scrollIntoViewIfNeeded", json!({ "nodeId": node_id })).await?;
+                cdp.call("DOM.scrollIntoViewIfNeeded", json!({ "nodeId": node_id }))
+                    .await?;
             } else {
                 let sx = x.unwrap_or(0);
                 let sy = y.unwrap_or(0);
@@ -1288,25 +1789,72 @@ async fn execute_step(
             }
             Ok((None, HashMap::new()))
         }
-        ScriptStep::CdpWaitForSelector { selector, selector_type, timeout_ms } => {
+        ScriptStep::CdpWaitForSelector {
+            selector,
+            selector_type,
+            timeout_ms,
+        } => {
             let selector = vars.interpolate(selector);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
             let timeout = timeout_ms.unwrap_or(10_000);
             let deadline = Instant::now() + Duration::from_millis(timeout);
             loop {
                 // 先用 DOM API 查找
-                if find_element(cdp, &selector, selector_type).await.is_ok() { break; }
+                if find_element(cdp, &selector, selector_type).await.is_ok() {
+                    break;
+                }
                 // DOM API 失败时，CSS 选择器回退到 JS 查找
                 if *selector_type == SelectorType::Css {
                     let js = format!(
                         "!!document.querySelector({})",
                         serde_json::to_string(&selector).unwrap_or_default()
                     );
-                    if let Ok(result) = cdp.call("Runtime.evaluate", json!({
-                        "expression": js,
-                        "returnByValue": true,
-                    })).await {
-                        if result.get("result")
+                    if let Ok(result) = cdp
+                        .call(
+                            "Runtime.evaluate",
+                            json!({
+                                "expression": js,
+                                "returnByValue": true,
+                            }),
+                        )
+                        .await
+                    {
+                        if result
+                            .get("result")
+                            .and_then(|r| r.get("value"))
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(false)
+                        {
+                            break;
+                        }
+                    }
+                }
+                // DOM API 失败时，XPath/Text 选择器回退到 JS 查找
+                if *selector_type == SelectorType::Xpath || *selector_type == SelectorType::Text {
+                    let xpath = if *selector_type == SelectorType::Text {
+                        format!(
+                            "//*[contains(text(), {})]",
+                            serde_json::to_string(&selector).unwrap_or_default()
+                        )
+                    } else {
+                        selector.clone()
+                    };
+                    let xpath_json = serde_json::to_string(&xpath).unwrap_or_default();
+                    let js = format!(
+                        "(function(){{try{{return !!document.evaluate({xpath_json},document,null,XPathResult.FIRST_ORDERED_NODE_TYPE,null).singleNodeValue;}}catch(e){{return false;}}}})()"
+                    );
+                    if let Ok(result) = cdp
+                        .call(
+                            "Runtime.evaluate",
+                            json!({
+                                "expression": js,
+                                "returnByValue": true,
+                            }),
+                        )
+                        .await
+                    {
+                        if result
+                            .get("result")
                             .and_then(|r| r.get("value"))
                             .and_then(|v| v.as_bool())
                             .unwrap_or(false)
@@ -1320,64 +1868,112 @@ async fn execute_step(
                 }
                 tokio::time::sleep(Duration::from_millis(200)).await;
             }
+            // 找到元素后稍等，确保后续 DOM API 也能访问到该元素
+            tokio::time::sleep(Duration::from_millis(50)).await;
             Ok((None, HashMap::new()))
         }
         ScriptStep::CdpWaitForPageLoad { timeout_ms } => {
-            let cdp = cdp.ok_or_else(|| "CDP not available (profile not running or no debug port)".to_string())?;
+            let cdp = cdp.ok_or_else(|| {
+                "CDP not available (profile not running or no debug port)".to_string()
+            })?;
             let timeout = timeout_ms.unwrap_or(30_000);
             let deadline = Instant::now() + Duration::from_millis(timeout);
             loop {
-                let result = cdp.call("Runtime.evaluate", serde_json::json!({
-                    "expression": "document.readyState",
-                    "returnByValue": true
-                })).await;
+                let result = cdp
+                    .call(
+                        "Runtime.evaluate",
+                        serde_json::json!({
+                            "expression": "document.readyState",
+                            "returnByValue": true
+                        }),
+                    )
+                    .await;
                 if let Ok(val) = result {
                     let state = val
                         .get("result")
                         .and_then(|r| r.get("value"))
                         .and_then(|v| v.as_str())
                         .unwrap_or("");
-                    if state == "complete" { break; }
+                    if state == "complete" {
+                        break;
+                    }
                 }
                 if Instant::now() >= deadline {
-                    return Err(format!("CdpWaitForPageLoad: timeout after {timeout}ms, readyState not complete"));
+                    return Err(format!(
+                        "CdpWaitForPageLoad: timeout after {timeout}ms, readyState not complete"
+                    ));
                 }
                 tokio::time::sleep(Duration::from_millis(200)).await;
             }
             Ok((None, HashMap::new()))
         }
-        ScriptStep::CdpGetText { selector, selector_type, output_key } => {
+        ScriptStep::CdpGetText {
+            selector,
+            selector_type,
+            output_key,
+        } => {
             let selector = vars.interpolate(selector);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
             let node_id = find_element(cdp, &selector, selector_type).await?;
-            let result = cdp.call("DOM.getOuterHTML", json!({ "nodeId": node_id })).await?;
-            let html = result.get("outerHTML").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let result = cdp
+                .call("DOM.getOuterHTML", json!({ "nodeId": node_id }))
+                .await?;
+            let html = result
+                .get("outerHTML")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             // 简单剥离标签
-            let text = html.replace(|c: char| c == '<', " <")
-                .split('<').filter(|s| !s.starts_with('/') && !s.is_empty())
+            let text = html
+                .replace(|c: char| c == '<', " <")
+                .split('<')
+                .filter(|s| !s.starts_with('/') && !s.is_empty())
                 .flat_map(|s| s.splitn(2, '>').nth(1))
-                .collect::<Vec<_>>().join("").trim().to_string();
+                .collect::<Vec<_>>()
+                .join("")
+                .trim()
+                .to_string();
             let mut vs = HashMap::new();
-            if let Some(k) = output_key { vs.insert(k.clone(), text.clone()); }
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), text.clone());
+            }
             Ok((Some(text), vs))
         }
-        ScriptStep::CdpGetAttribute { selector, selector_type, attribute, output_key } => {
+        ScriptStep::CdpGetAttribute {
+            selector,
+            selector_type,
+            attribute,
+            output_key,
+        } => {
             let selector = vars.interpolate(selector);
             let attribute = vars.interpolate(attribute);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
             let node_id = find_element(cdp, &selector, selector_type).await?;
-            let result = cdp.call("DOM.getAttributes", json!({ "nodeId": node_id })).await?;
-            let attrs = result.get("attributes").and_then(|a| a.as_array()).cloned().unwrap_or_default();
-            let value = attrs.chunks(2)
+            let result = cdp
+                .call("DOM.getAttributes", json!({ "nodeId": node_id }))
+                .await?;
+            let attrs = result
+                .get("attributes")
+                .and_then(|a| a.as_array())
+                .cloned()
+                .unwrap_or_default();
+            let value = attrs
+                .chunks(2)
                 .find(|pair| pair[0].as_str() == Some(&attribute))
                 .and_then(|pair| pair[1].as_str())
                 .map(|s| s.to_string());
             let value_str = value.unwrap_or_default();
             let mut vs = HashMap::new();
-            if let Some(k) = output_key { vs.insert(k.clone(), value_str.clone()); }
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), value_str.clone());
+            }
             Ok((Some(value_str), vs))
         }
-        ScriptStep::CdpSetInputValue { selector, selector_type, value } => {
+        ScriptStep::CdpSetInputValue {
+            selector,
+            selector_type,
+            value,
+        } => {
             let selector = vars.interpolate(selector);
             let value = vars.interpolate(value);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
@@ -1396,23 +1992,43 @@ async fn execute_step(
                 sel_esc = selector.replace('"', "\\\""),
                 val_json = serde_json::to_string(&value).unwrap_or_default(),
             );
-            cdp.call("Runtime.evaluate", json!({ "expression": expr, "returnByValue": true })).await?;
+            cdp.call(
+                "Runtime.evaluate",
+                json!({ "expression": expr, "returnByValue": true }),
+            )
+            .await?;
             Ok((None, HashMap::new()))
         }
-        ScriptStep::CdpScreenshot { format, quality, output_path, output_key_base64, output_key_file_path } => {
+        ScriptStep::CdpScreenshot {
+            format,
+            quality,
+            output_path,
+            output_key_base64,
+            output_key_file_path,
+        } => {
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
             let fmt = format.as_deref().unwrap_or("png");
             let mut params = json!({ "format": fmt });
-            if let Some(q) = quality { params["quality"] = json!(q); }
+            if let Some(q) = quality {
+                params["quality"] = json!(q);
+            }
             let result = cdp.call("Page.captureScreenshot", params).await?;
-            let b64 = result.get("data").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let b64 = result
+                .get("data")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             let mut vs = HashMap::new();
-            if let Some(k) = output_key_base64 { vs.insert(k.clone(), b64.clone()); }
+            if let Some(k) = output_key_base64 {
+                vs.insert(k.clone(), b64.clone());
+            }
             if let Some(path) = output_path {
                 if !path.is_empty() {
                     if let Ok(bytes) = base64_decode(&b64) {
                         let _ = std::fs::write(path, bytes);
-                        if let Some(k) = output_key_file_path { vs.insert(k.clone(), path.clone()); }
+                        if let Some(k) = output_key_file_path {
+                            vs.insert(k.clone(), path.clone());
+                        }
                     }
                 }
             }
@@ -1420,10 +2036,20 @@ async fn execute_step(
         }
 
         // ── Magic 具名步骤 ─────────────────────────────────────────────────────
-        ScriptStep::MagicSetBounds { x, y, width, height, output_key } => {
+        ScriptStep::MagicSetBounds {
+            x,
+            y,
+            width,
+            height,
+            output_key,
+        } => {
             let port = get_magic_port()?;
-            let body = magic_post(http_client, port,
-                json!({ "cmd": "set_bounds", "x": x, "y": y, "width": width, "height": height })).await?;
+            let body = magic_post(
+                http_client,
+                port,
+                json!({ "cmd": "set_bounds", "x": x, "y": y, "width": width, "height": height }),
+            )
+            .await?;
             Ok((Some(body.clone()), opt_key(output_key, body)))
         }
         ScriptStep::MagicGetBounds { output_key } => {
@@ -1459,16 +2085,27 @@ async fn execute_step(
         ScriptStep::MagicSetBgColor { r, g, b } => {
             let port = get_magic_port()?;
             let mut payload = json!({ "cmd": "set_bg_color" });
-            if let Some(v) = r { payload["r"] = json!(v); }
-            if let Some(v) = g { payload["g"] = json!(v); }
-            if let Some(v) = b { payload["b"] = json!(v); }
+            if let Some(v) = r {
+                payload["r"] = json!(v);
+            }
+            if let Some(v) = g {
+                payload["g"] = json!(v);
+            }
+            if let Some(v) = b {
+                payload["b"] = json!(v);
+            }
             magic_post(http_client, port, payload).await?;
             Ok((None, HashMap::new()))
         }
         ScriptStep::MagicSetToolbarText { text } => {
             let text = vars.interpolate(text);
             let port = get_magic_port()?;
-            magic_post(http_client, port, json!({ "cmd": "set_toolbar_text", "text": text })).await?;
+            magic_post(
+                http_client,
+                port,
+                json!({ "cmd": "set_toolbar_text", "text": text }),
+            )
+            .await?;
             Ok((None, HashMap::new()))
         }
         ScriptStep::MagicSetAppTopMost => {
@@ -1479,33 +2116,55 @@ async fn execute_step(
         ScriptStep::MagicSetMasterIndicatorVisible { visible, label } => {
             let port = get_magic_port()?;
             let mut payload = json!({ "cmd": "set_master_indicator_visible" });
-            if let Some(v) = visible { payload["visible"] = json!(v); }
-            if let Some(l) = label { payload["label"] = json!(vars.interpolate(l)); }
+            if let Some(v) = visible {
+                payload["visible"] = json!(v);
+            }
+            if let Some(l) = label {
+                payload["label"] = json!(vars.interpolate(l));
+            }
             magic_post(http_client, port, payload).await?;
             Ok((None, HashMap::new()))
         }
-        ScriptStep::MagicOpenNewTab { url, browser_id, output_key } => {
+        ScriptStep::MagicOpenNewTab {
+            url,
+            browser_id,
+            output_key,
+        } => {
             let url = vars.interpolate(url);
             let port = get_magic_port()?;
             let mut payload = json!({ "cmd": "open_new_tab", "url": url });
-            if let Some(id) = browser_id { payload["browser_id"] = json!(id); }
+            if let Some(id) = browser_id {
+                payload["browser_id"] = json!(id);
+            }
             let body = magic_post(http_client, port, payload).await?;
             Ok((Some(body.clone()), opt_key(output_key, body)))
         }
         ScriptStep::MagicCloseTab { tab_id } => {
             let port = get_magic_port()?;
-            magic_post(http_client, port, json!({ "cmd": "close_tab", "tab_id": tab_id })).await?;
+            magic_post(
+                http_client,
+                port,
+                json!({ "cmd": "close_tab", "tab_id": tab_id }),
+            )
+            .await?;
             Ok((None, HashMap::new()))
         }
         ScriptStep::MagicActivateTab { tab_id } => {
             let port = get_magic_port()?;
-            magic_post(http_client, port, json!({ "cmd": "activate_tab", "tab_id": tab_id })).await?;
+            magic_post(
+                http_client,
+                port,
+                json!({ "cmd": "activate_tab", "tab_id": tab_id }),
+            )
+            .await?;
             Ok((None, HashMap::new()))
         }
         ScriptStep::MagicActivateTabByIndex { index, browser_id } => {
             let port = get_magic_port()?;
             let mut payload = json!({ "cmd": "activate_tab_by_index", "index": index });
-            if let Some(id) = browser_id { payload["browser_id"] = json!(id); }
+            if let Some(id) = browser_id {
+                payload["browser_id"] = json!(id);
+            }
             magic_post(http_client, port, payload).await?;
             Ok((None, HashMap::new()))
         }
@@ -1523,7 +2182,9 @@ async fn execute_step(
             let text = vars.interpolate(text);
             let port = get_magic_port()?;
             let mut payload = json!({ "cmd": "type_string", "text": text });
-            if let Some(id) = tab_id { payload["tab_id"] = json!(id); }
+            if let Some(id) = tab_id {
+                payload["tab_id"] = json!(id);
+            }
             magic_post(http_client, port, payload).await?;
             Ok((None, HashMap::new()))
         }
@@ -1534,12 +2195,21 @@ async fn execute_step(
         }
         ScriptStep::MagicGetActiveBrowser { output_key } => {
             let port = get_magic_port()?;
-            let body = magic_post(http_client, port, json!({ "cmd": "get_active_browser" })).await?;
+            let body =
+                magic_post(http_client, port, json!({ "cmd": "get_active_browser" })).await?;
             Ok((Some(body.clone()), opt_key(output_key, body)))
         }
-        ScriptStep::MagicGetTabs { browser_id, output_key } => {
+        ScriptStep::MagicGetTabs {
+            browser_id,
+            output_key,
+        } => {
             let port = get_magic_port()?;
-            let body = magic_post(http_client, port, json!({ "cmd": "get_tabs", "browser_id": browser_id })).await?;
+            let body = magic_post(
+                http_client,
+                port,
+                json!({ "cmd": "get_tabs", "browser_id": browser_id }),
+            )
+            .await?;
             Ok((Some(body.clone()), opt_key(output_key, body)))
         }
         ScriptStep::MagicGetActiveTabs { output_key } => {
@@ -1549,7 +2219,12 @@ async fn execute_step(
         }
         ScriptStep::MagicGetSwitches { key, output_key } => {
             let port = get_magic_port()?;
-            let body = magic_post(http_client, port, json!({ "cmd": "get_switches", "key": key })).await?;
+            let body = magic_post(
+                http_client,
+                port,
+                json!({ "cmd": "get_switches", "key": key }),
+            )
+            .await?;
             Ok((Some(body.clone()), opt_key(output_key, body)))
         }
         ScriptStep::MagicGetHostName { output_key } => {
@@ -1567,29 +2242,53 @@ async fn execute_step(
             let body = magic_post(http_client, port, json!({ "cmd": "get_bookmarks" })).await?;
             Ok((Some(body.clone()), opt_key(output_key, body)))
         }
-        ScriptStep::MagicCreateBookmark { parent_id, title, url, output_key } => {
+        ScriptStep::MagicCreateBookmark {
+            parent_id,
+            title,
+            url,
+            output_key,
+        } => {
             let (title, url) = (vars.interpolate(title), vars.interpolate(url));
             let port = get_magic_port()?;
             let body = magic_post(http_client, port,
                 json!({ "cmd": "create_bookmark", "parent_id": parent_id, "title": title, "url": url })).await?;
             Ok((Some(body.clone()), opt_key(output_key, body)))
         }
-        ScriptStep::MagicCreateBookmarkFolder { parent_id, title, output_key } => {
+        ScriptStep::MagicCreateBookmarkFolder {
+            parent_id,
+            title,
+            output_key,
+        } => {
             let title = vars.interpolate(title);
             let port = get_magic_port()?;
-            let body = magic_post(http_client, port,
-                json!({ "cmd": "create_bookmark_folder", "parent_id": parent_id, "title": title })).await?;
+            let body = magic_post(
+                http_client,
+                port,
+                json!({ "cmd": "create_bookmark_folder", "parent_id": parent_id, "title": title }),
+            )
+            .await?;
             Ok((Some(body.clone()), opt_key(output_key, body)))
         }
-        ScriptStep::MagicUpdateBookmark { node_id, title, url } => {
+        ScriptStep::MagicUpdateBookmark {
+            node_id,
+            title,
+            url,
+        } => {
             let port = get_magic_port()?;
             let mut payload = json!({ "cmd": "update_bookmark", "node_id": node_id });
-            if let Some(t) = title { payload["title"] = json!(vars.interpolate(t)); }
-            if let Some(u) = url { payload["url"] = json!(vars.interpolate(u)); }
+            if let Some(t) = title {
+                payload["title"] = json!(vars.interpolate(t));
+            }
+            if let Some(u) = url {
+                payload["url"] = json!(vars.interpolate(u));
+            }
             magic_post(http_client, port, payload).await?;
             Ok((None, HashMap::new()))
         }
-        ScriptStep::MagicMoveBookmark { node_id, new_parent_id } => {
+        ScriptStep::MagicMoveBookmark {
+            node_id,
+            new_parent_id,
+        } => {
             let port = get_magic_port()?;
             magic_post(http_client, port,
                 json!({ "cmd": "move_bookmark", "node_id": node_id, "new_parent_id": new_parent_id })).await?;
@@ -1597,75 +2296,131 @@ async fn execute_step(
         }
         ScriptStep::MagicRemoveBookmark { node_id } => {
             let port = get_magic_port()?;
-            magic_post(http_client, port, json!({ "cmd": "remove_bookmark", "node_id": node_id })).await?;
+            magic_post(
+                http_client,
+                port,
+                json!({ "cmd": "remove_bookmark", "node_id": node_id }),
+            )
+            .await?;
             Ok((None, HashMap::new()))
         }
-        ScriptStep::MagicBookmarkCurrentTab { browser_id, parent_id } => {
+        ScriptStep::MagicBookmarkCurrentTab {
+            browser_id,
+            parent_id,
+        } => {
             let port = get_magic_port()?;
             let mut payload = json!({ "cmd": "bookmark_current_tab" });
-            if let Some(id) = browser_id { payload["browser_id"] = json!(id); }
-            if let Some(pid) = parent_id { payload["parent_id"] = json!(pid); }
+            if let Some(id) = browser_id {
+                payload["browser_id"] = json!(id);
+            }
+            if let Some(pid) = parent_id {
+                payload["parent_id"] = json!(pid);
+            }
             magic_post(http_client, port, payload).await?;
             Ok((None, HashMap::new()))
         }
         ScriptStep::MagicUnbookmarkCurrentTab { browser_id } => {
             let port = get_magic_port()?;
             let mut payload = json!({ "cmd": "unbookmark_current_tab" });
-            if let Some(id) = browser_id { payload["browser_id"] = json!(id); }
+            if let Some(id) = browser_id {
+                payload["browser_id"] = json!(id);
+            }
             magic_post(http_client, port, payload).await?;
             Ok((None, HashMap::new()))
         }
-        ScriptStep::MagicIsCurrentTabBookmarked { browser_id, output_key } => {
+        ScriptStep::MagicIsCurrentTabBookmarked {
+            browser_id,
+            output_key,
+        } => {
             let port = get_magic_port()?;
             let mut payload = json!({ "cmd": "is_current_tab_bookmarked" });
-            if let Some(id) = browser_id { payload["browser_id"] = json!(id); }
+            if let Some(id) = browser_id {
+                payload["browser_id"] = json!(id);
+            }
             let body = magic_post(http_client, port, payload).await?;
             Ok((Some(body.clone()), opt_key(output_key, body)))
         }
-        ScriptStep::MagicExportBookmarkState { environment_id, output_key } => {
+        ScriptStep::MagicExportBookmarkState {
+            environment_id,
+            output_key,
+        } => {
             let port = get_magic_port()?;
             let mut payload = json!({ "cmd": "export_bookmark_state" });
-            if let Some(eid) = environment_id { payload["environment_id"] = json!(eid); }
+            if let Some(eid) = environment_id {
+                payload["environment_id"] = json!(eid);
+            }
             let body = magic_post(http_client, port, payload).await?;
             Ok((Some(body.clone()), opt_key(output_key, body)))
         }
         ScriptStep::MagicGetManagedCookies { output_key } => {
             let port = get_magic_port()?;
-            let body = magic_post(http_client, port, json!({ "cmd": "get_managed_cookies" })).await?;
+            let body =
+                magic_post(http_client, port, json!({ "cmd": "get_managed_cookies" })).await?;
             Ok((Some(body.clone()), opt_key(output_key, body)))
         }
-        ScriptStep::MagicExportCookieState { mode, url, environment_id, output_key } => {
+        ScriptStep::MagicExportCookieState {
+            mode,
+            url,
+            environment_id,
+            output_key,
+        } => {
             let port = get_magic_port()?;
             let mut payload = json!({ "cmd": "export_cookie_state", "mode": mode });
-            if let Some(u) = url { payload["url"] = json!(vars.interpolate(u)); }
-            if let Some(eid) = environment_id { payload["environment_id"] = json!(eid); }
+            if let Some(u) = url {
+                payload["url"] = json!(vars.interpolate(u));
+            }
+            if let Some(eid) = environment_id {
+                payload["environment_id"] = json!(eid);
+            }
             let body = magic_post(http_client, port, payload).await?;
             Ok((Some(body.clone()), opt_key(output_key, body)))
         }
         ScriptStep::MagicGetManagedExtensions { output_key } => {
             let port = get_magic_port()?;
-            let body = magic_post(http_client, port, json!({ "cmd": "get_managed_extensions" })).await?;
+            let body = magic_post(
+                http_client,
+                port,
+                json!({ "cmd": "get_managed_extensions" }),
+            )
+            .await?;
             Ok((Some(body.clone()), opt_key(output_key, body)))
         }
-        ScriptStep::MagicTriggerExtensionAction { extension_id, browser_id } => {
+        ScriptStep::MagicTriggerExtensionAction {
+            extension_id,
+            browser_id,
+        } => {
             let port = get_magic_port()?;
-            let mut payload = json!({ "cmd": "trigger_extension_action", "extension_id": extension_id });
-            if let Some(id) = browser_id { payload["browser_id"] = json!(id); }
+            let mut payload =
+                json!({ "cmd": "trigger_extension_action", "extension_id": extension_id });
+            if let Some(id) = browser_id {
+                payload["browser_id"] = json!(id);
+            }
             magic_post(http_client, port, payload).await?;
             Ok((None, HashMap::new()))
         }
         ScriptStep::MagicCloseExtensionPopup { browser_id } => {
             let port = get_magic_port()?;
             let mut payload = json!({ "cmd": "close_extension_popup" });
-            if let Some(id) = browser_id { payload["browser_id"] = json!(id); }
+            if let Some(id) = browser_id {
+                payload["browser_id"] = json!(id);
+            }
             magic_post(http_client, port, payload).await?;
             Ok((None, HashMap::new()))
         }
-        ScriptStep::MagicToggleSyncMode { role, browser_id, session_id, output_key } => {
+        ScriptStep::MagicToggleSyncMode {
+            role,
+            browser_id,
+            session_id,
+            output_key,
+        } => {
             let port = get_magic_port()?;
             let mut payload = json!({ "cmd": "toggle_sync_mode", "role": role });
-            if let Some(id) = browser_id { payload["browser_id"] = json!(id); }
-            if let Some(sid) = session_id { payload["session_id"] = json!(sid); }
+            if let Some(id) = browser_id {
+                payload["browser_id"] = json!(id);
+            }
+            if let Some(sid) = session_id {
+                payload["session_id"] = json!(sid);
+            }
             let body = magic_post(http_client, port, payload).await?;
             Ok((Some(body.clone()), opt_key(output_key, body)))
         }
@@ -1685,25 +2440,44 @@ async fn execute_step(
             Ok((Some(body.clone()), opt_key(output_key, body)))
         }
         ScriptStep::MagicCaptureAppShell {
-            browser_id, format, mode, output_path, output_key_base64, output_key_file_path
+            browser_id,
+            format,
+            mode,
+            output_path,
+            output_key_base64,
+            output_key_file_path,
         } => {
             let port = get_magic_port()?;
             let mut payload = json!({ "cmd": "capture_app_shell" });
-            if let Some(id) = browser_id { payload["browser_id"] = json!(id); }
-            if let Some(f) = format { payload["format"] = json!(f); }
+            if let Some(id) = browser_id {
+                payload["browser_id"] = json!(id);
+            }
+            if let Some(f) = format {
+                payload["format"] = json!(f);
+            }
             let actual_mode = mode.as_deref().unwrap_or("inline");
             payload["mode"] = json!(actual_mode);
-            if let Some(p) = output_path { payload["output_path"] = json!(p); }
+            if let Some(p) = output_path {
+                payload["output_path"] = json!(p);
+            }
             let body = magic_post(http_client, port, payload).await?;
             let mut vs = HashMap::new();
             if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&body) {
                 if let Some(k) = output_key_base64 {
-                    if let Some(b64) = parsed.get("data").and_then(|d| d.get("base64")).and_then(|v| v.as_str()) {
+                    if let Some(b64) = parsed
+                        .get("data")
+                        .and_then(|d| d.get("base64"))
+                        .and_then(|v| v.as_str())
+                    {
                         vs.insert(k.clone(), b64.to_string());
                     }
                 }
                 if let Some(k) = output_key_file_path {
-                    if let Some(fp) = parsed.get("data").and_then(|d| d.get("output_path")).and_then(|v| v.as_str()) {
+                    if let Some(fp) = parsed
+                        .get("data")
+                        .and_then(|d| d.get("output_path"))
+                        .and_then(|v| v.as_str())
+                    {
                         vs.insert(k.clone(), fp.to_string());
                     }
                 }
@@ -1711,7 +2485,10 @@ async fn execute_step(
             Ok((Some(body), vs))
         }
 
-        ScriptStep::Condition { .. } | ScriptStep::Loop { .. } | ScriptStep::Break | ScriptStep::Continue => {
+        ScriptStep::Condition { .. }
+        | ScriptStep::Loop { .. }
+        | ScriptStep::Break
+        | ScriptStep::Continue => {
             Err("control flow step executed outside execute_steps context".to_string())
         }
     }
@@ -1719,7 +2496,9 @@ async fn execute_step(
 
 fn base64_decode(s: &str) -> Result<Vec<u8>, String> {
     use base64::Engine;
-    base64::engine::general_purpose::STANDARD.decode(s).map_err(|e| format!("base64 decode: {e}"))
+    base64::engine::general_purpose::STANDARD
+        .decode(s)
+        .map_err(|e| format!("base64 decode: {e}"))
 }
 
 /// 发送 Magic Controller HTTP 请求，尝试多个路径并重试
@@ -1740,7 +2519,9 @@ async fn magic_post(
             match http_client.post(&url).json(&payload).send().await {
                 Ok(resp) => {
                     let status = resp.status();
-                    let body = resp.text().await
+                    let body = resp
+                        .text()
+                        .await
                         .map_err(|e| format!("Magic read body failed: {e}"))?;
                     if status.as_u16() == 404 {
                         continue;
@@ -1766,12 +2547,16 @@ async fn magic_post(
 /// 若 output_key 有值则插入 vars map
 fn opt_key(output_key: &Option<String>, value: String) -> HashMap<String, String> {
     let mut vs = HashMap::new();
-    if let Some(k) = output_key { vs.insert(k.clone(), value); }
+    if let Some(k) = output_key {
+        vs.insert(k.clone(), value);
+    }
     vs
 }
 
 fn is_cancelled(app: &AppHandle, run_id: &str) -> bool {
-    app.state::<AppState>().cancel_tokens.lock()
+    app.state::<AppState>()
+        .cancel_tokens
+        .lock()
         .map(|tokens| tokens.get(run_id).copied().unwrap_or(false))
         .unwrap_or(false)
 }
@@ -1780,14 +2565,27 @@ fn is_cancelled(app: &AppHandle, run_id: &str) -> bool {
 
 #[allow(clippy::too_many_arguments)]
 fn emit_progress(
-    app: &AppHandle, run_id: &str, step_index: usize, step_total: usize,
-    step_status: &str, output: Option<String>, duration_ms: u64, run_status: &str,
-    vars_set: HashMap<String, String>, step_path: Vec<usize>,
+    app: &AppHandle,
+    run_id: &str,
+    step_index: usize,
+    step_total: usize,
+    step_status: &str,
+    output: Option<String>,
+    duration_ms: u64,
+    run_status: &str,
+    vars_set: HashMap<String, String>,
+    step_path: Vec<usize>,
 ) {
     let event = AutomationProgressEvent {
-        run_id: run_id.to_string(), step_index, step_total,
-        step_status: step_status.to_string(), output, duration_ms,
-        run_status: run_status.to_string(), vars_set, step_path,
+        run_id: run_id.to_string(),
+        step_index,
+        step_total,
+        step_status: step_status.to_string(),
+        output,
+        duration_ms,
+        run_status: run_status.to_string(),
+        vars_set,
+        step_path,
     };
     if let Err(e) = app.emit("automation_progress", &event) {
         logger::warn("automation", format!("emit progress failed: {e}"));
@@ -1795,15 +2593,22 @@ fn emit_progress(
 }
 
 fn emit_variables_updated(app: &AppHandle, run_id: &str, vars: HashMap<String, String>) {
-    let event = AutomationVariablesUpdatedEvent { run_id: run_id.to_string(), vars };
+    let event = AutomationVariablesUpdatedEvent {
+        run_id: run_id.to_string(),
+        vars,
+    };
     if let Err(e) = app.emit("automation_variables_updated", &event) {
         logger::warn("automation", format!("emit variables_updated failed: {e}"));
     }
 }
 
 fn emit_human_dismissed(app: &AppHandle, run_id: &str) {
-    let _ = app.emit("automation_human_dismissed",
-        AutomationHumanDismissedEvent { run_id: run_id.to_string() });
+    let _ = app.emit(
+        "automation_human_dismissed",
+        AutomationHumanDismissedEvent {
+            run_id: run_id.to_string(),
+        },
+    );
 }
 
 fn log_entry(
@@ -1822,17 +2627,34 @@ fn log_entry(
 }
 
 fn persist_run_progress(
-    app: &AppHandle, run_id: &str, results: &[StepResult],
-    status: &str, error: Option<&str>, variables_json: Option<&str>,
+    app: &AppHandle,
+    run_id: &str,
+    results: &[StepResult],
+    status: &str,
+    error: Option<&str>,
+    variables_json: Option<&str>,
     logs_json: Option<&str>,
 ) {
     let results_json = serde_json::to_string(results).ok();
-    let finished_at = if status == "running" { None } else { Some(crate::models::now_ts()) };
+    let finished_at = if status == "running" {
+        None
+    } else {
+        Some(crate::models::now_ts())
+    };
     let state = app.state::<AppState>();
     let result = state.lock_automation_service().update_run_status(
-        run_id, status, results_json.as_deref(), error, finished_at, variables_json, logs_json,
+        run_id,
+        status,
+        results_json.as_deref(),
+        error,
+        finished_at,
+        variables_json,
+        logs_json,
     );
     if let Err(e) = result {
-        logger::warn("automation", format!("persist run progress failed run_id={run_id}: {e}"));
+        logger::warn(
+            "automation",
+            format!("persist run progress failed run_id={run_id}: {e}"),
+        );
     }
 }

@@ -76,7 +76,7 @@ export function WorkspaceTopbar({
 						type="button"
 						variant="outline"
 						onClick={() => setCommandOpen(true)}
-						className="border-border/40 bg-background/50 backdrop-blur-md shadow-sm transition-transform duration-300 hover:scale-[1.02]"
+						className="border-border/40 bg-background/50 dark:bg-background/50 shadow-sm transition-all duration-300 hover:scale-[1.02]"
 					>
 						<Search
 							data-icon="inline-start"
@@ -87,13 +87,13 @@ export function WorkspaceTopbar({
 					<Button
 						type="button"
 						variant="secondary"
-						className="bg-background/50 backdrop-blur-md shadow-sm border border-border/40 transition-transform duration-300 hover:scale-[1.02]"
+						className="bg-background/50 dark:bg-background/50 shadow-sm border border-border/40 transition-all duration-300 hover:scale-[1.02]"
 						onClick={onOpenLogPanel}
 					>
 						<Logs data-icon="inline-start" className="text-muted-foreground" />
 						日志面板
 					</Button>
-					<div className="flex items-center rounded-xl border border-border/40 bg-background/50 backdrop-blur-md p-1 shadow-sm transition-transform duration-300 hover:shadow-md">
+					<div className="flex items-center rounded-xl border border-border/40 bg-background/50 dark:bg-background/50 p-1 shadow-sm transition-all duration-300 hover:shadow-md">
 						<Button
 							type="button"
 							onClick={() => onThemeModeChange('light')}

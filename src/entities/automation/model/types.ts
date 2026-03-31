@@ -184,6 +184,14 @@ export type StepResult = {
 	varsSet?: Record<string, string>;
 };
 
+export type RunLogEntry = {
+	timestamp: number;
+	level: 'info' | 'warn' | 'error' | 'debug';
+	category: 'flow' | 'step' | 'ai' | 'cdp' | 'magic' | 'error';
+	message: string;
+	details?: Record<string, unknown>;
+};
+
 export type AutomationRun = {
 	id: string;
 	scriptId: string;
@@ -194,6 +202,7 @@ export type AutomationRun = {
 	startedAt: number;
 	finishedAt: number | null;
 	error: string | null;
+	logs?: RunLogEntry[];
 };
 
 export type AutomationProgressEvent = {

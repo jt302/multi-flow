@@ -22,11 +22,29 @@ import {
 	useReactFlow,
 } from '@xyflow/react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { ArrowLeft, CheckCircle, ChevronDown, Loader2, Minus, Play, Plus, Square, Trash2, Variable } from 'lucide-react';
+import {
+	ArrowLeft,
+	CheckCircle,
+	ChevronDown,
+	FolderOpen,
+	Loader2,
+	Minus,
+	Play,
+	Plus,
+	Square,
+	Trash2,
+	Variable,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { save as saveDialog } from '@tauri-apps/plugin-dialog';
 
-import type { AutomationScript, ScriptStep, ScriptVarDef, StepResult } from '@/entities/automation/model/types';
+import type {
+	AutomationScript,
+	ScriptStep,
+	ScriptVarDef,
+	StepResult,
+} from '@/entities/automation/model/types';
 import type { ProfileItem } from '@/entities/profile/model/types';
 import {
 	emitScriptUpdated,
@@ -81,9 +99,16 @@ const STEP_STATUS_RING: Record<string, string> = {
 
 type StepNodeData = { step: ScriptStep; index: number; stepStatus?: string };
 
-const HANDLE_CLS = '!w-2.5 !h-2.5 !bg-muted-foreground/40 hover:!bg-primary !border-0 !rounded-full';
+const HANDLE_CLS =
+	'!w-2.5 !h-2.5 !bg-muted-foreground/40 hover:!bg-primary !border-0 !rounded-full';
 
-function StepNodeComponent({ data, selected }: { data: StepNodeData; selected?: boolean }) {
+function StepNodeComponent({
+	data,
+	selected,
+}: {
+	data: StepNodeData;
+	selected?: boolean;
+}) {
 	const { step, index, stepStatus } = data;
 	const kind = step.kind;
 	const label = KIND_LABELS[kind] ?? kind;
@@ -95,14 +120,26 @@ function StepNodeComponent({ data, selected }: { data: StepNodeData; selected?: 
 	const isCondition = kind === 'condition';
 
 	return (
-		<div className={`relative min-w-[160px] max-w-[220px] rounded-lg border bg-background shadow-sm px-3 py-2 cursor-pointer ${selectedClass} ${ringClass}`}>
+		<div
+			className={`relative min-w-[160px] max-w-[220px] rounded-lg border bg-background shadow-sm px-3 py-2 cursor-pointer ${selectedClass} ${ringClass}`}
+		>
 			<Handle type="target" position={Position.Top} className={HANDLE_CLS} />
 			<div className="flex items-center gap-1.5 mb-1">
-				<span className="text-[10px] text-muted-foreground font-mono">#{index + 1}</span>
-				<span className={`text-[10px] font-medium px-1 rounded border ${colorClass}`}>{group}</span>
+				<span className="text-[10px] text-muted-foreground font-mono">
+					#{index + 1}
+				</span>
+				<span
+					className={`text-[10px] font-medium px-1 rounded border ${colorClass}`}
+				>
+					{group}
+				</span>
 			</div>
 			<div className="text-xs font-semibold truncate">{label}</div>
-			{summary && <div className="text-[10px] text-muted-foreground truncate mt-0.5">{summary}</div>}
+			{summary && (
+				<div className="text-[10px] text-muted-foreground truncate mt-0.5">
+					{summary}
+				</div>
+			)}
 			{isCondition ? (
 				<>
 					<div className="flex justify-between mt-1.5 text-[9px] text-muted-foreground select-none">
@@ -125,7 +162,11 @@ function StepNodeComponent({ data, selected }: { data: StepNodeData; selected?: 
 					/>
 				</>
 			) : (
-				<Handle type="source" position={Position.Bottom} className={HANDLE_CLS} />
+				<Handle
+					type="source"
+					position={Position.Bottom}
+					className={HANDLE_CLS}
+				/>
 			)}
 		</div>
 	);
@@ -160,14 +201,32 @@ function StepPropertiesPanel({
 		...allSteps.slice(0, stepIndex).flatMap((stepItem, i) => {
 			const stepRecord = stepItem as Record<string, unknown>;
 			const results: { name: string; source: string }[] = [];
-			if (typeof stepRecord['output_key'] === 'string' && stepRecord['output_key']) {
-				results.push({ name: stepRecord['output_key'] as string, source: `步骤 ${i + 1}` });
+			if (
+				typeof stepRecord['output_key'] === 'string' &&
+				stepRecord['output_key']
+			) {
+				results.push({
+					name: stepRecord['output_key'] as string,
+					source: `步骤 ${i + 1}`,
+				});
 			}
-			if (typeof stepRecord['output_key_base64'] === 'string' && stepRecord['output_key_base64']) {
-				results.push({ name: stepRecord['output_key_base64'] as string, source: `步骤 ${i + 1}` });
+			if (
+				typeof stepRecord['output_key_base64'] === 'string' &&
+				stepRecord['output_key_base64']
+			) {
+				results.push({
+					name: stepRecord['output_key_base64'] as string,
+					source: `步骤 ${i + 1}`,
+				});
 			}
-			if (typeof stepRecord['iter_var'] === 'string' && stepRecord['iter_var']) {
-				results.push({ name: stepRecord['iter_var'] as string, source: `步骤 ${i + 1}` });
+			if (
+				typeof stepRecord['iter_var'] === 'string' &&
+				stepRecord['iter_var']
+			) {
+				results.push({
+					name: stepRecord['iter_var'] as string,
+					source: `步骤 ${i + 1}`,
+				});
 			}
 			return results;
 		}),
@@ -179,7 +238,10 @@ function StepPropertiesPanel({
 
 		function insertVar(varName: string) {
 			const insertion = `{{${varName}}}`;
-			const el = document.getElementById(inputId) as HTMLInputElement | HTMLTextAreaElement | null;
+			const el = document.getElementById(inputId) as
+				| HTMLInputElement
+				| HTMLTextAreaElement
+				| null;
 			if (el) {
 				const start = el.selectionStart ?? value.length;
 				const end = el.selectionEnd ?? value.length;
@@ -188,7 +250,10 @@ function StepPropertiesPanel({
 				// 异步设置光标位置
 				setTimeout(() => {
 					el.focus();
-					el.setSelectionRange(start + insertion.length, start + insertion.length);
+					el.setSelectionRange(
+						start + insertion.length,
+						start + insertion.length,
+					);
 				}, 0);
 			} else {
 				// fallback: append at end
@@ -196,35 +261,40 @@ function StepPropertiesPanel({
 			}
 		}
 
-		const varButton = availableVars.length > 0 ? (
-			<Popover>
-				<PopoverTrigger asChild>
-					<Button
-						type="button"
-						variant="ghost"
-						size="icon"
-						className="h-7 w-7 flex-shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-						title="插入变量"
-					>
-						<Variable className="h-3.5 w-3.5" />
-					</Button>
-				</PopoverTrigger>
-				<PopoverContent className="w-52 p-1" align="end">
-					<div className="text-xs text-muted-foreground px-2 py-1 font-medium">选择变量</div>
-					{availableVars.map((v, i) => (
-						<button
-							key={`${v.name}-${v.source}-${i}`}
+		const varButton =
+			availableVars.length > 0 ? (
+				<Popover>
+					<PopoverTrigger asChild>
+						<Button
 							type="button"
-							className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent cursor-pointer flex items-center justify-between gap-2"
-							onClick={() => insertVar(v.name)}
+							variant="ghost"
+							size="icon"
+							className="h-7 w-7 flex-shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+							title="插入变量"
 						>
-							<span className="font-mono text-blue-500 truncate">{`{{${v.name}}}`}</span>
-							<span className="text-muted-foreground flex-shrink-0">{v.source}</span>
-						</button>
-					))}
-				</PopoverContent>
-			</Popover>
-		) : null;
+							<Variable className="h-3.5 w-3.5" />
+						</Button>
+					</PopoverTrigger>
+					<PopoverContent className="w-52 p-1" align="end">
+						<div className="text-xs text-muted-foreground px-2 py-1 font-medium">
+							选择变量
+						</div>
+						{availableVars.map((v, i) => (
+							<button
+								key={`${v.name}-${v.source}-${i}`}
+								type="button"
+								className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent cursor-pointer flex items-center justify-between gap-2"
+								onClick={() => insertVar(v.name)}
+							>
+								<span className="font-mono text-blue-500 truncate">{`{{${v.name}}}`}</span>
+								<span className="text-muted-foreground flex-shrink-0">
+									{v.source}
+								</span>
+							</button>
+						))}
+					</PopoverContent>
+				</Popover>
+			) : null;
 
 		return (
 			<div key={key} className="space-y-1">
@@ -234,13 +304,13 @@ function StepPropertiesPanel({
 						<Textarea
 							id={inputId}
 							value={value}
-							onChange={(e) => onUpdate({ ...step, [key]: e.target.value } as ScriptStep)}
+							onChange={(e) =>
+								onUpdate({ ...step, [key]: e.target.value } as ScriptStep)
+							}
 							className="text-xs min-h-[60px] pr-8"
 						/>
 						{varButton && (
-							<div className="absolute top-1 right-1">
-								{varButton}
-							</div>
+							<div className="absolute top-1 right-1">{varButton}</div>
 						)}
 					</div>
 				) : (
@@ -248,7 +318,9 @@ function StepPropertiesPanel({
 						<Input
 							id={inputId}
 							value={value}
-							onChange={(e) => onUpdate({ ...step, [key]: e.target.value } as ScriptStep)}
+							onChange={(e) =>
+								onUpdate({ ...step, [key]: e.target.value } as ScriptStep)
+							}
 							className="h-8 text-xs flex-1"
 						/>
 						{varButton}
@@ -265,7 +337,9 @@ function StepPropertiesPanel({
 				<Input
 					type="number"
 					value={Number(s[key] ?? 0)}
-					onChange={(e) => onUpdate({ ...step, [key]: Number(e.target.value) } as ScriptStep)}
+					onChange={(e) =>
+						onUpdate({ ...step, [key]: Number(e.target.value) } as ScriptStep)
+					}
 					className="h-8 text-xs"
 				/>
 			</div>
@@ -274,18 +348,23 @@ function StepPropertiesPanel({
 
 	function sf(label = '元素选择器', optional = false) {
 		const sType = String(s['selector_type'] ?? 'css');
-		const placeholder = sType === 'xpath'
-			? '//div[@id="main"]'
-			: sType === 'text'
-				? '按文本内容匹配'
-				: (optional ? 'CSS 选择器（留空则按坐标）' : 'CSS 选择器');
+		const placeholder =
+			sType === 'xpath'
+				? '//div[@id="main"]'
+				: sType === 'text'
+					? '按文本内容匹配'
+					: optional
+						? 'CSS 选择器（留空则按坐标）'
+						: 'CSS 选择器';
 		return (
 			<div key="selector" className="space-y-1">
 				<Label className="text-xs">{label}</Label>
 				<div className="flex gap-1.5">
 					<Select
 						value={sType}
-						onValueChange={(v) => onUpdate({ ...step, selector_type: v } as ScriptStep)}
+						onValueChange={(v) =>
+							onUpdate({ ...step, selector_type: v } as ScriptStep)
+						}
 					>
 						<SelectTrigger className="h-8 w-[80px] text-xs flex-shrink-0 cursor-pointer">
 							<SelectValue />
@@ -298,7 +377,9 @@ function StepPropertiesPanel({
 					</Select>
 					<Input
 						value={String(s['selector'] ?? '')}
-						onChange={(e) => onUpdate({ ...step, selector: e.target.value } as ScriptStep)}
+						onChange={(e) =>
+							onUpdate({ ...step, selector: e.target.value } as ScriptStep)
+						}
 						placeholder={placeholder}
 						className="h-8 text-xs font-mono flex-1"
 					/>
@@ -315,7 +396,9 @@ function StepPropertiesPanel({
 				<div className="flex gap-1">
 					<Input
 						value={value}
-						onChange={(e) => onUpdate({ ...step, [key]: e.target.value } as ScriptStep)}
+						onChange={(e) =>
+							onUpdate({ ...step, [key]: e.target.value } as ScriptStep)
+						}
 						placeholder="新变量名或选择已有"
 						className="h-8 text-xs flex-1"
 					/>
@@ -333,16 +416,24 @@ function StepPropertiesPanel({
 								</Button>
 							</PopoverTrigger>
 							<PopoverContent className="w-52 p-1" align="end">
-								<div className="text-xs text-muted-foreground px-2 py-1 font-medium">选择已有变量</div>
+								<div className="text-xs text-muted-foreground px-2 py-1 font-medium">
+									选择已有变量
+								</div>
 								{availableVars.map((v) => (
 									<button
 										key={`${v.name}-${v.source}`}
 										type="button"
 										className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent cursor-pointer flex items-center justify-between gap-2"
-										onClick={() => onUpdate({ ...step, [key]: v.name } as ScriptStep)}
+										onClick={() =>
+											onUpdate({ ...step, [key]: v.name } as ScriptStep)
+										}
 									>
-										<span className="font-mono text-blue-500 truncate">{v.name}</span>
-										<span className="text-muted-foreground flex-shrink-0 text-[10px]">{v.source}</span>
+										<span className="font-mono text-blue-500 truncate">
+											{v.name}
+										</span>
+										<span className="text-muted-foreground flex-shrink-0 text-[10px]">
+											{v.source}
+										</span>
 									</button>
 								))}
 							</PopoverContent>
@@ -355,47 +446,132 @@ function StepPropertiesPanel({
 	const okf = () => outputKeyField('output_key', '输出变量名');
 
 	const fields: React.ReactNode[] = [];
-	if (kind === 'navigate' || kind === 'cdp_navigate') { fields.push(tf('url', 'URL')); fields.push(okf()); }
-	else if (kind === 'wait') { fields.push(nf('ms', '等待毫秒数')); }
-	else if (kind === 'evaluate' || kind === 'cdp_evaluate') { fields.push(tf('expression', 'JS 表达式', true)); fields.push(okf()); }
-	else if (kind === 'click' || kind === 'cdp_click') { fields.push(sf()); }
-	else if (kind === 'type' || kind === 'cdp_type') { fields.push(sf()); fields.push(tf('text', '输入文本')); }
-	else if (kind === 'cdp_get_text') { fields.push(sf()); fields.push(okf()); }
-	else if (kind === 'cdp_wait_for_selector') { fields.push(sf()); fields.push(nf('timeout_ms', '超时毫秒数')); }
-	else if (kind === 'cdp_wait_for_page_load') { fields.push(nf('timeout_ms', '超时毫秒数')); }
-	else if (kind === 'cdp_scroll_to') { fields.push(sf('元素选择器（可选）', true)); }
-	else if (kind === 'cdp_screenshot') { fields.push(outputKeyField('output_key_base64', 'Base64 变量名')); fields.push(tf('output_path', '保存路径')); }
-	else if (kind === 'wait_for_user') {
+	if (kind === 'navigate' || kind === 'cdp_navigate') {
+		fields.push(tf('url', 'URL'));
+		fields.push(okf());
+	} else if (kind === 'wait') {
+		fields.push(nf('ms', '等待毫秒数'));
+	} else if (kind === 'evaluate' || kind === 'cdp_evaluate') {
+		fields.push(tf('expression', 'JS 表达式', true));
+		fields.push(okf());
+	} else if (kind === 'click' || kind === 'cdp_click') {
+		fields.push(sf());
+	} else if (kind === 'type' || kind === 'cdp_type') {
+		fields.push(sf());
+		fields.push(tf('text', '输入文本'));
+	} else if (kind === 'cdp_get_text') {
+		fields.push(sf());
+		fields.push(okf());
+	} else if (kind === 'cdp_wait_for_selector') {
+		fields.push(sf());
+		fields.push(nf('timeout_ms', '超时毫秒数'));
+	} else if (kind === 'cdp_wait_for_page_load') {
+		fields.push(nf('timeout_ms', '超时毫秒数'));
+	} else if (kind === 'cdp_scroll_to') {
+		fields.push(sf('元素选择器（可选）', true));
+	} else if (kind === 'cdp_screenshot') {
+		fields.push(outputKeyField('output_key_base64', 'Base64 变量名'));
+		const pathValue = String(s['output_path'] ?? '');
+		fields.push(
+			<div key="output_path" className="space-y-1">
+				<Label className="text-xs">保存路径</Label>
+				<div className="flex gap-1">
+					<Input
+						value={pathValue}
+						onChange={(e) =>
+							onUpdate({ ...step, output_path: e.target.value } as ScriptStep)
+						}
+						placeholder="~/Desktop/screenshot.png"
+						className="h-8 text-xs flex-1"
+					/>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						className="h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+						title="选择保存路径"
+						onClick={async () => {
+							const selected = await saveDialog({
+								defaultPath: pathValue || 'screenshot.png',
+								filters: [
+									{ name: '图片文件', extensions: ['png', 'jpeg', 'jpg'] },
+								],
+							});
+							if (selected) {
+								onUpdate({
+									...step,
+									output_path:
+										typeof selected === 'string' ? selected : selected,
+								} as ScriptStep);
+							}
+						}}
+					>
+						<FolderOpen className="h-3.5 w-3.5" />
+					</Button>
+				</div>
+			</div>,
+		);
+	} else if (kind === 'wait_for_user') {
 		fields.push(tf('message', '提示消息', true));
 		fields.push(tf('input_label', '输入框标签（留空则无输入框）'));
 		fields.push(okf());
 		fields.push(nf('timeout_ms', '超时毫秒数（0=不超时）'));
-	}
-	else if (kind === 'condition') { fields.push(tf('condition_expr', '条件表达式')); }
-	else if (kind === 'loop') { fields.push(nf('count', '循环次数')); fields.push(tf('iter_var', '迭代变量名（可选）')); }
-	else if (kind === 'ai_prompt') { fields.push(tf('prompt', 'Prompt（支持 {{变量}}）', true)); fields.push(tf('image_var', '图片变量名（可选）')); fields.push(okf()); }
-	else if (kind === 'ai_extract') { fields.push(tf('prompt', 'Prompt（支持 {{变量}}）', true)); }
-	else if (kind === 'ai_agent') {
+	} else if (kind === 'condition') {
+		fields.push(tf('condition_expr', '条件表达式'));
+	} else if (kind === 'loop') {
+		fields.push(nf('count', '循环次数'));
+		fields.push(tf('iter_var', '迭代变量名（可选）'));
+	} else if (kind === 'ai_prompt') {
+		fields.push(tf('prompt', 'Prompt（支持 {{变量}}）', true));
+		fields.push(tf('image_var', '图片变量名（可选）'));
+		fields.push(okf());
+	} else if (kind === 'ai_extract') {
+		fields.push(tf('prompt', 'Prompt（支持 {{变量}}）', true));
+	} else if (kind === 'ai_agent') {
 		fields.push(tf('system_prompt', '系统提示词', true));
 		fields.push(tf('initial_message', '初始消息（支持 {{变量}}）', true));
 		fields.push(nf('max_steps', '最大循环轮次'));
 		fields.push(okf());
+	} else if (kind === 'magic_open_new_tab') {
+		fields.push(tf('url', 'URL'));
+		fields.push(okf());
+	} else if (kind === 'magic_set_bounds') {
+		fields.push(nf('x', 'X'));
+		fields.push(nf('y', 'Y'));
+		fields.push(nf('width', '宽度'));
+		fields.push(nf('height', '高度'));
+	} else if (
+		[
+			'magic_get_browsers',
+			'magic_get_bounds',
+			'magic_capture_app_shell',
+		].includes(kind)
+	) {
+		fields.push(okf());
 	}
-	else if (kind === 'magic_open_new_tab') { fields.push(tf('url', 'URL')); fields.push(okf()); }
-	else if (kind === 'magic_set_bounds') { fields.push(nf('x', 'X')); fields.push(nf('y', 'Y')); fields.push(nf('width', '宽度')); fields.push(nf('height', '高度')); }
-	else if (['magic_get_browsers', 'magic_get_bounds', 'magic_capture_app_shell'].includes(kind)) { fields.push(okf()); }
 
 	return (
 		<div className="flex flex-col h-full min-h-0">
 			<div className="flex items-center justify-between px-3 py-2 border-b flex-shrink-0">
-				<span className="text-xs font-semibold">{KIND_LABELS[kind] ?? kind}</span>
-				<Button size="sm" variant="ghost" className="h-6 w-6 p-0 cursor-pointer text-destructive hover:text-destructive" onClick={onDelete}>
+				<span className="text-xs font-semibold">
+					{KIND_LABELS[kind] ?? kind}
+				</span>
+				<Button
+					size="sm"
+					variant="ghost"
+					className="h-6 w-6 p-0 cursor-pointer text-destructive hover:text-destructive"
+					onClick={onDelete}
+				>
 					<Trash2 className="h-3 w-3" />
 				</Button>
 			</div>
 			<div className="flex-1 overflow-y-auto min-h-0 p-3">
 				<div className="space-y-3">
-					{fields.length > 0 ? fields : <p className="text-xs text-muted-foreground">此步骤无可编辑字段</p>}
+					{fields.length > 0 ? (
+						fields
+					) : (
+						<p className="text-xs text-muted-foreground">此步骤无可编辑字段</p>
+					)}
 				</div>
 			</div>
 		</div>
@@ -406,7 +582,11 @@ function StepPropertiesPanel({
 
 type PositionsMap = Record<string, { x: number; y: number }>;
 
-function buildNodes(steps: ScriptStep[], positions: PositionsMap, liveStatuses: Record<number, string>): Node[] {
+function buildNodes(
+	steps: ScriptStep[],
+	positions: PositionsMap,
+	liveStatuses: Record<number, string>,
+): Node[] {
 	return steps.map((step, i) => {
 		const id = `step-${i}`;
 		const pos = positions[id] ?? { x: 120, y: i * 120 + 60 };
@@ -430,9 +610,17 @@ function buildDefaultEdges(count: number): Edge[] {
 	}));
 }
 
-type StoredEdge = { id: string; source: string; target: string; sourceHandle?: string | null };
+type StoredEdge = {
+	id: string;
+	source: string;
+	target: string;
+	sourceHandle?: string | null;
+};
 
-function parseCanvasData(json: string | null, stepCount: number): { positions: PositionsMap; edges: Edge[] } {
+function parseCanvasData(
+	json: string | null,
+	stepCount: number,
+): { positions: PositionsMap; edges: Edge[] } {
 	if (!json) return { positions: {}, edges: buildDefaultEdges(stepCount) };
 	try {
 		const parsed = JSON.parse(json) as Record<string, unknown>;
@@ -449,7 +637,10 @@ function parseCanvasData(json: string | null, stepCount: number): { positions: P
 			return { positions, edges };
 		}
 		// 旧格式：直接是 { 'step-0': {x,y}, ... }
-		return { positions: parsed as PositionsMap, edges: buildDefaultEdges(stepCount) };
+		return {
+			positions: parsed as PositionsMap,
+			edges: buildDefaultEdges(stepCount),
+		};
 	} catch {
 		return { positions: {}, edges: buildDefaultEdges(stepCount) };
 	}
@@ -468,7 +659,8 @@ function topologySortSteps(
 	orphanedCount: number;
 } {
 	const n = steps.length;
-	if (n === 0) return { reorderedSteps: [], indexMap: new Map(), orphanedCount: 0 };
+	if (n === 0)
+		return { reorderedSteps: [], indexMap: new Map(), orphanedCount: 0 };
 
 	// 构建邻接表和入度表
 	const adj = new Map<number, number[]>(); // source → targets
@@ -501,7 +693,7 @@ function topologySortSteps(
 		const cur = queue.shift()!;
 		order.push(cur);
 		visited.add(cur);
-		for (const next of (adj.get(cur) ?? [])) {
+		for (const next of adj.get(cur) ?? []) {
 			const newDeg = (inDegree.get(next) ?? 0) - 1;
 			inDegree.set(next, newDeg);
 			if (newDeg === 0) queue.push(next);
@@ -529,9 +721,21 @@ function validateSteps(stepList: ScriptStep[]): string[] {
 		const s = step as Record<string, unknown>;
 		const label = `步骤 ${i + 1}（${KIND_LABELS[step.kind] ?? step.kind}）`;
 		const empty = (k: string) => !String(s[k] ?? '').trim();
-		if (['navigate', 'cdp_navigate', 'magic_open_new_tab'].includes(step.kind) && empty('url'))
+		if (
+			['navigate', 'cdp_navigate', 'magic_open_new_tab'].includes(step.kind) &&
+			empty('url')
+		)
 			errs.push(`${label}：URL 不能为空`);
-		if (['click', 'cdp_click', 'cdp_wait_for_selector', 'cdp_get_text', 'cdp_scroll_to'].includes(step.kind) && empty('selector'))
+		if (
+			[
+				'click',
+				'cdp_click',
+				'cdp_wait_for_selector',
+				'cdp_get_text',
+				'cdp_scroll_to',
+			].includes(step.kind) &&
+			empty('selector')
+		)
 			errs.push(`${label}：选择器不能为空`);
 		if (['type', 'cdp_type'].includes(step.kind)) {
 			if (empty('selector')) errs.push(`${label}：选择器不能为空`);
@@ -539,9 +743,12 @@ function validateSteps(stepList: ScriptStep[]): string[] {
 		}
 		if (['evaluate', 'cdp_evaluate'].includes(step.kind) && empty('expression'))
 			errs.push(`${label}：JS 表达式不能为空`);
-		if (step.kind === 'ai_prompt' && empty('prompt')) errs.push(`${label}：Prompt 不能为空`);
-		if (step.kind === 'ai_extract' && empty('prompt')) errs.push(`${label}：Prompt 不能为空`);
-		if (step.kind === 'ai_agent' && empty('system_prompt')) errs.push(`${label}：系统提示词不能为空`);
+		if (step.kind === 'ai_prompt' && empty('prompt'))
+			errs.push(`${label}：Prompt 不能为空`);
+		if (step.kind === 'ai_extract' && empty('prompt'))
+			errs.push(`${label}：Prompt 不能为空`);
+		if (step.kind === 'ai_agent' && empty('system_prompt'))
+			errs.push(`${label}：系统提示词不能为空`);
 		if (step.kind === 'cdp_get_attribute') {
 			if (empty('selector')) errs.push(`${label}：选择器不能为空`);
 			if (empty('attribute')) errs.push(`${label}：属性名不能为空`);
@@ -591,7 +798,9 @@ function VariablesSchemaDialog({
 	}
 
 	function setDefault(i: number, defaultValue: string) {
-		setVars((prev) => prev.map((v, idx) => (idx === i ? { ...v, defaultValue } : v)));
+		setVars((prev) =>
+			prev.map((v, idx) => (idx === i ? { ...v, defaultValue } : v)),
+		);
 	}
 
 	async function handleSave() {
@@ -614,7 +823,8 @@ function VariablesSchemaDialog({
 				</DialogHeader>
 				<div className="space-y-2 py-1">
 					<p className="text-xs text-muted-foreground">
-						定义脚本预期的变量名和默认值，运行时会自动预填到初始变量栏。在步骤中使用 <code className="bg-muted px-1 rounded">{'{{变量名}}'}</code> 引用。
+						定义脚本预期的变量名和默认值，运行时会自动预填到初始变量栏。在步骤中使用{' '}
+						<code className="bg-muted px-1 rounded">{'{{变量名}}'}</code> 引用。
 					</p>
 					{vars.length > 0 && (
 						<div className="space-y-1.5">
@@ -626,7 +836,9 @@ function VariablesSchemaDialog({
 										onChange={(e) => setName(i, e.target.value)}
 										className="h-7 text-xs font-mono"
 									/>
-									<span className="text-muted-foreground text-xs flex-shrink-0">=</span>
+									<span className="text-muted-foreground text-xs flex-shrink-0">
+										=
+									</span>
 									<Input
 										placeholder="默认值（可选）"
 										value={v.defaultValue}
@@ -649,14 +861,23 @@ function VariablesSchemaDialog({
 						onClick={addVar}
 						className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
 					>
-						<Plus className="h-3 w-3" />添加变量
+						<Plus className="h-3 w-3" />
+						添加变量
 					</button>
 				</div>
 				<DialogFooter>
-					<Button variant="ghost" onClick={() => onOpenChange(false)} className="cursor-pointer">
+					<Button
+						variant="ghost"
+						onClick={() => onOpenChange(false)}
+						className="cursor-pointer"
+					>
 						取消
 					</Button>
-					<Button onClick={() => void handleSave()} disabled={saving} className="cursor-pointer">
+					<Button
+						onClick={() => void handleSave()}
+						disabled={saving}
+						className="cursor-pointer"
+					>
 						保存
 					</Button>
 				</DialogFooter>
@@ -678,21 +899,37 @@ type InnerProps = {
 	onCancel: () => void;
 };
 
-function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatuses, onRun, onDebugRun, onCancel }: InnerProps) {
+function InnerCanvas({
+	script,
+	activeProfiles,
+	isRunning,
+	activeRunId,
+	liveStatuses,
+	onRun,
+	onDebugRun,
+	onCancel,
+}: InnerProps) {
 	const navigate = useNavigate();
 	const { fitView } = useReactFlow();
 	const [steps, setSteps] = useState<ScriptStep[]>(script.steps);
 	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 	const [saving, setSaving] = useState(false);
 	const [savedAt, setSavedAt] = useState<number | null>(null);
-	const [stepDelayMs, setStepDelayMs] = useState<number>(() => script.settings?.stepDelayMs ?? 0);
+	const [stepDelayMs, setStepDelayMs] = useState<number>(
+		() => script.settings?.stepDelayMs ?? 0,
+	);
 	const [runDialogOpen, setRunDialogOpen] = useState(false);
 	const [varsDialogOpen, setVarsDialogOpen] = useState(false);
 	const [closeWarningOpen, setCloseWarningOpen] = useState(false);
 	const [closeWarningItems, setCloseWarningItems] = useState<string[]>([]);
 	const [varsDefs, setVarsDefs] = useState<ScriptVarDef[]>(() => {
-		try { return script.variablesSchemaJson ? JSON.parse(script.variablesSchemaJson) : []; }
-		catch { return []; }
+		try {
+			return script.variablesSchemaJson
+				? JSON.parse(script.variablesSchemaJson)
+				: [];
+		} catch {
+			return [];
+		}
 	});
 	const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	// 当页面在独立新窗口中（history 只有一条记录）时隐藏返回按钮
@@ -703,109 +940,141 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 	}, [script.id, script.settings?.stepDelayMs]);
 
 	const [{ positions: initPos, edges: initEdges }] = useState(() =>
-		parseCanvasData(script.canvasPositionsJson, script.steps.length)
+		parseCanvasData(script.canvasPositionsJson, script.steps.length),
 	);
 	// nodes 存在 state 中，用 applyNodeChanges 驱动，避免拖拽时重建数组导致节点消失
-	const [nodes, setNodes] = useState<Node[]>(() => buildNodes(script.steps, initPos, {}));
+	const [nodes, setNodes] = useState<Node[]>(() =>
+		buildNodes(script.steps, initPos, {}),
+	);
 	const [edges, setEdges] = useState<Edge[]>(initEdges);
 	const positionsRef = useRef<PositionsMap>(initPos);
 	const edgesRef = useRef<Edge[]>(initEdges);
 
 	// liveStatuses 变化时同步到 nodes.data（不触发节点重建）
 	useEffect(() => {
-		setNodes((prev) => prev.map((n) => {
-			const idx = parseInt(n.id.replace('step-', ''), 10);
-			const status = liveStatuses[idx];
-			if ((n.data as StepNodeData).stepStatus === status) return n;
-			return { ...n, data: { ...(n.data as StepNodeData), stepStatus: status } };
-		}));
+		setNodes((prev) =>
+			prev.map((n) => {
+				const idx = parseInt(n.id.replace('step-', ''), 10);
+				const status = liveStatuses[idx];
+				if ((n.data as StepNodeData).stepStatus === status) return n;
+				return {
+					...n,
+					data: { ...(n.data as StepNodeData), stepStatus: status },
+				};
+			}),
+		);
 	}, [liveStatuses]);
 
-	const scheduleCanvasSave = useCallback((pos: PositionsMap, edgs: Edge[]) => {
-		if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-		saveTimerRef.current = setTimeout(() => {
-			const data = {
-				positions: pos,
-				edges: edgs.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle ?? null })),
-			};
-			void updateScriptCanvasPositions(script.id, JSON.stringify(data));
-		}, 500);
-	}, [script.id]);
+	const scheduleCanvasSave = useCallback(
+		(pos: PositionsMap, edgs: Edge[]) => {
+			if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+			saveTimerRef.current = setTimeout(() => {
+				const data = {
+					positions: pos,
+					edges: edgs.map((e) => ({
+						id: e.id,
+						source: e.source,
+						target: e.target,
+						sourceHandle: e.sourceHandle ?? null,
+					})),
+				};
+				void updateScriptCanvasPositions(script.id, JSON.stringify(data));
+			}, 500);
+		},
+		[script.id],
+	);
 
-	const saveScript = useCallback(async (newSteps: ScriptStep[]) => {
-		setSaving(true);
-		try {
-			// 拓扑排序
-			const currentEdges = edgesRef.current;
-			const { reorderedSteps, indexMap, orphanedCount } = topologySortSteps(newSteps, currentEdges);
+	const saveScript = useCallback(
+		async (newSteps: ScriptStep[]) => {
+			setSaving(true);
+			try {
+				// 拓扑排序
+				const currentEdges = edgesRef.current;
+				const { reorderedSteps, indexMap, orphanedCount } = topologySortSteps(
+					newSteps,
+					currentEdges,
+				);
 
-			// 如果顺序有变化，同步更新本地状态
-			const orderChanged = reorderedSteps.some((s, i) => s !== newSteps[i]);
-			if (orderChanged) {
-				// 更新 steps state
-				setSteps(reorderedSteps);
+				// 如果顺序有变化，同步更新本地状态
+				const orderChanged = reorderedSteps.some((s, i) => s !== newSteps[i]);
+				if (orderChanged) {
+					// 更新 steps state
+					setSteps(reorderedSteps);
 
-				// 重映射 nodes id 和 data.index
-				setNodes((prev) => prev.map((node) => {
-					const oldIdx = parseInt(node.id.replace('step-', ''), 10);
-					if (isNaN(oldIdx)) return node;
-					const newIdx = indexMap.get(oldIdx);
-					if (newIdx === undefined || newIdx === oldIdx) return node;
-					return {
-						...node,
-						id: `step-${newIdx}`,
-						data: { ...(node.data as StepNodeData), index: newIdx },
-					};
-				}));
+					// 重映射 nodes id 和 data.index
+					setNodes((prev) =>
+						prev.map((node) => {
+							const oldIdx = parseInt(node.id.replace('step-', ''), 10);
+							if (isNaN(oldIdx)) return node;
+							const newIdx = indexMap.get(oldIdx);
+							if (newIdx === undefined || newIdx === oldIdx) return node;
+							return {
+								...node,
+								id: `step-${newIdx}`,
+								data: { ...(node.data as StepNodeData), index: newIdx },
+							};
+						}),
+					);
 
-				// 重映射 edges source/target
-				const remappedEdges = currentEdges.map((e) => {
-					const si = parseInt(e.source.replace('step-', ''), 10);
-					const ti = parseInt(e.target.replace('step-', ''), 10);
-					const newSi = indexMap.get(si);
-					const newTi = indexMap.get(ti);
-					return {
-						...e,
-						source: newSi !== undefined ? `step-${newSi}` : e.source,
-						target: newTi !== undefined ? `step-${newTi}` : e.target,
-					};
+					// 重映射 edges source/target
+					const remappedEdges = currentEdges.map((e) => {
+						const si = parseInt(e.source.replace('step-', ''), 10);
+						const ti = parseInt(e.target.replace('step-', ''), 10);
+						const newSi = indexMap.get(si);
+						const newTi = indexMap.get(ti);
+						return {
+							...e,
+							source: newSi !== undefined ? `step-${newSi}` : e.source,
+							target: newTi !== undefined ? `step-${newTi}` : e.target,
+						};
+					});
+					setEdges(remappedEdges);
+					edgesRef.current = remappedEdges;
+
+					// 重映射 positions
+					const newPos: PositionsMap = {};
+					for (const [oldKey, pos] of Object.entries(positionsRef.current)) {
+						const oldIdx = parseInt(oldKey.replace('step-', ''), 10);
+						const newIdx = isNaN(oldIdx) ? undefined : indexMap.get(oldIdx);
+						const newKey = newIdx !== undefined ? `step-${newIdx}` : oldKey;
+						newPos[newKey] = pos;
+					}
+					positionsRef.current = newPos;
+					scheduleCanvasSave(newPos, remappedEdges);
+
+					if (selectedIndex !== null) {
+						const mappedIndex = indexMap.get(selectedIndex);
+						setSelectedIndex(mappedIndex ?? null);
+					}
+
+					if (orphanedCount > 0) {
+						toast.warning(
+							`${orphanedCount} 个步骤未连接到流程中，已追加到末尾执行`,
+						);
+					}
+				}
+
+				await updateAutomationScript(script.id, {
+					name: script.name,
+					description: script.description ?? undefined,
+					steps: reorderedSteps,
+					settings: stepDelayMs > 0 ? { stepDelayMs } : undefined,
 				});
-				setEdges(remappedEdges);
-				edgesRef.current = remappedEdges;
-
-				// 重映射 positions
-				const newPos: PositionsMap = {};
-				for (const [oldKey, pos] of Object.entries(positionsRef.current)) {
-					const oldIdx = parseInt(oldKey.replace('step-', ''), 10);
-					const newIdx = isNaN(oldIdx) ? undefined : indexMap.get(oldIdx);
-					const newKey = newIdx !== undefined ? `step-${newIdx}` : oldKey;
-					newPos[newKey] = pos;
-				}
-				positionsRef.current = newPos;
-				scheduleCanvasSave(newPos, remappedEdges);
-
-				if (selectedIndex !== null) {
-					const mappedIndex = indexMap.get(selectedIndex);
-					setSelectedIndex(mappedIndex ?? null);
-				}
-
-				if (orphanedCount > 0) {
-					toast.warning(`${orphanedCount} 个步骤未连接到流程中，已追加到末尾执行`);
-				}
+				void emitScriptUpdated(script.id);
+				setSavedAt(Date.now());
+			} finally {
+				setSaving(false);
 			}
-
-			await updateAutomationScript(script.id, {
-				name: script.name,
-				description: script.description ?? undefined,
-				steps: reorderedSteps,
-				settings: stepDelayMs > 0 ? { stepDelayMs } : undefined,
-			});
-			void emitScriptUpdated(script.id);
-			setSavedAt(Date.now());
-		} finally {
-			setSaving(false);
-		}
-	}, [script.id, script.name, script.description, selectedIndex, stepDelayMs, scheduleCanvasSave]);
+		},
+		[
+			script.id,
+			script.name,
+			script.description,
+			selectedIndex,
+			stepDelayMs,
+			scheduleCanvasSave,
+		],
+	);
 
 	useEffect(() => {
 		if (!savedAt) return;
@@ -816,128 +1085,165 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 	useEffect(() => {
 		const win = getCurrentWindow();
 		let unlisten: (() => void) | undefined;
-		void win.onCloseRequested(async (event) => {
-			const errs = validateSteps(steps);
-			if (errs.length > 0) {
-				event.preventDefault();
-				setCloseWarningItems(errs);
-				setCloseWarningOpen(true);
-			}
-		}).then((fn) => { unlisten = fn; });
-		return () => { unlisten?.(); };
+		void win
+			.onCloseRequested(async (event) => {
+				const errs = validateSteps(steps);
+				if (errs.length > 0) {
+					event.preventDefault();
+					setCloseWarningItems(errs);
+					setCloseWarningOpen(true);
+				}
+			})
+			.then((fn) => {
+				unlisten = fn;
+			});
+		return () => {
+			unlisten?.();
+		};
 	}, [steps]);
 
-	const onNodesChange = useCallback((changes: NodeChange[]) => {
-		// 拦截节点删除（Backspace 键）：同步 steps 状态并持久化到 DB
-		const removeChanges = changes.filter((c) => c.type === 'remove');
-		if (removeChanges.length > 0) {
-			const removedIndices = new Set(
-				removeChanges
-					.map((c) => parseInt(c.id.replace('step-', ''), 10))
-					.filter((i) => !isNaN(i)),
-			);
-			if (removedIndices.size > 0) {
-				const sortedRemoved = [...removedIndices].sort((a, b) => a - b);
-				setSteps((currentSteps) => {
-					const newSteps = currentSteps.filter((_, i) => !removedIndices.has(i));
-					void saveScript(newSteps);
-					return newSteps;
-				});
-				setSelectedIndex(null);
-				// 视觉更新：删除节点并重映射 ID
-				setNodes((prev) => {
-					const afterRemove = applyNodeChanges(changes, prev) as Node[];
-					return afterRemove.map((n) => {
-						const i = parseInt(n.id.replace('step-', ''), 10);
-						if (isNaN(i)) return n;
-						const shift = sortedRemoved.filter((ri) => ri < i).length;
-						if (shift === 0) return n;
-						return { ...n, id: `step-${i - shift}`, data: { ...(n.data as StepNodeData), index: i - shift } };
+	const onNodesChange = useCallback(
+		(changes: NodeChange[]) => {
+			// 拦截节点删除（Backspace 键）：同步 steps 状态并持久化到 DB
+			const removeChanges = changes.filter((c) => c.type === 'remove');
+			if (removeChanges.length > 0) {
+				const removedIndices = new Set(
+					removeChanges
+						.map((c) => parseInt(c.id.replace('step-', ''), 10))
+						.filter((i) => !isNaN(i)),
+				);
+				if (removedIndices.size > 0) {
+					const sortedRemoved = [...removedIndices].sort((a, b) => a - b);
+					setSteps((currentSteps) => {
+						const newSteps = currentSteps.filter(
+							(_, i) => !removedIndices.has(i),
+						);
+						void saveScript(newSteps);
+						return newSteps;
 					});
-				});
-				// 重映射边
-				setEdges((prev) => {
-					const deletedIds = new Set(removeChanges.map((c) => c.id));
-					const remapped = prev
-						.filter((e) => !deletedIds.has(e.source) && !deletedIds.has(e.target))
-						.map((e) => {
-							const si = parseInt(e.source.replace('step-', ''), 10);
-							const ti = parseInt(e.target.replace('step-', ''), 10);
-							const sShift = sortedRemoved.filter((ri) => ri < si).length;
-							const tShift = sortedRemoved.filter((ri) => ri < ti).length;
+					setSelectedIndex(null);
+					// 视觉更新：删除节点并重映射 ID
+					setNodes((prev) => {
+						const afterRemove = applyNodeChanges(changes, prev) as Node[];
+						return afterRemove.map((n) => {
+							const i = parseInt(n.id.replace('step-', ''), 10);
+							if (isNaN(i)) return n;
+							const shift = sortedRemoved.filter((ri) => ri < i).length;
+							if (shift === 0) return n;
 							return {
-								...e,
-								source: sShift > 0 ? `step-${si - sShift}` : e.source,
-								target: tShift > 0 ? `step-${ti - tShift}` : e.target,
+								...n,
+								id: `step-${i - shift}`,
+								data: { ...(n.data as StepNodeData), index: i - shift },
 							};
 						});
-					edgesRef.current = remapped;
-					// 清理并重映射 positions
-					const newPos = { ...positionsRef.current };
-					for (const idx of removedIndices) delete newPos[`step-${idx}`];
-					for (let j = steps.length - 1; j >= 0; j--) {
-						const shift = sortedRemoved.filter((ri) => ri < j).length;
-						if (shift > 0 && newPos[`step-${j}`]) {
-							newPos[`step-${j - shift}`] = newPos[`step-${j}`];
-							delete newPos[`step-${j}`];
-						}
-					}
-					positionsRef.current = newPos;
-					scheduleCanvasSave(newPos, remapped);
-					return remapped;
-				});
-				return;
-			}
-		}
-		// 用 applyNodeChanges 驱动视图，避免自己重建节点数组打断拖拽
-		setNodes((nds) => applyNodeChanges(changes, nds) as Node[]);
-		// 拖拽结束时（dragging: false）才持久化位置
-		for (const c of changes) {
-			if (c.type === 'position' && c.position) {
-				positionsRef.current = { ...positionsRef.current, [c.id]: c.position };
-				if (!c.dragging) {
-					scheduleCanvasSave(positionsRef.current, edgesRef.current);
-				}
-			}
-		}
-	}, [scheduleCanvasSave, saveScript, steps]);
-
-	const onEdgesChange = useCallback((changes: EdgeChange[]) => {
-		setEdges((prev) => {
-			const next = applyEdgeChanges(changes, prev);
-			edgesRef.current = next;
-			scheduleCanvasSave(positionsRef.current, next);
-			// 检测因边删除导致的孤立节点
-			const hasRemovals = changes.some((c) => c.type === 'remove');
-			if (hasRemovals && steps.length > 1) {
-				const connected = new Set<string>();
-				for (const e of next) { connected.add(e.source); connected.add(e.target); }
-				const isolated = steps.map((_, i) => `step-${i}`).filter((id) => !connected.has(id));
-				if (isolated.length > 0) {
-					const labels = isolated.map((id) => {
-						const idx = parseInt(id.replace('step-', ''), 10);
-						const s = steps[idx];
-						return s ? `步骤 ${idx + 1}` : id;
 					});
-					toast.warning(`以下步骤未连接到流程中，运行时仍会被执行：${labels.join('、')}`);
+					// 重映射边
+					setEdges((prev) => {
+						const deletedIds = new Set(removeChanges.map((c) => c.id));
+						const remapped = prev
+							.filter(
+								(e) => !deletedIds.has(e.source) && !deletedIds.has(e.target),
+							)
+							.map((e) => {
+								const si = parseInt(e.source.replace('step-', ''), 10);
+								const ti = parseInt(e.target.replace('step-', ''), 10);
+								const sShift = sortedRemoved.filter((ri) => ri < si).length;
+								const tShift = sortedRemoved.filter((ri) => ri < ti).length;
+								return {
+									...e,
+									source: sShift > 0 ? `step-${si - sShift}` : e.source,
+									target: tShift > 0 ? `step-${ti - tShift}` : e.target,
+								};
+							});
+						edgesRef.current = remapped;
+						// 清理并重映射 positions
+						const newPos = { ...positionsRef.current };
+						for (const idx of removedIndices) delete newPos[`step-${idx}`];
+						for (let j = steps.length - 1; j >= 0; j--) {
+							const shift = sortedRemoved.filter((ri) => ri < j).length;
+							if (shift > 0 && newPos[`step-${j}`]) {
+								newPos[`step-${j - shift}`] = newPos[`step-${j}`];
+								delete newPos[`step-${j}`];
+							}
+						}
+						positionsRef.current = newPos;
+						scheduleCanvasSave(newPos, remapped);
+						return remapped;
+					});
+					return;
 				}
 			}
-			return next;
-		});
-	}, [scheduleCanvasSave, steps]);
+			// 用 applyNodeChanges 驱动视图，避免自己重建节点数组打断拖拽
+			setNodes((nds) => applyNodeChanges(changes, nds) as Node[]);
+			// 拖拽结束时（dragging: false）才持久化位置
+			for (const c of changes) {
+				if (c.type === 'position' && c.position) {
+					positionsRef.current = {
+						...positionsRef.current,
+						[c.id]: c.position,
+					};
+					if (!c.dragging) {
+						scheduleCanvasSave(positionsRef.current, edgesRef.current);
+					}
+				}
+			}
+		},
+		[scheduleCanvasSave, saveScript, steps],
+	);
 
-	const onConnect = useCallback((connection: Connection) => {
-		setEdges((prev) => {
-			// 移除目标节点上已有的同 targetHandle 入边（单入边约束）
-			const filtered = prev.filter(
-				(e) => !(e.target === connection.target && e.targetHandle === (connection.targetHandle ?? null))
-			);
-			const next = addEdge({ ...connection, type: 'smoothstep' }, filtered);
-			edgesRef.current = next;
-			scheduleCanvasSave(positionsRef.current, next);
-			return next;
-		});
-	}, [scheduleCanvasSave]);
+	const onEdgesChange = useCallback(
+		(changes: EdgeChange[]) => {
+			setEdges((prev) => {
+				const next = applyEdgeChanges(changes, prev);
+				edgesRef.current = next;
+				scheduleCanvasSave(positionsRef.current, next);
+				// 检测因边删除导致的孤立节点
+				const hasRemovals = changes.some((c) => c.type === 'remove');
+				if (hasRemovals && steps.length > 1) {
+					const connected = new Set<string>();
+					for (const e of next) {
+						connected.add(e.source);
+						connected.add(e.target);
+					}
+					const isolated = steps
+						.map((_, i) => `step-${i}`)
+						.filter((id) => !connected.has(id));
+					if (isolated.length > 0) {
+						const labels = isolated.map((id) => {
+							const idx = parseInt(id.replace('step-', ''), 10);
+							const s = steps[idx];
+							return s ? `步骤 ${idx + 1}` : id;
+						});
+						toast.warning(
+							`以下步骤未连接到流程中，运行时仍会被执行：${labels.join('、')}`,
+						);
+					}
+				}
+				return next;
+			});
+		},
+		[scheduleCanvasSave, steps],
+	);
+
+	const onConnect = useCallback(
+		(connection: Connection) => {
+			setEdges((prev) => {
+				// 移除目标节点上已有的同 targetHandle 入边（单入边约束）
+				const filtered = prev.filter(
+					(e) =>
+						!(
+							e.target === connection.target &&
+							e.targetHandle === (connection.targetHandle ?? null)
+						),
+				);
+				const next = addEdge({ ...connection, type: 'smoothstep' }, filtered);
+				edgesRef.current = next;
+				scheduleCanvasSave(positionsRef.current, next);
+				return next;
+			});
+		},
+		[scheduleCanvasSave],
+	);
 
 	const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
 		const idx = parseInt(node.id.replace('step-', ''), 10);
@@ -946,100 +1252,127 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 
 	const onPaneClick = useCallback(() => setSelectedIndex(null), []);
 
-	const addStep = useCallback(async (kind: string) => {
-		const step = defaultStep(kind);
-		const newIndex = steps.length;
-		const newSteps = [...steps, step];
-		setSteps(newSteps);
-		// 新节点放在最后一个节点的正下方
-		const lastPos = positionsRef.current[`step-${newIndex - 1}`] ?? { x: 120, y: 0 };
-		const newPos = { x: lastPos.x, y: lastPos.y + 140 };
-		positionsRef.current = { ...positionsRef.current, [`step-${newIndex}`]: newPos };
-		setNodes((prev) => [
-			...prev,
-			{
-				id: `step-${newIndex}`,
-				type: 'step',
-				position: newPos,
-				sourcePosition: Position.Bottom,
-				targetPosition: Position.Top,
-				data: { step, index: newIndex, stepStatus: undefined } as StepNodeData,
-			},
-		]);
-		// 自动连线
-		if (newIndex > 0) {
-			const connection: Edge = {
-				id: `e-${newIndex - 1}-${newIndex}`,
-				source: `step-${newIndex - 1}`,
-				target: `step-${newIndex}`,
-				type: 'smoothstep',
+	const addStep = useCallback(
+		async (kind: string) => {
+			const step = defaultStep(kind);
+			const newIndex = steps.length;
+			const newSteps = [...steps, step];
+			setSteps(newSteps);
+			// 新节点放在最后一个节点的正下方
+			const lastPos = positionsRef.current[`step-${newIndex - 1}`] ?? {
+				x: 120,
+				y: 0,
 			};
-			setEdges((prev) => {
-				const next = addEdge(connection, prev);
-				edgesRef.current = next;
-				scheduleCanvasSave(positionsRef.current, next);
-				return next;
-			});
-		}
-		await saveScript(newSteps);
-	}, [steps, saveScript, scheduleCanvasSave]);
-
-	const updateStep = useCallback(async (index: number, step: ScriptStep) => {
-		const newSteps = steps.map((s, i) => i === index ? step : s);
-		setSteps(newSteps);
-		// 更新对应节点的 data
-		setNodes((prev) => prev.map((n) =>
-			n.id === `step-${index}` ? { ...n, data: { ...(n.data as StepNodeData), step } } : n
-		));
-		await saveScript(newSteps);
-	}, [steps, saveScript]);
-
-	const deleteStep = useCallback(async (index: number) => {
-		const newSteps = steps.filter((_, i) => i !== index);
-		setSteps(newSteps);
-		setSelectedIndex(null);
-		const deletedId = `step-${index}`;
-		// 重新映射节点 id 和 data.index
-		setNodes((prev) => {
-			return prev
-				.filter((n) => n.id !== deletedId)
-				.map((n) => {
-					const i = parseInt(n.id.replace('step-', ''), 10);
-					if (i <= index) return n;
-					const newId = `step-${i - 1}`;
-					return { ...n, id: newId, data: { ...(n.data as StepNodeData), index: i - 1 } };
+			const newPos = { x: lastPos.x, y: lastPos.y + 140 };
+			positionsRef.current = {
+				...positionsRef.current,
+				[`step-${newIndex}`]: newPos,
+			};
+			setNodes((prev) => [
+				...prev,
+				{
+					id: `step-${newIndex}`,
+					type: 'step',
+					position: newPos,
+					sourcePosition: Position.Bottom,
+					targetPosition: Position.Top,
+					data: {
+						step,
+						index: newIndex,
+						stepStatus: undefined,
+					} as StepNodeData,
+				},
+			]);
+			// 自动连线
+			if (newIndex > 0) {
+				const connection: Edge = {
+					id: `e-${newIndex - 1}-${newIndex}`,
+					source: `step-${newIndex - 1}`,
+					target: `step-${newIndex}`,
+					type: 'smoothstep',
+				};
+				setEdges((prev) => {
+					const next = addEdge(connection, prev);
+					edgesRef.current = next;
+					scheduleCanvasSave(positionsRef.current, next);
+					return next;
 				});
-		});
-		// 重新映射边
-		setEdges((prev) => {
-			const remapped = prev
-				.filter((e) => e.source !== deletedId && e.target !== deletedId)
-				.map((e) => {
-					const si = parseInt(e.source.replace('step-', ''), 10);
-					const ti = parseInt(e.target.replace('step-', ''), 10);
-					return {
-						...e,
-						source: si > index ? `step-${si - 1}` : e.source,
-						target: ti > index ? `step-${ti - 1}` : e.target,
-					};
-				});
-			edgesRef.current = remapped;
-			// 清理并重映射 positions
-			const newPos = { ...positionsRef.current };
-			delete newPos[deletedId];
-			for (let j = index + 1; j <= steps.length; j++) {
-				const oldKey = `step-${j}`;
-				if (newPos[oldKey]) {
-					newPos[`step-${j - 1}`] = newPos[oldKey];
-					delete newPos[oldKey];
-				}
 			}
-			positionsRef.current = newPos;
-			scheduleCanvasSave(newPos, remapped);
-			return remapped;
-		});
-		await saveScript(newSteps);
-	}, [steps, saveScript, scheduleCanvasSave]);
+			await saveScript(newSteps);
+		},
+		[steps, saveScript, scheduleCanvasSave],
+	);
+
+	const updateStep = useCallback(
+		async (index: number, step: ScriptStep) => {
+			const newSteps = steps.map((s, i) => (i === index ? step : s));
+			setSteps(newSteps);
+			// 更新对应节点的 data
+			setNodes((prev) =>
+				prev.map((n) =>
+					n.id === `step-${index}`
+						? { ...n, data: { ...(n.data as StepNodeData), step } }
+						: n,
+				),
+			);
+			await saveScript(newSteps);
+		},
+		[steps, saveScript],
+	);
+
+	const deleteStep = useCallback(
+		async (index: number) => {
+			const newSteps = steps.filter((_, i) => i !== index);
+			setSteps(newSteps);
+			setSelectedIndex(null);
+			const deletedId = `step-${index}`;
+			// 重新映射节点 id 和 data.index
+			setNodes((prev) => {
+				return prev
+					.filter((n) => n.id !== deletedId)
+					.map((n) => {
+						const i = parseInt(n.id.replace('step-', ''), 10);
+						if (i <= index) return n;
+						const newId = `step-${i - 1}`;
+						return {
+							...n,
+							id: newId,
+							data: { ...(n.data as StepNodeData), index: i - 1 },
+						};
+					});
+			});
+			// 重新映射边
+			setEdges((prev) => {
+				const remapped = prev
+					.filter((e) => e.source !== deletedId && e.target !== deletedId)
+					.map((e) => {
+						const si = parseInt(e.source.replace('step-', ''), 10);
+						const ti = parseInt(e.target.replace('step-', ''), 10);
+						return {
+							...e,
+							source: si > index ? `step-${si - 1}` : e.source,
+							target: ti > index ? `step-${ti - 1}` : e.target,
+						};
+					});
+				edgesRef.current = remapped;
+				// 清理并重映射 positions
+				const newPos = { ...positionsRef.current };
+				delete newPos[deletedId];
+				for (let j = index + 1; j <= steps.length; j++) {
+					const oldKey = `step-${j}`;
+					if (newPos[oldKey]) {
+						newPos[`step-${j - 1}`] = newPos[oldKey];
+						delete newPos[oldKey];
+					}
+				}
+				positionsRef.current = newPos;
+				scheduleCanvasSave(newPos, remapped);
+				return remapped;
+			});
+			await saveScript(newSteps);
+		},
+		[steps, saveScript, scheduleCanvasSave],
+	);
 
 	useEffect(() => {
 		void fitView({ padding: 0.2, duration: 300 });
@@ -1050,14 +1383,22 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 			{/* Toolbar */}
 			<div className="flex items-center gap-2 px-4 h-12 border-b flex-shrink-0 bg-background z-10">
 				{!isStandaloneWindow && (
-					<Button size="sm" variant="ghost" className="h-8 px-2 cursor-pointer" onClick={() => navigate('/automation')}>
-						<ArrowLeft className="h-3.5 w-3.5 mr-1" />返回
+					<Button
+						size="sm"
+						variant="ghost"
+						className="h-8 px-2 cursor-pointer"
+						onClick={() => navigate('/automation')}
+					>
+						<ArrowLeft className="h-3.5 w-3.5 mr-1" />
+						返回
 					</Button>
 				)}
 				<div className="flex-1 min-w-0 flex items-center gap-2">
 					<span className="text-sm font-semibold truncate">{script.name}</span>
 				</div>
-				<span className="text-xs text-muted-foreground">{steps.length} 个步骤</span>
+				<span className="text-xs text-muted-foreground">
+					{steps.length} 个步骤
+				</span>
 				<Button
 					size="sm"
 					variant="ghost"
@@ -1069,7 +1410,9 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 					变量{varsDefs.length > 0 && ` (${varsDefs.length})`}
 				</Button>
 				<div className="flex items-center gap-1.5">
-					<Label className="text-xs text-muted-foreground whitespace-nowrap">步骤延迟</Label>
+					<Label className="text-xs text-muted-foreground whitespace-nowrap">
+						步骤延迟
+					</Label>
 					<Input
 						type="number"
 						min={0}
@@ -1077,7 +1420,9 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 						value={stepDelayMs}
 						onChange={(e) => {
 							const raw = Number(e.target.value);
-							const val = Number.isFinite(raw) ? Math.min(9999, Math.max(0, raw)) : 0;
+							const val = Number.isFinite(raw)
+								? Math.min(9999, Math.max(0, raw))
+								: 0;
 							setStepDelayMs(val);
 							setSaving(true);
 							void updateAutomationScript(script.id, {
@@ -1100,23 +1445,48 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 				</div>
 				<span className="flex items-center gap-1 text-xs text-muted-foreground">
 					{saving ? (
-						<><Loader2 className="h-3 w-3 animate-spin" />保存中...</>
+						<>
+							<Loader2 className="h-3 w-3 animate-spin" />
+							保存中...
+						</>
 					) : savedAt && Date.now() - savedAt < 3000 ? (
-						<><CheckCircle className="h-3 w-3 text-green-500" />已保存</>
+						<>
+							<CheckCircle className="h-3 w-3 text-green-500" />
+							已保存
+						</>
 					) : null}
 				</span>
 				{isRunning ? (
-					<Button size="sm" variant="destructive" className="h-8 cursor-pointer" onClick={onCancel}>
-						<Square className="h-3.5 w-3.5 mr-1" />取消
+					<Button
+						size="sm"
+						variant="destructive"
+						className="h-8 cursor-pointer"
+						onClick={onCancel}
+					>
+						<Square className="h-3.5 w-3.5 mr-1" />
+						取消
 					</Button>
 				) : (
-					<Button size="sm" className="h-8 cursor-pointer" disabled={steps.length === 0} onClick={() => setRunDialogOpen(true)}>
-						<Play className="h-3.5 w-3.5 mr-1" />运行
+					<Button
+						size="sm"
+						className="h-8 cursor-pointer"
+						disabled={steps.length === 0}
+						onClick={() => setRunDialogOpen(true)}
+					>
+						<Play className="h-3.5 w-3.5 mr-1" />
+						运行
 					</Button>
 				)}
 				{activeRunId && (
 					<Badge variant="outline" className="text-xs font-mono">
-						{isRunning ? <><Loader2 className="h-2.5 w-2.5 mr-1 animate-spin" />运行中</> : '已完成'}
+						{isRunning ? (
+							<>
+								<Loader2 className="h-2.5 w-2.5 mr-1 animate-spin" />
+								运行中
+							</>
+						) : (
+							'已完成'
+						)}
 					</Badge>
 				)}
 			</div>
@@ -1126,7 +1496,10 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 				activeProfiles={activeProfiles}
 				isRunning={isRunning}
 				disabled={steps.length === 0}
-				defaultVars={varsDefs.map((v) => ({ key: v.name, value: v.defaultValue }))}
+				defaultVars={varsDefs.map((v) => ({
+					key: v.name,
+					value: v.defaultValue,
+				}))}
 				onRun={onRun}
 				onDebugRun={onDebugRun}
 			/>
@@ -1144,14 +1517,26 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 					</DialogHeader>
 					<div className="py-2 space-y-1 max-h-48 overflow-auto">
 						{closeWarningItems.map((item, i) => (
-							<p key={i} className="text-sm text-red-500">{item}</p>
+							<p key={i} className="text-sm text-red-500">
+								{item}
+							</p>
 						))}
 					</div>
 					<DialogFooter className="gap-2">
-						<Button variant="ghost" onClick={() => setCloseWarningOpen(false)} className="cursor-pointer">
+						<Button
+							variant="ghost"
+							onClick={() => setCloseWarningOpen(false)}
+							className="cursor-pointer"
+						>
 							返回编辑
 						</Button>
-						<Button variant="destructive" onClick={() => { void getCurrentWindow().close(); }} className="cursor-pointer">
+						<Button
+							variant="destructive"
+							onClick={() => {
+								void getCurrentWindow().close();
+							}}
+							className="cursor-pointer"
+						>
 							忽略并关闭
 						</Button>
 					</DialogFooter>
@@ -1169,17 +1554,25 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 							{PALETTE_GROUPS.map((group) => (
 								<div key={group.label}>
 									<div className="px-0.5 mb-1.5">
-										<span className={`inline-flex items-center text-[9px] font-semibold px-1.5 py-0.5 rounded border ${GROUP_COLORS[group.label] ?? GROUP_COLORS['通用']}`}>
+										<span
+											className={`inline-flex items-center text-[9px] font-semibold px-1.5 py-0.5 rounded border ${GROUP_COLORS[group.label] ?? GROUP_COLORS['通用']}`}
+										>
 											{group.label}
 										</span>
 									</div>
 									{group.kinds.map((kind) => (
-										<button key={kind} type="button"
+										<button
+											key={kind}
+											type="button"
 											className="w-full text-left text-xs px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer flex items-center gap-2 mb-0.5 group/item"
 											onClick={() => void addStep(kind)}
 										>
-											<span className={`w-1 h-3.5 rounded-full flex-shrink-0 opacity-30 group-hover/item:opacity-60 transition-opacity ${PALETTE_DOT_COLORS[group.label] ?? 'bg-muted-foreground/50'}`} />
-											<span className="truncate">{KIND_LABELS[kind] ?? kind}</span>
+											<span
+												className={`w-1 h-3.5 rounded-full flex-shrink-0 opacity-30 group-hover/item:opacity-60 transition-opacity ${PALETTE_DOT_COLORS[group.label] ?? 'bg-muted-foreground/50'}`}
+											/>
+											<span className="truncate">
+												{KIND_LABELS[kind] ?? kind}
+											</span>
 										</button>
 									))}
 								</div>
@@ -1205,7 +1598,7 @@ function InnerCanvas({ script, activeProfiles, isRunning, activeRunId, liveStatu
 						selectionOnDrag={true}
 						panOnDrag={[1, 2]}
 						selectionMode={SelectionMode.Partial}
-						connectionLineType={"smoothstep" as never}
+						connectionLineType={'smoothstep' as never}
 					>
 						<Background variant={BackgroundVariant.Dots} gap={20} size={1} />
 						<Controls />
@@ -1243,7 +1636,16 @@ type Props = {
 	onCancel: () => void;
 };
 
-export function AutomationCanvasPage({ script, activeProfiles, isRunning, activeRunId, liveStepResults, onRun, onDebugRun, onCancel }: Props) {
+export function AutomationCanvasPage({
+	script,
+	activeProfiles,
+	isRunning,
+	activeRunId,
+	liveStepResults,
+	onRun,
+	onDebugRun,
+	onCancel,
+}: Props) {
 	const liveStatuses = useMemo<Record<number, string>>(() => {
 		const map: Record<number, string> = {};
 		for (const r of liveStepResults) map[r.index] = r.status;
