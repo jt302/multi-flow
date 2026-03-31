@@ -11,4 +11,5 @@ export const queryKeys = {
 	profileProxyBindings: (profileIds: string[]) => ['profile-proxy-bindings', ...profileIds] as const,
 	automationScripts: ['automation-scripts'] as const,
 	automationRuns: (scriptId: string) => ['automation-runs', scriptId] as const,
+	aiConfigs: ['ai-configs'] as const,
 };

@@ -142,8 +142,11 @@ export function WorkspaceLayout() {
 							/>
 						</Card>
 						<Card className="min-h-0 w-full flex-1 overflow-hidden border-border/40 bg-card/60 p-0 backdrop-blur-3xl shadow-md transition-all duration-300">
-							<div className="h-full w-full overflow-y-auto p-4 md:p-6 lg:p-8">
-								<div key={location.pathname} className="flex h-full min-h-0 w-full min-w-0 flex-col animate-in fade-in zoom-in-[0.98] duration-500 fill-mode-both">
+							<div className="h-full w-full overflow-y-auto p-3 md:p-4">
+								<div
+									key={location.pathname}
+									className="flex h-full min-h-0 w-full min-w-0 flex-col animate-in fade-in zoom-in-[0.98] duration-500 fill-mode-both"
+								>
 									<Suspense
 										fallback={
 											<Card className="p-6 text-sm text-muted-foreground border-border/40 bg-transparent flex items-center justify-center min-h-[50vh]">

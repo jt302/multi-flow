@@ -1,6 +1,13 @@
 import { BarChart3, Globe2, PanelsTopLeft } from 'lucide-react';
 
-import { Badge, Card, CardContent, CardHeader, CardTitle, Icon } from '@/components/ui';
+import {
+	Badge,
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+	Icon,
+} from '@/components/ui';
 import { DataSection } from '@/components/common';
 import { MetricsGrid } from './metrics-grid';
 import { SessionTableCard } from '@/widgets/session-table-card/ui/session-table-card';
@@ -13,12 +20,20 @@ type DashboardPageProps = {
 	preset: PresetKey;
 };
 
-export function DashboardPage({ resolvedMode, useCustomColor, preset }: DashboardPageProps) {
+export function DashboardPage({
+	resolvedMode,
+	useCustomColor,
+	preset,
+}: DashboardPageProps) {
 	const section = WORKSPACE_SECTIONS.dashboard;
 
 	return (
-		<div className="flex flex-col gap-3">
-			<MetricsGrid resolvedMode={resolvedMode} useCustomColor={useCustomColor} preset={preset} />
+		<div className="flex flex-col gap-3 h-full min-h-0">
+			<MetricsGrid
+				resolvedMode={resolvedMode}
+				useCustomColor={useCustomColor}
+				preset={preset}
+			/>
 
 			<DataSection title="运行速览" contentClassName="p-0">
 				<div className="grid gap-3 p-1 md:grid-cols-3">
@@ -29,7 +44,9 @@ export function DashboardPage({ resolvedMode, useCustomColor, preset }: Dashboar
 								运行概况
 							</CardTitle>
 						</CardHeader>
-						<CardContent className="p-0 pt-2 text-xs text-muted-foreground">环境、代理和任务状态都在 1 分钟内更新。</CardContent>
+						<CardContent className="p-0 pt-2 text-xs text-muted-foreground">
+							环境、代理和任务状态都在 1 分钟内更新。
+						</CardContent>
 					</Card>
 					<Card className="p-3">
 						<CardHeader className="p-0">
@@ -38,7 +55,9 @@ export function DashboardPage({ resolvedMode, useCustomColor, preset }: Dashboar
 								代理健康
 							</CardTitle>
 						</CardHeader>
-						<CardContent className="p-0 pt-2 text-xs text-muted-foreground">今日失败节点主要集中在 DE 节点，建议切备用线路。</CardContent>
+						<CardContent className="p-0 pt-2 text-xs text-muted-foreground">
+							今日失败节点主要集中在 DE 节点，建议切备用线路。
+						</CardContent>
 					</Card>
 					<Card className="p-3">
 						<CardHeader className="p-0">
@@ -48,13 +67,18 @@ export function DashboardPage({ resolvedMode, useCustomColor, preset }: Dashboar
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="p-0 pt-2 text-xs text-muted-foreground">
-							当前主从同步会话稳定运行，<Badge className="ml-1">2 组会话活跃</Badge>
+							当前主从同步会话稳定运行，
+							<Badge className="ml-1">2 组会话活跃</Badge>
 						</CardContent>
 					</Card>
 				</div>
 			</DataSection>
 
-			<SessionTableCard title={section.tableTitle} rows={section.rows} />
+			<SessionTableCard
+				title={section.tableTitle}
+				rows={section.rows}
+				className="flex-1 min-h-0 flex flex-col"
+			/>
 		</div>
 	);
 }

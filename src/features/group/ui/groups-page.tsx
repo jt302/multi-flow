@@ -1,7 +1,18 @@
 import { FolderOpen, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
-import { Badge, Button, Icon, Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui';
+import {
+	Badge,
+	Button,
+	Icon,
+	Input,
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from '@/components/ui';
 import { DataSection, EmptyState } from '@/components/common';
 import type { GroupItem } from '@/entities/group/model/types';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
@@ -21,10 +32,16 @@ export function GroupsPage({
 	const section = WORKSPACE_SECTIONS.groups;
 	const searchKeyword = useGroupManagementStore((state) => state.searchKeyword);
 	const isFormOpen = useGroupManagementStore((state) => state.isFormOpen);
-	const editingGroupId = useGroupManagementStore((state) => state.editingGroupId);
+	const editingGroupId = useGroupManagementStore(
+		(state) => state.editingGroupId,
+	);
 	const editorMode = useGroupManagementStore((state) => state.editorMode);
-	const setSearchKeyword = useGroupManagementStore((state) => state.setSearchKeyword);
-	const openCreateForm = useGroupManagementStore((state) => state.openCreateForm);
+	const setSearchKeyword = useGroupManagementStore(
+		(state) => state.setSearchKeyword,
+	);
+	const openCreateForm = useGroupManagementStore(
+		(state) => state.openCreateForm,
+	);
 	const openEditForm = useGroupManagementStore((state) => state.openEditForm);
 	const closeForm = useGroupManagementStore((state) => state.closeForm);
 	const resetState = useGroupManagementStore((state) => state.reset);
@@ -55,7 +72,11 @@ export function GroupsPage({
 
 	const handleSubmitGroup = async (values: GroupFormValues) => {
 		if (editorMode === 'edit' && editingGroupId) {
-			await onUpdateGroup(editingGroupId, values.name.trim(), values.note.trim());
+			await onUpdateGroup(
+				editingGroupId,
+				values.name.trim(),
+				values.note.trim(),
+			);
 		} else {
 			await onCreateGroup(values.name.trim(), values.note.trim());
 		}
@@ -63,15 +84,24 @@ export function GroupsPage({
 	};
 
 	return (
-		<div className="flex flex-col gap-3">
-			<ActiveSectionCard label="分组" title={section.title} description={section.desc} />
+		<div className="flex flex-col gap-3 h-full min-h-0">
+			<ActiveSectionCard
+				label="分组"
+				title={section.title}
+				description={section.desc}
+			/>
 
 			<DataSection
 				title="分组列表"
-				actions={(
+				className="flex-1 min-h-0 overflow-hidden flex flex-col"
+				actions={
 					<>
 						<div className="relative w-52 max-w-full">
-							<Icon icon={Search} size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+							<Icon
+								icon={Search}
+								size={14}
+								className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+							/>
 							<Input
 								value={searchKeyword}
 								onChange={(event) => setSearchKeyword(event.target.value)}
@@ -79,12 +109,17 @@ export function GroupsPage({
 								className="pl-8"
 							/>
 						</div>
-						<Button type="button" variant="outline" size="sm" onClick={openCreateForm}>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							onClick={openCreateForm}
+						>
 							<Icon icon={Plus} size={14} />
 							新建分组
 						</Button>
 					</>
-				)}
+				}
 			>
 				<div className="mb-3 grid gap-2 sm:grid-cols-2">
 					<div className="flex items-center justify-between rounded-xl border border-border/70 bg-background/75 px-3 py-2 text-xs">
@@ -117,18 +152,34 @@ export function GroupsPage({
 										<TableCell>
 											<div className="flex items-center gap-2">
 												<p className="font-medium">{group.name}</p>
-												<Badge variant="outline">{group.profileCount} 个环境</Badge>
+												<Badge variant="outline">
+													{group.profileCount} 个环境
+												</Badge>
 											</div>
 										</TableCell>
-										<TableCell className="text-muted-foreground">{group.note}</TableCell>
+										<TableCell className="text-muted-foreground">
+											{group.note}
+										</TableCell>
 										<TableCell>{group.profileCount}</TableCell>
-										<TableCell className="text-muted-foreground">{group.updatedAt}</TableCell>
+										<TableCell className="text-muted-foreground">
+											{group.updatedAt}
+										</TableCell>
 										<TableCell>
 											<div className="flex justify-end gap-1">
-												<Button type="button" size="icon-sm" variant="ghost" onClick={() => onOpenGroupProfiles(group.name)}>
+												<Button
+													type="button"
+													size="icon-sm"
+													variant="ghost"
+													onClick={() => onOpenGroupProfiles(group.name)}
+												>
 													<Icon icon={FolderOpen} size={14} />
 												</Button>
-												<Button type="button" size="icon-sm" variant="ghost" onClick={() => openEditForm(group.id)}>
+												<Button
+													type="button"
+													size="icon-sm"
+													variant="ghost"
+													onClick={() => openEditForm(group.id)}
+												>
 													<Icon icon={Pencil} size={14} />
 												</Button>
 												<Button

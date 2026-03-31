@@ -2,7 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { Download, ExternalLink, PackageCheck, Puzzle, RefreshCcw, Trash2 } from 'lucide-react';
+import {
+	Download,
+	ExternalLink,
+	PackageCheck,
+	Puzzle,
+	RefreshCcw,
+	Trash2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -27,7 +34,12 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui';
-import { filterProfiles, type ProfileListFiltersState, type ProfileListLifecycleFilter, type ProfileListRunningFilter } from '@/entities/profile/lib/profile-list';
+import {
+	filterProfiles,
+	type ProfileListFiltersState,
+	type ProfileListLifecycleFilter,
+	type ProfileListRunningFilter,
+} from '@/entities/profile/lib/profile-list';
 import type { ProfileItem } from '@/entities/profile/model/types';
 import type { GroupItem } from '@/entities/group/model/types';
 import { useProxiesQuery } from '@/entities/proxy/model/use-proxies-query';
@@ -60,13 +72,19 @@ const DEFAULT_FILTERS: ProfileListFiltersState = {
 
 const DIRECT_DOWNLOAD_PROXY_VALUE = 'direct';
 
-export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPageProps) {
+export function PluginsPage({
+	profiles,
+	groups,
+	onRefreshProfiles,
+}: PluginsPageProps) {
 	const section = WORKSPACE_SECTIONS.plugins;
 	const [extensionIdInput, setExtensionIdInput] = useState('');
 	const [downloadPending, setDownloadPending] = useState(false);
 	const [busyPackageId, setBusyPackageId] = useState<string | null>(null);
-	const [installDialogPackage, setInstallDialogPackage] = useState<PluginPackage | null>(null);
-	const [filters, setFilters] = useState<ProfileListFiltersState>(DEFAULT_FILTERS);
+	const [installDialogPackage, setInstallDialogPackage] =
+		useState<PluginPackage | null>(null);
+	const [filters, setFilters] =
+		useState<ProfileListFiltersState>(DEFAULT_FILTERS);
 	const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
 	const [selectedDownloadProxyId, setSelectedDownloadProxyId] = useState(
 		DIRECT_DOWNLOAD_PROXY_VALUE,
@@ -83,7 +101,8 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 			? null
 			: selectedDownloadProxyId;
 	const availableProxies = useMemo(
-		() => (proxiesQuery.data ?? []).filter((item) => item.lifecycle === 'active'),
+		() =>
+			(proxiesQuery.data ?? []).filter((item) => item.lifecycle === 'active'),
 		[proxiesQuery.data],
 	);
 	const getPluginIconSrc = (iconPath?: string | null) =>
@@ -100,7 +119,10 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 		).sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
 	}, [groups]);
 
-	const filteredProfiles = useMemo(() => filterProfiles(profiles, filters), [profiles, filters]);
+	const filteredProfiles = useMemo(
+		() => filterProfiles(profiles, filters),
+		[profiles, filters],
+	);
 	const activeFilteredProfiles = useMemo(
 		() => filteredProfiles.filter((item) => item.lifecycle === 'active'),
 		[filteredProfiles],
@@ -169,7 +191,10 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 		}
 		setDownloadPending(true);
 		try {
-			const plugin = await downloadPluginByExtensionId(extensionId, downloadProxyId);
+			const plugin = await downloadPluginByExtensionId(
+				extensionId,
+				downloadProxyId,
+			);
 			await refreshAll();
 			setExtensionIdInput('');
 			toast.success(`插件已下载：${plugin.name}`);
@@ -235,8 +260,12 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 	};
 
 	return (
-		<div className="flex flex-col gap-3">
-			<ActiveSectionCard label="插件" title={section.title} description={section.desc} />
+		<div className="flex flex-col gap-3 h-full min-h-0">
+			<ActiveSectionCard
+				label="插件"
+				title={section.title}
+				description={section.desc}
+			/>
 
 			<Card>
 				<CardHeader>
@@ -257,7 +286,9 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 								<SelectValue placeholder="下载代理" />
 							</SelectTrigger>
 							<SelectContent>
-								<SelectItem value={DIRECT_DOWNLOAD_PROXY_VALUE}>下载代理: 不使用代理</SelectItem>
+								<SelectItem value={DIRECT_DOWNLOAD_PROXY_VALUE}>
+									下载代理: 不使用代理
+								</SelectItem>
 								{availableProxies.map((proxy) => (
 									<SelectItem key={proxy.id} value={proxy.id}>
 										下载代理: {proxy.name}
@@ -276,16 +307,17 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 						</Button>
 					</div>
 					<p className="text-xs text-muted-foreground">
-						下载依赖访问 Chrome Web Store；可选一个已配置代理用于下载、检查更新和更新插件。
+						下载依赖访问 Chrome Web
+						Store；可选一个已配置代理用于下载、检查更新和更新插件。
 					</p>
 				</CardContent>
 			</Card>
 
-			<Card>
+			<Card className="flex-1 min-h-0 overflow-hidden flex flex-col">
 				<CardHeader>
 					<CardTitle className="text-sm">插件库</CardTitle>
 				</CardHeader>
-				<CardContent className="space-y-3">
+				<CardContent className="space-y-3 flex-1 min-h-0 overflow-y-auto">
 					{pluginPackagesQuery.isLoading ? (
 						<p className="text-sm text-muted-foreground">正在加载插件库...</p>
 					) : null}
@@ -309,12 +341,18 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 												className="h-full w-full object-cover"
 											/>
 										) : (
-											<Icon icon={Puzzle} size={20} className="text-muted-foreground" />
+											<Icon
+												icon={Puzzle}
+												size={20}
+												className="text-muted-foreground"
+											/>
 										)}
 									</div>
 									<div className="min-w-0 flex-1">
 										<div className="flex flex-wrap items-center gap-2">
-											<p className="font-medium text-foreground">{plugin.name}</p>
+											<p className="font-medium text-foreground">
+												{plugin.name}
+											</p>
 											<Badge variant="outline">v{plugin.version}</Badge>
 											<Badge variant="secondary">{plugin.extensionId}</Badge>
 											<Badge variant="outline">{plugin.sourceType}</Badge>
@@ -327,7 +365,9 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 										</p>
 										<p className="mt-1 text-[11px] text-muted-foreground">
 											更新状态: {plugin.updateStatus ?? 'unknown'}
-											{plugin.latestVersion ? ` / 最新版本 ${plugin.latestVersion}` : ''}
+											{plugin.latestVersion
+												? ` / 最新版本 ${plugin.latestVersion}`
+												: ''}
 										</p>
 									</div>
 								</div>
@@ -352,7 +392,8 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 										onClick={() =>
 											void runPackageAction(
 												plugin.packageId,
-												() => checkPluginUpdate(plugin.packageId, downloadProxyId),
+												() =>
+													checkPluginUpdate(plugin.packageId, downloadProxyId),
 												'插件更新状态已刷新',
 											)
 										}
@@ -369,7 +410,11 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 										onClick={() =>
 											void runPackageAction(
 												plugin.packageId,
-												() => updatePluginPackage(plugin.packageId, downloadProxyId),
+												() =>
+													updatePluginPackage(
+														plugin.packageId,
+														downloadProxyId,
+													),
 												'插件已更新',
 											)
 										}
@@ -430,7 +475,8 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 							</div>
 						</div>
 					))}
-					{!pluginPackagesQuery.isLoading && (pluginPackagesQuery.data?.length ?? 0) === 0 ? (
+					{!pluginPackagesQuery.isLoading &&
+					(pluginPackagesQuery.data?.length ?? 0) === 0 ? (
 						<p className="text-sm text-muted-foreground">还没有已下载插件。</p>
 					) : null}
 				</CardContent>
@@ -517,8 +563,8 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 					</div>
 					<div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
 						<p>
-							当前筛选 {activeFilteredProfiles.length} 个可用环境，已选择 {selectedProfileIds.length}{' '}
-							个
+							当前筛选 {activeFilteredProfiles.length} 个可用环境，已选择{' '}
+							{selectedProfileIds.length} 个
 						</p>
 						<Button
 							type="button"
@@ -526,7 +572,9 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 							size="sm"
 							className="cursor-pointer"
 							onClick={() =>
-								setSelectedProfileIds(activeFilteredProfiles.map((item) => item.id))
+								setSelectedProfileIds(
+									activeFilteredProfiles.map((item) => item.id),
+								)
 							}
 						>
 							选中当前筛选结果
@@ -557,19 +605,25 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 									/>
 									<div className="min-w-0 flex-1">
 										<div className="flex flex-wrap items-center gap-2">
-											<p className="font-medium text-foreground">{profile.name}</p>
+											<p className="font-medium text-foreground">
+												{profile.name}
+											</p>
 											<Badge variant="outline">
 												{profile.running ? '运行中' : '未运行'}
 											</Badge>
 											<Badge variant="secondary">{profile.group}</Badge>
 										</div>
-										<p className="mt-1 text-xs text-muted-foreground">{profile.note}</p>
+										<p className="mt-1 text-xs text-muted-foreground">
+											{profile.note}
+										</p>
 									</div>
 								</label>
 							);
 						})}
 						{activeFilteredProfiles.length === 0 ? (
-							<p className="text-sm text-muted-foreground">当前筛选没有可安装的环境。</p>
+							<p className="text-sm text-muted-foreground">
+								当前筛选没有可安装的环境。
+							</p>
 						) : null}
 					</div>
 					<DialogFooter>
@@ -584,7 +638,9 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 						<Button
 							type="button"
 							className="cursor-pointer"
-							disabled={!installDialogPackage || selectedProfileIds.length === 0}
+							disabled={
+								!installDialogPackage || selectedProfileIds.length === 0
+							}
 							onClick={() => {
 								if (!installDialogPackage) {
 									return;

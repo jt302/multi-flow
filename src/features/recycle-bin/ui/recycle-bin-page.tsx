@@ -1,14 +1,12 @@
 import { RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
+import { Badge, Button, Icon, TableCell, TableRow } from '@/components/ui';
 import {
-	Badge,
-	Button,
-	Icon,
-	TableCell,
-	TableRow,
-} from '@/components/ui';
-import { ConfirmActionDialog, DataSection, PageHeader } from '@/components/common';
+	ConfirmActionDialog,
+	DataSection,
+	PageHeader,
+} from '@/components/common';
 import { countDeletedRecycleBinItems } from '@/features/recycle-bin/model/recycle-bin-counts';
 
 import type { RecycleBinPageProps } from '@/features/recycle-bin/model-types';
@@ -60,11 +58,23 @@ function DeletedItemRow({
 			</TableCell>
 			<TableCell className="w-[220px] text-right">
 				<div className="flex justify-end gap-2">
-					<Button type="button" size="sm" variant="outline" disabled={pending} onClick={onRestore}>
+					<Button
+						type="button"
+						size="sm"
+						variant="outline"
+						disabled={pending}
+						onClick={onRestore}
+					>
 						<Icon icon={RotateCcw} size={12} />
 						恢复
 					</Button>
-					<Button type="button" size="sm" variant="destructive" disabled={pending} onClick={onPurge}>
+					<Button
+						type="button"
+						size="sm"
+						variant="destructive"
+						disabled={pending}
+						onClick={onPurge}
+					>
 						<Icon icon={Trash2} size={12} />
 						彻底删除
 					</Button>
@@ -90,9 +100,18 @@ export function RecycleBinPage({
 	const [error, setError] = useState<string | null>(null);
 	const [purgeTarget, setPurgeTarget] = useState<PurgeTarget | null>(null);
 
-	const deletedProfiles = useMemo(() => profiles.filter((item) => item.lifecycle === 'deleted'), [profiles]);
-	const deletedProxies = useMemo(() => proxies.filter((item) => item.lifecycle === 'deleted'), [proxies]);
-	const deletedGroups = useMemo(() => groups.filter((item) => item.lifecycle === 'deleted'), [groups]);
+	const deletedProfiles = useMemo(
+		() => profiles.filter((item) => item.lifecycle === 'deleted'),
+		[profiles],
+	);
+	const deletedProxies = useMemo(
+		() => proxies.filter((item) => item.lifecycle === 'deleted'),
+		[proxies],
+	);
+	const deletedGroups = useMemo(
+		() => groups.filter((item) => item.lifecycle === 'deleted'),
+		[groups],
+	);
 	const totalDeleted = countDeletedRecycleBinItems({
 		profiles,
 		proxies,
@@ -128,12 +147,16 @@ export function RecycleBinPage({
 	};
 
 	return (
-		<div className="flex flex-col gap-3">
-			<PageHeader label="settings" title="回收站" description="统一恢复或彻底删除已归档数据" />
+		<div className="flex flex-col gap-3 h-full min-h-0">
+			<PageHeader
+				label="settings"
+				title="回收站"
+				description="统一恢复或彻底删除已归档数据"
+			/>
 
 			<DataSection
 				title="统计"
-				actions={(
+				actions={
 					<Button
 						type="button"
 						variant="ghost"
@@ -145,7 +168,7 @@ export function RecycleBinPage({
 						<Icon icon={RefreshCw} size={12} />
 						刷新
 					</Button>
-				)}
+				}
 			>
 				<div className="rounded-xl border border-border/70 bg-background/70 px-3 py-2 text-xs">
 					<div className="flex items-center gap-2">
@@ -165,7 +188,9 @@ export function RecycleBinPage({
 						onRestore={() => {
 							void runAction(() => onRestoreProfile(item.id));
 						}}
-						onPurge={() => setPurgeTarget({ kind: 'profile', id: item.id, name: item.name })}
+						onPurge={() =>
+							setPurgeTarget({ kind: 'profile', id: item.id, name: item.name })
+						}
 					/>
 				)}
 			</RecycleBinSection>
@@ -179,7 +204,9 @@ export function RecycleBinPage({
 						onRestore={() => {
 							void runAction(() => onRestoreProxy(item.id));
 						}}
-						onPurge={() => setPurgeTarget({ kind: 'proxy', id: item.id, name: item.name })}
+						onPurge={() =>
+							setPurgeTarget({ kind: 'proxy', id: item.id, name: item.name })
+						}
 					/>
 				)}
 			</RecycleBinSection>
@@ -187,7 +214,9 @@ export function RecycleBinPage({
 			<RecycleBinSection
 				title="分组"
 				items={deletedGroups}
-				footer={error ? <p className="text-xs text-destructive">{error}</p> : null}
+				footer={
+					error ? <p className="text-xs text-destructive">{error}</p> : null
+				}
 			>
 				{(item) => (
 					<DeletedItemRow
@@ -197,7 +226,9 @@ export function RecycleBinPage({
 						onRestore={() => {
 							void runAction(() => onRestoreGroup(item.id));
 						}}
-						onPurge={() => setPurgeTarget({ kind: 'group', id: item.id, name: item.name })}
+						onPurge={() =>
+							setPurgeTarget({ kind: 'group', id: item.id, name: item.name })
+						}
 					/>
 				)}
 			</RecycleBinSection>

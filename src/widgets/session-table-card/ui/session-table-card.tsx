@@ -4,19 +4,29 @@ import { Badge, Button, Card, Icon } from '@/components/ui';
 import { getStatusVariant } from '@/shared/lib/status';
 
 import type { SessionTableCardProps } from '@/app/model/workspace-types';
+import { cn } from '@/lib/utils';
 
-export function SessionTableCard({ title, rows }: SessionTableCardProps) {
+export function SessionTableCard({
+	title,
+	rows,
+	className,
+}: SessionTableCardProps & { className?: string }) {
 	return (
-		<Card className="min-w-0 p-3">
+		<Card className={cn('min-w-0 p-3', className)}>
 			<div className="mb-2 flex items-center justify-between px-1">
 				<h2 className="text-sm font-semibold">{title}</h2>
-				<Button type="button" variant="ghost" size="sm" className="text-xs text-muted-foreground">
+				<Button
+					type="button"
+					variant="ghost"
+					size="sm"
+					className="text-xs text-muted-foreground"
+				>
 					<Icon icon={Activity} size={12} />
 					刷新
 				</Button>
 			</div>
 
-			<div className="overflow-hidden rounded-xl border border-border/70">
+			<div className="overflow-hidden overflow-y-auto rounded-xl border border-border/70 flex-1 min-h-0">
 				{rows.map((row, index) => (
 					<div
 						key={row.name}
@@ -26,7 +36,9 @@ export function SessionTableCard({ title, rows }: SessionTableCardProps) {
 					>
 						<div className="min-w-0">
 							<p className="truncate font-medium">{row.name}</p>
-							<p className="truncate text-xs text-muted-foreground">{row.group}</p>
+							<p className="truncate text-xs text-muted-foreground">
+								{row.group}
+							</p>
 						</div>
 						<p className="text-xs text-muted-foreground">{row.geo}</p>
 						<p className="text-xs text-muted-foreground">{row.last}</p>
