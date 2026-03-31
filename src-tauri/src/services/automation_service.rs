@@ -7,8 +7,8 @@ use sea_orm::{
 use crate::db::entities::{automation_run, automation_script};
 use crate::error::{AppError, AppResult};
 use crate::models::{
-    now_ts, AutomationRun, AutomationScript, CreateAutomationScriptRequest, ScriptStep,
-    RunLogEntry, ScriptSettings, StepResult,
+    now_ts, AutomationRun, AutomationScript, CreateAutomationScriptRequest, RunLogEntry,
+    ScriptSettings, ScriptStep, StepResult,
 };
 use crate::services::app_preference_service::AiProviderConfig;
 
@@ -36,10 +36,7 @@ impl AutomationService {
         to_api_script(model)
     }
 
-    pub fn create_script(
-        &self,
-        req: CreateAutomationScriptRequest,
-    ) -> AppResult<AutomationScript> {
+    pub fn create_script(&self, req: CreateAutomationScriptRequest) -> AppResult<AutomationScript> {
         let name = req.name.trim().to_string();
         if name.is_empty() {
             return Err(AppError::Validation("name is required".to_string()));
@@ -53,30 +50,31 @@ impl AutomationService {
             name: Set(name),
             description: Set(req.description.and_then(|d| {
                 let d = d.trim().to_string();
-                if d.is_empty() { None } else { Some(d) }
+                if d.is_empty() {
+                    None
+                } else {
+                    Some(d)
+                }
             })),
             steps_json: Set(steps_json),
             created_at: Set(now),
             updated_at: Set(now),
             canvas_positions_json: Set(None),
             variables_schema_json: Set(None),
-            associated_profile_ids_json: Set(
-                req.associated_profile_ids
-                    .as_ref()
-                    .filter(|v| !v.is_empty())
-                    .and_then(|v| serde_json::to_string(v).ok()),
-            ),
-            ai_config_json: Set(
-                req.ai_config
-                    .as_ref()
-                    .and_then(|c| serde_json::to_string(c).ok()),
-            ),
+            associated_profile_ids_json: Set(req
+                .associated_profile_ids
+                .as_ref()
+                .filter(|v| !v.is_empty())
+                .and_then(|v| serde_json::to_string(v).ok())),
+            ai_config_json: Set(req
+                .ai_config
+                .as_ref()
+                .and_then(|c| serde_json::to_string(c).ok())),
             ai_config_id: Set(req.ai_config_id),
-            settings_json: Set(
-                req.settings
-                    .as_ref()
-                    .and_then(|s| serde_json::to_string(s).ok()),
-            ),
+            settings_json: Set(req
+                .settings
+                .as_ref()
+                .and_then(|s| serde_json::to_string(s).ok())),
         };
         let inserted = self.db_query(model.insert(&self.db))?;
         to_api_script(inserted)
@@ -98,26 +96,27 @@ impl AutomationService {
         active.name = Set(name);
         active.description = Set(req.description.and_then(|d| {
             let d = d.trim().to_string();
-            if d.is_empty() { None } else { Some(d) }
+            if d.is_empty() {
+                None
+            } else {
+                Some(d)
+            }
         }));
         active.steps_json = Set(steps_json);
-        active.associated_profile_ids_json = Set(
-            req.associated_profile_ids
-                .as_ref()
-                .filter(|v| !v.is_empty())
-                .and_then(|v| serde_json::to_string(v).ok()),
-        );
-        active.ai_config_json = Set(
-            req.ai_config
-                .as_ref()
-                .and_then(|c| serde_json::to_string(c).ok()),
-        );
+        active.associated_profile_ids_json = Set(req
+            .associated_profile_ids
+            .as_ref()
+            .filter(|v| !v.is_empty())
+            .and_then(|v| serde_json::to_string(v).ok()));
+        active.ai_config_json = Set(req
+            .ai_config
+            .as_ref()
+            .and_then(|c| serde_json::to_string(c).ok()));
         active.ai_config_id = Set(req.ai_config_id);
-        active.settings_json = Set(
-            req.settings
-                .as_ref()
-                .and_then(|s| serde_json::to_string(s).ok()),
-        );
+        active.settings_json = Set(req
+            .settings
+            .as_ref()
+            .and_then(|s| serde_json::to_string(s).ok()));
         active.updated_at = Set(now_ts());
         let updated = self.db_query(active.update(&self.db))?;
         to_api_script(updated)
@@ -138,6 +137,22 @@ impl AutomationService {
                 .all(&self.db),
         )?;
         items.into_iter().map(to_api_run).collect()
+    }
+
+    pub fn delete_run(&self, run_id: &str) -> AppResult<()> {
+        let model = self.find_run_model(run_id)?;
+        let active: automation_run::ActiveModel = model.into();
+        self.db_query(active.delete(&self.db))?;
+        Ok(())
+    }
+
+    pub fn delete_runs_by_script(&self, script_id: &str) -> AppResult<u64> {
+        let result = self.db_query(
+            automation_run::Entity::delete_many()
+                .filter(automation_run::Column::ScriptId.eq(script_id))
+                .exec(&self.db),
+        )?;
+        Ok(result.rows_affected)
     }
 
     pub fn get_run(&self, run_id: &str) -> AppResult<AutomationRun> {
@@ -197,23 +212,15 @@ impl AutomationService {
         Ok(())
     }
 
-    fn find_script_model(
-        &self,
-        script_id: &str,
-    ) -> AppResult<automation_script::Model> {
-        let model = self.db_query(
-            automation_script::Entity::find_by_id(script_id).one(&self.db),
-        )?;
-        model.ok_or_else(|| {
-            AppError::NotFound(format!("automation script not found: {script_id}"))
-        })
+    fn find_script_model(&self, script_id: &str) -> AppResult<automation_script::Model> {
+        let model =
+            self.db_query(automation_script::Entity::find_by_id(script_id).one(&self.db))?;
+        model.ok_or_else(|| AppError::NotFound(format!("automation script not found: {script_id}")))
     }
 
     fn find_run_model(&self, run_id: &str) -> AppResult<automation_run::Model> {
-        let model =
-            self.db_query(automation_run::Entity::find_by_id(run_id).one(&self.db))?;
-        model
-            .ok_or_else(|| AppError::NotFound(format!("automation run not found: {run_id}")))
+        let model = self.db_query(automation_run::Entity::find_by_id(run_id).one(&self.db))?;
+        model.ok_or_else(|| AppError::NotFound(format!("automation run not found: {run_id}")))
     }
 
     fn db_query<F, T>(&self, future: F) -> AppResult<T>
@@ -236,11 +243,7 @@ impl AutomationService {
         Ok(())
     }
 
-    pub fn update_variables_schema(
-        &self,
-        script_id: &str,
-        schema_json: String,
-    ) -> AppResult<()> {
+    pub fn update_variables_schema(&self, script_id: &str, schema_json: String) -> AppResult<()> {
         let existing = self.find_script_model(script_id)?;
         let mut active: automation_script::ActiveModel = existing.into();
         active.variables_schema_json = Set(Some(schema_json));

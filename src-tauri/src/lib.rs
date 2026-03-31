@@ -81,6 +81,8 @@ pub fn run() {
             commands::automation_commands::update_automation_script,
             commands::automation_commands::delete_automation_script,
             commands::automation_commands::list_automation_runs,
+            commands::automation_commands::delete_automation_run,
+            commands::automation_commands::clear_automation_runs,
             commands::automation_commands::run_automation_script,
             commands::automation_commands::resume_automation_run,
             commands::automation_commands::cancel_automation_run,

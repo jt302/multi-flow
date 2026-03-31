@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
@@ -15,7 +15,11 @@ import {
 	XCircle,
 } from 'lucide-react';
 
-import { openAutomationCanvasWindow } from '@/entities/automation/api/automation-api';
+import {
+	clearAutomationRuns,
+	deleteAutomationRun,
+	openAutomationCanvasWindow,
+} from '@/entities/automation/api/automation-api';
 import type {
 	AutomationRun,
 	AutomationScript,
@@ -24,11 +28,6 @@ import type {
 import type { ProfileItem } from '@/entities/profile/model/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-	ResizablePanelGroup,
-	ResizablePanel,
-	ResizableHandle,
-} from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
 	AlertDialog,
@@ -40,8 +39,10 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RunDialog } from './run-dialog';
 import type { RunDelayConfig } from './run-dialog';
+import { RunLogViewer } from './run-log-viewer';
 
 type Props = {
 	script: AutomationScript;
@@ -61,6 +62,7 @@ type Props = {
 	) => void;
 	onDebugRun: (profileId: string, initialVars: Record<string, string>) => void;
 	onCancel: () => void;
+	onRunsChange?: () => void;
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -107,24 +109,32 @@ export function ScriptDetailPanel({
 	isRunning,
 	liveStepResults,
 	liveVariables,
-	activeRunId,
+	activeRunId: _activeRunId,
 	onEdit,
 	onDelete,
 	onRun,
 	onDebugRun,
 	onCancel,
+	onRunsChange,
 }: Props) {
-	const [runPanelOpen, setRunPanelOpen] = useState(true);
-	const [varsPanelOpen, setVarsPanelOpen] = useState(true);
+	const [activeTab, setActiveTab] = useState<string>('steps');
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [runDialogOpen, setRunDialogOpen] = useState(false);
 	const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
 	const [expandedOutputIndex, setExpandedOutputIndex] = useState<number | null>(
 		null,
 	);
+	const [runDetailTab, setRunDetailTab] = useState<string>('results');
+	const [clearAllOpen, setClearAllOpen] = useState(false);
+	const [deleteRunId, setDeleteRunId] = useState<string | null>(null);
 	const varEntries = Object.entries(liveVariables);
 
 	const stepResultMap = new Map(liveStepResults.map((r) => [r.index, r]));
+
+	// 运行时自动切换到步骤 tab
+	useEffect(() => {
+		if (isRunning) setActiveTab('steps');
+	}, [isRunning]);
 
 	return (
 		<div className="flex flex-col h-full">
@@ -201,14 +211,29 @@ export function ScriptDetailPanel({
 				</div>
 			</div>
 
-			{/* 步骤列表 + 变量/历史面板 */}
-			<ResizablePanelGroup direction="vertical" className="flex-1 min-h-0">
-				<ResizablePanel defaultSize={55} minSize={15}>
+			{/* 主内容区：Tab 布局 */}
+			<Tabs
+				value={activeTab}
+				onValueChange={setActiveTab}
+				className="flex-1 flex flex-col min-h-0"
+			>
+				<TabsList className="mx-5 mt-3 mb-0 h-8 bg-muted/40 shrink-0">
+					<TabsTrigger value="steps" className="text-xs h-7 px-3">
+						步骤 ({script.steps.length})
+						{isRunning && <Loader2 className="h-3 w-3 ml-1 animate-spin" />}
+					</TabsTrigger>
+					<TabsTrigger value="runs" className="text-xs h-7 px-3">
+						运行记录 ({runs.length})
+					</TabsTrigger>
+				</TabsList>
+
+				{/* 步骤 Tab */}
+				<TabsContent
+					value="steps"
+					className="flex-1 min-h-0 mt-0 overflow-hidden"
+				>
 					<ScrollArea className="h-full">
 						<div className="px-5 py-4">
-							<p className="text-xs font-medium text-muted-foreground mb-3">
-								步骤 ({script.steps.length})
-							</p>
 							{script.steps.length === 0 ? (
 								<div className="text-center py-8 space-y-2">
 									<p className="text-sm text-muted-foreground">暂无步骤</p>
@@ -266,89 +291,87 @@ export function ScriptDetailPanel({
 									})}
 								</div>
 							)}
+
+							{/* 运行变量（内联在步骤下方） */}
+							{varEntries.length > 0 && (
+								<div className="mt-4 pt-3 border-t">
+									<p className="text-xs font-medium text-muted-foreground mb-2">
+										运行变量 ({varEntries.length})
+									</p>
+									<div className="space-y-1">
+										{varEntries.map(([key, value]) => (
+											<div key={key} className="flex items-start gap-2 text-xs">
+												<span className="font-mono text-blue-500 shrink-0">
+													{key}
+												</span>
+												<span className="text-muted-foreground break-all">
+													{String(value)}
+												</span>
+											</div>
+										))}
+									</div>
+								</div>
+							)}
 						</div>
 					</ScrollArea>
-				</ResizablePanel>
-				<ResizableHandle withHandle />
-				{/* 运行变量面板 */}
-				<ResizablePanel defaultSize={15} minSize={8}>
-					<div className="flex flex-col h-full">
-						<button
-							type="button"
-							className="flex items-center justify-between w-full px-5 py-2 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
-							onClick={() => setVarsPanelOpen((v) => !v)}
-						>
-							<span>运行变量 ({varEntries.length})</span>
-							{varsPanelOpen ? (
-								<ChevronDown className="h-3.5 w-3.5" />
-							) : (
-								<ChevronUp className="h-3.5 w-3.5" />
-							)}
-						</button>
-						{varsPanelOpen && (
-							<div className="overflow-auto flex-1 px-5 py-2 space-y-1">
-								{varEntries.length === 0 ? (
-									<p className="text-xs text-muted-foreground">暂无运行变量</p>
-								) : (
-									varEntries.map(([key, value]) => (
-										<div key={key} className="flex items-start gap-2 text-xs">
-											<span className="font-mono text-blue-500 shrink-0">
-												{key}
-											</span>
-											<span className="text-muted-foreground break-all">
-												{String(value)}
-											</span>
-										</div>
-									))
-								)}
+				</TabsContent>
+
+				{/* 运行记录 Tab */}
+				<TabsContent
+					value="runs"
+					className="flex-1 min-h-0 mt-0 overflow-hidden"
+				>
+					<ScrollArea className="h-full">
+						{runs.length === 0 ? (
+							<div className="text-center py-12">
+								<p className="text-sm text-muted-foreground">暂无运行记录</p>
+								<p className="text-xs text-muted-foreground mt-1">
+									运行脚本后，执行记录和详细日志将显示在这里
+								</p>
 							</div>
-						)}
-					</div>
-				</ResizablePanel>
-				<ResizableHandle withHandle />
-				{/* 运行历史面板 */}
-				<ResizablePanel defaultSize={30} minSize={10}>
-					<div className="flex flex-col h-full">
-						<button
-							type="button"
-							className="flex items-center justify-between w-full px-5 py-2 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
-							onClick={() => setRunPanelOpen((v) => !v)}
-						>
-							<span>运行历史 ({runs.length})</span>
-							{runPanelOpen ? (
-								<ChevronDown className="h-3.5 w-3.5" />
-							) : (
-								<ChevronUp className="h-3.5 w-3.5" />
-							)}
-						</button>
-						{runPanelOpen && (
-							<div className="overflow-auto flex-1">
-								{runs.length === 0 ? (
-									<p className="px-5 py-3 text-xs text-muted-foreground">
-										暂无运行记录
-									</p>
-								) : (
-									<div className="divide-y">
-										{runs.map((run, runIdx) => {
-											const isExpanded = expandedRunId === run.id;
-											return (
-												<div key={run.id}>
+						) : (
+							<div className="px-3 py-2">
+								{/* 清空所有记录 */}
+								<div className="flex items-center justify-end mb-2">
+									<Button
+										variant="ghost"
+										size="sm"
+										className="h-7 text-xs text-muted-foreground hover:text-red-500 cursor-pointer"
+										onClick={() => setClearAllOpen(true)}
+									>
+										<Trash2 className="h-3 w-3 mr-1" />
+										清空所有记录
+									</Button>
+								</div>
+								<div className="space-y-1.5">
+									{runs.map((run, runIdx) => {
+										const isExpanded = expandedRunId === run.id;
+										return (
+											<div
+												key={run.id}
+												className={`rounded-lg border ${isExpanded ? 'bg-card shadow-sm' : 'bg-muted/20'}`}
+											>
+												<div className="flex items-center gap-3 px-3 py-2 text-xs">
 													<button
 														type="button"
-														className={[
-															'w-full px-5 py-2 flex items-center gap-3 text-xs text-left cursor-pointer',
-															'hover:bg-muted/30',
-															activeRunId === run.id ? 'bg-muted/50' : '',
-														].join(' ')}
+														className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer"
 														onClick={() => {
 															setExpandedRunId(isExpanded ? null : run.id);
 															if (isExpanded) setExpandedOutputIndex(null);
 														}}
 													>
 														<RunStatusBadge status={run.status} />
-														<span className="text-muted-foreground flex-1 min-w-0">
+														<span className="text-muted-foreground flex-1 min-w-0 truncate">
 															{new Date(run.startedAt * 1000).toLocaleString()}
 														</span>
+														{run.finishedAt && (
+															<span className="text-muted-foreground/60 text-[10px] shrink-0">
+																{((run.finishedAt - run.startedAt) / 1).toFixed(
+																	1,
+																)}
+																s
+															</span>
+														)}
 														{run.error && !isExpanded && (
 															<span className="text-red-500 truncate max-w-40">
 																{run.error}
@@ -360,93 +383,155 @@ export function ScriptDetailPanel({
 															<ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
 														)}
 													</button>
+													<Button
+														variant="ghost"
+														size="icon"
+														className="h-6 w-6 shrink-0 text-muted-foreground hover:text-red-500 cursor-pointer"
+														onClick={(e) => {
+															e.stopPropagation();
+															setDeleteRunId(run.id);
+														}}
+														title="删除此记录"
+													>
+														<Trash2 className="h-3 w-3" />
+													</Button>
+												</div>
 
-													{isExpanded && (
-														<div className="px-5 pb-3 space-y-2 border-b">
-															{run.error && (
-																<div className="rounded bg-red-50 dark:bg-red-950/20 p-2">
-																	<p className="text-xs text-red-500 font-medium mb-0.5">
-																		错误信息
-																	</p>
-																	<p className="text-xs text-red-400 break-all whitespace-pre-wrap">
-																		{run.error}
-																	</p>
-																</div>
-															)}
-
-															{run.results && run.results.length > 0 ? (
-																<div className="space-y-1">
-																	{run.results.map((r, resultIdx) => {
-																		const stepDef = run.steps[r.index];
-																		const outputKey =
-																			runIdx * 100_000 + resultIdx;
-																		const isOutputExpanded =
-																			expandedOutputIndex === outputKey;
-																		return (
-																			<div
-																				key={`${run.id}-${r.index}-${resultIdx}`}
-																				className="text-xs bg-muted/40 rounded p-1.5 space-y-0.5"
-																			>
-																				<div className="flex items-center gap-1.5">
-																					<StepStatusIcon status={r.status} />
-																					<span className="font-mono bg-muted px-1 py-0.5 rounded text-xs">
-																						{stepDef?.kind ??
-																							`步骤 ${r.index + 1}`}
-																					</span>
-																					<span className="text-muted-foreground ml-auto shrink-0">
-																						{r.durationMs}ms
-																					</span>
-																				</div>
-																				{r.output && (
-																					<div>
-																						<p
-																							className={`text-muted-foreground break-all ${isOutputExpanded ? 'whitespace-pre-wrap' : 'truncate'}`}
-																						>
-																							{isOutputExpanded
-																								? r.output
-																								: r.output.slice(0, 200)}
-																						</p>
-																						{r.output.length > 200 && (
-																							<button
-																								type="button"
-																								className="text-blue-500 cursor-pointer text-xs mt-0.5 hover:underline"
-																								onClick={(e) => {
-																									e.stopPropagation();
-																									setExpandedOutputIndex(
-																										isOutputExpanded
-																											? null
-																											: outputKey,
-																									);
-																								}}
-																							>
-																								{isOutputExpanded
-																									? '收起'
-																									: '展开全部'}
-																							</button>
+												<div
+													className="grid transition-all duration-200 ease-in-out"
+													style={{
+														gridTemplateRows: isExpanded ? '1fr' : '0fr',
+													}}
+												>
+													<div className="overflow-hidden min-h-0">
+														<div className="border-t">
+															<Tabs
+																value={runDetailTab}
+																onValueChange={setRunDetailTab}
+																className="w-full"
+															>
+																<TabsList className="mx-3 mt-2 mb-0 h-7 bg-muted/40">
+																	<TabsTrigger
+																		value="results"
+																		className="text-xs h-6 px-2.5"
+																	>
+																		步骤结果{' '}
+																		{run.results
+																			? `(${run.results.length})`
+																			: ''}
+																	</TabsTrigger>
+																	<TabsTrigger
+																		value="logs"
+																		className="text-xs h-6 px-2.5"
+																	>
+																		执行日志
+																		{run.logs && run.logs.length > 0 && (
+																			<span className="ml-1 text-[10px] bg-primary/15 text-primary rounded px-1">
+																				{run.logs.length}
+																			</span>
+																		)}
+																	</TabsTrigger>
+																</TabsList>
+																<TabsContent
+																	value="results"
+																	className="px-3 pb-3 pt-2 space-y-2 mt-0"
+																>
+																	{run.error && (
+																		<div className="rounded bg-red-50 dark:bg-red-950/20 p-2">
+																			<p className="text-xs text-red-500 font-medium mb-0.5">
+																				错误信息
+																			</p>
+																			<p className="text-xs text-red-400 break-all whitespace-pre-wrap">
+																				{run.error}
+																			</p>
+																		</div>
+																	)}
+																	{run.results && run.results.length > 0 ? (
+																		<div className="space-y-1">
+																			{run.results.map((r, resultIdx) => {
+																				const stepDef = run.steps[r.index];
+																				const outputKey =
+																					runIdx * 100_000 + resultIdx;
+																				const isOutputExpanded =
+																					expandedOutputIndex === outputKey;
+																				return (
+																					<div
+																						key={`${run.id}-${r.index}-${resultIdx}`}
+																						className="text-xs bg-muted/40 rounded p-1.5 space-y-0.5"
+																					>
+																						<div className="flex items-center gap-1.5">
+																							<StepStatusIcon
+																								status={r.status}
+																							/>
+																							<span className="font-mono bg-muted px-1 py-0.5 rounded text-xs shrink-0">
+																								{stepDef?.kind ??
+																									`步骤 ${r.index + 1}`}
+																							</span>
+																							<span className="text-muted-foreground ml-auto shrink-0">
+																								{r.durationMs}ms
+																							</span>
+																						</div>
+																						{r.output && (
+																							<div>
+																								<p
+																									className={`text-muted-foreground break-all ${isOutputExpanded ? 'whitespace-pre-wrap' : 'truncate'}`}
+																								>
+																									{isOutputExpanded
+																										? r.output
+																										: r.output.slice(0, 200)}
+																								</p>
+																								{r.output.length > 200 && (
+																									<button
+																										type="button"
+																										className="text-blue-500 cursor-pointer text-xs mt-0.5 hover:underline"
+																										onClick={(e) => {
+																											e.stopPropagation();
+																											setExpandedOutputIndex(
+																												isOutputExpanded
+																													? null
+																													: outputKey,
+																											);
+																										}}
+																									>
+																										{isOutputExpanded
+																											? '收起'
+																											: '展开全部'}
+																									</button>
+																								)}
+																							</div>
 																						)}
 																					</div>
-																				)}
-																			</div>
-																		);
-																	})}
-																</div>
-															) : (
-																<p className="text-xs text-muted-foreground">
-																	暂无步骤结果
-																</p>
-															)}
+																				);
+																			})}
+																		</div>
+																	) : (
+																		<p className="text-xs text-muted-foreground">
+																			暂无步骤结果
+																		</p>
+																	)}
+																</TabsContent>
+																<TabsContent
+																	value="logs"
+																	className="px-0 pb-0 pt-0 mt-0"
+																>
+																	<RunLogViewer
+																		logs={run.logs ?? []}
+																		runStartedAt={run.startedAt}
+																	/>
+																</TabsContent>
+															</Tabs>
 														</div>
-													)}
+													</div>
 												</div>
-											);
-										})}
-									</div>
-								)}
+											</div>
+										);
+									})}
+								</div>
 							</div>
 						)}
-					</div>
-				</ResizablePanel>
-			</ResizablePanelGroup>
+					</ScrollArea>
+				</TabsContent>
+			</Tabs>
 
 			<AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
 				<AlertDialogContent>
@@ -487,6 +572,83 @@ export function ScriptDetailPanel({
 				onRun={onRun}
 				onDebugRun={onDebugRun}
 			/>
+
+			{/* 清空所有记录确认 */}
+			<AlertDialog open={clearAllOpen} onOpenChange={setClearAllOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>清空所有运行记录</AlertDialogTitle>
+						<AlertDialogDescription>
+							确定要清空脚本「{script.name}」的所有 {runs.length}{' '}
+							条运行记录吗？此操作不可撤销。
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel asChild>
+							<Button type="button" variant="ghost" className="cursor-pointer">
+								取消
+							</Button>
+						</AlertDialogCancel>
+						<AlertDialogAction asChild>
+							<Button
+								type="button"
+								variant="destructive"
+								className="cursor-pointer"
+								onClick={async () => {
+									await clearAutomationRuns(script.id);
+									setExpandedRunId(null);
+									onRunsChange?.();
+								}}
+							>
+								清空
+							</Button>
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+
+			{/* 删除单条记录确认 */}
+			<AlertDialog
+				open={deleteRunId !== null}
+				onOpenChange={(open) => {
+					if (!open) setDeleteRunId(null);
+				}}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>确认删除</AlertDialogTitle>
+						<AlertDialogDescription>
+							确定要删除这条运行记录吗？此操作不可撤销。
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel asChild>
+							<Button type="button" variant="ghost" className="cursor-pointer">
+								取消
+							</Button>
+						</AlertDialogCancel>
+						<AlertDialogAction asChild>
+							<Button
+								type="button"
+								variant="destructive"
+								className="cursor-pointer"
+								onClick={async () => {
+									if (deleteRunId) {
+										await deleteAutomationRun(deleteRunId);
+										setExpandedRunId((prev) =>
+											prev === deleteRunId ? null : prev,
+										);
+										onRunsChange?.();
+									}
+									setDeleteRunId(null);
+								}}
+							>
+								删除
+							</Button>
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</div>
 	);
 }

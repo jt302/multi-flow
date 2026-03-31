@@ -389,13 +389,13 @@ export function AutomationPage() {
 
 			{/* 新建/编辑元数据对话框 */}
 			<Dialog open={metaDialogOpen} onOpenChange={setMetaDialogOpen}>
-				<DialogContent className="max-w-sm max-h-[85vh] flex flex-col">
-					<DialogHeader>
+				<DialogContent className="max-w-sm max-h-[85vh] flex flex-col gap-0">
+					<DialogHeader className="shrink-0 pb-4">
 						<DialogTitle>
 							{metaDialogScript ? '编辑脚本信息' : '新建脚本'}
 						</DialogTitle>
 					</DialogHeader>
-					<div className="space-y-3 py-1 overflow-y-auto flex-1">
+					<div className="space-y-3 overflow-y-auto flex-1 min-h-0 px-0.5">
 						<div className="space-y-1.5">
 							<Label>脚本名称</Label>
 							<Input
@@ -525,7 +525,7 @@ export function AutomationPage() {
 							</Select>
 						</div>
 					</div>
-					<DialogFooter>
+					<DialogFooter className="shrink-0 pt-4">
 						<Button
 							variant="ghost"
 							onClick={() => setMetaDialogOpen(false)}

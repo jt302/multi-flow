@@ -41,6 +41,14 @@ export async function listAutomationRuns(scriptId: string): Promise<AutomationRu
 	return tauriInvoke<AutomationRun[]>('list_automation_runs', { scriptId });
 }
 
+export async function deleteAutomationRun(runId: string): Promise<void> {
+	return tauriInvoke<void>('delete_automation_run', { runId });
+}
+
+export async function clearAutomationRuns(scriptId: string): Promise<number> {
+	return tauriInvoke<number>('clear_automation_runs', { scriptId });
+}
+
 export async function runAutomationScript(
 	scriptId: string,
 	profileId: string | null,
