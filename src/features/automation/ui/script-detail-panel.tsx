@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import { invoke } from '@tauri-apps/api/core';
+import { save } from '@tauri-apps/plugin-dialog';
 import {
 	CheckCircle,
 	ChevronDown,
@@ -18,6 +20,7 @@ import type { AutomationRun, AutomationScript, StepResult } from '@/entities/aut
 import type { ProfileItem } from '@/entities/profile/model/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
 	AlertDialog,
@@ -63,19 +66,17 @@ function StepStatusIcon({ status }: { status: string }) {
 	return <div className="h-3.5 w-3.5 rounded-full border border-muted-foreground/40 flex-shrink-0" />;
 }
 
-function exportScript(script: AutomationScript) {
-	const json = JSON.stringify(
-		{ name: script.name, description: script.description, steps: script.steps },
-		null,
-		2,
-	);
-	const blob = new Blob([json], { type: 'application/json' });
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement('a');
-	a.href = url;
-	a.download = `${script.name.replace(/[^\w\u4e00-\u9fa5-]/g, '_')}.json`;
-	a.click();
-	URL.revokeObjectURL(url);
+async function exportScript(script: AutomationScript) {
+	const sanitized = script.name.replace(/[^\w\u4e00-\u9fa5-]/g, '_');
+	const filePath = await save({
+		defaultPath: `${sanitized}.json`,
+		filters: [{ name: 'JSON 文件', extensions: ['json'] }],
+	});
+	if (!filePath) return;
+	await invoke('export_automation_script_to_file', {
+		scriptId: script.id,
+		filePath: typeof filePath === 'string' ? filePath : filePath[0],
+	});
 }
 
 export function ScriptDetailPanel({
@@ -94,7 +95,7 @@ export function ScriptDetailPanel({
 	onCancel,
 }: Props) {
 	const [runPanelOpen, setRunPanelOpen] = useState(true);
-	const [varsPanelOpen, setVarsPanelOpen] = useState(false);
+	const [varsPanelOpen, setVarsPanelOpen] = useState(true);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [runDialogOpen, setRunDialogOpen] = useState(false);
 	const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
@@ -138,7 +139,7 @@ export function ScriptDetailPanel({
 						size="sm"
 						variant="ghost"
 						className="h-8 px-2 cursor-pointer"
-						onClick={() => exportScript(script)}
+						onClick={() => void exportScript(script)}
 					>
 						<Download className="h-3.5 w-3.5 mr-1" />
 						导出
@@ -233,135 +234,142 @@ export function ScriptDetailPanel({
 				</div>
 			</ScrollArea>
 
-			{/* 变量面板 */}
-			{varEntries.length > 0 && (
-				<div className="border-t flex-shrink-0">
-					<button
-						type="button"
-						className="flex items-center justify-between w-full px-5 py-2 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
-						onClick={() => setVarsPanelOpen((v) => !v)}
-					>
-						<span>运行变量 ({varEntries.length})</span>
-						{varsPanelOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-					</button>
-					{varsPanelOpen && (
-						<div className="max-h-40 overflow-auto px-5 py-2 space-y-1">
-							{varEntries.map(([key, value]) => (
-								<div key={key} className="flex items-start gap-2 text-xs">
-									<span className="font-mono text-blue-500 flex-shrink-0">{key}</span>
-									<span className="text-muted-foreground truncate">{String(value).slice(0, 100)}</span>
-								</div>
-							))}
-						</div>
-					)}
-				</div>
-			)}
-
-			{/* 运行历史面板 */}
-			<div className="border-t flex-shrink-0">
-				<button
-					type="button"
-					className="flex items-center justify-between w-full px-5 py-2 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
-					onClick={() => setRunPanelOpen((v) => !v)}
-				>
-					<span>运行历史 ({runs.length})</span>
-					{runPanelOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-				</button>
-				{runPanelOpen && (
-					<div className="max-h-40 overflow-auto">
-						{runs.length === 0 ? (
-							<p className="px-5 py-3 text-xs text-muted-foreground">暂无运行记录</p>
-						) : (
-							<div className="divide-y">
-								{runs.map((run, runIdx) => {
-									const isExpanded = expandedRunId === run.id;
-									return (
-										<div key={run.id}>
-											<button
-												type="button"
-												className={[
-													'w-full px-5 py-2 flex items-center gap-3 text-xs text-left cursor-pointer',
-													'hover:bg-muted/30',
-													activeRunId === run.id ? 'bg-muted/50' : '',
-												].join(' ')}
-												onClick={() => {
-													setExpandedRunId(isExpanded ? null : run.id);
-													if (isExpanded) setExpandedOutputIndex(null);
-												}}
-											>
-												<RunStatusBadge status={run.status} />
-												<span className="text-muted-foreground flex-1 min-w-0">
-													{new Date(run.startedAt * 1000).toLocaleString()}
-												</span>
-												{run.error && !isExpanded && (
-													<span className="text-red-500 truncate max-w-40">{run.error}</span>
-												)}
-												{isExpanded
-													? <ChevronUp className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-													: <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-												}
-											</button>
-
-											{isExpanded && (
-												<div className="px-5 pb-3 space-y-2 border-b">
-													{run.error && (
-														<div className="rounded bg-red-50 dark:bg-red-950/20 p-2">
-															<p className="text-xs text-red-500 font-medium mb-0.5">错误信息</p>
-															<p className="text-xs text-red-400 break-all whitespace-pre-wrap">{run.error}</p>
-														</div>
-													)}
-
-													{run.results && run.results.length > 0 ? (
-														<div className="space-y-1">
-															{run.results.map((r, resultIdx) => {
-																const stepDef = run.steps[r.index];
-																const outputKey = runIdx * 100_000 + resultIdx;
-																const isOutputExpanded = expandedOutputIndex === outputKey;
-																return (
-																	<div key={`${run.id}-${r.index}-${resultIdx}`} className="text-xs bg-muted/40 rounded p-1.5 space-y-0.5">
-																		<div className="flex items-center gap-1.5">
-																			<StepStatusIcon status={r.status} />
-																			<span className="font-mono bg-muted px-1 py-0.5 rounded text-xs">
-																				{stepDef?.kind ?? `步骤 ${r.index + 1}`}
-																			</span>
-																			<span className="text-muted-foreground ml-auto flex-shrink-0">{r.durationMs}ms</span>
-																		</div>
-																		{r.output && (
-																			<div>
-																				<p className={`text-muted-foreground break-all ${isOutputExpanded ? 'whitespace-pre-wrap' : 'truncate'}`}>
-																					{isOutputExpanded ? r.output : r.output.slice(0, 200)}
-																				</p>
-																				{r.output.length > 200 && (
-																					<button
-																						type="button"
-																						className="text-blue-500 cursor-pointer text-xs mt-0.5 hover:underline"
-																						onClick={(e) => {
-																							e.stopPropagation();
-																							setExpandedOutputIndex(isOutputExpanded ? null : outputKey);
-																						}}
-																					>
-																						{isOutputExpanded ? '收起' : '展开全部'}
-																					</button>
-																				)}
-																			</div>
-																		)}
-																	</div>
-																);
-															})}
-														</div>
-													) : (
-														<p className="text-xs text-muted-foreground">暂无步骤结果</p>
-													)}
-												</div>
-											)}
+			{/* 可拖拽的变量面板 + 运行历史面板 */}
+			<ResizablePanelGroup direction="vertical" className="border-t min-h-[200px]">
+				<ResizablePanel defaultSize={35} minSize={10}>
+					<div className="flex flex-col h-full">
+						<button
+							type="button"
+							className="flex items-center justify-between w-full px-5 py-2 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer flex-shrink-0"
+							onClick={() => setVarsPanelOpen((v) => !v)}
+						>
+							<span>运行变量 ({varEntries.length})</span>
+							{varsPanelOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+						</button>
+						{varsPanelOpen && (
+							<div className="overflow-auto flex-1 px-5 py-2 space-y-1">
+								{varEntries.length === 0 ? (
+									<p className="text-xs text-muted-foreground">暂无运行变量</p>
+								) : (
+									varEntries.map(([key, value]) => (
+										<div key={key} className="flex items-start gap-2 text-xs">
+											<span className="font-mono text-blue-500 flex-shrink-0">{key}</span>
+											<span className="text-muted-foreground break-all">{String(value)}</span>
 										</div>
-									);
-								})}
+									))
+								)}
 							</div>
 						)}
 					</div>
-				)}
-			</div>
+				</ResizablePanel>
+				<ResizableHandle withHandle />
+				<ResizablePanel defaultSize={65} minSize={15}>
+					<div className="flex flex-col h-full">
+						<button
+							type="button"
+							className="flex items-center justify-between w-full px-5 py-2 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer flex-shrink-0"
+							onClick={() => setRunPanelOpen((v) => !v)}
+						>
+							<span>运行历史 ({runs.length})</span>
+							{runPanelOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+						</button>
+						{runPanelOpen && (
+							<div className="overflow-auto flex-1">
+								{runs.length === 0 ? (
+									<p className="px-5 py-3 text-xs text-muted-foreground">暂无运行记录</p>
+								) : (
+									<div className="divide-y">
+										{runs.map((run, runIdx) => {
+											const isExpanded = expandedRunId === run.id;
+											return (
+												<div key={run.id}>
+													<button
+														type="button"
+														className={[
+															'w-full px-5 py-2 flex items-center gap-3 text-xs text-left cursor-pointer',
+															'hover:bg-muted/30',
+															activeRunId === run.id ? 'bg-muted/50' : '',
+														].join(' ')}
+														onClick={() => {
+															setExpandedRunId(isExpanded ? null : run.id);
+															if (isExpanded) setExpandedOutputIndex(null);
+														}}
+													>
+														<RunStatusBadge status={run.status} />
+														<span className="text-muted-foreground flex-1 min-w-0">
+															{new Date(run.startedAt * 1000).toLocaleString()}
+														</span>
+														{run.error && !isExpanded && (
+															<span className="text-red-500 truncate max-w-40">{run.error}</span>
+														)}
+														{isExpanded
+															? <ChevronUp className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+															: <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+														}
+													</button>
+
+													{isExpanded && (
+														<div className="px-5 pb-3 space-y-2 border-b">
+															{run.error && (
+																<div className="rounded bg-red-50 dark:bg-red-950/20 p-2">
+																	<p className="text-xs text-red-500 font-medium mb-0.5">错误信息</p>
+																	<p className="text-xs text-red-400 break-all whitespace-pre-wrap">{run.error}</p>
+																</div>
+															)}
+
+															{run.results && run.results.length > 0 ? (
+																<div className="space-y-1">
+																	{run.results.map((r, resultIdx) => {
+																		const stepDef = run.steps[r.index];
+																		const outputKey = runIdx * 100_000 + resultIdx;
+																		const isOutputExpanded = expandedOutputIndex === outputKey;
+																		return (
+																			<div key={`${run.id}-${r.index}-${resultIdx}`} className="text-xs bg-muted/40 rounded p-1.5 space-y-0.5">
+																				<div className="flex items-center gap-1.5">
+																					<StepStatusIcon status={r.status} />
+																					<span className="font-mono bg-muted px-1 py-0.5 rounded text-xs">
+																						{stepDef?.kind ?? `步骤 ${r.index + 1}`}
+																					</span>
+																					<span className="text-muted-foreground ml-auto flex-shrink-0">{r.durationMs}ms</span>
+																				</div>
+																				{r.output && (
+																					<div>
+																						<p className={`text-muted-foreground break-all ${isOutputExpanded ? 'whitespace-pre-wrap' : 'truncate'}`}>
+																							{isOutputExpanded ? r.output : r.output.slice(0, 200)}
+																						</p>
+																						{r.output.length > 200 && (
+																							<button
+																								type="button"
+																								className="text-blue-500 cursor-pointer text-xs mt-0.5 hover:underline"
+																								onClick={(e) => {
+																									e.stopPropagation();
+																									setExpandedOutputIndex(isOutputExpanded ? null : outputKey);
+																								}}
+																							>
+																								{isOutputExpanded ? '收起' : '展开全部'}
+																							</button>
+																						)}
+																					</div>
+																				)}
+																			</div>
+																		);
+																	})}
+																</div>
+															) : (
+																<p className="text-xs text-muted-foreground">暂无步骤结果</p>
+															)}
+														</div>
+													)}
+												</div>
+											);
+										})}
+									</div>
+								)}
+							</div>
+						)}
+					</div>
+				</ResizablePanel>
+			</ResizablePanelGroup>
 
 			<AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
 				<AlertDialogContent>
