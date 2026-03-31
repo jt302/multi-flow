@@ -25,7 +25,7 @@ import {
 	type DevicePresetFormValues,
 	FORM_FACTOR_OPTIONS,
 	PLATFORM_OPTIONS,
-} from '@/features/settings/model/use-device-preset-editor';
+} from '@/features/device-presets/model/use-device-preset-editor';
 
 type DevicePresetFormProps = {
 	form: UseFormReturn<DevicePresetFormValues>;

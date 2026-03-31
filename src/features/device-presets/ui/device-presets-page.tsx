@@ -22,8 +22,8 @@ import type {
 	ProfileDevicePresetItem,
 	SaveProfileDevicePresetPayload,
 } from '@/entities/profile/model/types';
-import { useDevicePresetEditor } from '@/features/settings/model/use-device-preset-editor';
-import { DevicePresetForm } from '@/features/settings/ui/device-preset-form';
+import { useDevicePresetEditor } from '@/features/device-presets/model/use-device-preset-editor';
+import { DevicePresetForm } from '@/features/device-presets/ui/device-preset-form';
 
 type DevicePresetsPageProps = {
 	devicePresets: ProfileDevicePresetItem[];
