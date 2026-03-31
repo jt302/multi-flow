@@ -103,11 +103,22 @@ export function ScriptDetailPanel({
 		<div className="flex flex-col h-full">
 			{/* 顶部标题栏 */}
 			<div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">
-				<div>
-					<h2 className="text-sm font-semibold">{script.name}</h2>
-					{script.description && (
-						<p className="text-xs text-muted-foreground mt-0.5">{script.description}</p>
-					)}
+				<div className="flex items-center gap-1 min-w-0">
+					<div className="min-w-0">
+						<h2 className="text-sm font-semibold truncate">{script.name}</h2>
+						{script.description && (
+							<p className="text-xs text-muted-foreground mt-0.5 truncate">{script.description}</p>
+						)}
+					</div>
+					<Button
+						size="icon"
+						variant="ghost"
+						className="h-6 w-6 flex-shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+						onClick={onEdit}
+						title="重命名 / 修改描述"
+					>
+						<Pencil className="h-3 w-3" />
+					</Button>
 				</div>
 				<div className="flex items-center gap-1.5">
 					<Button
@@ -118,15 +129,6 @@ export function ScriptDetailPanel({
 					>
 						<Network className="h-3.5 w-3.5 mr-1" />
 						画布
-					</Button>
-					<Button
-						size="sm"
-						variant="ghost"
-						className="h-8 px-2 cursor-pointer"
-						onClick={onEdit}
-					>
-						<Pencil className="h-3.5 w-3.5 mr-1" />
-						编辑
 					</Button>
 					<Button
 						size="sm"
