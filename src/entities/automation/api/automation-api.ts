@@ -3,6 +3,7 @@ import { emit, listen } from '@tauri-apps/api/event';
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
 
 import type {
+	AiConfigEntry,
 	AiProviderConfig,
 	AutomationHumanDismissedEvent,
 	AutomationHumanRequiredEvent,
@@ -44,8 +45,14 @@ export async function runAutomationScript(
 	scriptId: string,
 	profileId: string | null,
 	initialVars?: Record<string, string>,
+	delayConfig?: { enabled: boolean; minSeconds: number; maxSeconds: number } | null,
 ): Promise<string> {
-	return tauriInvoke<string>('run_automation_script', { scriptId, profileId, initialVars: initialVars ?? null });
+	return tauriInvoke<string>('run_automation_script', {
+		scriptId,
+		profileId,
+		initialVars: initialVars ?? null,
+		delayConfig: delayConfig ?? null,
+	});
 }
 
 export async function listenAutomationProgress(
@@ -166,4 +173,22 @@ export async function readAiProviderConfig(): Promise<AiProviderConfig> {
 
 export async function updateAiProviderConfig(config: AiProviderConfig): Promise<void> {
 	return tauriInvoke<void>('update_ai_provider_config', { config });
+}
+
+// ── AI 配置管理（多模型） ──────────────────────────────────────────────────
+
+export async function listAiConfigs(): Promise<AiConfigEntry[]> {
+	return tauriInvoke<AiConfigEntry[]>('list_ai_configs');
+}
+
+export async function createAiConfig(entry: Omit<AiConfigEntry, 'id'>): Promise<AiConfigEntry> {
+	return tauriInvoke<AiConfigEntry>('create_ai_config', { entry });
+}
+
+export async function updateAiConfig(entry: AiConfigEntry): Promise<AiConfigEntry> {
+	return tauriInvoke<AiConfigEntry>('update_ai_config', { entry });
+}
+
+export async function deleteAiConfig(id: string): Promise<void> {
+	return tauriInvoke<void>('delete_ai_config', { id });
 }

@@ -167,6 +167,7 @@ export type AutomationScript = {
 	variablesSchemaJson: string | null;
 	associatedProfileIds: string[];
 	aiConfig: AiProviderConfig | null;
+	aiConfigId: string | null;
 	settings?: ScriptSettings;
 	createdAt: number;
 	updatedAt: number;
@@ -263,5 +264,15 @@ export type CreateAutomationScriptPayload = {
 	steps: ScriptStep[];
 	associatedProfileIds?: string[];
 	aiConfig?: AiProviderConfig | null;
+	aiConfigId?: string | null;
 	settings?: ScriptSettings;
+};
+
+export type AiConfigEntry = {
+	id: string;
+	name: string;
+	provider?: AiProviderType;
+	baseUrl?: string;
+	apiKey?: string;
+	model?: string;
 };
