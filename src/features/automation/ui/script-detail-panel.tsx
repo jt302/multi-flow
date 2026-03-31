@@ -318,6 +318,16 @@ export function ScriptDetailPanel({
 }
 
 function StepSummary({ step }: { step: AutomationScript['steps'][number] }) {
+	const selectorDisplay = (item: AutomationScript['steps'][number]) => {
+		const s = item as Record<string, unknown>;
+		const t = s['selector_type'] as string | undefined;
+		const selector = String(s['selector'] ?? '');
+		if (t && t !== 'css') {
+			return <><span className="text-xs text-blue-500 mr-0.5">[{t.toUpperCase()}]</span>{selector}</>;
+		}
+		return <>{selector}</>;
+	};
+
 	switch (step.kind) {
 		case 'navigate':
 			return <span className="text-muted-foreground">{step.url}</span>;
@@ -326,9 +336,9 @@ function StepSummary({ step }: { step: AutomationScript['steps'][number] }) {
 		case 'evaluate':
 			return <span className="text-muted-foreground font-mono text-xs">{step.expression.slice(0, 60)}</span>;
 		case 'click':
-			return <span className="text-muted-foreground">{step.selector}</span>;
+			return <span className="text-muted-foreground">{selectorDisplay(step)}</span>;
 		case 'type':
-			return <span className="text-muted-foreground">"{step.text}" → {step.selector}</span>;
+			return <span className="text-muted-foreground">"{step.text}" → {selectorDisplay(step)}</span>;
 		case 'screenshot':
 			return <span className="text-muted-foreground">截图</span>;
 		case 'magic':
@@ -361,13 +371,13 @@ function StepSummary({ step }: { step: AutomationScript['steps'][number] }) {
 		case 'cdp_wait_for_selector':
 		case 'cdp_get_text':
 		case 'cdp_scroll_to':
-			return <span className="text-muted-foreground">{step.selector}</span>;
+			return <span className="text-muted-foreground">{selectorDisplay(step)}</span>;
 		case 'cdp_type':
-			return <span className="text-muted-foreground">"{step.text}" → {step.selector}</span>;
+			return <span className="text-muted-foreground">"{step.text}" → {selectorDisplay(step)}</span>;
 		case 'cdp_get_attribute':
-			return <span className="text-muted-foreground">{step.selector}[{step.attribute}]</span>;
+			return <span className="text-muted-foreground">{selectorDisplay(step)}[{step.attribute}]</span>;
 		case 'cdp_set_input_value':
-			return <span className="text-muted-foreground">"{step.value}" → {step.selector}</span>;
+			return <span className="text-muted-foreground">"{step.value}" → {selectorDisplay(step)}</span>;
 		case 'cdp_screenshot':
 			return <span className="text-muted-foreground">截图{step.output_path ? ` → ${step.output_path}` : ''}</span>;
 		case 'magic_set_bounds':

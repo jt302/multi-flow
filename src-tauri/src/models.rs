@@ -937,14 +937,29 @@ pub enum LoopMode {
     While,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SelectorType {
+    #[default]
+    Css,
+    Xpath,
+    Text,
+}
+
+impl SelectorType {
+    pub fn is_css(&self) -> bool {
+        *self == SelectorType::Css
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ScriptStep {
     Navigate { url: String, #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
     Wait { ms: u64 },
     Evaluate { expression: String, result_key: Option<String> },
-    Click { selector: String },
-    Type { selector: String, text: String },
+    Click { selector: String, #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType },
+    Type { selector: String, text: String, #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType },
     Screenshot { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
     Magic { command: String, params: serde_json::Value, #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
     Cdp { method: String, params: Option<serde_json::Value>, #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
@@ -1176,27 +1191,31 @@ pub enum ScriptStep {
         expression: String,
         #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
     },
-    CdpClick { selector: String },
-    CdpType { selector: String, text: String },
+    CdpClick { selector: String, #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType },
+    CdpType { selector: String, text: String, #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType },
     CdpScrollTo {
         #[serde(skip_serializing_if = "Option::is_none")] selector: Option<String>,
+        #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType,
         #[serde(skip_serializing_if = "Option::is_none")] x: Option<i32>,
         #[serde(skip_serializing_if = "Option::is_none")] y: Option<i32>,
     },
     CdpWaitForSelector {
         selector: String,
+        #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType,
         #[serde(skip_serializing_if = "Option::is_none")] timeout_ms: Option<u64>,
     },
     CdpGetText {
         selector: String,
+        #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType,
         #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
     },
     CdpGetAttribute {
         selector: String,
+        #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType,
         attribute: String,
         #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
     },
-    CdpSetInputValue { selector: String, value: String },
+    CdpSetInputValue { selector: String, #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType, value: String },
 
     /// 增强截图：支持保存文件和多输出变量
     CdpScreenshot {

@@ -51,6 +51,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select';
 
 import { Textarea } from '@/components/ui/textarea';
 import { RunDialog } from '@/features/automation/ui/run-dialog';
@@ -167,17 +174,52 @@ function StepPropertiesPanel({
 		);
 	}
 
+	function sf(label = '元素选择器', optional = false) {
+		const sType = String(s['selector_type'] ?? 'css');
+		const placeholder = sType === 'xpath'
+			? '//div[@id="main"]'
+			: sType === 'text'
+				? '按文本内容匹配'
+				: (optional ? 'CSS 选择器（留空则按坐标）' : 'CSS 选择器');
+		return (
+			<div key="selector" className="space-y-1">
+				<Label className="text-xs">{label}</Label>
+				<div className="flex gap-1.5">
+					<Select
+						value={sType}
+						onValueChange={(v) => onUpdate({ ...step, selector_type: v } as ScriptStep)}
+					>
+						<SelectTrigger className="h-8 w-[80px] text-xs flex-shrink-0 cursor-pointer">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="css">CSS</SelectItem>
+							<SelectItem value="xpath">XPath</SelectItem>
+							<SelectItem value="text">Text</SelectItem>
+						</SelectContent>
+					</Select>
+					<Input
+						value={String(s['selector'] ?? '')}
+						onChange={(e) => onUpdate({ ...step, selector: e.target.value } as ScriptStep)}
+						placeholder={placeholder}
+						className="h-8 text-xs font-mono flex-1"
+					/>
+				</div>
+			</div>
+		);
+	}
+
 	const okf = () => tf('output_key', '输出变量名');
 
 	const fields: React.ReactNode[] = [];
 	if (kind === 'navigate' || kind === 'cdp_navigate') { fields.push(tf('url', 'URL')); fields.push(okf()); }
 	else if (kind === 'wait') { fields.push(nf('ms', '等待毫秒数')); }
 	else if (kind === 'evaluate' || kind === 'cdp_evaluate') { fields.push(tf('expression', 'JS 表达式', true)); fields.push(okf()); }
-	else if (kind === 'click' || kind === 'cdp_click') { fields.push(tf('selector', 'CSS 选择器')); }
-	else if (kind === 'type' || kind === 'cdp_type') { fields.push(tf('selector', 'CSS 选择器')); fields.push(tf('text', '输入文本')); }
-	else if (kind === 'cdp_get_text') { fields.push(tf('selector', 'CSS 选择器')); fields.push(okf()); }
-	else if (kind === 'cdp_wait_for_selector') { fields.push(tf('selector', 'CSS 选择器')); fields.push(nf('timeout_ms', '超时毫秒数')); }
-	else if (kind === 'cdp_scroll_to') { fields.push(tf('selector', 'CSS 选择器（可选）')); }
+	else if (kind === 'click' || kind === 'cdp_click') { fields.push(sf()); }
+	else if (kind === 'type' || kind === 'cdp_type') { fields.push(sf()); fields.push(tf('text', '输入文本')); }
+	else if (kind === 'cdp_get_text') { fields.push(sf()); fields.push(okf()); }
+	else if (kind === 'cdp_wait_for_selector') { fields.push(sf()); fields.push(nf('timeout_ms', '超时毫秒数')); }
+	else if (kind === 'cdp_scroll_to') { fields.push(sf('元素选择器（可选）', true)); }
 	else if (kind === 'cdp_screenshot') { fields.push(tf('output_key_base64', 'Base64 变量名')); fields.push(tf('output_path', '保存路径（可选）')); }
 	else if (kind === 'wait_for_user') {
 		fields.push(tf('message', '提示消息', true));
