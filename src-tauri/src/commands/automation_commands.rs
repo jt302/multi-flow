@@ -5,6 +5,7 @@ use futures_util::future::BoxFuture;
 use serde_json::json;
 use tauri::{AppHandle, Emitter, Manager, State};
 
+use crate::commands::profile_commands::do_open_profile;
 use crate::logger;
 use crate::models::{
     AiOutputKeyMapping, AutomationHumanDismissedEvent, AutomationHumanRequiredEvent,
@@ -38,12 +39,21 @@ async fn find_element_by_selector(cdp: &CdpClient, selector: &str) -> Result<i64
 }
 
 /// 读取 AI Provider 配置，并应用步骤级 model_override
-fn load_ai_config(app: &AppHandle, model_override: Option<&String>) -> AiProviderConfig {
+fn load_ai_config(
+    app: &AppHandle,
+    script_ai_config: Option<&AiProviderConfig>,
+    model_override: Option<&String>,
+) -> AiProviderConfig {
     let app_state = app.state::<AppState>();
     let mut config = {
         let svc = app_state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
         svc.read_ai_provider_config().unwrap_or_default()
     };
+    if let Some(script_cfg) = script_ai_config {
+        if script_cfg.base_url.is_some() { config.base_url = script_cfg.base_url.clone(); }
+        if script_cfg.api_key.is_some() { config.api_key = script_cfg.api_key.clone(); }
+        if script_cfg.model.is_some() { config.model = script_cfg.model.clone(); }
+    }
     if let Some(m) = model_override { config.model = Some(m.clone()); }
     config
 }
@@ -95,28 +105,57 @@ pub async fn run_automation_script(
     app: AppHandle,
     state: State<'_, AppState>,
     script_id: String,
-    profile_id: String,
+    profile_id: Option<String>,
     initial_vars: Option<HashMap<String, String>>,
 ) -> Result<String, String> {
-    let (steps, steps_json) = {
+    let (steps, steps_json, script_ai_config, associated_profile_ids) = {
         let svc = state.lock_automation_service();
         let script = svc.get_script(&script_id).map_err(error_to_string)?;
         let steps_json = serde_json::to_string(&script.steps)
             .map_err(|e| format!("serialize steps failed: {e}"))?;
-        (script.steps, steps_json)
+        (
+            script.steps,
+            steps_json,
+            script.ai_config,
+            script.associated_profile_ids,
+        )
     };
+    let resolved_profile_id = profile_id
+        .or_else(|| associated_profile_ids.first().cloned())
+        .ok_or_else(|| "未指定环境且脚本无关联环境".to_string())?;
     let (debug_port, magic_port) = {
-        let em = state.lock_engine_manager();
-        match em.get_runtime_handle(&profile_id) {
-            Ok(handle) => (handle.debug_port, handle.magic_port),
-            Err(_) => (None, None),
+        let handle_result = {
+            let em = state.lock_engine_manager();
+            em.get_runtime_handle(&resolved_profile_id)
+                .ok()
+                .map(|h| (h.debug_port, h.magic_port))
+        };
+        match handle_result {
+            Some(ports) => ports,
+            None => {
+                do_open_profile(&state, Some(&app), None, &resolved_profile_id, None)
+                    .map_err(|e| format!("自动启动环境失败: {e}"))?;
+                let em = state.lock_engine_manager();
+                em.get_runtime_handle(&resolved_profile_id)
+                    .map(|h| (h.debug_port, h.magic_port))
+                    .unwrap_or((None, None))
+            }
         }
     };
     let run_id = {
         let svc = state.lock_automation_service();
-        svc.create_run(&script_id, &profile_id, &steps_json).map_err(error_to_string)?
+        svc.create_run(&script_id, &resolved_profile_id, &steps_json)
+            .map_err(error_to_string)?
     };
-    tauri::async_runtime::spawn(execute_script(app, run_id.clone(), debug_port, magic_port, steps, initial_vars.unwrap_or_default()));
+    tauri::async_runtime::spawn(execute_script(
+        app,
+        run_id.clone(),
+        debug_port,
+        magic_port,
+        steps,
+        initial_vars.unwrap_or_default(),
+        script_ai_config,
+    ));
     Ok(run_id)
 }
 
@@ -126,16 +165,24 @@ pub async fn run_automation_script_debug(
     app: AppHandle,
     state: State<'_, AppState>,
     script_id: String,
-    profile_id: String,
+    profile_id: Option<String>,
     initial_vars: Option<HashMap<String, String>>,
 ) -> Result<String, String> {
-    let (steps, steps_json) = {
+    let (steps, steps_json, script_ai_config, associated_profile_ids) = {
         let svc = state.lock_automation_service();
         let script = svc.get_script(&script_id).map_err(error_to_string)?;
         let steps_json = serde_json::to_string(&script.steps)
             .map_err(|e| format!("serialize steps failed: {e}"))?;
-        (script.steps, steps_json)
+        (
+            script.steps,
+            steps_json,
+            script.ai_config,
+            script.associated_profile_ids,
+        )
     };
+    let resolved_profile_id = profile_id
+        .or_else(|| associated_profile_ids.first().cloned())
+        .ok_or_else(|| "未指定环境且脚本无关联环境".to_string())?;
     // 在每步之后插入调试暂停步骤
     let debug_steps: Vec<ScriptStep> = steps
         .into_iter()
@@ -154,17 +201,38 @@ pub async fn run_automation_script_debug(
         })
         .collect();
     let (debug_port, magic_port) = {
-        let em = state.lock_engine_manager();
-        match em.get_runtime_handle(&profile_id) {
-            Ok(handle) => (handle.debug_port, handle.magic_port),
-            Err(_) => (None, None),
+        let handle_result = {
+            let em = state.lock_engine_manager();
+            em.get_runtime_handle(&resolved_profile_id)
+                .ok()
+                .map(|h| (h.debug_port, h.magic_port))
+        };
+        match handle_result {
+            Some(ports) => ports,
+            None => {
+                do_open_profile(&state, Some(&app), None, &resolved_profile_id, None)
+                    .map_err(|e| format!("自动启动环境失败: {e}"))?;
+                let em = state.lock_engine_manager();
+                em.get_runtime_handle(&resolved_profile_id)
+                    .map(|h| (h.debug_port, h.magic_port))
+                    .unwrap_or((None, None))
+            }
         }
     };
     let run_id = {
         let svc = state.lock_automation_service();
-        svc.create_run(&script_id, &profile_id, &steps_json).map_err(error_to_string)?
+        svc.create_run(&script_id, &resolved_profile_id, &steps_json)
+            .map_err(error_to_string)?
     };
-    tauri::async_runtime::spawn(execute_script(app, run_id.clone(), debug_port, magic_port, debug_steps, initial_vars.unwrap_or_default()));
+    tauri::async_runtime::spawn(execute_script(
+        app,
+        run_id.clone(),
+        debug_port,
+        magic_port,
+        debug_steps,
+        initial_vars.unwrap_or_default(),
+        script_ai_config,
+    ));
     Ok(run_id)
 }
 
@@ -265,6 +333,7 @@ async fn execute_script(
     magic_port: Option<u16>,
     steps: Vec<ScriptStep>,
     initial_vars: HashMap<String, String>,
+    script_ai_config: Option<AiProviderConfig>,
 ) {
     let step_total = steps.len();
     let cdp = debug_port.map(CdpClient::new);
@@ -284,6 +353,7 @@ async fn execute_script(
         &run_id,
         &mut results,
         &mut vars,
+        script_ai_config.as_ref(),
     )
     .await;
 
@@ -323,6 +393,7 @@ fn execute_steps<'a>(
     run_id: &'a str,
     results: &'a mut Vec<StepResult>,
     vars: &'a mut RunVariables,
+    script_ai_config: Option<&'a AiProviderConfig>,
 ) -> BoxFuture<'a, FlowSignal> {
     Box::pin(async move {
         for (index, step) in steps.into_iter().enumerate() {
@@ -348,7 +419,7 @@ fn execute_steps<'a>(
                     let is_true = vars.eval_condition(&expr);
                     let branch = if is_true { then_steps.clone() } else { else_steps.clone() };
                     let signal = execute_steps(branch, step_path.clone(), step_total, cdp,
-                        http_client, magic_port, app, run_id, results, vars).await;
+                        http_client, magic_port, app, run_id, results, vars, script_ai_config).await;
                     match signal {
                         FlowSignal::Normal | FlowSignal::Continue => {}
                         FlowSignal::Break | FlowSignal::Error(_) => return signal,
@@ -382,7 +453,7 @@ fn execute_steps<'a>(
                         let mut iter_path = step_path.clone();
                         iter_path.push(iteration as usize);
                         let signal = execute_steps(body_steps.clone(), iter_path, step_total, cdp,
-                            http_client, magic_port, app, run_id, results, vars).await;
+                            http_client, magic_port, app, run_id, results, vars, script_ai_config).await;
                         match signal {
                             FlowSignal::Break => break,
                             FlowSignal::Error(e) => return FlowSignal::Error(e),
@@ -405,7 +476,18 @@ fn execute_steps<'a>(
             }
 
             // 普通步骤
-            let result = execute_step(cdp, http_client, magic_port, &step, vars, app, run_id, top_index).await;
+            let result = execute_step(
+                cdp,
+                http_client,
+                magic_port,
+                &step,
+                vars,
+                app,
+                run_id,
+                top_index,
+                script_ai_config,
+            )
+            .await;
             let dur = start.elapsed().as_millis() as u64;
 
             if is_cancelled(app, run_id) {
@@ -457,6 +539,7 @@ async fn execute_step(
     app: &AppHandle,
     run_id: &str,
     step_index: usize,
+    script_ai_config: Option<&AiProviderConfig>,
 ) -> Result<(Option<String>, HashMap<String, String>), String> {
     let get_magic_port = || magic_port.ok_or_else(|| "Magic Controller not available (profile not running)".to_string());
     match step {
@@ -594,7 +677,7 @@ async fn execute_step(
         ScriptStep::AiPrompt { prompt, image_var, model_override, output_key } => {
             let prompt = vars.interpolate(prompt);
             let image_b64 = image_var.as_ref().and_then(|k| vars.get(k));
-            let config = load_ai_config(app, model_override.as_ref());
+            let config = load_ai_config(app, script_ai_config, model_override.as_ref());
             let content = build_vision_content(&prompt, image_b64.as_deref());
             let ai = AiService::new(http_client.clone());
             let reply = ai.chat(&config, vec![ChatMessage::with_content("user", content)], None).await?;
@@ -605,7 +688,7 @@ async fn execute_step(
         ScriptStep::AiExtract { prompt, image_var, output_key_map, model_override } => {
             let prompt = vars.interpolate(prompt);
             let image_b64 = image_var.as_ref().and_then(|k| vars.get(k));
-            let config = load_ai_config(app, model_override.as_ref());
+            let config = load_ai_config(app, script_ai_config, model_override.as_ref());
             let content = build_vision_content(&prompt, image_b64.as_deref());
             let response_format = serde_json::json!({ "type": "json_object" });
             let ai = AiService::new(http_client.clone());
@@ -623,7 +706,7 @@ async fn execute_step(
         ScriptStep::AiAgent { system_prompt, initial_message, max_steps, output_key } => {
             let system_prompt = vars.interpolate(system_prompt);
             let initial_message = vars.interpolate(initial_message);
-            let config = load_ai_config(app, None);
+            let config = load_ai_config(app, script_ai_config, None);
             let tools = build_agent_tools();
             let ai = AiService::new(http_client.clone());
 
@@ -671,7 +754,7 @@ async fn execute_step(
                                     };
                                     match Box::pin(execute_step(
                                         cdp, http_client, magic_port, &inner_step,
-                                        &merged_vars, app, run_id, step_index,
+                                        &merged_vars, app, run_id, step_index, script_ai_config,
                                     )).await {
                                         Ok((output, step_vars)) => {
                                             for (k, v) in step_vars { agent_vars.insert(k, v); }
