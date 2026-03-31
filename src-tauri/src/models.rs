@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::services::app_preference_service::AiProviderConfig;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ProfileLifecycle {
@@ -1236,6 +1238,8 @@ pub struct AutomationScript {
     pub steps: Vec<ScriptStep>,
     pub canvas_positions_json: Option<String>,
     pub variables_schema_json: Option<String>,
+    pub associated_profile_ids: Vec<String>,
+    pub ai_config: Option<AiProviderConfig>,
     pub created_at: i64,
     pub updated_at: i64,
 }
@@ -1260,6 +1264,8 @@ pub struct CreateAutomationScriptRequest {
     pub name: String,
     pub description: Option<String>,
     pub steps: Vec<ScriptStep>,
+    pub associated_profile_ids: Option<Vec<String>>,
+    pub ai_config: Option<AiProviderConfig>,
 }
 
 /// AiExtract 输出字段映射

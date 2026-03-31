@@ -10,6 +10,7 @@ use crate::models::{
     now_ts, AutomationRun, AutomationScript, CreateAutomationScriptRequest, ScriptStep,
     StepResult,
 };
+use crate::services::app_preference_service::AiProviderConfig;
 
 #[derive(Clone)]
 pub struct AutomationService {
@@ -59,6 +60,17 @@ impl AutomationService {
             updated_at: Set(now),
             canvas_positions_json: Set(None),
             variables_schema_json: Set(None),
+            associated_profile_ids_json: Set(
+                req.associated_profile_ids
+                    .as_ref()
+                    .filter(|v| !v.is_empty())
+                    .and_then(|v| serde_json::to_string(v).ok()),
+            ),
+            ai_config_json: Set(
+                req.ai_config
+                    .as_ref()
+                    .and_then(|c| serde_json::to_string(c).ok()),
+            ),
         };
         let inserted = self.db_query(model.insert(&self.db))?;
         to_api_script(inserted)
@@ -83,6 +95,17 @@ impl AutomationService {
             if d.is_empty() { None } else { Some(d) }
         }));
         active.steps_json = Set(steps_json);
+        active.associated_profile_ids_json = Set(
+            req.associated_profile_ids
+                .as_ref()
+                .filter(|v| !v.is_empty())
+                .and_then(|v| serde_json::to_string(v).ok()),
+        );
+        active.ai_config_json = Set(
+            req.ai_config
+                .as_ref()
+                .and_then(|c| serde_json::to_string(c).ok()),
+        );
         active.updated_at = Set(now_ts());
         let updated = self.db_query(active.update(&self.db))?;
         to_api_script(updated)
@@ -213,6 +236,15 @@ impl AutomationService {
 fn to_api_script(model: automation_script::Model) -> AppResult<AutomationScript> {
     let steps: Vec<ScriptStep> = serde_json::from_str(&model.steps_json)
         .map_err(|e| AppError::Validation(format!("corrupt steps_json: {e}")))?;
+    let associated_profile_ids: Vec<String> = model
+        .associated_profile_ids_json
+        .as_deref()
+        .and_then(|s| serde_json::from_str(s).ok())
+        .unwrap_or_default();
+    let ai_config: Option<AiProviderConfig> = model
+        .ai_config_json
+        .as_deref()
+        .and_then(|s| serde_json::from_str(s).ok());
     Ok(AutomationScript {
         id: model.id,
         name: model.name,
@@ -220,6 +252,8 @@ fn to_api_script(model: automation_script::Model) -> AppResult<AutomationScript>
         steps,
         canvas_positions_json: model.canvas_positions_json,
         variables_schema_json: model.variables_schema_json,
+        associated_profile_ids,
+        ai_config,
         created_at: model.created_at,
         updated_at: model.updated_at,
     })
