@@ -239,7 +239,19 @@ export type AiOutputKeyMapping = {
 	varName: string;
 };
 
+export type AiProviderType =
+	| 'openai'
+	| 'openrouter'
+	| 'deepseek'
+	| 'groq'
+	| 'together'
+	| 'ollama'
+	| 'anthropic'
+	| 'gemini'
+	| 'custom';
+
 export type AiProviderConfig = {
+	provider?: AiProviderType;
 	baseUrl?: string;
 	apiKey?: string;
 	model?: string;

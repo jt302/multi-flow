@@ -53,10 +53,7 @@ export function RunDialog({
 		setVarEntries(defaultVars ?? []);
 		setVarsOpen((defaultVars ?? []).length > 0);
 		if (associatedProfileIds.length > 0) {
-			const preSelected = associatedProfileIds.filter((id) =>
-				activeProfiles.some((p) => p.id === id)
-			);
-			setSelectedIds(preSelected.length > 0 ? preSelected : associatedProfileIds.slice(0, 1));
+			setSelectedIds([...associatedProfileIds]);
 		} else {
 			setSelectedIds([]);
 		}
