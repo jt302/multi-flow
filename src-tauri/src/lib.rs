@@ -90,6 +90,7 @@ pub fn run() {
             commands::automation_commands::update_script_variables_schema,
             commands::automation_commands::list_active_automation_runs,
             commands::automation_commands::run_automation_script_debug,
+            commands::automation_commands::export_automation_script_to_file,
             commands::group_commands::create_profile_group,
             commands::group_commands::list_profile_groups,
             commands::group_commands::update_profile_group,
