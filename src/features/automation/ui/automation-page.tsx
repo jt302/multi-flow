@@ -24,6 +24,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -40,6 +41,7 @@ export function AutomationPage() {
 	const [metaDialogScript, setMetaDialogScript] = useState<AutomationScript | null>(null);
 	const [metaName, setMetaName] = useState('');
 	const [metaDesc, setMetaDesc] = useState('');
+	const [metaAssociatedIds, setMetaAssociatedIds] = useState<string[]>([]);
 
 	const selectedScript = scripts.find((s) => s.id === selectedScriptId) ?? null;
 	const runsQuery = useAutomationRunsQuery(selectedScriptId);
@@ -85,6 +87,7 @@ export function AutomationPage() {
 		setMetaDialogScript(script);
 		setMetaName(script.name);
 		setMetaDesc(script.description ?? '');
+		setMetaAssociatedIds(script.associatedProfileIds ?? []);
 		setMetaDialogOpen(true);
 	}
 
@@ -95,7 +98,7 @@ export function AutomationPage() {
 			// 更新元数据，保留步骤不变
 			await actions.updateScript.mutateAsync({
 				scriptId: metaDialogScript.id,
-				payload: { name, description: metaDesc || undefined, steps: metaDialogScript.steps },
+				payload: { name, description: metaDesc || undefined, steps: metaDialogScript.steps, associatedProfileIds: metaAssociatedIds },
 			});
 			setMetaDialogOpen(false);
 		} else {
@@ -240,6 +243,7 @@ export function AutomationPage() {
 						script={selectedScript}
 						runs={runs}
 						activeProfiles={activeProfiles}
+						allProfiles={profilesQuery.data ?? []}
 						isRunning={activeScriptId === selectedScript.id && liveRunStatus === 'running'}
 						liveStepResults={activeScriptId === selectedScript.id ? liveStepResults : []}
 						liveVariables={activeScriptId === selectedScript.id ? liveVariables : {}}
@@ -290,6 +294,30 @@ export function AutomationPage() {
 								className="resize-none"
 							/>
 						</div>
+						{metaDialogScript && (profilesQuery.data ?? []).length > 0 && (
+							<div className="space-y-1.5">
+								<Label className="text-sm">关联环境（可选）</Label>
+								<p className="text-xs text-muted-foreground">运行时自动预选，未启动的环境将自动启动</p>
+								<ScrollArea className="max-h-32">
+									<div className="space-y-1 pr-1">
+										{(profilesQuery.data ?? []).map((p) => (
+											<label key={p.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-muted cursor-pointer">
+												<Checkbox
+													checked={metaAssociatedIds.includes(p.id)}
+													onCheckedChange={(checked) =>
+														setMetaAssociatedIds((prev) =>
+															checked ? [...prev, p.id] : prev.filter((id) => id !== p.id)
+														)
+													}
+													className="cursor-pointer"
+												/>
+												<span className="text-sm truncate">{p.name}</span>
+											</label>
+										))}
+									</div>
+								</ScrollArea>
+							</div>
+						)}
 					</div>
 					<DialogFooter>
 						<Button variant="ghost" onClick={() => setMetaDialogOpen(false)} className="cursor-pointer">
@@ -300,7 +328,7 @@ export function AutomationPage() {
 							disabled={!metaName.trim() || isSaving}
 							className="cursor-pointer"
 						>
-							{metaDialogScript ? '保存' : '创建并打开画布'}
+							{metaDialogScript ? '保存' : '创建并打开流程编辑'}
 						</Button>
 					</DialogFooter>
 				</DialogContent>
