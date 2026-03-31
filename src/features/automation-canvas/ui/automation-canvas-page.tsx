@@ -31,6 +31,15 @@ import {
 	updateScriptCanvasPositions,
 	updateScriptVariablesSchema,
 } from '@/entities/automation/api/automation-api';
+import {
+	GROUP_COLORS,
+	KIND_GROUPS,
+	KIND_LABELS,
+	PALETTE_DOT_COLORS,
+	PALETTE_GROUPS,
+	defaultStep,
+	getStepSummaryText,
+} from '@/entities/automation/model/step-registry';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -46,78 +55,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RunDialog } from '@/features/automation/ui/run-dialog';
 
-// ─── Step kind → display label / group ───────────────────────────────────────
-
-const KIND_LABELS: Record<string, string> = {
-	navigate: '导航', wait: '等待', evaluate: 'JS 求值', click: '点击',
-	type: '输入', screenshot: '截图', magic: 'Magic', cdp: 'CDP 原始',
-	wait_for_user: '等待人工', condition: '条件分支', loop: '循环',
-	break: 'Break', continue: 'Continue',
-	ai_prompt: 'AI Prompt', ai_extract: 'AI 提取', ai_agent: 'AI Agent',
-	cdp_navigate: '导航', cdp_reload: '刷新', cdp_evaluate: 'JS 求值',
-	cdp_click: '点击', cdp_type: '输入', cdp_scroll_to: '滚动',
-	cdp_wait_for_selector: '等待元素', cdp_get_text: '获取文本',
-	cdp_get_attribute: '获取属性', cdp_set_input_value: '设置输入',
-	cdp_screenshot: '截图',
-	magic_set_bounds: '设置窗口尺寸', magic_get_bounds: '获取窗口尺寸',
-	magic_set_maximized: '最大化', magic_set_minimized: '最小化',
-	magic_set_closed: '关闭窗口', magic_set_restored: '还原窗口',
-	magic_set_fullscreen: '全屏', magic_set_bg_color: '设置背景色',
-	magic_set_toolbar_text: '设置工具栏文本', magic_set_app_top_most: '置顶',
-	magic_set_master_indicator_visible: '指示器可见性',
-	magic_open_new_tab: '打开新标签', magic_close_tab: '关闭标签',
-	magic_activate_tab: '激活标签', magic_activate_tab_by_index: '激活标签(索引)',
-	magic_close_inactive_tabs: '关闭非活跃标签', magic_open_new_window: '打开新窗口',
-	magic_type_string: '输入文本',
-	magic_get_browsers: '获取浏览器', magic_get_active_browser: '获取活跃浏览器',
-	magic_get_tabs: '获取标签列表', magic_get_active_tabs: '获取活跃标签',
-	magic_get_switches: '获取开关', magic_get_host_name: '获取主机名',
-	magic_get_mac_address: '获取MAC地址',
-	magic_get_bookmarks: '获取书签', magic_create_bookmark: '创建书签',
-	magic_create_bookmark_folder: '创建书签文件夹', magic_update_bookmark: '更新书签',
-	magic_move_bookmark: '移动书签', magic_remove_bookmark: '删除书签',
-	magic_bookmark_current_tab: '收藏当前页', magic_unbookmark_current_tab: '取消收藏',
-	magic_is_current_tab_bookmarked: '是否已收藏', magic_export_bookmark_state: '导出书签状态',
-	magic_get_managed_cookies: '获取Cookie', magic_export_cookie_state: '导出Cookie状态',
-	magic_get_managed_extensions: '获取扩展', magic_trigger_extension_action: '触发扩展动作',
-	magic_close_extension_popup: '关闭扩展弹窗',
-	magic_toggle_sync_mode: '切换同步模式', magic_get_sync_mode: '获取同步模式',
-	magic_get_is_master: '是否主屏', magic_get_sync_status: '获取同步状态',
-	magic_capture_app_shell: '截图(应用外壳)',
-};
-
-const KIND_GROUPS: Record<string, string> = {
-	navigate: 'CDP', wait: '通用', evaluate: 'CDP', click: 'CDP',
-	type: 'CDP', screenshot: 'CDP', magic: 'Magic', cdp: 'CDP',
-	wait_for_user: '人工介入', condition: '控制流', loop: '控制流',
-	break: '控制流', continue: '控制流',
-	ai_prompt: 'AI', ai_extract: 'AI', ai_agent: 'AI',
-};
-const CDP_KINDS = ['cdp_navigate', 'cdp_reload', 'cdp_evaluate', 'cdp_click', 'cdp_type',
-	'cdp_scroll_to', 'cdp_wait_for_selector', 'cdp_get_text', 'cdp_get_attribute',
-	'cdp_set_input_value', 'cdp_screenshot'];
-CDP_KINDS.forEach((k) => { KIND_GROUPS[k] = 'CDP'; });
-const MAGIC_KINDS = Object.keys(KIND_LABELS).filter((k) => k.startsWith('magic_'));
-MAGIC_KINDS.forEach((k) => { KIND_GROUPS[k] = 'Magic'; });
-
-const GROUP_COLORS: Record<string, string> = {
-	CDP: 'bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-300',
-	Magic: 'bg-purple-500/10 border-purple-500/30 text-purple-700 dark:text-purple-300',
-	AI: 'bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300',
-	控制流: 'bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-300',
-	人工介入: 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300',
-	通用: 'bg-muted border-border text-muted-foreground',
-};
-
-const PALETTE_DOT_COLORS: Record<string, string> = {
-	CDP: 'bg-blue-500',
-	Magic: 'bg-purple-500',
-	AI: 'bg-orange-500',
-	控制流: 'bg-green-500',
-	人工介入: 'bg-amber-500',
-	通用: 'bg-muted-foreground/50',
-};
-
 const STEP_STATUS_RING: Record<string, string> = {
 	running: 'ring-2 ring-blue-500 ring-offset-1',
 	success: 'ring-2 ring-green-500 ring-offset-1',
@@ -129,18 +66,6 @@ const STEP_STATUS_RING: Record<string, string> = {
 
 type StepNodeData = { step: ScriptStep; index: number; stepStatus?: string };
 
-function getStepSummary(step: ScriptStep): string {
-	const s = step as Record<string, unknown>;
-	if (s.url) return String(s.url).slice(0, 40);
-	if (s.prompt) return String(s.prompt).slice(0, 40);
-	if (s.expression) return String(s.expression).slice(0, 40);
-	if (s.selector) return String(s.selector).slice(0, 40);
-	if (s.message) return String(s.message).slice(0, 40);
-	if (s.ms !== undefined) return `${s.ms}ms`;
-	if (s.initial_message) return String(s.initial_message).slice(0, 40);
-	return '';
-}
-
 const HANDLE_CLS = '!w-2.5 !h-2.5 !bg-muted-foreground/40 hover:!bg-primary !border-0 !rounded-full';
 
 function StepNodeComponent({ data }: { data: StepNodeData }) {
@@ -150,7 +75,7 @@ function StepNodeComponent({ data }: { data: StepNodeData }) {
 	const group = KIND_GROUPS[kind] ?? '通用';
 	const colorClass = GROUP_COLORS[group] ?? GROUP_COLORS['通用'];
 	const ringClass = stepStatus ? (STEP_STATUS_RING[stepStatus] ?? '') : '';
-	const summary = getStepSummary(step);
+	const summary = getStepSummaryText(step);
 	const isCondition = kind === 'condition';
 
 	return (
@@ -191,50 +116,6 @@ function StepNodeComponent({ data }: { data: StepNodeData }) {
 }
 
 const NODE_TYPES = { step: StepNodeComponent };
-
-// ─── Step palette groups ───────────────────────────────────────────────────────
-
-const PALETTE_GROUPS: { label: string; kinds: string[] }[] = [
-	{ label: 'CDP', kinds: ['cdp_navigate', 'cdp_reload', 'cdp_click', 'cdp_type', 'cdp_evaluate', 'cdp_get_text', 'cdp_wait_for_selector', 'cdp_scroll_to', 'cdp_screenshot'] },
-	{ label: '通用', kinds: ['wait', 'wait_for_user'] },
-	{ label: '控制流', kinds: ['condition', 'loop', 'break', 'continue'] },
-	{ label: 'AI', kinds: ['ai_prompt', 'ai_extract', 'ai_agent'] },
-	{ label: 'Magic', kinds: ['magic_get_browsers', 'magic_open_new_tab', 'magic_close_tab', 'magic_activate_tab', 'magic_get_tabs', 'magic_set_bounds', 'magic_get_bounds', 'magic_set_maximized', 'magic_set_minimized', 'magic_capture_app_shell'] },
-];
-
-function defaultStep(kind: string): ScriptStep {
-	const map: Record<string, ScriptStep> = {
-		wait: { kind: 'wait', ms: 1000 },
-		wait_for_user: { kind: 'wait_for_user', message: '' },
-		condition: { kind: 'condition', condition_expr: '', then_steps: [], else_steps: [] },
-		loop: { kind: 'loop', mode: 'count', count: 3, body_steps: [] },
-		break: { kind: 'break' },
-		continue: { kind: 'continue' },
-		ai_prompt: { kind: 'ai_prompt', prompt: '' },
-		ai_extract: { kind: 'ai_extract', prompt: '', output_key_map: [] },
-		ai_agent: { kind: 'ai_agent', system_prompt: '', initial_message: '', max_steps: 10 },
-		cdp_navigate: { kind: 'cdp_navigate', url: 'https://' },
-		cdp_reload: { kind: 'cdp_reload' },
-		cdp_evaluate: { kind: 'cdp_evaluate', expression: '' },
-		cdp_click: { kind: 'cdp_click', selector: '' },
-		cdp_type: { kind: 'cdp_type', selector: '', text: '' },
-		cdp_scroll_to: { kind: 'cdp_scroll_to' },
-		cdp_wait_for_selector: { kind: 'cdp_wait_for_selector', selector: '' },
-		cdp_get_text: { kind: 'cdp_get_text', selector: '' },
-		cdp_screenshot: { kind: 'cdp_screenshot' },
-		magic_get_browsers: { kind: 'magic_get_browsers' },
-		magic_open_new_tab: { kind: 'magic_open_new_tab', url: 'https://' },
-		magic_close_tab: { kind: 'magic_close_tab', tab_id: 0 },
-		magic_activate_tab: { kind: 'magic_activate_tab', tab_id: 0 },
-		magic_get_tabs: { kind: 'magic_get_tabs', browser_id: 0 },
-		magic_set_bounds: { kind: 'magic_set_bounds', x: 0, y: 0, width: 800, height: 600 },
-		magic_get_bounds: { kind: 'magic_get_bounds' },
-		magic_set_maximized: { kind: 'magic_set_maximized' },
-		magic_set_minimized: { kind: 'magic_set_minimized' },
-		magic_capture_app_shell: { kind: 'magic_capture_app_shell' },
-	};
-	return map[kind] ?? ({ kind } as unknown as ScriptStep);
-}
 
 // ─── Properties panel ────────────────────────────────────────────────────────
 

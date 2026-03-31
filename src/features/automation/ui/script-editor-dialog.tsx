@@ -1,10 +1,13 @@
 import { useEffect } from 'react';
 
 import { GripVertical, Plus, Trash2 } from 'lucide-react';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { Controller, useFieldArray, useForm } from 'react-hook-form';
 
-import type { AutomationScript, ScriptStep } from '@/entities/automation/model/types';
+import type { AiProviderConfig, AutomationScript, ScriptStep } from '@/entities/automation/model/types';
+import { STEP_KINDS, defaultStep } from '@/entities/automation/model/step-registry';
+import type { ProfileItem } from '@/entities/profile/model/types';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
 	Dialog,
 	DialogContent,
@@ -29,184 +32,28 @@ type FormValues = {
 	name: string;
 	description: string;
 	steps: StepFormItem[];
+	associatedProfileIds: string[];
+	aiBaseUrl: string;
+	aiApiKey: string;
+	aiModel: string;
 };
 
 type Props = {
 	open: boolean;
 	script: AutomationScript | null;
 	onOpenChange: (open: boolean) => void;
-	onSave: (name: string, description: string, steps: ScriptStep[]) => void;
+	activeProfiles: ProfileItem[];
+	onSave: (
+		name: string,
+		description: string,
+		steps: ScriptStep[],
+		associatedProfileIds: string[],
+		aiConfig: AiProviderConfig | null,
+	) => void;
 	isSaving: boolean;
 };
 
-const STEP_KINDS = [
-	// 基础
-	{ value: 'navigate', label: '导航 navigate', group: '基础' },
-	{ value: 'wait', label: '等待 wait', group: '基础' },
-	{ value: 'evaluate', label: '执行JS evaluate', group: '基础' },
-	{ value: 'click', label: '点击 click', group: '基础' },
-	{ value: 'type', label: '输入 type', group: '基础' },
-	{ value: 'screenshot', label: '截图 screenshot', group: '基础' },
-	{ value: 'magic', label: 'Magic 原始指令', group: '基础' },
-	{ value: 'cdp', label: 'CDP 原始调用', group: '基础' },
-	// 控制流
-	{ value: 'wait_for_user', label: '人工介入 wait_for_user', group: '控制流' },
-	{ value: 'condition', label: '条件分支 condition', group: '控制流' },
-	{ value: 'loop', label: '循环 loop', group: '控制流' },
-	{ value: 'break', label: '跳出循环 break', group: '控制流' },
-	{ value: 'continue', label: '继续下一轮 continue', group: '控制流' },
-	// AI 步骤
-	{ value: 'ai_prompt', label: 'AI 文本/视觉 Prompt', group: 'AI' },
-	{ value: 'ai_extract', label: 'AI 结构化提取', group: 'AI' },
-	{ value: 'ai_agent', label: 'AI Agent 工具调用', group: 'AI' },
-	// CDP 具名
-	{ value: 'cdp_navigate', label: 'CDP 导航', group: 'CDP' },
-	{ value: 'cdp_reload', label: 'CDP 刷新页面', group: 'CDP' },
-	{ value: 'cdp_evaluate', label: 'CDP 执行JS', group: 'CDP' },
-	{ value: 'cdp_click', label: 'CDP 点击', group: 'CDP' },
-	{ value: 'cdp_type', label: 'CDP 输入', group: 'CDP' },
-	{ value: 'cdp_scroll_to', label: 'CDP 滚动', group: 'CDP' },
-	{ value: 'cdp_wait_for_selector', label: 'CDP 等待元素', group: 'CDP' },
-	{ value: 'cdp_get_text', label: 'CDP 获取文本', group: 'CDP' },
-	{ value: 'cdp_get_attribute', label: 'CDP 获取属性', group: 'CDP' },
-	{ value: 'cdp_set_input_value', label: 'CDP 设置输入值', group: 'CDP' },
-	{ value: 'cdp_screenshot', label: 'CDP 截图(增强)', group: 'CDP' },
-	// 窗口外观
-	{ value: 'magic_set_bounds', label: '设置窗口位置大小', group: '窗口外观' },
-	{ value: 'magic_get_bounds', label: '获取窗口位置大小', group: '窗口外观' },
-	{ value: 'magic_set_maximized', label: '最大化窗口', group: '窗口外观' },
-	{ value: 'magic_set_minimized', label: '最小化窗口', group: '窗口外观' },
-	{ value: 'magic_set_restored', label: '还原窗口', group: '窗口外观' },
-	{ value: 'magic_set_fullscreen', label: '全屏', group: '窗口外观' },
-	{ value: 'magic_set_closed', label: '关闭窗口', group: '窗口外观' },
-	{ value: 'magic_set_bg_color', label: '设置背景色', group: '窗口外观' },
-	{ value: 'magic_set_toolbar_text', label: '设置工具栏文字', group: '窗口外观' },
-	{ value: 'magic_set_app_top_most', label: '激活窗口', group: '窗口外观' },
-	{ value: 'magic_set_master_indicator_visible', label: '主控标记显示', group: '窗口外观' },
-	// 标签页
-	{ value: 'magic_open_new_tab', label: '新建标签页', group: '标签页' },
-	{ value: 'magic_close_tab', label: '关闭标签页', group: '标签页' },
-	{ value: 'magic_activate_tab', label: '激活标签页(by id)', group: '标签页' },
-	{ value: 'magic_activate_tab_by_index', label: '激活标签页(by index)', group: '标签页' },
-	{ value: 'magic_close_inactive_tabs', label: '关闭非活动标签页', group: '标签页' },
-	{ value: 'magic_open_new_window', label: '新建窗口', group: '标签页' },
-	{ value: 'magic_type_string', label: '键入文本', group: '标签页' },
-	{ value: 'magic_capture_app_shell', label: '截图(整个窗口)', group: '标签页' },
-	// 浏览器信息
-	{ value: 'magic_get_browsers', label: '获取所有浏览器', group: '浏览器信息' },
-	{ value: 'magic_get_active_browser', label: '获取活动浏览器', group: '浏览器信息' },
-	{ value: 'magic_get_tabs', label: '获取标签页列表', group: '浏览器信息' },
-	{ value: 'magic_get_active_tabs', label: '获取活动标签页', group: '浏览器信息' },
-	{ value: 'magic_get_switches', label: '读取启动参数', group: '浏览器信息' },
-	{ value: 'magic_get_host_name', label: '读取主机名', group: '浏览器信息' },
-	{ value: 'magic_get_mac_address', label: '读取MAC地址', group: '浏览器信息' },
-	// 书签
-	{ value: 'magic_get_bookmarks', label: '获取书签树', group: '书签' },
-	{ value: 'magic_create_bookmark', label: '创建书签', group: '书签' },
-	{ value: 'magic_create_bookmark_folder', label: '创建书签文件夹', group: '书签' },
-	{ value: 'magic_update_bookmark', label: '更新书签', group: '书签' },
-	{ value: 'magic_move_bookmark', label: '移动书签', group: '书签' },
-	{ value: 'magic_remove_bookmark', label: '删除书签', group: '书签' },
-	{ value: 'magic_bookmark_current_tab', label: '收藏当前标签', group: '书签' },
-	{ value: 'magic_unbookmark_current_tab', label: '取消收藏当前标签', group: '书签' },
-	{ value: 'magic_is_current_tab_bookmarked', label: '查询当前标签是否已收藏', group: '书签' },
-	{ value: 'magic_export_bookmark_state', label: '导出书签状态', group: '书签' },
-	// Cookie
-	{ value: 'magic_get_managed_cookies', label: '获取托管Cookie', group: 'Cookie' },
-	{ value: 'magic_export_cookie_state', label: '导出Cookie状态', group: 'Cookie' },
-	// 扩展
-	{ value: 'magic_get_managed_extensions', label: '获取托管扩展', group: '扩展' },
-	{ value: 'magic_trigger_extension_action', label: '触发扩展Action', group: '扩展' },
-	{ value: 'magic_close_extension_popup', label: '关闭扩展Popup', group: '扩展' },
-	// 同步模式
-	{ value: 'magic_toggle_sync_mode', label: '切换同步角色', group: '同步模式' },
-	{ value: 'magic_get_sync_mode', label: '获取同步状态', group: '同步模式' },
-	{ value: 'magic_get_is_master', label: '查询是否主控', group: '同步模式' },
-	{ value: 'magic_get_sync_status', label: '获取完整同步状态', group: '同步模式' },
-];
-
-function defaultStep(kind: string): ScriptStep {
-	switch (kind) {
-		case 'navigate': return { kind: 'navigate', url: 'https://' };
-		case 'wait': return { kind: 'wait', ms: 1000 };
-		case 'evaluate': return { kind: 'evaluate', expression: '' };
-		case 'click': return { kind: 'click', selector: '' };
-		case 'type': return { kind: 'type', selector: '', text: '' };
-		case 'screenshot': return { kind: 'screenshot' };
-		case 'magic': return { kind: 'magic', command: '', params: {} };
-		case 'cdp': return { kind: 'cdp', method: '' };
-		case 'wait_for_user': return { kind: 'wait_for_user', message: '' };
-		case 'condition': return { kind: 'condition', condition_expr: '', then_steps: [], else_steps: [] };
-		case 'loop': return { kind: 'loop', mode: 'count', count: 3, body_steps: [] };
-		case 'break': return { kind: 'break' };
-		case 'continue': return { kind: 'continue' };
-		// AI 步骤
-		case 'ai_prompt': return { kind: 'ai_prompt', prompt: '' };
-		case 'ai_extract': return { kind: 'ai_extract', prompt: '', output_key_map: [{ jsonPath: '', varName: '' }] };
-		case 'ai_agent': return { kind: 'ai_agent', system_prompt: '', initial_message: '', max_steps: 10 };
-		// CDP 具名步骤
-		case 'cdp_navigate': return { kind: 'cdp_navigate', url: 'https://' };
-		case 'cdp_reload': return { kind: 'cdp_reload', ignore_cache: false };
-		case 'cdp_evaluate': return { kind: 'cdp_evaluate', expression: '' };
-		case 'cdp_click': return { kind: 'cdp_click', selector: '' };
-		case 'cdp_type': return { kind: 'cdp_type', selector: '', text: '' };
-		case 'cdp_scroll_to': return { kind: 'cdp_scroll_to' };
-		case 'cdp_wait_for_selector': return { kind: 'cdp_wait_for_selector', selector: '' };
-		case 'cdp_get_text': return { kind: 'cdp_get_text', selector: '' };
-		case 'cdp_get_attribute': return { kind: 'cdp_get_attribute', selector: '', attribute: '' };
-		case 'cdp_set_input_value': return { kind: 'cdp_set_input_value', selector: '', value: '' };
-		case 'cdp_screenshot': return { kind: 'cdp_screenshot' };
-		// Magic 具名步骤
-		case 'magic_set_bounds': return { kind: 'magic_set_bounds', x: 0, y: 0, width: 1280, height: 800 };
-		case 'magic_get_bounds': return { kind: 'magic_get_bounds' };
-		case 'magic_set_maximized': return { kind: 'magic_set_maximized' };
-		case 'magic_set_minimized': return { kind: 'magic_set_minimized' };
-		case 'magic_set_closed': return { kind: 'magic_set_closed' };
-		case 'magic_set_restored': return { kind: 'magic_set_restored' };
-		case 'magic_set_fullscreen': return { kind: 'magic_set_fullscreen' };
-		case 'magic_set_bg_color': return { kind: 'magic_set_bg_color', r: 255, g: 255, b: 255 };
-		case 'magic_set_toolbar_text': return { kind: 'magic_set_toolbar_text', text: '' };
-		case 'magic_set_app_top_most': return { kind: 'magic_set_app_top_most' };
-		case 'magic_set_master_indicator_visible': return { kind: 'magic_set_master_indicator_visible', visible: true };
-		case 'magic_open_new_tab': return { kind: 'magic_open_new_tab', url: 'https://' };
-		case 'magic_close_tab': return { kind: 'magic_close_tab', tab_id: 0 };
-		case 'magic_activate_tab': return { kind: 'magic_activate_tab', tab_id: 0 };
-		case 'magic_activate_tab_by_index': return { kind: 'magic_activate_tab_by_index', index: 0 };
-		case 'magic_close_inactive_tabs': return { kind: 'magic_close_inactive_tabs' };
-		case 'magic_open_new_window': return { kind: 'magic_open_new_window' };
-		case 'magic_type_string': return { kind: 'magic_type_string', text: '' };
-		case 'magic_capture_app_shell': return { kind: 'magic_capture_app_shell', mode: 'inline' };
-		case 'magic_get_browsers': return { kind: 'magic_get_browsers' };
-		case 'magic_get_active_browser': return { kind: 'magic_get_active_browser' };
-		case 'magic_get_tabs': return { kind: 'magic_get_tabs', browser_id: 0 };
-		case 'magic_get_active_tabs': return { kind: 'magic_get_active_tabs' };
-		case 'magic_get_switches': return { kind: 'magic_get_switches', key: '' };
-		case 'magic_get_host_name': return { kind: 'magic_get_host_name' };
-		case 'magic_get_mac_address': return { kind: 'magic_get_mac_address' };
-		case 'magic_get_bookmarks': return { kind: 'magic_get_bookmarks' };
-		case 'magic_create_bookmark': return { kind: 'magic_create_bookmark', parent_id: '', title: '', url: 'https://' };
-		case 'magic_create_bookmark_folder': return { kind: 'magic_create_bookmark_folder', parent_id: '', title: '' };
-		case 'magic_update_bookmark': return { kind: 'magic_update_bookmark', node_id: '' };
-		case 'magic_move_bookmark': return { kind: 'magic_move_bookmark', node_id: '', new_parent_id: '' };
-		case 'magic_remove_bookmark': return { kind: 'magic_remove_bookmark', node_id: '' };
-		case 'magic_bookmark_current_tab': return { kind: 'magic_bookmark_current_tab' };
-		case 'magic_unbookmark_current_tab': return { kind: 'magic_unbookmark_current_tab' };
-		case 'magic_is_current_tab_bookmarked': return { kind: 'magic_is_current_tab_bookmarked' };
-		case 'magic_export_bookmark_state': return { kind: 'magic_export_bookmark_state' };
-		case 'magic_get_managed_cookies': return { kind: 'magic_get_managed_cookies' };
-		case 'magic_export_cookie_state': return { kind: 'magic_export_cookie_state', mode: 'all' };
-		case 'magic_get_managed_extensions': return { kind: 'magic_get_managed_extensions' };
-		case 'magic_trigger_extension_action': return { kind: 'magic_trigger_extension_action', extension_id: '' };
-		case 'magic_close_extension_popup': return { kind: 'magic_close_extension_popup' };
-		case 'magic_toggle_sync_mode': return { kind: 'magic_toggle_sync_mode', role: 'master' };
-		case 'magic_get_sync_mode': return { kind: 'magic_get_sync_mode' };
-		case 'magic_get_is_master': return { kind: 'magic_get_is_master' };
-		case 'magic_get_sync_status': return { kind: 'magic_get_sync_status' };
-		default: return { kind: 'wait', ms: 1000 };
-	}
-}
-
-export function ScriptEditorDialog({ open, script, onOpenChange, onSave, isSaving }: Props) {
+export function ScriptEditorDialog({ open, script, onOpenChange, activeProfiles, onSave, isSaving }: Props) {
 	const {
 		register,
 		control,
@@ -215,7 +62,15 @@ export function ScriptEditorDialog({ open, script, onOpenChange, onSave, isSavin
 		watch,
 		formState: { errors },
 	} = useForm<FormValues>({
-		defaultValues: { name: '', description: '', steps: [] },
+		defaultValues: {
+			name: '',
+			description: '',
+			steps: [],
+			associatedProfileIds: [],
+			aiBaseUrl: '',
+			aiApiKey: '',
+			aiModel: '',
+		},
 	});
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const { fields, append, remove, update } = useFieldArray({ control: control as any, name: 'steps' });
@@ -226,12 +81,30 @@ export function ScriptEditorDialog({ open, script, onOpenChange, onSave, isSavin
 				name: script?.name ?? '',
 				description: script?.description ?? '',
 				steps: (script?.steps ?? []) as StepFormItem[],
+				associatedProfileIds: script?.associatedProfileIds ?? [],
+				aiBaseUrl: script?.aiConfig?.baseUrl ?? '',
+				aiApiKey: script?.aiConfig?.apiKey ?? '',
+				aiModel: script?.aiConfig?.model ?? '',
 			});
 		}
 	}, [open, script, reset]);
 
 	function onSubmit(values: FormValues) {
-		onSave(values.name, values.description, values.steps as ScriptStep[]);
+		const aiConfig: AiProviderConfig | null =
+			values.aiBaseUrl || values.aiApiKey || values.aiModel
+				? {
+						baseUrl: values.aiBaseUrl || undefined,
+						apiKey: values.aiApiKey || undefined,
+						model: values.aiModel || undefined,
+				  }
+				: null;
+		onSave(
+			values.name.trim(),
+			values.description,
+			values.steps as ScriptStep[],
+			values.associatedProfileIds,
+			aiConfig,
+		);
 	}
 
 	function handleAddStep() {
@@ -328,6 +201,61 @@ export function ScriptEditorDialog({ open, script, onOpenChange, onSave, isSavin
 								})}
 							</div>
 						)}
+					</div>
+
+					{/* 关联环境 */}
+					<div>
+						<p className="mb-2 text-sm font-medium">关联环境</p>
+						<p className="mb-2 text-xs text-muted-foreground">运行时自动预选这些环境，未启动时将自动启动</p>
+						{activeProfiles.length === 0 ? (
+							<p className="text-xs text-muted-foreground">暂无活跃环境</p>
+						) : (
+							<div className="space-y-1 max-h-32 overflow-y-auto border border-border/40 rounded-md p-2">
+								<Controller
+									control={control}
+									name="associatedProfileIds"
+									render={({ field }) => (
+										<>
+											{activeProfiles.map((profile) => (
+												<label key={profile.id} className="flex items-center gap-2 cursor-pointer">
+													<Checkbox
+														checked={field.value.includes(profile.id)}
+														onCheckedChange={(checked) => {
+															const newIds = checked
+																? [...field.value, profile.id]
+																: field.value.filter((id) => id !== profile.id);
+															field.onChange(newIds);
+														}}
+														className="cursor-pointer"
+													/>
+													<span className="text-sm">{profile.name}</span>
+												</label>
+											))}
+										</>
+									)}
+								/>
+							</div>
+						)}
+					</div>
+
+					{/* AI 配置 */}
+					<div>
+						<p className="mb-2 text-sm font-medium">AI 配置（可选）</p>
+						<p className="mb-2 text-xs text-muted-foreground">留空则使用全局 AI 配置</p>
+						<div className="space-y-2">
+							<div>
+								<p className="mb-1 text-xs text-muted-foreground">Base URL</p>
+								<Input {...register('aiBaseUrl')} placeholder="https://api.openai.com/v1" />
+							</div>
+							<div>
+								<p className="mb-1 text-xs text-muted-foreground">API Key</p>
+								<Input {...register('aiApiKey')} type="password" placeholder="sk-..." />
+							</div>
+							<div>
+								<p className="mb-1 text-xs text-muted-foreground">模型</p>
+								<Input {...register('aiModel')} placeholder="gpt-4o" />
+							</div>
+						</div>
 					</div>
 				</form>
 
