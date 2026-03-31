@@ -21,7 +21,7 @@ pub fn open_automation_canvas_window(
     }
     let url = format!("/automation/{}/canvas", script_id);
     WebviewWindowBuilder::new(&app, label, WebviewUrl::App(url.into()))
-        .title(format!("画布 — {}", script_name))
+        .title(format!("流程编辑 — {}", script_name))
         .inner_size(1440.0, 900.0)
         .min_inner_size(900.0, 600.0)
         .resizable(true)

@@ -1204,6 +1204,9 @@ pub enum ScriptStep {
         #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType,
         #[serde(skip_serializing_if = "Option::is_none")] timeout_ms: Option<u64>,
     },
+    CdpWaitForPageLoad {
+        #[serde(skip_serializing_if = "Option::is_none")] timeout_ms: Option<u64>,
+    },
     CdpGetText {
         selector: String,
         #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType,
@@ -1248,6 +1251,13 @@ pub struct StepResult {
     pub vars_set: std::collections::HashMap<String, String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptSettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub step_delay_ms: Option<u16>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AutomationScript {
@@ -1259,6 +1269,7 @@ pub struct AutomationScript {
     pub variables_schema_json: Option<String>,
     pub associated_profile_ids: Vec<String>,
     pub ai_config: Option<AiProviderConfig>,
+    pub settings: Option<ScriptSettings>,
     pub created_at: i64,
     pub updated_at: i64,
 }
@@ -1285,6 +1296,7 @@ pub struct CreateAutomationScriptRequest {
     pub steps: Vec<ScriptStep>,
     pub associated_profile_ids: Option<Vec<String>>,
     pub ai_config: Option<AiProviderConfig>,
+    pub settings: Option<ScriptSettings>,
 }
 
 /// AiExtract 输出字段映射
@@ -1347,6 +1359,14 @@ pub struct AutomationHumanRequiredEvent {
 #[serde(rename_all = "camelCase")]
 pub struct AutomationHumanDismissedEvent {
     pub run_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutomationStepErrorPauseEvent {
+    pub run_id: String,
+    pub step_index: usize,
+    pub error_message: String,
 }
 
 /// 运行已取消
