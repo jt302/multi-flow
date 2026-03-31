@@ -35,6 +35,7 @@ type Props = {
 	script: AutomationScript;
 	runs: AutomationRun[];
 	activeProfiles: ProfileItem[];
+	allProfiles?: ProfileItem[];
 	isRunning: boolean;
 	liveStepResults: StepResult[];
 	liveVariables: Record<string, string>;
@@ -81,6 +82,7 @@ export function ScriptDetailPanel({
 	script,
 	runs,
 	activeProfiles,
+	allProfiles = [],
 	isRunning,
 	liveStepResults,
 	liveVariables,
@@ -95,6 +97,8 @@ export function ScriptDetailPanel({
 	const [varsPanelOpen, setVarsPanelOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [runDialogOpen, setRunDialogOpen] = useState(false);
+	const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
+	const [expandedOutputIndex, setExpandedOutputIndex] = useState<number | null>(null);
 	const varEntries = Object.entries(liveVariables);
 
 	const stepResultMap = new Map(liveStepResults.map((r) => [r.index, r]));
@@ -128,7 +132,7 @@ export function ScriptDetailPanel({
 						onClick={() => openAutomationCanvasWindow(script.id, script.name)}
 					>
 						<Network className="h-3.5 w-3.5 mr-1" />
-						画布
+						流程编辑
 					</Button>
 					<Button
 						size="sm"
@@ -186,7 +190,7 @@ export function ScriptDetailPanel({
 								onClick={() => openAutomationCanvasWindow(script.id, script.name)}
 							>
 								<Network className="h-3.5 w-3.5 mr-1.5" />
-								在画布中编排步骤
+								在流程编辑器中编排步骤
 							</Button>
 						</div>
 					) : (
@@ -205,8 +209,14 @@ export function ScriptDetailPanel({
 											</span>
 											<StepSummary step={step} />
 											{result?.output && (
-												<p className="text-xs text-muted-foreground mt-1 truncate">
-													{result.output.slice(0, 120)}
+												<p
+													className="text-xs text-muted-foreground mt-1 truncate cursor-pointer hover:text-foreground"
+													title={result.output}
+													onClick={() => {
+														void navigator.clipboard.writeText(result.output!);
+													}}
+												>
+													{result.output.slice(0, 120)}{result.output.length > 120 ? '…' : ''}
 												</p>
 											)}
 										</div>
@@ -263,20 +273,90 @@ export function ScriptDetailPanel({
 							<p className="px-5 py-3 text-xs text-muted-foreground">暂无运行记录</p>
 						) : (
 							<div className="divide-y">
-								{runs.map((run) => (
-									<div
-										key={run.id}
-										className={`px-5 py-2 flex items-center gap-3 text-xs ${activeRunId === run.id ? 'bg-muted/50' : ''}`}
-									>
-										<RunStatusBadge status={run.status} />
-										<span className="text-muted-foreground">
-											{new Date(run.startedAt * 1000).toLocaleString()}
-										</span>
-										{run.error && (
-											<span className="text-red-500 truncate max-w-40">{run.error}</span>
-										)}
-									</div>
-								))}
+								{runs.map((run, runIdx) => {
+									const isExpanded = expandedRunId === run.id;
+									return (
+										<div key={run.id}>
+											<button
+												type="button"
+												className={[
+													'w-full px-5 py-2 flex items-center gap-3 text-xs text-left cursor-pointer',
+													'hover:bg-muted/30',
+													activeRunId === run.id ? 'bg-muted/50' : '',
+												].join(' ')}
+												onClick={() => {
+													setExpandedRunId(isExpanded ? null : run.id);
+													if (isExpanded) setExpandedOutputIndex(null);
+												}}
+											>
+												<RunStatusBadge status={run.status} />
+												<span className="text-muted-foreground flex-1 min-w-0">
+													{new Date(run.startedAt * 1000).toLocaleString()}
+												</span>
+												{run.error && !isExpanded && (
+													<span className="text-red-500 truncate max-w-40">{run.error}</span>
+												)}
+												{isExpanded
+													? <ChevronUp className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+													: <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+												}
+											</button>
+
+											{isExpanded && (
+												<div className="px-5 pb-3 space-y-2 border-b">
+													{run.error && (
+														<div className="rounded bg-red-50 dark:bg-red-950/20 p-2">
+															<p className="text-xs text-red-500 font-medium mb-0.5">错误信息</p>
+															<p className="text-xs text-red-400 break-all whitespace-pre-wrap">{run.error}</p>
+														</div>
+													)}
+
+													{run.results && run.results.length > 0 ? (
+														<div className="space-y-1">
+															{run.results.map((r, resultIdx) => {
+																const stepDef = run.steps[r.index];
+																const outputKey = runIdx * 100_000 + resultIdx;
+																const isOutputExpanded = expandedOutputIndex === outputKey;
+																return (
+																	<div key={`${run.id}-${r.index}-${resultIdx}`} className="text-xs bg-muted/40 rounded p-1.5 space-y-0.5">
+																		<div className="flex items-center gap-1.5">
+																			<StepStatusIcon status={r.status} />
+																			<span className="font-mono bg-muted px-1 py-0.5 rounded text-xs">
+																				{stepDef?.kind ?? `步骤 ${r.index + 1}`}
+																			</span>
+																			<span className="text-muted-foreground ml-auto flex-shrink-0">{r.durationMs}ms</span>
+																		</div>
+																		{r.output && (
+																			<div>
+																				<p className={`text-muted-foreground break-all ${isOutputExpanded ? 'whitespace-pre-wrap' : 'truncate'}`}>
+																					{isOutputExpanded ? r.output : r.output.slice(0, 200)}
+																				</p>
+																				{r.output.length > 200 && (
+																					<button
+																						type="button"
+																						className="text-blue-500 cursor-pointer text-xs mt-0.5 hover:underline"
+																						onClick={(e) => {
+																							e.stopPropagation();
+																							setExpandedOutputIndex(isOutputExpanded ? null : outputKey);
+																						}}
+																					>
+																						{isOutputExpanded ? '收起' : '展开全部'}
+																					</button>
+																				)}
+																			</div>
+																		)}
+																	</div>
+																);
+															})}
+														</div>
+													) : (
+														<p className="text-xs text-muted-foreground">暂无步骤结果</p>
+													)}
+												</div>
+											)}
+										</div>
+									);
+								})}
 							</div>
 						)}
 					</div>
@@ -308,6 +388,8 @@ export function ScriptDetailPanel({
 				open={runDialogOpen}
 				onOpenChange={setRunDialogOpen}
 				activeProfiles={activeProfiles}
+				allProfiles={allProfiles}
+				associatedProfileIds={script.associatedProfileIds}
 				isRunning={isRunning}
 				disabled={script.steps.length === 0}
 				onRun={onRun}
