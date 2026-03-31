@@ -3,6 +3,20 @@ use serde_json::{json, Value};
 
 use super::app_preference_service::AiProviderConfig;
 
+fn default_base_url(provider: &str) -> &'static str {
+    match provider {
+        "openai" => "https://api.openai.com/v1",
+        "openrouter" => "https://openrouter.ai/api/v1",
+        "deepseek" => "https://api.deepseek.com/v1",
+        "groq" => "https://api.groq.com/openai/v1",
+        "together" => "https://api.together.xyz/v1",
+        "ollama" => "http://localhost:11434/v1",
+        "anthropic" => "https://api.anthropic.com",
+        "gemini" => "https://generativelanguage.googleapis.com",
+        _ => "https://api.openai.com/v1",
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub role: String,
@@ -87,10 +101,21 @@ impl AiService {
         messages: Vec<ChatMessage>,
         response_format: Option<Value>,
     ) -> Result<String, String> {
-        let base_url = config.base_url.as_deref()
-            .unwrap_or("https://api.openai.com/v1")
-            .trim_end_matches('/');
+        let provider = config.provider.as_deref().unwrap_or("openai");
+        let resolved_base = config.base_url.as_deref()
+            .unwrap_or_else(|| default_base_url(provider));
+        let base_url = resolved_base.trim_end_matches('/');
         let api_key = config.api_key.as_deref().unwrap_or("");
+
+        if provider == "anthropic" {
+            let model = config.model.as_deref().unwrap_or("claude-opus-4-5");
+            return self.chat_anthropic(base_url, api_key, model, &messages).await;
+        }
+        if provider == "gemini" {
+            let model = config.model.as_deref().unwrap_or("gemini-2.0-flash");
+            return self.chat_gemini(base_url, api_key, model, &messages).await;
+        }
+
         let model = config.model.as_deref().unwrap_or("gpt-4o");
 
         let mut body = json!({
@@ -122,10 +147,23 @@ impl AiService {
         messages: &[ChatMessage],
         tools: &[Value],
     ) -> Result<AiChatResult, String> {
-        let base_url = config.base_url.as_deref()
-            .unwrap_or("https://api.openai.com/v1")
-            .trim_end_matches('/');
+        let provider = config.provider.as_deref().unwrap_or("openai");
+        let resolved_base = config.base_url.as_deref()
+            .unwrap_or_else(|| default_base_url(provider));
+        let base_url = resolved_base.trim_end_matches('/');
         let api_key = config.api_key.as_deref().unwrap_or("");
+
+        if provider == "anthropic" {
+            let model = config.model.as_deref().unwrap_or("claude-opus-4-5");
+            return self.chat_with_tools_anthropic(base_url, api_key, model, messages, tools).await;
+        }
+        if provider == "gemini" {
+            // Gemini 暂不支持 tool_calls，退回文本
+            let model = config.model.as_deref().unwrap_or("gemini-2.0-flash");
+            let text = self.chat_gemini(base_url, api_key, model, messages).await?;
+            return Ok(AiChatResult::Text(text));
+        }
+
         let model = config.model.as_deref().unwrap_or("gpt-4o");
 
         let body = json!({
@@ -188,6 +226,223 @@ impl AiService {
             return Err(format!("AI API error {status}: {text}"));
         }
         Ok(text)
+    }
+
+    /// Anthropic Messages API 适配器（text only）
+    async fn chat_anthropic(
+        &self,
+        base_url: &str,
+        api_key: &str,
+        model: &str,
+        messages: &[ChatMessage],
+    ) -> Result<String, String> {
+        let system_text: String = messages.iter()
+            .filter(|m| m.role == "system")
+            .map(|m| match &m.content {
+                ChatContent::Text(t) => t.clone(),
+                ChatContent::Parts(parts) => parts.iter()
+                    .filter_map(|p| if let ContentPart::Text { text } = p { Some(text.clone()) } else { None })
+                    .collect::<Vec<_>>().join("\n"),
+            })
+            .collect::<Vec<_>>().join("\n");
+
+        let non_system: Vec<Value> = messages.iter()
+            .filter(|m| m.role != "system")
+            .map(|m| {
+                let role = if m.role == "assistant" { "assistant" } else { "user" };
+                let text = match &m.content {
+                    ChatContent::Text(t) => t.clone(),
+                    ChatContent::Parts(parts) => parts.iter()
+                        .filter_map(|p| if let ContentPart::Text { text } = p { Some(text.clone()) } else { None })
+                        .collect::<Vec<_>>().join("\n"),
+                };
+                json!({"role": role, "content": [{"type": "text", "text": text}]})
+            })
+            .collect();
+
+        let mut body = json!({
+            "model": model,
+            "max_tokens": 4096,
+            "messages": non_system,
+        });
+        if !system_text.is_empty() {
+            body["system"] = json!(system_text);
+        }
+
+        let resp = self.http
+            .post(format!("{base_url}/v1/messages"))
+            .header("Content-Type", "application/json")
+            .header("x-api-key", api_key)
+            .header("anthropic-version", "2023-06-01")
+            .json(&body)
+            .send().await
+            .map_err(|e| format!("Anthropic request failed: {e}"))?;
+
+        let status = resp.status();
+        let text = resp.text().await.map_err(|e| format!("Anthropic read body failed: {e}"))?;
+        if !status.is_success() {
+            return Err(format!("Anthropic API error {status}: {text}"));
+        }
+
+        let parsed: Value = serde_json::from_str(&text)
+            .map_err(|e| format!("Anthropic response parse failed: {e}"))?;
+        let content = parsed.get("content")
+            .and_then(|c| c.as_array())
+            .and_then(|arr| arr.iter().find(|b| b.get("type").and_then(|t| t.as_str()) == Some("text")))
+            .and_then(|b| b.get("text"))
+            .and_then(|t| t.as_str())
+            .unwrap_or("")
+            .to_string();
+        Ok(content)
+    }
+
+    /// Anthropic Messages API 工具调用适配器
+    async fn chat_with_tools_anthropic(
+        &self,
+        base_url: &str,
+        api_key: &str,
+        model: &str,
+        messages: &[ChatMessage],
+        tools: &[Value],
+    ) -> Result<AiChatResult, String> {
+        // 转换 tools: OpenAI format → Anthropic format
+        let anthropic_tools: Vec<Value> = tools.iter().map(|t| {
+            let func = t.get("function").cloned().unwrap_or(json!({}));
+            let name = func.get("name").cloned().unwrap_or(json!(""));
+            let description = func.get("description").cloned().unwrap_or(json!(""));
+            let parameters = func.get("parameters").cloned()
+                .unwrap_or(json!({"type": "object", "properties": {}}));
+            json!({"name": name, "description": description, "input_schema": parameters})
+        }).collect();
+
+        let system_text: String = messages.iter()
+            .filter(|m| m.role == "system")
+            .map(|m| match &m.content { ChatContent::Text(t) => t.clone(), _ => String::new() })
+            .collect::<Vec<_>>().join("\n");
+
+        let non_system: Vec<Value> = messages.iter()
+            .filter(|m| m.role != "system")
+            .map(|m| {
+                let role = if m.role == "assistant" { "assistant" } else { "user" };
+                let text = match &m.content {
+                    ChatContent::Text(t) => t.clone(),
+                    _ => String::new(),
+                };
+                json!({"role": role, "content": [{"type": "text", "text": text}]})
+            }).collect();
+
+        let mut body = json!({
+            "model": model,
+            "max_tokens": 4096,
+            "messages": non_system,
+            "tools": anthropic_tools,
+        });
+        if !system_text.is_empty() {
+            body["system"] = json!(system_text);
+        }
+
+        let resp = self.http
+            .post(format!("{base_url}/v1/messages"))
+            .header("Content-Type", "application/json")
+            .header("x-api-key", api_key)
+            .header("anthropic-version", "2023-06-01")
+            .json(&body)
+            .send().await
+            .map_err(|e| format!("Anthropic request failed: {e}"))?;
+
+        let status = resp.status();
+        let text = resp.text().await.map_err(|e| format!("Anthropic read body failed: {e}"))?;
+        if !status.is_success() {
+            return Err(format!("Anthropic API error {status}: {text}"));
+        }
+
+        let parsed: Value = serde_json::from_str(&text)
+            .map_err(|e| format!("Anthropic response parse failed: {e}"))?;
+
+        let stop_reason = parsed.get("stop_reason").and_then(|v| v.as_str()).unwrap_or("");
+        if stop_reason == "tool_use" {
+            let content_arr = parsed.get("content").and_then(|c| c.as_array())
+                .ok_or_else(|| "Anthropic: no content".to_string())?;
+            let calls: Vec<AiToolCall> = content_arr.iter().filter_map(|block| {
+                if block.get("type")?.as_str()? != "tool_use" { return None; }
+                let id = block.get("id")?.as_str()?.to_string();
+                let name = block.get("name")?.as_str()?.to_string();
+                let arguments = block.get("input")?.clone();
+                let raw = json!({
+                    "id": &id,
+                    "type": "function",
+                    "function": {"name": &name, "arguments": arguments.to_string()}
+                });
+                Some(AiToolCall { id, name, arguments, raw })
+            }).collect();
+            Ok(AiChatResult::ToolCalls(calls))
+        } else {
+            let text_out = parsed.get("content").and_then(|c| c.as_array())
+                .and_then(|arr| arr.iter().find(|b| b.get("type").and_then(|t| t.as_str()) == Some("text")))
+                .and_then(|b| b.get("text")).and_then(|t| t.as_str())
+                .unwrap_or("").to_string();
+            Ok(AiChatResult::Text(text_out))
+        }
+    }
+
+    /// Google Gemini API 适配器
+    async fn chat_gemini(
+        &self,
+        base_url: &str,
+        api_key: &str,
+        model: &str,
+        messages: &[ChatMessage],
+    ) -> Result<String, String> {
+        let system_parts: Vec<String> = messages.iter()
+            .filter(|m| m.role == "system")
+            .map(|m| match &m.content { ChatContent::Text(t) => t.clone(), _ => String::new() })
+            .collect();
+
+        let mut contents: Vec<Value> = Vec::new();
+        if !system_parts.is_empty() {
+            // Gemini 无 system role，注入为首条对话
+            contents.push(json!({"role": "user", "parts": [{"text": system_parts.join("\n")}]}));
+            contents.push(json!({"role": "model", "parts": [{"text": "Understood."}]}));
+        }
+        for m in messages.iter().filter(|m| m.role != "system") {
+            let role = if m.role == "assistant" { "model" } else { "user" };
+            let text = match &m.content {
+                ChatContent::Text(t) => t.clone(),
+                ChatContent::Parts(parts) => parts.iter()
+                    .filter_map(|p| if let ContentPart::Text { text } = p { Some(text.clone()) } else { None })
+                    .collect::<Vec<_>>().join("\n"),
+            };
+            contents.push(json!({"role": role, "parts": [{"text": text}]}));
+        }
+
+        let url = format!(
+            "{}/v1beta/models/{}:generateContent?key={}",
+            base_url.trim_end_matches('/'), model, api_key
+        );
+        let body = json!({"contents": contents});
+
+        let resp = self.http
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send().await
+            .map_err(|e| format!("Gemini request failed: {e}"))?;
+
+        let status = resp.status();
+        let text = resp.text().await.map_err(|e| format!("Gemini read body failed: {e}"))?;
+        if !status.is_success() {
+            return Err(format!("Gemini API error {status}: {text}"));
+        }
+
+        let parsed: Value = serde_json::from_str(&text)
+            .map_err(|e| format!("Gemini response parse failed: {e}"))?;
+        let content = parsed.get("candidates")
+            .and_then(|c| c.as_array()).and_then(|arr| arr.first())
+            .and_then(|c| c.get("content")).and_then(|c| c.get("parts"))
+            .and_then(|p| p.as_array()).and_then(|arr| arr.first())
+            .and_then(|p| p.get("text")).and_then(|t| t.as_str())
+            .unwrap_or("").to_string();
+        Ok(content)
     }
 }
 
