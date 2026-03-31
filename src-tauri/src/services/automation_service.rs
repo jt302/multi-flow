@@ -8,7 +8,7 @@ use crate::db::entities::{automation_run, automation_script};
 use crate::error::{AppError, AppResult};
 use crate::models::{
     now_ts, AutomationRun, AutomationScript, CreateAutomationScriptRequest, ScriptStep,
-    StepResult,
+    ScriptSettings, StepResult,
 };
 use crate::services::app_preference_service::AiProviderConfig;
 
@@ -71,6 +71,11 @@ impl AutomationService {
                     .as_ref()
                     .and_then(|c| serde_json::to_string(c).ok()),
             ),
+            settings_json: Set(
+                req.settings
+                    .as_ref()
+                    .and_then(|s| serde_json::to_string(s).ok()),
+            ),
         };
         let inserted = self.db_query(model.insert(&self.db))?;
         to_api_script(inserted)
@@ -105,6 +110,11 @@ impl AutomationService {
             req.ai_config
                 .as_ref()
                 .and_then(|c| serde_json::to_string(c).ok()),
+        );
+        active.settings_json = Set(
+            req.settings
+                .as_ref()
+                .and_then(|s| serde_json::to_string(s).ok()),
         );
         active.updated_at = Set(now_ts());
         let updated = self.db_query(active.update(&self.db))?;
@@ -245,6 +255,10 @@ fn to_api_script(model: automation_script::Model) -> AppResult<AutomationScript>
         .ai_config_json
         .as_deref()
         .and_then(|s| serde_json::from_str(s).ok());
+    let settings: Option<ScriptSettings> = model
+        .settings_json
+        .as_deref()
+        .and_then(|s| serde_json::from_str(s).ok());
     Ok(AutomationScript {
         id: model.id,
         name: model.name,
@@ -254,6 +268,7 @@ fn to_api_script(model: automation_script::Model) -> AppResult<AutomationScript>
         variables_schema_json: model.variables_schema_json,
         associated_profile_ids,
         ai_config,
+        settings,
         created_at: model.created_at,
         updated_at: model.updated_at,
     })

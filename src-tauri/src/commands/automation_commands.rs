@@ -10,8 +10,9 @@ use crate::logger;
 use crate::models::{
     AiOutputKeyMapping, AutomationHumanDismissedEvent, AutomationHumanRequiredEvent,
     AutomationProgressEvent, AutomationRun, AutomationRunCancelledEvent, AutomationScript,
-    AutomationVariablesUpdatedEvent, CreateAutomationScriptRequest, LoopMode, ScriptStep,
-    SelectorType, StepResult, WaitForUserTimeout,
+    AutomationStepErrorPauseEvent, AutomationVariablesUpdatedEvent,
+    CreateAutomationScriptRequest, LoopMode, ScriptStep, SelectorType, StepResult,
+    WaitForUserTimeout,
 };
 use crate::services::ai_service::{
     build_agent_tools, build_vision_content, extract_json_path,
@@ -97,6 +98,43 @@ fn js_find_element_expr(selector: &str, selector_type: &SelectorType) -> String 
     }
 }
 
+/// 点击元素：先尝试 DOM.getBoxModel，失败后回退到 JS getBoundingClientRect
+async fn click_element(cdp: &CdpClient, selector: &str, selector_type: &SelectorType) -> Result<(), String> {
+    let box_result = async {
+        let node_id = find_element(cdp, selector, selector_type).await?;
+        let bm = cdp.call("DOM.getBoxModel", json!({ "nodeId": node_id })).await?;
+        let content = bm.get("model").and_then(|m| m.get("content")).and_then(|c| c.as_array())
+            .ok_or_else(|| "getBoxModel: no content".to_string())?;
+        let x = (content[0].as_f64().unwrap_or(0.0) + content[2].as_f64().unwrap_or(0.0)) / 2.0;
+        let y = (content[1].as_f64().unwrap_or(0.0) + content[5].as_f64().unwrap_or(0.0)) / 2.0;
+        Ok::<(f64, f64), String>((x, y))
+    }.await;
+
+    let (x, y) = match box_result {
+        Ok(coords) => coords,
+        Err(_) => {
+            let js_expr = js_find_element_expr(selector, selector_type);
+            let expr = format!(
+                "(function(){{ var el = {js_expr}; if(!el) return null; var r = el.getBoundingClientRect(); return {{x: r.x + r.width/2, y: r.y + r.height/2}}; }})()"
+            );
+            let result = cdp.call("Runtime.evaluate", json!({ "expression": expr, "returnByValue": true })).await?;
+            let value = result.get("result").and_then(|r| r.get("value"))
+                .ok_or_else(|| format!("element not found: {selector}"))?;
+            let cx = value.get("x").and_then(|v| v.as_f64())
+                .ok_or_else(|| format!("element has no layout: {selector}"))?;
+            let cy = value.get("y").and_then(|v| v.as_f64())
+                .ok_or_else(|| format!("element has no layout: {selector}"))?;
+            (cx, cy)
+        }
+    };
+
+    for ev in ["mousePressed", "mouseReleased"] {
+        cdp.call("Input.dispatchMouseEvent",
+            json!({ "type": ev, "x": x, "y": y, "button": "left", "clickCount": 1 })).await?;
+    }
+    Ok(())
+}
+
 /// 读取 AI Provider 配置，并应用步骤级 model_override
 fn load_ai_config(
     app: &AppHandle,
@@ -167,16 +205,22 @@ pub async fn run_automation_script(
     profile_id: Option<String>,
     initial_vars: Option<HashMap<String, String>>,
 ) -> Result<String, String> {
-    let (steps, steps_json, script_ai_config, associated_profile_ids) = {
+    let (steps, steps_json, script_ai_config, associated_profile_ids, step_delay_ms) = {
         let svc = state.lock_automation_service();
         let script = svc.get_script(&script_id).map_err(error_to_string)?;
         let steps_json = serde_json::to_string(&script.steps)
             .map_err(|e| format!("serialize steps failed: {e}"))?;
+        let step_delay_ms = script
+            .settings
+            .as_ref()
+            .and_then(|s| s.step_delay_ms)
+            .unwrap_or(0);
         (
             script.steps,
             steps_json,
             script.ai_config,
             script.associated_profile_ids,
+            step_delay_ms,
         )
     };
     let resolved_profile_id = profile_id
@@ -224,6 +268,7 @@ pub async fn run_automation_script(
         steps,
         initial_vars.unwrap_or_default(),
         script_ai_config,
+        step_delay_ms,
     ));
     Ok(run_id)
 }
@@ -237,16 +282,22 @@ pub async fn run_automation_script_debug(
     profile_id: Option<String>,
     initial_vars: Option<HashMap<String, String>>,
 ) -> Result<String, String> {
-    let (steps, steps_json, script_ai_config, associated_profile_ids) = {
+    let (steps, steps_json, script_ai_config, associated_profile_ids, step_delay_ms) = {
         let svc = state.lock_automation_service();
         let script = svc.get_script(&script_id).map_err(error_to_string)?;
         let steps_json = serde_json::to_string(&script.steps)
             .map_err(|e| format!("serialize steps failed: {e}"))?;
+        let step_delay_ms = script
+            .settings
+            .as_ref()
+            .and_then(|s| s.step_delay_ms)
+            .unwrap_or(0);
         (
             script.steps,
             steps_json,
             script.ai_config,
             script.associated_profile_ids,
+            step_delay_ms,
         )
     };
     let resolved_profile_id = profile_id
@@ -311,6 +362,7 @@ pub async fn run_automation_script_debug(
         debug_steps,
         initial_vars.unwrap_or_default(),
         script_ai_config,
+        step_delay_ms,
     ));
     Ok(run_id)
 }
@@ -414,6 +466,7 @@ async fn execute_script(
     steps: Vec<ScriptStep>,
     initial_vars: HashMap<String, String>,
     script_ai_config: Option<AiProviderConfig>,
+    step_delay_ms: u16,
 ) {
     let step_total = steps.len();
     let cdp = debug_port.map(CdpClient::new);
@@ -434,6 +487,7 @@ async fn execute_script(
         &mut results,
         &mut vars,
         script_ai_config.as_ref(),
+        step_delay_ms,
     )
     .await;
 
@@ -485,6 +539,7 @@ fn execute_steps<'a>(
     results: &'a mut Vec<StepResult>,
     vars: &'a mut RunVariables,
     script_ai_config: Option<&'a AiProviderConfig>,
+    step_delay_ms: u16,
 ) -> BoxFuture<'a, FlowSignal> {
     Box::pin(async move {
         for (index, step) in steps.into_iter().enumerate() {
@@ -517,19 +572,21 @@ fn execute_steps<'a>(
                     let is_true = vars.eval_condition(&expr);
                     let branch = if is_true { then_steps.clone() } else { else_steps.clone() };
                     let signal = execute_steps(branch, step_path.clone(), step_total, cdp,
-                        http_client, magic_port, app, run_id, results, vars, script_ai_config).await;
+                        http_client, magic_port, app, run_id, results, vars, script_ai_config, step_delay_ms).await;
                     match signal {
                         FlowSignal::Normal | FlowSignal::Continue => {}
                         FlowSignal::Break | FlowSignal::Error(_) => return signal,
                     }
                     let dur = start.elapsed().as_millis() as u64;
+                    let cond_output = Some(format!("condition={expr}, branch={}", if is_true { "then" } else { "else" }));
                     results.push(StepResult {
                         index: top_index,
                         status: "success".to_string(),
-                        output: Some(format!("condition={expr}, branch={}", if is_true { "then" } else { "else" })),
+                        output: cond_output.clone(),
                         duration_ms: dur,
                         vars_set: HashMap::new(),
                     });
+                    emit_progress(app, run_id, top_index, step_total, "success", cond_output, dur, "running", HashMap::new(), step_path.clone());
                     continue;
                 }
 
@@ -551,7 +608,7 @@ fn execute_steps<'a>(
                         let mut iter_path = step_path.clone();
                         iter_path.push(iteration as usize);
                         let signal = execute_steps(body_steps.clone(), iter_path, step_total, cdp,
-                            http_client, magic_port, app, run_id, results, vars, script_ai_config).await;
+                            http_client, magic_port, app, run_id, results, vars, script_ai_config, step_delay_ms).await;
                         match signal {
                             FlowSignal::Break => break,
                             FlowSignal::Error(e) => return FlowSignal::Error(e),
@@ -560,13 +617,15 @@ fn execute_steps<'a>(
                         iteration += 1;
                     }
                     let dur = start.elapsed().as_millis() as u64;
+                    let loop_output = Some(format!("iterations={iteration}"));
                     results.push(StepResult {
                         index: top_index,
                         status: "success".to_string(),
-                        output: Some(format!("iterations={iteration}")),
+                        output: loop_output.clone(),
                         duration_ms: dur,
                         vars_set: HashMap::new(),
                     });
+                    emit_progress(app, run_id, top_index, step_total, "success", loop_output, dur, "running", HashMap::new(), step_path.clone());
                     continue;
                 }
 
@@ -613,6 +672,9 @@ fn execute_steps<'a>(
                     if path_prefix.is_empty() {
                         persist_run_progress(app, run_id, results, "running", None, None);
                     }
+                    if step_delay_ms > 0 {
+                        tokio::time::sleep(Duration::from_millis(step_delay_ms as u64)).await;
+                    }
                 }
                 Err(err) => {
                     results.push(StepResult {
@@ -624,7 +686,29 @@ fn execute_steps<'a>(
                     });
                     emit_progress(app, run_id, top_index, step_total, "failed", Some(err.clone()), dur, "running", HashMap::new(), step_path);
                     persist_run_progress(app, run_id, results, "running", None, None);
-                    return FlowSignal::Error(err);
+
+                    // 暂停询问用户是否继续
+                    let (tx, rx) = tokio::sync::oneshot::channel::<Option<String>>();
+                    {
+                        let app_state = app.state::<AppState>();
+                        let mut guard = app_state.active_run_channels.lock().unwrap_or_else(|e| e.into_inner());
+                        guard.insert(run_id.to_string(), tx);
+                    }
+                    let _ = app.emit("automation_step_error_pause", AutomationStepErrorPauseEvent {
+                        run_id: run_id.to_string(),
+                        step_index: top_index,
+                        error_message: err.clone(),
+                    });
+                    match rx.await {
+                        Ok(Some(ref s)) if s == "continue" => {
+                            // 用户选择继续，跳过此步骤，继续下一步
+                            continue;
+                        }
+                        _ => {
+                            // 用户选择停止或已取消
+                            return FlowSignal::Error(err);
+                        }
+                    }
                 }
             }
         }
@@ -672,16 +756,7 @@ async fn execute_step(
         ScriptStep::Click { selector, selector_type } => {
             let selector = vars.interpolate(selector);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let node_id = find_element(cdp, &selector, selector_type).await?;
-            let bm = cdp.call("DOM.getBoxModel", json!({ "nodeId": node_id })).await?;
-            let content = bm.get("model").and_then(|m| m.get("content")).and_then(|c| c.as_array())
-                .ok_or_else(|| "getBoxModel: no content".to_string())?;
-            let x = (content[0].as_f64().unwrap_or(0.0) + content[2].as_f64().unwrap_or(0.0)) / 2.0;
-            let y = (content[1].as_f64().unwrap_or(0.0) + content[5].as_f64().unwrap_or(0.0)) / 2.0;
-            for ev in ["mousePressed", "mouseReleased"] {
-                cdp.call("Input.dispatchMouseEvent",
-                    json!({ "type": ev, "x": x, "y": y, "button": "left", "clickCount": 1 })).await?;
-            }
+            click_element(cdp, &selector, selector_type).await?;
             Ok((None, HashMap::new()))
         }
         ScriptStep::Type { selector: _, text, selector_type: _ } => {
@@ -901,16 +976,7 @@ async fn execute_step(
         ScriptStep::CdpClick { selector, selector_type } => {
             let selector = vars.interpolate(selector);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let node_id = find_element(cdp, &selector, selector_type).await?;
-            let bm = cdp.call("DOM.getBoxModel", json!({ "nodeId": node_id })).await?;
-            let content = bm.get("model").and_then(|m| m.get("content")).and_then(|c| c.as_array())
-                .ok_or_else(|| "getBoxModel: no content".to_string())?;
-            let x = (content[0].as_f64().unwrap_or(0.0) + content[2].as_f64().unwrap_or(0.0)) / 2.0;
-            let y = (content[1].as_f64().unwrap_or(0.0) + content[5].as_f64().unwrap_or(0.0)) / 2.0;
-            for ev in ["mousePressed", "mouseReleased"] {
-                cdp.call("Input.dispatchMouseEvent",
-                    json!({ "type": ev, "x": x, "y": y, "button": "left", "clickCount": 1 })).await?;
-            }
+            click_element(cdp, &selector, selector_type).await?;
             Ok((None, HashMap::new()))
         }
         ScriptStep::CdpType { selector, text, selector_type } => {
@@ -948,6 +1014,30 @@ async fn execute_step(
                 if find_element(cdp, &selector, selector_type).await.is_ok() { break; }
                 if Instant::now() >= deadline {
                     return Err(format!("WaitForSelector timeout: {selector}"));
+                }
+                tokio::time::sleep(Duration::from_millis(200)).await;
+            }
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::CdpWaitForPageLoad { timeout_ms } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available (profile not running or no debug port)".to_string())?;
+            let timeout = timeout_ms.unwrap_or(30_000);
+            let deadline = Instant::now() + Duration::from_millis(timeout);
+            loop {
+                let result = cdp.call("Runtime.evaluate", serde_json::json!({
+                    "expression": "document.readyState",
+                    "returnByValue": true
+                })).await;
+                if let Ok(val) = result {
+                    let state = val
+                        .get("result")
+                        .and_then(|r| r.get("value"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+                    if state == "complete" { break; }
+                }
+                if Instant::now() >= deadline {
+                    return Err(format!("CdpWaitForPageLoad: timeout after {timeout}ms, readyState not complete"));
                 }
                 tokio::time::sleep(Duration::from_millis(200)).await;
             }

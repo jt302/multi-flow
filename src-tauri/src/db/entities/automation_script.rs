@@ -14,6 +14,7 @@ pub struct Model {
     pub variables_schema_json: Option<String>,
     pub associated_profile_ids_json: Option<String>,
     pub ai_config_json: Option<String>,
+    pub settings_json: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

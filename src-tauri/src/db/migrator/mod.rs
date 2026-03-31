@@ -22,6 +22,7 @@ mod m20260327_000019_automation_v2;
 mod m20260327_000020_automation_canvas;
 mod m20260327_000021_script_variables_schema;
 mod m20260331_000022_script_profile_and_ai_config;
+mod m20260331_000023_script_settings;
 
 use sea_orm_migration::prelude::*;
 
@@ -55,6 +56,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260327_000020_automation_canvas::Migration),
             Box::new(m20260327_000021_script_variables_schema::Migration),
             Box::new(m20260331_000022_script_profile_and_ai_config::Migration),
+            Box::new(m20260331_000023_script_settings::Migration),
         ]
     }
 }
