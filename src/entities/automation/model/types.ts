@@ -68,6 +68,7 @@ export type ScriptStep =
 	| { kind: 'cdp_type'; selector: string; text: string; selector_type?: SelectorType }
 	| { kind: 'cdp_scroll_to'; selector?: string; selector_type?: SelectorType; x?: number; y?: number }
 	| { kind: 'cdp_wait_for_selector'; selector: string; selector_type?: SelectorType; timeout_ms?: number }
+	| { kind: 'cdp_wait_for_page_load'; timeout_ms?: number }
 	| { kind: 'cdp_get_text'; selector: string; selector_type?: SelectorType; output_key?: string }
 	| { kind: 'cdp_get_attribute'; selector: string; selector_type?: SelectorType; attribute: string; output_key?: string }
 	| { kind: 'cdp_set_input_value'; selector: string; selector_type?: SelectorType; value: string }
@@ -153,6 +154,10 @@ export type ScriptStep =
 
 export type ScriptVarDef = { name: string; defaultValue: string };
 
+export type ScriptSettings = {
+	stepDelayMs?: number;
+};
+
 export type AutomationScript = {
 	id: string;
 	name: string;
@@ -162,6 +167,7 @@ export type AutomationScript = {
 	variablesSchemaJson: string | null;
 	associatedProfileIds: string[];
 	aiConfig: AiProviderConfig | null;
+	settings?: ScriptSettings;
 	createdAt: number;
 	updatedAt: number;
 };
@@ -218,6 +224,12 @@ export type AutomationHumanDismissedEvent = {
 	runId: string;
 };
 
+export type AutomationStepErrorPauseEvent = {
+	runId: string;
+	stepIndex: number;
+	errorMessage: string;
+};
+
 export type AutomationRunCancelledEvent = {
 	runId: string;
 };
@@ -239,4 +251,5 @@ export type CreateAutomationScriptPayload = {
 	steps: ScriptStep[];
 	associatedProfileIds?: string[];
 	aiConfig?: AiProviderConfig | null;
+	settings?: ScriptSettings;
 };

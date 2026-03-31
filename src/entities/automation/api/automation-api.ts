@@ -10,6 +10,7 @@ import type {
 	AutomationRun,
 	AutomationRunCancelledEvent,
 	AutomationScript,
+	AutomationStepErrorPauseEvent,
 	AutomationVariablesUpdatedEvent,
 	CreateAutomationScriptPayload,
 } from '@/entities/automation/model/types';
@@ -86,6 +87,14 @@ export async function listenAutomationHumanDismissed(
 	onEvent: (event: AutomationHumanDismissedEvent) => void,
 ): Promise<() => void> {
 	return listen<AutomationHumanDismissedEvent>('automation_human_dismissed', (event) => {
+		onEvent(event.payload);
+	});
+}
+
+export async function listenAutomationStepErrorPause(
+	onEvent: (event: AutomationStepErrorPauseEvent) => void,
+): Promise<() => void> {
+	return listen<AutomationStepErrorPauseEvent>('automation_step_error_pause', (event) => {
 		onEvent(event.payload);
 	});
 }

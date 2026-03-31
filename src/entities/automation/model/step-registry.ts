@@ -36,6 +36,7 @@ export const STEP_KINDS: StepKindDef[] = [
 	{ value: 'cdp_type', label: 'CDP 输入', group: 'CDP' },
 	{ value: 'cdp_scroll_to', label: 'CDP 滚动', group: 'CDP' },
 	{ value: 'cdp_wait_for_selector', label: 'CDP 等待元素', group: 'CDP' },
+	{ value: 'cdp_wait_for_page_load', label: 'CDP 等待页面加载', group: 'CDP' },
 	{ value: 'cdp_get_text', label: 'CDP 获取文本', group: 'CDP' },
 	{ value: 'cdp_get_attribute', label: 'CDP 获取属性', group: 'CDP' },
 	{ value: 'cdp_set_input_value', label: 'CDP 设置输入值', group: 'CDP' },
@@ -105,7 +106,7 @@ export const KIND_LABELS: Record<string, string> = {
 	ai_prompt: 'AI Prompt', ai_extract: 'AI 提取', ai_agent: 'AI Agent',
 	cdp_navigate: '导航', cdp_reload: '刷新', cdp_evaluate: 'JS 求值',
 	cdp_click: '点击', cdp_type: '输入', cdp_scroll_to: '滚动',
-	cdp_wait_for_selector: '等待元素', cdp_get_text: '获取文本',
+	cdp_wait_for_selector: '等待元素', cdp_wait_for_page_load: '等待页面加载', cdp_get_text: '获取文本',
 	cdp_get_attribute: '获取属性', cdp_set_input_value: '设置输入',
 	cdp_screenshot: '截图',
 	magic_set_bounds: '设置窗口尺寸', magic_get_bounds: '获取窗口尺寸',
@@ -145,7 +146,7 @@ export const KIND_GROUPS: Record<string, string> = {
 	ai_prompt: 'AI', ai_extract: 'AI', ai_agent: 'AI',
 	cdp_navigate: 'CDP', cdp_reload: 'CDP', cdp_evaluate: 'CDP',
 	cdp_click: 'CDP', cdp_type: 'CDP', cdp_scroll_to: 'CDP',
-	cdp_wait_for_selector: 'CDP', cdp_get_text: 'CDP',
+	cdp_wait_for_selector: 'CDP', cdp_wait_for_page_load: 'CDP', cdp_get_text: 'CDP',
 	cdp_get_attribute: 'CDP', cdp_set_input_value: 'CDP', cdp_screenshot: 'CDP',
 	magic_set_bounds: 'Magic', magic_get_bounds: 'Magic',
 	magic_set_maximized: 'Magic', magic_set_minimized: 'Magic',
@@ -200,7 +201,7 @@ export const PALETTE_GROUPS: { label: string; kinds: string[] }[] = [
 	{
 		label: 'CDP',
 		kinds: ['cdp_navigate', 'cdp_reload', 'cdp_click', 'cdp_type', 'cdp_evaluate',
-			'cdp_get_text', 'cdp_wait_for_selector', 'cdp_scroll_to', 'cdp_screenshot'],
+			'cdp_get_text', 'cdp_wait_for_selector', 'cdp_wait_for_page_load', 'cdp_scroll_to', 'cdp_screenshot'],
 	},
 	{ label: '通用', kinds: ['wait', 'wait_for_user'] },
 	{ label: '控制流', kinds: ['condition', 'loop', 'break', 'continue'] },
@@ -241,10 +242,11 @@ export function defaultStep(kind: string): ScriptStep {
 		case 'cdp_type': return { kind: 'cdp_type', selector: '', text: '' };
 		case 'cdp_scroll_to': return { kind: 'cdp_scroll_to' };
 		case 'cdp_wait_for_selector': return { kind: 'cdp_wait_for_selector', selector: '' };
+		case 'cdp_wait_for_page_load': return { kind: 'cdp_wait_for_page_load', timeout_ms: 30000 };
 		case 'cdp_get_text': return { kind: 'cdp_get_text', selector: '' };
 		case 'cdp_get_attribute': return { kind: 'cdp_get_attribute', selector: '', attribute: '' };
 		case 'cdp_set_input_value': return { kind: 'cdp_set_input_value', selector: '', value: '' };
-		case 'cdp_screenshot': return { kind: 'cdp_screenshot' };
+		case 'cdp_screenshot': return { kind: 'cdp_screenshot', output_path: '' };
 		case 'magic_set_bounds': return { kind: 'magic_set_bounds', x: 0, y: 0, width: 1280, height: 800 };
 		case 'magic_get_bounds': return { kind: 'magic_get_bounds' };
 		case 'magic_set_maximized': return { kind: 'magic_set_maximized' };
@@ -298,6 +300,7 @@ export function defaultStep(kind: string): ScriptStep {
 
 export function getStepSummaryText(step: ScriptStep): string {
 	const s = step as Record<string, unknown>;
+	if (step.kind === 'cdp_wait_for_page_load') return `超时 ${String((s['timeout_ms'] ?? 30000))}ms`;
 	if (s['url']) return String(s['url']).slice(0, 40);
 	if (s['prompt']) return String(s['prompt']).slice(0, 40);
 	if (s['expression']) return String(s['expression']).slice(0, 40);
