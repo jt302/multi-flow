@@ -778,7 +778,7 @@ function StepSummary({ step }: { step: AutomationScript['steps'][number] }) {
 		case 'cdp_screenshot':
 			return (
 				<span className="text-muted-foreground">
-					截图{step.output_path ? ` → ${step.output_path}` : ''}
+					截图{step.output_path ? ` → ${step.output_path}` : '（默认目录）'}
 				</span>
 			);
 		case 'magic_set_bounds':

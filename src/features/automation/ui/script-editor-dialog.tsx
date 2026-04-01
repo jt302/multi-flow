@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { GripVertical, Plus, Trash2 } from 'lucide-react';
+import { FolderOpen, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
 
 import type { AiProviderConfig, AiProviderType, AutomationScript, ScriptStep } from '@/entities/automation/model/types';
@@ -61,6 +61,8 @@ export function ScriptEditorDialog({ open, script, onOpenChange, activeProfiles,
 		handleSubmit,
 		reset,
 		watch,
+		getValues,
+		setValue,
 		formState: { errors },
 	} = useForm<FormValues>({
 		defaultValues: {
@@ -117,7 +119,7 @@ export function ScriptEditorDialog({ open, script, onOpenChange, activeProfiles,
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+			<DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
 				<DialogHeader>
 					<DialogTitle>{script ? '编辑脚本' : '新建脚本'}</DialogTitle>
 				</DialogHeader>
@@ -189,7 +191,7 @@ export function ScriptEditorDialog({ open, script, onOpenChange, activeProfiles,
 														))}
 													</SelectContent>
 												</Select>
-												<StepFields index={index} kind={kind} register={register} control={control} watch={watch} />
+												<StepFields index={index} kind={kind} register={register} control={control} watch={watch} getValues={getValues} setValue={setValue} />
 											</div>
 											<Button
 												type="button"
@@ -356,12 +358,16 @@ function StepFields({
 	register,
 	control,
 	watch,
+	getValues,
+	setValue,
 }: {
 	index: number;
 	kind: string;
 	register: ReturnType<typeof useForm<FormValues>>['register'];
 	control: ReturnType<typeof useForm<FormValues>>['control'];
 	watch: ReturnType<typeof useForm<FormValues>>['watch'];
+	getValues: ReturnType<typeof useForm<FormValues>>['getValues'];
+	setValue: ReturnType<typeof useForm<FormValues>>['setValue'];
 }) {
 	function selectorPlaceholder(type?: string): string {
 		switch (type) {
@@ -607,15 +613,37 @@ function StepFields({
 			return (
 				<div className="space-y-1.5">
 					<Input
-						{...register(`steps.${index}.output_key_base64` as `steps.${number}.output_key_base64`)}
-						placeholder="base64 存入变量名（可选）"
+						{...register(`steps.${index}.output_key_file_path` as `steps.${number}.output_key_file_path`)}
+						placeholder="文件路径存入变量名（可选）"
 						className="h-8 text-xs"
 					/>
-					<Input
-						{...register(`steps.${index}.output_path` as `steps.${number}.output_path`)}
-						placeholder="保存文件路径（可选，需绝对路径）"
-						className="h-8 text-xs"
-					/>
+					<div className="flex gap-1">
+						<Input
+							{...register(`steps.${index}.output_path` as `steps.${number}.output_path`)}
+							placeholder="保存路径（留空则自动保存到默认目录）"
+							className="h-8 text-xs flex-1"
+						/>
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							className="h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+							title="选择保存路径"
+							onClick={async () => {
+								const { save } = await import('@tauri-apps/plugin-dialog');
+								const currentPath = getValues(`steps.${index}.output_path` as `steps.${number}.output_path`) as string;
+								const selected = await save({
+									defaultPath: currentPath || 'screenshot.png',
+									filters: [{ name: '图片文件', extensions: ['png', 'jpeg', 'jpg'] }],
+								});
+								if (selected) {
+									setValue(`steps.${index}.output_path` as `steps.${number}.output_path`, selected);
+								}
+							}}
+						>
+							<FolderOpen className="h-3.5 w-3.5" />
+						</Button>
+					</div>
 				</div>
 			);
 		// ── Magic 具名步骤字段 ─────────────────────────────────────────────────────

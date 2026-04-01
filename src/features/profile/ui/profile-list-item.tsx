@@ -618,7 +618,7 @@ export function ProfileListItem({
 			) : null}
 
 			<Dialog open={pluginDialogOpen} onOpenChange={setPluginDialogOpen}>
-				<DialogContent className="max-w-2xl">
+				<DialogContent className="max-w-3xl">
 					<DialogHeader>
 						<DialogTitle>环境插件管理</DialogTitle>
 						<DialogDescription>

@@ -226,7 +226,7 @@ export function AiProviderConfigCard() {
 					if (!open) closeDialog();
 				}}
 			>
-				<DialogContent className="sm:max-w-md">
+				<DialogContent className="sm:max-w-xl">
 					<DialogHeader>
 						<DialogTitle>
 							{editingEntry ? '编辑 AI 配置' : '添加 AI 配置'}
