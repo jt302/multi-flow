@@ -786,9 +786,55 @@ async fn execute_script(
 ) {
     let step_total = steps.len();
     let cdp = debug_port.map(CdpClient::new);
-    let http_client = reqwest::Client::new();
+    let http_client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(5))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new());
     let mut results: Vec<StepResult> = Vec::with_capacity(step_total);
     let mut logs: Vec<crate::models::RunLogEntry> = Vec::new();
+
+    // 等待 Magic Controller 就绪（浏览器冷启动时需要）
+    if let Some(port) = magic_port {
+        let probe_url = format!("http://127.0.0.1:{port}/");
+        let mut ready = false;
+        for attempt in 0..30 {
+            if is_cancelled(&app, &run_id) {
+                break;
+            }
+            match http_client.get(&probe_url).send().await {
+                Ok(_) => {
+                    ready = true;
+                    if attempt > 0 {
+                        logger::info(
+                            "automation",
+                            format!("run={} magic controller ready after {}s", run_id, attempt),
+                        );
+                    }
+                    break;
+                }
+                Err(_) => {
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                }
+            }
+        }
+        if !ready && !is_cancelled(&app, &run_id) {
+            logger::warn(
+                "automation",
+                format!(
+                    "run={} magic controller not ready after 30s, proceeding anyway",
+                    run_id
+                ),
+            );
+        }
+    }
+
+    // 执行前随机延时 1-2 秒
+    {
+        use rand::Rng;
+        let pre_delay = rand::thread_rng().gen_range(1.0..=2.0);
+        tokio::time::sleep(Duration::from_secs_f64(pre_delay)).await;
+    }
+
     logs.push(log_entry(
         "info",
         "flow",
