@@ -836,7 +836,9 @@ function StepSummary({ step }: { step: AutomationScript['steps'][number] }) {
 			);
 		case 'magic_capture_app_shell':
 			return (
-				<span className="text-muted-foreground">{step.mode ?? 'inline'}</span>
+				<span className="text-muted-foreground truncate max-w-48">
+					{step.output_path || '默认路径'}
+				</span>
 			);
 		case 'magic_get_browsers':
 			return <span className="text-muted-foreground">所有浏览器</span>;

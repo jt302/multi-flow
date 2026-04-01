@@ -1229,13 +1229,11 @@ pub enum ScriptStep {
         #[serde(skip_serializing_if = "Option::is_none")] output_key_file_path: Option<String>,
     },
 
-    // 截图（整个 app 壳）
+    // 截图（整个 app 壳）— 始终 mode=file，与 CdpScreenshot 一致
     MagicCaptureAppShell {
         #[serde(skip_serializing_if = "Option::is_none")] browser_id: Option<i64>,
         #[serde(skip_serializing_if = "Option::is_none")] format: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")] mode: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")] output_path: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")] output_key_base64: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")] output_key_file_path: Option<String>,
     },
 }

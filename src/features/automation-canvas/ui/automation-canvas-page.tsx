@@ -539,11 +539,52 @@ function StepPropertiesPanel({
 		fields.push(nf('y', 'Y'));
 		fields.push(nf('width', '宽度'));
 		fields.push(nf('height', '高度'));
+	} else if (kind === 'magic_capture_app_shell') {
+		fields.push(outputKeyField('output_key_file_path', '文件路径变量名'));
+		const appShellPathValue = String(s['output_path'] ?? '');
+		fields.push(
+			<div key="output_path" className="space-y-1">
+				<Label className="text-xs">保存路径</Label>
+				<div className="flex gap-1">
+					<Input
+						value={appShellPathValue}
+						onChange={(e) =>
+							onUpdate({ ...step, output_path: e.target.value } as ScriptStep)
+						}
+						placeholder="留空则自动保存到默认目录"
+						className="h-8 text-xs flex-1"
+					/>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						className="h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+						title="选择保存路径"
+						onClick={async () => {
+							const selected = await saveDialog({
+								defaultPath: appShellPathValue || 'appshell.png',
+								filters: [
+									{ name: '图片文件', extensions: ['png', 'jpeg', 'jpg'] },
+								],
+							});
+							if (selected) {
+								onUpdate({
+									...step,
+									output_path:
+										typeof selected === 'string' ? selected : selected,
+								} as ScriptStep);
+							}
+						}}
+					>
+						<FolderOpen className="h-3.5 w-3.5" />
+					</Button>
+				</div>
+			</div>,
+		);
 	} else if (
 		[
 			'magic_get_browsers',
 			'magic_get_bounds',
-			'magic_capture_app_shell',
 		].includes(kind)
 	) {
 		fields.push(okf());

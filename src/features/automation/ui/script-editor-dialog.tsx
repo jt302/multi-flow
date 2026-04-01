@@ -756,11 +756,40 @@ function StepFields({
 			);
 		case 'magic_capture_app_shell':
 			return (
-				<Input
-					{...register(`steps.${index}.output_key_base64` as `steps.${number}.output_key_base64`)}
-					placeholder="base64 存入变量名（可选）"
-					className="h-8 text-xs"
-				/>
+				<div className="space-y-1.5">
+					<Input
+						{...register(`steps.${index}.output_key_file_path` as `steps.${number}.output_key_file_path`)}
+						placeholder="文件路径存入变量名（可选）"
+						className="h-8 text-xs"
+					/>
+					<div className="flex gap-1">
+						<Input
+							{...register(`steps.${index}.output_path` as `steps.${number}.output_path`)}
+							placeholder="保存路径（留空则自动保存到默认目录）"
+							className="h-8 text-xs flex-1"
+						/>
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							className="h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+							title="选择保存路径"
+							onClick={async () => {
+								const { save } = await import('@tauri-apps/plugin-dialog');
+								const currentPath = getValues(`steps.${index}.output_path` as `steps.${number}.output_path`) as string;
+								const selected = await save({
+									defaultPath: currentPath || 'appshell.png',
+									filters: [{ name: '图片文件', extensions: ['png', 'jpeg', 'jpg'] }],
+								});
+								if (selected) {
+									setValue(`steps.${index}.output_path` as `steps.${number}.output_path`, selected);
+								}
+							}}
+						>
+							<FolderOpen className="h-3.5 w-3.5" />
+						</Button>
+					</div>
+				</div>
 			);
 		case 'magic_get_tabs':
 			return (

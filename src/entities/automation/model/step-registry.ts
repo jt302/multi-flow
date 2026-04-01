@@ -265,7 +265,7 @@ export function defaultStep(kind: string): ScriptStep {
 		case 'magic_close_inactive_tabs': return { kind: 'magic_close_inactive_tabs' };
 		case 'magic_open_new_window': return { kind: 'magic_open_new_window' };
 		case 'magic_type_string': return { kind: 'magic_type_string', text: '' };
-		case 'magic_capture_app_shell': return { kind: 'magic_capture_app_shell', mode: 'inline' };
+		case 'magic_capture_app_shell': return { kind: 'magic_capture_app_shell' };
 		case 'magic_get_browsers': return { kind: 'magic_get_browsers' };
 		case 'magic_get_active_browser': return { kind: 'magic_get_active_browser' };
 		case 'magic_get_tabs': return { kind: 'magic_get_tabs', browser_id: 0 };
