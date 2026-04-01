@@ -952,6 +952,28 @@ impl SelectorType {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ClipboardAction {
+    #[default]
+    Copy,
+    Paste,
+    SelectAll,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TextSource {
+    #[default]
+    Inline,
+    File,
+    Variable,
+}
+
+fn default_one_u32() -> u32 {
+    1
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ScriptStep {
@@ -1012,6 +1034,12 @@ pub enum ScriptStep {
     Break,
     /// 跳到循环下一次迭代
     Continue,
+    /// 打印调试信息到运行日志，支持 {{var}} 插值
+    Print {
+        text: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        level: Option<String>,
+    },
 
     // ── AI 步骤 ───────────────────────────────────────────────────────────────
 
@@ -1230,6 +1258,76 @@ pub enum ScriptStep {
         #[serde(skip_serializing_if = "Option::is_none")] format: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")] output_path: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")] output_key_file_path: Option<String>,
+    },
+
+    // ── CDP 新增步骤 ─────────────────────────────────────────────────────────
+
+    /// 新建标签页，返回 targetId
+    CdpOpenNewTab {
+        url: String,
+        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+    },
+
+    /// 获取所有标签页信息（JSON 数组）
+    CdpGetAllTabs {
+        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+    },
+
+    /// 切换到指定 targetId 的标签页
+    CdpSwitchTab {
+        target_id: String,
+    },
+
+    /// 关闭指定 targetId 的标签页（用 target_id 区别于 MagicCloseTab 的 tab_id）
+    #[serde(rename = "cdp_close_tab")]
+    CdpCloseTabByTarget {
+        target_id: String,
+    },
+
+    /// 浏览器后退，steps 为步数（默认 1）
+    CdpGoBack {
+        #[serde(default = "default_one_u32")]
+        steps: u32,
+    },
+
+    /// 浏览器前进，steps 为步数（默认 1）
+    CdpGoForward {
+        #[serde(default = "default_one_u32")]
+        steps: u32,
+    },
+
+    /// 上传文件到 file input 元素
+    CdpUploadFile {
+        selector: String,
+        #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType,
+        files: Vec<String>,
+    },
+
+    /// 设置浏览器下载目录
+    CdpDownloadFile {
+        download_path: String,
+    },
+
+    /// 剪贴板操作（复制/粘贴/全选）
+    CdpClipboard {
+        #[serde(default)]
+        action: ClipboardAction,
+    },
+
+    CdpExecuteJs {
+        #[serde(skip_serializing_if = "Option::is_none")] expression: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")] file_path: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+    },
+
+    /// 增强文本输入：支持内联、文件、变量三种来源
+    CdpInputText {
+        selector: String,
+        #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType,
+        #[serde(default)] text_source: TextSource,
+        #[serde(skip_serializing_if = "Option::is_none")] text: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")] file_path: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")] var_name: Option<String>,
     },
 }
 

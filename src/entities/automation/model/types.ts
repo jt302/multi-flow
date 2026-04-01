@@ -1,6 +1,8 @@
 export type SelectorType = 'css' | 'xpath' | 'text';
 export type WaitForUserTimeout = 'continue' | 'fail';
 export type LoopMode = 'count' | 'while';
+export type ClipboardAction = 'copy' | 'paste' | 'select_all';
+export type TextSource = 'inline' | 'file' | 'variable';
 
 export type ScriptStep =
 	| { kind: 'navigate'; url: string; output_key?: string }
@@ -35,6 +37,7 @@ export type ScriptStep =
 	  }
 	| { kind: 'break' }
 	| { kind: 'continue' }
+	| { kind: 'print'; text: string; level?: 'info' | 'warn' | 'error' | 'debug' }
 
 	// ── AI 步骤 ───────────────────────────────────────────────────────────────
 	| {
@@ -146,6 +149,27 @@ export type ScriptStep =
 			format?: string;
 			output_path?: string;
 			output_key_file_path?: string;
+	  }
+
+	// ── CDP 新增步骤 ─────────────────────────────────────────────────────────
+	| { kind: 'cdp_open_new_tab'; url: string; output_key?: string }
+	| { kind: 'cdp_get_all_tabs'; output_key?: string }
+	| { kind: 'cdp_switch_tab'; target_id: string }
+	| { kind: 'cdp_close_tab'; target_id: string }
+	| { kind: 'cdp_go_back'; steps?: number }
+	| { kind: 'cdp_go_forward'; steps?: number }
+	| { kind: 'cdp_upload_file'; selector: string; selector_type?: SelectorType; files: string[] }
+	| { kind: 'cdp_download_file'; download_path: string }
+	| { kind: 'cdp_clipboard'; action?: ClipboardAction }
+	| { kind: 'cdp_execute_js'; expression?: string; file_path?: string; output_key?: string }
+	| {
+			kind: 'cdp_input_text';
+			selector: string;
+			selector_type?: SelectorType;
+			text_source?: TextSource;
+			text?: string;
+			file_path?: string;
+			var_name?: string;
 	  };
 
 export type ScriptVarDef = { name: string; defaultValue: string };

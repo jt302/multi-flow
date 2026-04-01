@@ -502,6 +502,31 @@ function StepFields({
 		case 'break':
 		case 'continue':
 			return <p className="text-xs text-muted-foreground">{kind === 'break' ? '跳出当前循环' : '跳到下一次迭代'}</p>;
+		case 'print':
+			return (
+				<div className="space-y-1.5">
+					<Input
+						{...register(`steps.${index}.text` as `steps.${number}.text`)}
+						placeholder="打印内容，支持 {{变量}} 插值"
+						className="h-8 text-xs"
+					/>
+					<Controller
+						control={control}
+						name={`steps.${index}.level` as `steps.${number}.level`}
+						render={({ field }) => (
+							<Select value={field.value ?? 'info'} onValueChange={field.onChange}>
+								<SelectTrigger className="h-8 text-xs cursor-pointer"><SelectValue /></SelectTrigger>
+								<SelectContent>
+									<SelectItem value="info" className="cursor-pointer">info</SelectItem>
+									<SelectItem value="warn" className="cursor-pointer">warn</SelectItem>
+									<SelectItem value="error" className="cursor-pointer">error</SelectItem>
+									<SelectItem value="debug" className="cursor-pointer">debug</SelectItem>
+								</SelectContent>
+							</Select>
+						)}
+					/>
+				</div>
+			);
 
 		// ── AI 步骤字段 ──────────────────────────────────────────────────────────
 		case 'ai_prompt':
@@ -628,6 +653,211 @@ function StepFields({
 							<FolderOpen className="h-3.5 w-3.5" />
 						</Button>
 					</div>
+				</div>
+			);
+		// ── CDP 新增步骤字段 ──────────────────────────────────────────────────────
+		case 'cdp_open_new_tab':
+			return (
+				<div className="space-y-1.5">
+					<Input
+						{...register(`steps.${index}.url` as `steps.${number}.url`)}
+						placeholder="https://example.com"
+						className="h-8 text-xs"
+					/>
+					<Input
+						{...register(`steps.${index}.output_key` as `steps.${number}.output_key`)}
+						placeholder="targetId 存入变量名（可选）"
+						className="h-8 text-xs"
+					/>
+				</div>
+			);
+		case 'cdp_get_all_tabs':
+			return (
+				<Input
+					{...register(`steps.${index}.output_key` as `steps.${number}.output_key`)}
+					placeholder="标签列表JSON存入变量名（可选）"
+					className="h-8 text-xs"
+				/>
+			);
+		case 'cdp_switch_tab':
+			return (
+				<Input
+					{...register(`steps.${index}.target_id` as `steps.${number}.target_id`)}
+					placeholder="Target ID（支持 {{变量}}）"
+					className="h-8 text-xs"
+				/>
+			);
+		case 'cdp_close_tab':
+			return (
+				<Input
+					{...register(`steps.${index}.target_id` as `steps.${number}.target_id`)}
+					placeholder="Target ID（支持 {{变量}}）"
+					className="h-8 text-xs"
+				/>
+			);
+		case 'cdp_go_back':
+		case 'cdp_go_forward':
+			return (
+				<Input
+					type="number"
+					{...register(`steps.${index}.steps` as `steps.${number}.steps`, { valueAsNumber: true })}
+					placeholder="步数（默认 1）"
+					className="h-8 text-xs"
+				/>
+			);
+		case 'cdp_upload_file':
+			return (
+				<div className="space-y-1.5">
+					{selectorField()}
+					<Input
+						{...register(`steps.${index}.files.0` as `steps.${number}.files`)}
+						placeholder="文件路径（支持 {{变量}}）"
+						className="h-8 text-xs"
+					/>
+				</div>
+			);
+		case 'cdp_download_file':
+			return (
+				<div className="flex gap-1">
+					<Input
+						{...register(`steps.${index}.download_path` as `steps.${number}.download_path`)}
+						placeholder="下载目录路径（支持 {{变量}}）"
+						className="h-8 text-xs flex-1"
+					/>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						className="h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+						title="选择下载目录"
+						onClick={async () => {
+							const { open } = await import('@tauri-apps/plugin-dialog');
+							const selected = await open({ directory: true });
+							if (selected) {
+								setValue(`steps.${index}.download_path` as `steps.${number}.download_path`, selected as string);
+							}
+						}}
+					>
+						<FolderOpen className="h-3.5 w-3.5" />
+					</Button>
+				</div>
+			);
+		case 'cdp_clipboard':
+			return (
+				<Controller
+					control={control as unknown as import('react-hook-form').Control}
+					name={`steps.${index}.action` as `steps.${number}.action`}
+					render={({ field }) => (
+						<Select value={field.value as string ?? 'copy'} onValueChange={field.onChange}>
+							<SelectTrigger className="h-8 text-xs">
+								<SelectValue placeholder="选择操作" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="copy">复制 (Copy)</SelectItem>
+								<SelectItem value="paste">粘贴 (Paste)</SelectItem>
+								<SelectItem value="select_all">全选 (Select All)</SelectItem>
+							</SelectContent>
+						</Select>
+					)}
+				/>
+			);
+		case 'cdp_execute_js':
+			return (
+				<div className="space-y-1.5">
+					<Textarea
+						{...register(`steps.${index}.expression` as `steps.${number}.expression`)}
+						placeholder="JS 代码（与文件路径二选一）"
+						className="text-xs font-mono min-h-[60px]"
+					/>
+					<div className="flex gap-1">
+						<Input
+							{...register(`steps.${index}.file_path` as `steps.${number}.file_path`)}
+							placeholder="JS 文件路径（可选）"
+							className="h-8 text-xs flex-1"
+						/>
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							className="h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+							title="选择JS文件"
+							onClick={async () => {
+								const { open } = await import('@tauri-apps/plugin-dialog');
+								const selected = await open({ filters: [{ name: 'JS文件', extensions: ['js', 'mjs'] }] });
+								if (selected) {
+									setValue(`steps.${index}.file_path` as `steps.${number}.file_path`, selected as string);
+								}
+							}}
+						>
+							<FolderOpen className="h-3.5 w-3.5" />
+						</Button>
+					</div>
+					<Input
+						{...register(`steps.${index}.output_key` as `steps.${number}.output_key`)}
+						placeholder="结果存入变量名（可选）"
+						className="h-8 text-xs"
+					/>
+				</div>
+			);
+		case 'cdp_input_text':
+			return (
+				<div className="space-y-1.5">
+					{selectorField()}
+					<Controller
+						control={control as unknown as import('react-hook-form').Control}
+						name={`steps.${index}.text_source` as `steps.${number}.text_source`}
+						render={({ field }) => (
+							<Select value={field.value as string ?? 'inline'} onValueChange={field.onChange}>
+								<SelectTrigger className="h-8 text-xs">
+									<SelectValue placeholder="文本来源" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="inline">直接输入</SelectItem>
+									<SelectItem value="file">从文件读取</SelectItem>
+									<SelectItem value="variable">从变量读取</SelectItem>
+								</SelectContent>
+							</Select>
+						)}
+					/>
+					{(watch(`steps.${index}.text_source` as `steps.${number}.text_source`) as string ?? 'inline') === 'inline' && (
+						<Textarea
+							{...register(`steps.${index}.text` as `steps.${number}.text`)}
+							placeholder="输入文本（支持 {{变量}}）"
+							className="text-xs min-h-[60px]"
+						/>
+					)}
+					{(watch(`steps.${index}.text_source` as `steps.${number}.text_source`) as string) === 'file' && (
+						<div className="flex gap-1">
+							<Input
+								{...register(`steps.${index}.file_path` as `steps.${number}.file_path`)}
+								placeholder="文本文件路径"
+								className="h-8 text-xs flex-1"
+							/>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								className="h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+								title="选择文件"
+								onClick={async () => {
+									const { open } = await import('@tauri-apps/plugin-dialog');
+									const selected = await open({ filters: [{ name: '文本文件', extensions: ['txt', 'md', 'csv'] }] });
+									if (selected) {
+										setValue(`steps.${index}.file_path` as `steps.${number}.file_path`, selected as string);
+									}
+								}}
+							>
+								<FolderOpen className="h-3.5 w-3.5" />
+							</Button>
+						</div>
+					)}
+					{(watch(`steps.${index}.text_source` as `steps.${number}.text_source`) as string) === 'variable' && (
+						<Input
+							{...register(`steps.${index}.var_name` as `steps.${number}.var_name`)}
+							placeholder="变量名（不含 {{}}）"
+							className="h-8 text-xs"
+						/>
+					)}
 				</div>
 			);
 		// ── Magic 具名步骤字段 ─────────────────────────────────────────────────────

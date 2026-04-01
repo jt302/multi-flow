@@ -507,11 +507,194 @@ function StepPropertiesPanel({
 				</div>
 			</div>,
 		);
+	} else if (kind === 'cdp_open_new_tab') {
+		fields.push(tf('url', 'URL'));
+		fields.push(okf());
+	} else if (kind === 'cdp_get_all_tabs') {
+		fields.push(okf());
+	} else if (kind === 'cdp_switch_tab') {
+		fields.push(tf('target_id', 'Target ID（支持 {{变量}}）'));
+	} else if (kind === 'cdp_close_tab') {
+		fields.push(tf('target_id', 'Target ID（支持 {{变量}}）'));
+	} else if (kind === 'cdp_go_back' || kind === 'cdp_go_forward') {
+		fields.push(nf('steps', '步数'));
+	} else if (kind === 'cdp_upload_file') {
+		fields.push(sf());
+		fields.push(tf('files.0', '文件路径（支持 {{变量}}）'));
+	} else if (kind === 'cdp_download_file') {
+		const dlPathValue = String(s['download_path'] ?? '');
+		fields.push(
+			<div key="download_path" className="space-y-1">
+				<Label className="text-xs">下载目录</Label>
+				<div className="flex gap-1">
+					<Input
+						value={dlPathValue}
+						onChange={(e) =>
+							onUpdate({ ...step, download_path: e.target.value } as ScriptStep)
+						}
+						placeholder="选择或输入下载目录"
+						className="h-8 text-xs flex-1"
+					/>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						className="h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+						title="选择目录"
+						onClick={async () => {
+							const { open } = await import('@tauri-apps/plugin-dialog');
+							const selected = await open({ directory: true });
+							if (selected) {
+								onUpdate({ ...step, download_path: selected as string } as ScriptStep);
+							}
+						}}
+					>
+						<FolderOpen className="h-3.5 w-3.5" />
+					</Button>
+				</div>
+			</div>,
+		);
+	} else if (kind === 'cdp_clipboard') {
+		const clipAction = String(s['action'] ?? 'copy');
+		fields.push(
+			<div key="action" className="space-y-1">
+				<Label className="text-xs">操作</Label>
+				<Select
+					value={clipAction}
+					onValueChange={(v) => onUpdate({ ...step, action: v } as ScriptStep)}
+				>
+					<SelectTrigger className="h-8 text-xs">
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="copy">复制 (Copy)</SelectItem>
+						<SelectItem value="paste">粘贴 (Paste)</SelectItem>
+						<SelectItem value="select_all">全选 (Select All)</SelectItem>
+					</SelectContent>
+				</Select>
+			</div>,
+		);
+	} else if (kind === 'cdp_execute_js') {
+		fields.push(tf('expression', 'JS 代码', true));
+		const jsFilePath = String(s['file_path'] ?? '');
+		fields.push(
+			<div key="file_path" className="space-y-1">
+				<Label className="text-xs">JS 文件路径（可选，优先于代码）</Label>
+				<div className="flex gap-1">
+					<Input
+						value={jsFilePath}
+						onChange={(e) =>
+							onUpdate({ ...step, file_path: e.target.value } as ScriptStep)
+						}
+						placeholder="留空则使用上方代码"
+						className="h-8 text-xs flex-1"
+					/>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						className="h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+						title="选择JS文件"
+						onClick={async () => {
+							const { open } = await import('@tauri-apps/plugin-dialog');
+							const selected = await open({ filters: [{ name: 'JS文件', extensions: ['js', 'mjs'] }] });
+							if (selected) {
+								onUpdate({ ...step, file_path: selected as string } as ScriptStep);
+							}
+						}}
+					>
+						<FolderOpen className="h-3.5 w-3.5" />
+					</Button>
+				</div>
+			</div>,
+		);
+		fields.push(okf());
+	} else if (kind === 'cdp_input_text') {
+		fields.push(sf());
+		const textSrc = String(s['text_source'] ?? 'inline');
+		fields.push(
+			<div key="text_source" className="space-y-1">
+				<Label className="text-xs">文本来源</Label>
+				<Select
+					value={textSrc}
+					onValueChange={(v) => onUpdate({ ...step, text_source: v } as ScriptStep)}
+				>
+					<SelectTrigger className="h-8 text-xs">
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="inline">直接输入</SelectItem>
+						<SelectItem value="file">从文件读取</SelectItem>
+						<SelectItem value="variable">从变量读取</SelectItem>
+					</SelectContent>
+				</Select>
+			</div>,
+		);
+		if (textSrc === 'inline') {
+			fields.push(tf('text', '输入文本', true));
+		} else if (textSrc === 'file') {
+			const filePath = String(s['file_path'] ?? '');
+			fields.push(
+				<div key="file_path" className="space-y-1">
+					<Label className="text-xs">文本文件路径</Label>
+					<div className="flex gap-1">
+						<Input
+							value={filePath}
+							onChange={(e) =>
+								onUpdate({ ...step, file_path: e.target.value } as ScriptStep)
+							}
+							placeholder="选择文本文件"
+							className="h-8 text-xs flex-1"
+						/>
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							className="h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+							title="选择文件"
+							onClick={async () => {
+								const { open } = await import('@tauri-apps/plugin-dialog');
+								const selected = await open({ filters: [{ name: '文本文件', extensions: ['txt', 'md', 'csv'] }] });
+								if (selected) {
+									onUpdate({ ...step, file_path: selected as string } as ScriptStep);
+								}
+							}}
+						>
+							<FolderOpen className="h-3.5 w-3.5" />
+						</Button>
+					</div>
+				</div>,
+			);
+		} else if (textSrc === 'variable') {
+			fields.push(tf('var_name', '变量名（不含 {{}}）'));
+		}
 	} else if (kind === 'wait_for_user') {
 		fields.push(tf('message', '提示消息', true));
 		fields.push(tf('input_label', '输入框标签（留空则无输入框）'));
 		fields.push(okf());
 		fields.push(nf('timeout_ms', '超时毫秒数（0=不超时）'));
+	} else if (kind === 'print') {
+		fields.push(tf('text', '打印内容（支持 {{变量}}）', true));
+		const lvl = String(s['level'] ?? 'info');
+		fields.push(
+			<div key="level" className="space-y-1">
+				<Label className="text-xs">日志级别</Label>
+				<Select
+					value={lvl}
+					onValueChange={(v) => onUpdate({ ...step, level: v } as ScriptStep)}
+				>
+					<SelectTrigger className="h-8 text-xs cursor-pointer">
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="info" className="cursor-pointer">info</SelectItem>
+						<SelectItem value="warn" className="cursor-pointer">warn</SelectItem>
+						<SelectItem value="error" className="cursor-pointer">error</SelectItem>
+						<SelectItem value="debug" className="cursor-pointer">debug</SelectItem>
+					</SelectContent>
+				</Select>
+			</div>,
+		);
 	} else if (kind === 'condition') {
 		fields.push(tf('condition_expr', '条件表达式'));
 	} else if (kind === 'loop') {
@@ -1119,17 +1302,26 @@ function InnerCanvas({
 								const ti = parseInt(e.target.replace('step-', ''), 10);
 								const sShift = sortedRemoved.filter((ri) => ri < si).length;
 								const tShift = sortedRemoved.filter((ri) => ri < ti).length;
+								const newSi = sShift > 0 ? si - sShift : si;
+								const newTi = tShift > 0 ? ti - tShift : ti;
+								// 同步更新 id，保持 id 与 source/target 一致，避免 React Flow 内部状态不一致
 								return {
 									...e,
-									source: sShift > 0 ? `step-${si - sShift}` : e.source,
-									target: tShift > 0 ? `step-${ti - tShift}` : e.target,
+									id: `e-${newSi}-${newTi}`,
+									source: `step-${newSi}`,
+									target: `step-${newTi}`,
 								};
 							});
 						edgesRef.current = remapped;
 						// 清理并重映射 positions
 						const newPos = { ...positionsRef.current };
 						for (const idx of removedIndices) delete newPos[`step-${idx}`];
-						for (let j = steps.length - 1; j >= 0; j--) {
+						// 用 positionsRef 中现有的 key 遍历，避免闭包中 steps.length 过时
+						const existingKeys = Object.keys(newPos)
+							.map((k) => parseInt(k.replace('step-', ''), 10))
+							.filter((n) => !isNaN(n))
+							.sort((a, b) => b - a); // 从大到小，防止覆盖
+						for (const j of existingKeys) {
 							const shift = sortedRemoved.filter((ri) => ri < j).length;
 							if (shift > 0 && newPos[`step-${j}`]) {
 								newPos[`step-${j - shift}`] = newPos[`step-${j}`];
@@ -1318,10 +1510,14 @@ function InnerCanvas({
 					.map((e) => {
 						const si = parseInt(e.source.replace('step-', ''), 10);
 						const ti = parseInt(e.target.replace('step-', ''), 10);
+						const newSi = si > index ? si - 1 : si;
+						const newTi = ti > index ? ti - 1 : ti;
+						// 同步更新 id，保持 id 与 source/target 一致
 						return {
 							...e,
-							source: si > index ? `step-${si - 1}` : e.source,
-							target: ti > index ? `step-${ti - 1}` : e.target,
+							id: `e-${newSi}-${newTi}`,
+							source: `step-${newSi}`,
+							target: `step-${newTi}`,
 						};
 					});
 				edgesRef.current = remapped;

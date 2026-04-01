@@ -23,6 +23,7 @@ export const STEP_KINDS: StepKindDef[] = [
 	{ value: 'loop', label: '循环 loop', group: '控制流' },
 	{ value: 'break', label: '跳出循环 break', group: '控制流' },
 	{ value: 'continue', label: '继续下一轮 continue', group: '控制流' },
+	{ value: 'print', label: '打印日志 print', group: '调试' },
 	// AI 步骤
 	{ value: 'ai_prompt', label: 'AI 文本/视觉 Prompt', group: 'AI' },
 	{ value: 'ai_extract', label: 'AI 结构化提取', group: 'AI' },
@@ -39,6 +40,17 @@ export const STEP_KINDS: StepKindDef[] = [
 	{ value: 'cdp_get_attribute', label: 'CDP 获取属性', group: 'CDP' },
 	{ value: 'cdp_set_input_value', label: 'CDP 设置输入值', group: 'CDP' },
 	{ value: 'cdp_screenshot', label: 'CDP 截图(增强)', group: 'CDP' },
+	{ value: 'cdp_open_new_tab', label: 'CDP 新建标签页', group: 'CDP' },
+	{ value: 'cdp_get_all_tabs', label: 'CDP 获取所有标签', group: 'CDP' },
+	{ value: 'cdp_switch_tab', label: 'CDP 切换标签', group: 'CDP' },
+	{ value: 'cdp_close_tab', label: 'CDP 关闭标签', group: 'CDP' },
+	{ value: 'cdp_go_back', label: 'CDP 后退', group: 'CDP' },
+	{ value: 'cdp_go_forward', label: 'CDP 前进', group: 'CDP' },
+	{ value: 'cdp_upload_file', label: 'CDP 上传文件', group: 'CDP' },
+	{ value: 'cdp_download_file', label: 'CDP 设置下载路径', group: 'CDP' },
+	{ value: 'cdp_clipboard', label: 'CDP 剪贴板操作', group: 'CDP' },
+	{ value: 'cdp_execute_js', label: 'CDP 执行JS脚本', group: 'CDP' },
+	{ value: 'cdp_input_text', label: 'CDP 文本输入(增强)', group: 'CDP' },
 	// 窗口外观
 	{ value: 'magic_set_bounds', label: '设置窗口位置大小', group: '窗口外观' },
 	{ value: 'magic_get_bounds', label: '获取窗口位置大小', group: '窗口外观' },
@@ -100,13 +112,19 @@ export const KIND_LABELS: Record<string, string> = {
 	navigate: '导航', wait: '等待', click: '点击',
 	type: '输入', screenshot: '截图', magic: 'Magic', cdp: 'CDP 原始',
 	wait_for_user: '等待人工', condition: '条件分支', loop: '循环',
-	break: 'Break', continue: 'Continue',
+	break: 'Break', continue: 'Continue', print: '打印',
 	ai_prompt: 'AI Prompt', ai_extract: 'AI 提取', ai_agent: 'AI Agent',
 	cdp_navigate: '导航', cdp_reload: '刷新',
 	cdp_click: '点击', cdp_type: '输入', cdp_scroll_to: '滚动',
 	cdp_wait_for_selector: '等待元素', cdp_wait_for_page_load: '等待页面加载', cdp_get_text: '获取文本',
 	cdp_get_attribute: '获取属性', cdp_set_input_value: '设置输入',
 	cdp_screenshot: '截图',
+	cdp_open_new_tab: '新建标签', cdp_get_all_tabs: '获取标签',
+	cdp_switch_tab: '切换标签', cdp_close_tab: '关闭标签',
+	cdp_go_back: '后退', cdp_go_forward: '前进',
+	cdp_upload_file: '上传文件', cdp_download_file: '设置下载',
+	cdp_clipboard: '剪贴板', cdp_execute_js: '执行JS',
+	cdp_input_text: '输入文本(增强)',
 	magic_set_bounds: '设置窗口尺寸', magic_get_bounds: '获取窗口尺寸',
 	magic_set_maximized: '最大化', magic_set_minimized: '最小化',
 	magic_set_closed: '关闭窗口', magic_set_restored: '还原窗口',
@@ -140,12 +158,17 @@ export const KIND_GROUPS: Record<string, string> = {
 	navigate: 'CDP', wait: '通用', click: 'CDP',
 	type: 'CDP', screenshot: 'CDP', magic: 'Magic', cdp: 'CDP',
 	wait_for_user: '人工介入', condition: '控制流', loop: '控制流',
-	break: '控制流', continue: '控制流',
+	break: '控制流', continue: '控制流', print: '调试',
 	ai_prompt: 'AI', ai_extract: 'AI', ai_agent: 'AI',
 	cdp_navigate: 'CDP', cdp_reload: 'CDP',
 	cdp_click: 'CDP', cdp_type: 'CDP', cdp_scroll_to: 'CDP',
 	cdp_wait_for_selector: 'CDP', cdp_wait_for_page_load: 'CDP', cdp_get_text: 'CDP',
 	cdp_get_attribute: 'CDP', cdp_set_input_value: 'CDP', cdp_screenshot: 'CDP',
+	cdp_open_new_tab: 'CDP', cdp_get_all_tabs: 'CDP',
+	cdp_switch_tab: 'CDP', cdp_close_tab: 'CDP',
+	cdp_go_back: 'CDP', cdp_go_forward: 'CDP',
+	cdp_upload_file: 'CDP', cdp_download_file: 'CDP',
+	cdp_clipboard: 'CDP', cdp_execute_js: 'CDP', cdp_input_text: 'CDP',
 	magic_set_bounds: 'Magic', magic_get_bounds: 'Magic',
 	magic_set_maximized: 'Magic', magic_set_minimized: 'Magic',
 	magic_set_closed: 'Magic', magic_set_restored: 'Magic',
@@ -182,6 +205,7 @@ export const GROUP_COLORS: Record<string, string> = {
 	控制流: 'bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-300',
 	人工介入: 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300',
 	通用: 'bg-muted border-border text-muted-foreground',
+	调试: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-700 dark:text-cyan-300',
 };
 
 export const PALETTE_DOT_COLORS: Record<string, string> = {
@@ -191,6 +215,7 @@ export const PALETTE_DOT_COLORS: Record<string, string> = {
 	控制流: 'bg-green-500',
 	人工介入: 'bg-amber-500',
 	通用: 'bg-muted-foreground/50',
+	调试: 'bg-cyan-500',
 };
 
 // ─── Canvas 拖拽面板分组 ──────────────────────────────────────────────────────
@@ -199,9 +224,13 @@ export const PALETTE_GROUPS: { label: string; kinds: string[] }[] = [
 	{
 		label: 'CDP',
 		kinds: ['cdp_navigate', 'cdp_reload', 'cdp_click', 'cdp_type',
-			'cdp_get_text', 'cdp_wait_for_selector', 'cdp_wait_for_page_load', 'cdp_scroll_to', 'cdp_screenshot'],
+			'cdp_get_text', 'cdp_wait_for_selector', 'cdp_wait_for_page_load', 'cdp_scroll_to', 'cdp_screenshot',
+			'cdp_open_new_tab', 'cdp_get_all_tabs', 'cdp_switch_tab', 'cdp_close_tab',
+			'cdp_go_back', 'cdp_go_forward', 'cdp_upload_file', 'cdp_download_file',
+			'cdp_clipboard', 'cdp_execute_js', 'cdp_input_text'],
 	},
 	{ label: '通用', kinds: ['wait', 'wait_for_user'] },
+	{ label: '调试', kinds: ['print'] },
 	{ label: '控制流', kinds: ['condition', 'loop', 'break', 'continue'] },
 	{ label: 'AI', kinds: ['ai_prompt', 'ai_extract', 'ai_agent'] },
 	{
@@ -229,6 +258,7 @@ export function defaultStep(kind: string): ScriptStep {
 		case 'loop': return { kind: 'loop', mode: 'count', count: 3, body_steps: [] };
 		case 'break': return { kind: 'break' };
 		case 'continue': return { kind: 'continue' };
+		case 'print': return { kind: 'print', text: '', level: 'info' };
 		case 'ai_prompt': return { kind: 'ai_prompt', prompt: '' };
 		case 'ai_extract': return { kind: 'ai_extract', prompt: '', output_key_map: [{ jsonPath: '', varName: '' }] };
 		case 'ai_agent': return { kind: 'ai_agent', system_prompt: '', initial_message: '', max_steps: 10 };
@@ -243,6 +273,17 @@ export function defaultStep(kind: string): ScriptStep {
 		case 'cdp_get_attribute': return { kind: 'cdp_get_attribute', selector: '', attribute: '' };
 		case 'cdp_set_input_value': return { kind: 'cdp_set_input_value', selector: '', value: '' };
 		case 'cdp_screenshot': return { kind: 'cdp_screenshot', output_path: '' };
+		case 'cdp_open_new_tab': return { kind: 'cdp_open_new_tab', url: 'https://' };
+		case 'cdp_get_all_tabs': return { kind: 'cdp_get_all_tabs' };
+		case 'cdp_switch_tab': return { kind: 'cdp_switch_tab', target_id: '' };
+		case 'cdp_close_tab': return { kind: 'cdp_close_tab', target_id: '' };
+		case 'cdp_go_back': return { kind: 'cdp_go_back', steps: 1 };
+		case 'cdp_go_forward': return { kind: 'cdp_go_forward', steps: 1 };
+		case 'cdp_upload_file': return { kind: 'cdp_upload_file', selector: '', files: [''] };
+		case 'cdp_download_file': return { kind: 'cdp_download_file', download_path: '' };
+		case 'cdp_clipboard': return { kind: 'cdp_clipboard', action: 'copy' };
+		case 'cdp_execute_js': return { kind: 'cdp_execute_js', expression: '' };
+		case 'cdp_input_text': return { kind: 'cdp_input_text', selector: '', text_source: 'inline', text: '' };
 		case 'magic_set_bounds': return { kind: 'magic_set_bounds', x: 0, y: 0, width: 1280, height: 800 };
 		case 'magic_get_bounds': return { kind: 'magic_get_bounds' };
 		case 'magic_set_maximized': return { kind: 'magic_set_maximized' };
@@ -297,6 +338,12 @@ export function defaultStep(kind: string): ScriptStep {
 export function getStepSummaryText(step: ScriptStep): string {
 	const s = step as Record<string, unknown>;
 	if (step.kind === 'cdp_wait_for_page_load') return `超时 ${String((s['timeout_ms'] ?? 30000))}ms`;
+	if (step.kind === 'cdp_go_back' || step.kind === 'cdp_go_forward') return `${String(s['steps'] ?? 1)} 步`;
+	if (step.kind === 'cdp_clipboard') return String(s['action'] ?? 'copy');
+	if (step.kind === 'cdp_input_text') return String(s['text_source'] ?? 'inline');
+	if (step.kind === 'cdp_download_file') return String(s['download_path'] ?? '').slice(0, 40);
+	if (step.kind === 'cdp_execute_js') return (String(s['file_path'] ?? '') || String(s['expression'] ?? '')).slice(0, 40);
+	if (step.kind === 'print') return String(s['text'] ?? '').slice(0, 40) || '(空)';
 	if (s['url']) return String(s['url']).slice(0, 40);
 	if (s['prompt']) return String(s['prompt']).slice(0, 40);
 	if (s['expression']) return String(s['expression']).slice(0, 40);
