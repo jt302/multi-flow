@@ -50,53 +50,34 @@ async fn find_element_by_css(cdp: &CdpClient, selector: &str) -> Result<i64, Str
     Ok(node_id)
 }
 
-/// XPath 查找元素
+/// XPath 查找元素：通过 Runtime.evaluate + JS XPath，无需 DOM.enable
 async fn find_element_by_xpath(cdp: &CdpClient, xpath: &str) -> Result<i64, String> {
-    let search = cdp
-        .call("DOM.performSearch", json!({ "query": xpath }))
-        .await?;
-    let search_id = search
-        .get("searchId")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| "DOM.performSearch: no searchId".to_string())?
-        .to_string();
-    let count = search
-        .get("resultCount")
-        .and_then(|v| v.as_i64())
-        .unwrap_or(0);
-    if count == 0 {
-        let _ = cdp
-            .call(
-                "DOM.discardSearchResults",
-                json!({ "searchId": &search_id }),
-            )
-            .await;
-        return Err(format!("element not found (xpath): {xpath}"));
-    }
-    let results = cdp
+    // 用 JS XPath 查找元素是否存在，返回一个伪 nodeId（1 表示找到）
+    // 对于后续操作，调用者应使用 js_find_element_expr 生成 JS 而非直接用 nodeId
+    let xpath_json = serde_json::to_string(xpath).unwrap_or_default();
+    let expr = format!(
+        "(function(){{ \
+            var r = document.evaluate({xpath_json}, document, null, \
+                XPathResult.FIRST_ORDERED_NODE_TYPE, null); \
+            return r.singleNodeValue != null; \
+        }})()"
+    );
+    let result = cdp
         .call(
-            "DOM.getSearchResults",
-            json!({
-                "searchId": &search_id, "fromIndex": 0, "toIndex": 1
-            }),
+            "Runtime.evaluate",
+            json!({ "expression": expr, "returnByValue": true }),
         )
         .await?;
-    let _ = cdp
-        .call(
-            "DOM.discardSearchResults",
-            json!({ "searchId": &search_id }),
-        )
-        .await;
-    let node_id = results
-        .get("nodeIds")
-        .and_then(|v| v.as_array())
-        .and_then(|arr| arr.first())
-        .and_then(|v| v.as_i64())
-        .ok_or_else(|| format!("element not found (xpath): {xpath}"))?;
-    if node_id == 0 {
+    let found = result
+        .get("result")
+        .and_then(|r| r.get("value"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    if !found {
         return Err(format!("element not found (xpath): {xpath}"));
     }
-    Ok(node_id)
+    // 返回伪 nodeId=1，调用者仅用于 exists 检查或需通过 js_find_element_expr 操作元素
+    Ok(1)
 }
 
 /// 文本内容匹配查找元素
@@ -137,6 +118,41 @@ fn js_find_element_expr(selector: &str, selector_type: &SelectorType) -> String 
             )
         }
     }
+}
+
+/// 通过 Runtime.evaluate + JS 聚焦元素（无需 DOM.enable，跨 session 安全）
+async fn focus_element_js(
+    cdp: &CdpClient,
+    selector: &str,
+    selector_type: &SelectorType,
+) -> Result<(), String> {
+    let js_expr = js_find_element_expr(selector, selector_type);
+    let sel_esc = selector.replace('"', "\\\"");
+    let expr = format!(
+        r#"(function(){{
+            var el = {js_expr};
+            if (!el) throw new Error('element not found: "{sel_esc}"');
+            el.focus();
+            return true;
+        }})()"#
+    );
+    let result = cdp
+        .call(
+            "Runtime.evaluate",
+            json!({ "expression": expr, "returnByValue": true }),
+        )
+        .await
+        .map_err(|e| format!("focus element failed: {e}"))?;
+    // 检查是否有异常
+    if let Some(exc) = result.get("exceptionDetails") {
+        let msg = exc
+            .get("exception")
+            .and_then(|e| e.get("description"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown error");
+        return Err(format!("focus element failed: {msg}"));
+    }
+    Ok(())
 }
 
 /// 点击元素：先尝试 DOM.getBoxModel，失败后回退到 JS getBoundingClientRect
@@ -1365,6 +1381,12 @@ async fn execute_step(
             tokio::time::sleep(Duration::from_millis(*ms)).await;
             Ok((None, HashMap::new()))
         }
+        ScriptStep::Print { text, level } => {
+            let text = vars.interpolate(text);
+            let lvl = level.as_deref().unwrap_or("info");
+            logs.push(log_entry(lvl, "step", format!("[Print] {}", text), None));
+            Ok((Some(text), HashMap::new()))
+        }
         ScriptStep::Click {
             selector,
             selector_type,
@@ -1788,15 +1810,9 @@ async fn execute_step(
             let selector = vars.interpolate(selector);
             let text = vars.interpolate(text);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let node_id = find_element(cdp, &selector, selector_type).await?;
-            cdp.call("DOM.focus", json!({ "nodeId": node_id })).await?;
-            for ch in text.chars() {
-                cdp.call(
-                    "Input.dispatchKeyEvent",
-                    json!({ "type": "char", "text": ch.to_string() }),
-                )
+            focus_element_js(cdp, &selector, selector_type).await?;
+            cdp.call("Input.insertText", json!({ "text": text }))
                 .await?;
-            }
             Ok((None, HashMap::new()))
         }
         ScriptStep::CdpScrollTo {
@@ -1808,8 +1824,11 @@ async fn execute_step(
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
             if let Some(sel) = selector {
                 let sel = vars.interpolate(sel);
-                let node_id = find_element(cdp, &sel, selector_type).await?;
-                cdp.call("DOM.scrollIntoViewIfNeeded", json!({ "nodeId": node_id }))
+                let js_expr = js_find_element_expr(&sel, selector_type);
+                let expr = format!(
+                    "(function(){{ var el = {js_expr}; if (el) el.scrollIntoView({{block:'center'}}); }})()"
+                );
+                cdp.call("Runtime.evaluate", json!({ "expression": expr }))
                     .await?;
             } else {
                 let sx = x.unwrap_or(0);
@@ -1944,24 +1963,26 @@ async fn execute_step(
         } => {
             let selector = vars.interpolate(selector);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let node_id = find_element(cdp, &selector, selector_type).await?;
+            let js_expr = js_find_element_expr(&selector, selector_type);
+            let sel_esc = selector.replace('"', "\\\"");
+            let expr = format!(
+                r#"(function(){{
+                    var el = {js_expr};
+                    if (!el) throw new Error('element not found: "{sel_esc}"');
+                    return el.innerText !== undefined ? el.innerText : (el.textContent || '');
+                }})()"#
+            );
             let result = cdp
-                .call("DOM.getOuterHTML", json!({ "nodeId": node_id }))
+                .call(
+                    "Runtime.evaluate",
+                    json!({ "expression": expr, "returnByValue": true }),
+                )
                 .await?;
-            let html = result
-                .get("outerHTML")
+            let text = result
+                .get("result")
+                .and_then(|r| r.get("value"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
-                .to_string();
-            // 简单剥离标签
-            let text = html
-                .replace(|c: char| c == '<', " <")
-                .split('<')
-                .filter(|s| !s.starts_with('/') && !s.is_empty())
-                .flat_map(|s| s.splitn(2, '>').nth(1))
-                .collect::<Vec<_>>()
-                .join("")
-                .trim()
                 .to_string();
             let mut vs = HashMap::new();
             if let Some(k) = output_key {
@@ -1978,21 +1999,29 @@ async fn execute_step(
             let selector = vars.interpolate(selector);
             let attribute = vars.interpolate(attribute);
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let node_id = find_element(cdp, &selector, selector_type).await?;
+            let js_expr = js_find_element_expr(&selector, selector_type);
+            let sel_esc = selector.replace('"', "\\\"");
+            let attr_json = serde_json::to_string(&attribute).unwrap_or_default();
+            let expr = format!(
+                r#"(function(){{
+                    var el = {js_expr};
+                    if (!el) throw new Error('element not found: "{sel_esc}"');
+                    var v = el.getAttribute({attr_json});
+                    return v !== null ? v : '';
+                }})()"#
+            );
             let result = cdp
-                .call("DOM.getAttributes", json!({ "nodeId": node_id }))
+                .call(
+                    "Runtime.evaluate",
+                    json!({ "expression": expr, "returnByValue": true }),
+                )
                 .await?;
-            let attrs = result
-                .get("attributes")
-                .and_then(|a| a.as_array())
-                .cloned()
-                .unwrap_or_default();
-            let value = attrs
-                .chunks(2)
-                .find(|pair| pair[0].as_str() == Some(&attribute))
-                .and_then(|pair| pair[1].as_str())
-                .map(|s| s.to_string());
-            let value_str = value.unwrap_or_default();
+            let value_str = result
+                .get("result")
+                .and_then(|r| r.get("value"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             let mut vs = HashMap::new();
             if let Some(k) = output_key {
                 vs.insert(k.clone(), value_str.clone());
@@ -2555,6 +2584,270 @@ async fn execute_step(
                 vs.insert(k.clone(), path_str.clone());
             }
             Ok((Some(path_str), vs))
+        }
+
+        // ── CDP 新增步骤 ─────────────────────────────────────────────────────
+        ScriptStep::CdpOpenNewTab { url, output_key } => {
+            let url = vars.interpolate(url);
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let result = cdp
+                .call_browser("Target.createTarget", json!({ "url": url }))
+                .await?;
+            let target_id = result
+                .get("targetId")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), target_id.clone());
+            }
+            Ok((Some(target_id), vs))
+        }
+
+        ScriptStep::CdpGetAllTabs { output_key } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let result = cdp.call_browser("Target.getTargets", json!({})).await?;
+            let tabs_json = serde_json::to_string(
+                result
+                    .get("targetInfos")
+                    .unwrap_or(&serde_json::Value::Array(vec![])),
+            )
+            .unwrap_or_default();
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), tabs_json.clone());
+            }
+            Ok((Some(tabs_json), vs))
+        }
+
+        ScriptStep::CdpSwitchTab { target_id } => {
+            let target_id = vars.interpolate(target_id);
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            cdp.call_browser("Target.activateTarget", json!({ "targetId": target_id }))
+                .await?;
+            Ok((None, HashMap::new()))
+        }
+
+        ScriptStep::CdpCloseTabByTarget { target_id } => {
+            let target_id = vars.interpolate(target_id);
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            cdp.call_browser("Target.closeTarget", json!({ "targetId": target_id }))
+                .await?;
+            Ok((None, HashMap::new()))
+        }
+
+        ScriptStep::CdpGoBack { steps } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let n = -(*steps as i32);
+            cdp.call(
+                "Runtime.evaluate",
+                json!({ "expression": format!("history.go({})", n), "returnByValue": false }),
+            )
+            .await?;
+            Ok((None, HashMap::new()))
+        }
+
+        ScriptStep::CdpGoForward { steps } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            cdp.call(
+                "Runtime.evaluate",
+                json!({ "expression": format!("history.go({})", steps), "returnByValue": false }),
+            )
+            .await?;
+            Ok((None, HashMap::new()))
+        }
+
+        ScriptStep::CdpUploadFile {
+            selector,
+            selector_type,
+            files,
+        } => {
+            let selector = vars.interpolate(selector);
+            let files: Vec<String> = files.iter().map(|f| vars.interpolate(f)).collect();
+            // 验证文件存在
+            for f in &files {
+                if !std::path::Path::new(f).exists() {
+                    return Err(format!("CdpUploadFile: file not found: {f}"));
+                }
+            }
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            // DOM.setFileInputFiles 需要同一 session 内先启用 DOM agent
+            // Chrome 中文档根节点的 nodeId 固定为 1，可直接用于 querySelector
+            let css_selector = match selector_type {
+                SelectorType::Css => selector.clone(),
+                _ => {
+                    // XPath/Text 选择器先通过 JS 找到 CSS 路径不便，改用 JS 注入文件
+                    // 通过 DOM.requestNode + Runtime.evaluate 获取节点引用
+                    return Err(
+                        "CdpUploadFile: XPath/Text 选择器暂不支持，请使用 CSS 选择器".to_string(),
+                    );
+                }
+            };
+            let results = cdp
+                .call_sequence(&[
+                    ("DOM.enable", json!({})),
+                    (
+                        "DOM.querySelector",
+                        json!({ "nodeId": 1, "selector": css_selector }),
+                    ),
+                ])
+                .await?;
+            let node_id = results
+                .get(1)
+                .and_then(|r| r.get("nodeId"))
+                .and_then(|v| v.as_i64())
+                .ok_or_else(|| format!("element not found (upload): {selector}"))?;
+            if node_id == 0 {
+                return Err(format!("element not found (upload): {selector}"));
+            }
+            cdp.call_sequence(&[
+                ("DOM.enable", json!({})),
+                (
+                    "DOM.setFileInputFiles",
+                    json!({ "files": files, "nodeId": node_id }),
+                ),
+            ])
+            .await?;
+            Ok((None, HashMap::new()))
+        }
+
+        ScriptStep::CdpDownloadFile { download_path } => {
+            let download_path = vars.interpolate(download_path);
+            std::fs::create_dir_all(&download_path)
+                .map_err(|e| format!("CdpDownloadFile: create dir: {e}"))?;
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            cdp.call_browser(
+                "Browser.setDownloadBehavior",
+                json!({ "behavior": "allow", "downloadPath": download_path }),
+            )
+            .await?;
+            Ok((None, HashMap::new()))
+        }
+
+        ScriptStep::CdpClipboard { action } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            // macOS 使用 Meta(Cmd)，其他平台使用 Ctrl
+            #[cfg(target_os = "macos")]
+            let (modifier_flag, modifier_key) = (8i32, "Meta");
+            #[cfg(not(target_os = "macos"))]
+            let (modifier_flag, modifier_key) = (2i32, "Control");
+
+            let (key_text, key_code) = match action {
+                crate::models::ClipboardAction::Copy => ("c", "KeyC"),
+                crate::models::ClipboardAction::Paste => ("v", "KeyV"),
+                crate::models::ClipboardAction::SelectAll => ("a", "KeyA"),
+            };
+            // keyDown modifier
+            cdp.call(
+                "Input.dispatchKeyEvent",
+                json!({
+                    "type": "keyDown",
+                    "key": modifier_key,
+                    "modifiers": modifier_flag
+                }),
+            )
+            .await?;
+            // keyDown key + modifier
+            cdp.call(
+                "Input.dispatchKeyEvent",
+                json!({
+                    "type": "keyDown",
+                    "key": key_text,
+                    "code": key_code,
+                    "modifiers": modifier_flag
+                }),
+            )
+            .await?;
+            // keyUp key
+            cdp.call(
+                "Input.dispatchKeyEvent",
+                json!({
+                    "type": "keyUp",
+                    "key": key_text,
+                    "code": key_code,
+                    "modifiers": modifier_flag
+                }),
+            )
+            .await?;
+            // keyUp modifier
+            cdp.call(
+                "Input.dispatchKeyEvent",
+                json!({
+                    "type": "keyUp",
+                    "key": modifier_key,
+                    "modifiers": 0
+                }),
+            )
+            .await?;
+            Ok((None, HashMap::new()))
+        }
+
+        ScriptStep::CdpExecuteJs {
+            expression,
+            file_path,
+            output_key,
+        } => {
+            let code = if let Some(fp) = file_path.as_ref().filter(|p| !p.is_empty()) {
+                let fp = vars.interpolate(fp);
+                std::fs::read_to_string(&fp)
+                    .map_err(|e| format!("CdpExecuteJs: read file '{fp}': {e}"))?
+            } else {
+                vars.interpolate(expression.as_deref().unwrap_or(""))
+            };
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let result = cdp
+                .call(
+                    "Runtime.evaluate",
+                    json!({ "expression": code, "returnByValue": true }),
+                )
+                .await?;
+            let value = result
+                .get("result")
+                .and_then(|r| r.get("value"))
+                .map(|v| {
+                    if v.is_string() {
+                        v.as_str().unwrap_or("").to_string()
+                    } else {
+                        v.to_string()
+                    }
+                })
+                .unwrap_or_default();
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), value.clone());
+            }
+            Ok((Some(value), vs))
+        }
+
+        ScriptStep::CdpInputText {
+            selector,
+            selector_type,
+            text_source,
+            text,
+            file_path,
+            var_name,
+        } => {
+            let selector = vars.interpolate(selector);
+            let resolved_text = match text_source {
+                crate::models::TextSource::Inline => {
+                    vars.interpolate(text.as_deref().unwrap_or(""))
+                }
+                crate::models::TextSource::File => {
+                    let fp = vars.interpolate(file_path.as_deref().unwrap_or(""));
+                    std::fs::read_to_string(&fp)
+                        .map_err(|e| format!("CdpInputText: read file '{fp}': {e}"))?
+                }
+                crate::models::TextSource::Variable => {
+                    let vn = var_name.as_deref().unwrap_or("");
+                    vars.get(vn).unwrap_or("").to_string()
+                }
+            };
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            focus_element_js(cdp, &selector, selector_type).await?;
+            cdp.call("Input.insertText", json!({ "text": resolved_text }))
+                .await?;
+            Ok((None, HashMap::new()))
         }
 
         ScriptStep::Condition { .. }

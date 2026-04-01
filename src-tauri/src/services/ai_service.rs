@@ -503,13 +503,13 @@ pub fn build_agent_tools() -> Vec<Value> {
                 "ignore_cache": { "type": "boolean", "description": "是否忽略缓存" }
             }
         })),
-        tool("cdp_evaluate", "在页面执行 JavaScript 并获取返回值", json!({
+        tool("cdp_execute_js", "在页面执行 JavaScript，支持内联代码或从文件加载，返回值可存入变量", json!({
             "type": "object",
             "properties": {
-                "expression": { "type": "string", "description": "JavaScript 表达式" },
+                "expression": { "type": "string", "description": "内联 JavaScript 代码（与 file_path 二选一）" },
+                "file_path": { "type": "string", "description": "JS 文件路径（优先于 expression）" },
                 "output_key": { "type": "string", "description": "将返回值存入此变量名" }
-            },
-            "required": ["expression"]
+            }
         })),
         tool("cdp_click", "点击页面元素", json!({
             "type": "object",
