@@ -957,7 +957,6 @@ impl SelectorType {
 pub enum ScriptStep {
     Navigate { url: String, #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
     Wait { ms: u64 },
-    Evaluate { expression: String, result_key: Option<String> },
     Click { selector: String, #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType },
     Type { selector: String, text: String, #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType },
     Screenshot { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
@@ -1186,10 +1185,6 @@ pub enum ScriptStep {
     CdpReload {
         #[serde(default)]
         ignore_cache: bool,
-    },
-    CdpEvaluate {
-        expression: String,
-        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
     },
     CdpClick { selector: String, #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType },
     CdpType { selector: String, text: String, #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType },

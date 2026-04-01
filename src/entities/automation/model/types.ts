@@ -5,7 +5,6 @@ export type LoopMode = 'count' | 'while';
 export type ScriptStep =
 	| { kind: 'navigate'; url: string; output_key?: string }
 	| { kind: 'wait'; ms: number }
-	| { kind: 'evaluate'; expression: string; result_key?: string }
 	| { kind: 'click'; selector: string; selector_type?: SelectorType }
 	| { kind: 'type'; selector: string; text: string; selector_type?: SelectorType }
 	| { kind: 'screenshot'; output_key?: string }
@@ -63,7 +62,6 @@ export type ScriptStep =
 	// ── CDP 具名步骤 ──────────────────────────────────────────────────────────
 	| { kind: 'cdp_navigate'; url: string; output_key?: string }
 	| { kind: 'cdp_reload'; ignore_cache?: boolean }
-	| { kind: 'cdp_evaluate'; expression: string; output_key?: string }
 	| { kind: 'cdp_click'; selector: string; selector_type?: SelectorType }
 	| { kind: 'cdp_type'; selector: string; text: string; selector_type?: SelectorType }
 	| { kind: 'cdp_scroll_to'; selector?: string; selector_type?: SelectorType; x?: number; y?: number }

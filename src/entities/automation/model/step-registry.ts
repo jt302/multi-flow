@@ -12,7 +12,6 @@ export const STEP_KINDS: StepKindDef[] = [
 	// 基础
 	{ value: 'navigate', label: '导航 navigate', group: '基础' },
 	{ value: 'wait', label: '等待 wait', group: '基础' },
-	{ value: 'evaluate', label: '执行JS evaluate', group: '基础' },
 	{ value: 'click', label: '点击 click', group: '基础' },
 	{ value: 'type', label: '输入 type', group: '基础' },
 	{ value: 'screenshot', label: '截图 screenshot', group: '基础' },
@@ -31,7 +30,6 @@ export const STEP_KINDS: StepKindDef[] = [
 	// CDP 具名
 	{ value: 'cdp_navigate', label: 'CDP 导航', group: 'CDP' },
 	{ value: 'cdp_reload', label: 'CDP 刷新页面', group: 'CDP' },
-	{ value: 'cdp_evaluate', label: 'CDP 执行JS', group: 'CDP' },
 	{ value: 'cdp_click', label: 'CDP 点击', group: 'CDP' },
 	{ value: 'cdp_type', label: 'CDP 输入', group: 'CDP' },
 	{ value: 'cdp_scroll_to', label: 'CDP 滚动', group: 'CDP' },
@@ -99,12 +97,12 @@ export const STEP_KINDS: StepKindDef[] = [
 // 与原 automation-canvas-page.tsx 的 KIND_LABELS 完全一致
 
 export const KIND_LABELS: Record<string, string> = {
-	navigate: '导航', wait: '等待', evaluate: 'JS 求值', click: '点击',
+	navigate: '导航', wait: '等待', click: '点击',
 	type: '输入', screenshot: '截图', magic: 'Magic', cdp: 'CDP 原始',
 	wait_for_user: '等待人工', condition: '条件分支', loop: '循环',
 	break: 'Break', continue: 'Continue',
 	ai_prompt: 'AI Prompt', ai_extract: 'AI 提取', ai_agent: 'AI Agent',
-	cdp_navigate: '导航', cdp_reload: '刷新', cdp_evaluate: 'JS 求值',
+	cdp_navigate: '导航', cdp_reload: '刷新',
 	cdp_click: '点击', cdp_type: '输入', cdp_scroll_to: '滚动',
 	cdp_wait_for_selector: '等待元素', cdp_wait_for_page_load: '等待页面加载', cdp_get_text: '获取文本',
 	cdp_get_attribute: '获取属性', cdp_set_input_value: '设置输入',
@@ -139,12 +137,12 @@ export const KIND_LABELS: Record<string, string> = {
 // ─── Canvas 使用的分组（与原 automation-canvas-page.tsx 完全一致）──────────────
 
 export const KIND_GROUPS: Record<string, string> = {
-	navigate: 'CDP', wait: '通用', evaluate: 'CDP', click: 'CDP',
+	navigate: 'CDP', wait: '通用', click: 'CDP',
 	type: 'CDP', screenshot: 'CDP', magic: 'Magic', cdp: 'CDP',
 	wait_for_user: '人工介入', condition: '控制流', loop: '控制流',
 	break: '控制流', continue: '控制流',
 	ai_prompt: 'AI', ai_extract: 'AI', ai_agent: 'AI',
-	cdp_navigate: 'CDP', cdp_reload: 'CDP', cdp_evaluate: 'CDP',
+	cdp_navigate: 'CDP', cdp_reload: 'CDP',
 	cdp_click: 'CDP', cdp_type: 'CDP', cdp_scroll_to: 'CDP',
 	cdp_wait_for_selector: 'CDP', cdp_wait_for_page_load: 'CDP', cdp_get_text: 'CDP',
 	cdp_get_attribute: 'CDP', cdp_set_input_value: 'CDP', cdp_screenshot: 'CDP',
@@ -200,7 +198,7 @@ export const PALETTE_DOT_COLORS: Record<string, string> = {
 export const PALETTE_GROUPS: { label: string; kinds: string[] }[] = [
 	{
 		label: 'CDP',
-		kinds: ['cdp_navigate', 'cdp_reload', 'cdp_click', 'cdp_type', 'cdp_evaluate',
+		kinds: ['cdp_navigate', 'cdp_reload', 'cdp_click', 'cdp_type',
 			'cdp_get_text', 'cdp_wait_for_selector', 'cdp_wait_for_page_load', 'cdp_scroll_to', 'cdp_screenshot'],
 	},
 	{ label: '通用', kinds: ['wait', 'wait_for_user'] },
@@ -221,7 +219,6 @@ export function defaultStep(kind: string): ScriptStep {
 	switch (kind) {
 		case 'navigate': return { kind: 'navigate', url: 'https://' };
 		case 'wait': return { kind: 'wait', ms: 1000 };
-		case 'evaluate': return { kind: 'evaluate', expression: '' };
 		case 'click': return { kind: 'click', selector: '' };
 		case 'type': return { kind: 'type', selector: '', text: '' };
 		case 'screenshot': return { kind: 'screenshot' };
@@ -237,7 +234,6 @@ export function defaultStep(kind: string): ScriptStep {
 		case 'ai_agent': return { kind: 'ai_agent', system_prompt: '', initial_message: '', max_steps: 10 };
 		case 'cdp_navigate': return { kind: 'cdp_navigate', url: 'https://' };
 		case 'cdp_reload': return { kind: 'cdp_reload', ignore_cache: false };
-		case 'cdp_evaluate': return { kind: 'cdp_evaluate', expression: '' };
 		case 'cdp_click': return { kind: 'cdp_click', selector: '' };
 		case 'cdp_type': return { kind: 'cdp_type', selector: '', text: '' };
 		case 'cdp_scroll_to': return { kind: 'cdp_scroll_to' };
