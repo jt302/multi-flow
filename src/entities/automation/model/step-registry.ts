@@ -209,7 +209,7 @@ export const PALETTE_GROUPS: { label: string; kinds: string[] }[] = [
 	{
 		label: 'Magic',
 		kinds: ['magic_get_browsers', 'magic_open_new_tab', 'magic_close_tab',
-			'magic_activate_tab', 'magic_get_tabs', 'magic_set_bounds',
+			'magic_close_inactive_tabs', 'magic_activate_tab', 'magic_get_tabs', 'magic_set_bounds',
 			'magic_get_bounds', 'magic_set_maximized', 'magic_set_minimized',
 			'magic_capture_app_shell'],
 	},
