@@ -8,7 +8,7 @@ import { useAutomationActions } from '@/features/automation/model/use-automation
 
 export function AutomationCanvasRoutePage() {
 	const { scriptId } = useParams<{ scriptId: string }>();
-	const { data: scripts = [] } = useAutomationScriptsQuery();
+	const { data: scripts = [], isLoading } = useAutomationScriptsQuery();
 	const { data: profiles = [] } = useProfilesQuery();
 	const activeProfiles = profiles.filter((p) => p.lifecycle === 'active');
 
@@ -20,6 +20,14 @@ export function AutomationCanvasRoutePage() {
 	const { runScript, debugRun, cancelRun } = useAutomationActions(scriptId ?? null);
 
 	const script = scripts.find((s) => s.id === scriptId);
+
+	if (isLoading) {
+		return (
+			<div className="flex items-center justify-center h-screen text-sm text-muted-foreground">
+				加载中…
+			</div>
+		);
+	}
 
 	if (!script) {
 		return (
