@@ -412,6 +412,16 @@ pub async fn run_automation_script(
         match handle_result {
             Some(ports) => ports,
             None => {
+                // 检查 DB 是否标记为 running（可能是应用重启导致内存 session 丢失）
+                let is_db_running = {
+                    let ps = state.lock_profile_service();
+                    ps.ensure_profile_openable(&resolved_profile_id).is_err()
+                };
+                if is_db_running {
+                    return Err(
+                        "环境已启动但应用重启后连接信息丢失，请先关闭该环境再重新运行".to_string(),
+                    );
+                }
                 logger::info(
                     "automation",
                     format!("auto-starting profile profile_id={}", resolved_profile_id),
@@ -519,6 +529,16 @@ pub async fn run_automation_script_debug(
         match handle_result {
             Some(ports) => ports,
             None => {
+                // 检查 DB 是否标记为 running（可能是应用重启导致内存 session 丢失）
+                let is_db_running = {
+                    let ps = state.lock_profile_service();
+                    ps.ensure_profile_openable(&resolved_profile_id).is_err()
+                };
+                if is_db_running {
+                    return Err(
+                        "环境已启动但应用重启后连接信息丢失，请先关闭该环境再重新运行".to_string(),
+                    );
+                }
                 logger::info(
                     "automation",
                     format!("auto-starting profile profile_id={}", resolved_profile_id),
