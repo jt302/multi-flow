@@ -28,7 +28,10 @@ impl AutomationService {
                 .order_by_asc(automation_script::Column::CreatedAt)
                 .all(&self.db),
         )?;
-        items.into_iter().map(to_api_script).collect()
+        Ok(items
+            .into_iter()
+            .filter_map(|m| to_api_script(m).ok())
+            .collect())
     }
 
     pub fn get_script(&self, script_id: &str) -> AppResult<AutomationScript> {
@@ -103,20 +106,24 @@ impl AutomationService {
             }
         }));
         active.steps_json = Set(steps_json);
-        active.associated_profile_ids_json = Set(req
-            .associated_profile_ids
-            .as_ref()
-            .filter(|v| !v.is_empty())
-            .and_then(|v| serde_json::to_string(v).ok()));
-        active.ai_config_json = Set(req
-            .ai_config
-            .as_ref()
-            .and_then(|c| serde_json::to_string(c).ok()));
-        active.ai_config_id = Set(req.ai_config_id);
-        active.settings_json = Set(req
-            .settings
-            .as_ref()
-            .and_then(|s| serde_json::to_string(s).ok()));
+        // 仅在请求中明确提供时才更新，避免画布保存时意外清空
+        if let Some(ref ids) = req.associated_profile_ids {
+            active.associated_profile_ids_json = Set(
+                if ids.is_empty() { None } else { serde_json::to_string(ids).ok() }
+            );
+        }
+        if req.ai_config.is_some() {
+            active.ai_config_json = Set(req
+                .ai_config
+                .as_ref()
+                .and_then(|c| serde_json::to_string(c).ok()));
+        }
+        if req.ai_config_id.is_some() {
+            active.ai_config_id = Set(req.ai_config_id);
+        }
+        if let Some(ref s) = req.settings {
+            active.settings_json = Set(serde_json::to_string(s).ok());
+        }
         active.updated_at = Set(now_ts());
         let updated = self.db_query(active.update(&self.db))?;
         to_api_script(updated)
