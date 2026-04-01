@@ -2479,47 +2479,60 @@ async fn execute_step(
         ScriptStep::MagicCaptureAppShell {
             browser_id,
             format,
-            mode,
             output_path,
-            output_key_base64,
             output_key_file_path,
         } => {
             let port = get_magic_port()?;
-            let mut payload = json!({ "cmd": "capture_app_shell" });
+            let fmt = format.as_deref().unwrap_or("png");
+
+            // 确定保存路径：用户指定路径 > 自动生成默认路径
+            let save_path = match output_path {
+                Some(ref p) if !p.is_empty() => {
+                    let p = vars.interpolate(p);
+                    let path = std::path::PathBuf::from(&p);
+                    if let Some(parent) = path.parent() {
+                        std::fs::create_dir_all(parent)
+                            .map_err(|e| format!("MagicCaptureAppShell: create dir: {e}"))?;
+                    }
+                    path
+                }
+                _ => {
+                    let data_dir = app
+                        .path()
+                        .app_local_data_dir()
+                        .or_else(|_| app.path().app_data_dir())
+                        .map_err(|e| format!("MagicCaptureAppShell: resolve data dir: {e}"))?;
+                    let sid = vars.get("__script_id__").unwrap_or("unknown");
+                    let pid = vars.get("__profile_id__").unwrap_or("unknown");
+                    let dir = data_dir
+                        .join("automation_data")
+                        .join(sid)
+                        .join(pid)
+                        .join("screenshots");
+                    std::fs::create_dir_all(&dir)
+                        .map_err(|e| format!("MagicCaptureAppShell: create dir: {e}"))?;
+                    dir.join(format!("appshell_{}_{}.{}", run_id, step_index, fmt))
+                }
+            };
+            let path_str = save_path.to_string_lossy().to_string();
+
+            let mut payload = json!({
+                "cmd": "capture_app_shell",
+                "format": fmt,
+                "mode": "file",
+                "output_path": path_str,
+            });
             if let Some(id) = browser_id {
                 payload["browser_id"] = json!(id);
             }
-            if let Some(f) = format {
-                payload["format"] = json!(f);
-            }
-            let actual_mode = mode.as_deref().unwrap_or("inline");
-            payload["mode"] = json!(actual_mode);
-            if let Some(p) = output_path {
-                payload["output_path"] = json!(p);
-            }
-            let body = magic_post(http_client, port, payload).await?;
+            magic_post(http_client, port, payload).await?;
+
             let mut vs = HashMap::new();
-            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&body) {
-                if let Some(k) = output_key_base64 {
-                    if let Some(b64) = parsed
-                        .get("data")
-                        .and_then(|d| d.get("base64"))
-                        .and_then(|v| v.as_str())
-                    {
-                        vs.insert(k.clone(), b64.to_string());
-                    }
-                }
-                if let Some(k) = output_key_file_path {
-                    if let Some(fp) = parsed
-                        .get("data")
-                        .and_then(|d| d.get("output_path"))
-                        .and_then(|v| v.as_str())
-                    {
-                        vs.insert(k.clone(), fp.to_string());
-                    }
-                }
+            vs.insert(format!("screenshot_{}", step_index), path_str.clone());
+            if let Some(k) = output_key_file_path {
+                vs.insert(k.clone(), path_str.clone());
             }
-            Ok((Some(body), vs))
+            Ok((Some(path_str), vs))
         }
 
         ScriptStep::Condition { .. }

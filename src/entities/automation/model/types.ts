@@ -141,14 +141,12 @@ export type ScriptStep =
 	| { kind: 'magic_get_is_master'; output_key?: string }
 	| { kind: 'magic_get_sync_status'; output_key?: string }
 
-	// 截图（app 壳）
+	// 截图（app 壳）— 与 cdp_screenshot 一致，mode=file，不用 base64
 	| {
 			kind: 'magic_capture_app_shell';
 			browser_id?: number;
 			format?: string;
-			mode?: string;
 			output_path?: string;
-			output_key_base64?: string;
 			output_key_file_path?: string;
 	  };
 
