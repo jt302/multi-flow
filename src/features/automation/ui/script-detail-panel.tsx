@@ -676,12 +676,6 @@ function StepSummary({ step }: { step: AutomationScript['steps'][number] }) {
 			return <span className="text-muted-foreground">{step.url}</span>;
 		case 'wait':
 			return <span className="text-muted-foreground">{step.ms}ms</span>;
-		case 'evaluate':
-			return (
-				<span className="text-muted-foreground font-mono text-xs">
-					{step.expression.slice(0, 60)}
-				</span>
-			);
 		case 'click':
 			return (
 				<span className="text-muted-foreground">{selectorDisplay(step)}</span>
@@ -744,12 +738,6 @@ function StepSummary({ step }: { step: AutomationScript['steps'][number] }) {
 			return <span className="text-muted-foreground">{step.url}</span>;
 		case 'cdp_reload':
 			return <span className="text-muted-foreground">刷新页面</span>;
-		case 'cdp_evaluate':
-			return (
-				<span className="text-muted-foreground font-mono text-xs">
-					{step.expression.slice(0, 60)}
-				</span>
-			);
 		case 'cdp_click':
 		case 'cdp_wait_for_selector':
 		case 'cdp_get_text':

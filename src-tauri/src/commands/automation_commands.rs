@@ -1365,28 +1365,6 @@ async fn execute_step(
             tokio::time::sleep(Duration::from_millis(*ms)).await;
             Ok((None, HashMap::new()))
         }
-        ScriptStep::Evaluate {
-            expression,
-            result_key,
-        } => {
-            let expression = vars.interpolate(expression);
-            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let result = cdp
-                .call(
-                    "Runtime.evaluate",
-                    json!({ "expression": expression, "returnByValue": true }),
-                )
-                .await?;
-            let value = result
-                .get("result")
-                .and_then(|r| r.get("value"))
-                .map(|v| v.to_string());
-            let mut vs = HashMap::new();
-            if let (Some(k), Some(v)) = (result_key, &value) {
-                vs.insert(k.clone(), v.clone());
-            }
-            Ok((value, vs))
-        }
         ScriptStep::Click {
             selector,
             selector_type,
@@ -1792,28 +1770,6 @@ async fn execute_step(
             cdp.call("Page.reload", json!({ "ignoreCache": ignore_cache }))
                 .await?;
             Ok((None, HashMap::new()))
-        }
-        ScriptStep::CdpEvaluate {
-            expression,
-            output_key,
-        } => {
-            let expression = vars.interpolate(expression);
-            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let result = cdp
-                .call(
-                    "Runtime.evaluate",
-                    json!({ "expression": expression, "returnByValue": true }),
-                )
-                .await?;
-            let value = result
-                .get("result")
-                .and_then(|r| r.get("value"))
-                .map(|v| v.to_string());
-            let mut vs = HashMap::new();
-            if let (Some(k), Some(v)) = (output_key, &value) {
-                vs.insert(k.clone(), v.clone());
-            }
-            Ok((value, vs))
         }
         ScriptStep::CdpClick {
             selector,

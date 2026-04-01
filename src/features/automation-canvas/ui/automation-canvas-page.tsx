@@ -450,9 +450,6 @@ function StepPropertiesPanel({
 		fields.push(okf());
 	} else if (kind === 'wait') {
 		fields.push(nf('ms', '等待毫秒数'));
-	} else if (kind === 'evaluate' || kind === 'cdp_evaluate') {
-		fields.push(tf('expression', 'JS 表达式', true));
-		fields.push(okf());
 	} else if (kind === 'click' || kind === 'cdp_click') {
 		fields.push(sf());
 	} else if (kind === 'type' || kind === 'cdp_type') {

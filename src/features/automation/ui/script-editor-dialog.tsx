@@ -429,14 +429,6 @@ function StepFields({
 					className="h-8 text-xs"
 				/>
 			);
-		case 'evaluate':
-			return (
-				<Textarea
-					{...register(`steps.${index}.expression` as `steps.${number}.expression`)}
-					placeholder="document.title"
-					className="text-xs font-mono min-h-[60px]"
-				/>
-			);
 		case 'click':
 			return selectorField();
 		case 'type':
@@ -560,14 +552,6 @@ function StepFields({
 			);
 		case 'cdp_reload':
 			return <p className="text-xs text-muted-foreground">刷新当前页面</p>;
-		case 'cdp_evaluate':
-			return (
-				<Textarea
-					{...register(`steps.${index}.expression` as `steps.${number}.expression`)}
-					placeholder="document.title"
-					className="text-xs font-mono min-h-[60px]"
-				/>
-			);
 		case 'cdp_click':
 			return selectorField();
 		case 'cdp_type':
