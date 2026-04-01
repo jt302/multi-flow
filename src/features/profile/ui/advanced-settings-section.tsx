@@ -227,7 +227,7 @@ export function AdvancedSettingsSection({
 				) : null}
 			</div>
 			<Dialog open={mergeDialogOpen} onOpenChange={setMergeDialogOpen}>
-				<DialogContent className="max-w-2xl">
+				<DialogContent className="max-w-3xl">
 					<DialogHeader>
 						<DialogTitle>合并 Cookie</DialogTitle>
 						<DialogDescription>

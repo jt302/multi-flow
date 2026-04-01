@@ -21,7 +21,6 @@ import {
 	applyNodeChanges,
 	useReactFlow,
 } from '@xyflow/react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
 	ArrowLeft,
 	CheckCircle,
@@ -470,7 +469,7 @@ function StepPropertiesPanel({
 	} else if (kind === 'cdp_scroll_to') {
 		fields.push(sf('元素选择器（可选）', true));
 	} else if (kind === 'cdp_screenshot') {
-		fields.push(outputKeyField('output_key_base64', 'Base64 变量名'));
+		fields.push(outputKeyField('output_key_file_path', '文件路径变量名'));
 		const pathValue = String(s['output_path'] ?? '');
 		fields.push(
 			<div key="output_path" className="space-y-1">
@@ -481,7 +480,7 @@ function StepPropertiesPanel({
 						onChange={(e) =>
 							onUpdate({ ...step, output_path: e.target.value } as ScriptStep)
 						}
-						placeholder="~/Desktop/screenshot.png"
+						placeholder="留空则自动保存到默认目录"
 						className="h-8 text-xs flex-1"
 					/>
 					<Button
@@ -715,53 +714,6 @@ function topologySortSteps(
 	return { reorderedSteps, indexMap, orphanedCount: unvisited.length };
 }
 
-function validateSteps(stepList: ScriptStep[]): string[] {
-	const errs: string[] = [];
-	stepList.forEach((step, i) => {
-		const s = step as Record<string, unknown>;
-		const label = `步骤 ${i + 1}（${KIND_LABELS[step.kind] ?? step.kind}）`;
-		const empty = (k: string) => !String(s[k] ?? '').trim();
-		if (
-			['navigate', 'cdp_navigate', 'magic_open_new_tab'].includes(step.kind) &&
-			empty('url')
-		)
-			errs.push(`${label}：URL 不能为空`);
-		if (
-			[
-				'click',
-				'cdp_click',
-				'cdp_wait_for_selector',
-				'cdp_get_text',
-				'cdp_scroll_to',
-			].includes(step.kind) &&
-			empty('selector')
-		)
-			errs.push(`${label}：选择器不能为空`);
-		if (['type', 'cdp_type'].includes(step.kind)) {
-			if (empty('selector')) errs.push(`${label}：选择器不能为空`);
-			if (empty('text')) errs.push(`${label}：输入文本不能为空`);
-		}
-		if (['evaluate', 'cdp_evaluate'].includes(step.kind) && empty('expression'))
-			errs.push(`${label}：JS 表达式不能为空`);
-		if (step.kind === 'ai_prompt' && empty('prompt'))
-			errs.push(`${label}：Prompt 不能为空`);
-		if (step.kind === 'ai_extract' && empty('prompt'))
-			errs.push(`${label}：Prompt 不能为空`);
-		if (step.kind === 'ai_agent' && empty('system_prompt'))
-			errs.push(`${label}：系统提示词不能为空`);
-		if (step.kind === 'cdp_get_attribute') {
-			if (empty('selector')) errs.push(`${label}：选择器不能为空`);
-			if (empty('attribute')) errs.push(`${label}：属性名不能为空`);
-		}
-		if (step.kind === 'cdp_set_input_value') {
-			if (empty('selector')) errs.push(`${label}：选择器不能为空`);
-			if (empty('value')) errs.push(`${label}：值不能为空`);
-		}
-		if (step.kind === 'cdp_screenshot' && empty('output_path'))
-			errs.push(`${label}：保存路径不能为空`);
-	});
-	return errs;
-}
 
 // ─── Variables Schema Dialog ──────────────────────────────────────────────────
 
@@ -817,7 +769,7 @@ function VariablesSchemaDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-sm">
+			<DialogContent className="max-w-lg">
 				<DialogHeader>
 					<DialogTitle>脚本变量</DialogTitle>
 				</DialogHeader>
@@ -920,8 +872,6 @@ function InnerCanvas({
 	);
 	const [runDialogOpen, setRunDialogOpen] = useState(false);
 	const [varsDialogOpen, setVarsDialogOpen] = useState(false);
-	const [closeWarningOpen, setCloseWarningOpen] = useState(false);
-	const [closeWarningItems, setCloseWarningItems] = useState<string[]>([]);
 	const [varsDefs, setVarsDefs] = useState<ScriptVarDef[]>(() => {
 		try {
 			return script.variablesSchemaJson
@@ -1082,25 +1032,7 @@ function InnerCanvas({
 		return () => clearTimeout(t);
 	}, [savedAt]);
 
-	useEffect(() => {
-		const win = getCurrentWindow();
-		let unlisten: (() => void) | undefined;
-		void win
-			.onCloseRequested(async (event) => {
-				const errs = validateSteps(steps);
-				if (errs.length > 0) {
-					event.preventDefault();
-					setCloseWarningItems(errs);
-					setCloseWarningOpen(true);
-				}
-			})
-			.then((fn) => {
-				unlisten = fn;
-			});
-		return () => {
-			unlisten?.();
-		};
-	}, [steps]);
+	// canvas 实时自动保存，关闭时无需拦截验证
 
 	const onNodesChange = useCallback(
 		(changes: NodeChange[]) => {
@@ -1510,39 +1442,6 @@ function InnerCanvas({
 				initialVars={varsDefs}
 				onSaved={setVarsDefs}
 			/>
-			<Dialog open={closeWarningOpen} onOpenChange={setCloseWarningOpen}>
-				<DialogContent className="max-w-md">
-					<DialogHeader>
-						<DialogTitle>步骤配置不完整</DialogTitle>
-					</DialogHeader>
-					<div className="py-2 space-y-1 max-h-48 overflow-auto">
-						{closeWarningItems.map((item, i) => (
-							<p key={i} className="text-sm text-red-500">
-								{item}
-							</p>
-						))}
-					</div>
-					<DialogFooter className="gap-2">
-						<Button
-							variant="ghost"
-							onClick={() => setCloseWarningOpen(false)}
-							className="cursor-pointer"
-						>
-							返回编辑
-						</Button>
-						<Button
-							variant="destructive"
-							onClick={() => {
-								void getCurrentWindow().close();
-							}}
-							className="cursor-pointer"
-						>
-							忽略并关闭
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-
 			<div className="flex flex-1 overflow-hidden">
 				{/* Left: Palette */}
 				<div className="w-44 border-r flex-shrink-0 bg-background flex flex-col min-h-0">

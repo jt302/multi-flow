@@ -67,7 +67,7 @@ export function RunDialog({
 		if (!open) return;
 		setVarEntries(defaultVars ?? []);
 		setVarsOpen((defaultVars ?? []).length > 0);
-		setDelayEnabled(false);
+		setDelayEnabled(true);
 		setDelayMinSeconds(1);
 		setDelayMaxSeconds(5);
 		if (associatedProfileIds.length > 0) {
@@ -155,7 +155,7 @@ export function RunDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-md">
+			<DialogContent className="max-w-xl">
 				<DialogHeader>
 					<DialogTitle>运行脚本</DialogTitle>
 				</DialogHeader>

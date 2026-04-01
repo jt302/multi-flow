@@ -447,6 +447,8 @@ pub async fn run_automation_script(
     tauri::async_runtime::spawn(execute_script(
         app,
         run_id.clone(),
+        script_id.clone(),
+        resolved_profile_id.clone(),
         debug_port,
         magic_port,
         steps,
@@ -552,6 +554,8 @@ pub async fn run_automation_script_debug(
     tauri::async_runtime::spawn(execute_script(
         app,
         run_id.clone(),
+        script_id.clone(),
+        resolved_profile_id.clone(),
         debug_port,
         magic_port,
         debug_steps,
@@ -770,6 +774,8 @@ enum FlowSignal {
 async fn execute_script(
     app: AppHandle,
     run_id: String,
+    script_id: String,
+    profile_id: String,
     debug_port: Option<u16>,
     magic_port: Option<u16>,
     steps: Vec<ScriptStep>,
@@ -790,6 +796,8 @@ async fn execute_script(
         None,
     ));
     let mut vars = RunVariables::new();
+    vars.set("__script_id__", script_id);
+    vars.set("__profile_id__", profile_id);
     for (k, v) in initial_vars {
         vars.set(&k, v);
     }
@@ -2003,7 +2011,7 @@ async fn execute_step(
             format,
             quality,
             output_path,
-            output_key_base64,
+            output_key_base64: _,
             output_key_file_path,
         } => {
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
@@ -2016,23 +2024,52 @@ async fn execute_step(
             let b64 = result
                 .get("data")
                 .and_then(|v| v.as_str())
-                .unwrap_or("")
+                .ok_or_else(|| "CdpScreenshot: no data in CDP response".to_string())?
                 .to_string();
-            let mut vs = HashMap::new();
-            if let Some(k) = output_key_base64 {
-                vs.insert(k.clone(), b64.clone());
-            }
-            if let Some(path) = output_path {
-                if !path.is_empty() {
-                    if let Ok(bytes) = base64_decode(&b64) {
-                        let _ = std::fs::write(path, bytes);
-                        if let Some(k) = output_key_file_path {
-                            vs.insert(k.clone(), path.clone());
-                        }
+            let bytes = base64_decode(&b64)?;
+
+            // 确定保存路径：用户指定路径 > 自动生成默认路径
+            let save_path = match output_path {
+                Some(ref p) if !p.is_empty() => {
+                    let p = vars.interpolate(p);
+                    let path = std::path::PathBuf::from(&p);
+                    if let Some(parent) = path.parent() {
+                        std::fs::create_dir_all(parent)
+                            .map_err(|e| format!("CdpScreenshot: create dir: {e}"))?;
                     }
+                    path
                 }
+                _ => {
+                    // 默认路径：automation_data/<script_id>/<profile_id>/screenshots/
+                    let data_dir = app
+                        .path()
+                        .app_local_data_dir()
+                        .or_else(|_| app.path().app_data_dir())
+                        .map_err(|e| format!("CdpScreenshot: resolve data dir: {e}"))?;
+                    let sid = vars.get("__script_id__").unwrap_or("unknown");
+                    let pid = vars.get("__profile_id__").unwrap_or("unknown");
+                    let dir = data_dir
+                        .join("automation_data")
+                        .join(sid)
+                        .join(pid)
+                        .join("screenshots");
+                    std::fs::create_dir_all(&dir)
+                        .map_err(|e| format!("CdpScreenshot: create dir: {e}"))?;
+                    dir.join(format!("screenshot_{}_{}.{}", run_id, step_index, fmt))
+                }
+            };
+
+            std::fs::write(&save_path, bytes)
+                .map_err(|e| format!("CdpScreenshot: write file: {e}"))?;
+            let path_str = save_path.to_string_lossy().to_string();
+
+            let mut vs = HashMap::new();
+            // 自动缓存到 screenshot_{step_index} 变量，后续步骤可通过 {{screenshot_0}} 引用
+            vs.insert(format!("screenshot_{}", step_index), path_str.clone());
+            if let Some(k) = output_key_file_path {
+                vs.insert(k.clone(), path_str.clone());
             }
-            Ok((Some(b64), vs))
+            Ok((Some(path_str), vs))
         }
 
         // ── Magic 具名步骤 ─────────────────────────────────────────────────────

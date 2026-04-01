@@ -170,7 +170,7 @@ export function DevicePresetsPage({
 
 			{/* Edit / Create Dialog */}
 			<Dialog open={formOpen} onOpenChange={(v) => { if (!v) handleFormReset(); }}>
-				<DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+				<DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
 					<DialogHeader>
 						<DialogTitle>{activePreset ? '编辑机型预设' : '新增机型预设'}</DialogTitle>
 					</DialogHeader>
@@ -185,7 +185,7 @@ export function DevicePresetsPage({
 
 			{/* Delete Confirm Dialog */}
 			<Dialog open={Boolean(deleteTarget)} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
-				<DialogContent className="max-w-sm">
+				<DialogContent className="max-w-lg">
 					<DialogHeader>
 						<DialogTitle>删除机型预设</DialogTitle>
 						<DialogDescription>

@@ -376,6 +376,13 @@ export function AutomationPage() {
 								activeScriptId === selectedScript.id ? activeRunId : null;
 							if (runId) actions.cancelRun.mutate(runId);
 						}}
+						onRunsChange={() => {
+							if (selectedScriptId) {
+								void queryClient.invalidateQueries({
+									queryKey: queryKeys.automationRuns(selectedScriptId),
+								});
+							}
+						}}
 					/>
 				) : (
 					<div className="flex-1 flex items-center justify-center text-muted-foreground">
@@ -389,7 +396,7 @@ export function AutomationPage() {
 
 			{/* 新建/编辑元数据对话框 */}
 			<Dialog open={metaDialogOpen} onOpenChange={setMetaDialogOpen}>
-				<DialogContent className="max-w-sm max-h-[85vh] flex flex-col gap-0">
+				<DialogContent className="max-w-lg max-h-[85vh] flex flex-col gap-0">
 					<DialogHeader className="shrink-0 pb-4">
 						<DialogTitle>
 							{metaDialogScript ? '编辑脚本信息' : '新建脚本'}
@@ -418,7 +425,7 @@ export function AutomationPage() {
 						</div>
 						{metaDialogScript && allProfiles.length > 0 && (
 							<div className="space-y-1.5">
-								<Label className="text-sm">关联环境（可选）</Label>
+								<Label className="text-sm">关联环境</Label>
 								<p className="text-xs text-muted-foreground">
 									先在这里绑定环境，运行时再勾选本次要执行的环境
 								</p>
