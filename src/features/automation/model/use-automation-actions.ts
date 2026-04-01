@@ -8,6 +8,7 @@ import {
 	createAutomationScript,
 	deleteAutomationScript,
 	listenAutomationProgress,
+	listenAutomationRunCancelled,
 	listenAutomationVariablesUpdated,
 	runAutomationScript,
 	runAutomationScriptDebug,
@@ -22,7 +23,7 @@ async function registerRunListeners(
 	activeScriptId: string | null,
 	queryClient: ReturnType<typeof useQueryClient>,
 ): Promise<Array<() => void>> {
-	const [unlistenProgress, unlistenVars] = await Promise.all([
+	const [unlistenProgress, unlistenVars, unlistenCancelled] = await Promise.all([
 		listenAutomationProgress(runId, (event) => {
 			automationStore.getState().onProgress(event);
 			if (
@@ -40,8 +41,18 @@ async function registerRunListeners(
 		listenAutomationVariablesUpdated(runId, (event) => {
 			automationStore.getState().onVariablesUpdated(event);
 		}),
+		listenAutomationRunCancelled((event) => {
+			if (event.runId === runId) {
+				automationStore.setState({ liveRunStatus: 'cancelled' });
+				if (activeScriptId) {
+					queryClient.invalidateQueries({
+						queryKey: queryKeys.automationRuns(activeScriptId),
+					});
+				}
+			}
+		}),
 	]);
-	return [unlistenProgress, unlistenVars];
+	return [unlistenProgress, unlistenVars, unlistenCancelled];
 }
 
 export function useAutomationActions(activeScriptId: string | null) {
@@ -140,6 +151,9 @@ export function useAutomationActions(activeScriptId: string | null) {
 
 	const cancelRun = useMutation({
 		mutationFn: (runId: string) => cancelAutomationRun(runId),
+		onSuccess: () => {
+			toast.info('正在取消运行…');
+		},
 		onError: (err: Error) => {
 			toast.error(`取消失败：${err.message}`);
 		},
