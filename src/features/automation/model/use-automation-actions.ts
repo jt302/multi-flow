@@ -124,6 +124,9 @@ export function useAutomationActions(activeScriptId: string | null) {
 			unlistenRef.current = await registerRunListeners(runId, activeScriptId, queryClient);
 			return runId;
 		},
+		onError: (err: Error) => {
+			toast.error(`运行失败：${err.message}`);
+		},
 	});
 
 	const debugRun = useMutation({
@@ -146,6 +149,9 @@ export function useAutomationActions(activeScriptId: string | null) {
 
 			unlistenRef.current = await registerRunListeners(runId, activeScriptId, queryClient);
 			return runId;
+		},
+		onError: (err: Error) => {
+			toast.error(`运行失败：${err.message}`);
 		},
 	});
 

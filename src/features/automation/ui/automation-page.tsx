@@ -226,15 +226,19 @@ export function AutomationPage() {
 					}
 				: null;
 
-		for (const profileId of profileIds) {
-			await actions.runScript.mutateAsync({
-				scriptId: selectedScript.id,
-				profileId,
-				stepTotal: selectedScript.steps.length,
-				initialVars:
-					Object.keys(initialVars).length > 0 ? initialVars : undefined,
-				delayConfig: normalizedDelay,
-			});
+		try {
+			for (const profileId of profileIds) {
+				await actions.runScript.mutateAsync({
+					scriptId: selectedScript.id,
+					profileId,
+					stepTotal: selectedScript.steps.length,
+					initialVars:
+						Object.keys(initialVars).length > 0 ? initialVars : undefined,
+					delayConfig: normalizedDelay,
+				});
+			}
+		} catch {
+			// onError 已处理 toast
 		}
 	}
 
@@ -243,13 +247,17 @@ export function AutomationPage() {
 		initialVars: Record<string, string>,
 	) {
 		if (!selectedScript) return;
-		await actions.debugRun.mutateAsync({
-			scriptId: selectedScript.id,
-			profileId,
-			stepTotal: selectedScript.steps.length,
-			initialVars:
-				Object.keys(initialVars).length > 0 ? initialVars : undefined,
-		});
+		try {
+			await actions.debugRun.mutateAsync({
+				scriptId: selectedScript.id,
+				profileId,
+				stepTotal: selectedScript.steps.length,
+				initialVars:
+					Object.keys(initialVars).length > 0 ? initialVars : undefined,
+			});
+		} catch {
+			// onError 已处理 toast
+		}
 	}
 
 	// ── 导入脚本（JSON 文件） ─────────────────────────────────────────────────
