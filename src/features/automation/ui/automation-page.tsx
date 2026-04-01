@@ -187,6 +187,7 @@ export function AutomationPage() {
 				name,
 				description: metaDesc || undefined,
 				steps: [],
+				associatedProfileIds: metaAssociatedIds,
 				aiConfigId: metaAiConfigId,
 			});
 			setSelectedScriptId(created.id);
@@ -423,7 +424,7 @@ export function AutomationPage() {
 								className="resize-none"
 							/>
 						</div>
-						{metaDialogScript && allProfiles.length > 0 && (
+						{allProfiles.length > 0 && (
 							<div className="space-y-1.5">
 								<Label className="text-sm">关联环境</Label>
 								<p className="text-xs text-muted-foreground">
