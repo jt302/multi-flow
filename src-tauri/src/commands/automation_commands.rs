@@ -13,10 +13,7 @@ use crate::models::{
     AutomationStepErrorPauseEvent, AutomationVariablesUpdatedEvent, CreateAutomationScriptRequest,
     LoopMode, ScriptStep, SelectorType, StepResult, WaitForUserTimeout,
 };
-use crate::services::ai_service::{
-    build_agent_tools, build_vision_content, extract_json_path, AiChatResult, AiService,
-    ChatMessage,
-};
+use crate::services::ai_service::{extract_json_path, AiChatResult, AiService, ChatMessage};
 use crate::services::app_preference_service::AiProviderConfig;
 use crate::services::automation_cdp_client::CdpClient;
 use crate::services::automation_interpolation::RunVariables;
@@ -242,20 +239,20 @@ async fn click_element(
 /// windowsVirtualKeyCode 为 0 表示未知键，调用方应按需忽略
 fn cdp_key_info(key: &str) -> (i32, String, Option<String>) {
     match key {
-        "Enter"      => (13, "Enter".into(),     Some("\r".into())),
-        "Tab"        => (9,  "Tab".into(),        None),
-        "Escape"     => (27, "Escape".into(),     None),
-        "Backspace"  => (8,  "Backspace".into(),  None),
-        "Delete"     => (46, "Delete".into(),     None),
-        " " | "Space" => (32, "Space".into(),    Some(" ".into())),
-        "ArrowUp"    => (38, "ArrowUp".into(),    None),
-        "ArrowDown"  => (40, "ArrowDown".into(),  None),
-        "ArrowLeft"  => (37, "ArrowLeft".into(),  None),
+        "Enter" => (13, "Enter".into(), Some("\r".into())),
+        "Tab" => (9, "Tab".into(), None),
+        "Escape" => (27, "Escape".into(), None),
+        "Backspace" => (8, "Backspace".into(), None),
+        "Delete" => (46, "Delete".into(), None),
+        " " | "Space" => (32, "Space".into(), Some(" ".into())),
+        "ArrowUp" => (38, "ArrowUp".into(), None),
+        "ArrowDown" => (40, "ArrowDown".into(), None),
+        "ArrowLeft" => (37, "ArrowLeft".into(), None),
         "ArrowRight" => (39, "ArrowRight".into(), None),
-        "Home"       => (36, "Home".into(),       None),
-        "End"        => (35, "End".into(),        None),
-        "PageUp"     => (33, "PageUp".into(),     None),
-        "PageDown"   => (34, "PageDown".into(),   None),
+        "Home" => (36, "Home".into(), None),
+        "End" => (35, "End".into(), None),
+        "PageUp" => (33, "PageUp".into(), None),
+        "PageDown" => (34, "PageDown".into(), None),
         // 单字符字母 / 数字
         s if s.len() == 1 => {
             let c = s.chars().next().unwrap();
@@ -844,6 +841,27 @@ pub fn list_active_automation_runs(state: State<'_, AppState>) -> Result<Vec<Str
     Ok(tokens.keys().cloned().collect())
 }
 
+/// 前端提交 AI Dialog 响应
+#[tauri::command]
+pub fn submit_ai_dialog_response(
+    state: State<'_, AppState>,
+    response: crate::services::ai_tools::dialog_tools::AiDialogResponse,
+) -> Result<(), String> {
+    let mut channels = state
+        .ai_dialog_channels
+        .lock()
+        .map_err(|_| "ai_dialog_channels lock poisoned".to_string())?;
+    if let Some(sender) = channels.remove(&response.request_id) {
+        let _ = sender.send(response);
+        Ok(())
+    } else {
+        Err(format!(
+            "No pending dialog for request_id: {}",
+            response.request_id
+        ))
+    }
+}
+
 /// 导出自动化脚本到指定文件路径
 #[tauri::command]
 pub async fn export_automation_script_to_file(
@@ -1418,7 +1436,7 @@ fn execute_steps<'a>(
 
 /// 执行单个普通步骤
 #[allow(clippy::too_many_arguments)]
-async fn execute_step(
+pub async fn execute_step(
     cdp: Option<&CdpClient>,
     http_client: &reqwest::Client,
     magic_port: Option<u16>,
@@ -1628,131 +1646,81 @@ async fn execute_step(
             Ok((output, vs))
         }
         // ── AI 步骤 ───────────────────────────────────────────────────────────
-        ScriptStep::AiPrompt {
-            prompt,
-            image_var,
-            model_override,
-            output_key,
-        } => {
-            let prompt = vars.interpolate(prompt);
-            let image_b64 = image_var.as_ref().and_then(|k| vars.get(k));
-            let config = load_ai_config(app, script_ai_config, None, model_override.as_ref());
-            let content = build_vision_content(&prompt, image_b64.as_deref());
-            let ai = AiService::new(http_client.clone());
-            logs.push(log_entry(
-                "info",
-                "ai",
-                "AI Prompt 请求".to_string(),
-                Some(json!({
-                    "prompt": &prompt,
-                    "model": config.model.clone(),
-                })),
-            ));
-            let reply = ai
-                .chat(
-                    &config,
-                    vec![ChatMessage::with_content("user", content)],
-                    None,
-                )
-                .await?;
-            logs.push(log_entry(
-                "info",
-                "ai",
-                "AI Prompt 响应".to_string(),
-                Some(json!({ "reply": &reply })),
-            ));
-            let mut vs = HashMap::new();
-            if let Some(k) = output_key {
-                vs.insert(k.clone(), reply.clone());
-            }
-            Ok((Some(reply), vs))
-        }
-        ScriptStep::AiExtract {
-            prompt,
-            image_var,
-            output_key_map,
-            model_override,
-        } => {
-            let prompt = vars.interpolate(prompt);
-            let image_b64 = image_var.as_ref().and_then(|k| vars.get(k));
-            let config = load_ai_config(app, script_ai_config, None, model_override.as_ref());
-            let content = build_vision_content(&prompt, image_b64.as_deref());
-            let response_format = serde_json::json!({ "type": "json_object" });
-            let ai = AiService::new(http_client.clone());
-            logs.push(log_entry(
-                "info",
-                "ai",
-                "AI Extract 请求".to_string(),
-                Some(json!({
-                    "prompt": &prompt,
-                    "model": config.model.clone(),
-                    "responseFormat": "json_object",
-                })),
-            ));
-            let reply = ai
-                .chat(
-                    &config,
-                    vec![ChatMessage::with_content("user", content)],
-                    Some(response_format),
-                )
-                .await?;
-            let mut vs = HashMap::new();
-            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&reply) {
-                for AiOutputKeyMapping {
-                    json_path,
-                    var_name,
-                } in output_key_map
-                {
-                    if let Some(v) = extract_json_path(&parsed, json_path) {
-                        vs.insert(var_name.clone(), v);
-                    }
-                }
-            }
-            logs.push(log_entry(
-                "info",
-                "ai",
-                "AI Extract 响应".to_string(),
-                Some(json!({
-                    "reply": &reply,
-                    "varsSet": &vs,
-                })),
-            ));
-            Ok((Some(reply), vs))
-        }
         ScriptStep::AiAgent {
+            prompt,
             system_prompt,
-            initial_message,
+            output_format,
+            output_key_map,
             max_steps,
             output_key,
+            model_override,
         } => {
-            let system_prompt = vars.interpolate(system_prompt);
-            let initial_message = vars.interpolate(initial_message);
-            let config = load_ai_config(app, script_ai_config, None, None);
-            let tools = build_agent_tools();
+            let start_time = std::time::Instant::now();
+            let user_prompt = vars.interpolate(prompt);
+            let sys_prompt = system_prompt.as_ref().map(|s| vars.interpolate(s));
+            let config = load_ai_config(app, script_ai_config, None, model_override.as_ref());
+            let is_json = output_format == "json";
+            let filter = crate::services::ai_tools::ToolFilter::all();
+            let tools = crate::services::ai_tools::ToolRegistry::definitions(&filter);
             let ai = AiService::new(http_client.clone());
 
-            let mut messages: Vec<ChatMessage> = vec![
-                ChatMessage::system(&system_prompt),
-                ChatMessage::user(&initial_message),
-            ];
+            // 构建初始消息
+            let mut messages: Vec<ChatMessage> = Vec::new();
+
+            // 系统提示词：基础上下文 + 用户自定义（可选）+ JSON 格式要求（可选）
+            let effective_system_prompt = crate::services::ai_prompts::build_agent_system_prompt(
+                sys_prompt.as_deref(),
+                is_json,
+                output_key_map,
+            );
+            messages.push(ChatMessage::system(&effective_system_prompt));
+            messages.push(ChatMessage::user(&user_prompt));
+
+            // 开始日志
+            logs.push(log_entry(
+                "info",
+                "ai",
+                "AI Agent 开始执行".to_string(),
+                Some(json!({
+                    "systemPrompt": effective_system_prompt,
+                    "userPrompt": &user_prompt,
+                    "outputFormat": output_format,
+                    "model": config.model.clone(),
+                    "maxSteps": max_steps,
+                    "toolCount": tools.len(),
+                })),
+            ));
 
             let mut final_text = String::new();
             let mut agent_vars: HashMap<String, String> = HashMap::new();
+            let mut total_rounds: u32 = 0;
 
             for round in 0..*max_steps {
+                total_rounds = round + 1;
+
+                // 每轮请求日志（完整消息体）
                 logs.push(log_entry(
                     "debug",
                     "ai",
                     format!("AI Agent 第 {} 轮请求", round + 1),
-                    Some(json!({ "messagesCount": messages.len() })),
+                    Some(json!({
+                        "round": round + 1,
+                        "messages": messages.iter().map(|m| json!({
+                            "role": &m.role,
+                            "content": format!("{}", m.content),
+                            "hasToolCalls": m.tool_calls.is_some(),
+                            "toolCallId": &m.tool_call_id,
+                        })).collect::<Vec<_>>(),
+                    })),
                 ));
+
                 match ai.chat_with_tools(&config, &messages, &tools).await? {
                     AiChatResult::Text(text) => {
                         logs.push(log_entry(
                             "info",
                             "ai",
-                            "AI Agent 返回最终文本".to_string(),
-                            Some(json!({ "text": &text })),
+                            format!("AI Agent 第 {} 轮返回文本", round + 1),
+                            Some(json!({ "text": &text, "round": round + 1 })),
                         ));
                         final_text = text;
                         break;
@@ -1761,12 +1729,250 @@ async fn execute_step(
                         logs.push(log_entry(
                             "info",
                             "ai",
-                            format!("AI Agent 返回 {} 个工具调用", calls.len()),
+                            format!(
+                                "AI Agent 第 {} 轮返回 {} 个工具调用",
+                                round + 1,
+                                calls.len()
+                            ),
                             Some(json!({
-                                "tools": calls.iter().map(|c| c.name.clone()).collect::<Vec<_>>(),
+                                "round": round + 1,
+                                "toolCalls": calls.iter().map(|c| json!({
+                                    "name": &c.name,
+                                    "arguments": &c.arguments,
+                                })).collect::<Vec<_>>(),
                             })),
                         ));
-                        // 构建带 tool_calls 字段的 assistant 消息追加到历史
+
+                        // 追加 assistant 消息（含 tool_calls）
+                        let raw_tool_calls: Vec<serde_json::Value> =
+                            calls.iter().map(|c| c.raw.clone()).collect();
+                        messages.push(ChatMessage {
+                            role: "assistant".into(),
+                            content: crate::services::ai_service::ChatContent::Text(String::new()),
+                            tool_calls: Some(raw_tool_calls),
+                            tool_call_id: None,
+                            name: None,
+                        });
+
+                        // 执行每个工具
+                        for tool_call in &calls {
+                            let tool_start = std::time::Instant::now();
+                            let merged_vars = {
+                                let mut v = vars.clone();
+                                for (k, val) in &agent_vars {
+                                    v.set(k, val.clone());
+                                }
+                                v
+                            };
+                            let mut tool_ctx = crate::services::ai_tools::ToolContext {
+                                cdp,
+                                http_client,
+                                magic_port,
+                                app,
+                                run_id,
+                                step_index,
+                                vars: &merged_vars,
+                                logs,
+                                script_ai_config,
+                            };
+                            let tool_result_str =
+                                match crate::services::ai_tools::ToolRegistry::execute(
+                                    &tool_call.name,
+                                    tool_call.arguments.clone(),
+                                    &mut tool_ctx,
+                                )
+                                .await
+                                {
+                                    Ok(result) => {
+                                        for (k, v) in result.vars {
+                                            agent_vars.insert(k, v);
+                                        }
+                                        let text_out =
+                                            result.text.unwrap_or_else(|| "ok".to_string());
+                                        if let Some(ref img_b64) = result.image_base64 {
+                                            messages.push(ChatMessage::tool_result_with_image(
+                                                &tool_call.id,
+                                                &text_out,
+                                                img_b64,
+                                            ));
+                                        } else {
+                                            messages.push(ChatMessage::tool_result(
+                                                &tool_call.id,
+                                                &text_out,
+                                            ));
+                                        }
+                                        text_out
+                                    }
+                                    Err(e) => {
+                                        let err_msg = format!("tool error: {e}");
+                                        messages.push(ChatMessage::tool_result(
+                                            &tool_call.id,
+                                            &err_msg,
+                                        ));
+                                        err_msg
+                                    }
+                                };
+                            let tool_duration = tool_start.elapsed().as_millis() as u64;
+                            logs.push(log_entry(
+                                "debug",
+                                "ai",
+                                format!("工具 {} 执行完成", tool_call.name),
+                                Some(json!({
+                                    "name": &tool_call.name,
+                                    "arguments": &tool_call.arguments,
+                                    "result": &tool_result_str,
+                                    "hasImage": tool_result_str != "ok" || false,
+                                    "durationMs": tool_duration,
+                                })),
+                            ));
+                        }
+                    }
+                }
+            }
+
+            // JSON 模式下：解析 + 提取变量
+            let mut vs = agent_vars;
+            if is_json && !output_key_map.is_empty() {
+                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&final_text) {
+                    let mut extracted: HashMap<String, String> = HashMap::new();
+                    for AiOutputKeyMapping {
+                        json_path,
+                        var_name,
+                    } in output_key_map
+                    {
+                        if let Some(v) = extract_json_path(&parsed, json_path) {
+                            vs.insert(var_name.clone(), v.clone());
+                            extracted.insert(var_name.clone(), v);
+                        }
+                    }
+                    logs.push(log_entry(
+                        "debug",
+                        "ai",
+                        "AI Agent JSON 解析结果".to_string(),
+                        Some(json!({
+                            "rawJson": &final_text,
+                            "extractedVars": &extracted,
+                        })),
+                    ));
+                } else {
+                    logs.push(log_entry(
+                        "warn",
+                        "ai",
+                        "AI Agent JSON 解析失败".to_string(),
+                        Some(json!({ "rawOutput": &final_text })),
+                    ));
+                }
+            }
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), final_text.clone());
+            }
+
+            let total_duration = start_time.elapsed().as_millis() as u64;
+            logs.push(log_entry(
+                "info",
+                "ai",
+                "AI Agent 执行完成".to_string(),
+                Some(json!({
+                    "finalOutput": &final_text,
+                    "totalRounds": total_rounds,
+                    "totalDurationMs": total_duration,
+                    "varsSet": &vs,
+                })),
+            ));
+
+            Ok((Some(final_text), vs))
+        }
+
+        ScriptStep::AiJudge {
+            prompt,
+            output_mode,
+            max_steps,
+            model_override,
+            output_key,
+        } => {
+            let start_time = std::time::Instant::now();
+            let user_prompt = vars.interpolate(prompt);
+            let config = load_ai_config(app, script_ai_config, None, model_override.as_ref());
+            let filter = crate::services::ai_tools::ToolFilter::all();
+            let tools = crate::services::ai_tools::ToolRegistry::definitions(&filter);
+            let ai = AiService::new(http_client.clone());
+
+            let is_boolean = output_mode == "boolean";
+            let system_prompt = if is_boolean {
+                crate::services::ai_prompts::judge_boolean_prompt()
+            } else {
+                crate::services::ai_prompts::judge_percentage_prompt()
+            };
+
+            let mut messages: Vec<ChatMessage> = vec![
+                ChatMessage::system(&system_prompt),
+                ChatMessage::user(&user_prompt),
+            ];
+
+            // 开始日志
+            logs.push(log_entry(
+                "info",
+                "ai",
+                "AI Judge 开始执行".to_string(),
+                Some(json!({
+                    "prompt": &user_prompt,
+                    "outputMode": output_mode,
+                    "model": config.model.clone(),
+                    "maxSteps": max_steps,
+                    "toolCount": tools.len(),
+                })),
+            ));
+
+            let mut final_text = String::new();
+            let mut total_rounds: u32 = 0;
+
+            for round in 0..*max_steps {
+                total_rounds = round + 1;
+
+                logs.push(log_entry(
+                    "debug",
+                    "ai",
+                    format!("AI Judge 第 {} 轮请求", round + 1),
+                    Some(json!({
+                        "round": round + 1,
+                        "messages": messages.iter().map(|m| json!({
+                            "role": &m.role,
+                            "content": format!("{}", m.content),
+                            "hasToolCalls": m.tool_calls.is_some(),
+                            "toolCallId": &m.tool_call_id,
+                        })).collect::<Vec<_>>(),
+                    })),
+                ));
+
+                match ai.chat_with_tools(&config, &messages, &tools).await? {
+                    AiChatResult::Text(text) => {
+                        logs.push(log_entry(
+                            "info",
+                            "ai",
+                            format!("AI Judge 第 {} 轮返回文本", round + 1),
+                            Some(json!({ "text": &text, "round": round + 1 })),
+                        ));
+                        final_text = text;
+                        break;
+                    }
+                    AiChatResult::ToolCalls(calls) => {
+                        logs.push(log_entry(
+                            "info",
+                            "ai",
+                            format!(
+                                "AI Judge 第 {} 轮返回 {} 个工具调用",
+                                round + 1,
+                                calls.len()
+                            ),
+                            Some(json!({
+                                "round": round + 1,
+                                "toolCalls": calls.iter().map(|c| json!({
+                                    "name": &c.name,
+                                    "arguments": &c.arguments,
+                                })).collect::<Vec<_>>(),
+                            })),
+                        ));
+
                         let raw_tool_calls: Vec<serde_json::Value> =
                             calls.iter().map(|c| c.raw.clone()).collect();
                         messages.push(ChatMessage {
@@ -1778,69 +1984,110 @@ async fn execute_step(
                         });
 
                         for tool_call in &calls {
-                            // 将 kind 字段注入 arguments，构造完整的 ScriptStep JSON
-                            let mut step_json = tool_call.arguments.clone();
-                            if let Some(obj) = step_json.as_object_mut() {
-                                obj.insert(
-                                    "kind".to_string(),
-                                    serde_json::Value::String(tool_call.name.clone()),
-                                );
-                            }
-
-                            let tool_result = match serde_json::from_value::<ScriptStep>(step_json)
-                            {
-                                Err(e) => format!("step parse error: {e}"),
-                                Ok(inner_step) => {
-                                    // 使用 Box::pin 避免无限递归的 Future 大小问题
-                                    let merged_vars = {
-                                        let mut v = vars.clone();
-                                        for (k, val) in &agent_vars {
-                                            v.set(k, val.clone());
-                                        }
-                                        v
-                                    };
-                                    match Box::pin(execute_step(
-                                        cdp,
-                                        http_client,
-                                        magic_port,
-                                        &inner_step,
-                                        &merged_vars,
-                                        app,
-                                        run_id,
-                                        step_index,
-                                        script_ai_config,
-                                        logs,
-                                    ))
-                                    .await
-                                    {
-                                        Ok((output, step_vars)) => {
-                                            for (k, v) in step_vars {
-                                                agent_vars.insert(k, v);
-                                            }
-                                            output.unwrap_or_else(|| "ok".to_string())
-                                        }
-                                        Err(e) => format!("step error: {e}"),
-                                    }
-                                }
+                            let tool_start = std::time::Instant::now();
+                            let mut tool_ctx = crate::services::ai_tools::ToolContext {
+                                cdp,
+                                http_client,
+                                magic_port,
+                                app,
+                                run_id,
+                                step_index,
+                                vars,
+                                logs,
+                                script_ai_config,
                             };
+                            let tool_result_str =
+                                match crate::services::ai_tools::ToolRegistry::execute(
+                                    &tool_call.name,
+                                    tool_call.arguments.clone(),
+                                    &mut tool_ctx,
+                                )
+                                .await
+                                {
+                                    Ok(result) => {
+                                        let text_out =
+                                            result.text.unwrap_or_else(|| "ok".to_string());
+                                        if let Some(ref img_b64) = result.image_base64 {
+                                            messages.push(ChatMessage::tool_result_with_image(
+                                                &tool_call.id,
+                                                &text_out,
+                                                img_b64,
+                                            ));
+                                        } else {
+                                            messages.push(ChatMessage::tool_result(
+                                                &tool_call.id,
+                                                &text_out,
+                                            ));
+                                        }
+                                        text_out
+                                    }
+                                    Err(e) => {
+                                        let err_msg = format!("tool error: {e}");
+                                        messages.push(ChatMessage::tool_result(
+                                            &tool_call.id,
+                                            &err_msg,
+                                        ));
+                                        err_msg
+                                    }
+                                };
+                            let tool_duration = tool_start.elapsed().as_millis() as u64;
                             logs.push(log_entry(
                                 "debug",
                                 "ai",
-                                format!("工具 {} 执行结果", tool_call.name),
-                                Some(json!({ "result": &tool_result })),
+                                format!("工具 {} 执行完成", tool_call.name),
+                                Some(json!({
+                                    "name": &tool_call.name,
+                                    "arguments": &tool_call.arguments,
+                                    "result": &tool_result_str,
+                                    "durationMs": tool_duration,
+                                })),
                             ));
-
-                            messages.push(ChatMessage::tool_result(&tool_call.id, tool_result));
                         }
                     }
                 }
             }
 
-            let mut vs = agent_vars;
+            // 解析最终输出
+            let raw_reply = final_text.trim().to_lowercase();
+            let parsed_value = if is_boolean {
+                let result = raw_reply.starts_with("true")
+                    || raw_reply == "是"
+                    || raw_reply == "yes"
+                    || raw_reply == "1";
+                if result {
+                    "true".to_string()
+                } else {
+                    "false".to_string()
+                }
+            } else {
+                let num: i32 = raw_reply
+                    .chars()
+                    .filter(|c| c.is_ascii_digit())
+                    .collect::<String>()
+                    .parse()
+                    .unwrap_or(0);
+                num.clamp(0, 100).to_string()
+            };
+
+            let total_duration = start_time.elapsed().as_millis() as u64;
+            logs.push(log_entry(
+                "info",
+                "ai",
+                "AI Judge 执行完成".to_string(),
+                Some(json!({
+                    "rawReply": final_text.trim(),
+                    "parsedValue": &parsed_value,
+                    "outputMode": output_mode,
+                    "totalRounds": total_rounds,
+                    "totalDurationMs": total_duration,
+                })),
+            ));
+
+            let mut vs = HashMap::new();
             if let Some(k) = output_key {
-                vs.insert(k.clone(), final_text.clone());
+                vs.insert(k.clone(), parsed_value.clone());
             }
-            Ok((Some(final_text), vs))
+            Ok((Some(parsed_value), vs))
         }
 
         // ── CDP 具名步骤 ──────────────────────────────────────────────────────
@@ -2562,6 +2809,40 @@ async fn execute_step(
             magic_post(http_client, port, payload).await?;
             Ok((None, HashMap::new()))
         }
+        ScriptStep::MagicEnableExtension { extension_id } => {
+            let port = get_magic_port()?;
+            let extension_id = vars.interpolate(extension_id);
+            logs.push(log_entry(
+                "info",
+                "magic",
+                format!("启用扩展: {}", extension_id),
+                None,
+            ));
+            magic_post(
+                http_client,
+                port,
+                json!({ "cmd": "enable_extension", "extension_id": extension_id }),
+            )
+            .await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicDisableExtension { extension_id } => {
+            let port = get_magic_port()?;
+            let extension_id = vars.interpolate(extension_id);
+            logs.push(log_entry(
+                "info",
+                "magic",
+                format!("禁用扩展: {}", extension_id),
+                None,
+            ));
+            magic_post(
+                http_client,
+                port,
+                json!({ "cmd": "disable_extension", "extension_id": extension_id }),
+            )
+            .await?;
+            Ok((None, HashMap::new()))
+        }
         ScriptStep::MagicToggleSyncMode {
             role,
             browser_id,
@@ -2922,11 +3203,17 @@ async fn execute_step(
             let key = vars.interpolate(&key);
             let (vk, code, text) = cdp_key_info(&key);
             let mut down = json!({ "type": "keyDown", "key": key, "windowsVirtualKeyCode": vk });
-            if !code.is_empty() { down["code"] = json!(code); }
-            if let Some(t) = &text { down["text"] = json!(t); }
+            if !code.is_empty() {
+                down["code"] = json!(code);
+            }
+            if let Some(t) = &text {
+                down["text"] = json!(t);
+            }
             cdp.call("Input.dispatchKeyEvent", down).await?;
             let mut up = json!({ "type": "keyUp", "key": key, "windowsVirtualKeyCode": vk });
-            if !code.is_empty() { up["code"] = json!(code); }
+            if !code.is_empty() {
+                up["code"] = json!(code);
+            }
             cdp.call("Input.dispatchKeyEvent", up).await?;
             Ok((None, HashMap::new()))
         }
@@ -2934,22 +3221,44 @@ async fn execute_step(
         ScriptStep::CdpShortcut { modifiers, key } => {
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
             let key = vars.interpolate(&key);
+            // 记录快捷键日志：用户输入和实际发送
+            let user_input = if modifiers.is_empty() {
+                key.clone()
+            } else {
+                format!("{}+{}", modifiers.join("+"), key)
+            };
+            logs.push(log_entry(
+                "info",
+                "cdp",
+                format!("快捷键发送: 用户输入=[{}]", user_input),
+                Some(json!({
+                    "modifiers": modifiers,
+                    "key": key,
+                    "userInput": user_input,
+                })),
+            ));
             // CDP 协议位掩码：Alt=1, Ctrl=2, Meta=4, Shift=8
-            let modifier_flag: i32 = modifiers.iter().map(|m| match m.as_str() {
-                "alt" => 1,
-                "ctrl" => 2,
-                "meta" => 4,
-                "shift" => 8,
-                _ => 0,
-            }).sum();
+            let modifier_flag: i32 = modifiers
+                .iter()
+                .map(|m| match m.as_str() {
+                    "alt" => 1,
+                    "ctrl" => 2,
+                    "meta" => 4,
+                    "shift" => 8,
+                    _ => 0,
+                })
+                .sum();
             // 修饰键信息：(CDP key name, code, windowsVirtualKeyCode)
-            let modifier_infos: Vec<(&str, &str, i32)> = modifiers.iter().filter_map(|m| match m.as_str() {
-                "alt" => Some(("Alt", "AltLeft", 18)),
-                "ctrl" => Some(("Control", "ControlLeft", 17)),
-                "meta" => Some(("Meta", "MetaLeft", 91)),
-                "shift" => Some(("Shift", "ShiftLeft", 16)),
-                _ => None,
-            }).collect();
+            let modifier_infos: Vec<(&str, &str, i32)> = modifiers
+                .iter()
+                .filter_map(|m| match m.as_str() {
+                    "alt" => Some(("Alt", "AltLeft", 18)),
+                    "ctrl" => Some(("Control", "ControlLeft", 17)),
+                    "meta" => Some(("Meta", "MetaLeft", 91)),
+                    "shift" => Some(("Shift", "ShiftLeft", 16)),
+                    _ => None,
+                })
+                .collect();
             // 按序按下修饰键（使用 rawKeyDown）
             for &(mk, mk_code, mk_vk) in &modifier_infos {
                 cdp.call(
@@ -2972,7 +3281,9 @@ async fn execute_step(
                 "windowsVirtualKeyCode": vk,
                 "modifiers": modifier_flag
             });
-            if !code.is_empty() { main_down["code"] = json!(code.clone()); }
+            if !code.is_empty() {
+                main_down["code"] = json!(code.clone());
+            }
             // macOS 需要 commands 数组才能触发快捷键动作
             #[cfg(target_os = "macos")]
             if let Some(cmds) = cdp_shortcut_commands(&modifiers, &key) {
@@ -2986,7 +3297,9 @@ async fn execute_step(
                 "windowsVirtualKeyCode": vk,
                 "modifiers": modifier_flag
             });
-            if !code.is_empty() { main_up["code"] = json!(code); }
+            if !code.is_empty() {
+                main_up["code"] = json!(code);
+            }
             cdp.call("Input.dispatchKeyEvent", main_up).await?;
             // 逆序释放修饰键
             for &(mk, mk_code, mk_vk) in modifier_infos.iter().rev() {
@@ -3002,6 +3315,20 @@ async fn execute_step(
                 )
                 .await?;
             }
+            logs.push(log_entry(
+                "debug",
+                "cdp",
+                format!(
+                    "快捷键已发送: modifiers={:?}, key={}, modifier_flag={}, vk={}, code={}",
+                    modifiers, key, modifier_flag, vk, code
+                ),
+                Some(json!({
+                    "modifierFlag": modifier_flag,
+                    "virtualKeyCode": vk,
+                    "code": code,
+                    "modifierInfos": modifier_infos.iter().map(|(k, c, v)| json!({"key": k, "code": c, "vk": v})).collect::<Vec<_>>(),
+                })),
+            ));
             Ok((None, HashMap::new()))
         }
 

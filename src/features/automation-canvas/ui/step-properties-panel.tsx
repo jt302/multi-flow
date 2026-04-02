@@ -9,15 +9,13 @@
 
 import React from 'react';
 
-import {
-	ChevronDown,
-	FolderOpen,
-	Trash2,
-	Variable,
-} from 'lucide-react';
+import { ChevronDown, FolderOpen, Trash2, Variable } from 'lucide-react';
 import { save as saveDialog } from '@tauri-apps/plugin-dialog';
 
-import type { ScriptStep, ScriptVarDef } from '@/entities/automation/model/types';
+import type {
+	ScriptStep,
+	ScriptVarDef,
+} from '@/entities/automation/model/types';
 import { KIND_LABELS } from '@/entities/automation/model/step-registry';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -379,7 +377,8 @@ export function StepPropertiesPanel({
 							if (selected) {
 								onUpdate({
 									...step,
-									output_path: typeof selected === 'string' ? selected : selected,
+									output_path:
+										typeof selected === 'string' ? selected : selected,
 								} as ScriptStep);
 							}
 						}}
@@ -427,7 +426,10 @@ export function StepPropertiesPanel({
 							const { open } = await import('@tauri-apps/plugin-dialog');
 							const selected = await open({ directory: true });
 							if (selected) {
-								onUpdate({ ...step, download_path: selected as string } as ScriptStep);
+								onUpdate({
+									...step,
+									download_path: selected as string,
+								} as ScriptStep);
 							}
 						}}
 					>
@@ -483,7 +485,10 @@ export function StepPropertiesPanel({
 								filters: [{ name: 'JS文件', extensions: ['js', 'mjs'] }],
 							});
 							if (selected) {
-								onUpdate({ ...step, file_path: selected as string } as ScriptStep);
+								onUpdate({
+									...step,
+									file_path: selected as string,
+								} as ScriptStep);
 							}
 						}}
 					>
@@ -605,14 +610,19 @@ export function StepPropertiesPanel({
 				<Label className="text-xs">修饰键</Label>
 				<div className="flex flex-wrap gap-3">
 					{(['ctrl', 'meta', 'alt', 'shift'] as const).map((mod) => (
-						<label key={mod} className="flex items-center gap-1.5 text-xs cursor-pointer">
+						<label
+							key={mod}
+							className="flex items-center gap-1.5 text-xs cursor-pointer"
+						>
 							<input
 								type="checkbox"
 								checked={mods.includes(mod)}
 								onChange={() => toggleMod(mod)}
 								className="h-3.5 w-3.5 cursor-pointer"
 							/>
-							{mod === 'meta' ? 'Cmd/Meta' : mod.charAt(0).toUpperCase() + mod.slice(1)}
+							{mod === 'meta'
+								? 'Cmd/Meta'
+								: mod.charAt(0).toUpperCase() + mod.slice(1)}
 						</label>
 					))}
 				</div>
@@ -659,15 +669,66 @@ export function StepPropertiesPanel({
 	} else if (kind === 'loop') {
 		fields.push(nf('count', '循环次数'));
 		fields.push(tf('iter_var', '迭代变量名（可选）'));
-	} else if (kind === 'ai_prompt') {
-		fields.push(tf('prompt', 'Prompt（支持 {{变量}}）', true));
-		fields.push(tf('image_var', '图片变量名（可选）'));
-		fields.push(okf());
-	} else if (kind === 'ai_extract') {
-		fields.push(tf('prompt', 'Prompt（支持 {{变量}}）', true));
 	} else if (kind === 'ai_agent') {
-		fields.push(tf('system_prompt', '系统提示词', true));
-		fields.push(tf('initial_message', '初始消息（支持 {{变量}}）', true));
+		fields.push(tf('prompt', 'Prompt（支持 {{变量}}）', true));
+		fields.push(tf('system_prompt', '系统提示词（可选）', true));
+		const outputFormat = String(s['output_format'] ?? 'text');
+		fields.push(
+			<div key="output_format" className="space-y-1">
+				<Label className="text-xs">输出格式</Label>
+				<Select
+					value={outputFormat}
+					onValueChange={(v) =>
+						onUpdate({ ...step, output_format: v } as ScriptStep)
+					}
+				>
+					<SelectTrigger className="h-8 text-xs cursor-pointer">
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="text" className="cursor-pointer">
+							纯文本
+						</SelectItem>
+						<SelectItem value="json" className="cursor-pointer">
+							JSON（配合 key 映射提取变量）
+						</SelectItem>
+					</SelectContent>
+				</Select>
+			</div>,
+		);
+		fields.push(nf('max_steps', '最大循环轮次'));
+		fields.push(okf());
+	} else if (kind === 'ai_judge') {
+		fields.push(tf('prompt', '判断提示词（描述需要AI判断的场景）', true));
+		const outputMode = String(s['output_mode'] ?? 'boolean');
+		fields.push(
+			<div key="output_mode" className="space-y-1">
+				<Label className="text-xs">输出模式</Label>
+				<Select
+					value={outputMode}
+					onValueChange={(v) =>
+						onUpdate({ ...step, output_mode: v } as ScriptStep)
+					}
+				>
+					<SelectTrigger className="h-8 text-xs cursor-pointer">
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="boolean" className="cursor-pointer">
+							布尔值（true / false）
+						</SelectItem>
+						<SelectItem value="percentage" className="cursor-pointer">
+							百分比（0 - 100）
+						</SelectItem>
+					</SelectContent>
+				</Select>
+				<p className="text-[10px] text-muted-foreground">
+					{outputMode === 'boolean'
+						? 'AI 将输出 true 或 false，可用于条件分支判断'
+						: 'AI 将输出 0-100 的整数百分比，可用于阈值判断'}
+				</p>
+			</div>,
+		);
 		fields.push(nf('max_steps', '最大循环轮次'));
 		fields.push(okf());
 	} else if (kind === 'magic_open_new_tab') {
@@ -709,7 +770,8 @@ export function StepPropertiesPanel({
 							if (selected) {
 								onUpdate({
 									...step,
-									output_path: typeof selected === 'string' ? selected : selected,
+									output_path:
+										typeof selected === 'string' ? selected : selected,
 								} as ScriptStep);
 							}
 						}}
@@ -721,6 +783,11 @@ export function StepPropertiesPanel({
 		);
 	} else if (['magic_get_browsers', 'magic_get_bounds'].includes(kind)) {
 		fields.push(okf());
+	} else if (
+		kind === 'magic_enable_extension' ||
+		kind === 'magic_disable_extension'
+	) {
+		fields.push(tf('extension_id', '扩展 ID（从 managed extensions 获取）'));
 	}
 
 	// ── 渲染 ──────────────────────────────────────────────────────────────────

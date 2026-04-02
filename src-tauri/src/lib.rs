@@ -42,6 +42,19 @@ mod state;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // 自定义 tokio runtime：增大线程栈至 8MB
+    // 防止 AI Agent 工具调用时 execute_step 的大型 Future 嵌套导致栈溢出
+    // （默认约 2MB，嵌套的 execute_step Future 可超出此限制）
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .thread_stack_size(8 * 1024 * 1024)
+        .build()
+        .expect("Failed to create tokio runtime");
+    tauri::async_runtime::set(runtime.handle().clone());
+    // 泄漏 runtime 以保持其在整个应用生命周期内存活
+    // （tauri::async_runtime::set 只接受 Handle，不持有 Runtime 所有权）
+    Box::leak(Box::new(runtime));
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
@@ -126,6 +139,7 @@ pub fn run() {
             commands::automation_commands::update_script_canvas_positions,
             commands::automation_commands::update_script_variables_schema,
             commands::automation_commands::list_active_automation_runs,
+            commands::automation_commands::submit_ai_dialog_response,
             commands::automation_commands::run_automation_script_debug,
             commands::automation_commands::export_automation_script_to_file,
             commands::group_commands::create_profile_group,
