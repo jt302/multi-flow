@@ -9,6 +9,7 @@ import {
 	PALETTE_DOT_COLORS,
 	PALETTE_GROUPS,
 } from '@/entities/automation/model/step-registry';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type Props = {
 	/** 点击步骤按钮时的回调，参数为步骤种类字符串（kind） */
@@ -28,7 +29,7 @@ export function StepPalette({ onAddStep }: Props) {
 			</div>
 
 			{/* 步骤列表（可滚动） */}
-			<div className="flex-1 overflow-y-auto min-h-0">
+			<ScrollArea className="flex-1 min-h-0">
 				<div className="p-2 space-y-3">
 					{PALETTE_GROUPS.map((group) => (
 						<div key={group.label}>
@@ -58,7 +59,7 @@ export function StepPalette({ onAddStep }: Props) {
 						</div>
 					))}
 				</div>
-			</div>
+			</ScrollArea>
 		</div>
 	);
 }

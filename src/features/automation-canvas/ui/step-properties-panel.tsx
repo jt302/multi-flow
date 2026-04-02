@@ -13,6 +13,7 @@ import { ChevronDown, FolderOpen, Trash2, Variable } from 'lucide-react';
 import { save as saveDialog } from '@tauri-apps/plugin-dialog';
 
 import type {
+	DialogButton,
 	ScriptStep,
 	ScriptVarDef,
 } from '@/entities/automation/model/types';
@@ -32,6 +33,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 
 type Props = {
@@ -629,11 +631,57 @@ export function StepPropertiesPanel({
 			</div>,
 		);
 		fields.push(tf('key', '主键（如 c、a、F4、Enter）'));
+	} else if (kind === 'cdp_get_attribute') {
+		fields.push(sf());
+		fields.push(tf('attribute', '属性名（如 href、src、class）'));
+		fields.push(okf());
+	} else if (kind === 'cdp_set_input_value') {
+		fields.push(sf());
+		fields.push(tf('value', '设置的值（支持 {{变量}}）'));
+	} else if (kind === 'cdp_reload') {
+		const ignoreCache = Boolean(s['ignore_cache'] ?? false);
+		fields.push(
+			<div key="ignore_cache" className="flex items-center gap-2">
+				<input
+					type="checkbox"
+					checked={ignoreCache}
+					onChange={(e) =>
+						onUpdate({ ...step, ignore_cache: e.target.checked } as ScriptStep)
+					}
+					className="h-3.5 w-3.5 cursor-pointer"
+				/>
+				<Label className="text-xs">忽略缓存</Label>
+			</div>,
+		);
 	} else if (kind === 'wait_for_user') {
 		fields.push(tf('message', '提示消息', true));
 		fields.push(tf('input_label', '输入框标签（留空则无输入框）'));
 		fields.push(okf());
 		fields.push(nf('timeout_ms', '超时毫秒数（0=不超时）'));
+		const onTimeout = String(s['on_timeout'] ?? 'continue');
+		fields.push(
+			<div key="on_timeout" className="space-y-1">
+				<Label className="text-xs">超时后行为</Label>
+				<Select
+					value={onTimeout}
+					onValueChange={(v) =>
+						onUpdate({ ...step, on_timeout: v } as ScriptStep)
+					}
+				>
+					<SelectTrigger className="h-8 text-xs cursor-pointer">
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="continue" className="cursor-pointer">
+							继续执行
+						</SelectItem>
+						<SelectItem value="fail" className="cursor-pointer">
+							标记失败
+						</SelectItem>
+					</SelectContent>
+				</Select>
+			</div>,
+		);
 	} else if (kind === 'print') {
 		fields.push(tf('text', '打印内容（支持 {{变量}}）', true));
 		const lvl = String(s['level'] ?? 'info');
@@ -667,7 +715,34 @@ export function StepPropertiesPanel({
 	} else if (kind === 'condition') {
 		fields.push(tf('condition_expr', '条件表达式'));
 	} else if (kind === 'loop') {
-		fields.push(nf('count', '循环次数'));
+		const loopMode = String(s['mode'] ?? 'count');
+		fields.push(
+			<div key="mode" className="space-y-1">
+				<Label className="text-xs">循环模式</Label>
+				<Select
+					value={loopMode}
+					onValueChange={(v) => onUpdate({ ...step, mode: v } as ScriptStep)}
+				>
+					<SelectTrigger className="h-8 text-xs cursor-pointer">
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="count" className="cursor-pointer">
+							按次数
+						</SelectItem>
+						<SelectItem value="while" className="cursor-pointer">
+							按条件（while）
+						</SelectItem>
+					</SelectContent>
+				</Select>
+			</div>,
+		);
+		if (loopMode === 'count') {
+			fields.push(nf('count', '循环次数'));
+		} else {
+			fields.push(tf('condition_expr', '循环条件表达式'));
+			fields.push(nf('max_iterations', '最大迭代次数（安全上限）'));
+		}
 		fields.push(tf('iter_var', '迭代变量名（可选）'));
 	} else if (kind === 'ai_agent') {
 		fields.push(tf('prompt', 'Prompt（支持 {{变量}}）', true));
@@ -788,6 +863,231 @@ export function StepPropertiesPanel({
 		kind === 'magic_disable_extension'
 	) {
 		fields.push(tf('extension_id', '扩展 ID（从 managed extensions 获取）'));
+	} else if (kind === 'confirm_dialog') {
+		fields.push(tf('title', '标题'));
+		fields.push(tf('message', '提示消息', true));
+		// 动态按钮列表编辑器
+		const buttons = (s['buttons'] as DialogButton[] | undefined) ?? [
+			{ text: '确认', value: 'confirm', variant: 'default' },
+			{ text: '取消', value: 'cancel', variant: 'outline' },
+		];
+		fields.push(
+			<div key="buttons" className="space-y-1">
+				<Label className="text-xs">按钮列表（最多 4 个）</Label>
+				<div className="space-y-1.5">
+					{buttons.map((btn: DialogButton, i: number) => (
+						<div key={i} className="flex gap-1 items-center">
+							<Input
+								value={btn.text}
+								onChange={(e) => {
+									const newBtns = [...buttons];
+									newBtns[i] = { ...btn, text: e.target.value };
+									onUpdate({ ...step, buttons: newBtns } as ScriptStep);
+								}}
+								placeholder="按钮文本"
+								className="h-7 text-xs flex-1"
+							/>
+							<Input
+								value={btn.value}
+								onChange={(e) => {
+									const newBtns = [...buttons];
+									newBtns[i] = { ...btn, value: e.target.value };
+									onUpdate({ ...step, buttons: newBtns } as ScriptStep);
+								}}
+								placeholder="值"
+								className="h-7 text-xs w-20"
+							/>
+							<Select
+								value={btn.variant ?? 'default'}
+								onValueChange={(v) => {
+									const newBtns = [...buttons];
+									newBtns[i] = {
+										...btn,
+										variant: v as DialogButton['variant'],
+									};
+									onUpdate({ ...step, buttons: newBtns } as ScriptStep);
+								}}
+							>
+								<SelectTrigger className="h-7 text-xs w-20 cursor-pointer">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="default" className="cursor-pointer">
+										默认
+									</SelectItem>
+									<SelectItem value="outline" className="cursor-pointer">
+										次要
+									</SelectItem>
+									<SelectItem value="destructive" className="cursor-pointer">
+										危险
+									</SelectItem>
+								</SelectContent>
+							</Select>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								className="h-7 w-7 shrink-0 cursor-pointer text-destructive hover:text-destructive"
+								disabled={buttons.length <= 1}
+								onClick={() => {
+									const newBtns = buttons.filter(
+										(_: DialogButton, idx: number) => idx !== i,
+									);
+									onUpdate({ ...step, buttons: newBtns } as ScriptStep);
+								}}
+							>
+								<Trash2 className="h-3 w-3" />
+							</Button>
+						</div>
+					))}
+					{buttons.length < 4 && (
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							className="h-7 text-xs w-full cursor-pointer"
+							onClick={() =>
+								onUpdate({
+									...step,
+									buttons: [
+										...buttons,
+										{ text: '', value: '', variant: 'default' },
+									],
+								} as ScriptStep)
+							}
+						>
+							+ 添加按钮
+						</Button>
+					)}
+				</div>
+			</div>,
+		);
+		fields.push(nf('timeout_ms', '超时毫秒数（0=不超时）'));
+		fields.push(tf('on_timeout_value', '超时默认值'));
+		fields.push(okf());
+	} else if (kind === 'select_dialog') {
+		fields.push(tf('title', '标题'));
+		fields.push(tf('message', '说明文字（可选）', true));
+		// 动态选项列表编辑器
+		const options = (s['options'] as string[] | undefined) ?? [];
+		fields.push(
+			<div key="options" className="space-y-1">
+				<Label className="text-xs">选项列表</Label>
+				<div className="space-y-1.5">
+					{options.map((opt: string, i: number) => (
+						<div key={i} className="flex gap-1">
+							<Input
+								value={opt}
+								onChange={(e) => {
+									const newOpts = [...options];
+									newOpts[i] = e.target.value;
+									onUpdate({ ...step, options: newOpts } as ScriptStep);
+								}}
+								placeholder={`选项 ${i + 1}`}
+								className="h-7 text-xs flex-1"
+							/>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								className="h-7 w-7 shrink-0 cursor-pointer text-destructive hover:text-destructive"
+								onClick={() => {
+									const newOpts = options.filter(
+										(_: string, idx: number) => idx !== i,
+									);
+									onUpdate({ ...step, options: newOpts } as ScriptStep);
+								}}
+							>
+								<Trash2 className="h-3 w-3" />
+							</Button>
+						</div>
+					))}
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="h-7 text-xs w-full cursor-pointer"
+						onClick={() =>
+							onUpdate({ ...step, options: [...options, ''] } as ScriptStep)
+						}
+					>
+						+ 添加选项
+					</Button>
+				</div>
+			</div>,
+		);
+		fields.push(
+			<div key="multi_select" className="flex items-center gap-2">
+				<input
+					type="checkbox"
+					checked={Boolean(s['multi_select'] ?? false)}
+					onChange={(e) =>
+						onUpdate({ ...step, multi_select: e.target.checked } as ScriptStep)
+					}
+					className="h-3.5 w-3.5 cursor-pointer"
+				/>
+				<Label className="text-xs">允许多选</Label>
+			</div>,
+		);
+		fields.push(nf('timeout_ms', '超时毫秒数（0=不超时）'));
+		fields.push(okf());
+	} else if (kind === 'notification') {
+		fields.push(tf('title', '标题'));
+		fields.push(tf('body', '内容', true));
+		const level = String(s['level'] ?? 'info');
+		fields.push(
+			<div key="level" className="space-y-1">
+				<Label className="text-xs">级别</Label>
+				<Select
+					value={level}
+					onValueChange={(v) => onUpdate({ ...step, level: v } as ScriptStep)}
+				>
+					<SelectTrigger className="h-8 text-xs cursor-pointer">
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="info" className="cursor-pointer">
+							info
+						</SelectItem>
+						<SelectItem value="success" className="cursor-pointer">
+							success
+						</SelectItem>
+						<SelectItem value="warning" className="cursor-pointer">
+							warning
+						</SelectItem>
+						<SelectItem value="error" className="cursor-pointer">
+							error
+						</SelectItem>
+					</SelectContent>
+				</Select>
+			</div>,
+		);
+		fields.push(nf('duration_ms', '显示时长毫秒数'));
+	} else if (kind === 'cdp_handle_dialog') {
+		const action = String(s['action'] ?? 'accept');
+		fields.push(
+			<div key="action" className="space-y-1">
+				<Label className="text-xs">操作</Label>
+				<Select
+					value={action}
+					onValueChange={(v) => onUpdate({ ...step, action: v } as ScriptStep)}
+				>
+					<SelectTrigger className="h-8 text-xs cursor-pointer">
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="accept" className="cursor-pointer">
+							接受 (Accept)
+						</SelectItem>
+						<SelectItem value="dismiss" className="cursor-pointer">
+							关闭 (Dismiss)
+						</SelectItem>
+					</SelectContent>
+				</Select>
+			</div>,
+		);
+		fields.push(tf('prompt_text', 'Prompt 输入文本（可选）'));
+		fields.push(okf());
 	}
 
 	// ── 渲染 ──────────────────────────────────────────────────────────────────
@@ -809,15 +1109,15 @@ export function StepPropertiesPanel({
 			</div>
 
 			{/* 字段列表 */}
-			<div className="flex-1 overflow-y-auto min-h-0 p-3">
-				<div className="space-y-3">
+			<ScrollArea className="flex-1 min-h-0">
+				<div className="space-y-3 p-3">
 					{fields.length > 0 ? (
 						fields
 					) : (
 						<p className="text-xs text-muted-foreground">此步骤无可编辑字段</p>
 					)}
 				</div>
-			</div>
+			</ScrollArea>
 		</div>
 	);
 }

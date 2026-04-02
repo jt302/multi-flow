@@ -63,6 +63,7 @@ function InnerCanvas({
 	// 对话框 UI 状态（非业务逻辑，不放入 hook）
 	const [runDialogOpen, setRunDialogOpen] = useState(false);
 	const [varsDialogOpen, setVarsDialogOpen] = useState(false);
+	const [panelWidth, setPanelWidth] = useState(320);
 
 	// 边默认选项：增大交互宽度，使连接线更容易选中
 	const defaultEdgeOptions = useMemo(
@@ -211,18 +212,41 @@ function InnerCanvas({
 					</ReactFlow>
 				</div>
 
-				{/* 右侧：步骤属性面板（选中时显示） */}
+				{/* 右侧：可拖拽分隔条 + 步骤属性面板（选中时显示） */}
 				{selectedIndex !== null && steps[selectedIndex] && (
-					<div className="w-64 border-l flex-shrink-0 bg-background flex flex-col min-h-0">
-						<StepPropertiesPanel
-							step={steps[selectedIndex]}
-							onUpdate={(s) => void updateStep(selectedIndex, s)}
-							onDelete={() => void deleteStep(selectedIndex)}
-							varsDefs={varsDefs}
-							stepIndex={selectedIndex}
-							allSteps={steps}
+					<>
+						<div
+							className="w-1 cursor-col-resize bg-border/50 hover:bg-primary/40 active:bg-primary/60 transition-colors flex-shrink-0"
+							onMouseDown={(e) => {
+								e.preventDefault();
+								const startX = e.clientX;
+								const startW = panelWidth;
+								const onMove = (ev: MouseEvent) => {
+									const delta = startX - ev.clientX;
+									setPanelWidth(Math.max(256, Math.min(600, startW + delta)));
+								};
+								const onUp = () => {
+									window.removeEventListener('mousemove', onMove);
+									window.removeEventListener('mouseup', onUp);
+								};
+								window.addEventListener('mousemove', onMove);
+								window.addEventListener('mouseup', onUp);
+							}}
 						/>
-					</div>
+						<div
+							style={{ width: panelWidth }}
+							className="flex-shrink-0 bg-background flex flex-col min-h-0"
+						>
+							<StepPropertiesPanel
+								step={steps[selectedIndex]}
+								onUpdate={(s) => void updateStep(selectedIndex, s)}
+								onDelete={() => void deleteStep(selectedIndex)}
+								varsDefs={varsDefs}
+								stepIndex={selectedIndex}
+								allSteps={steps}
+							/>
+						</div>
+					</>
 				)}
 			</div>
 		</div>
