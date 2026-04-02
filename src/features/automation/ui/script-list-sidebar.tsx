@@ -1,6 +1,5 @@
 import { FileInput, Plus, Search } from 'lucide-react';
 
-import { openAutomationCanvasWindow } from '@/entities/automation/api/automation-api';
 import type { AutomationScript } from '@/entities/automation/model/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +13,6 @@ type Props = {
   onSelect: (id: string) => void;
   onNew: () => void;
   onImport: () => void;
-  onDelete: (scriptId: string) => void;
 };
 
 /** 自动化脚本左侧边栏：包含搜索框和脚本列表 */
@@ -24,7 +22,6 @@ export function ScriptListSidebar({
   onSelect,
   onNew,
   onImport,
-  onDelete,
 }: Props) {
   const { filtered, searchQuery, setSearchQuery } =
     useScriptListFilter(scripts);
@@ -92,10 +89,6 @@ export function ScriptListSidebar({
                 script={script}
                 isSelected={selectedScriptId === script.id}
                 onClick={() => onSelect(script.id)}
-                onOpenCanvas={() =>
-                  openAutomationCanvasWindow(script.id, script.name)
-                }
-                onDelete={() => onDelete(script.id)}
               />
             ))}
           </div>
