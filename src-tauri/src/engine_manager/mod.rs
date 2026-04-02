@@ -248,6 +248,10 @@ impl EngineManager {
         self.sessions.contains_key(profile_id)
     }
 
+    pub fn active_session_count(&self) -> usize {
+        self.sessions.len()
+    }
+
     pub fn get_runtime_handle(&self, profile_id: &str) -> AppResult<EngineRuntimeHandle> {
         let record = self.sessions.get(profile_id).ok_or_else(|| {
             AppError::NotFound(format!("running session not found: {profile_id}"))

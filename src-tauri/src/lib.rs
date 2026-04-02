@@ -8,6 +8,7 @@ use std::thread;
 use std::time::Duration;
 
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri::plugin::Builder as TauriPluginBuilder;
 use tauri::utils::config::WindowConfig;
 use tauri::{
@@ -90,8 +91,39 @@ pub fn run() {
             match event {
                 WindowEvent::Moved(_) => save_main_window_state(window, "moved", false),
                 WindowEvent::Resized(_) => save_main_window_state(window, "resized", false),
-                WindowEvent::CloseRequested { .. } => {
-                    save_main_window_state(window, "close_requested", true)
+                WindowEvent::CloseRequested { api, .. } => {
+                    let state: tauri::State<'_, state::AppState> = window.state();
+                    let engine_count = state.lock_engine_manager().active_session_count();
+                    let run_count = state.cancel_tokens.lock().unwrap().len();
+
+                    if engine_count > 0 || run_count > 0 {
+                        api.prevent_close();
+                        let window_clone = window.clone();
+                        let mut msg = String::from("当前有以下活动：\n");
+                        if engine_count > 0 {
+                            msg.push_str(&format!("• {} 个浏览器环境正在运行\n", engine_count));
+                        }
+                        if run_count > 0 {
+                            msg.push_str(&format!("• {} 个自动化任务正在执行\n", run_count));
+                        }
+                        msg.push_str("\n关闭窗口将终止所有进程，确定要退出吗？");
+                        window
+                            .dialog()
+                            .message(msg)
+                            .title("确认退出")
+                            .buttons(MessageDialogButtons::OkCancelCustom(
+                                "退出".to_string(),
+                                "取消".to_string(),
+                            ))
+                            .show(move |confirmed| {
+                                if confirmed {
+                                    save_main_window_state(&window_clone, "close_confirmed", true);
+                                    window_clone.destroy().ok();
+                                }
+                            });
+                    } else {
+                        save_main_window_state(window, "close_requested", true);
+                    }
                 }
                 WindowEvent::Destroyed => save_main_window_state(window, "destroyed", true),
                 _ => {}
@@ -121,6 +153,7 @@ pub fn run() {
             commands::automation_commands::list_automation_scripts,
             commands::automation_commands::create_automation_script,
             commands::automation_commands::update_automation_script,
+            commands::automation_commands::save_automation_canvas_graph,
             commands::automation_commands::delete_automation_script,
             commands::automation_commands::list_automation_runs,
             commands::automation_commands::delete_automation_run,
@@ -266,12 +299,17 @@ fn setup_native_menu(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Err
         .paste()
         .select_all()
         .build()?;
+    let window_submenu = SubmenuBuilder::new(app, "Window")
+        .close_window()
+        .minimize()
+        .build()?;
     let tools_submenu = SubmenuBuilder::new(app, "Tools")
         .item(&MenuItemBuilder::with_id(MENU_ID_OPEN_LOG_PANEL, "打开日志面板").build(app)?)
         .item(&MenuItemBuilder::with_id(MENU_ID_OPEN_DATA_DIR, "打开数据目录").build(app)?)
         .build()?;
     let menu = MenuBuilder::new(app)
         .item(&edit_submenu)
+        .item(&window_submenu)
         .item(&tools_submenu)
         .build()?;
     app.set_menu(menu)?;
