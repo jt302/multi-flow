@@ -15,6 +15,7 @@ import { ResourceManagementCard } from './resource-management-card';
 import { GeneralSettingsPlaceholder } from './general-settings-placeholder';
 import { RecycleBinRoutePage } from '@/pages/recycle-bin';
 import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export function SettingsPage({
 	useCustomColor,
@@ -31,8 +32,16 @@ export function SettingsPage({
 }: SettingsPageProps) {
 	const section = WORKSPACE_SECTIONS.settings;
 	const [pendingKey, setPendingKey] = useState('');
-	const [activeTab, setActiveTab] =
-		useState<SettingsTabId>(DEFAULT_SETTINGS_TAB);
+	const [activeTab, setActiveTabRaw] = useState<SettingsTabId>(() => {
+		const saved = localStorage.getItem('mf_settings_tab');
+		return SETTINGS_TABS.some((t) => t.id === saved)
+			? (saved as SettingsTabId)
+			: DEFAULT_SETTINGS_TAB;
+	});
+	const setActiveTab = (tab: SettingsTabId) => {
+		setActiveTabRaw(tab);
+		localStorage.setItem('mf_settings_tab', tab);
+	};
 
 	const chromiumItems = useMemo(
 		() => resources.filter((item) => item.kind === 'chromium'),
@@ -85,46 +94,48 @@ export function SettingsPage({
 				</nav>
 
 				{/* 右侧内容区 */}
-				<div className="min-w-0 w-full min-h-0 overflow-y-auto">
-					{activeTab === 'general' && <GeneralSettingsPlaceholder />}
+				<ScrollArea className="min-h-0 min-w-0 w-full">
+					<div className="pr-1">
+						{activeTab === 'general' && <GeneralSettingsPlaceholder />}
 
-					{activeTab === 'appearance' && (
-						<ThemeCustomizerCard
-							useCustomColor={useCustomColor}
-							preset={preset}
-							customColor={customColor}
-							onPresetChange={onPresetChange}
-							onCustomColorChange={onCustomColorChange}
-							onToggleCustomColor={onToggleCustomColor}
-						/>
-					)}
+						{activeTab === 'appearance' && (
+							<ThemeCustomizerCard
+								useCustomColor={useCustomColor}
+								preset={preset}
+								customColor={customColor}
+								onPresetChange={onPresetChange}
+								onCustomColorChange={onCustomColorChange}
+								onToggleCustomColor={onToggleCustomColor}
+							/>
+						)}
 
-					{activeTab === 'resources' && (
-						<ResourceManagementCard
-							chromiumItems={chromiumItems}
-							geoItems={geoItems}
-							pendingKey={pendingKey}
-							resourceProgress={resourceProgress}
-							onRefreshResources={() => {
-								void runAction('refresh-resources', onRefreshResources);
-							}}
-							onInstallChromium={(resourceId) => {
-								void runAction(`install-${resourceId}`, () =>
-									onInstallChromium(resourceId),
-								);
-							}}
-							onDownloadResource={(resourceId, label) => {
-								void runAction(`download-${resourceId}`, () =>
-									onDownloadResource(resourceId, label),
-								);
-							}}
-						/>
-					)}
+						{activeTab === 'resources' && (
+							<ResourceManagementCard
+								chromiumItems={chromiumItems}
+								geoItems={geoItems}
+								pendingKey={pendingKey}
+								resourceProgress={resourceProgress}
+								onRefreshResources={() => {
+									void runAction('refresh-resources', onRefreshResources);
+								}}
+								onInstallChromium={(resourceId) => {
+									void runAction(`install-${resourceId}`, () =>
+										onInstallChromium(resourceId),
+									);
+								}}
+								onDownloadResource={(resourceId, label) => {
+									void runAction(`download-${resourceId}`, () =>
+										onDownloadResource(resourceId, label),
+									);
+								}}
+							/>
+						)}
 
-					{activeTab === 'ai' && <AiProviderConfigCard />}
+						{activeTab === 'ai' && <AiProviderConfigCard />}
 
-					{activeTab === 'recycle-bin' && <RecycleBinRoutePage />}
-				</div>
+						{activeTab === 'recycle-bin' && <RecycleBinRoutePage />}
+					</div>
+				</ScrollArea>
 			</div>
 		</div>
 	);
