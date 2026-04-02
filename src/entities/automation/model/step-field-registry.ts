@@ -318,6 +318,33 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
     },
   ],
 
+  cdp_press_key: [
+    {
+      type: 'select',
+      key: 'key',
+      label: '按键',
+      options: [
+        { value: 'Enter', label: 'Enter' },
+        { value: 'Tab', label: 'Tab' },
+        { value: 'Escape', label: 'Escape' },
+        { value: 'Backspace', label: 'Backspace' },
+        { value: 'Delete', label: 'Delete' },
+        { value: 'Space', label: 'Space（空格）' },
+        { value: 'ArrowUp', label: 'ArrowUp' },
+        { value: 'ArrowDown', label: 'ArrowDown' },
+        { value: 'ArrowLeft', label: 'ArrowLeft' },
+        { value: 'ArrowRight', label: 'ArrowRight' },
+        { value: 'Home', label: 'Home' },
+        { value: 'End', label: 'End' },
+        { value: 'PageUp', label: 'PageUp' },
+        { value: 'PageDown', label: 'PageDown' },
+      ],
+    },
+  ],
+
+  // cdp_shortcut: modifiers 用 checkbox 渲染，属性面板自定义处理
+  cdp_shortcut: [],
+
   // ── Magic Controller 具名步骤 ─────────────────────────────────────────────
 
   // 窗口外观

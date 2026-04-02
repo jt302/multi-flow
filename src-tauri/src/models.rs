@@ -1329,6 +1329,18 @@ pub enum ScriptStep {
         #[serde(skip_serializing_if = "Option::is_none")] file_path: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")] var_name: Option<String>,
     },
+
+    /// 发送单个按键（keyDown + keyUp）
+    CdpPressKey {
+        key: String,
+    },
+
+    /// 发送快捷键组合（修饰键 + 主键）
+    CdpShortcut {
+        #[serde(default)]
+        modifiers: Vec<String>,
+        key: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

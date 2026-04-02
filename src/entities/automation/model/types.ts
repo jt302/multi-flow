@@ -170,7 +170,9 @@ export type ScriptStep =
 			text?: string;
 			file_path?: string;
 			var_name?: string;
-	  };
+	  }
+	| { kind: 'cdp_press_key'; key: string }
+	| { kind: 'cdp_shortcut'; modifiers: string[]; key: string };
 
 export type ScriptVarDef = { name: string; defaultValue: string };
 
