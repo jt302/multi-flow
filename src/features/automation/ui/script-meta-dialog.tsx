@@ -46,6 +46,8 @@ type Props = {
   script: AutomationScript | null;
   allProfiles: ProfileItem[];
   aiConfigs: AiConfigEntry[];
+  /** 所有已存在的脚本名称，用于重复检测 */
+  existingNames: string[];
   onSave: (data: {
     name: string;
     description: string;
@@ -62,6 +64,7 @@ export function ScriptMetaDialog({
   script,
   allProfiles,
   aiConfigs,
+  existingNames,
   onSave,
   isSaving,
 }: Props) {
@@ -101,9 +104,17 @@ export function ScriptMetaDialog({
     setAssociatedIds((prev) => prev.filter((id) => id !== profileId));
   }
 
+  const trimmedName = name.trim();
+  const isDuplicate =
+    trimmedName !== '' &&
+    existingNames.some(
+      (n) =>
+        n.toLowerCase() === trimmedName.toLowerCase() &&
+        n.toLowerCase() !== (script?.name ?? '').toLowerCase(),
+    );
+
   function handleSave() {
-    const trimmedName = name.trim();
-    if (!trimmedName) return;
+    if (!trimmedName || isDuplicate) return;
     onSave({
       name: trimmedName,
       description: desc,
@@ -129,7 +140,11 @@ export function ScriptMetaDialog({
               placeholder="输入脚本名称"
               onKeyDown={(e) => e.key === 'Enter' && handleSave()}
               autoFocus
+              className={isDuplicate ? 'border-destructive' : ''}
             />
+            {isDuplicate && (
+              <p className="text-xs text-destructive">该名称已被其他脚本使用</p>
+            )}
           </div>
 
           {/* 描述 */}
@@ -261,7 +276,7 @@ export function ScriptMetaDialog({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={!name.trim() || isSaving}
+            disabled={!trimmedName || isDuplicate || isSaving}
             className="cursor-pointer"
           >
             {script ? '保存' : '创建并打开流程编辑'}

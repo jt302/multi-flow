@@ -44,6 +44,14 @@ impl AutomationService {
         if name.is_empty() {
             return Err(AppError::Validation("name is required".to_string()));
         }
+        let existing = self.db_query(
+            automation_script::Entity::find()
+                .filter(automation_script::Column::Name.eq(&name))
+                .one(&self.db),
+        )?;
+        if existing.is_some() {
+            return Err(AppError::Conflict(format!("脚本名称已存在: {name}")));
+        }
         let steps_json = serde_json::to_string(&req.steps)
             .map_err(|e| AppError::Validation(format!("invalid steps: {e}")))?;
         let now = now_ts();
@@ -92,6 +100,15 @@ impl AutomationService {
         let name = req.name.trim().to_string();
         if name.is_empty() {
             return Err(AppError::Validation("name is required".to_string()));
+        }
+        let duplicate = self.db_query(
+            automation_script::Entity::find()
+                .filter(automation_script::Column::Name.eq(&name))
+                .filter(automation_script::Column::Id.ne(script_id))
+                .one(&self.db),
+        )?;
+        if duplicate.is_some() {
+            return Err(AppError::Conflict(format!("脚本名称已存在: {name}")));
         }
         let steps_json = serde_json::to_string(&req.steps)
             .map_err(|e| AppError::Validation(format!("invalid steps: {e}")))?;
