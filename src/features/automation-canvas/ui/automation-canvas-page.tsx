@@ -6,7 +6,7 @@
 
 import '@xyflow/react/dist/style.css';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
 	Background,
@@ -18,7 +18,11 @@ import {
 	useReactFlow,
 } from '@xyflow/react';
 
-import type { AutomationScript, StepResult } from '@/entities/automation/model/types';
+import type {
+	AutomationScript,
+	ScriptStep,
+	StepResult,
+} from '@/entities/automation/model/types';
 import type { ProfileItem } from '@/entities/profile/model/types';
 import { RunDialog } from '@/features/automation/ui/run-dialog';
 
@@ -26,7 +30,7 @@ import { useCanvasState } from '../model/use-canvas-state';
 import { CanvasToolbar } from './canvas-toolbar';
 import { StepPalette } from './step-palette';
 import { StepPropertiesPanel } from './step-properties-panel';
-import { NODE_TYPES } from './step-node';
+import { NODE_TYPES, type StepNodeData } from './step-node';
 import { VariablesSchemaDialog } from './variables-schema-dialog';
 
 // ─── InnerCanvas（需在 ReactFlowProvider 内部） ───────────────────────────────
@@ -34,6 +38,7 @@ import { VariablesSchemaDialog } from './variables-schema-dialog';
 type InnerProps = {
 	script: AutomationScript;
 	activeProfiles: ProfileItem[];
+	allProfiles: ProfileItem[];
 	isRunning: boolean;
 	activeRunId: string | null;
 	liveStatuses: Record<number, string>;
@@ -45,6 +50,7 @@ type InnerProps = {
 function InnerCanvas({
 	script,
 	activeProfiles,
+	allProfiles,
 	isRunning,
 	activeRunId,
 	liveStatuses,
@@ -52,11 +58,17 @@ function InnerCanvas({
 	onDebugRun,
 	onCancel,
 }: InnerProps) {
-	const { fitView } = useReactFlow();
+	const { fitView, getNodes } = useReactFlow();
 
 	// 对话框 UI 状态（非业务逻辑，不放入 hook）
 	const [runDialogOpen, setRunDialogOpen] = useState(false);
 	const [varsDialogOpen, setVarsDialogOpen] = useState(false);
+
+	// 边默认选项：增大交互宽度，使连接线更容易选中
+	const defaultEdgeOptions = useMemo(
+		() => ({ type: 'smoothstep', interactionWidth: 40 }),
+		[],
+	);
 
 	// 所有业务状态和操作来自 hook
 	const {
@@ -72,6 +84,7 @@ function InnerCanvas({
 		setVarsDefs,
 		addStep,
 		updateStep,
+		pasteSteps,
 		deleteStep,
 		onNodesChange,
 		onEdgesChange,
@@ -80,13 +93,52 @@ function InnerCanvas({
 		onPaneClick,
 	} = useCanvasState(script, liveStatuses);
 
+	// ── 键盘快捷键：复制 / 粘贴 / 全选 / 复制节点 ──────────────────────────
+	const clipboardRef = useRef<ScriptStep[]>([]);
+
+	const handleKeyDown = useCallback(
+		(e: React.KeyboardEvent) => {
+			const mod = e.metaKey || e.ctrlKey;
+			const tag = (e.target as HTMLElement).tagName;
+			if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+			if (mod && e.key === 'a') {
+				e.preventDefault();
+				onNodesChange(
+					nodes.map((n) => ({ id: n.id, type: 'select' as const, selected: true })),
+				);
+				return;
+			}
+			if (mod && e.key === 'c') {
+				const sel = getNodes().filter((n) => n.selected);
+				if (sel.length === 0) return;
+				clipboardRef.current = sel.map((n) => structuredClone((n.data as StepNodeData).step));
+				return;
+			}
+			if (mod && e.key === 'v') {
+				if (clipboardRef.current.length === 0) return;
+				e.preventDefault();
+				void pasteSteps(clipboardRef.current.map((s) => structuredClone(s)));
+				return;
+			}
+			if (mod && e.key === 'd') {
+				e.preventDefault();
+				if (selectedIndex === null || !steps[selectedIndex]) return;
+				void pasteSteps([structuredClone(steps[selectedIndex])]);
+				return;
+			}
+		},
+		[nodes, steps, selectedIndex, pasteSteps, onNodesChange, getNodes],
+	);
+
 	// 挂载后执行一次 fitView
 	useEffect(() => {
 		void fitView({ padding: 0.2, duration: 300 });
 	}, [fitView]);
 
 	return (
-		<div className="flex flex-col h-screen">
+		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
+		<div className="flex flex-col h-screen outline-none" tabIndex={-1} onKeyDown={handleKeyDown}>
 			{/* 顶部工具栏 */}
 			<CanvasToolbar
 				scriptName={script.name}
@@ -108,6 +160,8 @@ function InnerCanvas({
 				open={runDialogOpen}
 				onOpenChange={setRunDialogOpen}
 				activeProfiles={activeProfiles}
+				allProfiles={allProfiles}
+				associatedProfileIds={script.associatedProfileIds}
 				isRunning={isRunning}
 				disabled={steps.length === 0}
 				defaultVars={varsDefs.map((v) => ({
@@ -138,6 +192,7 @@ function InnerCanvas({
 						nodes={nodes}
 						edges={edges}
 						nodeTypes={NODE_TYPES}
+						defaultEdgeOptions={defaultEdgeOptions}
 						onNodesChange={onNodesChange}
 						onEdgesChange={onEdgesChange}
 						onConnect={onConnect}
@@ -179,6 +234,7 @@ function InnerCanvas({
 type Props = {
 	script: AutomationScript;
 	activeProfiles: ProfileItem[];
+	allProfiles: ProfileItem[];
 	isRunning: boolean;
 	activeRunId: string | null;
 	liveStepResults: StepResult[];
@@ -190,6 +246,7 @@ type Props = {
 export function AutomationCanvasPage({
 	script,
 	activeProfiles,
+	allProfiles,
 	isRunning,
 	activeRunId,
 	liveStepResults,
@@ -209,6 +266,7 @@ export function AutomationCanvasPage({
 			<InnerCanvas
 				script={script}
 				activeProfiles={activeProfiles}
+				allProfiles={allProfiles}
 				isRunning={isRunning}
 				activeRunId={activeRunId}
 				liveStatuses={liveStatuses}
