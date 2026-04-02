@@ -11,6 +11,16 @@
       rel="stylesheet"
     />
     <title>Multi Flow Console</title>
+    <script>
+      ;(function() {
+        var m = localStorage.getItem('mf_theme_mode');
+        var dark = m === 'dark' || (m !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) {
+          document.documentElement.classList.add('dark');
+          document.documentElement.style.backgroundColor = 'oklch(0.145 0.015 260)';
+        }
+      })();
+    </script>
   </head>
 
   <body>
