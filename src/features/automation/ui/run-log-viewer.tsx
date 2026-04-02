@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-import { ChevronDown, ChevronUp, Filter } from 'lucide-react';
+import { ChevronDown, ChevronUp, Filter, X } from 'lucide-react';
 
 import type { RunLogEntry } from '@/entities/automation/model/types';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 type Props = {
 	logs: RunLogEntry[];
+	/** Sheet 全屏模式下传 true，内部细节区域更大 */
+	expanded?: boolean;
 };
 
 const LOG_LEVELS: RunLogEntry['level'][] = ['info', 'warn', 'error', 'debug'];
@@ -62,14 +64,13 @@ function ToggleChip({
 }
 
 function formatLogTime(timestampMs: number) {
-	// 后端 now_ts() 返回秒级时间戳，前端统一按秒处理
 	const ms = timestampMs > 1_000_000_000_000 ? timestampMs : timestampMs * 1000;
 	const d = new Date(ms);
 	const pad = (n: number) => String(n).padStart(2, '0');
 	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-export function RunLogViewer({ logs }: Props) {
+export function RunLogViewer({ logs, expanded = false }: Props) {
 	const [enabledLevels, setEnabledLevels] = useState<Set<RunLogEntry['level']>>(
 		() => new Set(LOG_LEVELS),
 	);
@@ -79,6 +80,8 @@ export function RunLogViewer({ logs }: Props) {
 	const [expandedDetails, setExpandedDetails] = useState<Set<number>>(
 		() => new Set(),
 	);
+	// 筛选栏默认折叠，节省垂直空间
+	const [filtersCollapsed, setFiltersCollapsed] = useState(true);
 
 	const filteredLogs = useMemo(
 		() =>
@@ -89,6 +92,11 @@ export function RunLogViewer({ logs }: Props) {
 			),
 		[enabledCategories, enabledLevels, logs],
 	);
+
+	// 是否有任何过滤器处于非全选状态
+	const hasActiveFilter =
+		enabledLevels.size < LOG_LEVELS.length ||
+		enabledCategories.size < LOG_CATEGORIES.length;
 
 	function toggleLevel(level: RunLogEntry['level']) {
 		setEnabledLevels((prev) => {
@@ -135,34 +143,69 @@ export function RunLogViewer({ logs }: Props) {
 	}
 
 	return (
-		<div className="border-t border-border/50">
-			<div className="flex gap-1 flex-wrap px-3 py-2 border-b bg-muted/20">
-				<div className="flex items-center gap-1 mr-2">
-					<Filter className="h-3 w-3 text-muted-foreground" />
-					<span className="text-[10px] text-muted-foreground">级别</span>
-				</div>
-				{LOG_LEVELS.map((level) => (
-					<ToggleChip
-						key={level}
-						active={enabledLevels.has(level)}
-						label={level}
-						onClick={() => toggleLevel(level)}
-					/>
-				))}
-				<div className="w-full" />
-				<div className="flex items-center gap-1 mr-2">
-					<span className="text-[10px] text-muted-foreground">分类</span>
-				</div>
-				{LOG_CATEGORIES.map((category) => (
-					<ToggleChip
-						key={category}
-						active={enabledCategories.has(category)}
-						label={category}
-						onClick={() => toggleCategory(category)}
-					/>
-				))}
+		<div className="flex flex-col flex-1 min-h-0 border-t border-border/50">
+			{/* 筛选栏 */}
+			<div className="shrink-0 border-b bg-muted/20">
+				{filtersCollapsed ? (
+					/* 折叠态：仅显示一个 Filter 图标按钮 */
+					<div className="flex items-center gap-2 px-3 py-1.5">
+						<button
+							type="button"
+							className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+							onClick={() => setFiltersCollapsed(false)}
+							title="展开筛选条件"
+						>
+							<Filter className="h-3 w-3" />
+							<span>筛选</span>
+							{hasActiveFilter && (
+								<span className="h-1.5 w-1.5 rounded-full bg-primary" />
+							)}
+						</button>
+						<span className="text-[10px] text-muted-foreground">
+							{filteredLogs.length} / {logs.length} 条
+						</span>
+					</div>
+				) : (
+					/* 展开态：完整筛选 chips */
+					<div className="flex gap-1 flex-wrap px-3 py-2">
+						<div className="flex items-center gap-1 mr-2">
+							<Filter className="h-3 w-3 text-muted-foreground" />
+							<span className="text-[10px] text-muted-foreground">级别</span>
+						</div>
+						{LOG_LEVELS.map((level) => (
+							<ToggleChip
+								key={level}
+								active={enabledLevels.has(level)}
+								label={level}
+								onClick={() => toggleLevel(level)}
+							/>
+						))}
+						<div className="w-full" />
+						<div className="flex items-center gap-1 mr-2">
+							<span className="text-[10px] text-muted-foreground">分类</span>
+						</div>
+						{LOG_CATEGORIES.map((category) => (
+							<ToggleChip
+								key={category}
+								active={enabledCategories.has(category)}
+								label={category}
+								onClick={() => toggleCategory(category)}
+							/>
+						))}
+						<button
+							type="button"
+							className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+							onClick={() => setFiltersCollapsed(true)}
+							title="折叠筛选条件"
+						>
+							<X className="h-3 w-3" />
+						</button>
+					</div>
+				)}
 			</div>
-			<ScrollArea className="h-64">
+
+			{/* 日志列表（自适应高度） */}
+			<ScrollArea className="flex-1 min-h-0">
 				<div className="font-mono text-xs">
 					{filteredLogs.length === 0 ? (
 						<p className="px-3 py-3 text-muted-foreground">
@@ -213,6 +256,7 @@ export function RunLogViewer({ logs }: Props) {
 										<StepDetails
 											details={entry.details!}
 											expanded={detailsExpanded}
+											expandedContainer={expanded}
 										/>
 									)}
 								</div>
@@ -242,14 +286,27 @@ const INLINE_KEYS = [
 	'error',
 	'output',
 	'attribute',
+	// AI 步骤相关
+	'assistantText',
+	'name',
+	'arguments',
+	'result',
+	'toolCalls',
+	'finalOutput',
+	'rawReply',
+	'parsedValue',
+	'round',
+	'durationMs',
 ];
 
 function StepDetails({
 	details,
 	expanded,
+	expandedContainer,
 }: {
 	details: Record<string, unknown>;
 	expanded: boolean;
+	expandedContainer: boolean;
 }) {
 	const inlineEntries = INLINE_KEYS.filter(
 		(k) => details[k] !== undefined && details[k] !== null,
@@ -277,7 +334,11 @@ function StepDetails({
 				);
 			})}
 			{expanded && restKeys.length > 0 && (
-				<pre className="text-xs bg-muted/60 p-2 rounded mt-1 overflow-auto max-h-40 whitespace-pre-wrap text-muted-foreground">
+				<pre
+					className={`text-xs bg-muted/60 p-2 rounded mt-1 overflow-auto whitespace-pre-wrap text-muted-foreground ${
+						expandedContainer ? 'max-h-96' : 'max-h-40'
+					}`}
+				>
 					{JSON.stringify(
 						Object.fromEntries(restKeys.map((k) => [k, details[k]])),
 						null,

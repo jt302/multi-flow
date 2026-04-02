@@ -9,9 +9,10 @@ use crate::commands::profile_commands::do_open_profile;
 use crate::logger;
 use crate::models::{
     AiOutputKeyMapping, AutomationHumanDismissedEvent, AutomationHumanRequiredEvent,
-    AutomationProgressEvent, AutomationRun, AutomationRunCancelledEvent, AutomationScript,
-    AutomationStepErrorPauseEvent, AutomationVariablesUpdatedEvent, CreateAutomationScriptRequest,
-    LoopMode, ScriptStep, SelectorType, StepResult, WaitForUserTimeout,
+    AutomationNotificationEvent, AutomationProgressEvent, AutomationRun,
+    AutomationRunCancelledEvent, AutomationScript, AutomationStepErrorPauseEvent,
+    AutomationVariablesUpdatedEvent, ConfirmDialogTimeout, CreateAutomationScriptRequest, LoopMode,
+    SaveAutomationCanvasGraphRequest, ScriptStep, SelectorType, StepResult, WaitForUserTimeout,
 };
 use crate::services::ai_service::{extract_json_path, AiChatResult, AiService, ChatMessage};
 use crate::services::app_preference_service::AiProviderConfig;
@@ -409,6 +410,18 @@ pub fn update_automation_script(
     state
         .lock_automation_service()
         .update_script(&script_id, payload)
+        .map_err(error_to_string)
+}
+
+#[tauri::command]
+pub fn save_automation_canvas_graph(
+    state: State<'_, AppState>,
+    script_id: String,
+    payload: SaveAutomationCanvasGraphRequest,
+) -> Result<AutomationScript, String> {
+    state
+        .lock_automation_service()
+        .save_canvas_graph(&script_id, payload)
         .map_err(error_to_string)
 }
 
@@ -889,6 +902,7 @@ enum FlowSignal {
     Normal,
     Break,
     Continue,
+    End,
     Error(String),
 }
 
@@ -993,6 +1007,7 @@ async fn execute_script(
 
     let final_status = match &signal {
         FlowSignal::Normal => "success",
+        FlowSignal::End => "success",
         FlowSignal::Error(msg) if msg == "cancelled" => "cancelled",
         FlowSignal::Error(_) => "failed",
         _ => "success",
@@ -1117,6 +1132,41 @@ fn execute_steps<'a>(
             match &step {
                 ScriptStep::Break => return FlowSignal::Break,
                 ScriptStep::Continue => return FlowSignal::Continue,
+                ScriptStep::End { message } => {
+                    if let Some(msg) = message {
+                        let msg = vars.interpolate(msg);
+                        logs.push(log_entry(
+                            "info",
+                            "flow",
+                            format!("流程结束: {}", msg),
+                            None,
+                        ));
+                    } else {
+                        logs.push(log_entry("info", "flow", "流程结束".to_string(), None));
+                    }
+                    let dur = start.elapsed().as_millis() as u64;
+                    results.push(StepResult {
+                        index: top_index,
+                        status: "success".to_string(),
+                        output: Some("流程结束".to_string()),
+                        duration_ms: dur,
+                        vars_set: HashMap::new(),
+                        step_path: step_path.clone(),
+                    });
+                    emit_progress(
+                        app,
+                        run_id,
+                        top_index,
+                        step_total,
+                        "success",
+                        Some("流程结束".to_string()),
+                        dur,
+                        "running",
+                        HashMap::new(),
+                        step_path.clone(),
+                    );
+                    return FlowSignal::End;
+                }
 
                 ScriptStep::Condition {
                     condition_expr,
@@ -1155,7 +1205,9 @@ fn execute_steps<'a>(
                     .await;
                     match signal {
                         FlowSignal::Normal | FlowSignal::Continue => {}
-                        FlowSignal::Break | FlowSignal::Error(_) => return signal,
+                        FlowSignal::Break | FlowSignal::Error(_) | FlowSignal::End => {
+                            return signal
+                        }
                     }
                     let dur = start.elapsed().as_millis() as u64;
                     let cond_output = Some(format!(
@@ -1168,6 +1220,7 @@ fn execute_steps<'a>(
                         output: cond_output.clone(),
                         duration_ms: dur,
                         vars_set: HashMap::new(),
+                        step_path: step_path.clone(),
                     });
                     emit_progress(
                         app,
@@ -1239,6 +1292,7 @@ fn execute_steps<'a>(
                         match signal {
                             FlowSignal::Break => break,
                             FlowSignal::Error(e) => return FlowSignal::Error(e),
+                            FlowSignal::End => return FlowSignal::End,
                             _ => {}
                         }
                         iteration += 1;
@@ -1257,6 +1311,7 @@ fn execute_steps<'a>(
                         output: loop_output.clone(),
                         duration_ms: dur,
                         vars_set: HashMap::new(),
+                        step_path: step_path.clone(),
                     });
                     emit_progress(
                         app,
@@ -1271,6 +1326,119 @@ fn execute_steps<'a>(
                         step_path.clone(),
                     );
                     continue;
+                }
+
+                // ── 确认弹窗分支（有 button_branches 时走分支逻辑）─────────
+                ScriptStep::ConfirmDialog {
+                    buttons,
+                    button_branches,
+                    ..
+                } if !button_branches.is_empty() => {
+                    // 先执行弹窗获取用户选择
+                    let result = execute_step(
+                        cdp,
+                        http_client,
+                        magic_port,
+                        &step,
+                        vars,
+                        app,
+                        run_id,
+                        top_index,
+                        script_ai_config,
+                        logs,
+                    )
+                    .await;
+                    let dur = start.elapsed().as_millis() as u64;
+                    if is_cancelled(app, run_id) {
+                        return FlowSignal::Error("cancelled".to_string());
+                    }
+                    match result {
+                        Ok((output, vars_set)) => {
+                            for (k, v) in &vars_set {
+                                vars.set(k, v.clone());
+                            }
+                            let chosen_value = output.as_deref().unwrap_or("");
+                            // 找到按钮索引
+                            let btn_index = buttons
+                                .as_ref()
+                                .and_then(|bs| bs.iter().position(|b| b.value == chosen_value))
+                                .unwrap_or(0);
+                            // 获取对应分支
+                            let branch =
+                                button_branches.get(btn_index).cloned().unwrap_or_default();
+                            logs.push(log_entry(
+                                "info",
+                                "flow",
+                                format!(
+                                    "弹窗分支: value={}, branch_index={}",
+                                    chosen_value, btn_index
+                                ),
+                                None,
+                            ));
+                            if !branch.is_empty() {
+                                let signal = execute_steps(
+                                    branch,
+                                    step_path.clone(),
+                                    step_total,
+                                    cdp,
+                                    http_client,
+                                    magic_port,
+                                    app,
+                                    run_id,
+                                    results,
+                                    vars,
+                                    script_ai_config,
+                                    step_delay_ms,
+                                    delay_config,
+                                    logs,
+                                )
+                                .await;
+                                match signal {
+                                    FlowSignal::Normal | FlowSignal::Continue => {}
+                                    FlowSignal::Break | FlowSignal::Error(_) | FlowSignal::End => {
+                                        return signal
+                                    }
+                                }
+                            }
+                            results.push(StepResult {
+                                index: top_index,
+                                status: "success".to_string(),
+                                output: Some(format!("button={}", chosen_value)),
+                                duration_ms: dur,
+                                vars_set,
+                                step_path: step_path.clone(),
+                            });
+                            emit_progress(
+                                app,
+                                run_id,
+                                top_index,
+                                step_total,
+                                "success",
+                                Some(format!("button={}", chosen_value)),
+                                dur,
+                                "running",
+                                HashMap::new(),
+                                step_path.clone(),
+                            );
+                            continue;
+                        }
+                        Err(e) => {
+                            logger::warn(
+                                "automation",
+                                format!("run={} step={} failed: {}", run_id, top_index, e),
+                            );
+                            // step error pause logic
+                            results.push(StepResult {
+                                index: top_index,
+                                status: "failed".to_string(),
+                                output: Some(e.clone()),
+                                duration_ms: dur,
+                                vars_set: HashMap::new(),
+                                step_path: step_path.clone(),
+                            });
+                            return FlowSignal::Error(e);
+                        }
+                    }
                 }
 
                 _ => {} // 普通步骤走通用路径
@@ -1316,6 +1484,7 @@ fn execute_steps<'a>(
                         output: output.clone(),
                         duration_ms: dur,
                         vars_set: vars_set.clone(),
+                        step_path: step_path.clone(),
                     });
                     logs.push(log_entry(
                         "info",
@@ -1375,6 +1544,7 @@ fn execute_steps<'a>(
                         output: Some(err.clone()),
                         duration_ms: dur,
                         vars_set: HashMap::new(),
+                        step_path: step_path.clone(),
                     });
                     emit_progress(
                         app,
@@ -1496,7 +1666,10 @@ pub async fn execute_step(
                 .map_err(|e| format!("Magic request failed: {e}"))?;
             Ok((None, HashMap::new()))
         }
-        ScriptStep::Screenshot { output_key } => {
+        ScriptStep::Screenshot {
+            save_path,
+            output_key,
+        } => {
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
             let result = cdp
                 .call("Page.captureScreenshot", json!({ "format": "png" }))
@@ -1507,16 +1680,37 @@ pub async fn execute_step(
                 .ok_or_else(|| "Screenshot: no data in CDP response".to_string())?
                 .to_string();
             let bytes = base64_decode(&b64)?;
-            let data_dir = app
-                .path()
-                .app_local_data_dir()
-                .or_else(|_| app.path().app_data_dir())
-                .map_err(|e| format!("Screenshot: resolve data dir: {e}"))?;
-            let screenshots_dir = data_dir.join("screenshots");
-            std::fs::create_dir_all(&screenshots_dir)
-                .map_err(|e| format!("Screenshot: create dir: {e}"))?;
-            let filename = format!("screenshot_{}_{}.png", run_id, step_index);
-            let file_path = screenshots_dir.join(&filename);
+            let file_path = if let Some(sp) = save_path {
+                let interpolated = vars.interpolate(sp);
+                if !interpolated.is_empty() {
+                    let p = std::path::PathBuf::from(&interpolated);
+                    if let Some(parent) = p.parent() {
+                        std::fs::create_dir_all(parent)
+                            .map_err(|e| format!("Screenshot: create dir: {e}"))?;
+                    }
+                    p
+                } else {
+                    let data_dir = app
+                        .path()
+                        .app_local_data_dir()
+                        .or_else(|_| app.path().app_data_dir())
+                        .map_err(|e| format!("Screenshot: resolve data dir: {e}"))?;
+                    let screenshots_dir = data_dir.join("screenshots");
+                    std::fs::create_dir_all(&screenshots_dir)
+                        .map_err(|e| format!("Screenshot: create dir: {e}"))?;
+                    screenshots_dir.join(format!("screenshot_{}_{}.png", run_id, step_index))
+                }
+            } else {
+                let data_dir = app
+                    .path()
+                    .app_local_data_dir()
+                    .or_else(|_| app.path().app_data_dir())
+                    .map_err(|e| format!("Screenshot: resolve data dir: {e}"))?;
+                let screenshots_dir = data_dir.join("screenshots");
+                std::fs::create_dir_all(&screenshots_dir)
+                    .map_err(|e| format!("Screenshot: create dir: {e}"))?;
+                screenshots_dir.join(format!("screenshot_{}_{}.png", run_id, step_index))
+            };
             std::fs::write(&file_path, bytes)
                 .map_err(|e| format!("Screenshot: write file: {e}"))?;
             let path_str = file_path.to_string_lossy().to_string();
@@ -1594,10 +1788,17 @@ pub async fn execute_step(
                 "automation_human_required",
                 AutomationHumanRequiredEvent {
                     run_id: run_id.to_string(),
+                    dialog_type: "wait_for_user".to_string(),
                     message: message.clone(),
                     input_label: input_label.clone(),
                     timeout_ms: *timeout_ms,
                     step_path: vec![step_index],
+                    title: None,
+                    confirm_text: None,
+                    cancel_text: None,
+                    options: None,
+                    multi_select: None,
+                    buttons: None,
                 },
             );
             let user_input = if let Some(ms) = timeout_ms {
@@ -1725,7 +1926,10 @@ pub async fn execute_step(
                         final_text = text;
                         break;
                     }
-                    AiChatResult::ToolCalls(calls) => {
+                    AiChatResult::ToolCalls {
+                        text: assistant_text,
+                        calls,
+                    } => {
                         logs.push(log_entry(
                             "info",
                             "ai",
@@ -1736,6 +1940,7 @@ pub async fn execute_step(
                             ),
                             Some(json!({
                                 "round": round + 1,
+                                "assistantText": &assistant_text,
                                 "toolCalls": calls.iter().map(|c| json!({
                                     "name": &c.name,
                                     "arguments": &c.arguments,
@@ -1743,12 +1948,12 @@ pub async fn execute_step(
                             })),
                         ));
 
-                        // 追加 assistant 消息（含 tool_calls）
+                        // 追加 assistant 消息（含 tool_calls + 伴随文本）
                         let raw_tool_calls: Vec<serde_json::Value> =
                             calls.iter().map(|c| c.raw.clone()).collect();
                         messages.push(ChatMessage {
                             role: "assistant".into(),
-                            content: crate::services::ai_service::ChatContent::Text(String::new()),
+                            content: crate::services::ai_service::ChatContent::Text(assistant_text),
                             tool_calls: Some(raw_tool_calls),
                             tool_call_id: None,
                             name: None,
@@ -1814,14 +2019,13 @@ pub async fn execute_step(
                                 };
                             let tool_duration = tool_start.elapsed().as_millis() as u64;
                             logs.push(log_entry(
-                                "debug",
+                                "info",
                                 "ai",
                                 format!("工具 {} 执行完成", tool_call.name),
                                 Some(json!({
                                     "name": &tool_call.name,
                                     "arguments": &tool_call.arguments,
                                     "result": &tool_result_str,
-                                    "hasImage": tool_result_str != "ok" || false,
                                     "durationMs": tool_duration,
                                 })),
                             ));
@@ -1955,7 +2159,10 @@ pub async fn execute_step(
                         final_text = text;
                         break;
                     }
-                    AiChatResult::ToolCalls(calls) => {
+                    AiChatResult::ToolCalls {
+                        text: assistant_text,
+                        calls,
+                    } => {
                         logs.push(log_entry(
                             "info",
                             "ai",
@@ -1966,6 +2173,7 @@ pub async fn execute_step(
                             ),
                             Some(json!({
                                 "round": round + 1,
+                                "assistantText": &assistant_text,
                                 "toolCalls": calls.iter().map(|c| json!({
                                     "name": &c.name,
                                     "arguments": &c.arguments,
@@ -1977,7 +2185,7 @@ pub async fn execute_step(
                             calls.iter().map(|c| c.raw.clone()).collect();
                         messages.push(ChatMessage {
                             role: "assistant".into(),
-                            content: crate::services::ai_service::ChatContent::Text(String::new()),
+                            content: crate::services::ai_service::ChatContent::Text(assistant_text),
                             tool_calls: Some(raw_tool_calls),
                             tool_call_id: None,
                             name: None,
@@ -2032,7 +2240,7 @@ pub async fn execute_step(
                                 };
                             let tool_duration = tool_start.elapsed().as_millis() as u64;
                             logs.push(log_entry(
-                                "debug",
+                                "info",
                                 "ai",
                                 format!("工具 {} 执行完成", tool_call.name),
                                 Some(json!({
@@ -2472,6 +2680,11 @@ pub async fn execute_step(
         ScriptStep::MagicSetClosed => {
             let port = get_magic_port()?;
             magic_post(http_client, port, json!({ "cmd": "set_closed" })).await?;
+            Ok((None, HashMap::new()))
+        }
+        ScriptStep::MagicSafeQuit => {
+            let port = get_magic_port()?;
+            magic_post(http_client, port, json!({ "cmd": "safe_quit" })).await?;
             Ok((None, HashMap::new()))
         }
         ScriptStep::MagicSetRestored => {
@@ -3335,8 +3548,215 @@ pub async fn execute_step(
         ScriptStep::Condition { .. }
         | ScriptStep::Loop { .. }
         | ScriptStep::Break
-        | ScriptStep::Continue => {
+        | ScriptStep::Continue
+        | ScriptStep::End { .. } => {
             Err("control flow step executed outside execute_steps context".to_string())
+        }
+
+        // ── 弹窗步骤 ─────────────────────────────────────────────────────────
+        ScriptStep::ConfirmDialog {
+            title,
+            message,
+            buttons,
+            confirm_text,
+            cancel_text,
+            output_key,
+            timeout_ms,
+            on_timeout,
+            on_timeout_value,
+            ..
+        } => {
+            let title = vars.interpolate(title);
+            let message = vars.interpolate(message);
+            let (tx, rx) = tokio::sync::oneshot::channel::<Option<String>>();
+            {
+                let app_state = app.state::<AppState>();
+                let mut guard = app_state
+                    .active_run_channels
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                guard.insert(run_id.to_string(), tx);
+            }
+            let _ = app.emit(
+                "automation_human_required",
+                AutomationHumanRequiredEvent {
+                    run_id: run_id.to_string(),
+                    dialog_type: "confirm".to_string(),
+                    message: message.clone(),
+                    input_label: None,
+                    timeout_ms: *timeout_ms,
+                    step_path: vec![step_index],
+                    title: Some(title.clone()),
+                    confirm_text: confirm_text.clone(),
+                    cancel_text: cancel_text.clone(),
+                    options: None,
+                    multi_select: None,
+                    buttons: buttons.clone(),
+                },
+            );
+            let default_timeout_value = if let Some(ref otv) = on_timeout_value {
+                Some(otv.clone())
+            } else {
+                match on_timeout {
+                    ConfirmDialogTimeout::Confirm => Some("true".to_string()),
+                    ConfirmDialogTimeout::Cancel => Some("false".to_string()),
+                }
+            };
+            let user_input = if let Some(ms) = timeout_ms {
+                match tokio::time::timeout(Duration::from_millis(*ms), rx).await {
+                    Ok(Ok(input)) => input,
+                    Ok(Err(_)) => None,
+                    Err(_) => {
+                        {
+                            let app_state = app.state::<AppState>();
+                            app_state
+                                .active_run_channels
+                                .lock()
+                                .unwrap_or_else(|e| e.into_inner())
+                                .remove(run_id);
+                        }
+                        default_timeout_value
+                    }
+                }
+            } else {
+                match rx.await {
+                    Ok(input) => input,
+                    Err(_) => None,
+                }
+            };
+            emit_human_dismissed(app, run_id);
+            if user_input.is_none() && is_cancelled(app, run_id) {
+                return Err("cancelled".to_string());
+            }
+            // 兼容旧格式：无 buttons 时用 "true"/"false"
+            let result = user_input.unwrap_or_else(|| {
+                if buttons.is_some() {
+                    buttons
+                        .as_ref()
+                        .and_then(|bs| bs.last().map(|b| b.value.clone()))
+                        .unwrap_or_default()
+                } else {
+                    "false".to_string()
+                }
+            });
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), result.clone());
+            }
+            Ok((Some(result), vs))
+        }
+
+        ScriptStep::SelectDialog {
+            title,
+            message,
+            options,
+            multi_select,
+            output_key,
+            timeout_ms,
+        } => {
+            let title = vars.interpolate(title);
+            let message_str = message.as_ref().map(|m| vars.interpolate(m));
+            let options: Vec<String> = options.iter().map(|o| vars.interpolate(o)).collect();
+            let (tx, rx) = tokio::sync::oneshot::channel::<Option<String>>();
+            {
+                let app_state = app.state::<AppState>();
+                let mut guard = app_state
+                    .active_run_channels
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                guard.insert(run_id.to_string(), tx);
+            }
+            let _ = app.emit(
+                "automation_human_required",
+                AutomationHumanRequiredEvent {
+                    run_id: run_id.to_string(),
+                    dialog_type: "select".to_string(),
+                    message: message_str.clone().unwrap_or_default(),
+                    input_label: None,
+                    timeout_ms: *timeout_ms,
+                    step_path: vec![step_index],
+                    title: Some(title.clone()),
+                    confirm_text: None,
+                    cancel_text: None,
+                    options: Some(options),
+                    multi_select: Some(*multi_select),
+                    buttons: None,
+                },
+            );
+            let user_input = if let Some(ms) = timeout_ms {
+                match tokio::time::timeout(Duration::from_millis(*ms), rx).await {
+                    Ok(Ok(input)) => input,
+                    Ok(Err(_)) => None,
+                    Err(_) => {
+                        {
+                            let app_state = app.state::<AppState>();
+                            app_state
+                                .active_run_channels
+                                .lock()
+                                .unwrap_or_else(|e| e.into_inner())
+                                .remove(run_id);
+                        }
+                        None
+                    }
+                }
+            } else {
+                match rx.await {
+                    Ok(input) => input,
+                    Err(_) => None,
+                }
+            };
+            emit_human_dismissed(app, run_id);
+            if user_input.is_none() && is_cancelled(app, run_id) {
+                return Err("cancelled".to_string());
+            }
+            let result = user_input.unwrap_or_default();
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), result.clone());
+            }
+            Ok((Some(result), vs))
+        }
+
+        ScriptStep::Notification {
+            title,
+            body,
+            level,
+            duration_ms,
+        } => {
+            let title = vars.interpolate(title);
+            let body = vars.interpolate(body);
+            let _ = app.emit(
+                "automation_notification",
+                AutomationNotificationEvent {
+                    run_id: run_id.to_string(),
+                    title,
+                    body,
+                    level: level.clone(),
+                    duration_ms: *duration_ms,
+                },
+            );
+            Ok((None, HashMap::new()))
+        }
+
+        ScriptStep::CdpHandleDialog {
+            action,
+            prompt_text,
+            output_key,
+        } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let accept = action == "accept";
+            let mut params = json!({ "accept": accept });
+            if let Some(text) = prompt_text {
+                let text = vars.interpolate(text);
+                params["promptText"] = json!(text);
+            }
+            let result = cdp.call("Page.handleJavaScriptDialog", params).await?;
+            let output = serde_json::to_string(&result).ok();
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), output.clone().unwrap_or_default());
+            }
+            Ok((output, vs))
         }
     }
 }

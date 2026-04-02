@@ -5,10 +5,9 @@ import type {
   AutomationScript,
   StepResult,
 } from '@/entities/automation/model/types';
-import { StepStatusIcon } from '@/entities/automation/ui/step-status-icon';
-import { StepSummary } from '@/entities/automation/ui/step-summary';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { StepTreeRenderer, buildResultMap } from './step-tree-renderer';
 
 type Props = {
   steps: AutomationScript['steps'];
@@ -19,16 +18,7 @@ type Props = {
   scriptName: string;
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  success: 'text-green-500',
-  failed: 'text-red-500',
-  running: 'text-blue-500',
-  pending: 'text-muted-foreground',
-  skipped: 'text-muted-foreground',
-  cancelled: 'text-muted-foreground',
-};
-
-/** 脚本步骤列表视图，支持实时运行状态和变量展示 */
+/** 脚本步骤列表视图，支持实时运行状态和变量展示（递归树形分支结构） */
 export function ScriptStepsViewer({
   steps,
   liveStepResults,
@@ -36,7 +26,7 @@ export function ScriptStepsViewer({
   scriptId,
   scriptName,
 }: Props) {
-  const stepResultMap = new Map(liveStepResults.map((r) => [r.index, r]));
+  const resultMap = buildResultMap(liveStepResults);
   const varEntries = Object.entries(liveVariables);
 
   return (
@@ -56,44 +46,7 @@ export function ScriptStepsViewer({
             </Button>
           </div>
         ) : (
-          <div className="space-y-1.5">
-            {steps.map((step, i) => {
-              const result = stepResultMap.get(i);
-              return (
-                <div
-                  key={i}
-                  className="flex items-start gap-2 p-2 rounded-md bg-muted/40 text-sm"
-                >
-                  <StepStatusIcon status={result?.status ?? 'pending'} />
-                  <div className="flex-1 min-w-0">
-                    <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded mr-2">
-                      {step.kind}
-                    </span>
-                    <StepSummary step={step} />
-                    {result?.output && (
-                      <p
-                        className="text-xs text-muted-foreground mt-1 truncate cursor-pointer hover:text-foreground"
-                        title={result.output}
-                        onClick={() => {
-                          void navigator.clipboard.writeText(result.output!);
-                        }}
-                      >
-                        {result.output.slice(0, 120)}
-                        {result.output.length > 120 ? '…' : ''}
-                      </p>
-                    )}
-                  </div>
-                  {result && (
-                    <span
-                      className={`text-xs shrink-0 ${STATUS_COLORS[result.status]}`}
-                    >
-                      {result.durationMs}ms
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <StepTreeRenderer steps={steps} resultMap={resultMap} />
         )}
 
         {/* 运行变量（内联在步骤下方） */}

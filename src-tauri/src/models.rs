@@ -927,6 +927,25 @@ pub enum WaitForUserTimeout {
     Fail,
 }
 
+/// 确认对话框超时处理策略
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConfirmDialogTimeout {
+    /// 超时后视为确认
+    Confirm,
+    /// 超时后视为取消
+    Cancel,
+}
+
+/// 弹窗按钮定义
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DialogButton {
+    pub text: String,
+    pub value: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub variant: Option<String>,
+}
+
 /// Loop 模式
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -998,6 +1017,8 @@ pub enum ScriptStep {
     },
     Screenshot {
         #[serde(skip_serializing_if = "Option::is_none")]
+        save_path: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         output_key: Option<String>,
     },
     Magic {
@@ -1062,6 +1083,11 @@ pub enum ScriptStep {
     Break,
     /// 跳到循环下一次迭代
     Continue,
+    /// 结束整个流程（不再执行后续步骤）
+    End {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        message: Option<String>,
+    },
     /// 打印调试信息到运行日志，支持 {{var}} 插值
     Print {
         text: String,
@@ -1129,6 +1155,7 @@ pub enum ScriptStep {
     MagicSetMaximized,
     MagicSetMinimized,
     MagicSetClosed,
+    MagicSafeQuit,
     MagicSetRestored,
     MagicSetFullscreen,
     MagicSetBgColor {
@@ -1509,6 +1536,60 @@ pub enum ScriptStep {
         modifiers: Vec<String>,
         key: String,
     },
+
+    // ── 弹窗步骤 ──────────────────────────────────────────────────────────────
+    /// 确认对话框：支持 1-4 个自定义按钮，阻塞执行
+    ConfirmDialog {
+        title: String,
+        message: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        buttons: Option<Vec<DialogButton>>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        button_branches: Vec<Vec<ScriptStep>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        confirm_text: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        cancel_text: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        timeout_ms: Option<u64>,
+        #[serde(default = "default_confirm_dialog_timeout")]
+        on_timeout: ConfirmDialogTimeout,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        on_timeout_value: Option<String>,
+    },
+    /// 选择对话框：从预定义选项中选择，阻塞执行
+    SelectDialog {
+        title: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        message: Option<String>,
+        options: Vec<String>,
+        #[serde(default)]
+        multi_select: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        timeout_ms: Option<u64>,
+    },
+    /// 非阻塞通知（toast），不暂停执行流
+    Notification {
+        title: String,
+        body: String,
+        #[serde(default = "default_notification_level")]
+        level: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        duration_ms: Option<u64>,
+    },
+    /// 处理浏览器 JavaScript 对话框（alert/confirm/prompt）
+    CdpHandleDialog {
+        /// "accept" 或 "dismiss"
+        action: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        prompt_text: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1520,6 +1601,9 @@ pub struct StepResult {
     pub duration_ms: u64,
     #[serde(skip_serializing_if = "std::collections::HashMap::is_empty", default)]
     pub vars_set: std::collections::HashMap<String, String>,
+    /// 步骤在嵌套结构中的完整路径，如 [2, 0] 表示第 3 个步骤的第 1 个子步骤
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub step_path: Vec<usize>,
 }
 
 /// 运行日志条目
@@ -1544,6 +1628,8 @@ pub struct RunLogEntry {
 pub struct ScriptSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub step_delay_ms: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delay_config: Option<RunDelayConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1599,6 +1685,14 @@ pub struct CreateAutomationScriptRequest {
     pub settings: Option<ScriptSettings>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveAutomationCanvasGraphRequest {
+    pub steps: Vec<ScriptStep>,
+    pub positions_json: String,
+    pub settings: Option<ScriptSettings>,
+}
+
 /// AI 输出字段映射（用于 JSON 模式提取变量）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1647,6 +1741,14 @@ fn default_ai_output_format() -> String {
     "text".to_string()
 }
 
+fn default_confirm_dialog_timeout() -> ConfirmDialogTimeout {
+    ConfirmDialogTimeout::Cancel
+}
+
+fn default_notification_level() -> String {
+    "info".to_string()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AutomationVariablesUpdatedEvent {
@@ -1659,11 +1761,26 @@ pub struct AutomationVariablesUpdatedEvent {
 #[serde(rename_all = "camelCase")]
 pub struct AutomationHumanRequiredEvent {
     pub run_id: String,
+    /// 弹窗类型: "wait_for_user" | "confirm" | "select"
+    pub dialog_type: String,
     pub message: String,
     pub input_label: Option<String>,
     pub timeout_ms: Option<u64>,
     /// 当前步骤路径，用于高亮画布节点
     pub step_path: Vec<usize>,
+    // ── 扩展字段（confirm_dialog / select_dialog 使用）──
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confirm_text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cancel_text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub options: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub multi_select: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub buttons: Option<Vec<DialogButton>>,
 }
 
 /// 人工介入已解除（用户点击继续或超时）
@@ -1686,6 +1803,18 @@ pub struct AutomationStepErrorPauseEvent {
 #[serde(rename_all = "camelCase")]
 pub struct AutomationRunCancelledEvent {
     pub run_id: String,
+}
+
+/// 自动化步骤发出的非阻塞通知
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutomationNotificationEvent {
+    pub run_id: String,
+    pub title: String,
+    pub body: String,
+    /// "info" | "success" | "warning" | "error"
+    pub level: String,
+    pub duration_ms: Option<u64>,
 }
 
 #[cfg(test)]

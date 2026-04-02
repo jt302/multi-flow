@@ -23,6 +23,7 @@ export const STEP_KINDS: StepKindDef[] = [
 	{ value: 'loop', label: '循环 loop', group: '控制流' },
 	{ value: 'break', label: '跳出循环 break', group: '控制流' },
 	{ value: 'continue', label: '继续下一轮 continue', group: '控制流' },
+	{ value: 'end', label: '结束流程 end', group: '控制流' },
 	{ value: 'print', label: '打印日志 print', group: '调试' },
 	// AI 步骤
 	{ value: 'ai_agent', label: 'AI Agent（多轮工具调用）', group: 'AI' },
@@ -52,6 +53,11 @@ export const STEP_KINDS: StepKindDef[] = [
 	{ value: 'cdp_input_text', label: 'CDP 文本输入(增强)', group: 'CDP' },
 	{ value: 'cdp_press_key', label: 'CDP 按键', group: 'CDP' },
 	{ value: 'cdp_shortcut', label: 'CDP 快捷键', group: 'CDP' },
+	{ value: 'cdp_handle_dialog', label: 'CDP 处理弹窗', group: 'CDP' },
+	// 弹窗 / 通知
+	{ value: 'confirm_dialog', label: '确认弹窗 confirm_dialog', group: '人工介入' },
+	{ value: 'select_dialog', label: '选择弹窗 select_dialog', group: '人工介入' },
+	{ value: 'notification', label: '通知 notification', group: '通知' },
 	// 窗口外观
 	{ value: 'magic_set_bounds', label: '设置窗口位置大小', group: '窗口外观' },
 	{ value: 'magic_get_bounds', label: '获取窗口位置大小', group: '窗口外观' },
@@ -60,6 +66,7 @@ export const STEP_KINDS: StepKindDef[] = [
 	{ value: 'magic_set_restored', label: '还原窗口', group: '窗口外观' },
 	{ value: 'magic_set_fullscreen', label: '全屏', group: '窗口外观' },
 	{ value: 'magic_set_closed', label: '关闭窗口', group: '窗口外观' },
+	{ value: 'magic_safe_quit', label: '关闭浏览器(安全退出)', group: '窗口外观' },
 	{ value: 'magic_set_bg_color', label: '设置背景色', group: '窗口外观' },
 	{ value: 'magic_set_toolbar_text', label: '设置工具栏文字', group: '窗口外观' },
 	{ value: 'magic_set_app_top_most', label: '激活窗口', group: '窗口外观' },
@@ -115,7 +122,7 @@ export const KIND_LABELS: Record<string, string> = {
 	navigate: '导航', wait: '等待', click: '点击',
 	type: '输入', screenshot: '截图', magic: 'Magic', cdp: 'CDP 原始',
 	wait_for_user: '等待人工', condition: '条件分支', loop: '循环',
-	break: 'Break', continue: 'Continue', print: '打印',
+	break: 'Break', continue: 'Continue', end: '结束流程', print: '打印',
 	ai_agent: 'AI Agent',
 	ai_judge: 'AI 判断',
 	cdp_navigate: '导航', cdp_reload: '刷新',
@@ -129,10 +136,12 @@ export const KIND_LABELS: Record<string, string> = {
 	cdp_upload_file: '上传文件', cdp_download_file: '设置下载',
 	cdp_clipboard: '剪贴板', cdp_execute_js: '执行JS',
 	cdp_input_text: '输入文本(增强)',
-	cdp_press_key: '按键', cdp_shortcut: '快捷键',
+	cdp_press_key: '按键', cdp_shortcut: '快捷键', cdp_handle_dialog: '处理弹窗',
+	confirm_dialog: '确认弹窗', select_dialog: '选择弹窗', notification: '通知',
 	magic_set_bounds: '设置窗口尺寸', magic_get_bounds: '获取窗口尺寸',
 	magic_set_maximized: '最大化', magic_set_minimized: '最小化',
-	magic_set_closed: '关闭窗口', magic_set_restored: '还原窗口',
+	magic_set_closed: '关闭窗口', magic_safe_quit: '关闭浏览器',
+	magic_set_restored: '还原窗口',
 	magic_set_fullscreen: '全屏', magic_set_bg_color: '设置背景色',
 	magic_set_toolbar_text: '设置工具栏文本', magic_set_app_top_most: '置顶',
 	magic_set_master_indicator_visible: '指示器可见性',
@@ -164,7 +173,7 @@ export const KIND_GROUPS: Record<string, string> = {
 	navigate: 'CDP', wait: '通用', click: 'CDP',
 	type: 'CDP', screenshot: 'CDP', magic: 'Magic', cdp: 'CDP',
 	wait_for_user: '人工介入', condition: '控制流', loop: '控制流',
-	break: '控制流', continue: '控制流', print: '调试',
+	break: '控制流', continue: '控制流', end: '控制流', print: '调试',
 	ai_agent: 'AI',
 	ai_judge: 'AI',
 	cdp_navigate: 'CDP', cdp_reload: 'CDP',
@@ -176,10 +185,12 @@ export const KIND_GROUPS: Record<string, string> = {
 	cdp_go_back: 'CDP', cdp_go_forward: 'CDP',
 	cdp_upload_file: 'CDP', cdp_download_file: 'CDP',
 	cdp_clipboard: 'CDP', cdp_execute_js: 'CDP', cdp_input_text: 'CDP',
-	cdp_press_key: 'CDP', cdp_shortcut: 'CDP',
+	cdp_press_key: 'CDP', cdp_shortcut: 'CDP', cdp_handle_dialog: 'CDP',
+	confirm_dialog: '人工介入', select_dialog: '人工介入', notification: '通知',
 	magic_set_bounds: 'Magic', magic_get_bounds: 'Magic',
 	magic_set_maximized: 'Magic', magic_set_minimized: 'Magic',
-	magic_set_closed: 'Magic', magic_set_restored: 'Magic',
+	magic_set_closed: 'Magic', magic_safe_quit: 'Magic',
+	magic_set_restored: 'Magic',
 	magic_set_fullscreen: 'Magic', magic_set_bg_color: 'Magic',
 	magic_set_toolbar_text: 'Magic', magic_set_app_top_most: 'Magic',
 	magic_set_master_indicator_visible: 'Magic',
@@ -213,8 +224,7 @@ export const GROUP_COLORS: Record<string, string> = {
 	AI: 'bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300',
 	控制流: 'bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-300',
 	人工介入: 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300',
-	通用: 'bg-muted border-border text-muted-foreground',
-	调试: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-700 dark:text-cyan-300',
+	通用: 'bg-muted border-border text-muted-foreground',	通知: 'bg-teal-500/10 border-teal-500/30 text-teal-700 dark:text-teal-300',	调试: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-700 dark:text-cyan-300',
 	扩展: 'bg-indigo-500/10 border-indigo-500/30 text-indigo-700 dark:text-indigo-300',
 };
 
@@ -225,6 +235,7 @@ export const PALETTE_DOT_COLORS: Record<string, string> = {
 	控制流: 'bg-green-500',
 	人工介入: 'bg-amber-500',
 	通用: 'bg-muted-foreground/50',
+	通知: 'bg-teal-500',
 	调试: 'bg-cyan-500',
 	扩展: 'bg-indigo-500',
 };
@@ -239,18 +250,20 @@ export const PALETTE_GROUPS: { label: string; kinds: string[] }[] = [
 			'cdp_open_new_tab', 'cdp_get_all_tabs', 'cdp_switch_tab', 'cdp_close_tab',
 			'cdp_go_back', 'cdp_go_forward', 'cdp_upload_file', 'cdp_download_file',
 			'cdp_clipboard', 'cdp_execute_js', 'cdp_input_text',
-			'cdp_press_key', 'cdp_shortcut'],
+			'cdp_press_key', 'cdp_shortcut', 'cdp_handle_dialog'],
 	},
 	{ label: '通用', kinds: ['wait', 'wait_for_user'] },
+	{ label: '人工介入', kinds: ['confirm_dialog', 'select_dialog'] },
+	{ label: '通知', kinds: ['notification'] },
 	{ label: '调试', kinds: ['print'] },
-	{ label: '控制流', kinds: ['condition', 'loop', 'break', 'continue'] },
+	{ label: '控制流', kinds: ['condition', 'loop', 'break', 'continue', 'end'] },
 	{ label: 'AI', kinds: ['ai_agent', 'ai_judge'] },
 	{
 		label: 'Magic',
 		kinds: ['magic_get_browsers', 'magic_open_new_tab', 'magic_close_tab',
 			'magic_close_inactive_tabs', 'magic_activate_tab', 'magic_get_tabs', 'magic_set_bounds',
 			'magic_get_bounds', 'magic_set_maximized', 'magic_set_minimized',
-			'magic_capture_app_shell'],
+			'magic_capture_app_shell', 'magic_safe_quit'],
 	},
 	{
 		label: '扩展',
@@ -275,6 +288,7 @@ export function defaultStep(kind: string): ScriptStep {
 		case 'loop': return { kind: 'loop', mode: 'count', count: 3, body_steps: [] };
 		case 'break': return { kind: 'break' };
 		case 'continue': return { kind: 'continue' };
+		case 'end': return { kind: 'end' };
 		case 'print': return { kind: 'print', text: '', level: 'info' };
 		case 'ai_agent': return { kind: 'ai_agent', prompt: '', max_steps: 10 };
 		case 'ai_judge': return { kind: 'ai_judge', prompt: '', output_mode: 'boolean' as const, max_steps: 5 };
@@ -302,11 +316,16 @@ export function defaultStep(kind: string): ScriptStep {
 		case 'cdp_input_text': return { kind: 'cdp_input_text', selector: '', text_source: 'inline', text: '' };
 		case 'cdp_press_key': return { kind: 'cdp_press_key', key: 'Enter' };
 		case 'cdp_shortcut': return { kind: 'cdp_shortcut', modifiers: ['ctrl'], key: 'c' };
+		case 'cdp_handle_dialog': return { kind: 'cdp_handle_dialog', action: 'accept' };
+		case 'confirm_dialog': return { kind: 'confirm_dialog', title: '', message: '', buttons: [{ text: '确认', value: 'confirm', variant: 'default' }, { text: '取消', value: 'cancel', variant: 'outline' }], button_branches: [] };
+		case 'select_dialog': return { kind: 'select_dialog', title: '', options: ['选项1', '选项2'] };
+		case 'notification': return { kind: 'notification', title: '', body: '' };
 		case 'magic_set_bounds': return { kind: 'magic_set_bounds', x: 0, y: 0, width: 1280, height: 800 };
 		case 'magic_get_bounds': return { kind: 'magic_get_bounds' };
 		case 'magic_set_maximized': return { kind: 'magic_set_maximized' };
 		case 'magic_set_minimized': return { kind: 'magic_set_minimized' };
 		case 'magic_set_closed': return { kind: 'magic_set_closed' };
+		case 'magic_safe_quit': return { kind: 'magic_safe_quit' };
 		case 'magic_set_restored': return { kind: 'magic_set_restored' };
 		case 'magic_set_fullscreen': return { kind: 'magic_set_fullscreen' };
 		case 'magic_set_bg_color': return { kind: 'magic_set_bg_color', r: 255, g: 255, b: 255 };
@@ -366,6 +385,11 @@ export function getStepSummaryText(step: ScriptStep): string {
 		const mods = (s['modifiers'] as string[] | undefined ?? []).join('+');
 		return mods ? `${mods}+${String(s['key'] ?? '')}` : String(s['key'] ?? '');
 	}
+	if (step.kind === 'confirm_dialog') return String(s['title'] ?? '').slice(0, 40) || '确认';
+	if (step.kind === 'end') return String(s['message'] ?? '').slice(0, 40) || '结束';
+	if (step.kind === 'select_dialog') return String(s['title'] ?? '').slice(0, 40) || '选择';
+	if (step.kind === 'notification') return String(s['title'] ?? '').slice(0, 40) || '通知';
+	if (step.kind === 'cdp_handle_dialog') return String(s['action'] ?? 'accept');
 	if (step.kind === 'cdp_download_file') return String(s['download_path'] ?? '').slice(0, 40);
 	if (step.kind === 'cdp_execute_js') return (String(s['file_path'] ?? '') || String(s['expression'] ?? '')).slice(0, 40);
 	if (step.kind === 'print') return String(s['text'] ?? '').slice(0, 40) || '(空)';

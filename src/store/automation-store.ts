@@ -5,6 +5,7 @@ import type {
 	AutomationHumanRequiredEvent,
 	AutomationProgressEvent,
 	AutomationVariablesUpdatedEvent,
+	DialogButton,
 	RunStatus,
 	StepResult,
 } from '@/entities/automation/model/types';
@@ -15,6 +16,13 @@ type HumanInterventionState = {
 	inputLabel: string | null;
 	timeoutMs: number | null;
 	stepPath: number[];
+	dialogType: string;
+	title?: string;
+	confirmText?: string;
+	cancelText?: string;
+	options?: string[];
+	multiSelect?: boolean;
+	buttons?: DialogButton[];
 } | null;
 
 type AutomationStoreState = {
@@ -63,13 +71,18 @@ export const automationStore = createStore<AutomationStore>()((set) => ({
 	onProgress: (event) =>
 		set((state) => {
 			const results = [...state.liveStepResults];
-			const existing = results.findIndex((r) => r.index === event.stepIndex);
+			// 用 stepPath 做精确匹配（同一个 topIndex 可能有多个嵌套结果）
+			const pathKey = event.stepPath?.join('.') ?? String(event.stepIndex);
+			const existing = results.findIndex(
+				(r) => (r.stepPath?.join('.') ?? String(r.index)) === pathKey,
+			);
 			const result: StepResult = {
 				index: event.stepIndex,
 				status: event.stepStatus,
 				output: event.output,
 				durationMs: event.durationMs,
 				varsSet: event.varsSet,
+				stepPath: event.stepPath,
 			};
 			if (existing >= 0) {
 				results[existing] = result;
@@ -94,6 +107,13 @@ export const automationStore = createStore<AutomationStore>()((set) => ({
 				inputLabel: event.inputLabel,
 				timeoutMs: event.timeoutMs,
 				stepPath: event.stepPath,
+				dialogType: event.dialogType ?? 'wait_for_user',
+				title: event.title,
+				confirmText: event.confirmText,
+				cancelText: event.cancelText,
+				options: event.options,
+				multiSelect: event.multiSelect,
+				buttons: event.buttons,
 			},
 			liveRunStatus: 'waiting_human' as RunStatus,
 		}),

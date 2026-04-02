@@ -105,8 +105,8 @@ impl ChatMessage {
 pub enum AiChatResult {
     /// 模型返回文本（无 tool_calls）
     Text(String),
-    /// 模型请求调用工具
-    ToolCalls(Vec<AiToolCall>),
+    /// 模型请求调用工具（text 为伴随工具调用的回复文本，部分模型会返回思考/解释内容）
+    ToolCalls { text: String, calls: Vec<AiToolCall> },
 }
 
 #[derive(Debug, Clone)]
@@ -272,6 +272,13 @@ impl AiService {
             .ok_or_else(|| "AI response: no message".to_string())?;
 
         if finish_reason == "tool_calls" {
+            // 提取伴随工具调用的回复文本（模型的思考/解释内容）
+            let assistant_text = message
+                .get("content")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+
             let calls_raw = message
                 .get("tool_calls")
                 .and_then(|v| v.as_array())
@@ -296,7 +303,7 @@ impl AiService {
                 })
                 .collect::<Vec<_>>();
 
-            Ok(AiChatResult::ToolCalls(calls))
+            Ok(AiChatResult::ToolCalls { text: assistant_text, calls })
         } else {
             let content = message
                 .get("content")
@@ -529,6 +536,20 @@ impl AiService {
                 .get("content")
                 .and_then(|c| c.as_array())
                 .ok_or_else(|| "Anthropic: no content".to_string())?;
+
+            // 提取伴随工具调用的 text blocks（模型的思考/解释内容）
+            let assistant_text: String = content_arr
+                .iter()
+                .filter_map(|block| {
+                    if block.get("type")?.as_str()? == "text" {
+                        block.get("text")?.as_str().map(|s| s.to_string())
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+
             let calls: Vec<AiToolCall> = content_arr
                 .iter()
                 .filter_map(|block| {
@@ -551,7 +572,7 @@ impl AiService {
                     })
                 })
                 .collect();
-            Ok(AiChatResult::ToolCalls(calls))
+            Ok(AiChatResult::ToolCalls { text: assistant_text, calls })
         } else {
             let text_out = parsed
                 .get("content")
