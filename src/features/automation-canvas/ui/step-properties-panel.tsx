@@ -561,6 +561,64 @@ export function StepPropertiesPanel({
 		} else if (textSrc === 'variable') {
 			fields.push(tf('var_name', '变量名（不含 {{}}）'));
 		}
+	} else if (kind === 'cdp_press_key') {
+		const keyVal = String(s['key'] ?? 'Enter');
+		fields.push(
+			<div key="key" className="space-y-1">
+				<Label className="text-xs">按键</Label>
+				<Select
+					value={keyVal}
+					onValueChange={(v) => onUpdate({ ...step, key: v } as ScriptStep)}
+				>
+					<SelectTrigger className="h-8 text-xs cursor-pointer">
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="Enter">Enter</SelectItem>
+						<SelectItem value="Tab">Tab</SelectItem>
+						<SelectItem value="Escape">Escape</SelectItem>
+						<SelectItem value="Backspace">Backspace</SelectItem>
+						<SelectItem value="Delete">Delete</SelectItem>
+						<SelectItem value="Space">Space（空格）</SelectItem>
+						<SelectItem value="ArrowUp">ArrowUp</SelectItem>
+						<SelectItem value="ArrowDown">ArrowDown</SelectItem>
+						<SelectItem value="ArrowLeft">ArrowLeft</SelectItem>
+						<SelectItem value="ArrowRight">ArrowRight</SelectItem>
+						<SelectItem value="Home">Home</SelectItem>
+						<SelectItem value="End">End</SelectItem>
+						<SelectItem value="PageUp">PageUp</SelectItem>
+						<SelectItem value="PageDown">PageDown</SelectItem>
+					</SelectContent>
+				</Select>
+			</div>,
+		);
+	} else if (kind === 'cdp_shortcut') {
+		const mods = (s['modifiers'] as string[] | undefined) ?? [];
+		const toggleMod = (mod: string) => {
+			const newMods = mods.includes(mod)
+				? mods.filter((m: string) => m !== mod)
+				: [...mods, mod];
+			onUpdate({ ...step, modifiers: newMods } as ScriptStep);
+		};
+		fields.push(
+			<div key="modifiers" className="space-y-1">
+				<Label className="text-xs">修饰键</Label>
+				<div className="flex flex-wrap gap-3">
+					{(['ctrl', 'meta', 'alt', 'shift'] as const).map((mod) => (
+						<label key={mod} className="flex items-center gap-1.5 text-xs cursor-pointer">
+							<input
+								type="checkbox"
+								checked={mods.includes(mod)}
+								onChange={() => toggleMod(mod)}
+								className="h-3.5 w-3.5 cursor-pointer"
+							/>
+							{mod === 'meta' ? 'Cmd/Meta' : mod.charAt(0).toUpperCase() + mod.slice(1)}
+						</label>
+					))}
+				</div>
+			</div>,
+		);
+		fields.push(tf('key', '主键（如 c、a、F4、Enter）'));
 	} else if (kind === 'wait_for_user') {
 		fields.push(tf('message', '提示消息', true));
 		fields.push(tf('input_label', '输入框标签（留空则无输入框）'));
