@@ -237,6 +237,73 @@ async fn click_element(
     Err(last_err)
 }
 
+/// 将 CDP key name 映射为 Input.dispatchKeyEvent 所需的完整参数
+/// 返回 (windowsVirtualKeyCode, code, text)
+/// windowsVirtualKeyCode 为 0 表示未知键，调用方应按需忽略
+fn cdp_key_info(key: &str) -> (i32, String, Option<String>) {
+    match key {
+        "Enter"      => (13, "Enter".into(),     Some("\r".into())),
+        "Tab"        => (9,  "Tab".into(),        None),
+        "Escape"     => (27, "Escape".into(),     None),
+        "Backspace"  => (8,  "Backspace".into(),  None),
+        "Delete"     => (46, "Delete".into(),     None),
+        " " | "Space" => (32, "Space".into(),    Some(" ".into())),
+        "ArrowUp"    => (38, "ArrowUp".into(),    None),
+        "ArrowDown"  => (40, "ArrowDown".into(),  None),
+        "ArrowLeft"  => (37, "ArrowLeft".into(),  None),
+        "ArrowRight" => (39, "ArrowRight".into(), None),
+        "Home"       => (36, "Home".into(),       None),
+        "End"        => (35, "End".into(),        None),
+        "PageUp"     => (33, "PageUp".into(),     None),
+        "PageDown"   => (34, "PageDown".into(),   None),
+        // 单字符字母 / 数字
+        s if s.len() == 1 => {
+            let c = s.chars().next().unwrap();
+            if c.is_ascii_alphabetic() {
+                let vk = c.to_ascii_uppercase() as i32;
+                let code = format!("Key{}", c.to_ascii_uppercase());
+                (vk, code, Some(s.to_string()))
+            } else if c.is_ascii_digit() {
+                let vk = c as i32;
+                let code = format!("Digit{}", c);
+                (vk, code, Some(s.to_string()))
+            } else {
+                (0, String::new(), Some(s.to_string()))
+            }
+        }
+        _ => (0, String::new(), None),
+    }
+}
+
+/// macOS 上根据修饰键+主键组合返回浏览器编辑命令
+/// Chromium 在 macOS 需要显式 commands 才能触发快捷键
+#[cfg(target_os = "macos")]
+fn cdp_shortcut_commands(modifiers: &[String], key: &str) -> Option<Vec<String>> {
+    let has_meta = modifiers.iter().any(|m| m == "meta");
+    let has_shift = modifiers.iter().any(|m| m == "shift");
+    let has_ctrl = modifiers.iter().any(|m| m == "ctrl");
+    let has_alt = modifiers.iter().any(|m| m == "alt");
+    let k = key.to_lowercase();
+    // Meta (Cmd) 系列快捷键
+    if has_meta && !has_ctrl && !has_alt {
+        if has_shift {
+            return match k.as_str() {
+                "z" => Some(vec!["redo".into()]),
+                _ => None,
+            };
+        }
+        return match k.as_str() {
+            "a" => Some(vec!["selectAll".into()]),
+            "c" => Some(vec!["copy".into()]),
+            "v" => Some(vec!["paste".into()]),
+            "x" => Some(vec!["cut".into()]),
+            "z" => Some(vec!["undo".into()]),
+            _ => None,
+        };
+    }
+    None
+}
+
 /// 读取 AI Provider 配置，并应用步骤级 model_override
 /// 优先级：model_override > script_ai_config/ai_config_id > 全局默认
 fn load_ai_config(
@@ -2847,6 +2914,94 @@ async fn execute_step(
             focus_element_js(cdp, &selector, selector_type).await?;
             cdp.call("Input.insertText", json!({ "text": resolved_text }))
                 .await?;
+            Ok((None, HashMap::new()))
+        }
+
+        ScriptStep::CdpPressKey { key } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let key = vars.interpolate(&key);
+            let (vk, code, text) = cdp_key_info(&key);
+            let mut down = json!({ "type": "keyDown", "key": key, "windowsVirtualKeyCode": vk });
+            if !code.is_empty() { down["code"] = json!(code); }
+            if let Some(t) = &text { down["text"] = json!(t); }
+            cdp.call("Input.dispatchKeyEvent", down).await?;
+            let mut up = json!({ "type": "keyUp", "key": key, "windowsVirtualKeyCode": vk });
+            if !code.is_empty() { up["code"] = json!(code); }
+            cdp.call("Input.dispatchKeyEvent", up).await?;
+            Ok((None, HashMap::new()))
+        }
+
+        ScriptStep::CdpShortcut { modifiers, key } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let key = vars.interpolate(&key);
+            // CDP 协议位掩码：Alt=1, Ctrl=2, Meta=4, Shift=8
+            let modifier_flag: i32 = modifiers.iter().map(|m| match m.as_str() {
+                "alt" => 1,
+                "ctrl" => 2,
+                "meta" => 4,
+                "shift" => 8,
+                _ => 0,
+            }).sum();
+            // 修饰键信息：(CDP key name, code, windowsVirtualKeyCode)
+            let modifier_infos: Vec<(&str, &str, i32)> = modifiers.iter().filter_map(|m| match m.as_str() {
+                "alt" => Some(("Alt", "AltLeft", 18)),
+                "ctrl" => Some(("Control", "ControlLeft", 17)),
+                "meta" => Some(("Meta", "MetaLeft", 91)),
+                "shift" => Some(("Shift", "ShiftLeft", 16)),
+                _ => None,
+            }).collect();
+            // 按序按下修饰键（使用 rawKeyDown）
+            for &(mk, mk_code, mk_vk) in &modifier_infos {
+                cdp.call(
+                    "Input.dispatchKeyEvent",
+                    json!({
+                        "type": "rawKeyDown",
+                        "key": mk,
+                        "code": mk_code,
+                        "windowsVirtualKeyCode": mk_vk,
+                        "modifiers": modifier_flag
+                    }),
+                )
+                .await?;
+            }
+            // 按下主键（rawKeyDown + macOS commands）
+            let (vk, code, _text) = cdp_key_info(&key);
+            let mut main_down = json!({
+                "type": "rawKeyDown",
+                "key": key,
+                "windowsVirtualKeyCode": vk,
+                "modifiers": modifier_flag
+            });
+            if !code.is_empty() { main_down["code"] = json!(code.clone()); }
+            // macOS 需要 commands 数组才能触发快捷键动作
+            #[cfg(target_os = "macos")]
+            if let Some(cmds) = cdp_shortcut_commands(&modifiers, &key) {
+                main_down["commands"] = json!(cmds);
+            }
+            cdp.call("Input.dispatchKeyEvent", main_down).await?;
+            // 释放主键
+            let mut main_up = json!({
+                "type": "keyUp",
+                "key": key,
+                "windowsVirtualKeyCode": vk,
+                "modifiers": modifier_flag
+            });
+            if !code.is_empty() { main_up["code"] = json!(code); }
+            cdp.call("Input.dispatchKeyEvent", main_up).await?;
+            // 逆序释放修饰键
+            for &(mk, mk_code, mk_vk) in modifier_infos.iter().rev() {
+                cdp.call(
+                    "Input.dispatchKeyEvent",
+                    json!({
+                        "type": "keyUp",
+                        "key": mk,
+                        "code": mk_code,
+                        "windowsVirtualKeyCode": mk_vk,
+                        "modifiers": 0
+                    }),
+                )
+                .await?;
+            }
             Ok((None, HashMap::new()))
         }
 
