@@ -19,4 +19,4 @@ export const SETTINGS_TABS: { id: SettingsTabId; label: string; icon: LucideIcon
   { id: 'recycle-bin', label: '回收站', icon: Trash2 },
 ];
 
-export const DEFAULT_SETTINGS_TAB: SettingsTabId = 'appearance';
+export const DEFAULT_SETTINGS_TAB: SettingsTabId = 'general';
