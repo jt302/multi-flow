@@ -48,6 +48,7 @@ export type CanvasStateReturn = {
 	setVarsDefs: (vars: ScriptVarDef[]) => void;
 	addStep: (kind: string) => Promise<void>;
 	updateStep: (index: number, step: ScriptStep) => Promise<void>;
+	pasteSteps: (steps: ScriptStep[]) => Promise<void>;
 	deleteStep: (index: number) => Promise<void>;
 	onNodesChange: (changes: NodeChange[]) => void;
 	onEdgesChange: (changes: EdgeChange[]) => void;
@@ -387,6 +388,8 @@ export function useCanvasState(
 	// ── 连接处理 ───────────────────────────────────────────────────────────────
 	const onConnect = useCallback(
 		(connection: Connection) => {
+			// 禁止节点自连接
+			if (connection.source === connection.target) return;
 			setEdges((prev) => {
 				// 移除目标节点上已有的同 targetHandle 入边（单入边约束）
 				const filtered = prev.filter(
@@ -467,11 +470,16 @@ export function useCanvasState(
 		[steps, saveScript, scheduleCanvasSave],
 	);
 
+	// updateStep 的保存防抖：属性面板编辑时每次按键都会触发 updateStep，
+	// 使用防抖避免高频保存导致工具栏"保存中/已保存"状态快速切换闪动
+	const updateSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const pendingStepsRef = useRef<ScriptStep[] | null>(null);
+
 	const updateStep = useCallback(
 		async (index: number, step: ScriptStep) => {
 			const newSteps = steps.map((s, i) => (i === index ? step : s));
 			setSteps(newSteps);
-			// 同步更新对应节点的 data
+			// 同步更新对应节点的 data（即时反映到画布）
 			setNodes((prev) =>
 				prev.map((n) =>
 					n.id === `step-${index}`
@@ -479,9 +487,73 @@ export function useCanvasState(
 						: n,
 				),
 			);
-			await saveScript(newSteps);
+			// 防抖保存：300ms 内连续编辑只触发最后一次
+			pendingStepsRef.current = newSteps;
+			if (updateSaveTimerRef.current) clearTimeout(updateSaveTimerRef.current);
+			updateSaveTimerRef.current = setTimeout(() => {
+				const toSave = pendingStepsRef.current;
+				pendingStepsRef.current = null;
+				if (toSave) void saveScript(toSave);
+			}, 300);
 		},
 		[steps, saveScript],
+	);
+
+	// ── 粘贴步骤（批量添加完整步骤，用于快捷键复制粘贴） ───────────────────
+	const pasteSteps = useCallback(
+		async (stepsToAdd: ScriptStep[]) => {
+			if (stepsToAdd.length === 0) return;
+			let currentSteps = steps;
+			for (const step of stepsToAdd) {
+				const newIndex = currentSteps.length;
+				currentSteps = [...currentSteps, step];
+
+				// 新节点位置
+				const lastPos = positionsRef.current[`step-${newIndex - 1}`] ?? {
+					x: 120,
+					y: 0,
+				};
+				const newPos = { x: lastPos.x, y: lastPos.y + 140 };
+				positionsRef.current = {
+					...positionsRef.current,
+					[`step-${newIndex}`]: newPos,
+				};
+				setNodes((prev) => [
+					...prev,
+					{
+						id: `step-${newIndex}`,
+						type: 'step',
+						position: newPos,
+						sourcePosition: Position.Bottom,
+						targetPosition: Position.Top,
+						data: {
+							step,
+							index: newIndex,
+							stepStatus: undefined,
+						} as StepNodeData,
+					},
+				]);
+
+				// 自动连线
+				if (newIndex > 0) {
+					const connection: Edge = {
+						id: `e-${newIndex - 1}-${newIndex}`,
+						source: `step-${newIndex - 1}`,
+						target: `step-${newIndex}`,
+						type: 'smoothstep',
+					};
+					setEdges((prev) => {
+						const next = addEdge(connection, prev);
+						edgesRef.current = next;
+						scheduleCanvasSave(positionsRef.current, next);
+						return next;
+					});
+				}
+			}
+			setSteps(currentSteps);
+			await saveScript(currentSteps);
+		},
+		[steps, saveScript, scheduleCanvasSave],
 	);
 
 	const deleteStep = useCallback(
@@ -561,6 +633,7 @@ export function useCanvasState(
 		setVarsDefs,
 		addStep,
 		updateStep,
+		pasteSteps,
 		deleteStep,
 		onNodesChange,
 		onEdgesChange,

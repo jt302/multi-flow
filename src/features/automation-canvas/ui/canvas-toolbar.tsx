@@ -127,16 +127,16 @@ export function CanvasToolbar({
 				<span className="text-xs text-muted-foreground">ms</span>
 			</div>
 
-			{/* 保存状态 */}
-			<span className="flex items-center gap-1 text-xs text-muted-foreground">
+			{/* 保存状态（固定宽度，防止内容切换时导致相邻元素抖动） */}
+			<span className="flex items-center gap-1 text-xs text-muted-foreground w-16">
 				{saving ? (
 					<>
-						<Loader2 className="h-3 w-3 animate-spin" />
+						<Loader2 className="h-3 w-3 animate-spin flex-shrink-0" />
 						保存中...
 					</>
 				) : savedAt && Date.now() - savedAt < 3000 ? (
 					<>
-						<CheckCircle className="h-3 w-3 text-green-500" />
+						<CheckCircle className="h-3 w-3 text-green-500 flex-shrink-0" />
 						已保存
 					</>
 				) : null}
