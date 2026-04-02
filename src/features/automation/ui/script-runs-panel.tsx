@@ -1,12 +1,13 @@
 import { useState } from 'react';
 
-import { Trash2 } from 'lucide-react';
+import { Trash2, X } from 'lucide-react';
 
 import {
   clearAutomationRuns,
   deleteAutomationRun,
 } from '@/entities/automation/api/automation-api';
 import type { AutomationRun } from '@/entities/automation/model/types';
+import { RunStatusBadge } from '@/entities/automation/ui/run-status-badge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,7 +20,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ScriptRunCard } from './script-run-card';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { RunDetailView, RunRow } from './script-run-card';
 
 type Props = {
   runs: AutomationRun[];
@@ -28,63 +35,104 @@ type Props = {
   onRunsChange: () => void;
 };
 
-/** 运行历史面板：展示所有运行记录，支持展开/删除/清空 */
+/** 运行历史面板：列表/详情分栏模式，支持删除/清空/全屏查看 */
 export function ScriptRunsPanel({
   runs,
   scriptId,
   scriptName,
   onRunsChange,
 }: Props) {
-  const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
+  const [sheetRunId, setSheetRunId] = useState<string | null>(null);
   const [clearAllOpen, setClearAllOpen] = useState(false);
   const [deleteRunId, setDeleteRunId] = useState<string | null>(null);
 
+  const sheetRun = runs.find((r) => r.id === sheetRunId) ?? null;
+
   return (
     <>
-      <ScrollArea className="h-full">
-        {runs.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-sm text-muted-foreground">暂无运行记录</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              运行脚本后，执行记录和详细日志将显示在这里
-            </p>
-          </div>
-        ) : (
-          <div className="px-3 py-2">
-            {/* 清空所有记录按钮 */}
-            <div className="flex items-center justify-end mb-2">
+      <div className="flex flex-col h-full">
+        <ScrollArea className="h-full">
+          {runs.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-sm text-muted-foreground">暂无运行记录</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                运行脚本后，执行记录和详细日志将显示在这里
+              </p>
+            </div>
+          ) : (
+            <div className="px-3 py-2">
+              {/* 清空按钮 */}
+              <div className="flex items-center justify-end mb-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-muted-foreground hover:text-red-500 cursor-pointer"
+                  onClick={() => setClearAllOpen(true)}
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  清空所有记录
+                </Button>
+              </div>
+
+              <div className="space-y-1.5">
+                {runs.map((run) => (
+                  <RunRow
+                    key={run.id}
+                    run={run}
+                    onSelect={() => setSheetRunId(run.id)}
+                    onDelete={() => setDeleteRunId(run.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </ScrollArea>
+      </div>
+
+      {/* ─── 全屏 Sheet ──────────────────────────────────────────────────── */}
+      <Sheet open={sheetRun !== null} onOpenChange={(open) => { if (!open) setSheetRunId(null); }}>
+        <SheetContent side="bottom" className="h-[80vh] flex flex-col p-0" showCloseButton={false}>
+          <SheetHeader className="px-4 py-3 border-b shrink-0">
+            <SheetTitle className="flex items-center gap-2 text-sm font-medium">
+              {sheetRun && <RunStatusBadge status={sheetRun.status} />}
+              <span className="text-muted-foreground font-normal">
+                {sheetRun
+                  ? new Date(sheetRun.startedAt * 1000).toLocaleString()
+                  : ''}
+              </span>
+              {sheetRun?.finishedAt && (
+                <span className="text-[10px] text-muted-foreground/60">
+                  {((sheetRun.finishedAt - sheetRun.startedAt) / 1).toFixed(1)}s
+                </span>
+              )}
+              <div className="flex-1" />
+              {sheetRun && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 shrink-0 text-muted-foreground hover:text-red-500 cursor-pointer"
+                  title="删除此记录"
+                  onClick={() => setDeleteRunId(sheetRun.id)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
-                size="sm"
-                className="h-7 text-xs text-muted-foreground hover:text-red-500 cursor-pointer"
-                onClick={() => setClearAllOpen(true)}
+                size="icon"
+                className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground cursor-pointer"
+                title="关闭"
+                onClick={() => setSheetRunId(null)}
               >
-                <Trash2 className="h-3 w-3 mr-1" />
-                清空所有记录
+                <X className="h-3.5 w-3.5" />
               </Button>
-            </div>
+            </SheetTitle>
+          </SheetHeader>
+          {sheetRun && <RunDetailView run={sheetRun} expanded />}
+        </SheetContent>
+      </Sheet>
 
-            <div className="space-y-1.5">
-              {runs.map((run, runIdx) => (
-                <ScriptRunCard
-                  key={run.id}
-                  run={run}
-                  runIndex={runIdx}
-                  isExpanded={expandedRunId === run.id}
-                  onToggle={() =>
-                    setExpandedRunId(
-                      expandedRunId === run.id ? null : run.id,
-                    )
-                  }
-                  onDelete={() => setDeleteRunId(run.id)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-      </ScrollArea>
-
-      {/* 清空所有记录确认弹窗 */}
+      {/* ─── 清空确认 ────────────────────────────────────────────────────── */}
       <AlertDialog open={clearAllOpen} onOpenChange={setClearAllOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -107,7 +155,7 @@ export function ScriptRunsPanel({
                 className="cursor-pointer"
                 onClick={async () => {
                   await clearAutomationRuns(scriptId);
-                  setExpandedRunId(null);
+                  setSheetRunId(null);
                   onRunsChange();
                 }}
               >
@@ -118,7 +166,7 @@ export function ScriptRunsPanel({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* 删除单条记录确认弹窗 */}
+      {/* ─── 删除单条确认 ────────────────────────────────────────────────── */}
       <AlertDialog
         open={deleteRunId !== null}
         onOpenChange={(open) => {
@@ -146,9 +194,7 @@ export function ScriptRunsPanel({
                 onClick={async () => {
                   if (deleteRunId) {
                     await deleteAutomationRun(deleteRunId);
-                    setExpandedRunId((prev) =>
-                      prev === deleteRunId ? null : prev,
-                    );
+                    if (sheetRunId === deleteRunId) setSheetRunId(null);
                     onRunsChange();
                   }
                   setDeleteRunId(null);
