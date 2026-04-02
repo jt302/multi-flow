@@ -72,6 +72,7 @@ export function useThemeSettings() {
 	const [customColor, setCustomColor] = useState(getInitialCustomColor);
 	const [useCustomColor, setUseCustomColor] = useState(getInitialUseCustomColor);
 	const [systemDark, setSystemDark] = useState(getInitialSystemDark);
+	const resolvedMode = themeMode === 'system' ? (systemDark ? 'dark' : 'light') : themeMode;
 
 	useEffect(() => {
 		const media = window.matchMedia('(prefers-color-scheme: dark)');
@@ -134,7 +135,8 @@ export function useThemeSettings() {
 		const root = document.documentElement;
 		const shouldDark = themeMode === 'dark' || (themeMode === 'system' && systemDark);
 		root.classList.toggle('dark', shouldDark);
-	}, [themeMode, systemDark]);
+		root.style.colorScheme = resolvedMode;
+	}, [resolvedMode, systemDark, themeMode]);
 
 	useEffect(() => {
 		const nativeTheme = themeMode === 'system' ? null : themeMode;
@@ -177,8 +179,6 @@ export function useThemeSettings() {
 		root.style.setProperty('--ring-light', mixHex(activePalette.light, '#FFFFFF', 0.4));
 		root.style.setProperty('--ring-dark', mixHex(activePalette.dark, '#0B1220', 0.35));
 	}, [activePalette, customColor, preset, themeMode, useCustomColor]);
-
-	const resolvedMode = themeMode === 'system' ? (systemDark ? 'dark' : 'light') : themeMode;
 
 	return {
 		themeMode,

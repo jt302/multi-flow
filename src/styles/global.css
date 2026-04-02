@@ -53,6 +53,9 @@
     --primary-foreground-dark: #0f172a;
     --ring-light: #8ee2d3;
     --ring-dark: #72d9c6;
+    --scrollbar-size: 6px;
+    --scrollbar-thumb: color-mix(in oklab, var(--muted-foreground) 50%, transparent);
+    --scrollbar-thumb-hover: color-mix(in oklab, var(--muted-foreground) 70%, transparent);
     --background: oklch(0.99 0.005 260);
     --foreground: oklch(0.18 0.015 260);
     --card: oklch(1 0 0);
@@ -126,7 +129,23 @@
   }
   * {
     @apply border-border outline-ring/50;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+    scrollbar-width: thin;
     }
+  ::-webkit-scrollbar {
+    width: var(--scrollbar-size);
+    height: var(--scrollbar-size);
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+  }
   body {
     @apply bg-background text-foreground antialiased;
     font-family: "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", sans-serif;
@@ -143,4 +162,44 @@
     font-family: "Chivo", "Noto Sans SC", sans-serif;
     letter-spacing: -0.015em;
     }
+}
+
+.mf-scrollbar {
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+  scrollbar-width: thin;
+}
+
+.mf-scrollbar::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+.mf-scrollbar::-webkit-scrollbar-track,
+.mf-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.mf-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+}
+
+.mf-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* React Flow Controls 暗色模式适配 */
+.dark .react-flow__controls {
+  background: var(--card);
+  border-color: var(--border);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 30%);
+}
+.dark .react-flow__controls button {
+  background: var(--card);
+  border-color: var(--border);
+  fill: var(--foreground);
+  color: var(--foreground);
+}
+.dark .react-flow__controls button:hover {
+  background: var(--accent);
 }

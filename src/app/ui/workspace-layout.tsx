@@ -6,6 +6,7 @@ import { useThemeSettings } from '@/entities/theme/model/use-theme-settings';
 import { resolveSonnerTheme } from '@/entities/theme/model/sonner-theme';
 import { openLogPanelWindow } from '@/entities/log-entry/api/logs-api';
 import { Card, Sidebar, SidebarProvider, Toaster } from '@/components/ui';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { resolveNavFromPath, resolvePathFromNav } from '@/app/workspace-routes';
 import { buildWorkspaceLayoutOutletContext } from '@/app/model/workspace-layout-context';
 import type {
@@ -142,25 +143,27 @@ export function WorkspaceLayout() {
 							/>
 						</Card>
 						<Card className="min-h-0 w-full flex-1 overflow-hidden border-border/40 bg-card/60 p-0 backdrop-blur-3xl shadow-md transition-all duration-300">
-							<div className="h-full w-full overflow-y-auto p-3 md:p-4">
-								<div
-									key={location.pathname}
-									className="flex h-full min-h-0 w-full min-w-0 flex-col animate-in fade-in zoom-in-[0.98] duration-500 fill-mode-both"
-								>
-									<Suspense
-										fallback={
-											<Card className="p-6 text-sm text-muted-foreground border-border/40 bg-transparent flex items-center justify-center min-h-[50vh]">
-												<div className="flex flex-col items-center gap-3 opacity-60">
-													<div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
-													<span>页面加载中...</span>
-												</div>
-											</Card>
-										}
+							<ScrollArea className="h-full w-full">
+								<div className="p-3 md:p-4">
+									<div
+										key={location.pathname}
+										className="flex h-full min-h-0 w-full min-w-0 flex-col animate-in fade-in zoom-in-[0.98] duration-500 fill-mode-both"
 									>
-										<Outlet context={outletContext} />
-									</Suspense>
+										<Suspense
+											fallback={
+												<Card className="p-6 text-sm text-muted-foreground border-border/40 bg-transparent flex items-center justify-center min-h-[50vh]">
+													<div className="flex flex-col items-center gap-3 opacity-60">
+														<div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+														<span>页面加载中...</span>
+													</div>
+												</Card>
+											}
+										>
+											<Outlet context={outletContext} />
+										</Suspense>
+									</div>
 								</div>
-							</div>
+							</ScrollArea>
 						</Card>
 					</section>
 				</div>
