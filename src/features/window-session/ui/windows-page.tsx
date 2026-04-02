@@ -29,6 +29,7 @@ import {
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
+	ScrollArea,
 	Tabs,
 	TabsContent,
 	TabsList,
@@ -338,8 +339,10 @@ export function WindowsPage({
 				<CardHeader className="px-1 pb-2 shrink-0">
 					<CardTitle className="text-sm">同步列表</CardTitle>
 				</CardHeader>
-				<CardContent className="space-y-3 px-1 pt-0 flex-1 min-h-0 overflow-y-auto">
-					<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+				<CardContent className="px-1 pt-0 flex-1 min-h-0">
+					<ScrollArea className="h-full pr-1">
+						<div className="space-y-3">
+							<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
 						<p>
 							已选择 {selectedRunningIds.length} / {runningProfileIds.length}{' '}
 							个运行中环境
@@ -360,9 +363,9 @@ export function WindowsPage({
 						>
 							sidecar {syncConnectionStatus}
 						</Badge>
-					</div>
+							</div>
 
-					<div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_repeat(2,auto)]">
+							<div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_repeat(2,auto)]">
 						<Button
 							type="button"
 							className="cursor-pointer"
@@ -412,11 +415,11 @@ export function WindowsPage({
 							刷新同步状态
 						</Button>
 					</div>
-					{startValidation.reason ? (
-						<p className="text-xs text-muted-foreground">
-							{startValidation.reason}
-						</p>
-					) : null}
+							{startValidation.reason ? (
+								<p className="text-xs text-muted-foreground">
+									{startValidation.reason}
+								</p>
+							) : null}
 
 					<div className="space-y-2">
 						{windowStates.map((item) => {
@@ -512,6 +515,8 @@ export function WindowsPage({
 							);
 						})}
 					</div>
+						</div>
+					</ScrollArea>
 				</CardContent>
 			</Card>
 
