@@ -8,7 +8,7 @@ use crate::db::entities::{automation_run, automation_script};
 use crate::error::{AppError, AppResult};
 use crate::models::{
     now_ts, AutomationRun, AutomationScript, CreateAutomationScriptRequest, RunLogEntry,
-    ScriptSettings, ScriptStep, StepResult,
+    SaveAutomationCanvasGraphRequest, ScriptSettings, ScriptStep, StepResult,
 };
 use crate::services::app_preference_service::AiProviderConfig;
 
@@ -125,9 +125,11 @@ impl AutomationService {
         active.steps_json = Set(steps_json);
         // 仅在请求中明确提供时才更新，避免画布保存时意外清空
         if let Some(ref ids) = req.associated_profile_ids {
-            active.associated_profile_ids_json = Set(
-                if ids.is_empty() { None } else { serde_json::to_string(ids).ok() }
-            );
+            active.associated_profile_ids_json = Set(if ids.is_empty() {
+                None
+            } else {
+                serde_json::to_string(ids).ok()
+            });
         }
         if req.ai_config.is_some() {
             active.ai_config_json = Set(req
@@ -141,6 +143,26 @@ impl AutomationService {
         if let Some(ref s) = req.settings {
             active.settings_json = Set(serde_json::to_string(s).ok());
         }
+        active.updated_at = Set(now_ts());
+        let updated = self.db_query(active.update(&self.db))?;
+        to_api_script(updated)
+    }
+
+    pub fn save_canvas_graph(
+        &self,
+        script_id: &str,
+        req: SaveAutomationCanvasGraphRequest,
+    ) -> AppResult<AutomationScript> {
+        let existing = self.find_script_model(script_id)?;
+        let steps_json = serde_json::to_string(&req.steps)
+            .map_err(|e| AppError::Validation(format!("invalid steps: {e}")))?;
+        let mut active: automation_script::ActiveModel = existing.into();
+        active.steps_json = Set(steps_json);
+        active.canvas_positions_json = Set(Some(req.positions_json));
+        active.settings_json = Set(req
+            .settings
+            .as_ref()
+            .and_then(|settings| serde_json::to_string(settings).ok()));
         active.updated_at = Set(now_ts());
         let updated = self.db_query(active.update(&self.db))?;
         to_api_script(updated)
@@ -234,6 +256,27 @@ impl AutomationService {
         }
         self.db_query(active.update(&self.db))?;
         Ok(())
+    }
+
+    /// Mark all runs with status="running" and finished_at=NULL as "interrupted".
+    /// Called on app startup to clean up runs that were killed mid-flight.
+    pub fn cleanup_stale_runs(&self) -> AppResult<usize> {
+        let stale_runs: Vec<automation_run::Model> = self.db_query(
+            automation_run::Entity::find()
+                .filter(automation_run::Column::Status.eq("running"))
+                .filter(automation_run::Column::FinishedAt.is_null())
+                .all(&self.db),
+        )?;
+        let count = stale_runs.len();
+        let now = crate::models::now_ts();
+        for run in stale_runs {
+            let mut active: automation_run::ActiveModel = run.into();
+            active.status = Set("interrupted".to_string());
+            active.error = Set(Some("应用重启，执行中断".to_string()));
+            active.finished_at = Set(Some(now));
+            self.db_query(active.update(&self.db))?;
+        }
+        Ok(count)
     }
 
     fn find_script_model(&self, script_id: &str) -> AppResult<automation_script::Model> {

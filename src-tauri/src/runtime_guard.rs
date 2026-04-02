@@ -107,6 +107,28 @@ pub fn reconcile_runtime_state(state: &AppState) -> AppResult<usize> {
     }
 
     let running_profile_ids = profile_service.list_running_profile_ids()?;
+
+    // Clean up stale automation runs (status=running but app restarted)
+    {
+        let automation_service = state.lock_automation_service();
+        match automation_service.cleanup_stale_runs() {
+            Ok(n) if n > 0 => {
+                logger::info(
+                    "runtime_guard",
+                    format!("marked {n} stale automation run(s) as interrupted"),
+                );
+                affected += n;
+            }
+            Err(e) => {
+                logger::warn(
+                    "runtime_guard",
+                    format!("failed to cleanup stale automation runs: {e}"),
+                );
+            }
+            _ => {}
+        }
+    }
+
     for profile_id in &running_profile_ids {
         if engine_manager.is_running(profile_id) {
             continue;

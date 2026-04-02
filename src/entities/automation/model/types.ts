@@ -4,12 +4,18 @@ export type LoopMode = 'count' | 'while';
 export type ClipboardAction = 'copy' | 'paste' | 'select_all';
 export type TextSource = 'inline' | 'file' | 'variable';
 
+export type DialogButton = {
+	text: string;
+	value: string;
+	variant?: 'default' | 'outline' | 'destructive';
+};
+
 export type ScriptStep =
 	| { kind: 'navigate'; url: string; output_key?: string }
 	| { kind: 'wait'; ms: number }
 	| { kind: 'click'; selector: string; selector_type?: SelectorType }
 	| { kind: 'type'; selector: string; text: string; selector_type?: SelectorType }
-	| { kind: 'screenshot'; output_key?: string }
+	| { kind: 'screenshot'; save_path?: string; output_key?: string }
 	| { kind: 'magic'; command: string; params: Record<string, unknown>; output_key?: string }
 	| { kind: 'cdp'; method: string; params?: Record<string, unknown>; output_key?: string }
 	| {
@@ -37,6 +43,7 @@ export type ScriptStep =
 	  }
 	| { kind: 'break' }
 	| { kind: 'continue' }
+	| { kind: 'end'; message?: string }
 	| { kind: 'print'; text: string; level?: 'info' | 'warn' | 'error' | 'debug' }
 
 	// ── AI 步骤 ───────────────────────────────────────────────────────────────
@@ -95,6 +102,7 @@ export type ScriptStep =
 	| { kind: 'magic_set_maximized' }
 	| { kind: 'magic_set_minimized' }
 	| { kind: 'magic_set_closed' }
+	| { kind: 'magic_safe_quit' }
 	| { kind: 'magic_set_restored' }
 	| { kind: 'magic_set_fullscreen' }
 	| { kind: 'magic_set_bg_color'; r?: number; g?: number; b?: number }
@@ -179,12 +187,56 @@ export type ScriptStep =
 			var_name?: string;
 	  }
 	| { kind: 'cdp_press_key'; key: string }
-	| { kind: 'cdp_shortcut'; modifiers: string[]; key: string };
+	| { kind: 'cdp_shortcut'; modifiers: string[]; key: string }
+
+	// ── 弹窗步骤 ──────────────────────────────────────────────────────────────
+	| {
+			kind: 'confirm_dialog';
+			title: string;
+			message: string;
+			buttons?: DialogButton[];
+			button_branches?: ScriptStep[][];
+			confirm_text?: string;
+			cancel_text?: string;
+			output_key?: string;
+			timeout_ms?: number;
+			on_timeout?: 'confirm' | 'cancel';
+			on_timeout_value?: string;
+	  }
+	| {
+			kind: 'select_dialog';
+			title: string;
+			message?: string;
+			options: string[];
+			multi_select?: boolean;
+			output_key?: string;
+			timeout_ms?: number;
+	  }
+	| {
+			kind: 'notification';
+			title: string;
+			body: string;
+			level?: 'info' | 'success' | 'warning' | 'error';
+			duration_ms?: number;
+	  }
+	| {
+			kind: 'cdp_handle_dialog';
+			action: 'accept' | 'dismiss';
+			prompt_text?: string;
+			output_key?: string;
+	  };
 
 export type ScriptVarDef = { name: string; defaultValue: string };
 
+export type RunDelayConfig = {
+	enabled: boolean;
+	minSeconds: number;
+	maxSeconds: number;
+};
+
 export type ScriptSettings = {
 	stepDelayMs?: number;
+	delayConfig?: RunDelayConfig;
 };
 
 export type AutomationScript = {
@@ -203,7 +255,7 @@ export type AutomationScript = {
 };
 
 export type StepStatus = 'pending' | 'running' | 'success' | 'failed' | 'skipped';
-export type RunStatus = 'pending' | 'running' | 'success' | 'failed' | 'cancelled' | 'waiting_human';
+export type RunStatus = 'pending' | 'running' | 'success' | 'failed' | 'cancelled' | 'waiting_human' | 'interrupted';
 
 export type StepResult = {
 	index: number;
@@ -211,6 +263,8 @@ export type StepResult = {
 	output: string | null;
 	durationMs: number;
 	varsSet?: Record<string, string>;
+	/** 步骤在嵌套结构中的完整路径，如 [2, 0] 表示第 3 个顶层步骤的第 1 个子步骤 */
+	stepPath?: number[];
 };
 
 export type RunLogEntry = {
@@ -253,14 +307,29 @@ export type AutomationVariablesUpdatedEvent = {
 
 export type AutomationHumanRequiredEvent = {
 	runId: string;
+	dialogType: string;
 	message: string;
 	inputLabel: string | null;
 	timeoutMs: number | null;
 	stepPath: number[];
+	title?: string;
+	confirmText?: string;
+	cancelText?: string;
+	options?: string[];
+	multiSelect?: boolean;
+	buttons?: DialogButton[];
 };
 
 export type AutomationHumanDismissedEvent = {
 	runId: string;
+};
+
+export type AutomationNotificationEvent = {
+	runId: string;
+	title: string;
+	body: string;
+	level: string;
+	durationMs: number | null;
 };
 
 export type AutomationStepErrorPauseEvent = {
@@ -303,6 +372,12 @@ export type CreateAutomationScriptPayload = {
 	associatedProfileIds?: string[];
 	aiConfig?: AiProviderConfig | null;
 	aiConfigId?: string | null;
+	settings?: ScriptSettings;
+};
+
+export type SaveAutomationCanvasGraphPayload = {
+	steps: ScriptStep[];
+	positionsJson: string;
 	settings?: ScriptSettings;
 };
 

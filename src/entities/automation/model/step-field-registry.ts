@@ -76,7 +76,16 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
   ],
 
   // ── 截图（Magic Controller） ──────────────────────────────────────────────
-  screenshot: [{ type: 'output_key' }],
+  screenshot: [
+    {
+      type: 'file_path',
+      key: 'save_path',
+      label: '保存路径（留空自动生成，支持 {{变量}}）',
+      mode: 'save',
+      filters: [{ name: '图片文件', extensions: ['png'] }],
+    },
+    { type: 'output_key', label: '文件路径变量名' },
+  ],
 
   // ── 通用 Magic / CDP 命令（复杂结构，不提供标准字段） ──────────────────────
   magic: [],
@@ -104,8 +113,9 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
 
   // ── 流程控制（无字段） ─────────────────────────────────────────────────────
   break: [],
-  continue: [],
-
+  continue: [],  end: [
+    { type: 'text', key: 'message', label: '结束备注（可选）' },
+  ],
   // ── 打印日志 ──────────────────────────────────────────────────────────────
   print: [
     {
@@ -346,6 +356,57 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
   // cdp_shortcut: modifiers 用 checkbox 渲染，属性面板自定义处理
   cdp_shortcut: [],
 
+  // ── 弹窗 / 通知步骤 ───────────────────────────────────────────────────────
+
+  confirm_dialog: [
+    { type: 'text', key: 'title', label: '标题' },
+    { type: 'text', key: 'message', label: '提示消息', multiline: true },
+    // buttons 由属性面板内联编辑器处理
+    { type: 'number', key: 'timeout_ms', label: '超时毫秒数（0=不超时）' },
+    { type: 'text', key: 'on_timeout_value', label: '超时默认值' },
+    { type: 'output_key' },
+  ],
+
+  select_dialog: [
+    { type: 'text', key: 'title', label: '标题' },
+    { type: 'text', key: 'message', label: '说明文字（可选）', multiline: true },
+    { type: 'checkbox', key: 'multi_select', label: '允许多选' },
+    { type: 'number', key: 'timeout_ms', label: '超时毫秒数（0=不超时）' },
+    { type: 'output_key' },
+    // options 数组由属性面板自定义渲染
+  ],
+
+  notification: [
+    { type: 'text', key: 'title', label: '标题' },
+    { type: 'text', key: 'body', label: '内容', multiline: true },
+    {
+      type: 'select',
+      key: 'level',
+      label: '级别',
+      options: [
+        { value: 'info', label: 'info' },
+        { value: 'success', label: 'success' },
+        { value: 'warning', label: 'warning' },
+        { value: 'error', label: 'error' },
+      ],
+    },
+    { type: 'number', key: 'duration_ms', label: '显示时长毫秒数' },
+  ],
+
+  cdp_handle_dialog: [
+    {
+      type: 'select',
+      key: 'action',
+      label: '操作',
+      options: [
+        { value: 'accept', label: '接受 (Accept)' },
+        { value: 'dismiss', label: '关闭 (Dismiss)' },
+      ],
+    },
+    { type: 'text', key: 'prompt_text', label: 'Prompt 输入文本（可选）' },
+    { type: 'output_key' },
+  ],
+
   // ── Magic Controller 具名步骤 ─────────────────────────────────────────────
 
   // 窗口外观
@@ -361,6 +422,7 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
   magic_set_maximized: [],
   magic_set_minimized: [],
   magic_set_closed: [],
+  magic_safe_quit: [],
   magic_set_restored: [],
   magic_set_fullscreen: [],
 

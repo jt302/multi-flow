@@ -433,6 +433,14 @@ fn magic_tools() -> Vec<Value> {
             }),
         ),
         tool(
+            "magic_safe_quit",
+            "安全退出整个浏览器应用（关闭所有窗口和标签页）",
+            json!({
+                "type": "object",
+                "properties": {}
+            }),
+        ),
+        tool(
             "magic_set_restored",
             "恢复浏览器窗口（从最大化/最小化恢复）",
             json!({

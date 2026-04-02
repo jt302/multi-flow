@@ -3,6 +3,10 @@ import { useEffect, useState } from 'react';
 import { Bug, Minus, Play, Plus } from 'lucide-react';
 
 import type { ProfileItem } from '@/entities/profile/model/types';
+import type {
+	RunDelayConfig,
+	ScriptSettings,
+} from '@/entities/automation/model/types';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -18,12 +22,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 type VarEntry = { key: string; value: string };
 
-export type RunDelayConfig = {
-	enabled: boolean;
-	minSeconds: number;
-	maxSeconds: number;
-};
-
 type Props = {
 	open: boolean;
 	onOpenChange: (v: boolean) => void;
@@ -33,6 +31,7 @@ type Props = {
 	isRunning: boolean;
 	disabled: boolean;
 	defaultVars?: VarEntry[];
+	scriptSettings?: ScriptSettings;
 	onRun: (
 		profileIds: string[],
 		initialVars: Record<string, string>,
@@ -50,6 +49,7 @@ export function RunDialog({
 	isRunning,
 	disabled,
 	defaultVars,
+	scriptSettings,
 	onRun,
 	onDebugRun,
 }: Props) {
@@ -67,9 +67,10 @@ export function RunDialog({
 		if (!open) return;
 		setVarEntries(defaultVars ?? []);
 		setVarsOpen((defaultVars ?? []).length > 0);
-		setDelayEnabled(true);
-		setDelayMinSeconds(1);
-		setDelayMaxSeconds(5);
+		const dc = scriptSettings?.delayConfig;
+		setDelayEnabled(dc?.enabled ?? true);
+		setDelayMinSeconds(dc?.minSeconds ?? 1);
+		setDelayMaxSeconds(dc?.maxSeconds ?? 5);
 		if (associatedProfileIds.length > 0) {
 			setSelectedIds([...associatedProfileIds]);
 		} else {
@@ -126,17 +127,11 @@ export function RunDialog({
 
 	function handleRun() {
 		if (selectedIds.length === 0) return;
-		onRun(
-			selectedIds,
-			buildVars(),
-			delayEnabled
-				? {
-						enabled: true,
-						minSeconds: Math.max(0, Math.min(delayMinSeconds, delayMaxSeconds)),
-						maxSeconds: Math.max(delayMinSeconds, delayMaxSeconds),
-					}
-				: null,
-		);
+		onRun(selectedIds, buildVars(), {
+			enabled: delayEnabled,
+			minSeconds: delayMinSeconds,
+			maxSeconds: delayMaxSeconds,
+		});
 		onOpenChange(false);
 	}
 

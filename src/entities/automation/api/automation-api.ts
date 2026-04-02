@@ -9,6 +9,7 @@ import type {
 	AiProviderConfig,
 	AutomationHumanDismissedEvent,
 	AutomationHumanRequiredEvent,
+	AutomationNotificationEvent,
 	AutomationProgressEvent,
 	AutomationRun,
 	AutomationRunCancelledEvent,
@@ -16,6 +17,7 @@ import type {
 	AutomationStepErrorPauseEvent,
 	AutomationVariablesUpdatedEvent,
 	CreateAutomationScriptPayload,
+	SaveAutomationCanvasGraphPayload,
 } from '@/entities/automation/model/types';
 
 export async function listAutomationScripts(): Promise<AutomationScript[]> {
@@ -33,6 +35,16 @@ export async function updateAutomationScript(
 	payload: CreateAutomationScriptPayload,
 ): Promise<AutomationScript> {
 	return tauriInvoke<AutomationScript>('update_automation_script', { scriptId, payload });
+}
+
+export async function saveAutomationCanvasGraph(
+	scriptId: string,
+	payload: SaveAutomationCanvasGraphPayload,
+): Promise<AutomationScript> {
+	return tauriInvoke<AutomationScript>('save_automation_canvas_graph', {
+		scriptId,
+		payload,
+	});
 }
 
 export async function deleteAutomationScript(scriptId: string): Promise<void> {
@@ -120,6 +132,14 @@ export async function listenAutomationRunCancelled(
 	onEvent: (event: AutomationRunCancelledEvent) => void,
 ): Promise<() => void> {
 	return listen<AutomationRunCancelledEvent>('automation_run_cancelled', (event) => {
+		onEvent(event.payload);
+	});
+}
+
+export async function listenAutomationNotification(
+	onEvent: (event: AutomationNotificationEvent) => void,
+): Promise<() => void> {
+	return listen<AutomationNotificationEvent>('automation_notification', (event) => {
 		onEvent(event.payload);
 	});
 }
