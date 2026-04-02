@@ -51,6 +51,8 @@ export const STEP_KINDS: StepKindDef[] = [
 	{ value: 'cdp_clipboard', label: 'CDP 剪贴板操作', group: 'CDP' },
 	{ value: 'cdp_execute_js', label: 'CDP 执行JS脚本', group: 'CDP' },
 	{ value: 'cdp_input_text', label: 'CDP 文本输入(增强)', group: 'CDP' },
+	{ value: 'cdp_press_key', label: 'CDP 按键', group: 'CDP' },
+	{ value: 'cdp_shortcut', label: 'CDP 快捷键', group: 'CDP' },
 	// 窗口外观
 	{ value: 'magic_set_bounds', label: '设置窗口位置大小', group: '窗口外观' },
 	{ value: 'magic_get_bounds', label: '获取窗口位置大小', group: '窗口外观' },
@@ -125,6 +127,7 @@ export const KIND_LABELS: Record<string, string> = {
 	cdp_upload_file: '上传文件', cdp_download_file: '设置下载',
 	cdp_clipboard: '剪贴板', cdp_execute_js: '执行JS',
 	cdp_input_text: '输入文本(增强)',
+	cdp_press_key: '按键', cdp_shortcut: '快捷键',
 	magic_set_bounds: '设置窗口尺寸', magic_get_bounds: '获取窗口尺寸',
 	magic_set_maximized: '最大化', magic_set_minimized: '最小化',
 	magic_set_closed: '关闭窗口', magic_set_restored: '还原窗口',
@@ -169,6 +172,7 @@ export const KIND_GROUPS: Record<string, string> = {
 	cdp_go_back: 'CDP', cdp_go_forward: 'CDP',
 	cdp_upload_file: 'CDP', cdp_download_file: 'CDP',
 	cdp_clipboard: 'CDP', cdp_execute_js: 'CDP', cdp_input_text: 'CDP',
+	cdp_press_key: 'CDP', cdp_shortcut: 'CDP',
 	magic_set_bounds: 'Magic', magic_get_bounds: 'Magic',
 	magic_set_maximized: 'Magic', magic_set_minimized: 'Magic',
 	magic_set_closed: 'Magic', magic_set_restored: 'Magic',
@@ -227,7 +231,8 @@ export const PALETTE_GROUPS: { label: string; kinds: string[] }[] = [
 			'cdp_get_text', 'cdp_wait_for_selector', 'cdp_wait_for_page_load', 'cdp_scroll_to', 'cdp_screenshot',
 			'cdp_open_new_tab', 'cdp_get_all_tabs', 'cdp_switch_tab', 'cdp_close_tab',
 			'cdp_go_back', 'cdp_go_forward', 'cdp_upload_file', 'cdp_download_file',
-			'cdp_clipboard', 'cdp_execute_js', 'cdp_input_text'],
+			'cdp_clipboard', 'cdp_execute_js', 'cdp_input_text',
+			'cdp_press_key', 'cdp_shortcut'],
 	},
 	{ label: '通用', kinds: ['wait', 'wait_for_user'] },
 	{ label: '调试', kinds: ['print'] },
@@ -284,6 +289,8 @@ export function defaultStep(kind: string): ScriptStep {
 		case 'cdp_clipboard': return { kind: 'cdp_clipboard', action: 'copy' };
 		case 'cdp_execute_js': return { kind: 'cdp_execute_js', expression: '' };
 		case 'cdp_input_text': return { kind: 'cdp_input_text', selector: '', text_source: 'inline', text: '' };
+		case 'cdp_press_key': return { kind: 'cdp_press_key', key: 'Enter' };
+		case 'cdp_shortcut': return { kind: 'cdp_shortcut', modifiers: ['ctrl'], key: 'c' };
 		case 'magic_set_bounds': return { kind: 'magic_set_bounds', x: 0, y: 0, width: 1280, height: 800 };
 		case 'magic_get_bounds': return { kind: 'magic_get_bounds' };
 		case 'magic_set_maximized': return { kind: 'magic_set_maximized' };
@@ -341,6 +348,11 @@ export function getStepSummaryText(step: ScriptStep): string {
 	if (step.kind === 'cdp_go_back' || step.kind === 'cdp_go_forward') return `${String(s['steps'] ?? 1)} 步`;
 	if (step.kind === 'cdp_clipboard') return String(s['action'] ?? 'copy');
 	if (step.kind === 'cdp_input_text') return String(s['text_source'] ?? 'inline');
+	if (step.kind === 'cdp_press_key') return String(s['key'] ?? '');
+	if (step.kind === 'cdp_shortcut') {
+		const mods = (s['modifiers'] as string[] | undefined ?? []).join('+');
+		return mods ? `${mods}+${String(s['key'] ?? '')}` : String(s['key'] ?? '');
+	}
 	if (step.kind === 'cdp_download_file') return String(s['download_path'] ?? '').slice(0, 40);
 	if (step.kind === 'cdp_execute_js') return (String(s['file_path'] ?? '') || String(s['expression'] ?? '')).slice(0, 40);
 	if (step.kind === 'print') return String(s['text'] ?? '').slice(0, 40) || '(空)';

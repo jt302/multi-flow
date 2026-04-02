@@ -1,920 +1,291 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import {
-	CheckCircle,
-	ChevronDown,
-	ChevronUp,
-	Download,
-	Loader2,
-	Network,
-	Pencil,
-	Play,
-	Trash2,
-	XCircle,
+  Download,
+  Loader2,
+  Network,
+  Pencil,
+  Play,
+  Trash2,
 } from 'lucide-react';
 
-import {
-	clearAutomationRuns,
-	deleteAutomationRun,
-	openAutomationCanvasWindow,
-} from '@/entities/automation/api/automation-api';
+import { openAutomationCanvasWindow } from '@/entities/automation/api/automation-api';
 import type {
-	AutomationRun,
-	AutomationScript,
-	StepResult,
+  AutomationRun,
+  AutomationScript,
+  StepResult,
 } from '@/entities/automation/model/types';
 import type { ProfileItem } from '@/entities/profile/model/types';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { RunDialog } from './run-dialog';
 import type { RunDelayConfig } from './run-dialog';
-import { RunLogViewer } from './run-log-viewer';
+import { ScriptRunsPanel } from './script-runs-panel';
+import { ScriptStepsViewer } from './script-steps-viewer';
 
 type Props = {
-	script: AutomationScript;
-	runs: AutomationRun[];
-	activeProfiles: ProfileItem[];
-	allProfiles?: ProfileItem[];
-	isRunning: boolean;
-	liveStepResults: StepResult[];
-	liveVariables: Record<string, string>;
-	activeRunId: string | null;
-	onEdit: () => void;
-	onDelete: () => void;
-	onRun: (
-		profileIds: string[],
-		initialVars: Record<string, string>,
-		delayConfig?: RunDelayConfig | null,
-	) => void;
-	onDebugRun: (profileId: string, initialVars: Record<string, string>) => void;
-	onCancel: () => void;
-	onRunsChange?: () => void;
+  script: AutomationScript;
+  runs: AutomationRun[];
+  activeProfiles: ProfileItem[];
+  allProfiles?: ProfileItem[];
+  isRunning: boolean;
+  liveStepResults: StepResult[];
+  liveVariables: Record<string, string>;
+  activeRunId: string | null;
+  onEdit: () => void;
+  onDelete: () => void;
+  onRun: (
+    profileIds: string[],
+    initialVars: Record<string, string>,
+    delayConfig?: RunDelayConfig | null,
+  ) => void;
+  onDebugRun: (profileId: string, initialVars: Record<string, string>) => void;
+  onCancel: () => void;
+  onRunsChange?: () => void;
 };
-
-const STATUS_COLORS: Record<string, string> = {
-	success: 'text-green-500',
-	failed: 'text-red-500',
-	running: 'text-blue-500',
-	pending: 'text-muted-foreground',
-	skipped: 'text-muted-foreground',
-	cancelled: 'text-muted-foreground',
-};
-
-function StepStatusIcon({ status }: { status: string }) {
-	if (status === 'success')
-		return <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />;
-	if (status === 'failed')
-		return <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />;
-	if (status === 'running')
-		return (
-			<Loader2 className="h-3.5 w-3.5 text-blue-500 animate-spin shrink-0" />
-		);
-	return (
-		<div className="h-3.5 w-3.5 rounded-full border border-muted-foreground/40 shrink-0" />
-	);
-}
 
 async function exportScript(script: AutomationScript) {
-	const sanitized = script.name.replace(/[^\w\u4e00-\u9fa5-]/g, '_');
-	const filePath = await save({
-		defaultPath: `${sanitized}.json`,
-		filters: [{ name: 'JSON 文件', extensions: ['json'] }],
-	});
-	if (!filePath) return;
-	await invoke('export_automation_script_to_file', {
-		scriptId: script.id,
-		filePath: typeof filePath === 'string' ? filePath : filePath[0],
-	});
+  const sanitized = script.name.replace(/[^\w\u4e00-\u9fa5-]/g, '_');
+  const filePath = await save({
+    defaultPath: `${sanitized}.json`,
+    filters: [{ name: 'JSON 文件', extensions: ['json'] }],
+  });
+  if (!filePath) return;
+  await invoke('export_automation_script_to_file', {
+    scriptId: script.id,
+    filePath: typeof filePath === 'string' ? filePath : filePath[0],
+  });
 }
 
+/** 脚本详情面板：上下分栏（步骤 / 运行记录），支持拖拽调整比例 */
 export function ScriptDetailPanel({
-	script,
-	runs,
-	activeProfiles,
-	allProfiles = [],
-	isRunning,
-	liveStepResults,
-	liveVariables,
-	activeRunId: _activeRunId,
-	onEdit,
-	onDelete,
-	onRun,
-	onDebugRun,
-	onCancel,
-	onRunsChange,
+  script,
+  runs,
+  activeProfiles,
+  allProfiles = [],
+  isRunning,
+  liveStepResults,
+  liveVariables,
+  activeRunId: _activeRunId,
+  onEdit,
+  onDelete,
+  onRun,
+  onDebugRun,
+  onCancel,
+  onRunsChange,
 }: Props) {
-	const [activeTab, setActiveTab] = useState<string>('steps');
-	const [deleteOpen, setDeleteOpen] = useState(false);
-	const [runDialogOpen, setRunDialogOpen] = useState(false);
-	const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
-	const [expandedOutputIndex, setExpandedOutputIndex] = useState<number | null>(
-		null,
-	);
-	const [runDetailTab, setRunDetailTab] = useState<string>('results');
-	const [clearAllOpen, setClearAllOpen] = useState(false);
-	const [deleteRunId, setDeleteRunId] = useState<string | null>(null);
-	const varEntries = Object.entries(liveVariables);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [runDialogOpen, setRunDialogOpen] = useState(false);
 
-	const stepResultMap = new Map(liveStepResults.map((r) => [r.index, r]));
+  // 上下分栏：lowerHeight 为下方面板高度（px），默认 220px
+  const [lowerHeight, setLowerHeight] = useState(220);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const startY = useRef(0);
+  const startHeight = useRef(0);
 
-	// 运行时自动切换到步骤 tab
-	useEffect(() => {
-		if (isRunning) setActiveTab('steps');
-	}, [isRunning]);
+  const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    startY.current = e.clientY;
+    startHeight.current = lowerHeight;
+  }, [lowerHeight]);
 
-	return (
-		<div className="flex flex-col h-full">
-			{/* 顶部标题栏 */}
-			<div className="flex items-center justify-between px-5 py-3 border-b shrink-0">
-				<div className="flex items-center gap-1 min-w-0">
-					<div className="min-w-0">
-						<h2 className="text-sm font-semibold truncate">{script.name}</h2>
-						{script.description && (
-							<p className="text-xs text-muted-foreground mt-0.5 truncate">
-								{script.description}
-							</p>
-						)}
-					</div>
-					<Button
-						size="icon"
-						variant="ghost"
-						className="h-6 w-6 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-						onClick={onEdit}
-						title="重命名 / 修改描述"
-					>
-						<Pencil className="h-3 w-3" />
-					</Button>
-				</div>
-				<div className="flex items-center gap-1.5">
-					<Button
-						size="sm"
-						variant="ghost"
-						className="h-8 px-2 cursor-pointer"
-						onClick={() => openAutomationCanvasWindow(script.id, script.name)}
-					>
-						<Network className="h-3.5 w-3.5 mr-1" />
-						流程编辑
-					</Button>
-					<Button
-						size="sm"
-						variant="ghost"
-						className="h-8 px-2 cursor-pointer"
-						onClick={() => void exportScript(script)}
-					>
-						<Download className="h-3.5 w-3.5 mr-1" />
-						导出
-					</Button>
-					<Button
-						size="sm"
-						variant="ghost"
-						className="h-8 px-2 text-destructive hover:text-destructive cursor-pointer"
-						onClick={() => setDeleteOpen(true)}
-					>
-						<Trash2 className="h-3.5 w-3.5 mr-1" />
-						删除
-					</Button>
-					{isRunning ? (
-						<Button
-							size="sm"
-							variant="destructive"
-							className="h-8 cursor-pointer"
-							onClick={onCancel}
-						>
-							<Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-							取消
-						</Button>
-					) : (
-						<Button
-							size="sm"
-							className="h-8 cursor-pointer"
-							disabled={script.steps.length === 0}
-							onClick={() => setRunDialogOpen(true)}
-						>
-							<Play className="h-3.5 w-3.5 mr-1" />
-							运行
-						</Button>
-					)}
-				</div>
-			</div>
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (!isDragging.current) return;
+      const delta = startY.current - e.clientY;
+      const containerH = containerRef.current?.clientHeight ?? 600;
+      // 下方最小 120px，最大留给上方 160px
+      const next = Math.min(
+        containerH - 160,
+        Math.max(120, startHeight.current + delta),
+      );
+      setLowerHeight(next);
+    }
+    function onMouseUp() {
+      isDragging.current = false;
+    }
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, []);
 
-			{/* 主内容区：Tab 布局 */}
-			<Tabs
-				value={activeTab}
-				onValueChange={setActiveTab}
-				className="flex-1 flex flex-col min-h-0"
-			>
-				<TabsList className="mx-5 mt-3 mb-0 h-8 bg-muted/40 shrink-0">
-					<TabsTrigger value="steps" className="text-xs h-7 px-3">
-						步骤 ({script.steps.length})
-						{isRunning && <Loader2 className="h-3 w-3 ml-1 animate-spin" />}
-					</TabsTrigger>
-					<TabsTrigger value="runs" className="text-xs h-7 px-3">
-						运行记录 ({runs.length})
-					</TabsTrigger>
-				</TabsList>
+  return (
+    <div className="flex flex-col h-full" ref={containerRef}>
+      {/* 顶部标题栏 */}
+      <div className="flex items-center justify-between px-5 py-3 border-b shrink-0">
+        <div className="flex items-center gap-1 min-w-0">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold truncate">{script.name}</h2>
+            {script.description && (
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                {script.description}
+              </p>
+            )}
+          </div>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-6 w-6 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+            onClick={onEdit}
+            title="重命名 / 修改描述"
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 px-2 cursor-pointer"
+            onClick={() => openAutomationCanvasWindow(script.id, script.name)}
+          >
+            <Network className="h-3.5 w-3.5 mr-1" />
+            流程编辑
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 px-2 cursor-pointer"
+            onClick={() => void exportScript(script)}
+          >
+            <Download className="h-3.5 w-3.5 mr-1" />
+            导出
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 px-2 text-destructive hover:text-destructive cursor-pointer"
+            onClick={() => setDeleteOpen(true)}
+          >
+            <Trash2 className="h-3.5 w-3.5 mr-1" />
+            删除
+          </Button>
+          {isRunning ? (
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-8 cursor-pointer"
+              onClick={onCancel}
+            >
+              <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+              取消
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              className="h-8 cursor-pointer"
+              disabled={script.steps.length === 0}
+              onClick={() => setRunDialogOpen(true)}
+            >
+              <Play className="h-3.5 w-3.5 mr-1" />
+              运行
+            </Button>
+          )}
+        </div>
+      </div>
 
-				{/* 步骤 Tab */}
-				<TabsContent
-					value="steps"
-					className="flex-1 min-h-0 mt-0 overflow-hidden"
-				>
-					<ScrollArea className="h-full">
-						<div className="px-5 py-4">
-							{script.steps.length === 0 ? (
-								<div className="text-center py-8 space-y-2">
-									<p className="text-sm text-muted-foreground">暂无步骤</p>
-									<Button
-										size="sm"
-										variant="outline"
-										className="cursor-pointer"
-										onClick={() =>
-											openAutomationCanvasWindow(script.id, script.name)
-										}
-									>
-										<Network className="h-3.5 w-3.5 mr-1.5" />
-										在流程编辑器中编排步骤
-									</Button>
-								</div>
-							) : (
-								<div className="space-y-1.5">
-									{script.steps.map((step, i) => {
-										const result = stepResultMap.get(i);
-										return (
-											<div
-												key={i}
-												className="flex items-start gap-2 p-2 rounded-md bg-muted/40 text-sm"
-											>
-												<StepStatusIcon status={result?.status ?? 'pending'} />
-												<div className="flex-1 min-w-0">
-													<span className="font-mono text-xs bg-muted px-1 py-0.5 rounded mr-2">
-														{step.kind}
-													</span>
-													<StepSummary step={step} />
-													{result?.output && (
-														<p
-															className="text-xs text-muted-foreground mt-1 truncate cursor-pointer hover:text-foreground"
-															title={result.output}
-															onClick={() => {
-																void navigator.clipboard.writeText(
-																	result.output!,
-																);
-															}}
-														>
-															{result.output.slice(0, 120)}
-															{result.output.length > 120 ? '…' : ''}
-														</p>
-													)}
-												</div>
-												{result && (
-													<span
-														className={`text-xs shrink-0 ${STATUS_COLORS[result.status]}`}
-													>
-														{result.durationMs}ms
-													</span>
-												)}
-											</div>
-										);
-									})}
-								</div>
-							)}
+      {/* 上方：步骤列表（flex-1，随容器自适应） */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="flex items-center px-5 pt-3 pb-1 shrink-0">
+          <span className="text-xs font-medium text-muted-foreground">
+            步骤 ({script.steps.length})
+            {isRunning && (
+              <Loader2 className="inline h-3 w-3 ml-1 animate-spin" />
+            )}
+          </span>
+        </div>
+        <ScriptStepsViewer
+          steps={script.steps}
+          isRunning={isRunning}
+          liveStepResults={liveStepResults}
+          liveVariables={liveVariables}
+          scriptId={script.id}
+          scriptName={script.name}
+        />
+      </div>
 
-							{/* 运行变量（内联在步骤下方） */}
-							{varEntries.length > 0 && (
-								<div className="mt-4 pt-3 border-t">
-									<p className="text-xs font-medium text-muted-foreground mb-2">
-										运行变量 ({varEntries.length})
-									</p>
-									<div className="space-y-1">
-										{varEntries.map(([key, value]) => (
-											<div key={key} className="flex items-start gap-2 text-xs">
-												<span className="font-mono text-blue-500 shrink-0">
-													{key}
-												</span>
-												<span className="text-muted-foreground break-all">
-													{String(value)}
-												</span>
-											</div>
-										))}
-									</div>
-								</div>
-							)}
-						</div>
-					</ScrollArea>
-				</TabsContent>
+      {/* 拖拽分隔线 */}
+      <div
+        className="h-1.5 border-t border-b cursor-row-resize bg-muted/30 hover:bg-muted/60 transition-colors shrink-0 flex items-center justify-center"
+        onMouseDown={handleDividerMouseDown}
+      >
+        <div className="w-8 h-0.5 rounded-full bg-border" />
+      </div>
 
-				{/* 运行记录 Tab */}
-				<TabsContent
-					value="runs"
-					className="flex-1 min-h-0 mt-0 overflow-hidden"
-				>
-					<ScrollArea className="h-full">
-						{runs.length === 0 ? (
-							<div className="text-center py-12">
-								<p className="text-sm text-muted-foreground">暂无运行记录</p>
-								<p className="text-xs text-muted-foreground mt-1">
-									运行脚本后，执行记录和详细日志将显示在这里
-								</p>
-							</div>
-						) : (
-							<div className="px-3 py-2">
-								{/* 清空所有记录 */}
-								<div className="flex items-center justify-end mb-2">
-									<Button
-										variant="ghost"
-										size="sm"
-										className="h-7 text-xs text-muted-foreground hover:text-red-500 cursor-pointer"
-										onClick={() => setClearAllOpen(true)}
-									>
-										<Trash2 className="h-3 w-3 mr-1" />
-										清空所有记录
-									</Button>
-								</div>
-								<div className="space-y-1.5">
-									{runs.map((run, runIdx) => {
-										const isExpanded = expandedRunId === run.id;
-										return (
-											<div
-												key={run.id}
-												className={`rounded-lg border ${isExpanded ? 'bg-card shadow-sm' : 'bg-muted/20'}`}
-											>
-												<div className="flex items-center gap-3 px-3 py-2 text-xs">
-													<button
-														type="button"
-														className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer"
-														onClick={() => {
-															setExpandedRunId(isExpanded ? null : run.id);
-															if (isExpanded) setExpandedOutputIndex(null);
-														}}
-													>
-														<RunStatusBadge status={run.status} />
-														<span className="text-muted-foreground flex-1 min-w-0 truncate">
-															{new Date(run.startedAt * 1000).toLocaleString()}
-														</span>
-														{run.finishedAt && (
-															<span className="text-muted-foreground/60 text-[10px] shrink-0">
-																{((run.finishedAt - run.startedAt) / 1).toFixed(
-																	1,
-																)}
-																s
-															</span>
-														)}
-														{run.error && !isExpanded && (
-															<span className="text-red-500 truncate max-w-40">
-																{run.error}
-															</span>
-														)}
-														{isExpanded ? (
-															<ChevronUp className="h-3 w-3 text-muted-foreground shrink-0" />
-														) : (
-															<ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
-														)}
-													</button>
-													<Button
-														variant="ghost"
-														size="icon"
-														className="h-6 w-6 shrink-0 text-muted-foreground hover:text-red-500 cursor-pointer"
-														onClick={(e) => {
-															e.stopPropagation();
-															setDeleteRunId(run.id);
-														}}
-														title="删除此记录"
-													>
-														<Trash2 className="h-3 w-3" />
-													</Button>
-												</div>
+      {/* 下方：运行记录 */}
+      <div className="shrink-0 overflow-hidden flex flex-col" style={{ height: lowerHeight }}>
+        <div className="flex items-center px-5 pt-2 pb-1 shrink-0">
+          <span className="text-xs font-medium text-muted-foreground">
+            运行记录 ({runs.length})
+          </span>
+        </div>
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <ScriptRunsPanel
+            runs={runs}
+            scriptId={script.id}
+            scriptName={script.name}
+            onRunsChange={onRunsChange ?? (() => {})}
+          />
+        </div>
+      </div>
 
-												<div
-													className="grid transition-all duration-200 ease-in-out"
-													style={{
-														gridTemplateRows: isExpanded ? '1fr' : '0fr',
-													}}
-												>
-													<div className="overflow-hidden min-h-0">
-														<div className="border-t">
-															<Tabs
-																value={runDetailTab}
-																onValueChange={setRunDetailTab}
-																className="w-full"
-															>
-																<TabsList className="mx-3 mt-2 mb-0 h-7 bg-muted/40">
-																	<TabsTrigger
-																		value="results"
-																		className="text-xs h-6 px-2.5"
-																	>
-																		步骤结果{' '}
-																		{run.results
-																			? `(${run.results.length})`
-																			: ''}
-																	</TabsTrigger>
-																	<TabsTrigger
-																		value="logs"
-																		className="text-xs h-6 px-2.5"
-																	>
-																		执行日志
-																		{run.logs && run.logs.length > 0 && (
-																			<span className="ml-1 text-[10px] bg-primary/15 text-primary rounded px-1">
-																				{run.logs.length}
-																			</span>
-																		)}
-																	</TabsTrigger>
-																</TabsList>
-																<TabsContent
-																	value="results"
-																	className="px-3 pb-3 pt-2 space-y-2 mt-0"
-																>
-																	{run.error && (
-																		<div className="rounded bg-red-50 dark:bg-red-950/20 p-2">
-																			<p className="text-xs text-red-500 font-medium mb-0.5">
-																				错误信息
-																			</p>
-																			<p className="text-xs text-red-400 break-all whitespace-pre-wrap">
-																				{run.error}
-																			</p>
-																		</div>
-																	)}
-																	{run.results && run.results.length > 0 ? (
-																		<div className="space-y-1">
-																			{run.results.map((r, resultIdx) => {
-																				const stepDef = run.steps[r.index];
-																				const outputKey =
-																					runIdx * 100_000 + resultIdx;
-																				const isOutputExpanded =
-																					expandedOutputIndex === outputKey;
-																				return (
-																					<div
-																						key={`${run.id}-${r.index}-${resultIdx}`}
-																						className="text-xs bg-muted/40 rounded p-1.5 space-y-0.5"
-																					>
-																						<div className="flex items-center gap-1.5">
-																							<StepStatusIcon
-																								status={r.status}
-																							/>
-																							<span className="font-mono bg-muted px-1 py-0.5 rounded text-xs shrink-0">
-																								{stepDef?.kind ??
-																									`步骤 ${r.index + 1}`}
-																							</span>
-																							<span className="text-muted-foreground ml-auto shrink-0">
-																								{r.durationMs}ms
-																							</span>
-																						</div>
-																						{r.output && (
-																							<div>
-																								<p
-																									className={`text-muted-foreground break-all ${isOutputExpanded ? 'whitespace-pre-wrap' : 'truncate'}`}
-																								>
-																									{isOutputExpanded
-																										? r.output
-																										: r.output.slice(0, 200)}
-																								</p>
-																								{r.output.length > 200 && (
-																									<button
-																										type="button"
-																										className="text-blue-500 cursor-pointer text-xs mt-0.5 hover:underline"
-																										onClick={(e) => {
-																											e.stopPropagation();
-																											setExpandedOutputIndex(
-																												isOutputExpanded
-																													? null
-																													: outputKey,
-																											);
-																										}}
-																									>
-																										{isOutputExpanded
-																											? '收起'
-																											: '展开全部'}
-																									</button>
-																								)}
-																							</div>
-																						)}
-																					</div>
-																				);
-																			})}
-																		</div>
-																	) : (
-																		<p className="text-xs text-muted-foreground">
-																			暂无步骤结果
-																		</p>
-																	)}
-																</TabsContent>
-																<TabsContent
-																	value="logs"
-																	className="px-0 pb-0 pt-0 mt-0"
-																>
-																	<RunLogViewer
-																		logs={run.logs ?? []}
-																		runStartedAt={run.startedAt}
-																	/>
-																</TabsContent>
-															</Tabs>
-														</div>
-													</div>
-												</div>
-											</div>
-										);
-									})}
-								</div>
-							</div>
-						)}
-					</ScrollArea>
-				</TabsContent>
-			</Tabs>
+      {/* 删除脚本确认弹窗 */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除脚本</AlertDialogTitle>
+            <AlertDialogDescription>
+              确认删除脚本「{script.name}」？此操作不可撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button type="button" variant="ghost" className="cursor-pointer">
+                取消
+              </Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                type="button"
+                variant="destructive"
+                className="cursor-pointer"
+                onClick={onDelete}
+              >
+                删除
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-			<AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>删除脚本</AlertDialogTitle>
-						<AlertDialogDescription>
-							确认删除脚本「{script.name}」？此操作不可撤销。
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel asChild>
-							<Button type="button" variant="ghost" className="cursor-pointer">
-								取消
-							</Button>
-						</AlertDialogCancel>
-						<AlertDialogAction asChild>
-							<Button
-								type="button"
-								variant="destructive"
-								className="cursor-pointer"
-								onClick={onDelete}
-							>
-								删除
-							</Button>
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
-
-			<RunDialog
-				open={runDialogOpen}
-				onOpenChange={setRunDialogOpen}
-				activeProfiles={activeProfiles}
-				allProfiles={allProfiles}
-				associatedProfileIds={script.associatedProfileIds}
-				isRunning={isRunning}
-				disabled={script.steps.length === 0}
-				onRun={onRun}
-				onDebugRun={onDebugRun}
-			/>
-
-			{/* 清空所有记录确认 */}
-			<AlertDialog open={clearAllOpen} onOpenChange={setClearAllOpen}>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>清空所有运行记录</AlertDialogTitle>
-						<AlertDialogDescription>
-							确定要清空脚本「{script.name}」的所有 {runs.length}{' '}
-							条运行记录吗？此操作不可撤销。
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel asChild>
-							<Button type="button" variant="ghost" className="cursor-pointer">
-								取消
-							</Button>
-						</AlertDialogCancel>
-						<AlertDialogAction asChild>
-							<Button
-								type="button"
-								variant="destructive"
-								className="cursor-pointer"
-								onClick={async () => {
-									await clearAutomationRuns(script.id);
-									setExpandedRunId(null);
-									onRunsChange?.();
-								}}
-							>
-								清空
-							</Button>
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
-
-			{/* 删除单条记录确认 */}
-			<AlertDialog
-				open={deleteRunId !== null}
-				onOpenChange={(open) => {
-					if (!open) setDeleteRunId(null);
-				}}
-			>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>确认删除</AlertDialogTitle>
-						<AlertDialogDescription>
-							确定要删除这条运行记录吗？此操作不可撤销。
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel asChild>
-							<Button type="button" variant="ghost" className="cursor-pointer">
-								取消
-							</Button>
-						</AlertDialogCancel>
-						<AlertDialogAction asChild>
-							<Button
-								type="button"
-								variant="destructive"
-								className="cursor-pointer"
-								onClick={async () => {
-									if (deleteRunId) {
-										await deleteAutomationRun(deleteRunId);
-										setExpandedRunId((prev) =>
-											prev === deleteRunId ? null : prev,
-										);
-										onRunsChange?.();
-									}
-									setDeleteRunId(null);
-								}}
-							>
-								删除
-							</Button>
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
-		</div>
-	);
-}
-
-function StepSummary({ step }: { step: AutomationScript['steps'][number] }) {
-	const selectorDisplay = (item: AutomationScript['steps'][number]) => {
-		const s = item as Record<string, unknown>;
-		const t = s['selector_type'] as string | undefined;
-		const selector = String(s['selector'] ?? '');
-		if (t && t !== 'css') {
-			return (
-				<>
-					<span className="text-xs text-blue-500 mr-0.5">
-						[{t.toUpperCase()}]
-					</span>
-					{selector}
-				</>
-			);
-		}
-		return <>{selector}</>;
-	};
-
-	switch (step.kind) {
-		case 'navigate':
-			return <span className="text-muted-foreground">{step.url}</span>;
-		case 'wait':
-			return <span className="text-muted-foreground">{step.ms}ms</span>;
-		case 'click':
-			return (
-				<span className="text-muted-foreground">{selectorDisplay(step)}</span>
-			);
-		case 'type':
-			return (
-				<span className="text-muted-foreground">
-					"{step.text}" → {selectorDisplay(step)}
-				</span>
-			);
-		case 'screenshot':
-			return <span className="text-muted-foreground">截图</span>;
-		case 'magic':
-			return <span className="text-muted-foreground">{step.command}</span>;
-		case 'cdp':
-			return <span className="text-muted-foreground">{step.method}</span>;
-		case 'wait_for_user':
-			return (
-				<span className="text-muted-foreground">
-					{step.message.slice(0, 60)}
-				</span>
-			);
-		case 'condition':
-			return (
-				<span className="text-muted-foreground font-mono text-xs">
-					{step.condition_expr.slice(0, 60)}
-				</span>
-			);
-		case 'loop':
-			return (
-				<span className="text-muted-foreground">
-					{step.mode === 'while'
-						? `while ${step.condition_expr ?? ''}`
-						: `×${step.count ?? 1}`}
-				</span>
-			);
-		case 'break':
-			return <span className="text-muted-foreground">break</span>;
-		case 'continue':
-			return <span className="text-muted-foreground">continue</span>;
-		case 'ai_prompt':
-			return (
-				<span className="text-muted-foreground">
-					{step.prompt.slice(0, 60)}
-				</span>
-			);
-		case 'ai_extract':
-			return (
-				<span className="text-muted-foreground">
-					{step.prompt.slice(0, 60)}
-				</span>
-			);
-		case 'ai_agent':
-			return (
-				<span className="text-muted-foreground">
-					{step.initial_message.slice(0, 60)}
-				</span>
-			);
-		case 'cdp_navigate':
-			return <span className="text-muted-foreground">{step.url}</span>;
-		case 'cdp_reload':
-			return <span className="text-muted-foreground">刷新页面</span>;
-		case 'cdp_click':
-		case 'cdp_wait_for_selector':
-		case 'cdp_get_text':
-		case 'cdp_scroll_to':
-			return (
-				<span className="text-muted-foreground">{selectorDisplay(step)}</span>
-			);
-		case 'cdp_type':
-			return (
-				<span className="text-muted-foreground">
-					"{step.text}" → {selectorDisplay(step)}
-				</span>
-			);
-		case 'cdp_get_attribute':
-			return (
-				<span className="text-muted-foreground">
-					{selectorDisplay(step)}[{step.attribute}]
-				</span>
-			);
-		case 'cdp_set_input_value':
-			return (
-				<span className="text-muted-foreground">
-					"{step.value}" → {selectorDisplay(step)}
-				</span>
-			);
-		case 'cdp_screenshot':
-			return (
-				<span className="text-muted-foreground">
-					截图{step.output_path ? ` → ${step.output_path}` : '（默认目录）'}
-				</span>
-			);
-		case 'magic_set_bounds':
-			return (
-				<span className="text-muted-foreground">
-					{step.x},{step.y} {step.width}×{step.height}
-				</span>
-			);
-		case 'magic_get_bounds':
-			return <span className="text-muted-foreground">获取窗口位置大小</span>;
-		case 'magic_set_maximized':
-			return <span className="text-muted-foreground">最大化</span>;
-		case 'magic_set_minimized':
-			return <span className="text-muted-foreground">最小化</span>;
-		case 'magic_set_closed':
-			return <span className="text-muted-foreground">关闭窗口</span>;
-		case 'magic_set_restored':
-			return <span className="text-muted-foreground">还原</span>;
-		case 'magic_set_fullscreen':
-			return <span className="text-muted-foreground">全屏</span>;
-		case 'magic_set_bg_color':
-			return (
-				<span className="text-muted-foreground">
-					rgb({step.r ?? 255},{step.g ?? 255},{step.b ?? 255})
-				</span>
-			);
-		case 'magic_set_toolbar_text':
-			return <span className="text-muted-foreground">{step.text}</span>;
-		case 'magic_set_app_top_most':
-			return <span className="text-muted-foreground">激活窗口</span>;
-		case 'magic_set_master_indicator_visible':
-			return (
-				<span className="text-muted-foreground">
-					{step.visible ? '显示' : '隐藏'}主控标记
-				</span>
-			);
-		case 'magic_open_new_tab':
-			return <span className="text-muted-foreground">{step.url}</span>;
-		case 'magic_close_tab':
-		case 'magic_activate_tab':
-			return (
-				<span className="text-muted-foreground">tab_id={step.tab_id}</span>
-			);
-		case 'magic_activate_tab_by_index':
-			return <span className="text-muted-foreground">index={step.index}</span>;
-		case 'magic_close_inactive_tabs':
-			return <span className="text-muted-foreground">关闭非活动标签页</span>;
-		case 'magic_open_new_window':
-			return <span className="text-muted-foreground">新建窗口</span>;
-		case 'magic_type_string':
-			return (
-				<span className="text-muted-foreground">
-					"{step.text.slice(0, 40)}"
-				</span>
-			);
-		case 'magic_capture_app_shell':
-			return (
-				<span className="text-muted-foreground truncate max-w-48">
-					{step.output_path || '默认路径'}
-				</span>
-			);
-		case 'magic_get_browsers':
-			return <span className="text-muted-foreground">所有浏览器</span>;
-		case 'magic_get_active_browser':
-			return <span className="text-muted-foreground">活动浏览器</span>;
-		case 'magic_get_tabs':
-			return (
-				<span className="text-muted-foreground">
-					browser_id={step.browser_id}
-				</span>
-			);
-		case 'magic_get_active_tabs':
-			return <span className="text-muted-foreground">活动标签页</span>;
-		case 'magic_get_switches':
-			return (
-				<span className="text-muted-foreground font-mono">{step.key}</span>
-			);
-		case 'magic_get_host_name':
-			return <span className="text-muted-foreground">主机名</span>;
-		case 'magic_get_mac_address':
-			return <span className="text-muted-foreground">MAC地址</span>;
-		case 'magic_get_bookmarks':
-			return <span className="text-muted-foreground">书签树</span>;
-		case 'magic_create_bookmark':
-			return (
-				<span className="text-muted-foreground">
-					{step.title} → {step.url.slice(0, 40)}
-				</span>
-			);
-		case 'magic_create_bookmark_folder':
-			return <span className="text-muted-foreground">{step.title}</span>;
-		case 'magic_update_bookmark':
-		case 'magic_remove_bookmark':
-		case 'magic_move_bookmark':
-			return (
-				<span className="text-muted-foreground font-mono">
-					node_id={step.node_id}
-				</span>
-			);
-		case 'magic_bookmark_current_tab':
-			return <span className="text-muted-foreground">收藏当前标签</span>;
-		case 'magic_unbookmark_current_tab':
-			return <span className="text-muted-foreground">取消收藏当前标签</span>;
-		case 'magic_is_current_tab_bookmarked':
-			return <span className="text-muted-foreground">查询收藏状态</span>;
-		case 'magic_export_bookmark_state':
-			return <span className="text-muted-foreground">导出书签</span>;
-		case 'magic_get_managed_cookies':
-			return <span className="text-muted-foreground">托管Cookie</span>;
-		case 'magic_export_cookie_state':
-			return <span className="text-muted-foreground">{step.mode}</span>;
-		case 'magic_get_managed_extensions':
-			return <span className="text-muted-foreground">托管扩展</span>;
-		case 'magic_trigger_extension_action':
-			return (
-				<span className="text-muted-foreground font-mono">
-					{step.extension_id.slice(0, 16)}...
-				</span>
-			);
-		case 'magic_close_extension_popup':
-			return <span className="text-muted-foreground">关闭扩展Popup</span>;
-		case 'magic_toggle_sync_mode':
-			return <span className="text-muted-foreground">{step.role}</span>;
-		case 'magic_get_sync_mode':
-			return <span className="text-muted-foreground">同步状态</span>;
-		case 'magic_get_is_master':
-			return <span className="text-muted-foreground">是否主控</span>;
-		case 'magic_get_sync_status':
-			return <span className="text-muted-foreground">完整同步状态</span>;
-		default:
-			return null;
-	}
-}
-
-function RunStatusBadge({ status }: { status: string }) {
-	const variantMap: Record<
-		string,
-		'default' | 'secondary' | 'destructive' | 'outline'
-	> = {
-		success: 'default',
-		failed: 'destructive',
-		running: 'secondary',
-		pending: 'outline',
-		cancelled: 'outline',
-	};
-	return (
-		<Badge variant={variantMap[status] ?? 'outline'} className="text-xs h-5">
-			{status}
-		</Badge>
-	);
+      {/* 运行对话框 */}
+      <RunDialog
+        open={runDialogOpen}
+        onOpenChange={setRunDialogOpen}
+        activeProfiles={activeProfiles}
+        allProfiles={allProfiles}
+        associatedProfileIds={script.associatedProfileIds}
+        isRunning={isRunning}
+        disabled={script.steps.length === 0}
+        onRun={onRun}
+        onDebugRun={onDebugRun}
+      />
+    </div>
+  );
 }
