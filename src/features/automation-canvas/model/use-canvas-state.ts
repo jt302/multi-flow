@@ -14,10 +14,11 @@ import type {
 	AutomationScript,
 	ScriptStep,
 	ScriptVarDef,
+	ScriptSettings,
 } from '@/entities/automation/model/types';
 import {
 	emitScriptUpdated,
-	updateAutomationScript,
+	saveAutomationCanvasGraph,
 	updateScriptCanvasPositions,
 } from '@/entities/automation/api/automation-api';
 import { defaultStep } from '@/entities/automation/model/step-registry';
@@ -25,8 +26,9 @@ import { defaultStep } from '@/entities/automation/model/step-registry';
 import type { StepNodeData } from '../ui/step-node';
 import {
 	buildNodes,
+	flattenControlFlowTree,
 	parseCanvasData,
-	topologySortSteps,
+	serializeControlFlowGraph,
 } from './canvas-helpers';
 import type { PositionsMap } from './canvas-helpers';
 
@@ -73,7 +75,12 @@ export function useCanvasState(
 	liveStatuses: Record<number, string>,
 ): CanvasStateReturn {
 	// ── 基础状态 ──────────────────────────────────────────────────────────────
-	const [steps, setSteps] = useState<ScriptStep[]>(script.steps);
+	// 将后端返回的嵌套控制流树展平为扁平节点（resolveControlFlowGraph 的逆操作）
+	// 避免重新打开编辑器时条件分支/循环体的嵌套步骤丢失
+	const [{ flatSteps: initFlatSteps, edges: reconstructedEdges }] = useState(() =>
+		flattenControlFlowTree(script.steps),
+	);
+	const [steps, setSteps] = useState<ScriptStep[]>(initFlatSteps);
 	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 	const [saving, setSaving] = useState(false);
 	const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -96,13 +103,17 @@ export function useCanvasState(
 	}, [script.id, script.settings?.stepDelayMs]);
 
 	// ── 画布节点/边状态 ────────────────────────────────────────────────────────
-	const [{ positions: initPos, edges: initEdges }] = useState(() =>
-		parseCanvasData(script.canvasPositionsJson, script.steps.length),
+	// 从 canvasPositionsJson 读取位置和边：
+	// - 有保存数据（新格式）：优先使用保存的边，与用户操作时的拓扑完全一致
+	// - 无数据或旧格式：回退到 flattenControlFlowTree 重建的边（首次加载）
+	const [{ positions: initPos, edges: canvasEdges, edgesFromSave }] = useState(() =>
+		parseCanvasData(script.canvasPositionsJson, initFlatSteps.length),
 	);
+	const initEdges = edgesFromSave ? canvasEdges : reconstructedEdges;
 
 	// nodes 存在 state 中，用 applyNodeChanges 驱动，避免拖拽时重建数组导致节点消失
 	const [nodes, setNodes] = useState<Node[]>(() =>
-		buildNodes(script.steps, initPos, {}),
+		buildNodes(initFlatSteps, initPos, {}),
 	);
 	const [edges, setEdges] = useState<Edge[]>(initEdges);
 
@@ -135,6 +146,28 @@ export function useCanvasState(
 		return () => clearTimeout(t);
 	}, [savedAt]);
 
+	// 卸载时 flush 未完成的防抖画布保存，防止拖拽后快速关闭丢失位置
+	useEffect(() => {
+		return () => {
+			if (saveTimerRef.current) {
+				clearTimeout(saveTimerRef.current);
+				saveTimerRef.current = null;
+				void updateScriptCanvasPositions(
+					script.id,
+					JSON.stringify({
+						positions: positionsRef.current,
+						edges: edgesRef.current.map((e) => ({
+							id: e.id,
+							source: e.source,
+							target: e.target,
+							sourceHandle: e.sourceHandle ?? null,
+						})),
+					}),
+				);
+			}
+		};
+	}, [script.id]);
+
 	// ── 画布持久化（防抖 500ms） ────────────────────────────────────────────────
 	const scheduleCanvasSave = useCallback(
 		(pos: PositionsMap, edgs: Edge[]) => {
@@ -155,81 +188,101 @@ export function useCanvasState(
 		[script.id],
 	);
 
+	const buildCanvasJson = useCallback((pos: PositionsMap, edgs: Edge[]) => {
+		return JSON.stringify({
+			positions: pos,
+			edges: edgs.map((e) => ({
+				id: e.id,
+				source: e.source,
+				target: e.target,
+				sourceHandle: e.sourceHandle ?? null,
+			})),
+		});
+	}, []);
+
+	const buildNextSettings = useCallback((): ScriptSettings | undefined => {
+		const nextSettings: ScriptSettings = {
+			...(script.settings ?? {}),
+		};
+		if (stepDelayMs > 0) {
+			nextSettings.stepDelayMs = stepDelayMs;
+		} else {
+			delete nextSettings.stepDelayMs;
+		}
+		return Object.keys(nextSettings).length > 0 ? nextSettings : undefined;
+	}, [script.settings, stepDelayMs]);
+
 	// ── 脚本保存（含拓扑排序） ─────────────────────────────────────────────────
 	const saveScript = useCallback(
 		async (newSteps: ScriptStep[]) => {
 			setSaving(true);
 			try {
-				const currentEdges = edgesRef.current;
-				const { reorderedSteps, indexMap, orphanedCount } = topologySortSteps(
+				const {
+					nestedSteps,
+					flatSteps,
+					orderedIds,
+					remappedEdges,
+					remappedPositions,
+					orphanedCount,
+				} = serializeControlFlowGraph(
 					newSteps,
-					currentEdges,
+					edgesRef.current,
+					positionsRef.current,
+				);
+				const nextIndexByOldId = new Map(
+					orderedIds.map((oldId, newIndex) => [oldId, newIndex] as const),
 				);
 
-				// 若顺序有变化，同步更新本地状态并重映射 nodes/edges/positions
-				const orderChanged = reorderedSteps.some((s, i) => s !== newSteps[i]);
-				if (orderChanged) {
-					setSteps(reorderedSteps);
-
-					// 重映射 nodes id 和 data.index
-					setNodes((prev) =>
-						prev.map((node) => {
-							const oldIdx = parseInt(node.id.replace('step-', ''), 10);
-							if (isNaN(oldIdx)) return node;
-							const newIdx = indexMap.get(oldIdx);
-							if (newIdx === undefined || newIdx === oldIdx) return node;
-							return {
-								...node,
-								id: `step-${newIdx}`,
-								data: { ...(node.data as StepNodeData), index: newIdx },
-							};
-						}),
-					);
-
-					// 重映射 edges source/target
-					const remappedEdges = currentEdges.map((e) => {
-						const si = parseInt(e.source.replace('step-', ''), 10);
-						const ti = parseInt(e.target.replace('step-', ''), 10);
-						const newSi = indexMap.get(si);
-						const newTi = indexMap.get(ti);
+				setSteps(flatSteps);
+				setNodes((prev) => {
+					const prevNodeById = new Map(prev.map((node) => [node.id, node]));
+					return orderedIds.map((oldId, newIndex) => {
+						const previousNode = prevNodeById.get(oldId);
 						return {
-							...e,
-							source: newSi !== undefined ? `step-${newSi}` : e.source,
-							target: newTi !== undefined ? `step-${newTi}` : e.target,
+							...(previousNode ?? {
+								id: oldId,
+								type: 'step',
+								position: remappedPositions[`step-${newIndex}`] ?? { x: 120, y: newIndex * 120 + 60 },
+							}),
+							id: `step-${newIndex}`,
+							type: 'step',
+							position:
+								remappedPositions[`step-${newIndex}`] ??
+								previousNode?.position ??
+								{ x: 120, y: newIndex * 120 + 60 },
+							data: {
+								...((previousNode?.data as StepNodeData | undefined) ?? {}),
+								step: flatSteps[newIndex],
+								index: newIndex,
+								stepStatus: liveStatuses[newIndex],
+							} as StepNodeData,
 						};
 					});
-					setEdges(remappedEdges);
-					edgesRef.current = remappedEdges;
+				});
+				setEdges(remappedEdges);
+				edgesRef.current = remappedEdges;
+				positionsRef.current = remappedPositions;
 
-					// 重映射 positions
-					const newPos: PositionsMap = {};
-					for (const [oldKey, pos] of Object.entries(positionsRef.current)) {
-						const oldIdx = parseInt(oldKey.replace('step-', ''), 10);
-						const newIdx = isNaN(oldIdx) ? undefined : indexMap.get(oldIdx);
-						const newKey = newIdx !== undefined ? `step-${newIdx}` : oldKey;
-						newPos[newKey] = pos;
-					}
-					positionsRef.current = newPos;
-					scheduleCanvasSave(newPos, remappedEdges);
-
-					// 同步更新选中 index
-					setSelectedIndex((prev) => {
-						if (prev === null) return null;
-						return indexMap.get(prev) ?? null;
-					});
-
-					if (orphanedCount > 0) {
-						toast.warning(
-							`${orphanedCount} 个步骤未连接到流程中，已追加到末尾执行`,
-						);
-					}
+				if (saveTimerRef.current) {
+					clearTimeout(saveTimerRef.current);
+					saveTimerRef.current = null;
 				}
 
-				await updateAutomationScript(script.id, {
-					name: script.name,
-					description: script.description ?? undefined,
-					steps: reorderedSteps,
-					settings: stepDelayMs > 0 ? { stepDelayMs } : undefined,
+				setSelectedIndex((prev) => {
+					if (prev === null) return null;
+					return nextIndexByOldId.get(`step-${prev}`) ?? null;
+				});
+
+				if (orphanedCount > 0) {
+					toast.warning(
+						`${orphanedCount} 个步骤未连接到流程中，已追加到末尾执行`,
+					);
+				}
+
+				await saveAutomationCanvasGraph(script.id, {
+					steps: nestedSteps,
+					positionsJson: buildCanvasJson(remappedPositions, remappedEdges),
+					settings: buildNextSettings(),
 				});
 				void emitScriptUpdated(script.id);
 				setSavedAt(Date.now());
@@ -238,13 +291,35 @@ export function useCanvasState(
 			}
 		},
 		[
+			buildCanvasJson,
+			buildNextSettings,
+			liveStatuses,
 			script.id,
-			script.name,
-			script.description,
-			stepDelayMs,
-			scheduleCanvasSave,
+			serializeControlFlowGraph,
 		],
 	);
+
+	// ── 防抖保存管理 ─────────────────────────────────────────────────────────
+	// updateStep 的保存防抖：属性面板编辑时每次按键都会触发 updateStep，
+	// 使用防抖避免高频保存导致工具栏"保存中/已保存"状态快速切换闪动
+	const updateSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const pendingStepsRef = useRef<ScriptStep[] | null>(null);
+
+	/**
+	 * 取消待执行的防抖保存并返回最新 steps（含未保存的属性编辑）。
+	 * 所有结构性操作（增/删/粘贴）必须在开头调用，防止：
+	 * 1. 防抖保存用旧 steps 覆盖结构变更
+	 * 2. 闭包陈旧导致丢失未保存的属性编辑
+	 */
+	const flushPendingEdits = useCallback((): ScriptStep[] => {
+		if (updateSaveTimerRef.current) {
+			clearTimeout(updateSaveTimerRef.current);
+			updateSaveTimerRef.current = null;
+		}
+		const latest = pendingStepsRef.current ?? steps;
+		pendingStepsRef.current = null;
+		return latest;
+	}, [steps]);
 
 	// ── 节点变化处理（含删除拦截） ─────────────────────────────────────────────
 	const onNodesChange = useCallback(
@@ -258,15 +333,55 @@ export function useCanvasState(
 						.filter((i) => !isNaN(i)),
 				);
 				if (removedIndices.size > 0) {
+					// 取消防抖保存，获取最新 steps（含未保存的属性编辑）
+					const baseSteps = flushPendingEdits();
 					const sortedRemoved = [...removedIndices].sort((a, b) => a - b);
-					setSteps((currentSteps) => {
-						const newSteps = currentSteps.filter(
-							(_, i) => !removedIndices.has(i),
-						);
-						void saveScript(newSteps);
-						return newSteps;
-					});
+					const newSteps = baseSteps.filter(
+						(_, i) => !removedIndices.has(i),
+					);
+					setSteps(newSteps);
 					setSelectedIndex(null);
+
+					// 重映射边：同步更新 ref，确保 saveScript 读到正确的边
+					const deletedIds = new Set(removeChanges.map((c) => c.id));
+					const remapped = edgesRef.current
+						.filter(
+							(e) =>
+								!deletedIds.has(e.source) && !deletedIds.has(e.target),
+						)
+						.map((e) => {
+							const si = parseInt(e.source.replace('step-', ''), 10);
+							const ti = parseInt(e.target.replace('step-', ''), 10);
+							const sShift = sortedRemoved.filter((ri) => ri < si).length;
+							const tShift = sortedRemoved.filter((ri) => ri < ti).length;
+							const newSi = sShift > 0 ? si - sShift : si;
+							const newTi = tShift > 0 ? ti - tShift : ti;
+							return {
+								...e,
+								id: `e-${newSi}-${newTi}`,
+								source: `step-${newSi}`,
+								target: `step-${newTi}`,
+							};
+						});
+					edgesRef.current = remapped;
+					setEdges(remapped);
+
+					// 清理并重映射 positions
+					const newPos = { ...positionsRef.current };
+					for (const idx of removedIndices) delete newPos[`step-${idx}`];
+					const existingKeys = Object.keys(newPos)
+						.map((k) => parseInt(k.replace('step-', ''), 10))
+						.filter((n) => !isNaN(n))
+						.sort((a, b) => b - a); // 从大到小，防止覆盖
+					for (const j of existingKeys) {
+						const shift = sortedRemoved.filter((ri) => ri < j).length;
+						if (shift > 0 && newPos[`step-${j}`]) {
+							newPos[`step-${j - shift}`] = newPos[`step-${j}`];
+							delete newPos[`step-${j}`];
+						}
+					}
+					positionsRef.current = newPos;
+					scheduleCanvasSave(newPos, remapped);
 
 					// 视觉更新：删除节点并重映射 ID
 					setNodes((prev) => {
@@ -284,48 +399,7 @@ export function useCanvasState(
 						});
 					});
 
-					// 重映射边
-					setEdges((prev) => {
-						const deletedIds = new Set(removeChanges.map((c) => c.id));
-						const remapped = prev
-							.filter(
-								(e) =>
-									!deletedIds.has(e.source) && !deletedIds.has(e.target),
-							)
-							.map((e) => {
-								const si = parseInt(e.source.replace('step-', ''), 10);
-								const ti = parseInt(e.target.replace('step-', ''), 10);
-								const sShift = sortedRemoved.filter((ri) => ri < si).length;
-								const tShift = sortedRemoved.filter((ri) => ri < ti).length;
-								const newSi = sShift > 0 ? si - sShift : si;
-								const newTi = tShift > 0 ? ti - tShift : ti;
-								return {
-									...e,
-									id: `e-${newSi}-${newTi}`,
-									source: `step-${newSi}`,
-									target: `step-${newTi}`,
-								};
-							});
-						edgesRef.current = remapped;
-
-						// 清理并重映射 positions
-						const newPos = { ...positionsRef.current };
-						for (const idx of removedIndices) delete newPos[`step-${idx}`];
-						const existingKeys = Object.keys(newPos)
-							.map((k) => parseInt(k.replace('step-', ''), 10))
-							.filter((n) => !isNaN(n))
-							.sort((a, b) => b - a); // 从大到小，防止覆盖
-						for (const j of existingKeys) {
-							const shift = sortedRemoved.filter((ri) => ri < j).length;
-							if (shift > 0 && newPos[`step-${j}`]) {
-								newPos[`step-${j - shift}`] = newPos[`step-${j}`];
-								delete newPos[`step-${j}`];
-							}
-						}
-						positionsRef.current = newPos;
-						scheduleCanvasSave(newPos, remapped);
-						return remapped;
-					});
+					void saveScript(newSteps);
 					return;
 				}
 			}
@@ -346,7 +420,7 @@ export function useCanvasState(
 				}
 			}
 		},
-		[scheduleCanvasSave, saveScript, steps],
+		[flushPendingEdits, scheduleCanvasSave, saveScript],
 	);
 
 	// ── 边变化处理 ─────────────────────────────────────────────────────────────
@@ -419,9 +493,10 @@ export function useCanvasState(
 	// ── 步骤增删改 ─────────────────────────────────────────────────────────────
 	const addStep = useCallback(
 		async (kind: string) => {
+			const baseSteps = flushPendingEdits();
 			const step = defaultStep(kind);
-			const newIndex = steps.length;
-			const newSteps = [...steps, step];
+			const newIndex = baseSteps.length;
+			const newSteps = [...baseSteps, step];
 			setSteps(newSteps);
 
 			// 新节点放在最后一个节点的正下方
@@ -450,7 +525,7 @@ export function useCanvasState(
 				},
 			]);
 
-			// 自动连线：新步骤与前一步骤之间添加边
+			// 自动连线：同步更新 ref 再保存，避免 setEdges 回调在 saveScript 之后才执行
 			if (newIndex > 0) {
 				const connection: Edge = {
 					id: `e-${newIndex - 1}-${newIndex}`,
@@ -458,22 +533,15 @@ export function useCanvasState(
 					target: `step-${newIndex}`,
 					type: 'smoothstep',
 				};
-				setEdges((prev) => {
-					const next = addEdge(connection, prev);
-					edgesRef.current = next;
-					scheduleCanvasSave(positionsRef.current, next);
-					return next;
-				});
+				const nextEdges = addEdge(connection, edgesRef.current);
+				edgesRef.current = nextEdges;
+				setEdges(nextEdges);
+				scheduleCanvasSave(positionsRef.current, nextEdges);
 			}
 			await saveScript(newSteps);
 		},
-		[steps, saveScript, scheduleCanvasSave],
+		[flushPendingEdits, saveScript, scheduleCanvasSave],
 	);
-
-	// updateStep 的保存防抖：属性面板编辑时每次按键都会触发 updateStep，
-	// 使用防抖避免高频保存导致工具栏"保存中/已保存"状态快速切换闪动
-	const updateSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-	const pendingStepsRef = useRef<ScriptStep[] | null>(null);
 
 	const updateStep = useCallback(
 		async (index: number, step: ScriptStep) => {
@@ -487,6 +555,24 @@ export function useCanvasState(
 						: n,
 				),
 			);
+			// 弹窗节点：按钮删除时清理连接到已移除 btn_N handle 的边
+			if (step.kind === 'confirm_dialog') {
+				const btnCount = step.buttons?.length ?? 0;
+				const nodeId = `step-${index}`;
+				const invalidEdges = edgesRef.current.filter((e) => {
+					if (e.source !== nodeId || !e.sourceHandle) return false;
+					if (!e.sourceHandle.startsWith('btn_')) return false;
+					const btnIdx = parseInt(e.sourceHandle.replace('btn_', ''), 10);
+					return btnIdx >= btnCount;
+				});
+				if (invalidEdges.length > 0) {
+					const invalidIds = new Set(invalidEdges.map((e) => e.id));
+					const cleaned = edgesRef.current.filter((e) => !invalidIds.has(e.id));
+					edgesRef.current = cleaned;
+					setEdges(cleaned);
+					scheduleCanvasSave(positionsRef.current, cleaned);
+				}
+			}
 			// 防抖保存：300ms 内连续编辑只触发最后一次
 			pendingStepsRef.current = newSteps;
 			if (updateSaveTimerRef.current) clearTimeout(updateSaveTimerRef.current);
@@ -496,14 +582,14 @@ export function useCanvasState(
 				if (toSave) void saveScript(toSave);
 			}, 300);
 		},
-		[steps, saveScript],
+		[steps, saveScript, scheduleCanvasSave],
 	);
 
 	// ── 粘贴步骤（批量添加完整步骤，用于快捷键复制粘贴） ───────────────────
 	const pasteSteps = useCallback(
 		async (stepsToAdd: ScriptStep[]) => {
 			if (stepsToAdd.length === 0) return;
-			let currentSteps = steps;
+			let currentSteps = flushPendingEdits();
 			for (const step of stepsToAdd) {
 				const newIndex = currentSteps.length;
 				currentSteps = [...currentSteps, step];
@@ -534,7 +620,7 @@ export function useCanvasState(
 					},
 				]);
 
-				// 自动连线
+				// 自动连线：同步更新 ref
 				if (newIndex > 0) {
 					const connection: Edge = {
 						id: `e-${newIndex - 1}-${newIndex}`,
@@ -542,23 +628,22 @@ export function useCanvasState(
 						target: `step-${newIndex}`,
 						type: 'smoothstep',
 					};
-					setEdges((prev) => {
-						const next = addEdge(connection, prev);
-						edgesRef.current = next;
-						scheduleCanvasSave(positionsRef.current, next);
-						return next;
-					});
+					const nextEdges = addEdge(connection, edgesRef.current);
+					edgesRef.current = nextEdges;
+					setEdges(nextEdges);
+					scheduleCanvasSave(positionsRef.current, nextEdges);
 				}
 			}
 			setSteps(currentSteps);
 			await saveScript(currentSteps);
 		},
-		[steps, saveScript, scheduleCanvasSave],
+		[flushPendingEdits, saveScript, scheduleCanvasSave],
 	);
 
 	const deleteStep = useCallback(
 		async (index: number) => {
-			const newSteps = steps.filter((_, i) => i !== index);
+			const baseSteps = flushPendingEdits();
+			const newSteps = baseSteps.filter((_, i) => i !== index);
 			setSteps(newSteps);
 			setSelectedIndex(null);
 			const deletedId = `step-${index}`;
@@ -579,41 +664,40 @@ export function useCanvasState(
 					}),
 			);
 
-			// 重新映射边
-			setEdges((prev) => {
-				const remapped = prev
-					.filter((e) => e.source !== deletedId && e.target !== deletedId)
-					.map((e) => {
-						const si = parseInt(e.source.replace('step-', ''), 10);
-						const ti = parseInt(e.target.replace('step-', ''), 10);
-						const newSi = si > index ? si - 1 : si;
-						const newTi = ti > index ? ti - 1 : ti;
-						return {
-							...e,
-							id: `e-${newSi}-${newTi}`,
-							source: `step-${newSi}`,
-							target: `step-${newTi}`,
-						};
-					});
-				edgesRef.current = remapped;
+			// 重新映射边：同步更新 ref，确保 saveScript 读到正确的边
+			const remapped = edgesRef.current
+				.filter((e) => e.source !== deletedId && e.target !== deletedId)
+				.map((e) => {
+					const si = parseInt(e.source.replace('step-', ''), 10);
+					const ti = parseInt(e.target.replace('step-', ''), 10);
+					const newSi = si > index ? si - 1 : si;
+					const newTi = ti > index ? ti - 1 : ti;
+					return {
+						...e,
+						id: `e-${newSi}-${newTi}`,
+						source: `step-${newSi}`,
+						target: `step-${newTi}`,
+					};
+				});
+			edgesRef.current = remapped;
+			setEdges(remapped);
 
-				// 清理并重映射 positions
-				const newPos = { ...positionsRef.current };
-				delete newPos[deletedId];
-				for (let j = index + 1; j <= steps.length; j++) {
-					const oldKey = `step-${j}`;
-					if (newPos[oldKey]) {
-						newPos[`step-${j - 1}`] = newPos[oldKey];
-						delete newPos[oldKey];
-					}
+			// 清理并重映射 positions
+			const newPos = { ...positionsRef.current };
+			delete newPos[deletedId];
+			for (let j = index + 1; j <= baseSteps.length; j++) {
+				const oldKey = `step-${j}`;
+				if (newPos[oldKey]) {
+					newPos[`step-${j - 1}`] = newPos[oldKey];
+					delete newPos[oldKey];
 				}
-				positionsRef.current = newPos;
-				scheduleCanvasSave(newPos, remapped);
-				return remapped;
-			});
+			}
+			positionsRef.current = newPos;
+			scheduleCanvasSave(newPos, remapped);
+
 			await saveScript(newSteps);
 		},
-		[steps, saveScript, scheduleCanvasSave],
+		[flushPendingEdits, saveScript, scheduleCanvasSave],
 	);
 
 	// ─────────────────────────────────────────────────────────────────────────────

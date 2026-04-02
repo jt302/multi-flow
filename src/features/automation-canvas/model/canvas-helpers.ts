@@ -88,8 +88,8 @@ export function buildDefaultEdges(count: number): Edge[] {
 export function parseCanvasData(
 	json: string | null,
 	stepCount: number,
-): { positions: PositionsMap; edges: Edge[] } {
-	if (!json) return { positions: {}, edges: buildDefaultEdges(stepCount) };
+): { positions: PositionsMap; edges: Edge[]; edgesFromSave: boolean } {
+	if (!json) return { positions: {}, edges: buildDefaultEdges(stepCount), edgesFromSave: false };
 	try {
 		const parsed = JSON.parse(json) as Record<string, unknown>;
 		if ('positions' in parsed || 'edges' in parsed) {
@@ -102,15 +102,16 @@ export function parseCanvasData(
 				type: 'smoothstep',
 				...(e.sourceHandle ? { sourceHandle: e.sourceHandle } : {}),
 			}));
-			return { positions, edges };
+			return { positions, edges, edgesFromSave: true };
 		}
 		// 旧格式：直接是 { 'step-0': {x,y}, ... }
 		return {
 			positions: parsed as PositionsMap,
 			edges: buildDefaultEdges(stepCount),
+			edgesFromSave: false,
 		};
 	} catch {
-		return { positions: {}, edges: buildDefaultEdges(stepCount) };
+		return { positions: {}, edges: buildDefaultEdges(stepCount), edgesFromSave: false };
 	}
 }
 
@@ -192,4 +193,452 @@ export function topologySortSteps(
 	const reorderedSteps = finalOrder.map((i) => steps[i]);
 
 	return { reorderedSteps, indexMap, orphanedCount: unvisited.length };
+}
+
+// ─── 嵌套控制流树→图展平 ──────────────────────────────────────────────────────
+
+/**
+ * 将嵌套控制流树还原为扁平节点+边（resolveControlFlowGraph 的逆操作）。
+ * 从后端加载脚本时调用，将 then_steps/else_steps/body_steps 展开为独立画布节点。
+ *
+ * 算法：DFS 遍历嵌套步骤树，将每个步骤推入扁平数组并生成对应边。
+ * 条件节点生成带 sourceHandle 的分叉边，两条分支的出口节点都连接到后续步骤。
+ * 循环节点的 body 出口不连接后续（循环体隐式回到 loop 节点）。
+ *
+ * 时间复杂度：O(N)，N 为全部步骤总数（含嵌套）
+ * 空间复杂度：O(N)
+ *
+ * @param nestedSteps - 后端返回的嵌套步骤树
+ * @returns 扁平步骤数组和对应边列表
+ */
+export function flattenControlFlowTree(
+	nestedSteps: ScriptStep[],
+): { flatSteps: ScriptStep[]; edges: Edge[] } {
+	const flatSteps: ScriptStep[] = [];
+	const edges: Edge[] = [];
+
+	/**
+	 * 处理一条步骤链，返回"出口"节点索引列表。
+	 * 出口节点 = 需要通过 default handle 连接到后续步骤的节点。
+	 */
+	function processChain(steps: ScriptStep[]): number[] {
+		let pendingConnections: number[] = [];
+
+		for (const step of steps) {
+			const currentIdx = flatSteps.length;
+
+			// 将上一步的出口节点通过 default handle 连接到当前节点
+			for (const fromIdx of pendingConnections) {
+				edges.push({
+					id: `e-${fromIdx}-${currentIdx}`,
+					source: `step-${fromIdx}`,
+					target: `step-${currentIdx}`,
+					type: 'smoothstep',
+				});
+			}
+
+			if (step.kind === 'condition') {
+				// 条件节点：清空嵌套子步骤后加入扁平数组
+				flatSteps.push({ ...step, then_steps: [], else_steps: [] });
+				const exitIndices: number[] = [];
+
+				// 展平 then 分支
+				if (step.then_steps.length > 0) {
+					const thenFirstIdx = flatSteps.length;
+					edges.push({
+						id: `e-${currentIdx}-${thenFirstIdx}-then`,
+						source: `step-${currentIdx}`,
+						target: `step-${thenFirstIdx}`,
+						sourceHandle: 'then',
+						type: 'smoothstep',
+					});
+					exitIndices.push(...processChain(step.then_steps));
+				}
+
+				// 展平 else 分支
+				if (step.else_steps && step.else_steps.length > 0) {
+					const elseFirstIdx = flatSteps.length;
+					edges.push({
+						id: `e-${currentIdx}-${elseFirstIdx}-else`,
+						source: `step-${currentIdx}`,
+						target: `step-${elseFirstIdx}`,
+						sourceHandle: 'else',
+						type: 'smoothstep',
+					});
+					exitIndices.push(...processChain(step.else_steps));
+				}
+
+				// 条件步骤执行完任一分支后，都会继续执行后续主流程。
+				// 因此画布中显式保留一条 default continuation 边，避免仅靠“分支汇合点推断”导致错序。
+				pendingConnections = [currentIdx, ...exitIndices];
+			} else if (step.kind === 'confirm_dialog' && step.button_branches && step.button_branches.length > 0) {
+				// 弹窗分支节点：清空 button_branches 后加入扁平数组
+				flatSteps.push({ ...step, button_branches: [] });
+				const exitIndices: number[] = [];
+
+				for (let bi = 0; bi < step.button_branches.length; bi++) {
+					const branch = step.button_branches[bi];
+					if (branch.length > 0) {
+						const branchFirstIdx = flatSteps.length;
+						edges.push({
+							id: `e-${currentIdx}-${branchFirstIdx}-btn_${bi}`,
+							source: `step-${currentIdx}`,
+							target: `step-${branchFirstIdx}`,
+							sourceHandle: `btn_${bi}`,
+							type: 'smoothstep',
+						});
+						exitIndices.push(...processChain(branch));
+					}
+				}
+
+				// confirm_dialog 的按钮分支执行后仍会回到后续主流程；
+				// 对空分支同样需要保留 continuation，因此保留当前节点本身作为出口。
+				pendingConnections = [currentIdx, ...exitIndices];
+			} else if (step.kind === 'loop') {
+				// 循环节点：清空 body_steps 后加入扁平数组
+				flatSteps.push({ ...step, body_steps: [] });
+
+				// 展平 body 分支
+				if (step.body_steps.length > 0) {
+					const bodyFirstIdx = flatSteps.length;
+					edges.push({
+						id: `e-${currentIdx}-${bodyFirstIdx}-body`,
+						source: `step-${currentIdx}`,
+						target: `step-${bodyFirstIdx}`,
+						sourceHandle: 'body',
+						type: 'smoothstep',
+					});
+					processChain(step.body_steps);
+					// body 出口不连接后续（循环体隐式回到 loop 节点）
+				}
+
+				// loop 自身通过 default handle 连接后续步骤
+				pendingConnections = [currentIdx];
+			} else {
+				flatSteps.push(step);
+				pendingConnections = [currentIdx];
+			}
+		}
+
+		return pendingConnections;
+	}
+
+	processChain(nestedSteps);
+	return { flatSteps, edges };
+}
+
+// ─── 图→嵌套控制流树转换 ──────────────────────────────────────────────────────
+
+/** 解析后的边信息：source index → Map<handle|null, target index[]> */
+type HandleEdgeMap = Map<number, Map<string | null, number[]>>;
+
+/**
+ * 构建带 sourceHandle 信息的邻接表。
+ * 每个源节点按 sourceHandle 分拣到不同的目标。
+ *
+ * @param edges - ReactFlow 边列表
+ * @param n - 步骤总数（用于范围校验）
+ * @returns source → (handle → target) 映射
+ */
+function buildHandleEdgeMap(edges: Edge[], n: number): HandleEdgeMap {
+	const map: HandleEdgeMap = new Map();
+	for (const edge of edges) {
+		const si = parseInt(edge.source.replace('step-', ''), 10);
+		const ti = parseInt(edge.target.replace('step-', ''), 10);
+		if (isNaN(si) || isNaN(ti) || si >= n || ti >= n) continue;
+		if (!map.has(si)) map.set(si, new Map());
+		const handle = edge.sourceHandle ?? null;
+		const byHandle = map.get(si)!;
+		const targets = byHandle.get(handle) ?? [];
+		targets.push(ti);
+		targets.sort((a, b) => a - b);
+		byHandle.set(handle, targets);
+	}
+	return map;
+}
+
+function getFirstHandleTarget(
+	handles: Map<string | null, number[]> | undefined,
+	handle: string | null,
+): number {
+	if (!handles) return -1;
+	const targets = handles.get(handle);
+	if (!targets || targets.length === 0) return -1;
+	return targets[0];
+}
+
+function distanceFrom(start: number, edgeMap: HandleEdgeMap): Map<number, number> {
+	const distances = new Map<number, number>();
+	if (start < 0) return distances;
+
+	const queue: number[] = [start];
+	distances.set(start, 0);
+
+	while (queue.length > 0) {
+		const cur = queue.shift()!;
+		const curDist = distances.get(cur) ?? 0;
+		const handles = edgeMap.get(cur);
+		if (!handles) continue;
+		for (const targets of handles.values()) {
+			for (const target of targets) {
+				if (distances.has(target)) continue;
+				distances.set(target, curDist + 1);
+				queue.push(target);
+			}
+		}
+	}
+
+	return distances;
+}
+
+/**
+ * 找到多个起点共同可达的最近公共后继。
+ * 优先按图距离最小排序，距离相同时再按 index 稳定排序。
+ */
+function findNearestSharedSuccessor(
+	starts: number[],
+	edgeMap: HandleEdgeMap,
+): number {
+	const validStarts = [...new Set(starts.filter((start) => start >= 0))];
+	if (validStarts.length < 2) return -1;
+
+	const distanceMaps = validStarts.map((start) => distanceFrom(start, edgeMap));
+	const candidates: Array<{ node: number; maxDistance: number; totalDistance: number }> = [];
+
+	for (const [node, distance] of distanceMaps[0].entries()) {
+		if (validStarts.includes(node)) continue;
+		let maxDistance = distance;
+		let totalDistance = distance;
+		let shared = true;
+		for (let i = 1; i < distanceMaps.length; i++) {
+			const nextDistance = distanceMaps[i].get(node);
+			if (nextDistance === undefined) {
+				shared = false;
+				break;
+			}
+			maxDistance = Math.max(maxDistance, nextDistance);
+			totalDistance += nextDistance;
+		}
+		if (shared) {
+			candidates.push({ node, maxDistance, totalDistance });
+		}
+	}
+
+	if (candidates.length === 0) return -1;
+
+	candidates.sort((left, right) => {
+		if (left.maxDistance !== right.maxDistance) {
+			return left.maxDistance - right.maxDistance;
+		}
+		if (left.totalDistance !== right.totalDistance) {
+			return left.totalDistance - right.totalDistance;
+		}
+		return left.node - right.node;
+	});
+
+	return candidates[0].node;
+}
+
+function getConfirmBranchCount(
+	step: ScriptStep,
+	handles: Map<string | null, number[]> | undefined,
+): number {
+	let maxHandleIndex = -1;
+	for (const handle of handles?.keys() ?? []) {
+		if (!handle || !handle.startsWith('btn_')) continue;
+		const rawIndex = Number.parseInt(handle.slice(4), 10);
+		if (!Number.isNaN(rawIndex)) {
+			maxHandleIndex = Math.max(maxHandleIndex, rawIndex);
+		}
+	}
+
+	if (step.kind === 'confirm_dialog' && step.button_branches && step.button_branches.length > 0) {
+		return Math.max(step.button_branches.length, maxHandleIndex + 1);
+	}
+
+	return maxHandleIndex + 1;
+}
+
+export type SerializedCanvasGraph = {
+	nestedSteps: ScriptStep[];
+	flatSteps: ScriptStep[];
+	orderedIds: string[];
+	remappedEdges: Edge[];
+	remappedPositions: PositionsMap;
+	orphanedCount: number;
+};
+
+/**
+ * 将当前画布图序列化为稳定的嵌套树，并同步产出 canonical 顺序下的节点/边/位置。
+ * 顺序规则与 flattenControlFlowTree 完全镜像，保证 graph -> tree -> graph 可幂等。
+ */
+export function serializeControlFlowGraph(
+	steps: ScriptStep[],
+	edges: Edge[],
+	positions: PositionsMap,
+): SerializedCanvasGraph {
+	const n = steps.length;
+	if (n === 0) {
+		return {
+			nestedSteps: [],
+			flatSteps: [],
+			orderedIds: [],
+			remappedEdges: [],
+			remappedPositions: {},
+			orphanedCount: 0,
+		};
+	}
+
+	const edgeMap = buildHandleEdgeMap(edges, n);
+	const inDegree = new Map<number, number>();
+	for (let i = 0; i < n; i++) {
+		inDegree.set(i, 0);
+	}
+	for (const edge of edges) {
+		const ti = parseInt(edge.target.replace('step-', ''), 10);
+		if (!Number.isNaN(ti) && ti >= 0 && ti < n) {
+			inDegree.set(ti, (inDegree.get(ti) ?? 0) + 1);
+		}
+	}
+
+	const visited = new Set<number>();
+	const orderedIds: string[] = [];
+
+	function collectChain(startIdx: number, stopAt: number): ScriptStep[] {
+		const result: ScriptStep[] = [];
+		let cur = startIdx;
+
+		while (cur >= 0 && cur < n && cur !== stopAt && !visited.has(cur)) {
+			visited.add(cur);
+			orderedIds.push(`step-${cur}`);
+			const step = steps[cur];
+			const handles = edgeMap.get(cur);
+
+			if (step.kind === 'condition') {
+				const thenTarget = getFirstHandleTarget(handles, 'then');
+				const elseTarget = getFirstHandleTarget(handles, 'else');
+				const nextTarget = getFirstHandleTarget(handles, null);
+				const continuation =
+					nextTarget >= 0
+						? nextTarget
+						: findNearestSharedSuccessor([thenTarget, elseTarget], edgeMap);
+
+				const thenSteps = thenTarget >= 0 ? collectChain(thenTarget, continuation) : [];
+				const elseSteps = elseTarget >= 0 ? collectChain(elseTarget, continuation) : [];
+
+				result.push({
+					...step,
+					then_steps: thenSteps,
+					else_steps: elseSteps,
+				});
+
+				cur = continuation;
+				continue;
+			}
+
+			if (step.kind === 'confirm_dialog') {
+				const branchCount = getConfirmBranchCount(step, handles);
+				if (branchCount > 0) {
+					const nextTarget = getFirstHandleTarget(handles, null);
+					const branchTargets = Array.from(
+						{ length: branchCount },
+						(_, index) => getFirstHandleTarget(handles, `btn_${index}`),
+					);
+					const continuation =
+						nextTarget >= 0
+							? nextTarget
+							: findNearestSharedSuccessor(
+									branchTargets.filter((target) => target >= 0),
+									edgeMap,
+							  );
+					const buttonBranches = branchTargets.map((target) =>
+						target >= 0 ? collectChain(target, continuation) : [],
+					);
+
+					result.push({
+						...step,
+						button_branches: buttonBranches,
+					});
+
+					cur = continuation;
+					continue;
+				}
+			}
+
+			if (step.kind === 'loop') {
+				const bodyTarget = getFirstHandleTarget(handles, 'body');
+				const nextTarget = getFirstHandleTarget(handles, null);
+				const bodySteps =
+					bodyTarget >= 0 ? collectChain(bodyTarget, cur) : [];
+
+				result.push({
+					...step,
+					body_steps: bodySteps,
+				});
+
+				cur = nextTarget;
+				continue;
+			}
+
+			result.push(step);
+			cur = getFirstHandleTarget(handles, null);
+		}
+
+		return result;
+	}
+
+	const rootIndices = Array.from({ length: n }, (_, index) => index).filter(
+		(index) => (inDegree.get(index) ?? 0) === 0,
+	);
+
+	const nestedSteps: ScriptStep[] = [];
+	for (const root of rootIndices) {
+		if (visited.has(root)) continue;
+		nestedSteps.push(...collectChain(root, -1));
+	}
+
+	let orphanedCount = 0;
+	for (let index = 0; index < n; index++) {
+		if (visited.has(index)) continue;
+		orphanedCount += 1;
+		nestedSteps.push(...collectChain(index, -1));
+	}
+
+	const { flatSteps, edges: remappedEdges } = flattenControlFlowTree(nestedSteps);
+	const remappedPositions: PositionsMap = {};
+	orderedIds.forEach((oldId, newIndex) => {
+		const position = positions[oldId];
+		if (!position) return;
+		remappedPositions[`step-${newIndex}`] = position;
+	});
+
+	return {
+		nestedSteps,
+		flatSteps,
+		orderedIds,
+		remappedEdges,
+		remappedPositions,
+		orphanedCount,
+	};
+}
+
+/**
+ * 将画布 DAG 图转换为正确嵌套的步骤树。
+ * 处理 Condition 节点的 then_steps/else_steps 和 Loop 节点的 body_steps。
+ *
+ * 核心逻辑：以 DFS 方式从起始节点遍历图，遇到 Condition/Loop 节点时
+ * 递归收集其子图步骤，正确填入嵌套数组后继续主流程。
+ *
+ * 时间复杂度：O(V + E)
+ * 空间复杂度：O(V)
+ *
+ * @param steps - 平铺步骤列表（step index 与画布节点 ID 对应）
+ * @param edges - 画布边列表
+ * @returns 正确嵌套的步骤数组
+ */
+export function resolveControlFlowGraph(
+	steps: ScriptStep[],
+	edges: Edge[],
+): ScriptStep[] {
+	return serializeControlFlowGraph(steps, edges, {}).nestedSteps;
 }
