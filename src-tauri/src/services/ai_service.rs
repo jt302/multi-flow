@@ -31,19 +31,73 @@ pub struct ChatMessage {
 
 impl ChatMessage {
     pub fn user(content: impl Into<String>) -> Self {
-        Self { role: "user".into(), content: ChatContent::Text(content.into()), tool_calls: None, tool_call_id: None, name: None }
+        Self {
+            role: "user".into(),
+            content: ChatContent::Text(content.into()),
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        }
     }
     pub fn system(content: impl Into<String>) -> Self {
-        Self { role: "system".into(), content: ChatContent::Text(content.into()), tool_calls: None, tool_call_id: None, name: None }
+        Self {
+            role: "system".into(),
+            content: ChatContent::Text(content.into()),
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        }
     }
     pub fn assistant(content: impl Into<String>) -> Self {
-        Self { role: "assistant".into(), content: ChatContent::Text(content.into()), tool_calls: None, tool_call_id: None, name: None }
+        Self {
+            role: "assistant".into(),
+            content: ChatContent::Text(content.into()),
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        }
     }
     pub fn tool_result(tool_call_id: impl Into<String>, content: impl Into<String>) -> Self {
-        Self { role: "tool".into(), content: ChatContent::Text(content.into()), tool_calls: None, tool_call_id: Some(tool_call_id.into()), name: None }
+        Self {
+            role: "tool".into(),
+            content: ChatContent::Text(content.into()),
+            tool_calls: None,
+            tool_call_id: Some(tool_call_id.into()),
+            name: None,
+        }
+    }
+    /// 带图片的工具结果（截图 → 视觉注入）
+    pub fn tool_result_with_image(
+        tool_call_id: impl Into<String>,
+        text: impl Into<String>,
+        image_base64: &str,
+    ) -> Self {
+        let data_url = if image_base64.starts_with("data:") {
+            image_base64.to_string()
+        } else {
+            format!("data:image/png;base64,{image_base64}")
+        };
+        Self {
+            role: "tool".into(),
+            content: ChatContent::Parts(vec![
+                ContentPart::Text { text: text.into() },
+                ContentPart::ImageUrl {
+                    image_url: ImageUrl { url: data_url },
+                },
+            ]),
+            tool_calls: None,
+            tool_call_id: Some(tool_call_id.into()),
+            name: None,
+        }
     }
     pub fn with_content(role: impl Into<String>, content: ChatContent) -> Self {
-        Self { role: role.into(), content, tool_calls: None, tool_call_id: None, name: None }
+        Self {
+            role: role.into(),
+            content,
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        }
     }
 }
 
@@ -71,6 +125,23 @@ pub struct AiToolCall {
 pub enum ChatContent {
     Text(String),
     Parts(Vec<ContentPart>),
+}
+
+impl std::fmt::Display for ChatContent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ChatContent::Text(t) => write!(f, "{}", t),
+            ChatContent::Parts(parts) => {
+                for p in parts {
+                    match p {
+                        ContentPart::Text { text } => write!(f, "{}", text)?,
+                        ContentPart::ImageUrl { .. } => write!(f, "[image]")?,
+                    }
+                }
+                Ok(())
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -102,14 +173,18 @@ impl AiService {
         response_format: Option<Value>,
     ) -> Result<String, String> {
         let provider = config.provider.as_deref().unwrap_or("openai");
-        let resolved_base = config.base_url.as_deref()
+        let resolved_base = config
+            .base_url
+            .as_deref()
             .unwrap_or_else(|| default_base_url(provider));
         let base_url = resolved_base.trim_end_matches('/');
         let api_key = config.api_key.as_deref().unwrap_or("");
 
         if provider == "anthropic" {
             let model = config.model.as_deref().unwrap_or("claude-opus-4-5");
-            return self.chat_anthropic(base_url, api_key, model, &messages).await;
+            return self
+                .chat_anthropic(base_url, api_key, model, &messages)
+                .await;
         }
         if provider == "gemini" {
             let model = config.model.as_deref().unwrap_or("gemini-2.0-flash");
@@ -130,7 +205,8 @@ impl AiService {
         let parsed: Value = serde_json::from_str(&resp_text)
             .map_err(|e| format!("AI response parse failed: {e}"))?;
         let content = parsed
-            .get("choices").and_then(|c| c.as_array())
+            .get("choices")
+            .and_then(|c| c.as_array())
             .and_then(|a| a.first())
             .and_then(|c| c.get("message"))
             .and_then(|m| m.get("content"))
@@ -148,14 +224,18 @@ impl AiService {
         tools: &[Value],
     ) -> Result<AiChatResult, String> {
         let provider = config.provider.as_deref().unwrap_or("openai");
-        let resolved_base = config.base_url.as_deref()
+        let resolved_base = config
+            .base_url
+            .as_deref()
             .unwrap_or_else(|| default_base_url(provider));
         let base_url = resolved_base.trim_end_matches('/');
         let api_key = config.api_key.as_deref().unwrap_or("");
 
         if provider == "anthropic" {
             let model = config.model.as_deref().unwrap_or("claude-opus-4-5");
-            return self.chat_with_tools_anthropic(base_url, api_key, model, messages, tools).await;
+            return self
+                .chat_with_tools_anthropic(base_url, api_key, model, messages, tools)
+                .await;
         }
         if provider == "gemini" {
             // Gemini 暂不支持 tool_calls，退回文本
@@ -178,30 +258,48 @@ impl AiService {
             .map_err(|e| format!("AI response parse failed: {e}"))?;
 
         let choice = parsed
-            .get("choices").and_then(|c| c.as_array())
+            .get("choices")
+            .and_then(|c| c.as_array())
             .and_then(|a| a.first())
             .ok_or_else(|| "AI response: no choices".to_string())?;
 
-        let finish_reason = choice.get("finish_reason").and_then(|v| v.as_str()).unwrap_or("");
-        let message = choice.get("message").ok_or_else(|| "AI response: no message".to_string())?;
+        let finish_reason = choice
+            .get("finish_reason")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let message = choice
+            .get("message")
+            .ok_or_else(|| "AI response: no message".to_string())?;
 
         if finish_reason == "tool_calls" {
-            let calls_raw = message.get("tool_calls")
+            let calls_raw = message
+                .get("tool_calls")
                 .and_then(|v| v.as_array())
-                .ok_or_else(|| "AI response: finish_reason=tool_calls but no tool_calls array".to_string())?;
+                .ok_or_else(|| {
+                    "AI response: finish_reason=tool_calls but no tool_calls array".to_string()
+                })?;
 
-            let calls = calls_raw.iter().filter_map(|tc| {
-                let id = tc.get("id")?.as_str()?.to_string();
-                let func = tc.get("function")?;
-                let name = func.get("name")?.as_str()?.to_string();
-                let args_str = func.get("arguments")?.as_str().unwrap_or("{}");
-                let arguments: Value = serde_json::from_str(args_str).unwrap_or(json!({}));
-                Some(AiToolCall { id, name, arguments, raw: tc.clone() })
-            }).collect::<Vec<_>>();
+            let calls = calls_raw
+                .iter()
+                .filter_map(|tc| {
+                    let id = tc.get("id")?.as_str()?.to_string();
+                    let func = tc.get("function")?;
+                    let name = func.get("name")?.as_str()?.to_string();
+                    let args_str = func.get("arguments")?.as_str().unwrap_or("{}");
+                    let arguments: Value = serde_json::from_str(args_str).unwrap_or(json!({}));
+                    Some(AiToolCall {
+                        id,
+                        name,
+                        arguments,
+                        raw: tc.clone(),
+                    })
+                })
+                .collect::<Vec<_>>();
 
             Ok(AiChatResult::ToolCalls(calls))
         } else {
-            let content = message.get("content")
+            let content = message
+                .get("content")
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
@@ -209,18 +307,28 @@ impl AiService {
         }
     }
 
-    async fn post_chat(&self, base_url: &str, api_key: &str, body: &Value) -> Result<String, String> {
-        let mut req = self.http
+    async fn post_chat(
+        &self,
+        base_url: &str,
+        api_key: &str,
+        body: &Value,
+    ) -> Result<String, String> {
+        let mut req = self
+            .http
             .post(format!("{base_url}/chat/completions"))
             .header("Content-Type", "application/json")
             .json(body);
         if !api_key.is_empty() {
             req = req.bearer_auth(api_key);
         }
-        let resp = req.send().await
+        let resp = req
+            .send()
+            .await
             .map_err(|e| format!("AI request failed: {e}"))?;
         let status = resp.status();
-        let text = resp.text().await
+        let text = resp
+            .text()
+            .await
             .map_err(|e| format!("AI read body failed: {e}"))?;
         if !status.is_success() {
             return Err(format!("AI API error {status}: {text}"));
@@ -236,25 +344,48 @@ impl AiService {
         model: &str,
         messages: &[ChatMessage],
     ) -> Result<String, String> {
-        let system_text: String = messages.iter()
+        let system_text: String = messages
+            .iter()
             .filter(|m| m.role == "system")
             .map(|m| match &m.content {
                 ChatContent::Text(t) => t.clone(),
-                ChatContent::Parts(parts) => parts.iter()
-                    .filter_map(|p| if let ContentPart::Text { text } = p { Some(text.clone()) } else { None })
-                    .collect::<Vec<_>>().join("\n"),
+                ChatContent::Parts(parts) => parts
+                    .iter()
+                    .filter_map(|p| {
+                        if let ContentPart::Text { text } = p {
+                            Some(text.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n"),
             })
-            .collect::<Vec<_>>().join("\n");
+            .collect::<Vec<_>>()
+            .join("\n");
 
-        let non_system: Vec<Value> = messages.iter()
+        let non_system: Vec<Value> = messages
+            .iter()
             .filter(|m| m.role != "system")
             .map(|m| {
-                let role = if m.role == "assistant" { "assistant" } else { "user" };
+                let role = if m.role == "assistant" {
+                    "assistant"
+                } else {
+                    "user"
+                };
                 let text = match &m.content {
                     ChatContent::Text(t) => t.clone(),
-                    ChatContent::Parts(parts) => parts.iter()
-                        .filter_map(|p| if let ContentPart::Text { text } = p { Some(text.clone()) } else { None })
-                        .collect::<Vec<_>>().join("\n"),
+                    ChatContent::Parts(parts) => parts
+                        .iter()
+                        .filter_map(|p| {
+                            if let ContentPart::Text { text } = p {
+                                Some(text.clone())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n"),
                 };
                 json!({"role": role, "content": [{"type": "text", "text": text}]})
             })
@@ -269,26 +400,35 @@ impl AiService {
             body["system"] = json!(system_text);
         }
 
-        let resp = self.http
+        let resp = self
+            .http
             .post(format!("{base_url}/v1/messages"))
             .header("Content-Type", "application/json")
             .header("x-api-key", api_key)
             .header("anthropic-version", "2023-06-01")
             .json(&body)
-            .send().await
+            .send()
+            .await
             .map_err(|e| format!("Anthropic request failed: {e}"))?;
 
         let status = resp.status();
-        let text = resp.text().await.map_err(|e| format!("Anthropic read body failed: {e}"))?;
+        let text = resp
+            .text()
+            .await
+            .map_err(|e| format!("Anthropic read body failed: {e}"))?;
         if !status.is_success() {
             return Err(format!("Anthropic API error {status}: {text}"));
         }
 
         let parsed: Value = serde_json::from_str(&text)
             .map_err(|e| format!("Anthropic response parse failed: {e}"))?;
-        let content = parsed.get("content")
+        let content = parsed
+            .get("content")
             .and_then(|c| c.as_array())
-            .and_then(|arr| arr.iter().find(|b| b.get("type").and_then(|t| t.as_str()) == Some("text")))
+            .and_then(|arr| {
+                arr.iter()
+                    .find(|b| b.get("type").and_then(|t| t.as_str()) == Some("text"))
+            })
             .and_then(|b| b.get("text"))
             .and_then(|t| t.as_str())
             .unwrap_or("")
@@ -306,30 +446,46 @@ impl AiService {
         tools: &[Value],
     ) -> Result<AiChatResult, String> {
         // 转换 tools: OpenAI format → Anthropic format
-        let anthropic_tools: Vec<Value> = tools.iter().map(|t| {
-            let func = t.get("function").cloned().unwrap_or(json!({}));
-            let name = func.get("name").cloned().unwrap_or(json!(""));
-            let description = func.get("description").cloned().unwrap_or(json!(""));
-            let parameters = func.get("parameters").cloned()
-                .unwrap_or(json!({"type": "object", "properties": {}}));
-            json!({"name": name, "description": description, "input_schema": parameters})
-        }).collect();
+        let anthropic_tools: Vec<Value> = tools
+            .iter()
+            .map(|t| {
+                let func = t.get("function").cloned().unwrap_or(json!({}));
+                let name = func.get("name").cloned().unwrap_or(json!(""));
+                let description = func.get("description").cloned().unwrap_or(json!(""));
+                let parameters = func
+                    .get("parameters")
+                    .cloned()
+                    .unwrap_or(json!({"type": "object", "properties": {}}));
+                json!({"name": name, "description": description, "input_schema": parameters})
+            })
+            .collect();
 
-        let system_text: String = messages.iter()
+        let system_text: String = messages
+            .iter()
             .filter(|m| m.role == "system")
-            .map(|m| match &m.content { ChatContent::Text(t) => t.clone(), _ => String::new() })
-            .collect::<Vec<_>>().join("\n");
+            .map(|m| match &m.content {
+                ChatContent::Text(t) => t.clone(),
+                _ => String::new(),
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
 
-        let non_system: Vec<Value> = messages.iter()
+        let non_system: Vec<Value> = messages
+            .iter()
             .filter(|m| m.role != "system")
             .map(|m| {
-                let role = if m.role == "assistant" { "assistant" } else { "user" };
+                let role = if m.role == "assistant" {
+                    "assistant"
+                } else {
+                    "user"
+                };
                 let text = match &m.content {
                     ChatContent::Text(t) => t.clone(),
                     _ => String::new(),
                 };
                 json!({"role": role, "content": [{"type": "text", "text": text}]})
-            }).collect();
+            })
+            .collect();
 
         let mut body = json!({
             "model": model,
@@ -341,17 +497,22 @@ impl AiService {
             body["system"] = json!(system_text);
         }
 
-        let resp = self.http
+        let resp = self
+            .http
             .post(format!("{base_url}/v1/messages"))
             .header("Content-Type", "application/json")
             .header("x-api-key", api_key)
             .header("anthropic-version", "2023-06-01")
             .json(&body)
-            .send().await
+            .send()
+            .await
             .map_err(|e| format!("Anthropic request failed: {e}"))?;
 
         let status = resp.status();
-        let text = resp.text().await.map_err(|e| format!("Anthropic read body failed: {e}"))?;
+        let text = resp
+            .text()
+            .await
+            .map_err(|e| format!("Anthropic read body failed: {e}"))?;
         if !status.is_success() {
             return Err(format!("Anthropic API error {status}: {text}"));
         }
@@ -359,28 +520,50 @@ impl AiService {
         let parsed: Value = serde_json::from_str(&text)
             .map_err(|e| format!("Anthropic response parse failed: {e}"))?;
 
-        let stop_reason = parsed.get("stop_reason").and_then(|v| v.as_str()).unwrap_or("");
+        let stop_reason = parsed
+            .get("stop_reason")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         if stop_reason == "tool_use" {
-            let content_arr = parsed.get("content").and_then(|c| c.as_array())
+            let content_arr = parsed
+                .get("content")
+                .and_then(|c| c.as_array())
                 .ok_or_else(|| "Anthropic: no content".to_string())?;
-            let calls: Vec<AiToolCall> = content_arr.iter().filter_map(|block| {
-                if block.get("type")?.as_str()? != "tool_use" { return None; }
-                let id = block.get("id")?.as_str()?.to_string();
-                let name = block.get("name")?.as_str()?.to_string();
-                let arguments = block.get("input")?.clone();
-                let raw = json!({
-                    "id": &id,
-                    "type": "function",
-                    "function": {"name": &name, "arguments": arguments.to_string()}
-                });
-                Some(AiToolCall { id, name, arguments, raw })
-            }).collect();
+            let calls: Vec<AiToolCall> = content_arr
+                .iter()
+                .filter_map(|block| {
+                    if block.get("type")?.as_str()? != "tool_use" {
+                        return None;
+                    }
+                    let id = block.get("id")?.as_str()?.to_string();
+                    let name = block.get("name")?.as_str()?.to_string();
+                    let arguments = block.get("input")?.clone();
+                    let raw = json!({
+                        "id": &id,
+                        "type": "function",
+                        "function": {"name": &name, "arguments": arguments.to_string()}
+                    });
+                    Some(AiToolCall {
+                        id,
+                        name,
+                        arguments,
+                        raw,
+                    })
+                })
+                .collect();
             Ok(AiChatResult::ToolCalls(calls))
         } else {
-            let text_out = parsed.get("content").and_then(|c| c.as_array())
-                .and_then(|arr| arr.iter().find(|b| b.get("type").and_then(|t| t.as_str()) == Some("text")))
-                .and_then(|b| b.get("text")).and_then(|t| t.as_str())
-                .unwrap_or("").to_string();
+            let text_out = parsed
+                .get("content")
+                .and_then(|c| c.as_array())
+                .and_then(|arr| {
+                    arr.iter()
+                        .find(|b| b.get("type").and_then(|t| t.as_str()) == Some("text"))
+                })
+                .and_then(|b| b.get("text"))
+                .and_then(|t| t.as_str())
+                .unwrap_or("")
+                .to_string();
             Ok(AiChatResult::Text(text_out))
         }
     }
@@ -393,9 +576,13 @@ impl AiService {
         model: &str,
         messages: &[ChatMessage],
     ) -> Result<String, String> {
-        let system_parts: Vec<String> = messages.iter()
+        let system_parts: Vec<String> = messages
+            .iter()
             .filter(|m| m.role == "system")
-            .map(|m| match &m.content { ChatContent::Text(t) => t.clone(), _ => String::new() })
+            .map(|m| match &m.content {
+                ChatContent::Text(t) => t.clone(),
+                _ => String::new(),
+            })
             .collect();
 
         let mut contents: Vec<Value> = Vec::new();
@@ -405,43 +592,68 @@ impl AiService {
             contents.push(json!({"role": "model", "parts": [{"text": "Understood."}]}));
         }
         for m in messages.iter().filter(|m| m.role != "system") {
-            let role = if m.role == "assistant" { "model" } else { "user" };
+            let role = if m.role == "assistant" {
+                "model"
+            } else {
+                "user"
+            };
             let text = match &m.content {
                 ChatContent::Text(t) => t.clone(),
-                ChatContent::Parts(parts) => parts.iter()
-                    .filter_map(|p| if let ContentPart::Text { text } = p { Some(text.clone()) } else { None })
-                    .collect::<Vec<_>>().join("\n"),
+                ChatContent::Parts(parts) => parts
+                    .iter()
+                    .filter_map(|p| {
+                        if let ContentPart::Text { text } = p {
+                            Some(text.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n"),
             };
             contents.push(json!({"role": role, "parts": [{"text": text}]}));
         }
 
         let url = format!(
             "{}/v1beta/models/{}:generateContent?key={}",
-            base_url.trim_end_matches('/'), model, api_key
+            base_url.trim_end_matches('/'),
+            model,
+            api_key
         );
         let body = json!({"contents": contents});
 
-        let resp = self.http
+        let resp = self
+            .http
             .post(&url)
             .header("Content-Type", "application/json")
             .json(&body)
-            .send().await
+            .send()
+            .await
             .map_err(|e| format!("Gemini request failed: {e}"))?;
 
         let status = resp.status();
-        let text = resp.text().await.map_err(|e| format!("Gemini read body failed: {e}"))?;
+        let text = resp
+            .text()
+            .await
+            .map_err(|e| format!("Gemini read body failed: {e}"))?;
         if !status.is_success() {
             return Err(format!("Gemini API error {status}: {text}"));
         }
 
         let parsed: Value = serde_json::from_str(&text)
             .map_err(|e| format!("Gemini response parse failed: {e}"))?;
-        let content = parsed.get("candidates")
-            .and_then(|c| c.as_array()).and_then(|arr| arr.first())
-            .and_then(|c| c.get("content")).and_then(|c| c.get("parts"))
-            .and_then(|p| p.as_array()).and_then(|arr| arr.first())
-            .and_then(|p| p.get("text")).and_then(|t| t.as_str())
-            .unwrap_or("").to_string();
+        let content = parsed
+            .get("candidates")
+            .and_then(|c| c.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|c| c.get("content"))
+            .and_then(|c| c.get("parts"))
+            .and_then(|p| p.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|p| p.get("text"))
+            .and_then(|t| t.as_str())
+            .unwrap_or("")
+            .to_string();
         Ok(content)
     }
 }
@@ -458,8 +670,12 @@ pub fn build_vision_content(text_prompt: &str, image_base64: Option<&str>) -> Ch
                 format!("data:image/png;base64,{b64}")
             };
             ChatContent::Parts(vec![
-                ContentPart::Text { text: text_prompt.to_string() },
-                ContentPart::ImageUrl { image_url: ImageUrl { url: data_url } },
+                ContentPart::Text {
+                    text: text_prompt.to_string(),
+                },
+                ContentPart::ImageUrl {
+                    image_url: ImageUrl { url: data_url },
+                },
             ])
         }
     }
@@ -478,126 +694,5 @@ pub fn extract_json_path(value: &Value, path: &str) -> Option<String> {
     Some(match current {
         Value::String(s) => s.clone(),
         other => other.to_string(),
-    })
-}
-
-/// 构建 AI Agent 可用的工具列表（常用步骤作为 OpenAI function definitions）
-pub fn build_agent_tools() -> Vec<Value> {
-    vec![
-        tool("wait", "等待指定毫秒数", json!({
-            "type": "object",
-            "properties": { "ms": { "type": "integer", "description": "等待时长（毫秒）" } },
-            "required": ["ms"]
-        })),
-        tool("cdp_navigate", "导航到指定 URL", json!({
-            "type": "object",
-            "properties": {
-                "url": { "type": "string", "description": "目标 URL" },
-                "output_key": { "type": "string", "description": "将 URL 存入此变量名" }
-            },
-            "required": ["url"]
-        })),
-        tool("cdp_reload", "重新加载当前页面", json!({
-            "type": "object",
-            "properties": {
-                "ignore_cache": { "type": "boolean", "description": "是否忽略缓存" }
-            }
-        })),
-        tool("cdp_execute_js", "在页面执行 JavaScript，支持内联代码或从文件加载，返回值可存入变量", json!({
-            "type": "object",
-            "properties": {
-                "expression": { "type": "string", "description": "内联 JavaScript 代码（与 file_path 二选一）" },
-                "file_path": { "type": "string", "description": "JS 文件路径（优先于 expression）" },
-                "output_key": { "type": "string", "description": "将返回值存入此变量名" }
-            }
-        })),
-        tool("cdp_click", "点击页面元素", json!({
-            "type": "object",
-            "properties": {
-                "selector": { "type": "string", "description": "元素选择器（CSS/XPath/文本内容，类型由 selector_type 决定）" },
-                "selector_type": { "type": "string", "enum": ["css", "xpath", "text"], "description": "选择器类型，默认 css" }
-            },
-            "required": ["selector"]
-        })),
-        tool("cdp_type", "向元素输入文本", json!({
-            "type": "object",
-            "properties": {
-                "selector": { "type": "string", "description": "元素选择器（CSS/XPath/文本内容）" },
-                "selector_type": { "type": "string", "enum": ["css", "xpath", "text"], "description": "选择器类型，默认 css" },
-                "text": { "type": "string", "description": "要输入的文本" }
-            },
-            "required": ["selector", "text"]
-        })),
-        tool("cdp_get_text", "获取元素的文本内容", json!({
-            "type": "object",
-            "properties": {
-                "selector": { "type": "string", "description": "元素选择器（CSS/XPath/文本内容）" },
-                "selector_type": { "type": "string", "enum": ["css", "xpath", "text"], "description": "选择器类型，默认 css" },
-                "output_key": { "type": "string", "description": "将文本存入此变量名" }
-            },
-            "required": ["selector"]
-        })),
-        tool("cdp_wait_for_selector", "等待元素出现在 DOM 中", json!({
-            "type": "object",
-            "properties": {
-                "selector": { "type": "string", "description": "元素选择器（CSS/XPath/文本内容）" },
-                "selector_type": { "type": "string", "enum": ["css", "xpath", "text"], "description": "选择器类型，默认 css" },
-                "timeout_ms": { "type": "integer", "description": "超时毫秒数（默认 10000）" }
-            },
-            "required": ["selector"]
-        })),
-        tool("cdp_scroll_to", "滚动页面到指定元素或坐标", json!({
-            "type": "object",
-            "properties": {
-                "selector": { "type": "string", "description": "元素选择器（CSS/XPath/文本内容，可选）" },
-                "selector_type": { "type": "string", "enum": ["css", "xpath", "text"], "description": "选择器类型，默认 css" },
-                "x": { "type": "number", "description": "横向坐标" },
-                "y": { "type": "number", "description": "纵向坐标" }
-            }
-        })),
-        tool("cdp_screenshot", "截取当前页面截图", json!({
-            "type": "object",
-            "properties": {
-                "format": { "type": "string", "enum": ["png", "jpeg"], "description": "图片格式" },
-                "output_key_base64": { "type": "string", "description": "将 base64 截图存入此变量名" },
-                "output_path": { "type": "string", "description": "保存到磁盘的绝对路径" }
-            }
-        })),
-        tool("wait_for_user", "暂停执行，等待人工操作或输入", json!({
-            "type": "object",
-            "properties": {
-                "message": { "type": "string", "description": "展示给用户的消息" },
-                "input_label": { "type": "string", "description": "输入框标签（不填则无输入框）" },
-                "output_key": { "type": "string", "description": "将用户输入存入此变量名" },
-                "timeout_ms": { "type": "integer", "description": "超时毫秒数（不填则无超时）" }
-            },
-            "required": ["message"]
-        })),
-        tool("magic_get_browsers", "获取所有浏览器实例列表", json!({
-            "type": "object",
-            "properties": {
-                "output_key": { "type": "string", "description": "将结果 JSON 存入此变量名" }
-            }
-        })),
-        tool("magic_open_new_tab", "打开新标签页", json!({
-            "type": "object",
-            "properties": {
-                "url": { "type": "string", "description": "要打开的 URL" },
-                "browser_id": { "type": "integer", "description": "目标浏览器 ID（可选）" },
-                "output_key": { "type": "string", "description": "将新标签页 ID 存入此变量名" }
-            },
-            "required": ["url"]
-        })),
-    ]
-}
-
-fn tool(name: &str, description: &str, parameters: Value) -> Value {
-    json!({
-        "type": "function",
-        "function": {
-            "name": name,
-            "description": description,
-            "parameters": parameters
-        }
     })
 }

@@ -13,11 +13,12 @@ use crate::error::AppResult;
 use crate::local_api_server::{LocalApiServer, DEFAULT_PROXY_DAEMON_BIND_ADDRESS};
 use crate::logger;
 use crate::runtime_guard;
+use crate::services::ai_tools::dialog_tools::AiDialogResponse;
+use crate::services::app_preference_service::AppPreferenceService;
 use crate::services::automation_service::AutomationService;
 use crate::services::chromium_magic_adapter_service::ChromiumMagicAdapterService;
 use crate::services::device_preset_service::DevicePresetService;
 use crate::services::engine_session_service::EngineSessionService;
-use crate::services::app_preference_service::AppPreferenceService;
 use crate::services::plugin_package_service::PluginPackageService;
 use crate::services::profile_group_service::ProfileGroupService;
 use crate::services::profile_service::ProfileService;
@@ -28,10 +29,11 @@ use crate::services::sync_manager_service::SyncManagerService;
 pub struct AppState {
     /// oneshot senders for WaitForUser steps: run_id → sender(Option<String>)
     /// Some(input) = 用户提交输入后继续，None = 取消
-    pub active_run_channels:
-        Mutex<HashMap<String, tokio::sync::oneshot::Sender<Option<String>>>>,
+    pub active_run_channels: Mutex<HashMap<String, tokio::sync::oneshot::Sender<Option<String>>>>,
     /// 取消标志: run_id → true 表示该 run 已被取消
     pub cancel_tokens: Mutex<HashMap<String, bool>>,
+    /// AI Dialog oneshot senders: request_id → sender(AiDialogResponse)
+    pub ai_dialog_channels: Mutex<HashMap<String, tokio::sync::oneshot::Sender<AiDialogResponse>>>,
     pub automation_service: Mutex<AutomationService>,
     pub profile_group_service: Mutex<ProfileGroupService>,
     pub profile_service: Mutex<ProfileService>,
@@ -58,11 +60,19 @@ impl AppState {
     }
 
     pub fn lock_device_preset_service(&self) -> MutexGuard<'_, DevicePresetService> {
-        recover_lock(&self.device_preset_service, "state", "device preset service")
+        recover_lock(
+            &self.device_preset_service,
+            "state",
+            "device preset service",
+        )
     }
 
     pub fn lock_engine_session_service(&self) -> MutexGuard<'_, EngineSessionService> {
-        recover_lock(&self.engine_session_service, "state", "engine session service")
+        recover_lock(
+            &self.engine_session_service,
+            "state",
+            "engine session service",
+        )
     }
 
     pub fn lock_proxy_service(&self) -> MutexGuard<'_, ProxyService> {
@@ -104,7 +114,10 @@ fn recover_lock<'a, T>(
     match mutex.lock() {
         Ok(guard) => guard,
         Err(poisoned) => {
-            logger::warn(scope, format!("{target} lock poisoned, recovering inner state"));
+            logger::warn(
+                scope,
+                format!("{target} lock poisoned, recovering inner state"),
+            );
             poisoned.into_inner()
         }
     }
@@ -130,6 +143,7 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
     let app_state = AppState {
         active_run_channels: Mutex::new(HashMap::new()),
         cancel_tokens: Mutex::new(HashMap::new()),
+        ai_dialog_channels: Mutex::new(HashMap::new()),
         automation_service: Mutex::new(automation_service),
         profile_group_service: Mutex::new(profile_group_service),
         profile_service: Mutex::new(profile_service),

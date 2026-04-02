@@ -4,6 +4,8 @@ import { tauriInvoke } from '@/shared/api/tauri-invoke';
 
 import type {
 	AiConfigEntry,
+	AiDialogRequest,
+	AiDialogResponse,
 	AiProviderConfig,
 	AutomationHumanDismissedEvent,
 	AutomationHumanRequiredEvent,
@@ -199,4 +201,18 @@ export async function updateAiConfig(entry: AiConfigEntry): Promise<AiConfigEntr
 
 export async function deleteAiConfig(id: string): Promise<void> {
 	return tauriInvoke<void>('delete_ai_config', { id });
+}
+
+// ── AI Dialog（后端弹窗交互） ────────────────────────────────
+
+export async function listenAiDialogRequest(
+	onEvent: (request: AiDialogRequest) => void,
+): Promise<() => void> {
+	return listen<AiDialogRequest>('ai-dialog-request', (event) => {
+		onEvent(event.payload);
+	});
+}
+
+export async function submitAiDialogResponse(response: AiDialogResponse): Promise<void> {
+	return tauriInvoke<void>('submit_ai_dialog_response', { response });
 }

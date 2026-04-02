@@ -41,24 +41,29 @@ export type ScriptStep =
 
 	// ── AI 步骤 ───────────────────────────────────────────────────────────────
 	| {
-			kind: 'ai_prompt';
-			prompt: string;
-			image_var?: string;
-			model_override?: string;
-			output_key?: string;
-	  }
-	| {
-			kind: 'ai_extract';
-			prompt: string;
-			image_var?: string;
-			output_key_map: AiOutputKeyMapping[];
-			model_override?: string;
-	  }
-	| {
 			kind: 'ai_agent';
-			system_prompt: string;
-			initial_message: string;
+			/** 用户提示词，支持 {{变量}} 插值 */
+			prompt: string;
+			/** 可选系统提示词 */
+			system_prompt?: string;
+			/** 输出格式: 'text'（默认）或 'json' */
+			output_format?: 'text' | 'json';
+			/** json 模式下 JSON path → 变量映射 */
+			output_key_map?: AiOutputKeyMapping[];
+			/** 最大工具调用轮次 */
 			max_steps: number;
+			output_key?: string;
+			model_override?: string;
+	  }
+	| {
+			kind: 'ai_judge';
+			/** 判断场景描述，支持 {{变量}} 插值 */
+			prompt: string;
+			/** 输出模式: 'boolean' 输出 true/false, 'percentage' 输出 0-100 */
+			output_mode: 'boolean' | 'percentage';
+			/** 最大工具调用轮次 */
+			max_steps: number;
+			model_override?: string;
 			output_key?: string;
 	  }
 
@@ -135,6 +140,8 @@ export type ScriptStep =
 	| { kind: 'magic_get_managed_extensions'; output_key?: string }
 	| { kind: 'magic_trigger_extension_action'; extension_id: string; browser_id?: number }
 	| { kind: 'magic_close_extension_popup'; browser_id?: number }
+	| { kind: 'magic_enable_extension'; extension_id: string }
+	| { kind: 'magic_disable_extension'; extension_id: string }
 
 	// 同步模式
 	| { kind: 'magic_toggle_sync_mode'; role: string; browser_id?: number; session_id?: string; output_key?: string }
@@ -306,4 +313,36 @@ export type AiConfigEntry = {
 	baseUrl?: string;
 	apiKey?: string;
 	model?: string;
+};
+
+// ── AI Dialog 类型（前端 ↔ 后端弹窗交互） ───────────────────────────
+
+export type AiDialogType = 'message' | 'confirm' | 'input' | 'save_file' | 'open_file' | 'select_folder';
+
+export type AiDialogFileFilter = {
+	name: string;
+	extensions: string[];
+};
+
+/** 后端 → 前端：弹窗请求 */
+export type AiDialogRequest = {
+	requestId: string;
+	dialogType: AiDialogType;
+	title?: string;
+	message: string;
+	level?: 'info' | 'warning' | 'error' | 'success';
+	label?: string;
+	defaultValue?: string;
+	placeholder?: string;
+	multiple?: boolean;
+	filters?: AiDialogFileFilter[];
+	defaultName?: string;
+	content?: string;
+};
+
+/** 前端 → 后端：弹窗响应 */
+export type AiDialogResponse = {
+	requestId: string;
+	confirmed: boolean;
+	value?: string;
 };

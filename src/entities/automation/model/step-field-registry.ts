@@ -128,41 +128,42 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
   ],
 
   // ── AI 步骤 ───────────────────────────────────────────────────────────────
-  ai_prompt: [
-    {
-      type: 'text',
-      key: 'prompt',
-      label: 'Prompt（支持 {{变量}}）',
-      multiline: true,
-    },
-    { type: 'text', key: 'image_var', label: '图片变量名（可选）' },
-    { type: 'output_key' },
-  ],
-
-  ai_extract: [
-    {
-      type: 'text',
-      key: 'prompt',
-      label: 'Prompt（支持 {{变量}}）',
-      multiline: true,
-    },
-    // output_key_map 是复杂数组结构，由面板直接渲染
-  ],
-
   ai_agent: [
     {
       type: 'text',
-      key: 'system_prompt',
-      label: '系统提示词',
+      key: 'prompt',
+      label: 'Prompt（支持 {{变量}}）',
       multiline: true,
     },
     {
       type: 'text',
-      key: 'initial_message',
-      label: '初始消息（支持 {{变量}}）',
+      key: 'system_prompt',
+      label: '系统提示词（可选）',
       multiline: true,
     },
-    { type: 'number', key: 'max_steps', label: '最大循环轮次' },
+    {
+      type: 'select',
+      key: 'output_format',
+      label: '输出格式',
+      options: [
+        { value: 'text', label: '纯文本' },
+        { value: 'json', label: 'JSON（配合 key 映射提取变量）' },
+      ],
+    },
+    // output_key_map 是复杂数组结构，由面板直接渲染
+    { type: 'number', key: 'max_steps', label: '最大循环轮次', min: 1 },
+    { type: 'output_key' },
+  ],
+
+  ai_judge: [
+    {
+      type: 'text',
+      key: 'prompt',
+      label: '判断提示词（描述需要AI判断的场景）',
+      multiline: true,
+    },
+    // output_mode 由面板直接渲染 Select 组件
+    { type: 'number', key: 'max_steps', label: '最大循环轮次', min: 1 },
     { type: 'output_key' },
   ],
 

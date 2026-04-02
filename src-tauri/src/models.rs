@@ -977,13 +977,41 @@ fn default_one_u32() -> u32 {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ScriptStep {
-    Navigate { url: String, #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
-    Wait { ms: u64 },
-    Click { selector: String, #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType },
-    Type { selector: String, text: String, #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType },
-    Screenshot { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
-    Magic { command: String, params: serde_json::Value, #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
-    Cdp { method: String, params: Option<serde_json::Value>, #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    Navigate {
+        url: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    Wait {
+        ms: u64,
+    },
+    Click {
+        selector: String,
+        #[serde(default, skip_serializing_if = "SelectorType::is_css")]
+        selector_type: SelectorType,
+    },
+    Type {
+        selector: String,
+        text: String,
+        #[serde(default, skip_serializing_if = "SelectorType::is_css")]
+        selector_type: SelectorType,
+    },
+    Screenshot {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    Magic {
+        command: String,
+        params: serde_json::Value,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    Cdp {
+        method: String,
+        params: Option<serde_json::Value>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
     /// 暂停脚本，等待人工确认或输入
     WaitForUser {
         /// 弹窗显示的提示信息，支持 {{var}} 插值
@@ -1042,45 +1070,43 @@ pub enum ScriptStep {
     },
 
     // ── AI 步骤 ───────────────────────────────────────────────────────────────
-
-    /// 文本 / vision prompt，返回 AI 回复文本
-    AiPrompt {
-        /// 提示词，支持 {{var}} 插值
-        prompt: String,
-        /// 变量名，值为 base64 图片（用于 vision）
-        #[serde(skip_serializing_if = "Option::is_none")]
-        image_var: Option<String>,
-        /// 覆盖全局 AI 模型
-        #[serde(skip_serializing_if = "Option::is_none")]
-        model_override: Option<String>,
-        /// 将 AI 回复存入此变量
-        #[serde(skip_serializing_if = "Option::is_none")]
-        output_key: Option<String>,
-    },
-
-    /// 结构化提取：AI 返回 JSON，按映射写入多个变量
-    AiExtract {
-        /// 提示词，支持 {{var}} 插值
-        prompt: String,
-        /// 变量名，值为 base64 图片（用于 vision）
-        #[serde(skip_serializing_if = "Option::is_none")]
-        image_var: Option<String>,
-        /// 输出字段映射列表
-        output_key_map: Vec<AiOutputKeyMapping>,
-        /// 覆盖全局 AI 模型
-        #[serde(skip_serializing_if = "Option::is_none")]
-        model_override: Option<String>,
-    },
-
-    /// AI Agent：多轮工具调用循环，AI 可调用其他步骤作为 tool
+    /// AI Agent：多轮工具调用循环，AI 自主决定是否调用工具
     AiAgent {
-        /// 系统提示词
-        system_prompt: String,
-        /// 初始消息，支持 {{var}} 插值
-        initial_message: String,
-        /// 最大循环轮次
+        /// 用户提示词，支持 {{var}} 插值
+        prompt: String,
+        /// 可选系统提示词
+        #[serde(skip_serializing_if = "Option::is_none")]
+        system_prompt: Option<String>,
+        /// 输出格式: "text"（默认）或 "json"
+        #[serde(default = "default_ai_output_format")]
+        output_format: String,
+        /// json 模式下，JSON path → 变量映射
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        output_key_map: Vec<AiOutputKeyMapping>,
+        /// 最大工具调用轮次
         max_steps: u32,
         /// 将最终 AI 回复存入此变量
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+        /// 覆盖全局 AI 模型
+        #[serde(skip_serializing_if = "Option::is_none")]
+        model_override: Option<String>,
+    },
+
+    /// AI 判断：AI 自主决定是否需要调用工具来辅助判断，输出 true/false 或百分比
+    AiJudge {
+        /// 判断提示词，描述需要 AI 判断的场景，支持 {{var}} 插值
+        prompt: String,
+        /// 输出模式: "boolean" 输出 true/false, "percentage" 输出 0-100
+        #[serde(default = "default_judge_output_mode")]
+        output_mode: String,
+        /// 最大工具调用轮次
+        #[serde(default = "default_judge_max_steps")]
+        max_steps: u32,
+        /// 覆盖全局 AI 模型
+        #[serde(skip_serializing_if = "Option::is_none")]
+        model_override: Option<String>,
+        /// 将判断结果存入此变量
         #[serde(skip_serializing_if = "Option::is_none")]
         output_key: Option<String>,
     },
@@ -1089,188 +1115,321 @@ pub enum ScriptStep {
 
     // 窗口外观
     MagicSetBounds {
-        x: i32, y: i32, width: u32, height: u32,
-        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+        x: i32,
+        y: i32,
+        width: u32,
+        height: u32,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
     },
-    MagicGetBounds { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    MagicGetBounds {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
     MagicSetMaximized,
     MagicSetMinimized,
     MagicSetClosed,
     MagicSetRestored,
     MagicSetFullscreen,
     MagicSetBgColor {
-        #[serde(skip_serializing_if = "Option::is_none")] r: Option<u8>,
-        #[serde(skip_serializing_if = "Option::is_none")] g: Option<u8>,
-        #[serde(skip_serializing_if = "Option::is_none")] b: Option<u8>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        r: Option<u8>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        g: Option<u8>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        b: Option<u8>,
     },
-    MagicSetToolbarText { text: String },
+    MagicSetToolbarText {
+        text: String,
+    },
     MagicSetAppTopMost,
     MagicSetMasterIndicatorVisible {
-        #[serde(skip_serializing_if = "Option::is_none")] visible: Option<bool>,
-        #[serde(skip_serializing_if = "Option::is_none")] label: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        visible: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        label: Option<String>,
     },
 
     // 标签页与窗口操作
     MagicOpenNewTab {
         url: String,
-        #[serde(skip_serializing_if = "Option::is_none")] browser_id: Option<i64>,
-        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        browser_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
     },
-    MagicCloseTab { tab_id: i64 },
-    MagicActivateTab { tab_id: i64 },
+    MagicCloseTab {
+        tab_id: i64,
+    },
+    MagicActivateTab {
+        tab_id: i64,
+    },
     MagicActivateTabByIndex {
         index: u32,
-        #[serde(skip_serializing_if = "Option::is_none")] browser_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        browser_id: Option<i64>,
     },
     MagicCloseInactiveTabs,
-    MagicOpenNewWindow { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    MagicOpenNewWindow {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
     MagicTypeString {
         text: String,
-        #[serde(skip_serializing_if = "Option::is_none")] tab_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tab_id: Option<i64>,
     },
 
     // 浏览器信息查询
-    MagicGetBrowsers { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
-    MagicGetActiveBrowser { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    MagicGetBrowsers {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    MagicGetActiveBrowser {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
     MagicGetTabs {
         browser_id: i64,
-        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
     },
-    MagicGetActiveTabs { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
-    MagicGetSwitches { key: String, #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
-    MagicGetHostName { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
-    MagicGetMacAddress { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    MagicGetActiveTabs {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    MagicGetSwitches {
+        key: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    MagicGetHostName {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    MagicGetMacAddress {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
 
     // 书签
-    MagicGetBookmarks { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    MagicGetBookmarks {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
     MagicCreateBookmark {
-        parent_id: String, title: String, url: String,
-        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+        parent_id: String,
+        title: String,
+        url: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
     },
     MagicCreateBookmarkFolder {
-        parent_id: String, title: String,
-        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+        parent_id: String,
+        title: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
     },
     MagicUpdateBookmark {
         node_id: String,
-        #[serde(skip_serializing_if = "Option::is_none")] title: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")] url: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        url: Option<String>,
     },
-    MagicMoveBookmark { node_id: String, new_parent_id: String },
-    MagicRemoveBookmark { node_id: String },
+    MagicMoveBookmark {
+        node_id: String,
+        new_parent_id: String,
+    },
+    MagicRemoveBookmark {
+        node_id: String,
+    },
     MagicBookmarkCurrentTab {
-        #[serde(skip_serializing_if = "Option::is_none")] browser_id: Option<i64>,
-        #[serde(skip_serializing_if = "Option::is_none")] parent_id: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        browser_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        parent_id: Option<String>,
     },
     MagicUnbookmarkCurrentTab {
-        #[serde(skip_serializing_if = "Option::is_none")] browser_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        browser_id: Option<i64>,
     },
     MagicIsCurrentTabBookmarked {
-        #[serde(skip_serializing_if = "Option::is_none")] browser_id: Option<i64>,
-        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        browser_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
     },
     MagicExportBookmarkState {
-        #[serde(skip_serializing_if = "Option::is_none")] environment_id: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        environment_id: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
     },
 
     // Cookie
-    MagicGetManagedCookies { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    MagicGetManagedCookies {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
     MagicExportCookieState {
         mode: String,
-        #[serde(skip_serializing_if = "Option::is_none")] url: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")] environment_id: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        url: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        environment_id: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
     },
 
     // 扩展
-    MagicGetManagedExtensions { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    MagicGetManagedExtensions {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
     MagicTriggerExtensionAction {
         extension_id: String,
-        #[serde(skip_serializing_if = "Option::is_none")] browser_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        browser_id: Option<i64>,
     },
     MagicCloseExtensionPopup {
-        #[serde(skip_serializing_if = "Option::is_none")] browser_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        browser_id: Option<i64>,
+    },
+    /// 启用扩展
+    MagicEnableExtension {
+        extension_id: String,
+    },
+    /// 禁用扩展
+    MagicDisableExtension {
+        extension_id: String,
     },
 
     // 同步模式
     MagicToggleSyncMode {
         role: String,
-        #[serde(skip_serializing_if = "Option::is_none")] browser_id: Option<i64>,
-        #[serde(skip_serializing_if = "Option::is_none")] session_id: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        browser_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        session_id: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
     },
-    MagicGetSyncMode { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
-    MagicGetIsMaster { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
-    MagicGetSyncStatus { #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String> },
+    MagicGetSyncMode {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    MagicGetIsMaster {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    MagicGetSyncStatus {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
 
     // ── CDP 具名步骤 ──────────────────────────────────────────────────────────
-
     CdpNavigate {
         url: String,
-        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
     },
     CdpReload {
         #[serde(default)]
         ignore_cache: bool,
     },
-    CdpClick { selector: String, #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType },
-    CdpType { selector: String, text: String, #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType },
+    CdpClick {
+        selector: String,
+        #[serde(default, skip_serializing_if = "SelectorType::is_css")]
+        selector_type: SelectorType,
+    },
+    CdpType {
+        selector: String,
+        text: String,
+        #[serde(default, skip_serializing_if = "SelectorType::is_css")]
+        selector_type: SelectorType,
+    },
     CdpScrollTo {
-        #[serde(skip_serializing_if = "Option::is_none")] selector: Option<String>,
-        #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType,
-        #[serde(skip_serializing_if = "Option::is_none")] x: Option<i32>,
-        #[serde(skip_serializing_if = "Option::is_none")] y: Option<i32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        selector: Option<String>,
+        #[serde(default, skip_serializing_if = "SelectorType::is_css")]
+        selector_type: SelectorType,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        x: Option<i32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        y: Option<i32>,
     },
     CdpWaitForSelector {
         selector: String,
-        #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType,
-        #[serde(skip_serializing_if = "Option::is_none")] timeout_ms: Option<u64>,
+        #[serde(default, skip_serializing_if = "SelectorType::is_css")]
+        selector_type: SelectorType,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        timeout_ms: Option<u64>,
     },
     CdpWaitForPageLoad {
-        #[serde(skip_serializing_if = "Option::is_none")] timeout_ms: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        timeout_ms: Option<u64>,
     },
     CdpGetText {
         selector: String,
-        #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType,
-        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+        #[serde(default, skip_serializing_if = "SelectorType::is_css")]
+        selector_type: SelectorType,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
     },
     CdpGetAttribute {
         selector: String,
-        #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType,
+        #[serde(default, skip_serializing_if = "SelectorType::is_css")]
+        selector_type: SelectorType,
         attribute: String,
-        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
     },
-    CdpSetInputValue { selector: String, #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType, value: String },
+    CdpSetInputValue {
+        selector: String,
+        #[serde(default, skip_serializing_if = "SelectorType::is_css")]
+        selector_type: SelectorType,
+        value: String,
+    },
 
     /// 增强截图：支持保存文件和多输出变量
     CdpScreenshot {
-        #[serde(skip_serializing_if = "Option::is_none")] format: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")] quality: Option<u8>,
-        #[serde(skip_serializing_if = "Option::is_none")] output_path: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")] output_key_base64: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")] output_key_file_path: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        format: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        quality: Option<u8>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_path: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key_base64: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key_file_path: Option<String>,
     },
 
     // 截图（整个 app 壳）— 始终 mode=file，与 CdpScreenshot 一致
     MagicCaptureAppShell {
-        #[serde(skip_serializing_if = "Option::is_none")] browser_id: Option<i64>,
-        #[serde(skip_serializing_if = "Option::is_none")] format: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")] output_path: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")] output_key_file_path: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        browser_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        format: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_path: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key_file_path: Option<String>,
     },
 
     // ── CDP 新增步骤 ─────────────────────────────────────────────────────────
-
     /// 新建标签页，返回 targetId
     CdpOpenNewTab {
         url: String,
-        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
     },
 
     /// 获取所有标签页信息（JSON 数组）
     CdpGetAllTabs {
-        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
     },
 
     /// 切换到指定 targetId 的标签页
@@ -1299,7 +1458,8 @@ pub enum ScriptStep {
     /// 上传文件到 file input 元素
     CdpUploadFile {
         selector: String,
-        #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType,
+        #[serde(default, skip_serializing_if = "SelectorType::is_css")]
+        selector_type: SelectorType,
         files: Vec<String>,
     },
 
@@ -1315,19 +1475,27 @@ pub enum ScriptStep {
     },
 
     CdpExecuteJs {
-        #[serde(skip_serializing_if = "Option::is_none")] expression: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")] file_path: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")] output_key: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        expression: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        file_path: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
     },
 
     /// 增强文本输入：支持内联、文件、变量三种来源
     CdpInputText {
         selector: String,
-        #[serde(default, skip_serializing_if = "SelectorType::is_css")] selector_type: SelectorType,
-        #[serde(default)] text_source: TextSource,
-        #[serde(skip_serializing_if = "Option::is_none")] text: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")] file_path: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")] var_name: Option<String>,
+        #[serde(default, skip_serializing_if = "SelectorType::is_css")]
+        selector_type: SelectorType,
+        #[serde(default)]
+        text_source: TextSource,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        text: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        file_path: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        var_name: Option<String>,
     },
 
     /// 发送单个按键（keyDown + keyUp）
@@ -1431,7 +1599,7 @@ pub struct CreateAutomationScriptRequest {
     pub settings: Option<ScriptSettings>,
 }
 
-/// AiExtract 输出字段映射
+/// AI 输出字段映射（用于 JSON 模式提取变量）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AiOutputKeyMapping {
@@ -1465,6 +1633,18 @@ fn default_wait_for_user_timeout() -> WaitForUserTimeout {
 
 fn default_loop_mode() -> LoopMode {
     LoopMode::Count
+}
+
+fn default_judge_output_mode() -> String {
+    "boolean".to_string()
+}
+
+fn default_judge_max_steps() -> u32 {
+    5
+}
+
+fn default_ai_output_format() -> String {
+    "text".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

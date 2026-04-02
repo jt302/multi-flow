@@ -25,9 +25,8 @@ export const STEP_KINDS: StepKindDef[] = [
 	{ value: 'continue', label: '继续下一轮 continue', group: '控制流' },
 	{ value: 'print', label: '打印日志 print', group: '调试' },
 	// AI 步骤
-	{ value: 'ai_prompt', label: 'AI 文本/视觉 Prompt', group: 'AI' },
-	{ value: 'ai_extract', label: 'AI 结构化提取', group: 'AI' },
-	{ value: 'ai_agent', label: 'AI Agent 工具调用', group: 'AI' },
+	{ value: 'ai_agent', label: 'AI Agent（多轮工具调用）', group: 'AI' },
+	{ value: 'ai_judge', label: 'AI 判断', group: 'AI' },
 	// CDP 具名
 	{ value: 'cdp_navigate', label: 'CDP 导航', group: 'CDP' },
 	{ value: 'cdp_reload', label: 'CDP 刷新页面', group: 'CDP' },
@@ -100,6 +99,8 @@ export const STEP_KINDS: StepKindDef[] = [
 	{ value: 'magic_get_managed_extensions', label: '获取托管扩展', group: '扩展' },
 	{ value: 'magic_trigger_extension_action', label: '触发扩展Action', group: '扩展' },
 	{ value: 'magic_close_extension_popup', label: '关闭扩展Popup', group: '扩展' },
+	{ value: 'magic_enable_extension', label: '启用扩展', group: '扩展' },
+	{ value: 'magic_disable_extension', label: '禁用扩展', group: '扩展' },
 	// 同步模式
 	{ value: 'magic_toggle_sync_mode', label: '切换同步角色', group: '同步模式' },
 	{ value: 'magic_get_sync_mode', label: '获取同步状态', group: '同步模式' },
@@ -115,7 +116,8 @@ export const KIND_LABELS: Record<string, string> = {
 	type: '输入', screenshot: '截图', magic: 'Magic', cdp: 'CDP 原始',
 	wait_for_user: '等待人工', condition: '条件分支', loop: '循环',
 	break: 'Break', continue: 'Continue', print: '打印',
-	ai_prompt: 'AI Prompt', ai_extract: 'AI 提取', ai_agent: 'AI Agent',
+	ai_agent: 'AI Agent',
+	ai_judge: 'AI 判断',
 	cdp_navigate: '导航', cdp_reload: '刷新',
 	cdp_click: '点击', cdp_type: '输入', cdp_scroll_to: '滚动',
 	cdp_wait_for_selector: '等待元素', cdp_wait_for_page_load: '等待页面加载', cdp_get_text: '获取文本',
@@ -150,6 +152,7 @@ export const KIND_LABELS: Record<string, string> = {
 	magic_get_managed_cookies: '获取Cookie', magic_export_cookie_state: '导出Cookie状态',
 	magic_get_managed_extensions: '获取扩展', magic_trigger_extension_action: '触发扩展动作',
 	magic_close_extension_popup: '关闭扩展弹窗',
+	magic_enable_extension: '启用扩展', magic_disable_extension: '禁用扩展',
 	magic_toggle_sync_mode: '切换同步模式', magic_get_sync_mode: '获取同步模式',
 	magic_get_is_master: '是否主屏', magic_get_sync_status: '获取同步状态',
 	magic_capture_app_shell: '截图(应用外壳)',
@@ -162,7 +165,8 @@ export const KIND_GROUPS: Record<string, string> = {
 	type: 'CDP', screenshot: 'CDP', magic: 'Magic', cdp: 'CDP',
 	wait_for_user: '人工介入', condition: '控制流', loop: '控制流',
 	break: '控制流', continue: '控制流', print: '调试',
-	ai_prompt: 'AI', ai_extract: 'AI', ai_agent: 'AI',
+	ai_agent: 'AI',
+	ai_judge: 'AI',
 	cdp_navigate: 'CDP', cdp_reload: 'CDP',
 	cdp_click: 'CDP', cdp_type: 'CDP', cdp_scroll_to: 'CDP',
 	cdp_wait_for_selector: 'CDP', cdp_wait_for_page_load: 'CDP', cdp_get_text: 'CDP',
@@ -193,8 +197,9 @@ export const KIND_GROUPS: Record<string, string> = {
 	magic_bookmark_current_tab: 'Magic', magic_unbookmark_current_tab: 'Magic',
 	magic_is_current_tab_bookmarked: 'Magic', magic_export_bookmark_state: 'Magic',
 	magic_get_managed_cookies: 'Magic', magic_export_cookie_state: 'Magic',
-	magic_get_managed_extensions: 'Magic', magic_trigger_extension_action: 'Magic',
-	magic_close_extension_popup: 'Magic',
+	magic_get_managed_extensions: '扩展', magic_trigger_extension_action: '扩展',
+	magic_close_extension_popup: '扩展',
+	magic_enable_extension: '扩展', magic_disable_extension: '扩展',
 	magic_toggle_sync_mode: 'Magic', magic_get_sync_mode: 'Magic',
 	magic_get_is_master: 'Magic', magic_get_sync_status: 'Magic',
 	magic_capture_app_shell: 'Magic',
@@ -210,6 +215,7 @@ export const GROUP_COLORS: Record<string, string> = {
 	人工介入: 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300',
 	通用: 'bg-muted border-border text-muted-foreground',
 	调试: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-700 dark:text-cyan-300',
+	扩展: 'bg-indigo-500/10 border-indigo-500/30 text-indigo-700 dark:text-indigo-300',
 };
 
 export const PALETTE_DOT_COLORS: Record<string, string> = {
@@ -220,6 +226,7 @@ export const PALETTE_DOT_COLORS: Record<string, string> = {
 	人工介入: 'bg-amber-500',
 	通用: 'bg-muted-foreground/50',
 	调试: 'bg-cyan-500',
+	扩展: 'bg-indigo-500',
 };
 
 // ─── Canvas 拖拽面板分组 ──────────────────────────────────────────────────────
@@ -237,13 +244,18 @@ export const PALETTE_GROUPS: { label: string; kinds: string[] }[] = [
 	{ label: '通用', kinds: ['wait', 'wait_for_user'] },
 	{ label: '调试', kinds: ['print'] },
 	{ label: '控制流', kinds: ['condition', 'loop', 'break', 'continue'] },
-	{ label: 'AI', kinds: ['ai_prompt', 'ai_extract', 'ai_agent'] },
+	{ label: 'AI', kinds: ['ai_agent', 'ai_judge'] },
 	{
 		label: 'Magic',
 		kinds: ['magic_get_browsers', 'magic_open_new_tab', 'magic_close_tab',
 			'magic_close_inactive_tabs', 'magic_activate_tab', 'magic_get_tabs', 'magic_set_bounds',
 			'magic_get_bounds', 'magic_set_maximized', 'magic_set_minimized',
 			'magic_capture_app_shell'],
+	},
+	{
+		label: '扩展',
+		kinds: ['magic_get_managed_extensions', 'magic_trigger_extension_action',
+			'magic_close_extension_popup', 'magic_enable_extension', 'magic_disable_extension'],
 	},
 ];
 
@@ -264,9 +276,8 @@ export function defaultStep(kind: string): ScriptStep {
 		case 'break': return { kind: 'break' };
 		case 'continue': return { kind: 'continue' };
 		case 'print': return { kind: 'print', text: '', level: 'info' };
-		case 'ai_prompt': return { kind: 'ai_prompt', prompt: '' };
-		case 'ai_extract': return { kind: 'ai_extract', prompt: '', output_key_map: [{ jsonPath: '', varName: '' }] };
-		case 'ai_agent': return { kind: 'ai_agent', system_prompt: '', initial_message: '', max_steps: 10 };
+		case 'ai_agent': return { kind: 'ai_agent', prompt: '', max_steps: 10 };
+		case 'ai_judge': return { kind: 'ai_judge', prompt: '', output_mode: 'boolean' as const, max_steps: 5 };
 		case 'cdp_navigate': return { kind: 'cdp_navigate', url: 'https://' };
 		case 'cdp_reload': return { kind: 'cdp_reload', ignore_cache: false };
 		case 'cdp_click': return { kind: 'cdp_click', selector: '' };
@@ -332,6 +343,8 @@ export function defaultStep(kind: string): ScriptStep {
 		case 'magic_get_managed_extensions': return { kind: 'magic_get_managed_extensions' };
 		case 'magic_trigger_extension_action': return { kind: 'magic_trigger_extension_action', extension_id: '' };
 		case 'magic_close_extension_popup': return { kind: 'magic_close_extension_popup' };
+		case 'magic_enable_extension': return { kind: 'magic_enable_extension', extension_id: '' };
+		case 'magic_disable_extension': return { kind: 'magic_disable_extension', extension_id: '' };
 		case 'magic_toggle_sync_mode': return { kind: 'magic_toggle_sync_mode', role: 'master' };
 		case 'magic_get_sync_mode': return { kind: 'magic_get_sync_mode' };
 		case 'magic_get_is_master': return { kind: 'magic_get_is_master' };
@@ -356,12 +369,12 @@ export function getStepSummaryText(step: ScriptStep): string {
 	if (step.kind === 'cdp_download_file') return String(s['download_path'] ?? '').slice(0, 40);
 	if (step.kind === 'cdp_execute_js') return (String(s['file_path'] ?? '') || String(s['expression'] ?? '')).slice(0, 40);
 	if (step.kind === 'print') return String(s['text'] ?? '').slice(0, 40) || '(空)';
+	if (step.kind === 'magic_enable_extension' || step.kind === 'magic_disable_extension') return String(s['extension_id'] ?? '').slice(0, 40);
 	if (s['url']) return String(s['url']).slice(0, 40);
 	if (s['prompt']) return String(s['prompt']).slice(0, 40);
 	if (s['expression']) return String(s['expression']).slice(0, 40);
 	if (s['selector']) return String(s['selector']).slice(0, 40);
 	if (s['message']) return String(s['message']).slice(0, 40);
 	if (s['ms'] !== undefined) return `${String(s['ms'])}ms`;
-	if (s['initial_message']) return String(s['initial_message']).slice(0, 40);
 	return '';
 }

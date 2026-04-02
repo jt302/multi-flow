@@ -25,6 +25,7 @@ mod m20260331_000022_script_profile_and_ai_config;
 mod m20260331_000023_script_settings;
 mod m20260401_000024_script_ai_config_id;
 mod m20260401_000025_automation_run_logs;
+mod m20260402_000026_clean_legacy_ai_steps;
 
 use sea_orm_migration::prelude::*;
 
@@ -61,6 +62,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260331_000023_script_settings::Migration),
             Box::new(m20260401_000024_script_ai_config_id::Migration),
             Box::new(m20260401_000025_automation_run_logs::Migration),
+            Box::new(m20260402_000026_clean_legacy_ai_steps::Migration),
         ]
     }
 }

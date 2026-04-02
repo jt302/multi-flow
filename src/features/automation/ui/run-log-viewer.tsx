@@ -8,7 +8,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 type Props = {
 	logs: RunLogEntry[];
-	runStartedAt: number;
 };
 
 const LOG_LEVELS: RunLogEntry['level'][] = ['info', 'warn', 'error', 'debug'];
@@ -62,15 +61,15 @@ function ToggleChip({
 	);
 }
 
-function formatRelativeTime(timestampMs: number, runStartedAt: number) {
-	const runStartMs =
-		runStartedAt > 1_000_000_000_000 ? runStartedAt : runStartedAt * 1000;
-	const seconds = (timestampMs - runStartMs) / 1000;
-	const sign = seconds >= 0 ? '+' : '-';
-	return `${sign}${Math.abs(seconds).toFixed(3)}s`;
+function formatLogTime(timestampMs: number) {
+	// 后端 now_ts() 返回秒级时间戳，前端统一按秒处理
+	const ms = timestampMs > 1_000_000_000_000 ? timestampMs : timestampMs * 1000;
+	const d = new Date(ms);
+	const pad = (n: number) => String(n).padStart(2, '0');
+	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-export function RunLogViewer({ logs, runStartedAt }: Props) {
+export function RunLogViewer({ logs }: Props) {
 	const [enabledLevels, setEnabledLevels] = useState<Set<RunLogEntry['level']>>(
 		() => new Set(LOG_LEVELS),
 	);
@@ -166,7 +165,9 @@ export function RunLogViewer({ logs, runStartedAt }: Props) {
 			<ScrollArea className="h-64">
 				<div className="font-mono text-xs">
 					{filteredLogs.length === 0 ? (
-						<p className="px-3 py-3 text-muted-foreground">没有匹配的日志条目</p>
+						<p className="px-3 py-3 text-muted-foreground">
+							没有匹配的日志条目
+						</p>
 					) : (
 						filteredLogs.map((entry, index) => {
 							const hasDetails = !!entry.details;
@@ -178,7 +179,7 @@ export function RunLogViewer({ logs, runStartedAt }: Props) {
 								>
 									<div className="flex items-start gap-2">
 										<span className="shrink-0 text-[10px] text-muted-foreground">
-											{formatRelativeTime(entry.timestamp, runStartedAt)}
+											{formatLogTime(entry.timestamp)}
 										</span>
 										<span
 											className={`shrink-0 uppercase text-[10px] ${LEVEL_TEXT_CLASS[entry.level]}`}
@@ -191,7 +192,9 @@ export function RunLogViewer({ logs, runStartedAt }: Props) {
 										>
 											{entry.category}
 										</Badge>
-										<p className="flex-1 break-all leading-5">{entry.message}</p>
+										<p className="flex-1 break-all leading-5">
+											{entry.message}
+										</p>
 										{hasDetails && (
 											<button
 												type="button"
@@ -206,7 +209,12 @@ export function RunLogViewer({ logs, runStartedAt }: Props) {
 											</button>
 										)}
 									</div>
-									{hasDetails && <StepDetails details={entry.details!} expanded={detailsExpanded} />}
+									{hasDetails && (
+										<StepDetails
+											details={entry.details!}
+											expanded={detailsExpanded}
+										/>
+									)}
 								</div>
 							);
 						})
@@ -218,12 +226,34 @@ export function RunLogViewer({ logs, runStartedAt }: Props) {
 }
 
 /** 关键字段优先展示，其余折叠 */
-const INLINE_KEYS = ['kind', 'selector', 'selector_type', 'url', 'text', 'value', 'expression', 'prompt', 'model', 'command', 'method', 'reply', 'error', 'output', 'attribute'];
+const INLINE_KEYS = [
+	'kind',
+	'selector',
+	'selector_type',
+	'url',
+	'text',
+	'value',
+	'expression',
+	'prompt',
+	'model',
+	'command',
+	'method',
+	'reply',
+	'error',
+	'output',
+	'attribute',
+];
 
-function StepDetails({ details, expanded }: { details: Record<string, unknown>; expanded: boolean }) {
-	const inlineEntries = INLINE_KEYS
-		.filter((k) => details[k] !== undefined && details[k] !== null)
-		.map((k) => [k, details[k]] as const);
+function StepDetails({
+	details,
+	expanded,
+}: {
+	details: Record<string, unknown>;
+	expanded: boolean;
+}) {
+	const inlineEntries = INLINE_KEYS.filter(
+		(k) => details[k] !== undefined && details[k] !== null,
+	).map((k) => [k, details[k]] as const);
 	const restKeys = Object.keys(details).filter((k) => !INLINE_KEYS.includes(k));
 
 	if (inlineEntries.length === 0 && !expanded) return null;
@@ -235,8 +265,14 @@ function StepDetails({ details, expanded }: { details: Record<string, unknown>; 
 				const isLong = strVal.length > 120;
 				return (
 					<div key={key} className="flex items-start gap-1.5">
-						<span className="text-[10px] text-muted-foreground shrink-0 min-w-[70px] text-right">{key}</span>
-						<span className={`text-foreground/80 break-all ${isLong ? 'whitespace-pre-wrap' : ''}`}>{strVal}</span>
+						<span className="text-[10px] text-muted-foreground shrink-0 min-w-[70px] text-right">
+							{key}
+						</span>
+						<span
+							className={`text-foreground/80 break-all ${isLong ? 'whitespace-pre-wrap' : ''}`}
+						>
+							{strVal}
+						</span>
 					</div>
 				);
 			})}

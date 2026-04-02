@@ -7,7 +7,7 @@ export function Toaster(props: ToasterProps) {
 			closeButton
 			richColors
 			toastOptions={{
-				duration: 2600,
+				duration: 5000,
 			}}
 			{...props}
 		/>
