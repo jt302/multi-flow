@@ -241,7 +241,6 @@ export function AutomationPage() {
         onSelect={setSelectedScriptId}
         onNew={handleNewScript}
         onImport={handleImportClick}
-        onDelete={handleDeleteScript}
       />
 
       {/* 右侧：详情面板 or 仪表盘 */}
@@ -298,6 +297,7 @@ export function AutomationPage() {
         script={metaDialogScript}
         allProfiles={allProfiles}
         aiConfigs={aiConfigs}
+        existingNames={scripts.map((s) => s.name)}
         onSave={handleMetaSave}
         isSaving={isSaving}
       />
