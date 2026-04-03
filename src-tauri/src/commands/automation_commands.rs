@@ -8,10 +8,9 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::commands::profile_commands::do_open_profile;
 use crate::logger;
 use crate::models::{
-    AiExecutionDetail, AiOutputKeyMapping, AiToolCallDetail,
-    AutomationHumanDismissedEvent, AutomationHumanRequiredEvent,
-    AutomationNotificationEvent, AutomationProgressEvent, AutomationRun,
-    AutomationRunCancelledEvent, AutomationScript, AutomationStepErrorPauseEvent,
+    AiExecutionDetail, AiOutputKeyMapping, AiToolCallDetail, AutomationHumanDismissedEvent,
+    AutomationHumanRequiredEvent, AutomationNotificationEvent, AutomationProgressEvent,
+    AutomationRun, AutomationRunCancelledEvent, AutomationScript, AutomationStepErrorPauseEvent,
     AutomationVariablesUpdatedEvent, ConfirmDialogTimeout, CreateAutomationScriptRequest, LoopMode,
     SaveAutomationCanvasGraphRequest, ScriptStep, SelectorType, StepResult, WaitForUserTimeout,
 };
@@ -1866,13 +1865,18 @@ pub async fn execute_step(
             max_steps,
             output_key,
             model_override,
+            tool_categories,
         } => {
             let start_time = std::time::Instant::now();
             let user_prompt = vars.interpolate(prompt);
             let sys_prompt = system_prompt.as_ref().map(|s| vars.interpolate(s));
             let config = load_ai_config(app, script_ai_config, None, model_override.as_ref());
             let is_json = output_format == "json";
-            let filter = crate::services::ai_tools::ToolFilter::all();
+            let filter = if tool_categories.is_empty() {
+                crate::services::ai_tools::ToolFilter::all()
+            } else {
+                crate::services::ai_tools::ToolFilter::with_categories(tool_categories.clone())
+            };
             let tools = crate::services::ai_tools::ToolRegistry::definitions(&filter);
             let ai = AiService::new(http_client.clone());
 
@@ -1884,12 +1888,16 @@ pub async fn execute_step(
                 sys_prompt.as_deref(),
                 is_json,
                 output_key_map,
+                tool_categories,
             );
             messages.push(ChatMessage::system(&effective_system_prompt));
 
             // 自动注入当前页面截图，让 AI 了解页面状态
             let initial_screenshot = if let Some(cdp_client) = cdp {
-                match cdp_client.call("Page.captureScreenshot", json!({ "format": "png" })).await {
+                match cdp_client
+                    .call("Page.captureScreenshot", json!({ "format": "png" }))
+                    .await
+                {
                     Ok(resp) => resp.get("data").and_then(|d| d.as_str()).map(String::from),
                     Err(_) => None,
                 }
@@ -1941,12 +1949,25 @@ pub async fn execute_step(
                 ));
 
                 // 实时进度：AI 思考中
-                emit_progress_with_ai(app, run_id, step_index, 0, "running", None,
-                    start_time.elapsed().as_millis() as u64, "running", HashMap::new(), vec![step_index],
+                emit_progress_with_ai(
+                    app,
+                    run_id,
+                    step_index,
+                    0,
+                    "running",
+                    None,
+                    start_time.elapsed().as_millis() as u64,
+                    "running",
+                    HashMap::new(),
+                    vec![step_index],
                     Some(AiExecutionDetail {
-                        round: round as usize + 1, max_rounds: *max_steps as usize,
-                        phase: "thinking".into(), thinking: None, tool_calls: None,
-                    }));
+                        round: round as usize + 1,
+                        max_rounds: *max_steps as usize,
+                        phase: "thinking".into(),
+                        thinking: None,
+                        tool_calls: None,
+                    }),
+                );
 
                 match ai.chat_with_tools(&config, &messages, &tools).await? {
                     AiChatResult::Text(text) => {
@@ -1982,20 +2003,35 @@ pub async fn execute_step(
                         ));
 
                         // 实时进度：收到工具调用
-                        let pending_tool_details: Vec<AiToolCallDetail> = calls.iter().map(|c| AiToolCallDetail {
-                            name: c.name.clone(),
-                            arguments: c.arguments.clone(),
-                            status: "executing".into(),
-                            result: None, duration_ms: None,
-                        }).collect();
-                        emit_progress_with_ai(app, run_id, step_index, 0, "running", None,
-                            start_time.elapsed().as_millis() as u64, "running", HashMap::new(), vec![step_index],
+                        let pending_tool_details: Vec<AiToolCallDetail> = calls
+                            .iter()
+                            .map(|c| AiToolCallDetail {
+                                name: c.name.clone(),
+                                arguments: c.arguments.clone(),
+                                status: "executing".into(),
+                                result: None,
+                                duration_ms: None,
+                            })
+                            .collect();
+                        emit_progress_with_ai(
+                            app,
+                            run_id,
+                            step_index,
+                            0,
+                            "running",
+                            None,
+                            start_time.elapsed().as_millis() as u64,
+                            "running",
+                            HashMap::new(),
+                            vec![step_index],
                             Some(AiExecutionDetail {
-                                round: round as usize + 1, max_rounds: *max_steps as usize,
+                                round: round as usize + 1,
+                                max_rounds: *max_steps as usize,
                                 phase: "tool_calling".into(),
                                 thinking: Some(format!("{}", &assistant_text)),
                                 tool_calls: Some(pending_tool_details),
-                            }));
+                            }),
+                        );
 
                         // 追加 assistant 消息（含 tool_calls + 伴随文本）
                         let raw_tool_calls: Vec<serde_json::Value> =
@@ -2007,6 +2043,24 @@ pub async fn execute_step(
                             tool_call_id: None,
                             name: None,
                         });
+
+                        // 检查是否调用了 submit_result（提交最终结果）
+                        let submit_call = calls.iter().find(|c| c.name == "submit_result");
+                        if let Some(sc) = submit_call {
+                            let args = &sc.arguments;
+                            final_text = args
+                                .get("result")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("")
+                                .to_string();
+                            logs.push(log_entry(
+                                "info",
+                                "ai",
+                                "AI Agent 通过 submit_result 提交结果".to_string(),
+                                Some(json!({ "result": &final_text })),
+                            ));
+                            break;
+                        }
 
                         // 执行每个工具
                         for tool_call in &calls {
@@ -2080,19 +2134,35 @@ pub async fn execute_step(
                             ));
 
                             // 实时进度：工具执行完成
-                            emit_progress_with_ai(app, run_id, step_index, 0, "running", None,
-                                start_time.elapsed().as_millis() as u64, "running", HashMap::new(), vec![step_index],
+                            emit_progress_with_ai(
+                                app,
+                                run_id,
+                                step_index,
+                                0,
+                                "running",
+                                None,
+                                start_time.elapsed().as_millis() as u64,
+                                "running",
+                                HashMap::new(),
+                                vec![step_index],
                                 Some(AiExecutionDetail {
-                                    round: round as usize + 1, max_rounds: *max_steps as usize,
-                                    phase: "tool_result".into(), thinking: None,
+                                    round: round as usize + 1,
+                                    max_rounds: *max_steps as usize,
+                                    phase: "tool_result".into(),
+                                    thinking: None,
                                     tool_calls: Some(vec![AiToolCallDetail {
                                         name: tool_call.name.clone(),
                                         arguments: tool_call.arguments.clone(),
-                                        status: if tool_result_str.starts_with("tool error:") { "failed".into() } else { "completed".into() },
+                                        status: if tool_result_str.starts_with("tool error:") {
+                                            "failed".into()
+                                        } else {
+                                            "completed".into()
+                                        },
                                         result: Some(tool_result_str.chars().take(500).collect()),
                                         duration_ms: Some(tool_duration),
                                     }]),
-                                }));
+                                }),
+                            );
                         }
                     }
                 }
@@ -2157,24 +2227,32 @@ pub async fn execute_step(
             max_steps,
             model_override,
             output_key,
+            tool_categories,
         } => {
             let start_time = std::time::Instant::now();
             let user_prompt = vars.interpolate(prompt);
             let config = load_ai_config(app, script_ai_config, None, model_override.as_ref());
-            let filter = crate::services::ai_tools::ToolFilter::all();
+            let filter = if tool_categories.is_empty() {
+                crate::services::ai_tools::ToolFilter::all()
+            } else {
+                crate::services::ai_tools::ToolFilter::with_categories(tool_categories.clone())
+            };
             let tools = crate::services::ai_tools::ToolRegistry::definitions(&filter);
             let ai = AiService::new(http_client.clone());
 
             let is_boolean = output_mode == "boolean";
             let system_prompt = if is_boolean {
-                crate::services::ai_prompts::judge_boolean_prompt()
+                crate::services::ai_prompts::judge_boolean_prompt(tool_categories)
             } else {
-                crate::services::ai_prompts::judge_percentage_prompt()
+                crate::services::ai_prompts::judge_percentage_prompt(tool_categories)
             };
 
             // 自动注入当前页面截图
             let initial_screenshot = if let Some(cdp_client) = cdp {
-                match cdp_client.call("Page.captureScreenshot", json!({ "format": "png" })).await {
+                match cdp_client
+                    .call("Page.captureScreenshot", json!({ "format": "png" }))
+                    .await
+                {
                     Ok(resp) => resp.get("data").and_then(|d| d.as_str()).map(String::from),
                     Err(_) => None,
                 }
@@ -2226,12 +2304,25 @@ pub async fn execute_step(
                 ));
 
                 // 实时进度：AI Judge 思考中
-                emit_progress_with_ai(app, run_id, step_index, 0, "running", None,
-                    start_time.elapsed().as_millis() as u64, "running", HashMap::new(), vec![step_index],
+                emit_progress_with_ai(
+                    app,
+                    run_id,
+                    step_index,
+                    0,
+                    "running",
+                    None,
+                    start_time.elapsed().as_millis() as u64,
+                    "running",
+                    HashMap::new(),
+                    vec![step_index],
                     Some(AiExecutionDetail {
-                        round: round as usize + 1, max_rounds: *max_steps as usize,
-                        phase: "thinking".into(), thinking: None, tool_calls: None,
-                    }));
+                        round: round as usize + 1,
+                        max_rounds: *max_steps as usize,
+                        phase: "thinking".into(),
+                        thinking: None,
+                        tool_calls: None,
+                    }),
+                );
 
                 match ai.chat_with_tools(&config, &messages, &tools).await? {
                     AiChatResult::Text(text) => {
@@ -4024,7 +4115,19 @@ fn emit_progress(
     vars_set: HashMap<String, String>,
     step_path: Vec<usize>,
 ) {
-    emit_progress_with_ai(app, run_id, step_index, step_total, step_status, output, duration_ms, run_status, vars_set, step_path, None);
+    emit_progress_with_ai(
+        app,
+        run_id,
+        step_index,
+        step_total,
+        step_status,
+        output,
+        duration_ms,
+        run_status,
+        vars_set,
+        step_path,
+        None,
+    );
 }
 
 fn emit_progress_with_ai(

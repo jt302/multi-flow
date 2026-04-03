@@ -1117,6 +1117,9 @@ pub enum ScriptStep {
         /// 覆盖全局 AI 模型
         #[serde(skip_serializing_if = "Option::is_none")]
         model_override: Option<String>,
+        /// 可用工具类别筛选（空 = 全部启用）
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        tool_categories: Vec<String>,
     },
 
     /// AI 判断：AI 自主决定是否需要调用工具来辅助判断，输出 true/false 或百分比
@@ -1135,6 +1138,9 @@ pub enum ScriptStep {
         /// 将判断结果存入此变量
         #[serde(skip_serializing_if = "Option::is_none")]
         output_key: Option<String>,
+        /// 可用工具类别筛选（空 = 全部启用）
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        tool_categories: Vec<String>,
     },
 
     // ── Magic Controller 具名步骤 ─────────────────────────────────────────────

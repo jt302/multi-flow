@@ -61,6 +61,8 @@ export type ScriptStep =
 			max_steps: number;
 			output_key?: string;
 			model_override?: string;
+			/** 可用工具类别筛选（空 = 全部启用） */
+			tool_categories?: string[];
 	  }
 	| {
 			kind: 'ai_judge';
@@ -72,6 +74,8 @@ export type ScriptStep =
 			max_steps: number;
 			model_override?: string;
 			output_key?: string;
+			/** 可用工具类别筛选（空 = 全部启用） */
+			tool_categories?: string[];
 	  }
 
 	// ── CDP 具名步骤 ──────────────────────────────────────────────────────────
