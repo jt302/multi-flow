@@ -420,25 +420,37 @@ export function useCanvasState(
 
 					// 重映射边：同步更新 ref，确保 saveScript 读到正确的边
 					const deletedIds = new Set(removeChanges.map((c) => c.id));
-					const remapped = edgesRef.current
-						.filter(
-							(e) =>
-								!deletedIds.has(e.source) && !deletedIds.has(e.target),
-						)
+					const surviving = edgesRef.current.filter(
+						(e) => !deletedIds.has(e.source) && !deletedIds.has(e.target),
+					);
+					// Start 节点边单独处理（不参与 step-N 重映射）
+					const startEdges = surviving.filter((e) => e.source === START_NODE_ID || e.target === START_NODE_ID);
+					const stepSurviving = surviving.filter((e) => e.source !== START_NODE_ID && e.target !== START_NODE_ID);
+					const remappedStepEdges = stepSurviving.map((e) => {
+						const si = parseInt(e.source.replace('step-', ''), 10);
+						const ti = parseInt(e.target.replace('step-', ''), 10);
+						const sShift = sortedRemoved.filter((ri) => ri < si).length;
+						const tShift = sortedRemoved.filter((ri) => ri < ti).length;
+						const newSi = sShift > 0 ? si - sShift : si;
+						const newTi = tShift > 0 ? ti - tShift : ti;
+						return {
+							...e,
+							id: `e-${newSi}-${newTi}`,
+							source: `step-${newSi}`,
+							target: `step-${newTi}`,
+						};
+					});
+					// 重映射 Start 边的 target（可能指向被删除或被重编号的节点）
+					const remappedStartEdges = startEdges
+						.filter((e) => !deletedIds.has(e.target))
 						.map((e) => {
-							const si = parseInt(e.source.replace('step-', ''), 10);
 							const ti = parseInt(e.target.replace('step-', ''), 10);
-							const sShift = sortedRemoved.filter((ri) => ri < si).length;
+							if (isNaN(ti)) return e;
 							const tShift = sortedRemoved.filter((ri) => ri < ti).length;
-							const newSi = sShift > 0 ? si - sShift : si;
 							const newTi = tShift > 0 ? ti - tShift : ti;
-							return {
-								...e,
-								id: `e-${newSi}-${newTi}`,
-								source: `step-${newSi}`,
-								target: `step-${newTi}`,
-							};
+							return { ...e, id: `e-start-step-${newTi}`, target: `step-${newTi}` };
 						});
+					const remapped = [...remappedStartEdges, ...remappedStepEdges];
 					edgesRef.current = remapped;
 					setEdges(remapped);
 
@@ -475,7 +487,11 @@ export function useCanvasState(
 						});
 					});
 
-					void saveScript(newSteps);
+					queueMicrotask(() => {
+						saveScript(newSteps).catch((err) =>
+							console.error('[canvas] node deletion save failed:', err),
+						);
+					});
 					return;
 				}
 			}
