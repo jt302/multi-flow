@@ -92,6 +92,7 @@ function InnerCanvas({
 		onConnect,
 		onNodeClick,
 		onPaneClick,
+		saveNow,
 	} = useCanvasState(script, liveStatuses);
 
 	// ── 键盘快捷键：复制 / 粘贴 / 全选 / 复制节点 ──────────────────────────
@@ -100,6 +101,14 @@ function InnerCanvas({
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
 			const mod = e.metaKey || e.ctrlKey;
+
+			// Cmd+S 保存（不受焦点限制）
+			if (mod && e.key === 's') {
+				e.preventDefault();
+				void saveNow();
+				return;
+			}
+
 			const tag = (e.target as HTMLElement).tagName;
 			if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
@@ -129,7 +138,7 @@ function InnerCanvas({
 				return;
 			}
 		},
-		[nodes, steps, selectedIndex, pasteSteps, onNodesChange, getNodes],
+		[nodes, steps, selectedIndex, pasteSteps, onNodesChange, getNodes, saveNow],
 	);
 
 	// 挂载后执行一次 fitView
@@ -154,6 +163,7 @@ function InnerCanvas({
 				onCancel={onCancel}
 				onOpenVariables={() => setVarsDialogOpen(true)}
 				varsDefs={varsDefs}
+				onSave={() => void saveNow()}
 			/>
 
 			{/* 运行对话框 */}
@@ -206,6 +216,7 @@ function InnerCanvas({
 						panOnDrag={[1, 2]}
 						selectionMode={SelectionMode.Partial}
 						connectionLineType={'smoothstep' as never}
+						proOptions={{ hideAttribution: true }}
 					>
 						<Background variant={BackgroundVariant.Dots} gap={20} size={1} />
 						<Controls />

@@ -64,6 +64,7 @@ export type CanvasStateReturn = {
 	onNodeClick: (_: React.MouseEvent, node: Node) => void;
 	onPaneClick: () => void;
 	saveScript: (newSteps: ScriptStep[]) => Promise<void>;
+	saveNow: () => Promise<void>;
 	scheduleCanvasSave: (pos: PositionsMap, edgs: Edge[]) => void;
 };
 
@@ -363,6 +364,38 @@ export function useCanvasState(
 		pendingStepsRef.current = null;
 		return latest;
 	}, [steps]);
+
+	/** 立即保存（手动触发 / Cmd+S / 窗口关闭） */
+	const saveNow = useCallback(async () => {
+		const currentSteps = flushPendingEdits();
+		await saveScript(currentSteps);
+	}, [flushPendingEdits, saveScript]);
+
+	// 窗口关闭时自动保存未持久化的变更
+	useEffect(() => {
+		const handleBeforeUnload = () => {
+			if (pendingStepsRef.current || saveTimerRef.current) {
+				const currentSteps = pendingStepsRef.current ?? steps;
+				pendingStepsRef.current = null;
+				const cleanEdges = stripStartEdges(edgesRef.current);
+				const cleanPos = { ...positionsRef.current };
+				delete cleanPos[START_NODE_ID];
+				void saveAutomationCanvasGraph(script.id, {
+					steps: serializeControlFlowGraph(currentSteps, cleanEdges, cleanPos).nestedSteps,
+					positionsJson: JSON.stringify({
+						positions: positionsRef.current,
+						edges: cleanEdges.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle ?? null })),
+					}),
+					settings: buildNextSettings(),
+				});
+			}
+		};
+		window.addEventListener('beforeunload', handleBeforeUnload);
+		return () => {
+			window.removeEventListener('beforeunload', handleBeforeUnload);
+			handleBeforeUnload(); // React unmount 时也 flush
+		};
+	}, [script.id, steps, buildNextSettings, serializeControlFlowGraph]);
 
 	// ── 节点变化处理（含删除拦截） ─────────────────────────────────────────────
 	const onNodesChange = useCallback(
@@ -778,6 +811,7 @@ export function useCanvasState(
 		onNodeClick,
 		onPaneClick,
 		saveScript,
+		saveNow,
 		scheduleCanvasSave,
 	};
 }
