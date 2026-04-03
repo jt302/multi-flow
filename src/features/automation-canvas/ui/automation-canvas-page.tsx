@@ -58,7 +58,7 @@ function InnerCanvas({
 	onDebugRun,
 	onCancel,
 }: InnerProps) {
-	const { fitView, getNodes } = useReactFlow();
+	const { fitView, getNodes, getEdges } = useReactFlow();
 
 	// 对话框 UI 状态（非业务逻辑，不放入 hook）
 	const [runDialogOpen, setRunDialogOpen] = useState(false);
@@ -140,7 +140,7 @@ function InnerCanvas({
 
 			// Backspace/Delete: 删除选中的边
 			if (e.key === 'Backspace' || e.key === 'Delete') {
-				const selectedEdges = edges.filter((edge) => edge.selected);
+				const selectedEdges = getEdges().filter((edge) => edge.selected);
 				if (selectedEdges.length > 0) {
 					onEdgesChange(
 						selectedEdges.map((edge) => ({ id: edge.id, type: 'remove' as const })),
@@ -148,7 +148,7 @@ function InnerCanvas({
 				}
 			}
 		},
-		[nodes, edges, steps, selectedIndex, pasteSteps, onNodesChange, onEdgesChange, getNodes, saveNow],
+		[nodes, steps, selectedIndex, pasteSteps, onNodesChange, onEdgesChange, getNodes, getEdges, saveNow],
 	);
 
 	// 挂载后执行一次 fitView
