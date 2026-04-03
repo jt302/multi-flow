@@ -79,6 +79,7 @@ profiles, profile_groups, proxies, profile_proxy_bindings, engine_sessions, devi
 - Destructive operations require a confirmation dialog before execution.
 - Incremental changes on existing architecture; no unrelated refactoring.
 - If implementation conflicts with docs, follow current requirements and update `docs/ai/` accordingly.
+- When adding or modifying AI tools, update both `docs/ai/ai-tools-developer.md` and `docs/ai/ai-tools-agent.md`.
 
 ## AI Documentation Index
 
@@ -90,6 +91,8 @@ Read relevant docs before starting implementation, update them after changes:
 - `docs/ai/multi-flow-sync-manager.md` — Window sync sidecar protocol
 - `docs/ai/proxy-daemon.md` — Proxy daemon sidecar
 - `docs/ai/current-task.md` — Active development priorities
+- `docs/ai/ai-tools-developer.md` — AI tool definitions, parameters, architecture (developer reference)
+- `docs/ai/ai-tools-agent.md` — AI tool usage guide, decision tree, task scenarios (agent reference)
 
 ## Environment Variables
 

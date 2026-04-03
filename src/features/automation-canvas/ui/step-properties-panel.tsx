@@ -325,6 +325,57 @@ export function StepPropertiesPanel({
 	/** output_key 字段快捷方式 */
 	const okf = () => outputKeyField('output_key', '输出变量名');
 
+	/** AI 工具类别可选常量 */
+	const AI_TOOL_CATEGORIES = [
+		{ value: 'utility', label: '通用工具' },
+		{ value: 'cdp', label: 'CDP 浏览器操作' },
+		{ value: 'magic', label: 'Magic 窗口控制' },
+		{ value: 'app', label: '应用数据' },
+		{ value: 'file', label: '文件操作' },
+		{ value: 'dialog', label: '对话框交互' },
+	] as const;
+
+	/** AI 步骤工具类别筛选字段 */
+	const toolCategoriesField = () => {
+		const current: string[] =
+			((s as Record<string, unknown>)['tool_categories'] as string[]) ?? [];
+		return (
+			<div key="tool_categories" className="space-y-1.5">
+				<Label className="text-xs">可用工具类别</Label>
+				<p className="text-[10px] text-muted-foreground">
+					不选 = 启用全部工具（默认）
+				</p>
+				<div className="grid grid-cols-2 gap-1.5">
+					{AI_TOOL_CATEGORIES.map(({ value, label }) => {
+						const checked = current.includes(value);
+						return (
+							<label
+								key={value}
+								className="flex items-center gap-1.5 text-xs cursor-pointer"
+							>
+								<input
+									type="checkbox"
+									checked={checked}
+									onChange={() => {
+										const next = checked
+											? current.filter((c) => c !== value)
+											: [...current, value];
+										onUpdate({
+											...step,
+											tool_categories: next,
+										} as ScriptStep);
+									}}
+									className="cursor-pointer"
+								/>
+								{label}
+							</label>
+						);
+					})}
+				</div>
+			</div>
+		);
+	};
+
 	// ── 根据 kind 构建字段列表 ─────────────────────────────────────────────────
 	const fields: React.ReactNode[] = [];
 
@@ -773,6 +824,7 @@ export function StepPropertiesPanel({
 		);
 		fields.push(nf('max_steps', '最大循环轮次'));
 		fields.push(okf());
+		fields.push(toolCategoriesField());
 	} else if (kind === 'ai_judge') {
 		fields.push(tf('prompt', '判断提示词（描述需要AI判断的场景）', true));
 		const outputMode = String(s['output_mode'] ?? 'boolean');
@@ -806,6 +858,7 @@ export function StepPropertiesPanel({
 		);
 		fields.push(nf('max_steps', '最大循环轮次'));
 		fields.push(okf());
+		fields.push(toolCategoriesField());
 	} else if (kind === 'magic_open_new_tab') {
 		fields.push(tf('url', 'URL'));
 		fields.push(okf());

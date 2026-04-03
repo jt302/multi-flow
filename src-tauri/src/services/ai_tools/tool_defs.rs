@@ -7,13 +7,18 @@
 use serde_json::{json, Value};
 
 /// 构建单个工具的 OpenAI function schema
+/// 自动注入 `additionalProperties: false`（OpenAI strict mode 推荐）
 fn tool(name: &str, description: &str, parameters: Value) -> Value {
+    let mut params = parameters;
+    if params.is_object() {
+        params["additionalProperties"] = json!(false);
+    }
     json!({
         "type": "function",
         "function": {
             "name": name,
             "description": description,
-            "parameters": parameters
+            "parameters": params
         }
     })
 }
@@ -57,6 +62,17 @@ fn utility_tools() -> Vec<Value> {
                     "level": { "type": "string", "enum": ["info", "warn", "error", "debug"], "description": "日志级别，默认 info" }
                 },
                 "required": ["text"]
+            }),
+        ),
+        tool(
+            "submit_result",
+            "提交最终结果并结束执行。必须通过此工具提交结果，result 参数应只包含纯净的结果数据，不要包含解释、前缀或标记。",
+            json!({
+                "type": "object",
+                "properties": {
+                    "result": { "type": "string", "description": "纯净的最终结果文本，不要包含任何多余说明" }
+                },
+                "required": ["result"]
             }),
         ),
     ]

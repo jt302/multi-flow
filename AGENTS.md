@@ -24,6 +24,7 @@
   - 后端：`cargo check --manifest-path src-tauri/Cargo.toml`
   - 有测试时：`cargo test --manifest-path src-tauri/Cargo.toml`
 - 不使用破坏性 git 命令（如 `reset --hard`）处理问题。
+- 新增或修改 AI 可用工具时，必须同步更新 `docs/ai/ai-tools-developer.md`（开发者文档）和 `docs/ai/ai-tools-agent.md`（Agent 使用文档）。
 
 ## 4. 目录与职责（高频）
 
@@ -62,6 +63,8 @@
 - [sync-manger 项目位置](/Users/tt/Developer/Personal/Rust/multi-flow-sync-manager)
 - [tauri 日志文件位置](/Users/tt/Library/Application Support/com.tt.multi-flow/logs/backend.log)
 - [sync manager 文档](docs/ai/multi-flow-sync-manager.md)
+- [AI 工具开发者文档](docs/ai/ai-tools-developer.md)
+- [AI 工具 Agent 使用文档](docs/ai/ai-tools-agent.md)
 
 ## 7. 开发执行建议（简版）
 

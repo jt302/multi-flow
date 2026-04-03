@@ -106,7 +106,10 @@ pub enum AiChatResult {
     /// 模型返回文本（无 tool_calls）
     Text(String),
     /// 模型请求调用工具（text 为伴随工具调用的回复文本，部分模型会返回思考/解释内容）
-    ToolCalls { text: String, calls: Vec<AiToolCall> },
+    ToolCalls {
+        text: String,
+        calls: Vec<AiToolCall>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -303,7 +306,10 @@ impl AiService {
                 })
                 .collect::<Vec<_>>();
 
-            Ok(AiChatResult::ToolCalls { text: assistant_text, calls })
+            Ok(AiChatResult::ToolCalls {
+                text: assistant_text,
+                calls,
+            })
         } else {
             let content = message
                 .get("content")
@@ -412,7 +418,7 @@ impl AiService {
             .post(format!("{base_url}/v1/messages"))
             .header("Content-Type", "application/json")
             .header("x-api-key", api_key)
-            .header("anthropic-version", "2023-06-01")
+            .header("anthropic-version", "2023-10-01")
             .json(&body)
             .send()
             .await
@@ -509,7 +515,7 @@ impl AiService {
             .post(format!("{base_url}/v1/messages"))
             .header("Content-Type", "application/json")
             .header("x-api-key", api_key)
-            .header("anthropic-version", "2023-06-01")
+            .header("anthropic-version", "2023-10-01")
             .json(&body)
             .send()
             .await
@@ -572,7 +578,10 @@ impl AiService {
                     })
                 })
                 .collect();
-            Ok(AiChatResult::ToolCalls { text: assistant_text, calls })
+            Ok(AiChatResult::ToolCalls {
+                text: assistant_text,
+                calls,
+            })
         } else {
             let text_out = parsed
                 .get("content")
