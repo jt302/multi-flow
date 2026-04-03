@@ -218,7 +218,7 @@ function InnerCanvas({
 						connectionLineType={'smoothstep' as never}
 						proOptions={{ hideAttribution: true }}
 					>
-						<Background variant={BackgroundVariant.Dots} gap={20} size={1} />
+						<Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--muted-foreground)" style={{ opacity: 0.3 }} />
 						<Controls />
 					</ReactFlow>
 				</div>

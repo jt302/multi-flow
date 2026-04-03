@@ -90,7 +90,7 @@ export function StepNodeComponent({
 
 	return (
 		<div
-			className={`relative min-w-[160px] max-w-[220px] rounded-lg border bg-background shadow-sm px-3 py-2 cursor-pointer ${selectedClass} ${ringClass} ${isEnd ? 'border-red-400/60 bg-red-500/5' : ''}`}
+			className={`relative min-w-[180px] max-w-[260px] rounded-lg border bg-background shadow-sm px-3 py-2.5 cursor-pointer ${selectedClass} ${ringClass} ${isEnd ? 'border-red-400/60 bg-red-500/5' : ''}`}
 		>
 			<Handle type="target" position={Position.Top} className={HANDLE_CLS} />
 			<div className="flex items-center gap-1.5 mb-1">
