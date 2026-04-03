@@ -11,6 +11,7 @@ import { ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Search } from '
 
 import {
 	GROUP_COLORS,
+	KIND_DESCRIPTIONS,
 	KIND_LABELS,
 	PALETTE_DOT_COLORS,
 	PALETTE_GROUPS,
@@ -161,6 +162,7 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 											type="button"
 											className="w-full text-left text-xs px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer flex items-center gap-2 mb-0.5 group/item"
 											onClick={() => onAddStep(kind)}
+											title={KIND_DESCRIPTIONS[kind] ?? kind}
 										>
 											<span
 												className={`w-1 h-3.5 rounded-full flex-shrink-0 opacity-30 group-hover/item:opacity-60 transition-opacity ${PALETTE_DOT_COLORS[group.label] ?? 'bg-muted-foreground/50'}`}

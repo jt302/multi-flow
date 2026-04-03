@@ -239,6 +239,83 @@ export const KIND_LABELS: Record<string, string> = {
 	captcha_get_balance: '查询余额',
 };
 
+// ─── 步骤功能说明（tooltip 显示） ─────────────────────────────────────────────
+
+export const KIND_DESCRIPTIONS: Record<string, string> = {
+	// 常用
+	cdp_navigate: '跳转到指定 URL，支持变量插值',
+	cdp_click: '点击页面元素，支持 CSS/XPath/Text 选择器',
+	cdp_type: '在输入框中键入文本，模拟键盘输入',
+	cdp_screenshot: '截取页面截图，保存为文件或 base64',
+	cdp_get_text: '获取页面元素的文本内容',
+	wait: '暂停执行指定毫秒数',
+	cdp_wait_for_page_load: '等待页面完全加载（readyState=complete）',
+	ai_agent: 'AI 智能体自主调用工具完成复杂任务',
+	// CDP
+	cdp_reload: '刷新当前页面，可选忽略缓存',
+	cdp_go_back: '浏览器后退',
+	cdp_go_forward: '浏览器前进',
+	cdp_set_input_value: '通过 JS 设置输入框值并触发 change 事件',
+	cdp_input_text: '多来源文本输入（直接/文件/变量）',
+	cdp_press_key: '模拟按键（Enter、Tab、Escape 等）',
+	cdp_shortcut: '模拟快捷键组合（如 Ctrl+S）',
+	cdp_scroll_to: '滚动到指定元素或坐标位置',
+	cdp_clipboard: '剪贴板操作（复制/粘贴/全选）',
+	cdp_upload_file: '向文件输入元素上传文件',
+	cdp_download_file: '配置浏览器下载目录',
+	cdp_wait_for_selector: '等待页面元素出现（可配超时）',
+	cdp_execute_js: '执行任意 JavaScript 代码并返回结果',
+	cdp_get_attribute: '获取元素的 HTML 属性值',
+	cdp_get_document: '获取 DOM 树结构',
+	cdp_get_full_ax_tree: '获取页面无障碍树（语义结构）',
+	cdp_open_new_tab: '在新标签页打开 URL',
+	cdp_get_all_tabs: '列出所有标签页',
+	cdp_switch_tab: '切换到指定标签页',
+	cdp_close_tab_by_target: '关闭指定标签页',
+	cdp: '直接调用 CDP 协议方法（高级）',
+	// 控制流
+	condition: '条件分支（if/else），根据变量或表达式判断',
+	loop: '循环执行子步骤（计数/条件/列表模式）',
+	break: '跳出当前循环',
+	continue: '跳过当前循环迭代',
+	end: '结束脚本执行',
+	// 人工介入
+	wait_for_user: '暂停执行，等待用户确认后继续',
+	confirm_dialog: '弹出确认对话框，用户选择分支',
+	select_dialog: '弹出选择对话框，用户从选项中选择',
+	notification: '发送桌面通知提醒',
+	// AI
+	ai_judge: 'AI 判断器：评估条件并返回 true/false 或 0-100 分',
+	// 调试
+	print: '输出日志信息到执行记录',
+	// Magic
+	magic_set_bounds: '设置浏览器窗口位置和大小',
+	magic_get_bounds: '获取浏览器窗口当前位置和大小',
+	magic_open_new_tab: '通过 Magic Controller 打开新标签',
+	magic_close_tab: '关闭指定标签页',
+	magic_activate_tab: '激活指定标签页',
+	magic_get_browsers: '获取所有浏览器实例列表',
+	magic_get_tabs: '获取指定浏览器的标签页列表',
+	magic_capture_app_shell: '截取完整浏览器窗口（含工具栏）',
+	magic_type_string: '通过 Magic Controller 输入文本',
+	magic_toggle_sync_mode: '切换窗口同步模式（主控/从控/关闭）',
+	magic_get_sync_status: '获取同步状态详情',
+	magic_get_managed_extensions: '列出已安装的浏览器扩展',
+	magic_trigger_extension_action: '触发扩展图标点击',
+	magic_get_bookmarks: '获取书签树',
+	magic_get_managed_cookies: '获取 Cookie 列表',
+	magic_export_cookie_state: '导出 Cookie 数据',
+	magic_safe_quit: '安全退出浏览器',
+	// CAPTCHA
+	captcha_detect: '自动检测页面上的验证码类型和参数',
+	captcha_solve: '调用求解服务破解指定类型验证码',
+	captcha_inject_token: '将验证码 token 注入页面表单字段',
+	captcha_solve_and_inject: '一键检测→求解→注入验证码',
+	captcha_get_balance: '查询验证码求解服务账户余额',
+	// App
+	app_run_script: '在指定环境中运行另一个自动化脚本',
+};
+
 // ─── Canvas 使用的分组（与原 automation-canvas-page.tsx 完全一致）──────────────
 
 export const KIND_GROUPS: Record<string, string> = {
