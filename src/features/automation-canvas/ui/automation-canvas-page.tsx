@@ -30,6 +30,7 @@ import { RunDialog } from '@/features/automation/ui/run-dialog';
 
 import { resolveCanvasDeleteTargets } from '../model/canvas-delete-shortcut';
 import { useCanvasState } from '../model/use-canvas-state';
+import { CanvasHelpDialog } from './canvas-help-dialog';
 import { CanvasToolbar } from './canvas-toolbar';
 import { StepPalette } from './step-palette';
 import { StepPropertiesPanel } from './step-properties-panel';
@@ -69,6 +70,7 @@ function InnerCanvas({
 	const [varsDialogOpen, setVarsDialogOpen] = useState(false);
 	const [panelWidth, setPanelWidth] = useState(320);
 	const [paletteCollapsed, setPaletteCollapsed] = useState(false);
+	const [helpDialogOpen, setHelpDialogOpen] = useState(false);
 
 	// 边默认选项：增大交互宽度，使连接线更容易选中
 	const defaultEdgeOptions = useMemo(
@@ -260,6 +262,7 @@ function InnerCanvas({
 				onOpenVariables={() => setVarsDialogOpen(true)}
 				varsDefs={varsDefs}
 				onSave={() => void saveNow()}
+				onOpenHelp={() => setHelpDialogOpen(true)}
 			/>
 
 			{/* 运行对话框 */}
@@ -287,6 +290,9 @@ function InnerCanvas({
 				initialVars={varsDefs}
 				onSaved={setVarsDefs}
 			/>
+
+			{/* 操作指南 */}
+			<CanvasHelpDialog open={helpDialogOpen} onOpenChange={setHelpDialogOpen} />
 
 			{/* 主体：步骤面板 + 画布 + 属性面板 */}
 			<div className="flex flex-1 overflow-hidden">
