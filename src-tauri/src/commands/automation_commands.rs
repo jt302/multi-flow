@@ -1886,7 +1886,21 @@ pub async fn execute_step(
                 output_key_map,
             );
             messages.push(ChatMessage::system(&effective_system_prompt));
-            messages.push(ChatMessage::user(&user_prompt));
+
+            // 自动注入当前页面截图，让 AI 了解页面状态
+            let initial_screenshot = if let Some(cdp_client) = cdp {
+                match cdp_client.call("Page.captureScreenshot", json!({ "format": "png" })).await {
+                    Ok(resp) => resp.get("data").and_then(|d| d.as_str()).map(String::from),
+                    Err(_) => None,
+                }
+            } else {
+                None
+            };
+            let user_content = crate::services::ai_service::build_vision_content(
+                &format!("当前页面截图如下。\n\n任务：{}", &user_prompt),
+                initial_screenshot.as_deref(),
+            );
+            messages.push(ChatMessage::with_content("user", user_content));
 
             // 开始日志
             logs.push(log_entry(
@@ -2158,9 +2172,22 @@ pub async fn execute_step(
                 crate::services::ai_prompts::judge_percentage_prompt()
             };
 
+            // 自动注入当前页面截图
+            let initial_screenshot = if let Some(cdp_client) = cdp {
+                match cdp_client.call("Page.captureScreenshot", json!({ "format": "png" })).await {
+                    Ok(resp) => resp.get("data").and_then(|d| d.as_str()).map(String::from),
+                    Err(_) => None,
+                }
+            } else {
+                None
+            };
+            let user_content = crate::services::ai_service::build_vision_content(
+                &format!("当前页面截图如下。\n\n判断任务：{}", &user_prompt),
+                initial_screenshot.as_deref(),
+            );
             let mut messages: Vec<ChatMessage> = vec![
                 ChatMessage::system(&system_prompt),
-                ChatMessage::user(&user_prompt),
+                ChatMessage::with_content("user", user_content),
             ];
 
             // 开始日志
