@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -43,17 +43,107 @@ import type {
 } from '@/entities/automation/model/types';
 import { queryKeys } from '@/shared/config/query-keys';
 
-const AI_PROVIDERS: { value: AiProviderType; label: string }[] = [
-	{ value: 'openai', label: 'OpenAI' },
-	{ value: 'anthropic', label: 'Anthropic' },
-	{ value: 'gemini', label: 'Gemini' },
-	{ value: 'deepseek', label: 'DeepSeek' },
-	{ value: 'openrouter', label: 'OpenRouter' },
-	{ value: 'groq', label: 'Groq' },
-	{ value: 'together', label: 'Together' },
-	{ value: 'ollama', label: 'Ollama' },
-	{ value: 'custom', label: '自定义' },
-];
+type ProviderMeta = {
+	label: string;
+	defaultBaseUrl: string;
+	models: string[];
+	requiresApiKey: boolean;
+};
+
+const PROVIDER_CONFIG: Record<AiProviderType, ProviderMeta> = {
+	openai: {
+		label: 'OpenAI',
+		defaultBaseUrl: 'https://api.openai.com/v1',
+		models: [
+			'gpt-4o',
+			'gpt-4o-mini',
+			'gpt-4.1',
+			'gpt-4.1-mini',
+			'gpt-4.1-nano',
+			'o3',
+			'o3-mini',
+			'o4-mini',
+		],
+		requiresApiKey: true,
+	},
+	anthropic: {
+		label: 'Anthropic',
+		defaultBaseUrl: 'https://api.anthropic.com',
+		models: [
+			'claude-sonnet-4-20250514',
+			'claude-opus-4-20250514',
+			'claude-3-7-sonnet-20250219',
+			'claude-3-5-haiku-20241022',
+		],
+		requiresApiKey: true,
+	},
+	gemini: {
+		label: 'Gemini',
+		defaultBaseUrl: 'https://generativelanguage.googleapis.com',
+		models: [
+			'gemini-2.5-flash',
+			'gemini-2.5-pro',
+			'gemini-2.0-flash',
+			'gemini-2.0-flash-lite',
+		],
+		requiresApiKey: true,
+	},
+	deepseek: {
+		label: 'DeepSeek',
+		defaultBaseUrl: 'https://api.deepseek.com/v1',
+		models: ['deepseek-chat', 'deepseek-reasoner'],
+		requiresApiKey: true,
+	},
+	openrouter: {
+		label: 'OpenRouter',
+		defaultBaseUrl: 'https://openrouter.ai/api/v1',
+		models: [
+			'openai/gpt-4o',
+			'anthropic/claude-sonnet-4',
+			'google/gemini-2.5-flash',
+			'deepseek/deepseek-chat-v3',
+		],
+		requiresApiKey: true,
+	},
+	groq: {
+		label: 'Groq',
+		defaultBaseUrl: 'https://api.groq.com/openai/v1',
+		models: [
+			'llama-3.3-70b-versatile',
+			'llama-3.1-8b-instant',
+			'mixtral-8x7b-32768',
+			'gemma2-9b-it',
+		],
+		requiresApiKey: true,
+	},
+	together: {
+		label: 'Together',
+		defaultBaseUrl: 'https://api.together.xyz/v1',
+		models: [
+			'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+			'mistralai/Mixtral-8x7B-Instruct-v0.1',
+			'Qwen/Qwen2.5-72B-Instruct-Turbo',
+		],
+		requiresApiKey: true,
+	},
+	ollama: {
+		label: 'Ollama',
+		defaultBaseUrl: 'http://localhost:11434/v1',
+		models: ['llama3.1', 'qwen2.5', 'mistral', 'deepseek-r1'],
+		requiresApiKey: false,
+	},
+	custom: {
+		label: '自定义',
+		defaultBaseUrl: '',
+		models: [],
+		requiresApiKey: true,
+	},
+};
+
+const AI_PROVIDERS = Object.entries(PROVIDER_CONFIG).map(([value, meta]) => ({
+	value: value as AiProviderType,
+	label: meta.label,
+}));
 
 type FormValues = {
 	name: string;
@@ -61,6 +151,7 @@ type FormValues = {
 	baseUrl: string;
 	apiKey: string;
 	model: string;
+	locale: string;
 };
 
 export function AiProviderConfigCard() {
@@ -68,6 +159,7 @@ export function AiProviderConfigCard() {
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editingEntry, setEditingEntry] = useState<AiConfigEntry | null>(null);
 	const [deleteTarget, setDeleteTarget] = useState<AiConfigEntry | null>(null);
+	const [showAdvanced, setShowAdvanced] = useState(false);
 
 	const { data: configs = [] } = useQuery({
 		queryKey: queryKeys.aiConfigs,
@@ -82,9 +174,11 @@ export function AiProviderConfigCard() {
 				baseUrl: '',
 				apiKey: '',
 				model: '',
+				locale: 'zh',
 			},
 		});
 	const selectedProvider = watch('provider');
+	const providerMeta = PROVIDER_CONFIG[selectedProvider];
 
 	const createMutation = useMutation({
 		mutationFn: createAiConfig,
@@ -117,7 +211,15 @@ export function AiProviderConfigCard() {
 
 	function openAdd() {
 		setEditingEntry(null);
-		reset({ name: '', provider: 'openai', baseUrl: '', apiKey: '', model: '' });
+		reset({
+			name: '',
+			provider: 'openai',
+			baseUrl: '',
+			apiKey: '',
+			model: '',
+			locale: 'zh',
+		});
+		setShowAdvanced(false);
 		setDialogOpen(true);
 	}
 
@@ -129,7 +231,9 @@ export function AiProviderConfigCard() {
 			baseUrl: entry.baseUrl ?? '',
 			apiKey: entry.apiKey ?? '',
 			model: entry.model ?? '',
+			locale: entry.locale ?? 'zh',
 		});
+		setShowAdvanced(!!entry.baseUrl);
 		setDialogOpen(true);
 	}
 
@@ -145,6 +249,7 @@ export function AiProviderConfigCard() {
 			baseUrl: values.baseUrl || undefined,
 			apiKey: values.apiKey || undefined,
 			model: values.model || undefined,
+			locale: values.locale || 'zh',
 		};
 		if (editingEntry) {
 			updateMutation.mutate({ id: editingEntry.id, ...payload });
@@ -263,31 +368,98 @@ export function AiProviderConfigCard() {
 								</SelectContent>
 							</Select>
 						</div>
-						<div className="space-y-1.5">
-							<Label className="text-xs">Base URL</Label>
-							<Input
-								{...register('baseUrl')}
-								placeholder="https://api.openai.com/v1"
-								className="h-8 text-xs"
-							/>
-						</div>
-						<div className="space-y-1.5">
-							<Label className="text-xs">API Key</Label>
-							<Input
-								{...register('apiKey')}
-								type="password"
-								placeholder="sk-..."
-								className="h-8 text-xs"
-							/>
-						</div>
+						{providerMeta.requiresApiKey && (
+							<div className="space-y-1.5">
+								<Label className="text-xs">API Key</Label>
+								<Input
+									{...register('apiKey')}
+									type="password"
+									placeholder={
+										selectedProvider === 'openai' ? 'sk-...' : 'API Key'
+									}
+									className="h-8 text-xs"
+								/>
+							</div>
+						)}
 						<div className="space-y-1.5">
 							<Label className="text-xs">模型</Label>
 							<Input
 								{...register('model')}
-								placeholder="gpt-4o"
+								placeholder={providerMeta.models.length > 0 ? '选择或输入模型名称' : '输入模型名称'}
 								className="h-8 text-xs"
+								list={providerMeta.models.length > 0 ? `model-suggestions-${watch('provider')}` : undefined}
 							/>
+							{providerMeta.models.length > 0 && (
+								<datalist id={`model-suggestions-${watch('provider')}`}>
+									{providerMeta.models.map((m) => (
+										<option key={m} value={m} />
+									))}
+								</datalist>
+							)}
 						</div>
+						<div className="space-y-1.5">
+							<Label className="text-xs">Agent 语言</Label>
+							<Select
+								value={watch('locale') || 'zh'}
+								onValueChange={(v) => setValue('locale', v)}
+							>
+								<SelectTrigger className="h-8 text-xs cursor-pointer">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="zh" className="text-xs cursor-pointer">
+										中文
+									</SelectItem>
+									<SelectItem value="en" className="text-xs cursor-pointer">
+										English
+									</SelectItem>
+								</SelectContent>
+							</Select>
+							<p className="text-[10px] text-muted-foreground">
+								AI Agent 系统提示词的语言
+							</p>
+						</div>
+						{/* Base URL: 自定义提供商始终显示，其他提供商折叠在高级选项中 */}
+						{selectedProvider === 'custom' ? (
+							<div className="space-y-1.5">
+								<Label className="text-xs">Base URL</Label>
+								<Input
+									{...register('baseUrl')}
+									placeholder="https://your-api-endpoint.com/v1"
+									className="h-8 text-xs"
+								/>
+							</div>
+						) : (
+							<div className="space-y-1.5">
+								<button
+									type="button"
+									className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+									onClick={() => setShowAdvanced(!showAdvanced)}
+								>
+									{showAdvanced ? (
+										<ChevronUp className="h-3 w-3" />
+									) : (
+										<ChevronDown className="h-3 w-3" />
+									)}
+									高级选项
+								</button>
+								{showAdvanced && (
+									<div className="space-y-1.5 pl-1">
+										<Label className="text-xs">
+											Base URL
+											<span className="text-muted-foreground ml-1">
+												（留空使用默认值）
+											</span>
+										</Label>
+										<Input
+											{...register('baseUrl')}
+											placeholder={providerMeta.defaultBaseUrl}
+											className="h-8 text-xs"
+										/>
+									</div>
+								)}
+							</div>
+						)}
 						<DialogFooter>
 							<Button
 								type="submit"
