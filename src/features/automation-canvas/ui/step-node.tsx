@@ -46,7 +46,24 @@ export type StepNodeData = {
 	stepStatus?: string;
 };
 
-// ─── 节点组件 ──────────────────────────────────────────────────────────────────
+// ─── 起点节点 ─────────────────────────────────────────────────────────────────
+
+/** 虚拟起点节点 — 标识流程入口，不参与步骤数组 */
+function StartNodeComponent() {
+	return (
+		<div className="flex items-center gap-1.5 rounded-full border-2 border-primary bg-primary/10 px-3 py-1.5 shadow-sm">
+			<div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+			<span className="text-xs font-semibold text-primary">Start</span>
+			<Handle
+				type="source"
+				position={Position.Bottom}
+				className={HANDLE_CLS}
+			/>
+		</div>
+	);
+}
+
+// ─── 步骤节点 ──────────────────────────────────────────────────────────────────
 /**
  * 自定义 ReactFlow 节点，渲染一个步骤卡片。
  * - condition 步骤会渲染两个底部 Handle（then / else）
@@ -59,7 +76,7 @@ export function StepNodeComponent({
 	data: StepNodeData;
 	selected?: boolean;
 }) {
-	const { step, index, stepStatus } = data;
+	const { step, stepStatus } = data;
 	const kind = step.kind;
 	const label = KIND_LABELS[kind] ?? kind;
 	const group = KIND_GROUPS[kind] ?? '通用';
@@ -77,9 +94,6 @@ export function StepNodeComponent({
 		>
 			<Handle type="target" position={Position.Top} className={HANDLE_CLS} />
 			<div className="flex items-center gap-1.5 mb-1">
-				<span className="text-[10px] text-muted-foreground font-mono">
-					#{index + 1}
-				</span>
 				<span
 					className={`text-[10px] font-medium px-1 rounded border ${colorClass}`}
 				>
@@ -190,4 +204,4 @@ export function StepNodeComponent({
  * ReactFlow nodeTypes 映射，传给 <ReactFlow nodeTypes={NODE_TYPES} />
  * 将 "step" 类型节点映射到 StepNodeComponent。
  */
-export const NODE_TYPES = { step: StepNodeComponent };
+export const NODE_TYPES = { step: StepNodeComponent, start: StartNodeComponent };
