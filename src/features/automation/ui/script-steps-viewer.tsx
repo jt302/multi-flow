@@ -16,6 +16,7 @@ type Props = {
   liveVariables: Record<string, string>;
   scriptId: string;
   scriptName: string;
+  entryConnected?: boolean;
 };
 
 /** 脚本步骤列表视图，支持实时运行状态和变量展示（递归树形分支结构） */
@@ -25,6 +26,7 @@ export function ScriptStepsViewer({
   liveVariables,
   scriptId,
   scriptName,
+  entryConnected = true,
 }: Props) {
   const resultMap = buildResultMap(liveStepResults);
   const varEntries = Object.entries(liveVariables);
@@ -32,6 +34,11 @@ export function ScriptStepsViewer({
   return (
     <ScrollArea className="h-full">
       <div className="px-5 py-4">
+        {!entryConnected && steps.length > 0 && (
+          <div className="mb-3 rounded-md border border-amber-300/80 bg-amber-50/90 px-3 py-2 text-xs text-amber-800">
+            Start 未连接任何步骤，当前列表里的步骤仍保留在脚本草稿中。请在流程编辑器里重新把入口连回目标步骤。
+          </div>
+        )}
         {steps.length === 0 ? (
           <div className="text-center py-8 space-y-2">
             <p className="text-sm text-muted-foreground">暂无步骤</p>

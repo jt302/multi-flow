@@ -154,6 +154,10 @@ export function AutomationPage() {
 		delayConfig?: RunDelayConfig | null,
 	) {
 		if (!selectedScript) return;
+		if (selectedScript.steps.length === 0) {
+			toast.error('脚本无有效步骤，请在流程编辑器中将步骤连接到 Start 节点');
+			return;
+		}
 		const normalizedDelay =
 			delayConfig && delayConfig.enabled
 				? {
@@ -308,8 +312,12 @@ export function AutomationPage() {
 				) : (
 					<div className="flex-1 flex items-center justify-center h-full">
 						<div className="text-center space-y-2">
-							<p className="text-sm text-muted-foreground">从左侧列表选择一个脚本查看详情</p>
-							<p className="text-xs text-muted-foreground/60">或点击「新建脚本」创建自动化流程</p>
+							<p className="text-sm text-muted-foreground">
+								从左侧列表选择一个脚本查看详情
+							</p>
+							<p className="text-xs text-muted-foreground/60">
+								或点击「新建脚本」创建自动化流程
+							</p>
 						</div>
 					</div>
 				)}
