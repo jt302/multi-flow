@@ -8,7 +8,8 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::commands::profile_commands::do_open_profile;
 use crate::logger;
 use crate::models::{
-    AiOutputKeyMapping, AutomationHumanDismissedEvent, AutomationHumanRequiredEvent,
+    AiExecutionDetail, AiOutputKeyMapping, AiToolCallDetail,
+    AutomationHumanDismissedEvent, AutomationHumanRequiredEvent,
     AutomationNotificationEvent, AutomationProgressEvent, AutomationRun,
     AutomationRunCancelledEvent, AutomationScript, AutomationStepErrorPauseEvent,
     AutomationVariablesUpdatedEvent, ConfirmDialogTimeout, CreateAutomationScriptRequest, LoopMode,
@@ -1925,6 +1926,14 @@ pub async fn execute_step(
                     })),
                 ));
 
+                // 实时进度：AI 思考中
+                emit_progress_with_ai(app, run_id, step_index, 0, "running", None,
+                    start_time.elapsed().as_millis() as u64, "running", HashMap::new(), vec![step_index],
+                    Some(AiExecutionDetail {
+                        round: round as usize + 1, max_rounds: *max_steps as usize,
+                        phase: "thinking".into(), thinking: None, tool_calls: None,
+                    }));
+
                 match ai.chat_with_tools(&config, &messages, &tools).await? {
                     AiChatResult::Text(text) => {
                         logs.push(log_entry(
@@ -1957,6 +1966,22 @@ pub async fn execute_step(
                                 })).collect::<Vec<_>>(),
                             })),
                         ));
+
+                        // 实时进度：收到工具调用
+                        let pending_tool_details: Vec<AiToolCallDetail> = calls.iter().map(|c| AiToolCallDetail {
+                            name: c.name.clone(),
+                            arguments: c.arguments.clone(),
+                            status: "executing".into(),
+                            result: None, duration_ms: None,
+                        }).collect();
+                        emit_progress_with_ai(app, run_id, step_index, 0, "running", None,
+                            start_time.elapsed().as_millis() as u64, "running", HashMap::new(), vec![step_index],
+                            Some(AiExecutionDetail {
+                                round: round as usize + 1, max_rounds: *max_steps as usize,
+                                phase: "tool_calling".into(),
+                                thinking: Some(format!("{}", &assistant_text)),
+                                tool_calls: Some(pending_tool_details),
+                            }));
 
                         // 追加 assistant 消息（含 tool_calls + 伴随文本）
                         let raw_tool_calls: Vec<serde_json::Value> =
@@ -2039,6 +2064,21 @@ pub async fn execute_step(
                                     "durationMs": tool_duration,
                                 })),
                             ));
+
+                            // 实时进度：工具执行完成
+                            emit_progress_with_ai(app, run_id, step_index, 0, "running", None,
+                                start_time.elapsed().as_millis() as u64, "running", HashMap::new(), vec![step_index],
+                                Some(AiExecutionDetail {
+                                    round: round as usize + 1, max_rounds: *max_steps as usize,
+                                    phase: "tool_result".into(), thinking: None,
+                                    tool_calls: Some(vec![AiToolCallDetail {
+                                        name: tool_call.name.clone(),
+                                        arguments: tool_call.arguments.clone(),
+                                        status: if tool_result_str.starts_with("tool error:") { "failed".into() } else { "completed".into() },
+                                        result: Some(tool_result_str.chars().take(500).collect()),
+                                        duration_ms: Some(tool_duration),
+                                    }]),
+                                }));
                         }
                     }
                 }
@@ -2157,6 +2197,14 @@ pub async fn execute_step(
                         })).collect::<Vec<_>>(),
                     })),
                 ));
+
+                // 实时进度：AI Judge 思考中
+                emit_progress_with_ai(app, run_id, step_index, 0, "running", None,
+                    start_time.elapsed().as_millis() as u64, "running", HashMap::new(), vec![step_index],
+                    Some(AiExecutionDetail {
+                        round: round as usize + 1, max_rounds: *max_steps as usize,
+                        phase: "thinking".into(), thinking: None, tool_calls: None,
+                    }));
 
                 match ai.chat_with_tools(&config, &messages, &tools).await? {
                     AiChatResult::Text(text) => {
@@ -3949,6 +3997,22 @@ fn emit_progress(
     vars_set: HashMap<String, String>,
     step_path: Vec<usize>,
 ) {
+    emit_progress_with_ai(app, run_id, step_index, step_total, step_status, output, duration_ms, run_status, vars_set, step_path, None);
+}
+
+fn emit_progress_with_ai(
+    app: &AppHandle,
+    run_id: &str,
+    step_index: usize,
+    step_total: usize,
+    step_status: &str,
+    output: Option<String>,
+    duration_ms: u64,
+    run_status: &str,
+    vars_set: HashMap<String, String>,
+    step_path: Vec<usize>,
+    ai_detail: Option<AiExecutionDetail>,
+) {
     let event = AutomationProgressEvent {
         run_id: run_id.to_string(),
         step_index,
@@ -3959,6 +4023,7 @@ fn emit_progress(
         run_status: run_status.to_string(),
         vars_set,
         step_path,
+        ai_detail,
     };
     if let Err(e) = app.emit("automation_progress", &event) {
         logger::warn("automation", format!("emit progress failed: {e}"));

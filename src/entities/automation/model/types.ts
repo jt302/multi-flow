@@ -296,6 +296,22 @@ export type AutomationRun = {
 	logs?: RunLogEntry[];
 };
 
+export type AiToolCallDetail = {
+	name: string;
+	arguments: Record<string, unknown>;
+	status: 'executing' | 'completed' | 'failed';
+	result?: string;
+	durationMs?: number;
+};
+
+export type AiExecutionDetail = {
+	round: number;
+	maxRounds: number;
+	phase: 'thinking' | 'tool_calling' | 'tool_result' | 'complete';
+	thinking?: string;
+	toolCalls?: AiToolCallDetail[];
+};
+
 export type AutomationProgressEvent = {
 	runId: string;
 	stepIndex: number;
@@ -306,6 +322,7 @@ export type AutomationProgressEvent = {
 	runStatus: RunStatus;
 	varsSet?: Record<string, string>;
 	stepPath?: number[];
+	aiDetail?: AiExecutionDetail;
 };
 
 export type AutomationVariablesUpdatedEvent = {

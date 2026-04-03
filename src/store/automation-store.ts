@@ -2,6 +2,7 @@ import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 
 import type {
+	AiExecutionDetail,
 	AutomationHumanRequiredEvent,
 	AutomationProgressEvent,
 	AutomationVariablesUpdatedEvent,
@@ -32,6 +33,7 @@ type AutomationStoreState = {
 	liveStepResults: StepResult[];
 	liveRunStatus: RunStatus;
 	liveVariables: Record<string, string>;
+	liveAiDetail: { stepIndex: number; detail: AiExecutionDetail } | null;
 	humanIntervention: HumanInterventionState;
 };
 
@@ -53,6 +55,7 @@ const INITIAL_STATE: AutomationStoreState = {
 	liveStepResults: [],
 	liveRunStatus: 'pending',
 	liveVariables: {},
+	liveAiDetail: null,
 	humanIntervention: null,
 };
 
@@ -92,7 +95,13 @@ export const automationStore = createStore<AutomationStore>()((set) => ({
 			const liveVariables = event.varsSet
 				? { ...state.liveVariables, ...event.varsSet }
 				: state.liveVariables;
-			return { liveStepResults: results, liveRunStatus: event.runStatus, liveVariables };
+			// AI 实时详情：有 aiDetail 时更新，步骤完成时清除
+			const liveAiDetail = event.aiDetail
+				? { stepIndex: event.stepIndex, detail: event.aiDetail }
+				: event.stepStatus !== 'running'
+					? null
+					: state.liveAiDetail;
+			return { liveStepResults: results, liveRunStatus: event.runStatus, liveVariables, liveAiDetail };
 		}),
 	onVariablesUpdated: (event) =>
 		set((state) => {
