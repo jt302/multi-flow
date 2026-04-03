@@ -6,9 +6,11 @@
 
 import {
 	ArrowLeft,
+	Check,
 	Loader2,
 	Play,
 	Save,
+	Settings2,
 	Square,
 	Variable,
 } from 'lucide-react';
@@ -19,6 +21,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from '@/components/ui/popover';
 
 type Props = {
 	/** 脚本名称，显示在工具栏中 */
@@ -74,64 +81,35 @@ export function CanvasToolbar({
 	const isStandaloneWindow = window.history.length <= 1;
 
 	return (
-		<div className="flex items-center gap-2 px-4 h-12 border-b flex-shrink-0 bg-background z-10">
+		<div className="flex items-center gap-2 px-3 h-11 border-b flex-shrink-0 bg-background/80 backdrop-blur-sm z-10">
 			{/* 返回按钮（独立窗口中隐藏） */}
 			{!isStandaloneWindow && (
 				<Button
-					size="sm"
+					size="icon"
 					variant="ghost"
-					className="h-8 px-2 cursor-pointer"
+					className="h-7 w-7 cursor-pointer text-muted-foreground hover:text-foreground"
 					onClick={() => navigate('/automation')}
+					title="返回"
 				>
-					<ArrowLeft className="h-3.5 w-3.5 mr-1" />
-					返回
+					<ArrowLeft className="h-3.5 w-3.5" />
 				</Button>
 			)}
 
-			{/* 脚本名称 */}
+			{/* 脚本名称 + 步骤数 */}
 			<div className="flex-1 min-w-0 flex items-center gap-2">
 				<span className="text-sm font-semibold truncate">{scriptName}</span>
+				<span className="text-[10px] text-muted-foreground tabular-nums">
+					{stepCount} 步骤
+				</span>
 			</div>
 
-			{/* 步骤数 */}
-			<span className="text-xs text-muted-foreground">{stepCount} 个步骤</span>
-
-			{/* 变量按钮 */}
-			<Button
-				size="sm"
-				variant="ghost"
-				className="h-8 px-2 cursor-pointer"
-				onClick={onOpenVariables}
-				title="脚本变量"
-			>
-				<Variable className="h-3.5 w-3.5 mr-1" />
-				变量{varsDefs.length > 0 && ` (${varsDefs.length})`}
-			</Button>
-
-			{/* 步骤延迟设置 */}
+			{/* 保存状态指示 */}
 			<div className="flex items-center gap-1.5">
-				<Label className="text-xs text-muted-foreground whitespace-nowrap">
-					步骤延迟
-				</Label>
-				<Input
-					type="number"
-					min={0}
-					max={9999}
-					value={stepDelayMs}
-					onChange={(e) => {
-						const raw = Number(e.target.value);
-						const val = Number.isFinite(raw)
-							? Math.min(9999, Math.max(0, raw))
-							: 0;
-						onStepDelayChange(val);
-					}}
-					className="h-7 w-20 text-xs"
-				/>
-				<span className="text-xs text-muted-foreground">ms</span>
-			</div>
-
-			{/* 保存按钮 + 状态指示 */}
-			<div className="flex items-center gap-1">
+				{saving ? (
+					<Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+				) : savedAt && Date.now() - savedAt < 3000 ? (
+					<Check className="h-3 w-3 text-emerald-500" />
+				) : null}
 				<Button
 					variant="ghost"
 					size="icon"
@@ -140,20 +118,56 @@ export function CanvasToolbar({
 					onClick={onSave}
 					disabled={saving}
 				>
-					{saving ? (
-						<Loader2 className="h-3.5 w-3.5 animate-spin" />
-					) : (
-						<Save className="h-3.5 w-3.5" />
-					)}
+					<Save className="h-3.5 w-3.5" />
 				</Button>
-				<span className="text-[10px] text-muted-foreground w-10">
-					{saving
-						? '保存中'
-						: savedAt && Date.now() - savedAt < 3000
-							? '已保存'
-							: null}
-				</span>
 			</div>
+
+			{/* 设置 Popover（步骤延迟 + 变量） */}
+			<Popover>
+				<PopoverTrigger asChild>
+					<Button
+						size="sm"
+						variant="ghost"
+						className="h-8 px-2 cursor-pointer text-muted-foreground hover:text-foreground"
+					>
+						<Settings2 className="h-3.5 w-3.5 mr-1" />
+						设置
+					</Button>
+				</PopoverTrigger>
+				<PopoverContent className="w-64 p-3 space-y-3" align="end">
+					{/* 步骤延迟 */}
+					<div className="space-y-1.5">
+						<Label className="text-xs font-medium">步骤延迟 (ms)</Label>
+						<Input
+							type="number"
+							min={0}
+							max={9999}
+							value={stepDelayMs}
+							onChange={(e) => {
+								const raw = Number(e.target.value);
+								const val = Number.isFinite(raw)
+									? Math.min(9999, Math.max(0, raw))
+									: 0;
+								onStepDelayChange(val);
+							}}
+							className="h-8 text-xs"
+						/>
+					</div>
+					{/* 变量 */}
+					<div className="space-y-1.5">
+						<Label className="text-xs font-medium">脚本变量</Label>
+						<Button
+							size="sm"
+							variant="outline"
+							className="w-full h-8 text-xs cursor-pointer justify-start"
+							onClick={onOpenVariables}
+						>
+							<Variable className="h-3.5 w-3.5 mr-1.5" />
+							管理变量{varsDefs.length > 0 && ` (${varsDefs.length})`}
+						</Button>
+					</div>
+				</PopoverContent>
+			</Popover>
 
 			{/* 运行 / 取消按钮 */}
 			{isRunning ? (
@@ -180,7 +194,7 @@ export function CanvasToolbar({
 
 			{/* 运行状态徽章 */}
 			{activeRunId && (
-				<Badge variant="outline" className="text-xs font-mono">
+				<Badge variant="outline" className="text-[10px] font-mono h-6">
 					{isRunning ? (
 						<>
 							<Loader2 className="h-2.5 w-2.5 mr-1 animate-spin" />
