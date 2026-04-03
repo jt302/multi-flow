@@ -25,6 +25,21 @@ export type StoredEdge = {
 	sourceHandle?: string | null;
 };
 
+export type ParsedCanvasData = {
+	positions: PositionsMap;
+	edges: Edge[];
+	edgesFromSave: boolean;
+	startEdgeTarget?: string | null;
+	orphanedSteps?: ScriptStep[];
+};
+
+type StoredCanvasData = {
+	positions: PositionsMap;
+	edges: StoredEdge[];
+	startEdgeTarget: string | null;
+	orphanedSteps?: ScriptStep[];
+};
+
 // ─── 节点构建 ──────────────────────────────────────────────────────────────────
 
 /**
@@ -88,11 +103,11 @@ export function buildDefaultEdges(count: number): Edge[] {
 export function parseCanvasData(
 	json: string | null,
 	stepCount: number,
-): { positions: PositionsMap; edges: Edge[]; edgesFromSave: boolean } {
+): ParsedCanvasData {
 	if (!json) return { positions: {}, edges: buildDefaultEdges(stepCount), edgesFromSave: false };
 	try {
 		const parsed = JSON.parse(json) as Record<string, unknown>;
-		if ('positions' in parsed || 'edges' in parsed) {
+		if ('positions' in parsed || 'edges' in parsed || 'startEdgeTarget' in parsed) {
 			// 新格式：{ positions: {...}, edges: [...] }
 			const positions = (parsed.positions ?? {}) as PositionsMap;
 			const edges = ((parsed.edges ?? []) as StoredEdge[]).map((e) => ({
@@ -102,7 +117,16 @@ export function parseCanvasData(
 				type: 'smoothstep',
 				...(e.sourceHandle ? { sourceHandle: e.sourceHandle } : {}),
 			}));
-			return { positions, edges, edgesFromSave: true };
+			const startEdgeTarget =
+				typeof parsed.startEdgeTarget === 'string'
+					? parsed.startEdgeTarget
+					: parsed.startEdgeTarget === null
+						? null
+						: undefined;
+			const orphanedSteps = Array.isArray(parsed.orphanedSteps)
+				? (parsed.orphanedSteps as ScriptStep[])
+				: undefined;
+			return { positions, edges, edgesFromSave: true, startEdgeTarget, orphanedSteps };
 		}
 		// 旧格式：直接是 { 'step-0': {x,y}, ... }
 		return {
@@ -466,7 +490,32 @@ export type SerializedCanvasGraph = {
 	remappedEdges: Edge[];
 	remappedPositions: PositionsMap;
 	orphanedCount: number;
+	orphanedSteps: ScriptStep[];
 };
+
+function remapEdgesToOrderedIds(edges: Edge[], orderedIds: string[]): Edge[] {
+	const nextIndexByOldId = new Map(
+		orderedIds.map((oldId, newIndex) => [oldId, newIndex] as const),
+	);
+
+	return edges
+		.map((edge) => {
+			const nextSourceIndex = nextIndexByOldId.get(edge.source);
+			const nextTargetIndex = nextIndexByOldId.get(edge.target);
+			if (nextSourceIndex === undefined || nextTargetIndex === undefined) {
+				return null;
+			}
+
+			const suffix = edge.sourceHandle ? `-${edge.sourceHandle}` : '';
+			return {
+				...edge,
+				id: `e-${nextSourceIndex}-${nextTargetIndex}${suffix}`,
+				source: `step-${nextSourceIndex}`,
+				target: `step-${nextTargetIndex}`,
+			};
+		})
+		.filter((edge): edge is Edge => edge !== null);
+}
 
 /**
  * 将当前画布图序列化为稳定的嵌套树，并同步产出 canonical 顺序下的节点/边/位置。
@@ -476,6 +525,7 @@ export function serializeControlFlowGraph(
 	steps: ScriptStep[],
 	edges: Edge[],
 	positions: PositionsMap,
+	primaryRootId?: string | null,
 ): SerializedCanvasGraph {
 	const n = steps.length;
 	if (n === 0) {
@@ -486,6 +536,7 @@ export function serializeControlFlowGraph(
 			remappedEdges: [],
 			remappedPositions: {},
 			orphanedCount: 0,
+			orphanedSteps: [],
 		};
 	}
 
@@ -587,24 +638,42 @@ export function serializeControlFlowGraph(
 		return result;
 	}
 
+	const primaryRootIndex =
+		typeof primaryRootId === 'string' && primaryRootId.startsWith('step-')
+			? Number.parseInt(primaryRootId.replace('step-', ''), 10)
+			: -1;
 	const rootIndices = Array.from({ length: n }, (_, index) => index).filter(
 		(index) => (inDegree.get(index) ?? 0) === 0,
 	);
+	rootIndices.sort((left, right) => {
+		if (left === primaryRootIndex) return -1;
+		if (right === primaryRootIndex) return 1;
+		return left - right;
+	});
 
+	// 仅从 Start 连接的主根节点开始收集可达步骤（执行路径）
 	const nestedSteps: ScriptStep[] = [];
+	if (primaryRootIndex >= 0 && !visited.has(primaryRootIndex)) {
+		nestedSteps.push(...collectChain(primaryRootIndex, -1));
+	}
+
+	// 其余根节点和不可达节点归为孤立步骤（不参与执行，仅保留在 canvas 中）
+	const orphanedSteps: ScriptStep[] = [];
 	for (const root of rootIndices) {
 		if (visited.has(root)) continue;
-		nestedSteps.push(...collectChain(root, -1));
+		orphanedSteps.push(...collectChain(root, -1));
 	}
-
-	let orphanedCount = 0;
 	for (let index = 0; index < n; index++) {
 		if (visited.has(index)) continue;
-		orphanedCount += 1;
-		nestedSteps.push(...collectChain(index, -1));
+		orphanedSteps.push(...collectChain(index, -1));
 	}
+	const orphanedCount = orphanedSteps.length;
 
-	const { flatSteps, edges: remappedEdges } = flattenControlFlowTree(nestedSteps);
+	const flatSteps = orderedIds.map((oldId) => {
+		const oldIndex = Number.parseInt(oldId.replace('step-', ''), 10);
+		return steps[oldIndex];
+	});
+	const remappedEdges = remapEdgesToOrderedIds(edges, orderedIds);
 	const remappedPositions: PositionsMap = {};
 	orderedIds.forEach((oldId, newIndex) => {
 		const position = positions[oldId];
@@ -619,6 +688,7 @@ export function serializeControlFlowGraph(
 		remappedEdges,
 		remappedPositions,
 		orphanedCount,
+		orphanedSteps,
 	};
 }
 
@@ -675,7 +745,12 @@ export function buildStartEdge(rootStepId: string): Edge {
 		source: START_NODE_ID,
 		target: rootStepId,
 		type: 'smoothstep',
+		deletable: true,
 	};
+}
+
+export function getStartEdgeTarget(edges: Edge[]): string | null {
+	return edges.find((edge) => edge.source === START_NODE_ID)?.target ?? null;
 }
 
 /** 从边数组中移除起点相关边（保存前调用） */
@@ -683,6 +758,26 @@ export function stripStartEdges(edges: Edge[]): Edge[] {
 	return edges.filter(
 		(e) => e.source !== START_NODE_ID && e.target !== START_NODE_ID,
 	);
+}
+
+export function buildCanvasDataJson(
+	positions: PositionsMap,
+	edges: Edge[],
+	orphanedSteps?: ScriptStep[],
+): string {
+	const stepEdges = stripStartEdges(edges);
+	const payload: StoredCanvasData = {
+		positions,
+		edges: stepEdges.map((edge) => ({
+			id: edge.id,
+			source: edge.source,
+			target: edge.target,
+			sourceHandle: edge.sourceHandle ?? null,
+		})),
+		startEdgeTarget: getStartEdgeTarget(edges),
+		...(orphanedSteps && orphanedSteps.length > 0 ? { orphanedSteps } : {}),
+	};
+	return JSON.stringify(payload);
 }
 
 /** 找到第一个入度为 0 的步骤节点 ID */

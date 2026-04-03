@@ -11,6 +11,7 @@ import type {
 	ScriptStep,
 } from '@/entities/automation/model/types';
 import {
+	GROUP_ACCENT_COLORS,
 	GROUP_COLORS,
 	KIND_GROUPS,
 	KIND_LABELS,
@@ -51,14 +52,12 @@ export type StepNodeData = {
 /** 虚拟起点节点 — 标识流程入口，不参与步骤数组 */
 function StartNodeComponent() {
 	return (
-		<div className="flex items-center gap-1.5 rounded-full border-2 border-primary bg-primary/10 px-3 py-1.5 shadow-sm">
-			<div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-			<span className="text-xs font-semibold text-primary">Start</span>
-			<Handle
-				type="source"
-				position={Position.Bottom}
-				className={HANDLE_CLS}
-			/>
+		<div className="flex items-center gap-2 rounded-lg border-2 border-emerald-500/40 bg-emerald-500/5 px-4 py-2 shadow-sm">
+			<div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+			<span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 tracking-wide uppercase">
+				Start
+			</span>
+			<Handle type="source" position={Position.Bottom} className={HANDLE_CLS} />
 		</div>
 	);
 }
@@ -81,8 +80,11 @@ export function StepNodeComponent({
 	const label = KIND_LABELS[kind] ?? kind;
 	const group = KIND_GROUPS[kind] ?? '通用';
 	const colorClass = GROUP_COLORS[group] ?? GROUP_COLORS['通用'];
+	const accentClass = GROUP_ACCENT_COLORS[group] ?? 'border-l-slate-400';
 	const ringClass = stepStatus ? (STEP_STATUS_RING[stepStatus] ?? '') : '';
-	const selectedClass = selected ? 'ring-2 ring-primary ring-offset-2' : '';
+	const selectedClass = selected
+		? 'ring-2 ring-primary/60 ring-offset-1 ring-offset-background'
+		: '';
 	const summary = getStepSummaryText(step);
 	const isCondition = kind === 'condition';
 	const isLoop = kind === 'loop';
@@ -90,22 +92,26 @@ export function StepNodeComponent({
 
 	return (
 		<div
-			className={`relative min-w-[180px] max-w-[260px] rounded-lg border bg-background shadow-sm px-3 py-2.5 cursor-pointer ${selectedClass} ${ringClass} ${isEnd ? 'border-red-400/60 bg-red-500/5' : ''}`}
+			className={`relative min-w-[160px] max-w-[240px] rounded-lg border border-border/50 bg-card shadow-sm cursor-pointer transition-all hover:shadow-md border-l-[3px] ${accentClass} ${selectedClass} ${ringClass} ${isEnd ? '!border-l-red-500 bg-red-500/5' : ''}`}
 		>
 			<Handle type="target" position={Position.Top} className={HANDLE_CLS} />
-			<div className="flex items-center gap-1.5 mb-1">
-				<span
-					className={`text-[10px] font-medium px-1 rounded border ${colorClass}`}
-				>
-					{group}
-				</span>
-			</div>
-			<div className="text-xs font-semibold truncate">{label}</div>
-			{summary && (
-				<div className="text-[10px] text-muted-foreground truncate mt-0.5">
-					{summary}
+			<div className="px-3 py-2">
+				<div className="flex items-center gap-1.5 mb-0.5">
+					<span
+						className={`text-[9px] font-semibold px-1 rounded ${colorClass}`}
+					>
+						{group}
+					</span>
 				</div>
-			)}
+				<div className="text-[11px] font-bold truncate leading-tight">
+					{label}
+				</div>
+				{summary && (
+					<div className="text-[10px] text-muted-foreground truncate mt-0.5 font-mono opacity-70">
+						{summary}
+					</div>
+				)}
+			</div>
 			{isCondition ? (
 				<>
 					<div className="flex justify-between mt-1.5 text-[9px] text-muted-foreground select-none">
@@ -204,4 +210,7 @@ export function StepNodeComponent({
  * ReactFlow nodeTypes 映射，传给 <ReactFlow nodeTypes={NODE_TYPES} />
  * 将 "step" 类型节点映射到 StepNodeComponent。
  */
-export const NODE_TYPES = { step: StepNodeComponent, start: StartNodeComponent };
+export const NODE_TYPES = {
+	step: StepNodeComponent,
+	start: StartNodeComponent,
+};

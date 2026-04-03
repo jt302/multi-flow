@@ -182,7 +182,7 @@ export function StepPropertiesPanel({
 							onChange={(e) =>
 								onUpdate({ ...step, [key]: e.target.value } as ScriptStep)
 							}
-							className="text-xs min-h-[60px] pr-8"
+							className="text-xs min-h-[100px] pr-8 resize-y"
 						/>
 						{varButton && (
 							<div className="absolute top-1 right-1">{varButton}</div>
@@ -337,7 +337,7 @@ export function StepPropertiesPanel({
 		fields.push(sf());
 	} else if (kind === 'type' || kind === 'cdp_type') {
 		fields.push(sf());
-		fields.push(tf('text', '输入文本'));
+		fields.push(tf('text', '输入文本', true));
 	} else if (kind === 'cdp_get_text') {
 		fields.push(sf());
 		fields.push(okf());
@@ -1088,21 +1088,53 @@ export function StepPropertiesPanel({
 		);
 		fields.push(tf('prompt_text', 'Prompt 输入文本（可选）'));
 		fields.push(okf());
+	} else if (
+		kind === 'cdp_get_browser_version' ||
+		kind === 'cdp_get_browser_command_line' ||
+		kind === 'cdp_get_layout_metrics'
+	) {
+		fields.push(okf());
+	} else if (kind === 'cdp_get_window_for_target') {
+		fields.push(tf('target_id', 'Target ID（可选，空=当前目标）'));
+		fields.push(okf());
+	} else if (kind === 'cdp_get_document') {
+		fields.push(nf('depth', '深度（-1=全量，默认1）'));
+		fields.push(
+			<div key="pierce" className="flex items-center gap-2">
+				<input
+					type="checkbox"
+					checked={Boolean(s['pierce'])}
+					className="cursor-pointer"
+					onChange={(e) =>
+						onUpdate({ ...step, pierce: e.target.checked } as ScriptStep)
+					}
+				/>
+				<Label className="text-xs">穿透 Shadow DOM</Label>
+			</div>,
+		);
+		fields.push(okf());
+	} else if (kind === 'cdp_get_full_ax_tree') {
+		fields.push(nf('depth', '深度（可选，空=全量）'));
+		fields.push(okf());
 	}
 
 	// ── 渲染 ──────────────────────────────────────────────────────────────────
 	return (
 		<div className="flex flex-col h-full min-h-0">
 			{/* 标题栏 + 删除按钮 */}
-			<div className="flex items-center justify-between px-3 py-2 border-b flex-shrink-0">
-				<span className="text-xs font-semibold">
-					{KIND_LABELS[kind] ?? kind}
-				</span>
+			<div className="flex items-center justify-between px-3 py-2 border-b flex-shrink-0 bg-muted/30">
+				<div className="flex items-center gap-1.5 min-w-0">
+					<span className="text-xs font-bold truncate">
+						{KIND_LABELS[kind] ?? kind}
+					</span>
+					<span className="text-[9px] text-muted-foreground">属性</span>
+				</div>
 				<Button
 					size="sm"
 					variant="ghost"
 					className="h-6 w-6 p-0 cursor-pointer text-destructive hover:text-destructive"
 					onClick={onDelete}
+					title="删除步骤"
 				>
 					<Trash2 className="h-3 w-3" />
 				</Button>
