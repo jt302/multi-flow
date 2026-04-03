@@ -7,6 +7,7 @@
 import {
 	ArrowLeft,
 	Check,
+	HelpCircle,
 	Loader2,
 	Play,
 	Save,
@@ -54,6 +55,8 @@ type Props = {
 	varsDefs: ScriptVarDef[];
 	/** 手动保存回调 */
 	onSave: () => void;
+	/** 打开操作指南 */
+	onOpenHelp: () => void;
 };
 
 /**
@@ -75,6 +78,7 @@ export function CanvasToolbar({
 	onOpenVariables,
 	varsDefs,
 	onSave,
+	onOpenHelp,
 }: Props) {
 	const navigate = useNavigate();
 	// 当页面在独立新窗口中（history 只有一条记录）时隐藏返回按钮
@@ -168,6 +172,17 @@ export function CanvasToolbar({
 					</div>
 				</PopoverContent>
 			</Popover>
+
+			{/* 操作指南 */}
+			<Button
+				variant="ghost"
+				size="icon"
+				className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
+				title="操作指南"
+				onClick={onOpenHelp}
+			>
+				<HelpCircle className="h-3.5 w-3.5" />
+			</Button>
 
 			{/* 运行 / 取消按钮 */}
 			{isRunning ? (
