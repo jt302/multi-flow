@@ -62,7 +62,7 @@ function InnerCanvas({
 	onDebugRun,
 	onCancel,
 }: InnerProps) {
-	const { fitView, getNodes, getEdges } = useReactFlow();
+	const { fitView, getNodes, getEdges, screenToFlowPosition } = useReactFlow();
 
 	// 对话框 UI 状态（非业务逻辑，不放入 hook）
 	const [runDialogOpen, setRunDialogOpen] = useState(false);
@@ -292,7 +292,14 @@ function InnerCanvas({
 			<div className="flex flex-1 overflow-hidden">
 				{/* 左侧：步骤调色板 */}
 				<StepPalette
-					onAddStep={(kind) => void addStep(kind)}
+					onAddStep={(kind) => {
+					const el = document.querySelector('.react-flow');
+					const rect = el?.getBoundingClientRect();
+					const center = rect
+						? screenToFlowPosition({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 })
+						: undefined;
+					void addStep(kind, center);
+				}}
 					collapsed={paletteCollapsed}
 					onToggleCollapse={() => setPaletteCollapsed((p) => !p)}
 				/>

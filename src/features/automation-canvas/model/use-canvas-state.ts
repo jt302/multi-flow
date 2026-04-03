@@ -56,7 +56,7 @@ export type CanvasStateReturn = {
 	setStepDelayMs: (v: number) => void;
 	varsDefs: ScriptVarDef[];
 	setVarsDefs: (vars: ScriptVarDef[]) => void;
-	addStep: (kind: string) => Promise<void>;
+	addStep: (kind: string, viewportCenter?: { x: number; y: number }) => Promise<void>;
 	updateStep: (index: number, step: ScriptStep) => Promise<void>;
 	pasteSteps: (steps: ScriptStep[]) => Promise<void>;
 	deleteStep: (index: number) => Promise<void>;
@@ -580,19 +580,21 @@ export function useCanvasState(
 
 	// ── 步骤增删改 ─────────────────────────────────────────────────────────────
 	const addStep = useCallback(
-		async (kind: string) => {
+		async (kind: string, viewportCenter?: { x: number; y: number }) => {
 			const baseSteps = flushPendingEdits();
 			const step = defaultStep(kind);
 			const newIndex = baseSteps.length;
 			const newSteps = [...baseSteps, step];
 			setSteps(newSteps);
 
-			// 新节点放在最后一个节点的正下方
-			const lastPos = positionsRef.current[`step-${newIndex - 1}`] ?? {
-				x: 120,
-				y: 0,
-			};
-			const newPos = { x: lastPos.x, y: lastPos.y + 140 };
+			// 优先放在视口中心，否则放在最后一个节点正下方
+			let newPos: { x: number; y: number };
+			if (viewportCenter) {
+				newPos = { x: viewportCenter.x - 90, y: viewportCenter.y - 30 };
+			} else {
+				const lastPos = positionsRef.current[`step-${newIndex - 1}`] ?? { x: 120, y: 0 };
+				newPos = { x: lastPos.x, y: lastPos.y + 140 };
+			}
 			positionsRef.current = {
 				...positionsRef.current,
 				[`step-${newIndex}`]: newPos,
