@@ -21,14 +21,20 @@ import {
 	saveAutomationCanvasGraph,
 	updateScriptCanvasPositions,
 } from '@/entities/automation/api/automation-api';
-import { defaultStep } from '@/entities/automation/model/step-registry';
+import { defaultStep, KIND_LABELS } from '@/entities/automation/model/step-registry';
 
 import type { StepNodeData } from '../ui/step-node';
 import {
 	buildNodes,
+	buildStartEdge,
+	buildStartNode,
+	defaultStartPosition,
+	findRootStepId,
 	flattenControlFlowTree,
 	parseCanvasData,
 	serializeControlFlowGraph,
+	START_NODE_ID,
+	stripStartEdges,
 } from './canvas-helpers';
 import type { PositionsMap } from './canvas-helpers';
 
@@ -112,10 +118,16 @@ export function useCanvasState(
 	const initEdges = edgesFromSave ? canvasEdges : reconstructedEdges;
 
 	// nodes 存在 state 中，用 applyNodeChanges 驱动，避免拖拽时重建数组导致节点消失
-	const [nodes, setNodes] = useState<Node[]>(() =>
-		buildNodes(initFlatSteps, initPos, {}),
-	);
-	const [edges, setEdges] = useState<Edge[]>(initEdges);
+	const [nodes, setNodes] = useState<Node[]>(() => {
+		const stepNodes = buildNodes(initFlatSteps, initPos, {});
+		const startPos = initPos[START_NODE_ID] ?? defaultStartPosition(initPos);
+		return [buildStartNode(startPos), ...stepNodes];
+	});
+	const [edges, setEdges] = useState<Edge[]>(() => {
+		const rootId = findRootStepId(initEdges, initFlatSteps.length);
+		const startEdge = rootId ? buildStartEdge(rootId) : null;
+		return startEdge ? [startEdge, ...initEdges] : initEdges;
+	});
 
 	// refs 用于在 callback 中读取最新值，避免闭包陈旧问题
 	const positionsRef = useRef<PositionsMap>(initPos);
@@ -128,6 +140,7 @@ export function useCanvasState(
 	useEffect(() => {
 		setNodes((prev) =>
 			prev.map((n) => {
+				if (n.id === START_NODE_ID) return n;
 				const idx = parseInt(n.id.replace('step-', ''), 10);
 				const status = liveStatuses[idx];
 				if ((n.data as StepNodeData).stepStatus === status) return n;
@@ -173,9 +186,10 @@ export function useCanvasState(
 		(pos: PositionsMap, edgs: Edge[]) => {
 			if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
 			saveTimerRef.current = setTimeout(() => {
+				const cleanEdges = stripStartEdges(edgs);
 				const data = {
-					positions: pos,
-					edges: edgs.map((e) => ({
+					positions: pos, // 包含 Start 位置，加载时自动恢复
+					edges: cleanEdges.map((e) => ({
 						id: e.id,
 						source: e.source,
 						target: e.target,
@@ -217,6 +231,11 @@ export function useCanvasState(
 		async (newSteps: ScriptStep[]) => {
 			setSaving(true);
 			try {
+				// 保存前剥离 Start 节点相关边和位置
+				const stepEdges = stripStartEdges(edgesRef.current);
+				const stepPositions = { ...positionsRef.current };
+				delete stepPositions[START_NODE_ID];
+
 				const {
 					nestedSteps,
 					flatSteps,
@@ -226,8 +245,8 @@ export function useCanvasState(
 					orphanedCount,
 				} = serializeControlFlowGraph(
 					newSteps,
-					edgesRef.current,
-					positionsRef.current,
+					stepEdges,
+					stepPositions,
 				);
 				const nextIndexByOldId = new Map(
 					orderedIds.map((oldId, newIndex) => [oldId, newIndex] as const),
@@ -235,8 +254,9 @@ export function useCanvasState(
 
 				setSteps(flatSteps);
 				setNodes((prev) => {
+					const startNode = prev.find((n) => n.id === START_NODE_ID);
 					const prevNodeById = new Map(prev.map((node) => [node.id, node]));
-					return orderedIds.map((oldId, newIndex) => {
+					const stepNodes = orderedIds.map((oldId, newIndex) => {
 						const previousNode = prevNodeById.get(oldId);
 						return {
 							...(previousNode ?? {
@@ -258,10 +278,19 @@ export function useCanvasState(
 							} as StepNodeData,
 						};
 					});
+					return startNode ? [startNode, ...stepNodes] : stepNodes;
 				});
-				setEdges(remappedEdges);
-				edgesRef.current = remappedEdges;
-				positionsRef.current = remappedPositions;
+				// 重新注入 Start 边
+				const rootId = findRootStepId(remappedEdges, flatSteps.length);
+				const startEdge = rootId ? buildStartEdge(rootId) : null;
+				const edgesWithStart = startEdge ? [startEdge, ...remappedEdges] : remappedEdges;
+				setEdges(edgesWithStart);
+				edgesRef.current = edgesWithStart;
+				// 保留 Start 位置到 positionsRef
+				const startPos = positionsRef.current[START_NODE_ID];
+				positionsRef.current = startPos
+					? { ...remappedPositions, [START_NODE_ID]: startPos }
+					: remappedPositions;
 
 				if (saveTimerRef.current) {
 					clearTimeout(saveTimerRef.current);
@@ -274,8 +303,22 @@ export function useCanvasState(
 				});
 
 				if (orphanedCount > 0) {
+					const orphanedNames = flatSteps
+						.slice(flatSteps.length - orphanedCount)
+						.map((s) => KIND_LABELS[s.kind] || s.kind)
+						.join('、');
 					toast.warning(
-						`${orphanedCount} 个步骤未连接到流程中，已追加到末尾执行`,
+						`${orphanedCount} 个步骤未连接到流程中：${orphanedNames}`,
+						{
+							duration: 8000,
+							action: {
+								label: '删除孤立步骤',
+								onClick: () => {
+									const kept = flatSteps.slice(0, flatSteps.length - orphanedCount);
+									void saveScript(kept);
+								},
+							},
+						},
 					);
 				}
 
@@ -426,37 +469,23 @@ export function useCanvasState(
 	// ── 边变化处理 ─────────────────────────────────────────────────────────────
 	const onEdgesChange = useCallback(
 		(changes: EdgeChange[]) => {
+			const hasRemovals = changes.some((c) => c.type === 'remove');
 			setEdges((prev) => {
 				const next = applyEdgeChanges(changes, prev);
 				edgesRef.current = next;
 				scheduleCanvasSave(positionsRef.current, next);
-
-				// 检测因边删除导致的孤立节点，给出 warning
-				const hasRemovals = changes.some((c) => c.type === 'remove');
-				if (hasRemovals && steps.length > 1) {
-					const connected = new Set<string>();
-					for (const e of next) {
-						connected.add(e.source);
-						connected.add(e.target);
-					}
-					const isolated = steps
-						.map((_, i) => `step-${i}`)
-						.filter((id) => !connected.has(id));
-					if (isolated.length > 0) {
-						const labels = isolated.map((id) => {
-							const idx = parseInt(id.replace('step-', ''), 10);
-							const s = steps[idx];
-							return s ? `步骤 ${idx + 1}` : id;
-						});
-						toast.warning(
-							`以下步骤未连接到流程中，运行时仍会被执行：${labels.join('、')}`,
-						);
-					}
-				}
 				return next;
 			});
+			// 边拓扑变化时延迟重排步骤数组，等 React 批处理完成后再执行
+			if (hasRemovals) {
+				queueMicrotask(() => {
+					saveScript(flushPendingEdits()).catch((err) =>
+						console.error('[canvas] edge removal save failed:', err),
+					);
+				});
+			}
 		},
-		[scheduleCanvasSave, steps],
+		[scheduleCanvasSave, flushPendingEdits, saveScript],
 	);
 
 	// ── 连接处理 ───────────────────────────────────────────────────────────────
@@ -464,6 +493,17 @@ export function useCanvasState(
 		(connection: Connection) => {
 			// 禁止节点自连接
 			if (connection.source === connection.target) return;
+			// Start 节点连线：只能有一条出边，替换旧的
+			if (connection.source === START_NODE_ID) {
+				setEdges((prev) => {
+					const filtered = prev.filter((e) => e.source !== START_NODE_ID);
+					const next = addEdge({ ...connection, type: 'smoothstep' }, filtered);
+					edgesRef.current = next;
+					scheduleCanvasSave(positionsRef.current, next);
+					return next;
+				});
+				return;
+			}
 			setEdges((prev) => {
 				// 移除目标节点上已有的同 targetHandle 入边（单入边约束）
 				const filtered = prev.filter(
@@ -478,8 +518,14 @@ export function useCanvasState(
 				scheduleCanvasSave(positionsRef.current, next);
 				return next;
 			});
+			// 新连线改变拓扑，延迟重排步骤数组
+			queueMicrotask(() => {
+				saveScript(flushPendingEdits()).catch((err) =>
+					console.error('[canvas] connect save failed:', err),
+				);
+			});
 		},
-		[scheduleCanvasSave],
+		[scheduleCanvasSave, flushPendingEdits, saveScript],
 	);
 
 	// ── 节点/面板点击 ──────────────────────────────────────────────────────────
@@ -526,7 +572,14 @@ export function useCanvasState(
 			]);
 
 			// 自动连线：同步更新 ref 再保存，避免 setEdges 回调在 saveScript 之后才执行
-			if (newIndex > 0) {
+			if (newIndex === 0) {
+				// 第一个步骤：从 Start 节点连线
+				const startEdge = buildStartEdge(`step-0`);
+				const nextEdges = [startEdge, ...edgesRef.current.filter((e) => e.source !== START_NODE_ID)];
+				edgesRef.current = nextEdges;
+				setEdges(nextEdges);
+				scheduleCanvasSave(positionsRef.current, nextEdges);
+			} else {
 				const connection: Edge = {
 					id: `e-${newIndex - 1}-${newIndex}`,
 					source: `step-${newIndex - 1}`,

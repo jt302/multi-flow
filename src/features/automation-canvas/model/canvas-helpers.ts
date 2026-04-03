@@ -642,3 +642,58 @@ export function resolveControlFlowGraph(
 ): ScriptStep[] {
 	return serializeControlFlowGraph(steps, edges, {}).nestedSteps;
 }
+
+// ─── Start Node Helpers ──────────────────────────────────────────────────────
+
+export const START_NODE_ID = 'start';
+
+/** 默认起点节点位置：在第一个步骤左上方 */
+export function defaultStartPosition(positions: PositionsMap): { x: number; y: number } {
+	const firstPos = positions['step-0'];
+	return firstPos
+		? { x: firstPos.x + 60, y: firstPos.y - 100 }
+		: { x: 180, y: 20 };
+}
+
+/** 创建起点节点对象 */
+export function buildStartNode(position: { x: number; y: number }): Node {
+	return {
+		id: START_NODE_ID,
+		type: 'start',
+		position,
+		data: {},
+		deletable: false,
+		selectable: false,
+		draggable: true,
+	};
+}
+
+/** 创建起点到第一个根节点的边 */
+export function buildStartEdge(rootStepId: string): Edge {
+	return {
+		id: `e-start-${rootStepId}`,
+		source: START_NODE_ID,
+		target: rootStepId,
+		type: 'smoothstep',
+	};
+}
+
+/** 从边数组中移除起点相关边（保存前调用） */
+export function stripStartEdges(edges: Edge[]): Edge[] {
+	return edges.filter(
+		(e) => e.source !== START_NODE_ID && e.target !== START_NODE_ID,
+	);
+}
+
+/** 找到第一个入度为 0 的步骤节点 ID */
+export function findRootStepId(edges: Edge[], stepCount: number): string | null {
+	if (stepCount === 0) return null;
+	const inDeg = new Set<string>();
+	for (const e of edges) {
+		if (e.source !== START_NODE_ID) inDeg.add(e.target);
+	}
+	for (let i = 0; i < stepCount; i++) {
+		if (!inDeg.has(`step-${i}`)) return `step-${i}`;
+	}
+	return 'step-0';
+}
