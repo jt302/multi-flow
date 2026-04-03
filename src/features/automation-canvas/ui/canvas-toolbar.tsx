@@ -6,9 +6,9 @@
 
 import {
 	ArrowLeft,
-	CheckCircle,
 	Loader2,
 	Play,
+	Save,
 	Square,
 	Variable,
 } from 'lucide-react';
@@ -45,6 +45,8 @@ type Props = {
 	onOpenVariables: () => void;
 	/** 当前脚本变量定义列表，用于显示变量数量 */
 	varsDefs: ScriptVarDef[];
+	/** 手动保存回调 */
+	onSave: () => void;
 };
 
 /**
@@ -65,6 +67,7 @@ export function CanvasToolbar({
 	onCancel,
 	onOpenVariables,
 	varsDefs,
+	onSave,
 }: Props) {
 	const navigate = useNavigate();
 	// 当页面在独立新窗口中（history 只有一条记录）时隐藏返回按钮
@@ -127,20 +130,30 @@ export function CanvasToolbar({
 				<span className="text-xs text-muted-foreground">ms</span>
 			</div>
 
-			{/* 保存状态（固定宽度，防止内容切换时导致相邻元素抖动） */}
-			<span className="flex items-center gap-1 text-xs text-muted-foreground w-16">
-				{saving ? (
-					<>
-						<Loader2 className="h-3 w-3 animate-spin flex-shrink-0" />
-						保存中...
-					</>
-				) : savedAt && Date.now() - savedAt < 3000 ? (
-					<>
-						<CheckCircle className="h-3 w-3 text-green-500 flex-shrink-0" />
-						已保存
-					</>
-				) : null}
-			</span>
+			{/* 保存按钮 + 状态指示 */}
+			<div className="flex items-center gap-1">
+				<Button
+					variant="ghost"
+					size="icon"
+					className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
+					title="保存 (Cmd+S)"
+					onClick={onSave}
+					disabled={saving}
+				>
+					{saving ? (
+						<Loader2 className="h-3.5 w-3.5 animate-spin" />
+					) : (
+						<Save className="h-3.5 w-3.5" />
+					)}
+				</Button>
+				<span className="text-[10px] text-muted-foreground w-10">
+					{saving
+						? '保存中'
+						: savedAt && Date.now() - savedAt < 3000
+							? '已保存'
+							: null}
+				</span>
+			</div>
 
 			{/* 运行 / 取消按钮 */}
 			{isRunning ? (
