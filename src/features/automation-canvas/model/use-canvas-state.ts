@@ -25,12 +25,14 @@ import { defaultStep, KIND_LABELS } from '@/entities/automation/model/step-regis
 
 import type { StepNodeData } from '../ui/step-node';
 import {
+	buildCanvasDataJson,
 	buildNodes,
 	buildStartEdge,
 	buildStartNode,
 	defaultStartPosition,
 	findRootStepId,
 	flattenControlFlowTree,
+	getStartEdgeTarget,
 	parseCanvasData,
 	serializeControlFlowGraph,
 	START_NODE_ID,
@@ -84,9 +86,16 @@ export function useCanvasState(
 	// ── 基础状态 ──────────────────────────────────────────────────────────────
 	// 将后端返回的嵌套控制流树展平为扁平节点（resolveControlFlowGraph 的逆操作）
 	// 避免重新打开编辑器时条件分支/循环体的嵌套步骤丢失
-	const [{ flatSteps: initFlatSteps, edges: reconstructedEdges }] = useState(() =>
-		flattenControlFlowTree(script.steps),
-	);
+	// 将后端返回的嵌套控制流树展平 + 从 canvas 数据恢复孤立步骤
+	const [{ initFlatSteps, reconstructedEdges, parsedCanvas }] = useState(() => {
+		const { flatSteps, edges } = flattenControlFlowTree(script.steps);
+		const canvas = parseCanvasData(script.canvasPositionsJson, flatSteps.length);
+		// 合并孤立步骤（从 canvasPositionsJson 恢复）到 flat 步骤列表末尾
+		const allSteps = canvas.orphanedSteps && canvas.orphanedSteps.length > 0
+			? [...flatSteps, ...canvas.orphanedSteps]
+			: flatSteps;
+		return { initFlatSteps: allSteps, reconstructedEdges: edges, parsedCanvas: canvas };
+	});
 	const [steps, setSteps] = useState<ScriptStep[]>(initFlatSteps);
 	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 	const [saving, setSaving] = useState(false);
@@ -109,14 +118,18 @@ export function useCanvasState(
 		setStepDelayMs(script.settings?.stepDelayMs ?? 0);
 	}, [script.id, script.settings?.stepDelayMs]);
 
-	// ── 画布节点/边状态 ────────────────────────────────────────────────────────
 	// 从 canvasPositionsJson 读取位置和边：
 	// - 有保存数据（新格式）：优先使用保存的边，与用户操作时的拓扑完全一致
 	// - 无数据或旧格式：回退到 flattenControlFlowTree 重建的边（首次加载）
-	const [{ positions: initPos, edges: canvasEdges, edgesFromSave }] = useState(() =>
-		parseCanvasData(script.canvasPositionsJson, initFlatSteps.length),
-	);
+	const { positions: initPos, edges: canvasEdges, edgesFromSave, startEdgeTarget } = parsedCanvas;
 	const initEdges = edgesFromSave ? canvasEdges : reconstructedEdges;
+	const initialStartEdgeTarget =
+		startEdgeTarget === undefined
+			? findRootStepId(initEdges, initFlatSteps.length)
+			: startEdgeTarget;
+	const initialEdgesWithStart = initialStartEdgeTarget
+		? [buildStartEdge(initialStartEdgeTarget), ...initEdges]
+		: initEdges;
 
 	// nodes 存在 state 中，用 applyNodeChanges 驱动，避免拖拽时重建数组导致节点消失
 	const [nodes, setNodes] = useState<Node[]>(() => {
@@ -124,15 +137,11 @@ export function useCanvasState(
 		const startPos = initPos[START_NODE_ID] ?? defaultStartPosition(initPos);
 		return [buildStartNode(startPos), ...stepNodes];
 	});
-	const [edges, setEdges] = useState<Edge[]>(() => {
-		const rootId = findRootStepId(initEdges, initFlatSteps.length);
-		const startEdge = rootId ? buildStartEdge(rootId) : null;
-		return startEdge ? [startEdge, ...initEdges] : initEdges;
-	});
+	const [edges, setEdges] = useState<Edge[]>(() => initialEdgesWithStart);
 
 	// refs 用于在 callback 中读取最新值，避免闭包陈旧问题
 	const positionsRef = useRef<PositionsMap>(initPos);
-	const edgesRef = useRef<Edge[]>(initEdges);
+	const edgesRef = useRef<Edge[]>(initialEdgesWithStart);
 
 	const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -168,15 +177,7 @@ export function useCanvasState(
 				saveTimerRef.current = null;
 				void updateScriptCanvasPositions(
 					script.id,
-					JSON.stringify({
-						positions: positionsRef.current,
-						edges: edgesRef.current.map((e) => ({
-							id: e.id,
-							source: e.source,
-							target: e.target,
-							sourceHandle: e.sourceHandle ?? null,
-						})),
-					}),
+					buildCanvasDataJson(positionsRef.current, edgesRef.current),
 				);
 			}
 		};
@@ -187,33 +188,11 @@ export function useCanvasState(
 		(pos: PositionsMap, edgs: Edge[]) => {
 			if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
 			saveTimerRef.current = setTimeout(() => {
-				const cleanEdges = stripStartEdges(edgs);
-				const data = {
-					positions: pos, // 包含 Start 位置，加载时自动恢复
-					edges: cleanEdges.map((e) => ({
-						id: e.id,
-						source: e.source,
-						target: e.target,
-						sourceHandle: e.sourceHandle ?? null,
-					})),
-				};
-				void updateScriptCanvasPositions(script.id, JSON.stringify(data));
+				void updateScriptCanvasPositions(script.id, buildCanvasDataJson(pos, edgs));
 			}, 500);
 		},
 		[script.id],
 	);
-
-	const buildCanvasJson = useCallback((pos: PositionsMap, edgs: Edge[]) => {
-		return JSON.stringify({
-			positions: pos,
-			edges: edgs.map((e) => ({
-				id: e.id,
-				source: e.source,
-				target: e.target,
-				sourceHandle: e.sourceHandle ?? null,
-			})),
-		});
-	}, []);
 
 	const buildNextSettings = useCallback((): ScriptSettings | undefined => {
 		const nextSettings: ScriptSettings = {
@@ -236,6 +215,7 @@ export function useCanvasState(
 				const stepEdges = stripStartEdges(edgesRef.current);
 				const stepPositions = { ...positionsRef.current };
 				delete stepPositions[START_NODE_ID];
+				const currentStartTarget = getStartEdgeTarget(edgesRef.current);
 
 				const {
 					nestedSteps,
@@ -244,10 +224,12 @@ export function useCanvasState(
 					remappedEdges,
 					remappedPositions,
 					orphanedCount,
+					orphanedSteps,
 				} = serializeControlFlowGraph(
 					newSteps,
 					stepEdges,
 					stepPositions,
+					currentStartTarget,
 				);
 				const nextIndexByOldId = new Map(
 					orderedIds.map((oldId, newIndex) => [oldId, newIndex] as const),
@@ -281,9 +263,14 @@ export function useCanvasState(
 					});
 					return startNode ? [startNode, ...stepNodes] : stepNodes;
 				});
-				// 重新注入 Start 边
 				const rootId = findRootStepId(remappedEdges, flatSteps.length);
-				const startEdge = rootId ? buildStartEdge(rootId) : null;
+				const remappedStartTarget =
+					currentStartTarget === null
+						? null
+						: nextIndexByOldId.has(currentStartTarget)
+							? `step-${nextIndexByOldId.get(currentStartTarget)}`
+							: rootId;
+				const startEdge = remappedStartTarget ? buildStartEdge(remappedStartTarget) : null;
 				const edgesWithStart = startEdge ? [startEdge, ...remappedEdges] : remappedEdges;
 				setEdges(edgesWithStart);
 				edgesRef.current = edgesWithStart;
@@ -325,7 +312,7 @@ export function useCanvasState(
 
 				await saveAutomationCanvasGraph(script.id, {
 					steps: nestedSteps,
-					positionsJson: buildCanvasJson(remappedPositions, remappedEdges),
+					positionsJson: buildCanvasDataJson(positionsRef.current, edgesWithStart, orphanedSteps),
 					settings: buildNextSettings(),
 				});
 				void emitScriptUpdated(script.id);
@@ -335,7 +322,7 @@ export function useCanvasState(
 			}
 		},
 		[
-			buildCanvasJson,
+			buildCanvasDataJson,
 			buildNextSettings,
 			liveStatuses,
 			script.id,
@@ -380,12 +367,15 @@ export function useCanvasState(
 				const cleanEdges = stripStartEdges(edgesRef.current);
 				const cleanPos = { ...positionsRef.current };
 				delete cleanPos[START_NODE_ID];
+				const serialized = serializeControlFlowGraph(
+						currentSteps,
+						cleanEdges,
+						cleanPos,
+						getStartEdgeTarget(edgesRef.current),
+					);
 				void saveAutomationCanvasGraph(script.id, {
-					steps: serializeControlFlowGraph(currentSteps, cleanEdges, cleanPos).nestedSteps,
-					positionsJson: JSON.stringify({
-						positions: positionsRef.current,
-						edges: cleanEdges.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle ?? null })),
-					}),
+					steps: serialized.nestedSteps,
+					positionsJson: buildCanvasDataJson(positionsRef.current, edgesRef.current, serialized.orphanedSteps),
 					settings: buildNextSettings(),
 				});
 			}
@@ -519,13 +509,16 @@ export function useCanvasState(
 	const onEdgesChange = useCallback(
 		(changes: EdgeChange[]) => {
 			const hasRemovals = changes.some((c) => c.type === 'remove');
+			const isSelectOnly = changes.every((c) => c.type === 'select');
 			setEdges((prev) => {
 				const next = applyEdgeChanges(changes, prev);
 				edgesRef.current = next;
-				scheduleCanvasSave(positionsRef.current, next);
+				// 仅在结构变更时保存，选中/取消选中不触发保存
+				if (!isSelectOnly) {
+					scheduleCanvasSave(positionsRef.current, next);
+				}
 				return next;
 			});
-			// 边拓扑变化时延迟重排步骤数组，等 React 批处理完成后再执行
 			if (hasRemovals) {
 				queueMicrotask(() => {
 					saveScript(flushPendingEdits()).catch((err) =>
