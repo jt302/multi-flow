@@ -5,6 +5,7 @@ import { save } from '@tauri-apps/plugin-dialog';
 import { Download, Loader2, Network, Pencil, Play, Trash2 } from 'lucide-react';
 
 import { openAutomationCanvasWindow } from '@/entities/automation/api/automation-api';
+import { resolveScriptFlowEntryState } from '@/entities/automation/model/script-flow-entry';
 import type {
 	AutomationRun,
 	AutomationScript,
@@ -80,6 +81,7 @@ export function ScriptDetailPanel({
 }: Props) {
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [runDialogOpen, setRunDialogOpen] = useState(false);
+	const flowEntryState = resolveScriptFlowEntryState(script);
 
 	// 上下分栏：lowerHeight 为下方面板高度（px），默认 350px
 	const [lowerHeight, setLowerHeight] = useState(350);
@@ -199,12 +201,24 @@ export function ScriptDetailPanel({
 			{/* 上方：步骤列表（flex-1，随容器自适应） */}
 			<div className="flex-1 min-h-0 overflow-hidden">
 				<div className="flex items-center px-5 pt-3 pb-1 shrink-0">
-					<span className="text-xs font-medium text-muted-foreground">
-						步骤 ({script.steps.length})
-						{isRunning && (
-							<Loader2 className="inline h-3 w-3 ml-1 animate-spin" />
+					<div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+						<span>
+							步骤 ({script.steps.length})
+							{isRunning && (
+								<Loader2 className="inline h-3 w-3 ml-1 animate-spin" />
+							)}
+						</span>
+						{!flowEntryState.entryConnected && (
+							<span className="rounded-full border border-amber-300/80 bg-amber-100/80 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+								入口未连接
+							</span>
 						)}
-					</span>
+						{flowEntryState.orphanedStepCount > 0 && (
+							<span className="rounded-full border border-zinc-300/80 bg-zinc-100/80 px-2 py-0.5 text-[11px] font-medium text-zinc-500 dark:border-zinc-600/60 dark:bg-zinc-800/60 dark:text-zinc-400">
+								另有 {flowEntryState.orphanedStepCount} 个孤立步骤
+							</span>
+						)}
+					</div>
 				</div>
 				<ScriptStepsViewer
 					steps={script.steps}
@@ -213,6 +227,7 @@ export function ScriptDetailPanel({
 					liveVariables={liveVariables}
 					scriptId={script.id}
 					scriptName={script.name}
+					entryConnected={flowEntryState.entryConnected}
 				/>
 			</div>
 
