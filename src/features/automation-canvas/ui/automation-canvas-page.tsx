@@ -30,6 +30,7 @@ import { useCanvasState } from '../model/use-canvas-state';
 import { CanvasToolbar } from './canvas-toolbar';
 import { StepPalette } from './step-palette';
 import { StepPropertiesPanel } from './step-properties-panel';
+import { START_NODE_ID } from '../model/canvas-helpers';
 import { NODE_TYPES, type StepNodeData } from './step-node';
 import { VariablesSchemaDialog } from './variables-schema-dialog';
 
@@ -95,7 +96,7 @@ function InnerCanvas({
 		saveNow,
 	} = useCanvasState(script, liveStatuses);
 
-	// ── 键盘快捷键：复制 / 粘贴 / 全选 / 复制节点 ──────────────────────────
+	// ── 键盘快捷键 ─────────────────────────────────────────────────────────
 	const clipboardRef = useRef<ScriptStep[]>([]);
 	const lastClickedEdgeRef = useRef<string | null>(null);
 
@@ -103,17 +104,51 @@ function InnerCanvas({
 		lastClickedEdgeRef.current = edge.id;
 	}, []);
 
-	const handleKeyDown = useCallback(
-		(e: React.KeyboardEvent) => {
+	// 使用原生 document 监听器，绕过 ReactFlow 的事件拦截
+	useEffect(() => {
+		const handler = (e: KeyboardEvent) => {
+			const tag = (e.target as HTMLElement)?.tagName;
+			if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 			const mod = e.metaKey || e.ctrlKey;
 
-			// Cmd+S 保存（不受焦点限制）
 			if (mod && e.key === 's') {
 				e.preventDefault();
 				void saveNow();
 				return;
 			}
 
+			if (e.key === 'Backspace' || e.key === 'Delete') {
+				// 有选中的节点 → 交给 ReactFlow 的 onNodesChange 处理（已有逻辑）
+				const selNodes = getNodes().filter((n) => n.selected && n.id !== START_NODE_ID);
+				if (selNodes.length > 0) {
+					onNodesChange(selNodes.map((n) => ({ id: n.id, type: 'remove' as const })));
+					lastClickedEdgeRef.current = null;
+					return;
+				}
+				// 有选中的边 → 删除
+				const selEdges = getEdges().filter((edge) => edge.selected && edge.source !== START_NODE_ID);
+				if (selEdges.length > 0) {
+					e.preventDefault();
+					onEdgesChange(selEdges.map((edge) => ({ id: edge.id, type: 'remove' as const })));
+					lastClickedEdgeRef.current = null;
+					return;
+				}
+				// 回退：最后点击的边
+				if (lastClickedEdgeRef.current) {
+					e.preventDefault();
+					onEdgesChange([{ id: lastClickedEdgeRef.current, type: 'remove' as const }]);
+					lastClickedEdgeRef.current = null;
+				}
+			}
+		};
+		document.addEventListener('keydown', handler);
+		return () => document.removeEventListener('keydown', handler);
+	}, [getNodes, getEdges, onNodesChange, onEdgesChange, saveNow]);
+
+	// React onKeyDown 仅处理复制/粘贴等非删除快捷键
+	const handleKeyDown = useCallback(
+		(e: React.KeyboardEvent) => {
+			const mod = e.metaKey || e.ctrlKey;
 			const tag = (e.target as HTMLElement).tagName;
 			if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
@@ -142,26 +177,8 @@ function InnerCanvas({
 				void pasteSteps([structuredClone(steps[selectedIndex])]);
 				return;
 			}
-
-			// Backspace/Delete: 删除选中的边或最后点击的边
-			if (e.key === 'Backspace' || e.key === 'Delete') {
-				// 优先删除 ReactFlow 选中的边
-				const selectedEdges = getEdges().filter((edge) => edge.selected);
-				if (selectedEdges.length > 0) {
-					onEdgesChange(
-						selectedEdges.map((edge) => ({ id: edge.id, type: 'remove' as const })),
-					);
-					lastClickedEdgeRef.current = null;
-					return;
-				}
-				// 回退：删除最后点击的边
-				if (lastClickedEdgeRef.current) {
-					onEdgesChange([{ id: lastClickedEdgeRef.current, type: 'remove' as const }]);
-					lastClickedEdgeRef.current = null;
-				}
-			}
 		},
-		[nodes, steps, selectedIndex, pasteSteps, onNodesChange, onEdgesChange, getNodes, getEdges, saveNow],
+		[nodes, steps, selectedIndex, pasteSteps, onNodesChange, getNodes],
 	);
 
 	// 挂载后执行一次 fitView
@@ -241,7 +258,7 @@ function InnerCanvas({
 						}}
 						fitView
 						fitViewOptions={{ padding: 0.2 }}
-						deleteKeyCode="Backspace"
+						deleteKeyCode={null}
 						selectionOnDrag={true}
 						panOnDrag={[1, 2]}
 						selectionMode={SelectionMode.Partial}
