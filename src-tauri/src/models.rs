@@ -1759,6 +1759,41 @@ pub struct AutomationProgressEvent {
     /// 嵌套步骤路径（顶层步骤为 [index]，控制流内部步骤为 [outer, inner, ...]）
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub step_path: Vec<usize>,
+    /// AI 步骤实时执行详情（仅 ai_agent/ai_judge 步骤）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ai_detail: Option<AiExecutionDetail>,
+}
+
+/// AI 步骤执行过程中的实时详情
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiExecutionDetail {
+    /// 当前轮次（1-based）
+    pub round: usize,
+    /// 最大轮次
+    pub max_rounds: usize,
+    /// 当前阶段：thinking / tool_calling / tool_result / complete
+    pub phase: String,
+    /// AI 思考/推理文本
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thinking: Option<String>,
+    /// 工具调用列表及状态
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_calls: Option<Vec<AiToolCallDetail>>,
+}
+
+/// 单个工具调用的详情
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiToolCallDetail {
+    pub name: String,
+    pub arguments: serde_json::Value,
+    /// executing / completed / failed
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<u64>,
 }
 
 fn default_wait_for_user_timeout() -> WaitForUserTimeout {

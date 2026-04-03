@@ -7,9 +7,10 @@
 
 import { useState } from 'react';
 
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronRight, Loader2, XCircle } from 'lucide-react';
 
-import type { ScriptStep, StepResult } from '@/entities/automation/model/types';
+import type { AiExecutionDetail, ScriptStep, StepResult } from '@/entities/automation/model/types';
+import { useAutomationStore } from '@/store/automation-store';
 import { StepStatusIcon } from '@/entities/automation/ui/step-status-icon';
 import { StepSummary } from '@/entities/automation/ui/step-summary';
 
@@ -106,33 +107,85 @@ type StepRowProps = {
 	result?: StepResult;
 };
 
-function StepRow({ step, result }: StepRowProps) {
+function AiDetailPanel({ detail }: { detail: AiExecutionDetail }) {
+	const phaseLabel: Record<string, string> = {
+		thinking: 'AI 思考中...',
+		tool_calling: '调用工具',
+		tool_result: '工具执行完成',
+		complete: '完成',
+	};
 	return (
-		<div className="flex items-start gap-2 py-1 px-1.5 rounded-md bg-muted/40 text-sm">
-			<StepStatusIcon status={result?.status ?? 'pending'} />
-			<div className="flex-1 min-w-0">
-				<span className="font-mono text-xs bg-muted px-1 py-0.5 rounded mr-2">
-					{step.kind}
-				</span>
-				<StepSummary step={step} />
-				{result?.output && (
-					<p
-						className="text-xs text-muted-foreground mt-0.5 truncate cursor-pointer hover:text-foreground"
-						title={result.output}
-						onClick={() => {
-							void navigator.clipboard.writeText(result.output!);
-						}}
-					>
-						{result.output.slice(0, 120)}
-						{result.output.length > 120 ? '…' : ''}
-					</p>
+		<div className="mt-1.5 space-y-1.5 text-xs border-l-2 border-blue-500/40 pl-2.5 ml-1">
+			<div className="text-muted-foreground flex items-center gap-1.5">
+				{detail.phase === 'thinking' && <Loader2 className="h-3 w-3 animate-spin text-blue-500" />}
+				<span>轮次 {detail.round}/{detail.maxRounds}</span>
+				<span className="text-muted-foreground/60">— {phaseLabel[detail.phase] ?? detail.phase}</span>
+			</div>
+			{detail.thinking && (
+				<div className="bg-muted/30 rounded px-2 py-1.5 text-muted-foreground whitespace-pre-wrap max-h-28 overflow-y-auto leading-relaxed">
+					{detail.thinking}
+				</div>
+			)}
+			{detail.toolCalls?.map((tc, i) => (
+				<div key={`${tc.name}-${i}`} className="flex items-start gap-1.5 py-0.5">
+					{tc.status === 'executing' ? (
+						<Loader2 className="h-3 w-3 animate-spin text-blue-500 mt-0.5 shrink-0" />
+					) : tc.status === 'completed' ? (
+						<CheckCircle2 className="h-3 w-3 text-green-500 mt-0.5 shrink-0" />
+					) : (
+						<XCircle className="h-3 w-3 text-red-500 mt-0.5 shrink-0" />
+					)}
+					<div className="flex-1 min-w-0">
+						<span className="font-mono text-blue-500">{tc.name}</span>
+						{tc.durationMs != null && (
+							<span className="text-muted-foreground/60 ml-1.5">{tc.durationMs}ms</span>
+						)}
+						{tc.result && (
+							<p className="text-muted-foreground mt-0.5 break-all line-clamp-2">{tc.result}</p>
+						)}
+					</div>
+				</div>
+			))}
+		</div>
+	);
+}
+
+function StepRow({ step, result }: StepRowProps) {
+	const isAiStep = step.kind === 'ai_agent' || step.kind === 'ai_judge';
+	const liveAiDetail = useAutomationStore((s) => s.liveAiDetail);
+	const aiDetail = isAiStep && result?.status === 'running' && liveAiDetail?.stepIndex === result.index
+		? liveAiDetail.detail
+		: null;
+
+	return (
+		<div className="py-1 px-1.5 rounded-md bg-muted/40 text-sm">
+			<div className="flex items-start gap-2">
+				<StepStatusIcon status={result?.status ?? 'pending'} />
+				<div className="flex-1 min-w-0">
+					<span className="font-mono text-xs bg-muted px-1 py-0.5 rounded mr-2">
+						{step.kind}
+					</span>
+					<StepSummary step={step} />
+					{result?.output && (
+						<p
+							className="text-xs text-muted-foreground mt-0.5 truncate cursor-pointer hover:text-foreground"
+							title={result.output}
+							onClick={() => {
+								void navigator.clipboard.writeText(result.output!);
+							}}
+						>
+							{result.output.slice(0, 120)}
+							{result.output.length > 120 ? '…' : ''}
+						</p>
+					)}
+				</div>
+				{result && (
+					<span className={`text-xs shrink-0 ${STATUS_COLORS[result.status] ?? ''}`}>
+						{result.durationMs}ms
+					</span>
 				)}
 			</div>
-			{result && (
-				<span className={`text-xs shrink-0 ${STATUS_COLORS[result.status] ?? ''}`}>
-					{result.durationMs}ms
-				</span>
-			)}
+			{aiDetail && <AiDetailPanel detail={aiDetail} />}
 		</div>
 	);
 }
