@@ -75,7 +75,8 @@ pub fn read_recent_events(limit: usize) -> Result<Vec<BackendLogEvent>, String> 
         return Ok(Vec::new());
     }
 
-    let content = fs::read_to_string(path).map_err(|err| format!("read log file failed: {err}"))?;
+    let raw = fs::read(path).map_err(|err| format!("read log file failed: {err}"))?;
+    let content = String::from_utf8_lossy(&raw);
     let mut events = content
         .lines()
         .filter(|line| !line.trim().is_empty())

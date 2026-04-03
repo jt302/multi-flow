@@ -23,7 +23,7 @@ export function ThemeCustomizerCard({
 				<h3 className="text-sm font-semibold">主题定制</h3>
 			</div>
 
-			<div className="grid grid-cols-2 gap-2">
+			<div className="flex flex-wrap gap-2">
 				{THEME_PRESET_KEYS.map((item) => (
 					<Button
 						key={item}
@@ -31,7 +31,7 @@ export function ThemeCustomizerCard({
 						variant="outline"
 						onClick={() => onPresetChange(item)}
 						className={cn(
-							'h-auto flex-col items-start gap-1 rounded-xl px-2 py-2 text-left text-xs',
+							'h-auto flex-1 min-w-[6rem] flex-col items-start gap-1 rounded-xl px-2 py-2 text-left text-xs',
 							!useCustomColor && preset === item && 'border-primary bg-primary/14 text-foreground',
 						)}
 					>
