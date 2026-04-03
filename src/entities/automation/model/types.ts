@@ -189,6 +189,14 @@ export type ScriptStep =
 	| { kind: 'cdp_press_key'; key: string }
 	| { kind: 'cdp_shortcut'; modifiers: string[]; key: string }
 
+	// ── CDP 信息查询步骤 ────────────────────────────────────────────────────────
+	| { kind: 'cdp_get_browser_version'; output_key?: string }
+	| { kind: 'cdp_get_browser_command_line'; output_key?: string }
+	| { kind: 'cdp_get_window_for_target'; target_id?: string; output_key?: string }
+	| { kind: 'cdp_get_layout_metrics'; output_key?: string }
+	| { kind: 'cdp_get_document'; depth?: number; pierce?: boolean; output_key?: string }
+	| { kind: 'cdp_get_full_ax_tree'; depth?: number; output_key?: string }
+
 	// ── 弹窗步骤 ──────────────────────────────────────────────────────────────
 	| {
 			kind: 'confirm_dialog';

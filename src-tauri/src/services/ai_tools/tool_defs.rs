@@ -374,6 +374,71 @@ fn cdp_tools() -> Vec<Value> {
                 "required": ["method"]
             }),
         ),
+        // ── CDP 信息查询工具 ──
+        tool(
+            "cdp_get_browser_version",
+            "获取浏览器版本信息（产品名、版本号、User-Agent、JS/协议版本）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "output_key": { "type": "string", "description": "将版本信息 JSON 存入此变量名" }
+                }
+            }),
+        ),
+        tool(
+            "cdp_get_browser_command_line",
+            "获取浏览器启动时的命令行参数",
+            json!({
+                "type": "object",
+                "properties": {
+                    "output_key": { "type": "string", "description": "将命令行参数 JSON 存入此变量名" }
+                }
+            }),
+        ),
+        tool(
+            "cdp_get_window_for_target",
+            "获取目标所在浏览器窗口的信息（windowId、bounds）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "target_id": { "type": "string", "description": "目标 ID（可选，默认当前目标）" },
+                    "output_key": { "type": "string", "description": "将窗口信息 JSON 存入此变量名" }
+                }
+            }),
+        ),
+        tool(
+            "cdp_get_layout_metrics",
+            "获取页面布局指标（layoutViewport、visualViewport、contentSize）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "output_key": { "type": "string", "description": "将布局指标 JSON 存入此变量名" }
+                }
+            }),
+        ),
+        tool(
+            "cdp_get_document",
+            "获取 DOM 根节点树（可控制深度和 Shadow DOM 穿透）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "depth": { "type": "integer", "description": "遍历深度，-1 表示全部，默认 1" },
+                    "pierce": { "type": "boolean", "description": "是否穿透 Shadow DOM，默认 false" },
+                    "output_key": { "type": "string", "description": "将 DOM 树 JSON 存入此变量名" }
+                }
+            }),
+        ),
+        tool(
+            "cdp_get_full_ax_tree",
+            "获取完整的无障碍树（Accessibility Tree），用于理解页面语义结构",
+            json!({
+                "type": "object",
+                "properties": {
+                    "depth": { "type": "integer", "description": "遍历深度（可选，不填则返回全部）" },
+                    "output_key": { "type": "string", "description": "将无障碍树 JSON 存入此变量名" }
+                }
+            }),
+        ),
     ]
 }
 

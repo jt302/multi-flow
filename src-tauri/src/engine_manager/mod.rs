@@ -1420,10 +1420,15 @@ impl EngineManager {
             let logging_enabled = logging_enabled;
             std::thread::spawn(move || {
                 let reader = BufReader::new(stdout);
-                for line in reader.lines() {
+                for line in reader.split(b'\n') {
                     match line {
-                        Ok(value) if !value.trim().is_empty() => {
-                            if !Self::should_forward_chromium_output(logging_enabled, &value) {
+                        Ok(bytes) => {
+                            let value = String::from_utf8_lossy(&bytes);
+                            let value = value.trim();
+                            if value.is_empty() {
+                                continue;
+                            }
+                            if !Self::should_forward_chromium_output(logging_enabled, value) {
                                 continue;
                             }
                             logger::info(
@@ -1431,7 +1436,6 @@ impl EngineManager {
                                 format!("profile_id={profile_id} profile_name=\"{profile_name}\" {value}"),
                             );
                         }
-                        Ok(_) => {}
                         Err(err) => {
                             logger::warn(
                                 "chromium.stdout",
@@ -1449,10 +1453,15 @@ impl EngineManager {
             let logging_enabled = logging_enabled;
             std::thread::spawn(move || {
                 let reader = BufReader::new(stderr);
-                for line in reader.lines() {
+                for line in reader.split(b'\n') {
                     match line {
-                        Ok(value) if !value.trim().is_empty() => {
-                            if !Self::should_forward_chromium_output(logging_enabled, &value) {
+                        Ok(bytes) => {
+                            let value = String::from_utf8_lossy(&bytes);
+                            let value = value.trim();
+                            if value.is_empty() {
+                                continue;
+                            }
+                            if !Self::should_forward_chromium_output(logging_enabled, value) {
                                 continue;
                             }
                             logger::warn(
@@ -1460,7 +1469,6 @@ impl EngineManager {
                                 format!("profile_id={profile_id} profile_name=\"{profile_name}\" {value}"),
                             );
                         }
-                        Ok(_) => {}
                         Err(err) => {
                             logger::warn(
                                 "chromium.stderr",
