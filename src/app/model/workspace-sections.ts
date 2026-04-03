@@ -61,6 +61,12 @@ export const WORKSPACE_SECTIONS: Record<NavItem['id'], NavSection> = {
 			{ name: 'Farm-DE-11', group: 'Farm', status: '待机', geo: '0 窗口 / 0 标签', last: '离线' },
 		],
 	},
+	'browser-control': {
+		title: '浏览器控制',
+		desc: '窗口管理、标签页批量操作与文本广播输入。',
+		tableTitle: '',
+		rows: [],
+	},
 	automation: {
 		title: '自动化',
 		desc: '创建并运行 RPA 自动化脚本，通过 CDP 和 Magic Controller 操控浏览器环境。',

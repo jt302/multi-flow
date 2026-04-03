@@ -7,6 +7,7 @@ export const NAV_PATHS: Record<NavId, string> = {
 	groups: '/groups',
 	proxy: '/proxy',
 	windows: '/windows',
+	'browser-control': '/browser-control',
 	automation: '/automation',
 	settings: '/settings',
 };
