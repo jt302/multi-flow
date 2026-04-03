@@ -5,9 +5,9 @@
  * 折叠时只显示一个展开按钮。
  */
 
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { ChevronsLeft, ChevronsRight, Search } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Search } from 'lucide-react';
 
 import {
 	GROUP_COLORS,
@@ -30,22 +30,52 @@ type Props = {
  * 折叠：40px 宽，仅显示展开按钮
  * 展开：208px 宽，搜索 + 分组列表
  */
+// 常用步骤（置顶显示，始终展开）
+const FAVORITE_KINDS = [
+	'cdp_navigate', 'cdp_click', 'cdp_type', 'cdp_screenshot',
+	'cdp_get_text', 'wait', 'cdp_wait_for_page_load', 'ai_agent',
+];
+
 export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 	const [search, setSearch] = useState('');
 	const searchRef = useRef<HTMLInputElement>(null);
+	const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(['常用']));
+
+	const toggleGroup = useCallback((label: string) => {
+		setExpandedGroups((prev) => {
+			const next = new Set(prev);
+			if (next.has(label)) next.delete(label);
+			else next.add(label);
+			return next;
+		});
+	}, []);
 
 	const filteredGroups = useMemo(() => {
-		if (!search.trim()) return PALETTE_GROUPS;
+		const isSearching = !!search.trim();
 		const q = search.toLowerCase();
-		return PALETTE_GROUPS.map((group) => ({
+
+		// 构建常用组
+		const favoriteGroup = {
+			label: '常用',
+			kinds: FAVORITE_KINDS.filter((k) =>
+				!isSearching || (KIND_LABELS[k] ?? k).toLowerCase().includes(q) || k.toLowerCase().includes(q),
+			),
+		};
+
+		// 过滤其他组（排除已在常用中的）
+		const favoriteSet = new Set(FAVORITE_KINDS);
+		const otherGroups = PALETTE_GROUPS.map((group) => ({
 			...group,
 			kinds: group.kinds.filter((kind) => {
+				if (favoriteSet.has(kind)) return false;
+				if (!isSearching) return true;
 				const label = KIND_LABELS[kind] ?? kind;
-				return (
-					label.toLowerCase().includes(q) || kind.toLowerCase().includes(q)
-				);
+				return label.toLowerCase().includes(q) || kind.toLowerCase().includes(q);
 			}),
 		})).filter((group) => group.kinds.length > 0);
+
+		const result = favoriteGroup.kinds.length > 0 ? [favoriteGroup, ...otherGroups] : otherGroups;
+		return result;
 	}, [search]);
 
 	if (collapsed) {
@@ -97,33 +127,50 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 			{/* 步骤列表（可滚动） */}
 			<ScrollArea className="flex-1 min-h-0">
 				<div className="p-2 space-y-2.5">
-					{filteredGroups.map((group) => (
-						<div key={group.label}>
-							{/* 分组标签 */}
-							<div className="px-0.5 mb-1">
-								<span
-									className={`inline-flex items-center text-[9px] font-semibold px-1.5 py-0.5 rounded ${GROUP_COLORS[group.label] ?? GROUP_COLORS['通用']}`}
-								>
-									{group.label}
-								</span>
-							</div>
-
-							{/* 该分组下的步骤按钮 */}
-							{group.kinds.map((kind) => (
+					{filteredGroups.map((group) => {
+						const isSearching = !!search.trim();
+						const isExpanded = isSearching || expandedGroups.has(group.label);
+						return (
+							<div key={group.label}>
+								{/* 分组标签（可点击折叠/展开） */}
 								<button
-									key={kind}
 									type="button"
-									className="w-full text-left text-xs px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer flex items-center gap-2 mb-0.5 group/item"
-									onClick={() => onAddStep(kind)}
+									className="w-full flex items-center gap-1 px-0.5 mb-1 cursor-pointer group/grp"
+									onClick={() => toggleGroup(group.label)}
 								>
+									{isExpanded ? (
+										<ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+									) : (
+										<ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+									)}
 									<span
-										className={`w-1 h-3.5 rounded-full flex-shrink-0 opacity-30 group-hover/item:opacity-60 transition-opacity ${PALETTE_DOT_COLORS[group.label] ?? 'bg-muted-foreground/50'}`}
-									/>
-									<span className="truncate">{KIND_LABELS[kind] ?? kind}</span>
+										className={`inline-flex items-center text-[9px] font-semibold px-1.5 py-0.5 rounded ${GROUP_COLORS[group.label] ?? GROUP_COLORS['通用']}`}
+									>
+										{group.label}
+									</span>
+									<span className="text-[9px] text-muted-foreground/50 ml-auto">
+										{group.kinds.length}
+									</span>
 								</button>
-							))}
-						</div>
-					))}
+
+								{/* 该分组下的步骤按钮（折叠时隐藏） */}
+								{isExpanded &&
+									group.kinds.map((kind) => (
+										<button
+											key={kind}
+											type="button"
+											className="w-full text-left text-xs px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer flex items-center gap-2 mb-0.5 group/item"
+											onClick={() => onAddStep(kind)}
+										>
+											<span
+												className={`w-1 h-3.5 rounded-full flex-shrink-0 opacity-30 group-hover/item:opacity-60 transition-opacity ${PALETTE_DOT_COLORS[group.label] ?? 'bg-muted-foreground/50'}`}
+											/>
+											<span className="truncate">{KIND_LABELS[kind] ?? kind}</span>
+										</button>
+									))}
+							</div>
+						);
+					})}
 					{filteredGroups.length === 0 && (
 						<p className="text-xs text-muted-foreground text-center py-4">
 							无匹配步骤
