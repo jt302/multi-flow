@@ -1590,6 +1590,46 @@ pub enum ScriptStep {
         #[serde(skip_serializing_if = "Option::is_none")]
         output_key: Option<String>,
     },
+
+    // ── CDP 信息查询步骤 ─────────────────────────────────────────────────────
+    /// 获取浏览器版本信息 (Browser.getVersion)
+    CdpGetBrowserVersion {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 获取浏览器启动命令行参数 (Browser.getBrowserCommandLine)
+    CdpGetBrowserCommandLine {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 获取目标所在浏览器窗口信息 (Browser.getWindowForTarget)
+    CdpGetWindowForTarget {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        target_id: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 获取页面布局指标 (Page.getLayoutMetrics)
+    CdpGetLayoutMetrics {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 获取 DOM 根节点 (DOM.getDocument)
+    CdpGetDocument {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        depth: Option<i32>,
+        #[serde(default)]
+        pierce: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 获取完整无障碍树 (Accessibility.getFullAXTree)
+    CdpGetFullAxTree {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        depth: Option<i32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

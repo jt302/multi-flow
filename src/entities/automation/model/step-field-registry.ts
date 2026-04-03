@@ -72,7 +72,7 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
   // ── 输入文本 ──────────────────────────────────────────────────────────────
   type: [
     { type: 'selector' },
-    { type: 'text', key: 'text', label: '输入文本' },
+    { type: 'text', key: 'text', label: '输入文本', multiline: true },
   ],
 
   // ── 截图（Magic Controller） ──────────────────────────────────────────────
@@ -191,7 +191,7 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
 
   cdp_type: [
     { type: 'selector' },
-    { type: 'text', key: 'text', label: '输入文本' },
+    { type: 'text', key: 'text', label: '输入文本', multiline: true },
   ],
 
   cdp_scroll_to: [{ type: 'selector', label: '元素选择器（可选）', optional: true }],
@@ -404,6 +404,24 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
       ],
     },
     { type: 'text', key: 'prompt_text', label: 'Prompt 输入文本（可选）' },
+    { type: 'output_key' },
+  ],
+
+  // ── CDP 信息查询步骤 ───────────────────────────────────────────────────────────
+  cdp_get_browser_version: [{ type: 'output_key' }],
+  cdp_get_browser_command_line: [{ type: 'output_key' }],
+  cdp_get_window_for_target: [
+    { type: 'text', key: 'target_id', label: 'Target ID（可选，空=当前目标）' },
+    { type: 'output_key' },
+  ],
+  cdp_get_layout_metrics: [{ type: 'output_key' }],
+  cdp_get_document: [
+    { type: 'number', key: 'depth', label: '深度（-1=全量，默认1）' },
+    { type: 'checkbox', key: 'pierce', label: '穿透 Shadow DOM' },
+    { type: 'output_key' },
+  ],
+  cdp_get_full_ax_tree: [
+    { type: 'number', key: 'depth', label: '深度（可选，空=全量）' },
     { type: 'output_key' },
   ],
 

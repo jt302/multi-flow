@@ -54,6 +54,13 @@ export const STEP_KINDS: StepKindDef[] = [
 	{ value: 'cdp_press_key', label: 'CDP 按键', group: 'CDP' },
 	{ value: 'cdp_shortcut', label: 'CDP 快捷键', group: 'CDP' },
 	{ value: 'cdp_handle_dialog', label: 'CDP 处理弹窗', group: 'CDP' },
+	// CDP 信息查询
+	{ value: 'cdp_get_browser_version', label: 'CDP 浏览器版本', group: 'CDP' },
+	{ value: 'cdp_get_browser_command_line', label: 'CDP 启动参数', group: 'CDP' },
+	{ value: 'cdp_get_window_for_target', label: 'CDP 窗口信息', group: 'CDP' },
+	{ value: 'cdp_get_layout_metrics', label: 'CDP 页面布局指标', group: 'CDP' },
+	{ value: 'cdp_get_document', label: 'CDP 获取DOM根节点', group: 'CDP' },
+	{ value: 'cdp_get_full_ax_tree', label: 'CDP 无障碍树', group: 'CDP' },
 	// 弹窗 / 通知
 	{ value: 'confirm_dialog', label: '确认弹窗 confirm_dialog', group: '人工介入' },
 	{ value: 'select_dialog', label: '选择弹窗 select_dialog', group: '人工介入' },
@@ -137,6 +144,9 @@ export const KIND_LABELS: Record<string, string> = {
 	cdp_clipboard: '剪贴板', cdp_execute_js: '执行JS',
 	cdp_input_text: '输入文本(增强)',
 	cdp_press_key: '按键', cdp_shortcut: '快捷键', cdp_handle_dialog: '处理弹窗',
+	cdp_get_browser_version: '浏览器版本', cdp_get_browser_command_line: '启动参数',
+	cdp_get_window_for_target: '窗口信息', cdp_get_layout_metrics: '页面布局',
+	cdp_get_document: 'DOM根节点', cdp_get_full_ax_tree: '无障碍树',
 	confirm_dialog: '确认弹窗', select_dialog: '选择弹窗', notification: '通知',
 	magic_set_bounds: '设置窗口尺寸', magic_get_bounds: '获取窗口尺寸',
 	magic_set_maximized: '最大化', magic_set_minimized: '最小化',
@@ -186,6 +196,9 @@ export const KIND_GROUPS: Record<string, string> = {
 	cdp_upload_file: 'CDP', cdp_download_file: 'CDP',
 	cdp_clipboard: 'CDP', cdp_execute_js: 'CDP', cdp_input_text: 'CDP',
 	cdp_press_key: 'CDP', cdp_shortcut: 'CDP', cdp_handle_dialog: 'CDP',
+	cdp_get_browser_version: 'CDP', cdp_get_browser_command_line: 'CDP',
+	cdp_get_window_for_target: 'CDP', cdp_get_layout_metrics: 'CDP',
+	cdp_get_document: 'CDP', cdp_get_full_ax_tree: 'CDP',
 	confirm_dialog: '人工介入', select_dialog: '人工介入', notification: '通知',
 	magic_set_bounds: 'Magic', magic_get_bounds: 'Magic',
 	magic_set_maximized: 'Magic', magic_set_minimized: 'Magic',
@@ -240,6 +253,19 @@ export const PALETTE_DOT_COLORS: Record<string, string> = {
 	扩展: 'bg-indigo-500',
 };
 
+/** 节点左侧色带（border-left 色） */
+export const GROUP_ACCENT_COLORS: Record<string, string> = {
+	CDP: 'border-l-blue-500',
+	Magic: 'border-l-purple-500',
+	AI: 'border-l-orange-500',
+	控制流: 'border-l-emerald-500',
+	人工介入: 'border-l-amber-500',
+	通用: 'border-l-slate-400 dark:border-l-slate-500',
+	通知: 'border-l-teal-500',
+	调试: 'border-l-cyan-500',
+	扩展: 'border-l-indigo-500',
+};
+
 // ─── Canvas 拖拽面板分组 ──────────────────────────────────────────────────────
 
 export const PALETTE_GROUPS: { label: string; kinds: string[] }[] = [
@@ -250,7 +276,10 @@ export const PALETTE_GROUPS: { label: string; kinds: string[] }[] = [
 			'cdp_open_new_tab', 'cdp_get_all_tabs', 'cdp_switch_tab', 'cdp_close_tab',
 			'cdp_go_back', 'cdp_go_forward', 'cdp_upload_file', 'cdp_download_file',
 			'cdp_clipboard', 'cdp_execute_js', 'cdp_input_text',
-			'cdp_press_key', 'cdp_shortcut', 'cdp_handle_dialog'],
+			'cdp_press_key', 'cdp_shortcut', 'cdp_handle_dialog',
+			'cdp_get_browser_version', 'cdp_get_browser_command_line',
+			'cdp_get_window_for_target', 'cdp_get_layout_metrics',
+			'cdp_get_document', 'cdp_get_full_ax_tree'],
 	},
 	{ label: '通用', kinds: ['wait', 'wait_for_user'] },
 	{ label: '人工介入', kinds: ['confirm_dialog', 'select_dialog'] },
@@ -317,6 +346,12 @@ export function defaultStep(kind: string): ScriptStep {
 		case 'cdp_press_key': return { kind: 'cdp_press_key', key: 'Enter' };
 		case 'cdp_shortcut': return { kind: 'cdp_shortcut', modifiers: ['ctrl'], key: 'c' };
 		case 'cdp_handle_dialog': return { kind: 'cdp_handle_dialog', action: 'accept' };
+		case 'cdp_get_browser_version': return { kind: 'cdp_get_browser_version' };
+		case 'cdp_get_browser_command_line': return { kind: 'cdp_get_browser_command_line' };
+		case 'cdp_get_window_for_target': return { kind: 'cdp_get_window_for_target' };
+		case 'cdp_get_layout_metrics': return { kind: 'cdp_get_layout_metrics' };
+		case 'cdp_get_document': return { kind: 'cdp_get_document', depth: 1 };
+		case 'cdp_get_full_ax_tree': return { kind: 'cdp_get_full_ax_tree' };
 		case 'confirm_dialog': return { kind: 'confirm_dialog', title: '', message: '', buttons: [{ text: '确认', value: 'confirm', variant: 'default' }, { text: '取消', value: 'cancel', variant: 'outline' }], button_branches: [] };
 		case 'select_dialog': return { kind: 'select_dialog', title: '', options: ['选项1', '选项2'] };
 		case 'notification': return { kind: 'notification', title: '', body: '' };
@@ -390,6 +425,9 @@ export function getStepSummaryText(step: ScriptStep): string {
 	if (step.kind === 'select_dialog') return String(s['title'] ?? '').slice(0, 40) || '选择';
 	if (step.kind === 'notification') return String(s['title'] ?? '').slice(0, 40) || '通知';
 	if (step.kind === 'cdp_handle_dialog') return String(s['action'] ?? 'accept');
+	if (step.kind === 'cdp_get_document') return `depth=${String(s['depth'] ?? 1)}`;
+	if (step.kind === 'cdp_get_full_ax_tree') return s['depth'] ? `depth=${String(s['depth'])}` : '全量';
+	if (step.kind === 'cdp_get_window_for_target') return String(s['target_id'] ?? '').slice(0, 30) || '当前目标';
 	if (step.kind === 'cdp_download_file') return String(s['download_path'] ?? '').slice(0, 40);
 	if (step.kind === 'cdp_execute_js') return (String(s['file_path'] ?? '') || String(s['expression'] ?? '')).slice(0, 40);
 	if (step.kind === 'print') return String(s['text'] ?? '').slice(0, 40) || '(空)';

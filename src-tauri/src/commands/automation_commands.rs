@@ -492,6 +492,11 @@ pub async fn run_automation_script(
             step_delay_ms,
         )
     };
+    if steps.is_empty() {
+        return Err(
+            "脚本无有效步骤，无法执行。请在流程编辑器中将步骤连接到 Start 节点。".to_string(),
+        );
+    }
     let resolved_profile_id = profile_id
         .or_else(|| associated_profile_ids.first().cloned())
         .ok_or_else(|| "未指定环境且脚本无关联环境".to_string())?;
@@ -592,6 +597,11 @@ pub async fn run_automation_script_debug(
             step_delay_ms,
         )
     };
+    if steps.is_empty() {
+        return Err(
+            "脚本无有效步骤，无法执行。请在流程编辑器中将步骤连接到 Start 节点。".to_string(),
+        );
+    }
     let resolved_profile_id = profile_id
         .or_else(|| associated_profile_ids.first().cloned())
         .ok_or_else(|| "未指定环境且脚本无关联环境".to_string())?;
@@ -3751,6 +3761,102 @@ pub async fn execute_step(
                 params["promptText"] = json!(text);
             }
             let result = cdp.call("Page.handleJavaScriptDialog", params).await?;
+            let output = serde_json::to_string(&result).ok();
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), output.clone().unwrap_or_default());
+            }
+            Ok((output, vs))
+        }
+
+        // ── CDP 信息查询步骤 ─────────────────────────────────────────────────
+        ScriptStep::CdpGetBrowserVersion { output_key } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let result = cdp.call_browser("Browser.getVersion", json!({})).await?;
+            let output = serde_json::to_string(&result).ok();
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), output.clone().unwrap_or_default());
+            }
+            Ok((output, vs))
+        }
+
+        ScriptStep::CdpGetBrowserCommandLine { output_key } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let result = cdp
+                .call_browser("Browser.getBrowserCommandLine", json!({}))
+                .await?;
+            let output = serde_json::to_string(&result).ok();
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), output.clone().unwrap_or_default());
+            }
+            Ok((output, vs))
+        }
+
+        ScriptStep::CdpGetWindowForTarget {
+            target_id,
+            output_key,
+        } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let mut params = json!({});
+            if let Some(tid) = target_id {
+                let tid = vars.interpolate(tid);
+                if !tid.is_empty() {
+                    params["targetId"] = json!(tid);
+                }
+            }
+            let result = cdp
+                .call_browser("Browser.getWindowForTarget", params)
+                .await?;
+            let output = serde_json::to_string(&result).ok();
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), output.clone().unwrap_or_default());
+            }
+            Ok((output, vs))
+        }
+
+        ScriptStep::CdpGetLayoutMetrics { output_key } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let result = cdp.call("Page.getLayoutMetrics", json!({})).await?;
+            let output = serde_json::to_string(&result).ok();
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), output.clone().unwrap_or_default());
+            }
+            Ok((output, vs))
+        }
+
+        ScriptStep::CdpGetDocument {
+            depth,
+            pierce,
+            output_key,
+        } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let mut params = json!({});
+            if let Some(d) = depth {
+                params["depth"] = json!(d);
+            }
+            if *pierce {
+                params["pierce"] = json!(true);
+            }
+            let result = cdp.call("DOM.getDocument", params).await?;
+            let output = serde_json::to_string(&result).ok();
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), output.clone().unwrap_or_default());
+            }
+            Ok((output, vs))
+        }
+
+        ScriptStep::CdpGetFullAxTree { depth, output_key } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let mut params = json!({});
+            if let Some(d) = depth {
+                params["depth"] = json!(d);
+            }
+            let result = cdp.call("Accessibility.getFullAXTree", params).await?;
             let output = serde_json::to_string(&result).ok();
             let mut vs = HashMap::new();
             if let Some(k) = output_key {
