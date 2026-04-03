@@ -97,6 +97,11 @@ function InnerCanvas({
 
 	// ── 键盘快捷键：复制 / 粘贴 / 全选 / 复制节点 ──────────────────────────
 	const clipboardRef = useRef<ScriptStep[]>([]);
+	const lastClickedEdgeRef = useRef<string | null>(null);
+
+	const onEdgeClick = useCallback((_: React.MouseEvent, edge: { id: string }) => {
+		lastClickedEdgeRef.current = edge.id;
+	}, []);
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
@@ -138,13 +143,21 @@ function InnerCanvas({
 				return;
 			}
 
-			// Backspace/Delete: 删除选中的边
+			// Backspace/Delete: 删除选中的边或最后点击的边
 			if (e.key === 'Backspace' || e.key === 'Delete') {
+				// 优先删除 ReactFlow 选中的边
 				const selectedEdges = getEdges().filter((edge) => edge.selected);
 				if (selectedEdges.length > 0) {
 					onEdgesChange(
 						selectedEdges.map((edge) => ({ id: edge.id, type: 'remove' as const })),
 					);
+					lastClickedEdgeRef.current = null;
+					return;
+				}
+				// 回退：删除最后点击的边
+				if (lastClickedEdgeRef.current) {
+					onEdgesChange([{ id: lastClickedEdgeRef.current, type: 'remove' as const }]);
+					lastClickedEdgeRef.current = null;
 				}
 			}
 		},
@@ -217,8 +230,15 @@ function InnerCanvas({
 						onNodesChange={onNodesChange}
 						onEdgesChange={onEdgesChange}
 						onConnect={onConnect}
-						onNodeClick={onNodeClick}
-						onPaneClick={onPaneClick}
+						onNodeClick={(evt, node) => {
+							lastClickedEdgeRef.current = null;
+							onNodeClick(evt, node);
+						}}
+						onEdgeClick={onEdgeClick}
+						onPaneClick={() => {
+							lastClickedEdgeRef.current = null;
+							onPaneClick();
+						}}
 						fitView
 						fitViewOptions={{ padding: 0.2 }}
 						deleteKeyCode="Backspace"
