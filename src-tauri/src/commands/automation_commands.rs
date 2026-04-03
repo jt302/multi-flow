@@ -1977,6 +1977,15 @@ pub async fn execute_step(
                             format!("AI Agent 第 {} 轮返回文本", round + 1),
                             Some(json!({ "text": &text, "round": round + 1 })),
                         ));
+                        // AI 直接回复文本而非调用 submit_result：
+                        // 如果还有轮次剩余，回推要求使用 submit_result；否则降级使用原始文本
+                        if round + 1 < *max_steps {
+                            messages.push(ChatMessage::assistant(&text));
+                            messages.push(ChatMessage::user(
+                                "请不要直接回复文本。你必须调用 submit_result 工具来提交最终结果，result 参数中只包含纯净的结果数据，不要有任何解释或修饰。"
+                            ));
+                            continue;
+                        }
                         final_text = text;
                         break;
                     }
