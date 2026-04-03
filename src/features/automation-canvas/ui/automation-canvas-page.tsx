@@ -137,8 +137,18 @@ function InnerCanvas({
 				void pasteSteps([structuredClone(steps[selectedIndex])]);
 				return;
 			}
+
+			// Backspace/Delete: 删除选中的边
+			if (e.key === 'Backspace' || e.key === 'Delete') {
+				const selectedEdges = edges.filter((edge) => edge.selected);
+				if (selectedEdges.length > 0) {
+					onEdgesChange(
+						selectedEdges.map((edge) => ({ id: edge.id, type: 'remove' as const })),
+					);
+				}
+			}
 		},
-		[nodes, steps, selectedIndex, pasteSteps, onNodesChange, getNodes, saveNow],
+		[nodes, edges, steps, selectedIndex, pasteSteps, onNodesChange, onEdgesChange, getNodes, saveNow],
 	);
 
 	// 挂载后执行一次 fitView
