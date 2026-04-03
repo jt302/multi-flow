@@ -36,6 +36,11 @@ const WindowsRoutePage = lazy(() =>
 		default: module.WindowsRoutePage,
 	})),
 );
+const BrowserControlRoutePage = lazy(() =>
+	import('@/pages/browser-control').then((module) => ({
+		default: module.BrowserControlRoutePage,
+	})),
+);
 const SettingsRoutePage = lazy(() =>
 	import('@/pages/settings').then((module) => ({
 		default: module.SettingsRoutePage,
@@ -77,6 +82,7 @@ export function AppRouter() {
 				<Route path="/groups" element={<GroupsRoutePage />} />
 				<Route path="/proxy" element={<ProxyRoutePage />} />
 				<Route path="/windows" element={<WindowsRoutePage />} />
+				<Route path="/browser-control" element={<BrowserControlRoutePage />} />
 				<Route path="/automation" element={<AutomationRoutePage />} />
 				<Route path="/settings" element={<SettingsRoutePage />} />
 			</Route>
