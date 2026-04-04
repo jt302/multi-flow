@@ -1,0 +1,104 @@
+{
+	"dashboard": "Dashboard",
+	"profiles": "Profiles",
+	"plugins": "Plugins",
+	"groups": "Groups",
+	"proxy": "Proxy Pool",
+	"windows": "Window Sync",
+	"browserControl": "Browser Control",
+	"automation": "Automation",
+	"settings": "Settings",
+
+	"dashboardSection": {
+		"title": "Global Overview",
+		"desc": "Aggregate display of environment status, proxy health, and window sync overview.",
+		"tableTitle": "Recent Active Sessions"
+	},
+	"profilesSection": {
+		"title": "Environment Workbench",
+		"desc": "Manage profiles by group, execute batch launch, stop, and status inspection.",
+		"tableTitle": "Environment Sessions"
+	},
+	"pluginsSection": {
+		"title": "Plugin Library",
+		"desc": "Download, update, uninstall plugins, and batch install to environments by filter criteria.",
+		"tableTitle": "Plugin Installation Examples"
+	},
+	"groupsSection": {
+		"title": "Group Management",
+		"desc": "Manage business groups, notes, and archive policies. Groups can be linked during environment creation.",
+		"tableTitle": "Group Member Examples"
+	},
+	"proxySection": {
+		"title": "Proxy Pool Monitor",
+		"desc": "Track proxy availability, region distribution, and recent failure records.",
+		"tableTitle": "Proxy Linked Sessions"
+	},
+	"windowsSection": {
+		"title": "Window Sync Console",
+		"desc": "Manage master-slave sync, window arrangement, batch tab actions, and text broadcast input.",
+		"tableTitle": "Running Windows Overview"
+	},
+	"browserControlSection": {
+		"title": "Browser Control",
+		"desc": "Window management, batch tab operations, and text broadcast input."
+	},
+	"automationSection": {
+		"title": "Automation",
+		"desc": "Create and run RPA automation scripts. Control browser environments via CDP and Magic Controller.",
+		"tableTitle": "Recent Run Records"
+	},
+	"settingsSection": {
+		"title": "System Settings",
+		"desc": "Manage themes, resource version policies, and default runtime parameters.",
+		"tableTitle": "System Key Status"
+	},
+
+	"sampleStatus": {
+		"running": "Running",
+		"standby": "Standby",
+		"alert": "Alert"
+	},
+	"sampleRows": {
+		"brandAccount": "Brand Account",
+		"residential": "Residential Proxy",
+		"datacenter": "Datacenter Proxy",
+		"tools": "Tools",
+		"wallet": "Wallet",
+		"debug": "Debug",
+		"downloaded": "Downloaded",
+		"pendingDownload": "Pending Download",
+		"checkUpdate": "Check Update",
+		"needRestart": "Restart Required",
+		"notInstalled": "Not Installed",
+		"importById": "Import by Extension ID",
+		"windowTab": "{{windows}} windows / {{tabs}} tabs",
+		"offline": "Offline",
+		"resourceVersion": "Resource Version",
+		"geoDb": "Geo DB",
+		"optionalEnable": "Optional Enable",
+		"automate": "Automate",
+		"notStarted": "Not Started",
+		"profileCount": "{{count}} profiles"
+	},
+
+	"searchCommand": "Search Command",
+	"logPanel": "Log Panel",
+	"openLogPanel": "Open Log Panel",
+	"globalCommand": "Global Command",
+	"globalCommandDesc": "Search pages and actions",
+	"commandPlaceholder": "Type a command or search...",
+	"pageJump": "Pages",
+	"actions": "Actions",
+
+	"sidebar": {
+		"navigation": "Navigation",
+		"devicePresets": "Device Presets",
+		"runtimeStatus": "Runtime Status",
+		"executionEngine": "Execution Engine",
+		"active": "Active",
+		"paused": "Paused",
+		"pauseEngine": "Pause Engine",
+		"resumeEngine": "Resume Engine"
+	}
+}

@@ -1,0 +1,56 @@
+{
+	"page": {
+		"title": "分组列表",
+		"searchPlaceholder": "搜索分组名称或备注",
+		"newGroup": "新建分组",
+		"currentGroups": "当前分组数",
+		"coveredProfiles": "覆盖环境数",
+		"noMatchingGroups": "没有匹配当前搜索条件的分组",
+		"table": {
+			"group": "分组",
+			"note": "备注",
+			"profileCount": "环境数",
+			"lastUpdated": "最近更新",
+			"actions": "操作"
+		},
+		"profileCountBadge": "{{count}} 个环境"
+	},
+	"delete": {
+		"title": "确认删除分组",
+		"description": "删除后，当前分组下关联环境的分组信息会被清空。该操作不会自动恢复历史绑定。",
+		"currentGroup": "当前分组：{{name}}",
+		"cancel": "取消",
+		"confirmDelete": "确认删除"
+	},
+	"form": {
+		"nameRequired": "分组名称不能为空",
+		"editTitle": "编辑分组",
+		"createTitle": "新建分组",
+		"editDesc": "更新分组名称和备注信息。",
+		"createDesc": "创建一个新的分组，用于环境归类。",
+		"name": "分组名称",
+		"namePlaceholder": "例如 AirDrop-Matrix",
+		"note": "备注",
+		"notePlaceholder": "任务目的或业务线",
+		"saveGroup": "保存分组",
+		"createGroup": "新增分组"
+	},
+	"actions": {
+		"created": "分组已创建",
+		"createFailed": "创建分组失败",
+		"updated": "分组已更新",
+		"updateFailed": "更新分组失败",
+		"deleted": "分组已删除",
+		"deleteFailed": "删除分组失败",
+		"restored": "分组已恢复",
+		"restoreFailed": "恢复分组失败",
+		"permanentlyDeleted": "分组已彻底删除",
+		"permanentDeleteFailed": "彻底删除分组失败"
+	},
+	"mock": {
+		"airdropNote": "空投批量任务",
+		"farmNote": "收益农场矩阵",
+		"brandNote": "品牌账号运营",
+		"noNote": "未填写备注"
+	}
+}

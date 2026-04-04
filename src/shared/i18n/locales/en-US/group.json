@@ -1,0 +1,56 @@
+{
+	"page": {
+		"title": "Groups",
+		"searchPlaceholder": "Search groups or notes...",
+		"newGroup": "New Group",
+		"currentGroups": "Current Groups",
+		"coveredProfiles": "Covered Profiles",
+		"noMatchingGroups": "No matching groups",
+		"table": {
+			"group": "Group",
+			"note": "Note",
+			"profileCount": "Profiles",
+			"lastUpdated": "Last Updated",
+			"actions": "Actions"
+		},
+		"profileCountBadge": "{{count}} profiles"
+	},
+	"delete": {
+		"title": "Confirm Delete Group",
+		"description": "After deletion, the group information of associated environments will be cleared. This operation won't automatically restore historical bindings.",
+		"currentGroup": "Current Group: {{name}}",
+		"cancel": "Cancel",
+		"confirmDelete": "Confirm Delete"
+	},
+	"form": {
+		"nameRequired": "Group name is required",
+		"editTitle": "Edit Group",
+		"createTitle": "Create Group",
+		"editDesc": "Update group name and note information.",
+		"createDesc": "Create a new group for environment categorization.",
+		"name": "Group Name",
+		"namePlaceholder": "e.g. AirDrop-Matrix",
+		"note": "Note",
+		"notePlaceholder": "Task purpose or business line",
+		"saveGroup": "Save Group",
+		"createGroup": "Create Group"
+	},
+	"actions": {
+		"created": "Group created",
+		"createFailed": "Failed to create group",
+		"updated": "Group updated",
+		"updateFailed": "Failed to update group",
+		"deleted": "Group deleted",
+		"deleteFailed": "Failed to delete group",
+		"restored": "Group restored",
+		"restoreFailed": "Failed to restore group",
+		"permanentlyDeleted": "Group permanently deleted",
+		"permanentDeleteFailed": "Failed to permanently delete group"
+	},
+	"mock": {
+		"airdropNote": "Airdrop batch tasks",
+		"farmNote": "Yield farming matrix",
+		"brandNote": "Brand account operations",
+		"noNote": "No note provided"
+	}
+}
