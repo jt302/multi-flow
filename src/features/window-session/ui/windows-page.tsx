@@ -46,6 +46,7 @@ import {
 	syncTextFormSchema,
 	windowBoundsBatchFormSchema,
 } from '@/features/window-session/model/window-sync-forms';
+import { formatDisplayMonitorOptionLabel } from '@/entities/window-session/model/display-monitor-label';
 import { WindowBatchActionsCard } from './window-batch-actions-card';
 import { WindowStatesCard } from './window-states-card';
 
@@ -829,11 +830,10 @@ export function WindowsPage({
 																		key={monitor.id}
 																		value={monitor.id}
 																	>
-																		{monitor.name} ({monitor.width}×
-																		{monitor.height})
-																		{monitor.isPrimary
-																			? ` (${t('arrange.primaryMonitor')})`
-																			: ''}
+																		{formatDisplayMonitorOptionLabel(
+																			monitor,
+																			t,
+																		)}
 																	</SelectItem>
 																))}
 															</SelectContent>

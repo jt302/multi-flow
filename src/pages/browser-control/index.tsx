@@ -14,6 +14,7 @@ import { AppWindow, LayoutList, Monitor, Send, Type } from 'lucide-react';
 import { getWorkspaceSections } from '@/app/model/workspace-sections';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
+import { formatDisplayMonitorOptionLabel } from '@/entities/window-session/model/display-monitor-label';
 import { useDisplayMonitorsQuery } from '@/entities/window-session/model/use-display-monitors-query';
 import { useSyncTargetsQuery } from '@/entities/window-session/model/use-sync-targets-query';
 import { useWindowActions } from '@/features/window-session/model/use-window-actions';
@@ -325,12 +326,12 @@ export function BrowserControlRoutePage() {
 													<SelectContent>
 														{displayMonitors.map((m) => (
 															<SelectItem key={m.id} value={m.id}>
-															{m.name} ({m.width}×{m.height})
-															{m.isPrimary
-																? ` (${t('arrange.primaryMonitor')})`
-																: ''}
-														</SelectItem>
-													))}
+																{formatDisplayMonitorOptionLabel(
+																	m,
+																	t,
+																)}
+															</SelectItem>
+														))}
 													</SelectContent>
 												</Select>
 											)}

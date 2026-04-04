@@ -138,6 +138,11 @@ export type DisplayMonitorItem = {
 	id: string;
 	name: string;
 	isPrimary: boolean;
+	isBuiltin: boolean;
+	friendlyName?: string | null;
+	manufacturer?: string | null;
+	model?: string | null;
+	hostDeviceName?: string | null;
 	scaleFactor: number;
 	positionX: number;
 	positionY: number;
