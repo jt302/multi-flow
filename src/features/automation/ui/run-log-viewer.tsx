@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { ChevronDown, ChevronUp, Filter, X } from 'lucide-react';
 
@@ -71,6 +72,7 @@ function formatLogTime(timestampMs: number) {
 }
 
 export function RunLogViewer({ logs, expanded = false }: Props) {
+	const { t } = useTranslation(['automation', 'common']);
 	const [enabledLevels, setEnabledLevels] = useState<Set<RunLogEntry['level']>>(
 		() => new Set(LOG_LEVELS),
 	);
@@ -137,7 +139,7 @@ export function RunLogViewer({ logs, expanded = false }: Props) {
 	if (logs.length === 0) {
 		return (
 			<div className="px-5 py-4">
-				<p className="text-xs text-muted-foreground">暂无执行日志</p>
+				<p className="text-xs text-muted-foreground">{t('common:noLogs')}</p>
 			</div>
 		);
 	}
@@ -153,16 +155,16 @@ export function RunLogViewer({ logs, expanded = false }: Props) {
 							type="button"
 							className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
 							onClick={() => setFiltersCollapsed(false)}
-							title="展开筛选条件"
+							title={t('common:expandFilters')}
 						>
 							<Filter className="h-3 w-3" />
-							<span>筛选</span>
+							<span>{t('common:filter')}</span>
 							{hasActiveFilter && (
 								<span className="h-1.5 w-1.5 rounded-full bg-primary" />
 							)}
 						</button>
 						<span className="text-[10px] text-muted-foreground">
-							{filteredLogs.length} / {logs.length} 条
+							{t('common:countTotal', { filtered: filteredLogs.length, total: logs.length })}
 						</span>
 					</div>
 				) : (
@@ -170,7 +172,7 @@ export function RunLogViewer({ logs, expanded = false }: Props) {
 					<div className="flex gap-1 flex-wrap px-3 py-2">
 						<div className="flex items-center gap-1 mr-2">
 							<Filter className="h-3 w-3 text-muted-foreground" />
-							<span className="text-[10px] text-muted-foreground">级别</span>
+							<span className="text-[10px] text-muted-foreground">{t('common:level')}</span>
 						</div>
 						{LOG_LEVELS.map((level) => (
 							<ToggleChip
@@ -182,7 +184,7 @@ export function RunLogViewer({ logs, expanded = false }: Props) {
 						))}
 						<div className="w-full" />
 						<div className="flex items-center gap-1 mr-2">
-							<span className="text-[10px] text-muted-foreground">分类</span>
+							<span className="text-[10px] text-muted-foreground">{t('common:category')}</span>
 						</div>
 						{LOG_CATEGORIES.map((category) => (
 							<ToggleChip
@@ -196,7 +198,7 @@ export function RunLogViewer({ logs, expanded = false }: Props) {
 							type="button"
 							className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
 							onClick={() => setFiltersCollapsed(true)}
-							title="折叠筛选条件"
+							title={t('common:collapseFilters')}
 						>
 							<X className="h-3 w-3" />
 						</button>
@@ -209,7 +211,7 @@ export function RunLogViewer({ logs, expanded = false }: Props) {
 				<div className="font-mono text-xs">
 					{filteredLogs.length === 0 ? (
 						<p className="px-3 py-3 text-muted-foreground">
-							没有匹配的日志条目
+							{t('common:noMatches')}
 						</p>
 					) : (
 						filteredLogs.map((entry, index) => {

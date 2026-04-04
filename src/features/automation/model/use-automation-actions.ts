@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 
+import i18n from '@/shared/i18n';
+
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
@@ -71,7 +73,7 @@ export function useAutomationActions(activeScriptId: string | null) {
 			queryClient.invalidateQueries({ queryKey: queryKeys.automationScripts });
 		},
 		onError: (err: Error) => {
-			toast.error(`创建失败：${err.message}`);
+			toast.error(i18n.t('automation:createScriptFailed', { message: err.message }));
 		},
 	});
 
@@ -82,7 +84,7 @@ export function useAutomationActions(activeScriptId: string | null) {
 			queryClient.invalidateQueries({ queryKey: queryKeys.automationScripts });
 		},
 		onError: (err: Error) => {
-			toast.error(`保存失败：${err.message}`);
+			toast.error(i18n.t('automation:saveScriptFailed', { message: err.message }));
 		},
 	});
 
@@ -92,7 +94,7 @@ export function useAutomationActions(activeScriptId: string | null) {
 			queryClient.invalidateQueries({ queryKey: queryKeys.automationScripts });
 		},
 		onError: (err: Error) => {
-			toast.error(`删除失败：${err.message}`);
+			toast.error(i18n.t('automation:deleteScriptFailed', { message: err.message }));
 		},
 	});
 
@@ -125,7 +127,7 @@ export function useAutomationActions(activeScriptId: string | null) {
 			return runId;
 		},
 		onError: (err: Error) => {
-			toast.error(`运行失败：${err.message}`);
+			toast.error(i18n.t('automation:runScriptFailed', { message: err.message }));
 		},
 	});
 
@@ -151,17 +153,17 @@ export function useAutomationActions(activeScriptId: string | null) {
 			return runId;
 		},
 		onError: (err: Error) => {
-			toast.error(`运行失败：${err.message}`);
+			toast.error(i18n.t('automation:runScriptFailed', { message: err.message }));
 		},
 	});
 
 	const cancelRun = useMutation({
 		mutationFn: (runId: string) => cancelAutomationRun(runId),
 		onSuccess: () => {
-			toast.info('正在取消运行…');
+			toast.info(i18n.t('automation:cancellingRun'));
 		},
 		onError: (err: Error) => {
-			toast.error(`取消失败：${err.message}`);
+			toast.error(i18n.t('automation:cancelRunFailed', { message: err.message }));
 		},
 	});
 

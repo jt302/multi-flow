@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+import { useTranslation } from 'react-i18next';
+
 import { Bug, Minus, Play, Plus } from 'lucide-react';
 
 import type { ProfileItem } from '@/entities/profile/model/types';
@@ -54,6 +56,7 @@ export function RunDialog({
 	onDebugRun,
 }: Props) {
 	const [selectedIds, setSelectedIds] = useState<string[]>([]);
+	const { t } = useTranslation('automation');
 	const [varEntries, setVarEntries] = useState<VarEntry[]>(
 		() => defaultVars ?? [],
 	);
@@ -152,27 +155,27 @@ export function RunDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="max-w-xl">
 				<DialogHeader>
-					<DialogTitle>运行脚本</DialogTitle>
+					<DialogTitle>{t('runDialog.title')}</DialogTitle>
 				</DialogHeader>
 
 				<div className="space-y-4 py-1">
 					{/* 环境选择 */}
 					<div className="space-y-2">
 						<div className="flex items-center justify-between">
-							<Label className="text-sm font-medium">选择运行环境</Label>
+							<Label className="text-sm font-medium">{t('runDialog.selectEnv')}</Label>
 							{displayProfiles.length > 1 && (
 								<button
 									type="button"
 									onClick={toggleAll}
 									className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
 								>
-									{allSelected ? '取消全选' : '全选'}
+									{allSelected ? t('runDialog.toggleAllOff') : t('runDialog.toggleAllOn')}
 								</button>
-							)}
+								)}
 						</div>
 						{displayProfiles.length === 0 ? (
 							<p className="text-sm text-muted-foreground py-2">
-								请先在脚本信息中绑定环境
+								{t('runDialog.noBoundProfiles')}
 							</p>
 						) : (
 							<ScrollArea className="max-h-48">
@@ -194,162 +197,164 @@ export function RunDialog({
 												</span>
 												{isOffline && (
 													<span className="text-[10px] text-amber-500 bg-amber-500/10 border border-amber-500/30 px-1 rounded shrink-0">
-														将自动启动
+														{t('runDialog.autoStart')}
 													</span>
 												)}
 											</label>
 										);
-									})}
-								</div>
-							</ScrollArea>
-						)}
-					</div>
-
-					<div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-						<div className="flex items-center gap-2">
-							<Checkbox
-								checked={delayEnabled}
-								onCheckedChange={(checked) => setDelayEnabled(checked === true)}
-								className="cursor-pointer"
-							/>
-							<div>
-								<Label className="text-sm">步骤随机延迟</Label>
-								<p className="text-xs text-muted-foreground">
-									每个步骤执行前插入随机延迟，降低操作轨迹一致性的检测风险
-								</p>
-							</div>
-						</div>
-						{delayEnabled && (
-							<div className="grid grid-cols-2 gap-2">
-								<div className="space-y-1">
-									<Label className="text-xs text-muted-foreground">
-										最小秒数
-									</Label>
-									<Input
-										type="number"
-										min={0}
-										step={1}
-										value={delayMinSeconds}
-										onChange={(event) =>
-											setDelayMinSeconds(
-												Number.isNaN(event.target.valueAsNumber)
-													? 0
-													: event.target.valueAsNumber,
-											)
-										}
-										className="h-8 text-sm"
-									/>
-								</div>
-								<div className="space-y-1">
-									<Label className="text-xs text-muted-foreground">
-										最大秒数
-									</Label>
-									<Input
-										type="number"
-										min={0}
-										step={1}
-										value={delayMaxSeconds}
-										onChange={(event) =>
-											setDelayMaxSeconds(
-												Number.isNaN(event.target.valueAsNumber)
-													? 0
-													: event.target.valueAsNumber,
-											)
-										}
-										className="h-8 text-sm"
-									/>
-								</div>
-							</div>
-						)}
-					</div>
-
-					{/* 初始变量 */}
-					<div className="space-y-2">
-						<div className="flex items-center justify-between">
-							<button
-								type="button"
-								onClick={() => setVarsOpen((v) => !v)}
-								className="text-sm font-medium text-muted-foreground hover:text-foreground cursor-pointer"
-							>
-								初始变量 {varEntries.length > 0 && `(${varEntries.length})`}
-							</button>
-							<button
-								type="button"
-								onClick={addVar}
-								className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-							>
-								<Plus className="h-3 w-3" />
-								添加
-							</button>
-						</div>
-						{(varsOpen || varEntries.length > 0) && varEntries.length > 0 && (
-							<div className="space-y-1.5">
-								{varEntries.map((entry, i) => (
-									<div key={i} className="flex items-center gap-1.5">
-										<Input
-											placeholder="变量名"
-											value={entry.key}
-											onChange={(e) => setVarKey(i, e.target.value)}
-											className="h-7 text-xs font-mono"
-										/>
-										<span className="text-muted-foreground text-xs shrink-0">
-											=
-										</span>
-										<Input
-											placeholder="初始值"
-											value={entry.value}
-											onChange={(e) => setVarValue(i, e.target.value)}
-											className="h-7 text-xs"
-										/>
-										<button
-											type="button"
-											onClick={() => removeVar(i)}
-											className="text-muted-foreground hover:text-destructive cursor-pointer shrink-0"
-										>
-											<Minus className="h-3.5 w-3.5" />
-										</button>
+										})}
 									</div>
-								))}
+								</ScrollArea>
+							)}
+						</div>
+
+						<div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+							<div className="flex items-center gap-2">
+								<Checkbox
+									checked={delayEnabled}
+									onCheckedChange={(checked) => setDelayEnabled(checked === true)}
+									className="cursor-pointer"
+								/>
+								<div>
+									<Label className="text-sm">{t('runDialog.delay.title')}</Label>
+									<p className="text-xs text-muted-foreground">
+										{t('runDialog.delay.desc')}
+									</p>
+								</div>
 							</div>
-						)}
+							{delayEnabled && (
+								<div className="grid grid-cols-2 gap-2">
+									<div className="space-y-1">
+										<Label className="text-xs text-muted-foreground">
+											{t('runDialog.delay.minSeconds')}
+										</Label>
+										<Input
+											type="number"
+											min={0}
+											step={1}
+											value={delayMinSeconds}
+											onChange={(event) =>
+												setDelayMinSeconds(
+													Number.isNaN(event.target.valueAsNumber)
+														? 0
+														: event.target.valueAsNumber,
+												)
+											}
+											className="h-8 text-sm"
+										/>
+									</div>
+									<div className="space-y-1">
+										<Label className="text-xs text-muted-foreground">
+											{t('runDialog.delay.maxSeconds')}
+										</Label>
+										<Input
+											type="number"
+											min={0}
+											step={1}
+											value={delayMaxSeconds}
+											onChange={(event) =>
+												setDelayMaxSeconds(
+													Number.isNaN(event.target.valueAsNumber)
+														? 0
+														: event.target.valueAsNumber,
+												)
+											}
+											className="h-8 text-sm"
+										/>
+									</div>
+								</div>
+							)}
+						</div>
+
+						{/* 初始变量 */}
+						<div className="space-y-2">
+							<div className="flex items-center justify-between">
+								<button
+									type="button"
+									onClick={() => setVarsOpen((v) => !v)}
+									className="text-sm font-medium text-muted-foreground hover:text-foreground cursor-pointer"
+								>
+							{t('runDialog.vars.title')}{varEntries.length > 0 && ` (${varEntries.length})`}
+								</button>
+								<button
+									type="button"
+									onClick={addVar}
+									className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+								>
+									<Plus className="h-3 w-3" />
+									{t('runDialog.vars.add')}
+								</button>
+							</div>
+							{(varsOpen || varEntries.length > 0) && varEntries.length > 0 && (
+								<div className="space-y-1.5">
+									{varEntries.map((entry, i) => (
+										<div key={i} className="flex items-center gap-1.5">
+											<Input
+												placeholder={t('runDialog.vars.keyPlaceholder')}
+												value={entry.key}
+												onChange={(e) => setVarKey(i, e.target.value)}
+												className="h-7 text-xs font-mono"
+											/>
+											<span className="text-muted-foreground text-xs shrink-0">
+												=
+											</span>
+											<Input
+												placeholder={t('runDialog.vars.valuePlaceholder')}
+												value={entry.value}
+												onChange={(e) => setVarValue(i, e.target.value)}
+												className="h-7 text-xs"
+											/>
+											<button
+												type="button"
+												onClick={() => removeVar(i)}
+												className="text-muted-foreground hover:text-destructive cursor-pointer shrink-0"
+											>
+												<Minus className="h-3.5 w-3.5" />
+											</button>
+										</div>
+									))}
+								</div>
+							)}
+						</div>
+
+						{/* 批量提示 */}
+						{selectedIds.length > 1 && (
+							<p className="text-xs text-muted-foreground">
+								{delayEnabled
+									? t('runDialog.batchHint.withDelay', { count: selectedIds.length })
+									: t('runDialog.batchHint.withoutDelay', { count: selectedIds.length })}
+								</p>
+							)}
 					</div>
 
-					{/* 批量提示 */}
-					{selectedIds.length > 1 && (
-						<p className="text-xs text-muted-foreground">
-							{delayEnabled
-								? `将按顺序在 ${selectedIds.length} 个环境中运行，并插入随机延迟`
-								: `将依次发起 ${selectedIds.length} 个环境的运行任务`}
-						</p>
-					)}
-				</div>
-
-				<DialogFooter className="gap-2">
-					<Button
-						variant="ghost"
-						onClick={() => onOpenChange(false)}
-						className="cursor-pointer"
-					>
-						取消
-					</Button>
-					<Button
-						variant="outline"
-						onClick={handleDebugRun}
-						disabled={!canDebug}
-						className="cursor-pointer"
-					>
-						<Bug className="h-3.5 w-3.5 mr-1.5" />
-						调试运行
-					</Button>
-					<Button
-						onClick={handleRun}
-						disabled={!canRun}
-						className="cursor-pointer"
-					>
-						<Play className="h-3.5 w-3.5 mr-1.5" />
-						{selectedIds.length > 1 ? `运行 (${selectedIds.length})` : '运行'}
-					</Button>
-				</DialogFooter>
+					<DialogFooter className="gap-2">
+						<Button
+							variant="ghost"
+							onClick={() => onOpenChange(false)}
+							className="cursor-pointer"
+						>
+							{t('runDialog.cancel')}
+						</Button>
+						<Button
+							variant="outline"
+							onClick={handleDebugRun}
+							disabled={!canDebug}
+							className="cursor-pointer"
+						>
+							<Bug className="h-3.5 w-3.5 mr-1.5" />
+							{t('runDialog.debugRun')}
+						</Button>
+						<Button
+							onClick={handleRun}
+							disabled={!canRun}
+							className="cursor-pointer"
+						>
+							<Play className="h-3.5 w-3.5 mr-1.5" />
+							{selectedIds.length > 1
+								? t('runDialog.runWithCount', { count: selectedIds.length })
+								: t('runDialog.run')}
+						</Button>
+					</DialogFooter>
 			</DialogContent>
 		</Dialog>
 	);

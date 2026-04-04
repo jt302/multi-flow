@@ -1,12 +1,25 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
-import { AlertCircle, CheckCircle2, Info, TriangleAlert } from 'lucide-react';
+import {
+	AlertCircle,
+	CheckCircle2,
+	Clock,
+	Copy,
+	Info,
+	TriangleAlert,
+} from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 
 import {
 	listenAiDialogRequest,
 	submitAiDialogResponse,
 } from '@/entities/automation/api/automation-api';
-import type { AiDialogRequest } from '@/entities/automation/model/types';
+import type {
+	AiDialogAction,
+	AiDialogFormField,
+	AiDialogRequest,
+} from '@/entities/automation/model/types';
 import { Button } from '@/components/ui/button';
 import {
 	Dialog,
@@ -26,21 +39,50 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 
 const LEVEL_ICON: Record<string, React.ReactNode> = {
 	info: <Info className="h-5 w-5 text-blue-500" />,
 	warning: <TriangleAlert className="h-5 w-5 text-yellow-500" />,
+	danger: <TriangleAlert className="h-5 w-5 text-red-500" />,
 	error: <AlertCircle className="h-5 w-5 text-destructive" />,
 	success: <CheckCircle2 className="h-5 w-5 text-green-500" />,
 };
 
+const WIDTH_MAP: Record<string, string> = {
+	sm: 'max-w-sm',
+	md: 'max-w-md',
+	lg: 'max-w-lg',
+	xl: 'max-w-xl',
+};
+
 export function AiDialogModal() {
+	const { t } = useTranslation('common');
 	const [request, setRequest] = useState<AiDialogRequest | null>(null);
 	const [inputValue, setInputValue] = useState('');
 	const [submitting, setSubmitting] = useState(false);
+	// select 弹窗
+	const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
+	// form 弹窗
+	const [formValues, setFormValues] = useState<Record<string, string>>({});
+	const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+	// table 弹窗
+	const [selectedRows, setSelectedRows] = useState<number[]>([]);
+	// countdown 弹窗
+	const [countdown, setCountdown] = useState(0);
+	const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 	const unlistenRef = useRef<(() => void) | null>(null);
 
 	useEffect(() => {
@@ -48,7 +90,7 @@ export function AiDialogModal() {
 
 		listenAiDialogRequest((req) => {
 			if (!mounted) return;
-			// 文件类弹窗直接用原生对话框处理，不走 React UI
+			// 文件类弹窗直接用原生对话框处理
 			if (
 				req.dialogType === 'save_file' ||
 				req.dialogType === 'open_file' ||
@@ -57,8 +99,29 @@ export function AiDialogModal() {
 				handleNativeFileDialog(req);
 				return;
 			}
+			// toast 类弹窗用 sonner 处理
+			if (req.dialogType === 'toast') {
+				handleToast(req);
+				return;
+			}
+			// 初始化状态
 			setInputValue(req.defaultValue ?? '');
+			setSelectedOptions([]);
+			setSelectedRows([]);
+			setFormErrors({});
 			setSubmitting(false);
+			// form 默认值
+			if (req.dialogType === 'form' && req.fields) {
+				const defaults: Record<string, string> = {};
+				for (const f of req.fields) {
+					defaults[f.name] = f.defaultValue ?? '';
+				}
+				setFormValues(defaults);
+			}
+			// countdown 初始化
+			if (req.dialogType === 'countdown' && req.seconds) {
+				setCountdown(req.seconds);
+			}
 			setRequest(req);
 		}).then((unlisten) => {
 			if (mounted) {
@@ -74,7 +137,30 @@ export function AiDialogModal() {
 		};
 	}, []);
 
-	/** 使用原生文件对话框 */
+	// countdown 定时器
+	useEffect(() => {
+		if (request?.dialogType !== 'countdown' || countdown <= 0) return;
+
+		countdownRef.current = setInterval(() => {
+			setCountdown((prev) => {
+				if (prev <= 1) {
+					if (countdownRef.current) clearInterval(countdownRef.current);
+					// 自动执行
+					if (request?.autoProceed) {
+						handleConfirm();
+					}
+					return 0;
+				}
+				return prev - 1;
+			});
+		}, 1000);
+
+		return () => {
+			if (countdownRef.current) clearInterval(countdownRef.current);
+		};
+	}, [request?.dialogType, request?.requestId]);
+
+	/** 原生文件对话框 */
 	async function handleNativeFileDialog(req: AiDialogRequest) {
 		try {
 			if (req.dialogType === 'save_file') {
@@ -83,29 +169,22 @@ export function AiDialogModal() {
 					extensions: f.extensions,
 				}));
 				const path = await save({
-					title: req.title ?? '保存文件',
+					title: req.title ?? t('saveFile'),
 					defaultPath: req.defaultName,
 					filters,
 				});
-				if (path) {
-					await submitAiDialogResponse({
-						requestId: req.requestId,
-						confirmed: true,
-						value: path,
-					});
-				} else {
-					await submitAiDialogResponse({
-						requestId: req.requestId,
-						confirmed: false,
-					});
-				}
+				await submitAiDialogResponse({
+					requestId: req.requestId,
+					confirmed: !!path,
+					value: path ?? undefined,
+				});
 			} else if (req.dialogType === 'open_file') {
 				const filters = req.filters?.map((f) => ({
 					name: f.name,
 					extensions: f.extensions,
 				}));
 				const result = await open({
-					title: req.title ?? '打开文件',
+					title: req.title ?? t('openFile'),
 					multiple: req.multiple ?? false,
 					filters,
 				});
@@ -124,7 +203,7 @@ export function AiDialogModal() {
 				}
 			} else if (req.dialogType === 'select_folder') {
 				const result = await open({
-					title: req.title ?? '选择文件夹',
+					title: req.title ?? t('selectFolder'),
 					directory: true,
 					multiple: req.multiple ?? false,
 				});
@@ -150,11 +229,123 @@ export function AiDialogModal() {
 		}
 	}
 
-	async function handleConfirm() {
+	/** toast 弹窗处理 */
+	function handleToast(req: AiDialogRequest) {
+		const actions = req.actions;
+		const hasActions = actions && actions.length > 0;
+
+		if (!hasActions) {
+			// 无操作按钮：直接 toast 并返回
+			const toastFn =
+				req.level === 'success'
+					? toast.success
+					: req.level === 'error'
+						? toast.error
+						: req.level === 'warning'
+							? toast.warning
+							: toast.info;
+			toastFn(req.title ?? req.message, {
+				description: req.title ? req.message : undefined,
+				duration: req.durationMs ?? 5000,
+			});
+			submitAiDialogResponse({
+				requestId: req.requestId,
+				confirmed: true,
+			});
+			return;
+		}
+
+		// 有操作按钮：toast 带 action
+		toast(req.title ?? req.message, {
+			description: req.title ? req.message : undefined,
+			duration: req.persistent ? Infinity : (req.durationMs ?? 5000),
+			action: actions[0]
+				? {
+						label: actions[0].label,
+						onClick: () => {
+							submitAiDialogResponse({
+								requestId: req.requestId,
+								confirmed: true,
+								value: actions[0].value,
+							});
+						},
+					}
+				: undefined,
+			cancel: actions[1]
+				? {
+						label: actions[1].label,
+						onClick: () => {
+							submitAiDialogResponse({
+								requestId: req.requestId,
+								confirmed: true,
+								value: actions[1].value,
+							});
+						},
+					}
+				: undefined,
+			onDismiss: () => {
+				submitAiDialogResponse({
+					requestId: req.requestId,
+					confirmed: false,
+				});
+			},
+		});
+	}
+
+	const handleConfirm = useCallback(async () => {
 		if (!request) return;
 		setSubmitting(true);
 		try {
-			const value = request.dialogType === 'input' ? inputValue : undefined;
+			let value: string | undefined;
+
+			switch (request.dialogType) {
+				case 'input':
+					value = inputValue;
+					break;
+				case 'select':
+					if (request.multiple) {
+						value = JSON.stringify(selectedOptions);
+					} else {
+						value = selectedOptions[0];
+					}
+					break;
+				case 'form': {
+					// 校验
+					const errors: Record<string, string> = {};
+					for (const f of request.fields ?? []) {
+						const v = formValues[f.name] ?? '';
+						if (f.required && !v) {
+							errors[f.name] = t('required');
+						}
+						if (f.validation && v) {
+							try {
+								if (!new RegExp(f.validation).test(v)) {
+									errors[f.name] = t('invalidFormat');
+								}
+							} catch { /* ignore invalid regex */ }
+						}
+					}
+					if (Object.keys(errors).length > 0) {
+						setFormErrors(errors);
+						setSubmitting(false);
+						return;
+					}
+					value = JSON.stringify(formValues);
+					break;
+				}
+				case 'table':
+					value = JSON.stringify(selectedRows);
+					break;
+				case 'image':
+					value = JSON.stringify({
+						value: inputValue || null,
+						action: 'confirm',
+					});
+					break;
+				default:
+					break;
+			}
+
 			await submitAiDialogResponse({
 				requestId: request.requestId,
 				confirmed: true,
@@ -163,8 +354,9 @@ export function AiDialogModal() {
 		} finally {
 			setRequest(null);
 			setSubmitting(false);
+			if (countdownRef.current) clearInterval(countdownRef.current);
 		}
-	}
+	}, [request, inputValue, selectedOptions, formValues, selectedRows, t]);
 
 	async function handleCancel() {
 		if (!request) return;
@@ -173,6 +365,30 @@ export function AiDialogModal() {
 			await submitAiDialogResponse({
 				requestId: request.requestId,
 				confirmed: false,
+			});
+		} finally {
+			setRequest(null);
+			setSubmitting(false);
+			if (countdownRef.current) clearInterval(countdownRef.current);
+		}
+	}
+
+	async function handleAction(action: AiDialogAction) {
+		if (!request) return;
+		setSubmitting(true);
+		try {
+			let value = action.value;
+			// image 弹窗带输入
+			if (request.dialogType === 'image') {
+				value = JSON.stringify({
+					value: inputValue || null,
+					action: action.value,
+				});
+			}
+			await submitAiDialogResponse({
+				requestId: request.requestId,
+				confirmed: true,
+				value,
 			});
 		} finally {
 			setRequest(null);
@@ -192,7 +408,7 @@ export function AiDialogModal() {
 					<AlertDialogHeader>
 						<AlertDialogTitle className="flex items-center gap-2">
 							{icon}
-							{request.title ?? 'AI 确认'}
+							{request.title ?? t('aiConfirm')}
 						</AlertDialogTitle>
 						<AlertDialogDescription className="whitespace-pre-wrap">
 							{request.message}
@@ -204,14 +420,14 @@ export function AiDialogModal() {
 							disabled={submitting}
 							className="cursor-pointer"
 						>
-							取消
+							{t('cancel')}
 						</AlertDialogCancel>
 						<AlertDialogAction
 							onClick={handleConfirm}
 							disabled={submitting}
 							className="cursor-pointer"
 						>
-							确认
+							{t('confirm')}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
@@ -219,7 +435,493 @@ export function AiDialogModal() {
 		);
 	}
 
-	// ─── message / input 类型 → Dialog ────────────────────────────
+	// ─── select 类型 ──────────────────────────────────────────────
+	if (request.dialogType === 'select') {
+		const options = request.options ?? [];
+		const isMulti = request.multiple ?? false;
+		const maxSelect = request.maxSelect;
+
+		function toggleOption(val: string) {
+			setSelectedOptions((prev) => {
+				if (isMulti) {
+					if (prev.includes(val)) return prev.filter((v) => v !== val);
+					if (maxSelect && prev.length >= maxSelect) return prev;
+					return [...prev, val];
+				}
+				return [val];
+			});
+		}
+
+		return (
+			<Dialog open onOpenChange={() => {}}>
+				<DialogContent
+					className="max-w-md"
+					onInteractOutside={(e) => e.preventDefault()}
+					onEscapeKeyDown={(e) => e.preventDefault()}
+				>
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2">
+							{icon}
+							{request.title ?? t('pleaseSelect')}
+						</DialogTitle>
+						{request.message && (
+							<DialogDescription className="whitespace-pre-wrap">
+								{request.message}
+							</DialogDescription>
+						)}
+					</DialogHeader>
+					<ScrollArea className="max-h-60">
+						<div className="space-y-1 py-2">
+							{options.map((opt) => (
+								<label
+									key={opt.value}
+									className="flex items-start gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-muted"
+								>
+									<Checkbox
+										checked={selectedOptions.includes(opt.value)}
+										onCheckedChange={() => toggleOption(opt.value)}
+										disabled={submitting}
+										className="mt-0.5"
+									/>
+									<div className="flex-1 min-w-0">
+										<span className="text-sm">{opt.label}</span>
+										{opt.description && (
+											<p className="text-xs text-muted-foreground">
+												{opt.description}
+											</p>
+										)}
+									</div>
+								</label>
+							))}
+						</div>
+					</ScrollArea>
+					<DialogFooter>
+						<Button
+							variant="outline"
+							onClick={handleCancel}
+							disabled={submitting}
+							className="cursor-pointer"
+						>
+							{t('cancel')}
+						</Button>
+						<Button
+							onClick={handleConfirm}
+							disabled={submitting || selectedOptions.length === 0}
+							className="cursor-pointer"
+						>
+							{t('ok')}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		);
+	}
+
+	// ─── form 类型 ────────────────────────────────────────────────
+	if (request.dialogType === 'form') {
+		const fields = request.fields ?? [];
+
+		return (
+			<Dialog open onOpenChange={() => {}}>
+				<DialogContent
+					className="max-w-lg"
+					onInteractOutside={(e) => e.preventDefault()}
+					onEscapeKeyDown={(e) => e.preventDefault()}
+				>
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2">
+							{icon}
+							{request.title ?? t('form')}
+						</DialogTitle>
+						{request.message && (
+							<DialogDescription className="whitespace-pre-wrap">
+								{request.message}
+							</DialogDescription>
+						)}
+					</DialogHeader>
+					<ScrollArea className="max-h-[60vh]">
+						<div className="space-y-3 py-2 pr-3">
+							{fields.map((field) => (
+								<FormFieldRenderer
+									key={field.name}
+									field={field}
+									value={formValues[field.name] ?? ''}
+									error={formErrors[field.name]}
+									disabled={submitting}
+									onChange={(v) =>
+										setFormValues((prev) => ({ ...prev, [field.name]: v }))
+									}
+								/>
+							))}
+						</div>
+					</ScrollArea>
+					<DialogFooter>
+						<Button
+							variant="outline"
+							onClick={handleCancel}
+							disabled={submitting}
+							className="cursor-pointer"
+						>
+							{t('cancel')}
+						</Button>
+						<Button
+							onClick={handleConfirm}
+							disabled={submitting}
+							className="cursor-pointer"
+						>
+							{request.submitLabel ?? t('ok')}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		);
+	}
+
+	// ─── table 类型 ───────────────────────────────────────────────
+	if (request.dialogType === 'table') {
+		const columns = request.columns ?? [];
+		const rows = request.rows ?? [];
+		const isSelectable = request.selectable ?? false;
+		const isMulti = request.multiple ?? false;
+		const maxH = request.maxHeight ?? 400;
+
+		function toggleRow(idx: number) {
+			setSelectedRows((prev) => {
+				if (isMulti) {
+					return prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx];
+				}
+				return [idx];
+			});
+		}
+
+		return (
+			<Dialog open onOpenChange={() => {}}>
+				<DialogContent
+					className="max-w-2xl"
+					onInteractOutside={(e) => e.preventDefault()}
+					onEscapeKeyDown={(e) => e.preventDefault()}
+				>
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2">
+							{icon}
+							{request.title ?? t('data')}
+						</DialogTitle>
+						{request.message && (
+							<DialogDescription className="whitespace-pre-wrap">
+								{request.message}
+							</DialogDescription>
+						)}
+					</DialogHeader>
+					<ScrollArea style={{ maxHeight: maxH }}>
+						<Table>
+							<TableHeader>
+								<TableRow>
+									{isSelectable && <TableHead className="w-10" />}
+									{columns.map((col) => (
+										<TableHead
+											key={col.key}
+											style={{ width: col.width, textAlign: col.align ?? 'left' }}
+										>
+											{col.label}
+										</TableHead>
+									))}
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{rows.map((row, idx) => (
+									<TableRow
+										key={idx}
+										className={
+											isSelectable
+												? 'cursor-pointer hover:bg-muted'
+												: undefined
+										}
+										onClick={isSelectable ? () => toggleRow(idx) : undefined}
+									>
+										{isSelectable && (
+											<TableCell>
+												<Checkbox
+													checked={selectedRows.includes(idx)}
+													onCheckedChange={() => toggleRow(idx)}
+												/>
+											</TableCell>
+										)}
+										{columns.map((col) => (
+											<TableCell
+												key={col.key}
+												style={{ textAlign: col.align ?? 'left' }}
+											>
+												{String(row[col.key] ?? '')}
+											</TableCell>
+										))}
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
+					</ScrollArea>
+					<DialogFooter>
+						<Button
+							variant="outline"
+							onClick={handleCancel}
+							disabled={submitting}
+							className="cursor-pointer"
+						>
+							{t('cancel')}
+						</Button>
+						<Button
+							onClick={handleConfirm}
+							disabled={submitting}
+							className="cursor-pointer"
+						>
+							{t('ok')}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		);
+	}
+
+	// ─── image 类型 ───────────────────────────────────────────────
+	if (request.dialogType === 'image') {
+		const imageSrc = request.image?.startsWith('data:')
+			? request.image
+			: request.image?.startsWith('/')
+				? `data:image/${request.imageFormat ?? 'png'};base64,${request.image}`
+				: `data:image/${request.imageFormat ?? 'png'};base64,${request.image}`;
+		const hasInput = !!request.label;
+		const actions = request.actions;
+
+		return (
+			<Dialog open onOpenChange={() => {}}>
+				<DialogContent
+					className="max-w-lg"
+					onInteractOutside={(e) => e.preventDefault()}
+					onEscapeKeyDown={(e) => e.preventDefault()}
+				>
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2">
+							{icon}
+							{request.title ?? t('imagePreview')}
+						</DialogTitle>
+						{request.message && (
+							<DialogDescription className="whitespace-pre-wrap">
+								{request.message}
+							</DialogDescription>
+						)}
+					</DialogHeader>
+					<div className="flex justify-center py-2">
+						<img
+							src={imageSrc}
+							alt="dialog image"
+							className="max-h-80 max-w-full rounded object-contain"
+						/>
+					</div>
+					{hasInput && (
+						<div className="space-y-1.5">
+							<Label>{request.label}</Label>
+							<Input
+								value={inputValue}
+								onChange={(e) => setInputValue(e.target.value)}
+								placeholder={request.inputPlaceholder ?? request.placeholder}
+								disabled={submitting}
+								onKeyDown={(e) => {
+									if (e.key === 'Enter') handleConfirm();
+								}}
+								autoFocus
+							/>
+						</div>
+					)}
+					<DialogFooter>
+						{actions && actions.length > 0 ? (
+							<>
+								<Button
+									variant="outline"
+									onClick={handleCancel}
+									disabled={submitting}
+									className="cursor-pointer"
+								>
+									{t('cancel')}
+								</Button>
+								{actions.map((action) => (
+									<Button
+										key={action.value}
+										variant={
+											action.variant === 'destructive'
+												? 'destructive'
+												: action.variant === 'outline'
+													? 'outline'
+													: 'default'
+										}
+										onClick={() => handleAction(action)}
+										disabled={submitting}
+										className="cursor-pointer"
+									>
+										{action.label}
+									</Button>
+								))}
+							</>
+						) : (
+							<>
+								<Button
+									variant="outline"
+									onClick={handleCancel}
+									disabled={submitting}
+									className="cursor-pointer"
+								>
+									{t('cancel')}
+								</Button>
+								<Button
+									onClick={handleConfirm}
+									disabled={submitting}
+									className="cursor-pointer"
+								>
+									{t('ok')}
+								</Button>
+							</>
+						)}
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		);
+	}
+
+	// ─── countdown 类型 ───────────────────────────────────────────
+	if (request.dialogType === 'countdown') {
+		const levelColor =
+			request.level === 'danger'
+				? 'text-red-500'
+				: request.level === 'info'
+					? 'text-blue-500'
+					: 'text-yellow-500';
+
+		return (
+			<AlertDialog open>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle className="flex items-center gap-2">
+							<Clock className={`h-5 w-5 ${levelColor}`} />
+							{request.title ?? t('countdown')}
+						</AlertDialogTitle>
+						<AlertDialogDescription className="whitespace-pre-wrap">
+							{request.message}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<div className="flex justify-center py-4">
+						<div
+							className={`flex h-20 w-20 items-center justify-center rounded-full border-4 ${
+								request.level === 'danger'
+									? 'border-red-500'
+									: request.level === 'info'
+										? 'border-blue-500'
+										: 'border-yellow-500'
+							}`}
+						>
+							<span className={`text-3xl font-bold ${levelColor}`}>
+								{countdown}
+							</span>
+						</div>
+					</div>
+					<AlertDialogFooter>
+						<AlertDialogCancel
+							onClick={handleCancel}
+							disabled={submitting}
+							className="cursor-pointer"
+						>
+							{t('cancel')}
+						</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={handleConfirm}
+							disabled={submitting || (countdown > 0 && !request.autoProceed)}
+							className="cursor-pointer"
+						>
+							{countdown > 0
+								? `${request.actionLabel ?? t('continue')} (${countdown}s)`
+								: (request.actionLabel ?? t('continue'))}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		);
+	}
+
+	// ─── markdown 类型 ────────────────────────────────────────────
+	if (request.dialogType === 'markdown') {
+		const maxH = request.maxHeight ?? 500;
+		const widthClass = WIDTH_MAP[request.width ?? 'md'] ?? 'max-w-md';
+		const actions = request.actions;
+
+		return (
+			<Dialog open onOpenChange={() => {}}>
+				<DialogContent
+					className={widthClass}
+					onInteractOutside={(e) => e.preventDefault()}
+					onEscapeKeyDown={(e) => e.preventDefault()}
+				>
+					{request.title && (
+						<DialogHeader>
+							<DialogTitle>{request.title}</DialogTitle>
+						</DialogHeader>
+					)}
+					<ScrollArea style={{ maxHeight: maxH }}>
+						<div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap break-words py-2">
+							{request.content}
+						</div>
+					</ScrollArea>
+					<DialogFooter>
+						{request.copyable && (
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => {
+									navigator.clipboard.writeText(request.content ?? '');
+									toast.success(t('copied'));
+								}}
+								className="cursor-pointer mr-auto"
+							>
+								<Copy className="h-4 w-4 mr-1" />
+								{t('copy')}
+							</Button>
+						)}
+						{actions && actions.length > 0 ? (
+							actions.map((action) => (
+								<Button
+									key={action.value}
+									variant={
+										action.variant === 'destructive'
+											? 'destructive'
+											: action.variant === 'outline'
+												? 'outline'
+												: 'default'
+									}
+									onClick={() => handleAction(action)}
+									disabled={submitting}
+									className="cursor-pointer"
+								>
+									{action.label}
+								</Button>
+							))
+						) : (
+							<Button
+								onClick={() => {
+									submitAiDialogResponse({
+										requestId: request.requestId,
+										confirmed: true,
+										value: 'close',
+									});
+									setRequest(null);
+								}}
+								className="cursor-pointer"
+							>
+								{t('close')}
+							</Button>
+						)}
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		);
+	}
+
+	// ─── message / input 类型（原有） → Dialog ───────────────────
 	const isInput = request.dialogType === 'input';
 	const isMultiline =
 		(request.defaultValue?.length ?? 0) > 80 ||
@@ -235,7 +937,7 @@ export function AiDialogModal() {
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						{icon}
-						{request.title ?? (isInput ? 'AI 输入' : 'AI 消息')}
+						{request.title ?? (isInput ? t('aiInput') : t('aiMessage'))}
 					</DialogTitle>
 					<DialogDescription className="whitespace-pre-wrap">
 						{request.message}
@@ -276,7 +978,7 @@ export function AiDialogModal() {
 							disabled={submitting}
 							className="cursor-pointer"
 						>
-							知道了
+							{t('gotIt')}
 						</Button>
 					) : (
 						<>
@@ -286,19 +988,128 @@ export function AiDialogModal() {
 								disabled={submitting}
 								className="cursor-pointer"
 							>
-								取消
+								{t('cancel')}
 							</Button>
 							<Button
 								onClick={handleConfirm}
 								disabled={submitting}
 								className="cursor-pointer"
 							>
-								确定
+								{t('ok')}
 							</Button>
 						</>
 					)}
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
+	);
+}
+
+// ─── 表单字段渲染器 ──────────────────────────────────────────────────────
+
+function FormFieldRenderer({
+	field,
+	value,
+	error,
+	disabled,
+	onChange,
+}: {
+	field: AiDialogFormField;
+	value: string;
+	error?: string;
+	disabled: boolean;
+	onChange: (value: string) => void;
+}) {
+	const fieldType = field.fieldType ?? 'text';
+
+	if (fieldType === 'checkbox') {
+		return (
+			<div className="flex items-center gap-2">
+				<Checkbox
+					id={field.name}
+					checked={value === 'true'}
+					onCheckedChange={(checked) => onChange(String(!!checked))}
+					disabled={disabled}
+				/>
+				<Label htmlFor={field.name} className="cursor-pointer">
+					{field.label}
+					{field.required && <span className="text-destructive ml-0.5">*</span>}
+				</Label>
+				{field.hint && (
+					<span className="text-xs text-muted-foreground">{field.hint}</span>
+				)}
+			</div>
+		);
+	}
+
+	if (fieldType === 'select') {
+		return (
+			<div className="space-y-1">
+				<Label>
+					{field.label}
+					{field.required && <span className="text-destructive ml-0.5">*</span>}
+				</Label>
+				<select
+					value={value}
+					onChange={(e) => onChange(e.target.value)}
+					disabled={disabled}
+					className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+				>
+					<option value="">{field.placeholder ?? '---'}</option>
+					{(field.options ?? []).map((opt) => (
+						<option key={opt.value} value={opt.value}>
+							{opt.label}
+						</option>
+					))}
+				</select>
+				{field.hint && (
+					<p className="text-xs text-muted-foreground">{field.hint}</p>
+				)}
+				{error && <p className="text-xs text-destructive">{error}</p>}
+			</div>
+		);
+	}
+
+	if (fieldType === 'textarea') {
+		return (
+			<div className="space-y-1">
+				<Label>
+					{field.label}
+					{field.required && <span className="text-destructive ml-0.5">*</span>}
+				</Label>
+				<Textarea
+					value={value}
+					onChange={(e) => onChange(e.target.value)}
+					placeholder={field.placeholder}
+					disabled={disabled}
+					rows={3}
+				/>
+				{field.hint && (
+					<p className="text-xs text-muted-foreground">{field.hint}</p>
+				)}
+				{error && <p className="text-xs text-destructive">{error}</p>}
+			</div>
+		);
+	}
+
+	// text, number, password, email, url, date
+	return (
+		<div className="space-y-1">
+			<Label>
+				{field.label}
+				{field.required && <span className="text-destructive ml-0.5">*</span>}
+			</Label>
+			<Input
+				type={fieldType}
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+				placeholder={field.placeholder}
+				disabled={disabled}
+			/>
+			{field.hint && (
+				<p className="text-xs text-muted-foreground">{field.hint}</p>
+			)}
+			{error && <p className="text-xs text-destructive">{error}</p>}
+		</div>
 	);
 }

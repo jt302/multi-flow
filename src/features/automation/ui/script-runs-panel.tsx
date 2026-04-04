@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Trash2, X } from 'lucide-react';
 
@@ -42,6 +43,7 @@ export function ScriptRunsPanel({
   scriptName,
   onRunsChange,
 }: Props) {
+  const { t } = useTranslation(['automation', 'common']);
   const [sheetRunId, setSheetRunId] = useState<string | null>(null);
   const [clearAllOpen, setClearAllOpen] = useState(false);
   const [deleteRunId, setDeleteRunId] = useState<string | null>(null);
@@ -54,9 +56,9 @@ export function ScriptRunsPanel({
         <ScrollArea className="h-full">
           {runs.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-sm text-muted-foreground">暂无运行记录</p>
+              <p className="text-sm text-muted-foreground">{t('common:noRunRecord')}</p>
               <p className="text-xs text-muted-foreground mt-1">
-                运行脚本后，执行记录和详细日志将显示在这里
+                {t('common:runScriptHint')}
               </p>
             </div>
           ) : (
@@ -70,7 +72,7 @@ export function ScriptRunsPanel({
                   onClick={() => setClearAllOpen(true)}
                 >
                   <Trash2 className="h-3 w-3 mr-1" />
-                  清空所有记录
+                  {t('common:clearRecords')}
                 </Button>
               </div>
 
@@ -111,7 +113,7 @@ export function ScriptRunsPanel({
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6 shrink-0 text-muted-foreground hover:text-red-500 cursor-pointer"
-                  title="删除此记录"
+                  title={t('common:delete')}
                   onClick={() => setDeleteRunId(sheetRun.id)}
                 >
                   <Trash2 className="h-3 w-3" />
@@ -121,7 +123,7 @@ export function ScriptRunsPanel({
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground cursor-pointer"
-                title="关闭"
+                title={t('common:close')}
                 onClick={() => setSheetRunId(null)}
               >
                 <X className="h-3.5 w-3.5" />
@@ -136,16 +138,15 @@ export function ScriptRunsPanel({
       <AlertDialog open={clearAllOpen} onOpenChange={setClearAllOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>清空所有运行记录</AlertDialogTitle>
+            <AlertDialogTitle>{t('automation:clearAllTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              确定要清空脚本「{scriptName}」的所有 {runs.length}{' '}
-              条运行记录吗？此操作不可撤销。
+              {t('automation:clearAllConfirm', { name: scriptName, count: runs.length })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel asChild>
               <Button type="button" variant="ghost" className="cursor-pointer">
-                取消
+                {t('common:cancel')}
               </Button>
             </AlertDialogCancel>
             <AlertDialogAction asChild>
@@ -159,7 +160,7 @@ export function ScriptRunsPanel({
                   onRunsChange();
                 }}
               >
-                清空
+                {t('common:clear')}
               </Button>
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -175,15 +176,15 @@ export function ScriptRunsPanel({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogTitle>{t('common:confirmDelete')}</AlertDialogTitle>
             <AlertDialogDescription>
-              确定要删除这条运行记录吗？此操作不可撤销。
+              {t('common:confirmDeleteRecord')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel asChild>
               <Button type="button" variant="ghost" className="cursor-pointer">
-                取消
+                {t('common:cancel')}
               </Button>
             </AlertDialogCancel>
             <AlertDialogAction asChild>
@@ -200,7 +201,7 @@ export function ScriptRunsPanel({
                   setDeleteRunId(null);
                 }}
               >
-                删除
+                {t('common:delete')}
               </Button>
             </AlertDialogAction>
           </AlertDialogFooter>

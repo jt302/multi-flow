@@ -82,7 +82,7 @@ export function CanvasToolbar({
 	onOpenHelp,
 }: Props) {
 	const navigate = useNavigate();
-	const { t } = useTranslation('canvas');
+	const { t } = useTranslation(['automation', 'common']);
 	const isStandaloneWindow = window.history.length <= 1;
 
 	return (
@@ -94,7 +94,7 @@ export function CanvasToolbar({
 					variant="ghost"
 					className="h-7 w-7 cursor-pointer text-muted-foreground hover:text-foreground"
 					onClick={() => navigate('/automation')}
-					title={t('toolbar.back')}
+					title={t('automation:toolbar.back')}
 				>
 					<ArrowLeft className="h-3.5 w-3.5" />
 				</Button>
@@ -104,7 +104,7 @@ export function CanvasToolbar({
 			<div className="flex-1 min-w-0 flex items-center gap-2">
 				<span className="text-sm font-semibold truncate">{scriptName}</span>
 				<span className="text-[10px] text-muted-foreground tabular-nums">
-					{t('toolbar.stepCount', { count: stepCount })}
+					{t('automation:toolbar.stepCount', { count: stepCount })}
 				</span>
 			</div>
 
@@ -119,7 +119,7 @@ export function CanvasToolbar({
 					variant="ghost"
 					size="icon"
 					className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
-					title={t('toolbar.save')}
+					title={t('common:save')}
 					onClick={onSave}
 					disabled={saving}
 				>
@@ -142,7 +142,7 @@ export function CanvasToolbar({
 				<PopoverContent className="w-64 p-3 space-y-3" align="end">
 					{/* 步骤延迟 */}
 					<div className="space-y-1.5">
-						<Label className="text-xs font-medium">{t('toolbar.stepDelay')} ({t('toolbar.ms')})</Label>
+						<Label className="text-xs font-medium">{t('common:stepDelay')} ({t('automation:toolbar.ms')})</Label>
 						<Input
 							type="number"
 							min={0}
@@ -160,7 +160,7 @@ export function CanvasToolbar({
 					</div>
 					{/* 变量 */}
 					<div className="space-y-1.5">
-						<Label className="text-xs font-medium">{t('toolbar.variables')}</Label>
+						<Label className="text-xs font-medium">{t('common:variables')}</Label>
 						<Button
 							size="sm"
 							variant="outline"
@@ -168,7 +168,7 @@ export function CanvasToolbar({
 							onClick={onOpenVariables}
 						>
 							<Variable className="h-3.5 w-3.5 mr-1.5" />
-							{varsDefs.length > 0 ? t('toolbar.variablesCount', { count: varsDefs.length }) : t('toolbar.variables')}
+							{varsDefs.length > 0 ? t('automation:toolbar.variablesCount', { count: varsDefs.length }) : t('common:variables')}
 						</Button>
 					</div>
 				</PopoverContent>
@@ -179,7 +179,7 @@ export function CanvasToolbar({
 				variant="ghost"
 				size="icon"
 				className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
-				title={t('toolbar.help')}
+				title={t('common:guide')}
 				onClick={onOpenHelp}
 			>
 				<HelpCircle className="h-3.5 w-3.5" />
@@ -194,7 +194,7 @@ export function CanvasToolbar({
 					onClick={onCancel}
 				>
 					<Square className="h-3.5 w-3.5 mr-1" />
-					{t('toolbar.cancel')}
+					{t('common:cancelRun')}
 				</Button>
 			) : (
 				<Button
@@ -204,7 +204,7 @@ export function CanvasToolbar({
 					onClick={onOpenRunDialog}
 				>
 					<Play className="h-3.5 w-3.5 mr-1" />
-					{t('toolbar.run')}
+					{t('automation:detail.run')}
 				</Button>
 			)}
 
@@ -214,10 +214,10 @@ export function CanvasToolbar({
 					{isRunning ? (
 						<>
 							<Loader2 className="h-2.5 w-2.5 mr-1 animate-spin" />
-							{t('toolbar.running')}
+							{t('automation:toolbar.running')}
 						</>
 					) : (
-						t('toolbar.completed')
+						t('automation:toolbar.completed')
 					)}
 				</Badge>
 			)}

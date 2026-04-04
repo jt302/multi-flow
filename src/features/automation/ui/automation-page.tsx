@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -26,6 +27,7 @@ import { ScriptListSidebar } from './script-list-sidebar';
 import { ScriptMetaDialog } from './script-meta-dialog';
 
 export function AutomationPage() {
+	const { t } = useTranslation('automation');
 	const scriptsQuery = useAutomationScriptsQuery();
 	const scripts = scriptsQuery.data ?? [];
 	const queryClient = useQueryClient();
@@ -155,7 +157,7 @@ export function AutomationPage() {
 	) {
 		if (!selectedScript) return;
 		if (selectedScript.steps.length === 0) {
-			toast.error('脚本无有效步骤，请在流程编辑器中将步骤连接到 Start 节点');
+			toast.error(t('page.noValidSteps'));
 			return;
 		}
 		const normalizedDelay =
@@ -243,7 +245,7 @@ export function AutomationPage() {
 				steps?: unknown[];
 			};
 			if (!json.name || !Array.isArray(json.steps)) {
-				toast.error('无效的脚本文件：缺少 name 或 steps 字段');
+				toast.error(t('page.invalidFile'));
 				return;
 			}
 			const created = await actions.createScript.mutateAsync({
@@ -253,10 +255,10 @@ export function AutomationPage() {
 			});
 			setSelectedScriptId(created.id);
 			toast.success(
-				`已导入脚本「${created.name}」（${created.steps.length} 步骤）`,
+				t('page.imported', { name: created.name, count: created.steps.length }),
 			);
 		} catch {
-			toast.error('脚本文件解析失败，请确认是有效的 JSON 格式');
+			toast.error(t('page.parseFailed'));
 		}
 	}
 
@@ -313,10 +315,10 @@ export function AutomationPage() {
 					<div className="flex-1 flex items-center justify-center h-full">
 						<div className="text-center space-y-2">
 							<p className="text-sm text-muted-foreground">
-								从左侧列表选择一个脚本查看详情
+								{t('page.selectScript')}
 							</p>
 							<p className="text-xs text-muted-foreground/60">
-								或点击「新建脚本」创建自动化流程
+								{t('page.createHint')}
 							</p>
 						</div>
 					</div>

@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { CheckCircle2, ChevronDown, ChevronRight, Loader2, XCircle } from 'lucide-react';
 
@@ -70,6 +71,7 @@ function BranchGroup({ label, branchType, steps, resultMap, pathPrefix, hasExecu
 	const [expanded, setExpanded] = useState(hasExecuted);
 	const borderCls = BRANCH_BORDER[branchType] ?? BRANCH_BORDER.btn;
 	const labelCls = BRANCH_LABEL_COLOR[branchType] ?? BRANCH_LABEL_COLOR.btn;
+	const { t } = useTranslation(['automation', 'common']);
 
 	return (
 		<div className={`border-l-2 pl-2 mt-1 ${borderCls}`}>
@@ -86,7 +88,7 @@ function BranchGroup({ label, branchType, steps, resultMap, pathPrefix, hasExecu
 				)}
 				<span className={labelCls}>{label}</span>
 				{!hasExecuted && (
-					<span className="ml-1 text-muted-foreground/50">未执行</span>
+					<span className="ml-1 text-muted-foreground/50">{t('common:notExecuted')}</span>
 				)}
 			</button>
 
@@ -108,17 +110,18 @@ type StepRowProps = {
 };
 
 function AiDetailPanel({ detail }: { detail: AiExecutionDetail }) {
+	const { t } = useTranslation(['automation', 'common']);
 	const phaseLabel: Record<string, string> = {
-		thinking: 'AI 思考中...',
-		tool_calling: '调用工具',
-		tool_result: '工具执行完成',
-		complete: '完成',
+		thinking: t('common:aiThinking'),
+		tool_calling: t('common:toolCalling'),
+		tool_result: t('common:toolResult'),
+		complete: t('common:aiComplete'),
 	};
 	return (
 		<div className="mt-1.5 space-y-1.5 text-xs border-l-2 border-blue-500/40 pl-2.5 ml-1">
 			<div className="text-muted-foreground flex items-center gap-1.5">
 				{detail.phase === 'thinking' && <Loader2 className="h-3 w-3 animate-spin text-blue-500" />}
-				<span>轮次 {detail.round}/{detail.maxRounds}</span>
+				<span>{t('common:aiRound', { current: detail.round, total: detail.maxRounds })}</span>
 				<span className="text-muted-foreground/60">— {phaseLabel[detail.phase] ?? detail.phase}</span>
 			</div>
 			{detail.thinking && (
@@ -200,6 +203,8 @@ type Props = {
 };
 
 export function StepTreeRenderer({ steps, resultMap, pathPrefix = [] }: Props) {
+	const { t } = useTranslation(['automation', 'common']);
+
 	return (
 		<div className="space-y-1">
 			{steps.map((step, i) => {
@@ -258,7 +263,7 @@ export function StepTreeRenderer({ steps, resultMap, pathPrefix = [] }: Props) {
 							<StepRow step={step} result={result} />
 							<div className="ml-2">
 								{step.button_branches.map((branch, bi) => {
-									const btnLabel = buttons[bi]?.text ?? `按钮 ${bi + 1}`;
+									const btnLabel = buttons[bi]?.text ?? t('common:button', { index: bi + 1 });
 									const btnHasResult = branch.some((_, si) => {
 										const p = [...currentPath, si].join('.');
 										return resultMap.has(p);

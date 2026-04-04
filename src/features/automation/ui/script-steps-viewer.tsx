@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Network } from 'lucide-react';
 
 import { openAutomationCanvasWindow } from '@/entities/automation/api/automation-api';
@@ -28,6 +29,7 @@ export function ScriptStepsViewer({
   scriptName,
   entryConnected = true,
 }: Props) {
+  const { t } = useTranslation(['automation', 'common']);
   const resultMap = buildResultMap(liveStepResults);
   const varEntries = Object.entries(liveVariables);
 
@@ -36,12 +38,12 @@ export function ScriptStepsViewer({
       <div className="px-5 py-4">
         {!entryConnected && steps.length > 0 && (
           <div className="mb-3 rounded-md border border-amber-300/80 bg-amber-50/90 px-3 py-2 text-xs text-amber-800">
-            Start 未连接任何步骤，当前列表里的步骤仍保留在脚本草稿中。请在流程编辑器里重新把入口连回目标步骤。
+            {t('common:entryNotConnectedHint')}
           </div>
         )}
         {steps.length === 0 ? (
           <div className="text-center py-8 space-y-2">
-            <p className="text-sm text-muted-foreground">暂无步骤</p>
+            <p className="text-sm text-muted-foreground">{t('common:noSteps')}</p>
             <Button
               size="sm"
               variant="outline"
@@ -49,7 +51,7 @@ export function ScriptStepsViewer({
               onClick={() => openAutomationCanvasWindow(scriptId, scriptName)}
             >
               <Network className="h-3.5 w-3.5 mr-1.5" />
-              在流程编辑器中编排步骤
+              {t('common:openFlowEditor')}
             </Button>
           </div>
         ) : (
@@ -60,7 +62,7 @@ export function ScriptStepsViewer({
         {varEntries.length > 0 && (
           <div className="mt-4 pt-3 border-t">
             <p className="text-xs font-medium text-muted-foreground mb-2">
-              运行变量 ({varEntries.length})
+              {t('common:runVarsWithCount', { count: varEntries.length })}
             </p>
             <div className="space-y-1">
               {varEntries.map(([key, value]) => (

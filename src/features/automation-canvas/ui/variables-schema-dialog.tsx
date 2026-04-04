@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Minus, Plus } from 'lucide-react';
 
@@ -43,6 +44,7 @@ export function VariablesSchemaDialog({
 	initialVars,
 	onSaved,
 }: Props) {
+	const { t } = useTranslation('settings');
 	const [vars, setVars] = useState<ScriptVarDef[]>(initialVars);
 	const [saving, setSaving] = useState(false);
 
@@ -86,19 +88,18 @@ export function VariablesSchemaDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="max-w-lg">
 				<DialogHeader>
-					<DialogTitle>脚本变量</DialogTitle>
+					<DialogTitle>{t('variables.title')}</DialogTitle>
 				</DialogHeader>
 				<div className="space-y-2 py-1">
 					<p className="text-xs text-muted-foreground">
-						定义脚本预期的变量名和默认值，运行时会自动预填到初始变量栏。在步骤中使用{' '}
-						<code className="bg-muted px-1 rounded">{'{{变量名}}'}</code> 引用。
+						{t('variables.desc')}
 					</p>
 					{vars.length > 0 && (
 						<div className="space-y-1.5">
 							{vars.map((v, i) => (
 								<div key={i} className="flex items-center gap-1.5">
 									<Input
-										placeholder="变量名"
+										placeholder={t('variables.variableName')}
 										value={v.name}
 										onChange={(e) => setName(i, e.target.value)}
 										className="h-7 text-xs font-mono"
@@ -107,7 +108,7 @@ export function VariablesSchemaDialog({
 										=
 									</span>
 									<Input
-										placeholder="默认值（可选）"
+										placeholder={t('variables.defaultValue')}
 										value={v.defaultValue}
 										onChange={(e) => setDefault(i, e.target.value)}
 										className="h-7 text-xs"
@@ -129,7 +130,7 @@ export function VariablesSchemaDialog({
 						className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
 					>
 						<Plus className="h-3 w-3" />
-						添加变量
+						{t('variables.addVariable')}
 					</button>
 				</div>
 				<DialogFooter>
@@ -138,14 +139,14 @@ export function VariablesSchemaDialog({
 						onClick={() => onOpenChange(false)}
 						className="cursor-pointer"
 					>
-						取消
+						{t('variables.cancel')}
 					</Button>
 					<Button
 						onClick={() => void handleSave()}
 						disabled={saving}
 						className="cursor-pointer"
 					>
-						保存
+						{t('variables.save')}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

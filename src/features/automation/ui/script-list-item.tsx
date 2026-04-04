@@ -1,6 +1,7 @@
 import type { AutomationScript } from '@/entities/automation/model/types';
 import { resolveScriptFlowEntryState } from '@/entities/automation/model/script-flow-entry';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 type Props = {
 	script: AutomationScript;
@@ -10,6 +11,7 @@ type Props = {
 
 /** 侧边栏单条脚本列表项 */
 export function ScriptListItem({ script, isSelected, onClick }: Props) {
+	const { t } = useTranslation('automation');
 	const flowEntryState = resolveScriptFlowEntryState(script);
 
 	return (
@@ -27,12 +29,12 @@ export function ScriptListItem({ script, isSelected, onClick }: Props) {
 		>
 			<div className="font-medium truncate">{script.name}</div>
 			<div className="text-xs text-muted-foreground mt-0.5">
-				{script.steps.length} 步骤
-				{!flowEntryState.entryConnected && ' · 入口未连接'}
+				{t('detail.stepsShort', { count: script.steps.length })}
+				{!flowEntryState.entryConnected && ` · ${t('detail.entryNotConnected')}`}
 				{flowEntryState.orphanedStepCount > 0 &&
-					` · ${flowEntryState.orphanedStepCount} 孤立`}
+					` · ${t('detail.orphanedShort', { count: flowEntryState.orphanedStepCount })}`}
 				{(script.associatedProfileIds?.length ?? 0) > 0 &&
-					` · ${script.associatedProfileIds!.length} 环境`}
+					` · ${t('detail.profilesShort', { count: script.associatedProfileIds!.length })}`}
 			</div>
 		</div>
 	);
