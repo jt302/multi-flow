@@ -11,6 +11,7 @@ import {
 	Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 import {
 	Badge,
@@ -55,7 +56,7 @@ import {
 } from '@/entities/plugin/api/plugins-api';
 import type { PluginPackage } from '@/entities/plugin/model/types';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
-import { WORKSPACE_SECTIONS } from '@/app/model/workspace-sections';
+import { getWorkspaceSections } from '@/app/model/workspace-sections';
 
 type PluginsPageProps = {
 	profiles: ProfileItem[];
@@ -77,7 +78,8 @@ export function PluginsPage({
 	groups,
 	onRefreshProfiles,
 }: PluginsPageProps) {
-	const section = WORKSPACE_SECTIONS.plugins;
+	const { t } = useTranslation(['plugin', 'common']);
+	const section = getWorkspaceSections().plugins;
 	const [extensionIdInput, setExtensionIdInput] = useState('');
 	const [downloadPending, setDownloadPending] = useState(false);
 	const [busyPackageId, setBusyPackageId] = useState<string | null>(null);
@@ -147,7 +149,9 @@ export function PluginsPage({
 					return;
 				}
 				toast.error(
-					error instanceof Error ? error.message : '读取插件下载代理偏好失败',
+					error instanceof Error
+						? error.message
+						: t('toast.readProxyPrefFailed'),
 				);
 			} finally {
 				if (!cancelled) {
@@ -177,7 +181,9 @@ export function PluginsPage({
 			} catch (error) {
 				setSelectedDownloadProxyId(previousValue);
 				toast.error(
-					error instanceof Error ? error.message : '保存插件下载代理偏好失败',
+					error instanceof Error
+						? error.message
+						: t('toast.saveProxyPrefFailed'),
 				);
 			}
 		})();
@@ -186,7 +192,7 @@ export function PluginsPage({
 	const handleDownload = async () => {
 		const extensionId = extensionIdInput.trim();
 		if (!extensionId) {
-			toast.error('请输入扩展 ID');
+			toast.error(t('toast.enterExtensionId'));
 			return;
 		}
 		setDownloadPending(true);
@@ -197,9 +203,11 @@ export function PluginsPage({
 			);
 			await refreshAll();
 			setExtensionIdInput('');
-			toast.success(`插件已下载：${plugin.name}`);
+			toast.success(t('toast.downloaded', { name: plugin.name }));
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : '下载插件失败');
+			toast.error(
+				error instanceof Error ? error.message : t('toast.downloadFailed'),
+			);
 		} finally {
 			setDownloadPending(false);
 		}
@@ -216,7 +224,9 @@ export function PluginsPage({
 			await refreshAll();
 			toast.success(successText);
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : '插件操作失败');
+			toast.error(
+				error instanceof Error ? error.message : t('toast.operationFailed'),
+			);
 		} finally {
 			setBusyPackageId(null);
 		}
@@ -224,19 +234,21 @@ export function PluginsPage({
 
 	const openPluginStore = async (plugin: PluginPackage) => {
 		if (!plugin.storeUrl?.trim()) {
-			toast.error('当前插件缺少商店地址');
+			toast.error(t('toast.noStoreUrl'));
 			return;
 		}
 		try {
 			await openUrl(plugin.storeUrl);
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : '打开商店页面失败');
+			toast.error(
+				error instanceof Error ? error.message : t('toast.openStoreFailed'),
+			);
 		}
 	};
 
 	const installToTargets = async (packageId: string, profileIds: string[]) => {
 		if (profileIds.length === 0) {
-			toast.error('请至少选择一个环境');
+			toast.error(t('toast.selectAtLeastOne'));
 			return;
 		}
 		const runningTargetCount = profiles.filter(
@@ -246,14 +258,16 @@ export function PluginsPage({
 		try {
 			const result = await installPluginToProfiles({ packageId, profileIds });
 			await refreshAll();
-			toast.success(`插件已写入 ${result.successCount} 个环境`);
+			toast.success(t('toast.installed', { count: result.successCount }));
 			if (runningTargetCount > 0) {
-				toast.info('运行中的环境需要重启后，插件变更才会生效');
+				toast.info(t('toast.restartNotice'));
 			}
 			setInstallDialogPackage(null);
 			setSelectedProfileIds([]);
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : '安装插件失败');
+			toast.error(
+				error instanceof Error ? error.message : t('toast.installFailed'),
+			);
 		} finally {
 			setBusyPackageId(null);
 		}
@@ -262,36 +276,36 @@ export function PluginsPage({
 	return (
 		<div className="flex flex-col gap-3 h-full min-h-0">
 			<ActiveSectionCard
-				label="插件"
+				label={t('plugin:label')}
 				title={section.title}
 				description={section.desc}
 			/>
 
 			<Card>
 				<CardHeader>
-					<CardTitle className="text-sm">通过扩展 ID 下载 CRX</CardTitle>
+					<CardTitle className="text-sm">{t('downloadCrx.title')}</CardTitle>
 				</CardHeader>
 				<CardContent className="flex flex-col gap-3">
 					<div className="flex flex-col gap-3 md:flex-row">
 						<Input
 							value={extensionIdInput}
 							onChange={(event) => setExtensionIdInput(event.target.value)}
-							placeholder="输入 Chrome Web Store 扩展 ID"
+							placeholder={t('downloadCrx.placeholder')}
 						/>
 						<Select
 							value={selectedDownloadProxyId}
 							onValueChange={handleDownloadProxyChange}
 						>
 							<SelectTrigger className="min-w-[220px] cursor-pointer">
-								<SelectValue placeholder="下载代理" />
+								<SelectValue placeholder={t('downloadCrx.proxyNone')} />
 							</SelectTrigger>
 							<SelectContent>
 								<SelectItem value={DIRECT_DOWNLOAD_PROXY_VALUE}>
-									下载代理: 不使用代理
+									{t('downloadCrx.proxyNone')}
 								</SelectItem>
 								{availableProxies.map((proxy) => (
 									<SelectItem key={proxy.id} value={proxy.id}>
-										下载代理: {proxy.name}
+										{t('downloadCrx.proxySelected', { name: proxy.name })}
 									</SelectItem>
 								))}
 							</SelectContent>
@@ -303,23 +317,26 @@ export function PluginsPage({
 							disabled={downloadPending}
 						>
 							<Icon icon={Download} size={14} />
-							{downloadPending ? '下载中...' : '下载插件'}
+							{downloadPending
+								? t('downloadCrx.downloading')
+								: t('downloadCrx.download')}
 						</Button>
 					</div>
 					<p className="text-xs text-muted-foreground">
-						下载依赖访问 Chrome Web
-						Store；可选一个已配置代理用于下载、检查更新和更新插件。
+						{t('downloadCrx.proxyHint')}
 					</p>
 				</CardContent>
 			</Card>
 
 			<Card className="flex-1 min-h-0 overflow-hidden flex flex-col">
 				<CardHeader>
-					<CardTitle className="text-sm">插件库</CardTitle>
+					<CardTitle className="text-sm">{t('library.title')}</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-3 flex-1 min-h-0 overflow-y-auto">
 					{pluginPackagesQuery.isLoading ? (
-						<p className="text-sm text-muted-foreground">正在加载插件库...</p>
+						<p className="text-sm text-muted-foreground">
+							{t('library.loading')}
+						</p>
 					) : null}
 					{pluginPackagesQuery.error instanceof Error ? (
 						<p className="text-sm text-destructive">
@@ -337,7 +354,7 @@ export function PluginsPage({
 										{getPluginIconSrc(plugin.iconPath) ? (
 											<img
 												src={getPluginIconSrc(plugin.iconPath) ?? undefined}
-												alt={`${plugin.name} 图标`}
+												alt={t('library.iconAlt', { name: plugin.name })}
 												className="h-full w-full object-cover"
 											/>
 										) : (
@@ -358,16 +375,16 @@ export function PluginsPage({
 											<Badge variant="outline">{plugin.sourceType}</Badge>
 										</div>
 										<p className="mt-1 text-sm text-muted-foreground">
-											{plugin.description?.trim() || '暂无描述'}
+											{plugin.description?.trim() || t('library.noDescription')}
 										</p>
 										<p className="mt-2 text-[11px] text-muted-foreground">
-											CRX: {plugin.crxPath}
+											{t('library.crxPath', { path: plugin.crxPath })}
 										</p>
 										<p className="mt-1 text-[11px] text-muted-foreground">
-											更新状态: {plugin.updateStatus ?? 'unknown'}
-											{plugin.latestVersion
-												? ` / 最新版本 ${plugin.latestVersion}`
-												: ''}
+											{t('library.updateStatus', {
+												status: plugin.updateStatus ?? 'unknown',
+												version: plugin.latestVersion,
+											})}
 										</p>
 									</div>
 								</div>
@@ -381,7 +398,7 @@ export function PluginsPage({
 										onClick={() => void openPluginStore(plugin)}
 									>
 										<Icon icon={ExternalLink} size={12} />
-										在商店中打开
+										{t('library.openInStore')}
 									</Button>
 									<Button
 										type="button"
@@ -394,12 +411,12 @@ export function PluginsPage({
 												plugin.packageId,
 												() =>
 													checkPluginUpdate(plugin.packageId, downloadProxyId),
-												'插件更新状态已刷新',
+												t('library.updateStatusRefreshed'),
 											)
 										}
 									>
 										<Icon icon={RefreshCcw} size={12} />
-										检查更新
+										{t('library.checkUpdate')}
 									</Button>
 									<Button
 										type="button"
@@ -415,12 +432,12 @@ export function PluginsPage({
 														plugin.packageId,
 														downloadProxyId,
 													),
-												'插件已更新',
+												t('library.pluginUpdated'),
 											)
 										}
 									>
 										<Icon icon={PackageCheck} size={12} />
-										更新插件
+										{t('library.updatePlugin')}
 									</Button>
 									<Button
 										type="button"
@@ -435,7 +452,7 @@ export function PluginsPage({
 										}}
 									>
 										<Icon icon={Puzzle} size={12} />
-										安装到环境
+										{t('library.installToProfiles')}
 									</Button>
 									<Button
 										type="button"
@@ -452,7 +469,7 @@ export function PluginsPage({
 											)
 										}
 									>
-										安装到所有环境
+										{t('library.installToAll')}
 									</Button>
 									<Button
 										type="button"
@@ -464,12 +481,12 @@ export function PluginsPage({
 											void runPackageAction(
 												plugin.packageId,
 												() => uninstallPluginPackage(plugin.packageId),
-												'插件已卸载',
+												t('library.pluginUninstalled'),
 											)
 										}
 									>
 										<Icon icon={Trash2} size={12} />
-										卸载
+										{t('library.uninstall')}
 									</Button>
 								</div>
 							</div>
@@ -477,7 +494,9 @@ export function PluginsPage({
 					))}
 					{!pluginPackagesQuery.isLoading &&
 					(pluginPackagesQuery.data?.length ?? 0) === 0 ? (
-						<p className="text-sm text-muted-foreground">还没有已下载插件。</p>
+						<p className="text-sm text-muted-foreground">
+							{t('library.empty')}
+						</p>
 					) : null}
 				</CardContent>
 			</Card>
@@ -493,10 +512,8 @@ export function PluginsPage({
 			>
 				<DialogContent className="max-w-4xl">
 					<DialogHeader>
-						<DialogTitle>安装到环境</DialogTitle>
-						<DialogDescription>
-							先筛选目标环境，再多选环境安装插件。运行中的环境会先写入配置，重启后生效。
-						</DialogDescription>
+						<DialogTitle>{t('install.title')}</DialogTitle>
+						<DialogDescription>{t('install.desc')}</DialogDescription>
 					</DialogHeader>
 					<div className="grid gap-2 md:grid-cols-4">
 						<Input
@@ -504,7 +521,7 @@ export function PluginsPage({
 							onChange={(event) =>
 								setFilters((prev) => ({ ...prev, keyword: event.target.value }))
 							}
-							placeholder="搜索名称/分组/备注"
+							placeholder={t('install.searchPlaceholder')}
 						/>
 						<Select
 							value={filters.groupFilter}
@@ -513,10 +530,10 @@ export function PluginsPage({
 							}
 						>
 							<SelectTrigger className="cursor-pointer">
-								<SelectValue placeholder="全部分组" />
+								<SelectValue placeholder={t('install.allGroups')} />
 							</SelectTrigger>
 							<SelectContent>
-								<SelectItem value="all">全部分组</SelectItem>
+								<SelectItem value="all">{t('install.allGroups')}</SelectItem>
 								{groupOptions.map((groupName) => (
 									<SelectItem key={groupName} value={groupName}>
 										{groupName}
@@ -534,12 +551,16 @@ export function PluginsPage({
 							}
 						>
 							<SelectTrigger className="cursor-pointer">
-								<SelectValue placeholder="全部运行态" />
+								<SelectValue placeholder={t('install.allStatus')} />
 							</SelectTrigger>
 							<SelectContent>
-								<SelectItem value="all">全部运行态</SelectItem>
-								<SelectItem value="running">仅运行中</SelectItem>
-								<SelectItem value="stopped">仅未运行</SelectItem>
+								<SelectItem value="all">{t('install.allStatus')}</SelectItem>
+								<SelectItem value="running">
+									{t('install.onlyRunning')}
+								</SelectItem>
+								<SelectItem value="stopped">
+									{t('install.onlyStopped')}
+								</SelectItem>
 							</SelectContent>
 						</Select>
 						<Select
@@ -552,19 +573,23 @@ export function PluginsPage({
 							}
 						>
 							<SelectTrigger className="cursor-pointer">
-								<SelectValue placeholder="可用环境" />
+								<SelectValue placeholder={t('install.availableProfiles')} />
 							</SelectTrigger>
 							<SelectContent>
-								<SelectItem value="active">可用环境</SelectItem>
-								<SelectItem value="deleted">已归档</SelectItem>
-								<SelectItem value="all">全部生命周期</SelectItem>
+								<SelectItem value="active">
+									{t('install.availableProfiles')}
+								</SelectItem>
+								<SelectItem value="deleted">{t('install.archived')}</SelectItem>
+								<SelectItem value="all">{t('install.allLifecycle')}</SelectItem>
 							</SelectContent>
 						</Select>
 					</div>
 					<div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
 						<p>
-							当前筛选 {activeFilteredProfiles.length} 个可用环境，已选择{' '}
-							{selectedProfileIds.length} 个
+							{t('install.filterSummary', {
+								filtered: activeFilteredProfiles.length,
+								selected: selectedProfileIds.length,
+							})}
 						</p>
 						<Button
 							type="button"
@@ -577,7 +602,7 @@ export function PluginsPage({
 								)
 							}
 						>
-							选中当前筛选结果
+							{t('install.selectFiltered')}
 						</Button>
 					</div>
 					<div className="max-h-[360px] space-y-2 overflow-y-auto">
@@ -609,7 +634,9 @@ export function PluginsPage({
 												{profile.name}
 											</p>
 											<Badge variant="outline">
-												{profile.running ? '运行中' : '未运行'}
+												{profile.running
+													? t('install.running')
+													: t('install.notRunning')}
 											</Badge>
 											<Badge variant="secondary">{profile.group}</Badge>
 										</div>
@@ -622,7 +649,7 @@ export function PluginsPage({
 						})}
 						{activeFilteredProfiles.length === 0 ? (
 							<p className="text-sm text-muted-foreground">
-								当前筛选没有可安装的环境。
+								{t('install.emptyFilter')}
 							</p>
 						) : null}
 					</div>
@@ -633,7 +660,7 @@ export function PluginsPage({
 							className="cursor-pointer"
 							onClick={() => setInstallDialogPackage(null)}
 						>
-							取消
+							{t('common:cancel')}
 						</Button>
 						<Button
 							type="button"
@@ -651,7 +678,7 @@ export function PluginsPage({
 								);
 							}}
 						>
-							确认安装
+							{t('install.confirmInstall')}
 						</Button>
 					</DialogFooter>
 				</DialogContent>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui';
 import type { BatchProfileActionResponse, ProfileItem } from '@/entities/profile/model/types';
 
@@ -14,6 +15,7 @@ export function ProfileBatchOpenResultCard({
 	onRetryFailed,
 	onClose,
 }: ProfileBatchOpenResultCardProps) {
+	const { t } = useTranslation('profile');
 	const failedItems = result.items.filter((item) => !item.ok);
 
 	if (failedItems.length === 0) {
@@ -24,9 +26,9 @@ export function ProfileBatchOpenResultCard({
 		<div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
 			<div className="flex items-center justify-between gap-3">
 				<div>
-					<p className="text-sm font-medium">批量启动失败详情</p>
+					<p className="text-sm font-medium">{t('list:batchOpenFailedTitle')}</p>
 					<p className="mt-1 text-xs text-muted-foreground">
-						成功 {result.successCount}，失败 {result.failedCount}。
+						{t('list:batchOpenFailedDesc', { success: result.successCount, failed: result.failedCount })}
 					</p>
 				</div>
 				<div className="flex items-center gap-2">
@@ -37,7 +39,7 @@ export function ProfileBatchOpenResultCard({
 						className="cursor-pointer"
 						onClick={() => onRetryFailed(failedItems.map((item) => item.profileId))}
 					>
-						重试失败项
+						{t('list:retryFailed')}
 					</Button>
 					<Button
 						type="button"
@@ -46,7 +48,7 @@ export function ProfileBatchOpenResultCard({
 						className="cursor-pointer"
 						onClick={onClose}
 					>
-						关闭
+						{t('list:close')}
 					</Button>
 				</div>
 			</div>

@@ -1,6 +1,17 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import { openPath, revealItemInDir } from '@tauri-apps/plugin-opener';
-import { ArrowLeft, ChevronDown, ChevronRight, FolderOpen, PencilLine, Shield, Sparkles, Trash2 } from 'lucide-react';
+import {
+	ArrowLeft,
+	ChevronDown,
+	ChevronRight,
+	FolderOpen,
+	PencilLine,
+	Shield,
+	Sparkles,
+	Trash2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -21,7 +32,11 @@ import {
 	Icon,
 } from '@/components/ui';
 import { clearProfileCache } from '@/entities/profile/api/profiles-api';
-import { formatProfileTime, resolveBrowserVersionMeta, resolvePlatformMeta } from '@/entities/profile/lib/profile-list';
+import {
+	formatProfileTime,
+	resolveBrowserVersionMeta,
+	resolvePlatformMeta,
+} from '@/entities/profile/lib/profile-list';
 import { useProfileRuntimeDetailsQuery } from '@/entities/profile/model/use-profile-runtime-details-query';
 import type { ProfileItem } from '@/entities/profile/model/types';
 import { PlatformMark } from '@/entities/profile/ui/platform-mark';
@@ -39,31 +54,29 @@ type ProfileDetailPageProps = {
 function formatWebRtcModeLabel(value: string | undefined) {
 	switch (value) {
 		case 'follow_ip':
-			return '跟随 IP';
+			return i18next.t('common:followIp');
 		case 'replace':
-			return '替换（指定 IP）';
+			return i18next.t('common:replace');
 		case 'disable':
-			return '禁用';
+			return i18next.t('common:disable');
 		case 'real':
 		default:
-			return '真实（不覆盖）';
+			return i18next.t('common:realNoOverride');
 	}
 }
 
 function formatCustomValueModeLabel(value: string | undefined) {
-	return value === 'custom' ? '自定义' : '真实';
+	return value === 'custom'
+		? i18next.t('common:custom')
+		: i18next.t('common:real');
 }
 
-function DetailMetric({
-	label,
-	value,
-}: {
-	label: string;
-	value: string;
-}) {
+function DetailMetric({ label, value }: { label: string; value: string }) {
 	return (
 		<div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-			<p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+			<p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+				{label}
+			</p>
 			<p className="mt-1 break-words whitespace-pre-wrap text-sm">{value}</p>
 		</div>
 	);
@@ -76,6 +89,7 @@ export function ProfileDetailPage({
 	onBack,
 	onEditProfile,
 }: ProfileDetailPageProps) {
+	const { t } = useTranslation(['profile', 'common']);
 	const [showHiddenInfo, setShowHiddenInfo] = useState(false);
 	const [confirmClearCacheOpen, setConfirmClearCacheOpen] = useState(false);
 	const [clearingCache, setClearingCache] = useState(false);
@@ -85,22 +99,28 @@ export function ProfileDetailPage({
 	const snapshot = fingerprint?.fingerprintSnapshot;
 	const browserVersionMeta = resolveBrowserVersionMeta(profile, resources);
 	const platformMeta = resolvePlatformMeta(profile);
-	const statusLabel = profile.running ? '运行中' : '未运行';
+	const statusLabel = profile.running
+		? t('common:running')
+		: t('common:notRunning');
 	const toolbarText = basic?.toolbarText?.trim();
 	const startupUrls =
 		basic?.startupUrls?.filter((item) => item.trim()) ??
 		(basic?.startupUrl?.trim() ? [basic.startupUrl.trim()] : []);
 	const proxyLabel = boundProxy
 		? `${boundProxy.name} · ${boundProxy.protocol.toUpperCase()}://${boundProxy.host}:${boundProxy.port}`
-		: '未绑定代理';
-	const runtimeDetailsQuery = useProfileRuntimeDetailsQuery(profile.id, profile.running);
+		: t('detail.noProxy');
+	const runtimeDetailsQuery = useProfileRuntimeDetailsQuery(
+		profile.id,
+		profile.running,
+	);
 	const runtimeDetails = runtimeDetailsQuery.data;
 	const keyLaunchArgs = useMemo(() => {
-		return (runtimeDetails?.launchArgs ?? []).filter((item) =>
-			item.startsWith('--user-data-dir=') ||
-			item.startsWith('--disk-cache-dir=') ||
-			item.startsWith('--magic-socket-server-port=') ||
-			item.startsWith('--fingerprint-seed='),
+		return (runtimeDetails?.launchArgs ?? []).filter(
+			(item) =>
+				item.startsWith('--user-data-dir=') ||
+				item.startsWith('--disk-cache-dir=') ||
+				item.startsWith('--magic-socket-server-port=') ||
+				item.startsWith('--fingerprint-seed='),
 		);
 	}, [runtimeDetails?.launchArgs]);
 
@@ -111,7 +131,7 @@ export function ProfileDetailPage({
 			try {
 				await openPath(path);
 			} catch {
-				toast.error('打开目录失败');
+				toast.error(t('detail.openDirFailed'));
 			}
 		}
 	};
@@ -122,9 +142,9 @@ export function ProfileDetailPage({
 			await clearProfileCache(profile.id);
 			await runtimeDetailsQuery.refetch();
 			setConfirmClearCacheOpen(false);
-			toast.success('缓存目录已清理');
+			toast.success(t('detail.cacheCleaned'));
 		} catch (error) {
-			toast.error('清理 cache 失败');
+			toast.error(t('detail.cacheCleanFailed'));
 		} finally {
 			setClearingCache(false);
 		}
@@ -137,12 +157,17 @@ export function ProfileDetailPage({
 					<p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
 						profiles / detail
 					</p>
-					<h2 className="text-base font-semibold">环境详情</h2>
+					<h2 className="text-base font-semibold">{t('detail.pageTitle')}</h2>
 				</div>
 				<div className="flex items-center gap-2">
-					<Button type="button" variant="outline" className="cursor-pointer" onClick={onBack}>
+					<Button
+						type="button"
+						variant="outline"
+						className="cursor-pointer"
+						onClick={onBack}
+					>
 						<Icon icon={ArrowLeft} size={14} />
-						返回列表
+						{t('detail.backToList')}
 					</Button>
 					<Button
 						type="button"
@@ -150,7 +175,7 @@ export function ProfileDetailPage({
 						onClick={() => onEditProfile(profile.id)}
 					>
 						<Icon icon={PencilLine} size={14} />
-						修改配置
+						{t('detail.editConfig')}
 					</Button>
 				</div>
 			</div>
@@ -168,16 +193,22 @@ export function ProfileDetailPage({
 								{platformMeta.code} · {platformMeta.hint}
 							</p>
 							{toolbarText && toolbarText !== profile.name ? (
-								<p className="mt-1 text-xs text-muted-foreground">工具栏文本 {toolbarText}</p>
+								<p className="mt-1 text-xs text-muted-foreground">
+									{t('toolbarText.label')} {toolbarText}
+								</p>
 							) : null}
 						</div>
 					</div>
 					<div className="flex flex-wrap items-center justify-end gap-2">
 						<Badge variant="secondary">{platformMeta.label}</Badge>
-						<Badge variant={profile.running ? 'default' : 'outline'}>{statusLabel}</Badge>
+						<Badge variant={profile.running ? 'default' : 'outline'}>
+							{statusLabel}
+						</Badge>
 						<Badge
 							variant={
-								browserVersionMeta.resourceLabel === '已安装' ? 'secondary' : 'outline'
+								browserVersionMeta.resourceLabel === t('common:installed')
+									? 'secondary'
+									: 'outline'
 							}
 						>
 							{browserVersionMeta.versionLabel}
@@ -185,22 +216,30 @@ export function ProfileDetailPage({
 					</div>
 				</CardHeader>
 				<CardContent className="grid gap-3 p-0 md:grid-cols-2 xl:grid-cols-4">
-					<DetailMetric label="浏览器资源" value={browserVersionMeta.resourceLabel} />
 					<DetailMetric
-						label="默认打开 URL"
-						value={startupUrls.length ? startupUrls.join('\n') : '未设置'}
+						label={t('detail.browserResource')}
+						value={browserVersionMeta.resourceLabel}
 					/>
-					<DetailMetric label="代理" value={proxyLabel} />
-					<DetailMetric label="最近启动" value={formatProfileTime(profile.lastOpenedAt)} />
+					<DetailMetric
+						label={t('detail.startupUrl')}
+						value={
+							startupUrls.length ? startupUrls.join('\n') : t('common:notSet')
+						}
+					/>
+					<DetailMetric label={t('detail.proxy')} value={proxyLabel} />
+					<DetailMetric
+						label={t('detail.lastStarted')}
+						value={formatProfileTime(profile.lastOpenedAt)}
+					/>
 				</CardContent>
 			</Card>
 
 			<Card className="p-4">
 				<CardHeader className="flex flex-row items-center justify-between gap-3 p-0 pb-3">
 					<div>
-						<CardTitle className="text-sm">运行与目录</CardTitle>
+						<CardTitle className="text-sm">{t('detail.runAndDir')}</CardTitle>
 						<p className="mt-1 text-xs text-muted-foreground">
-							显示环境隐藏信息、目录路径与当前运行时参数
+							{t('detail.runAndDirDesc')}
 						</p>
 					</div>
 					<div className="flex items-center gap-2">
@@ -211,8 +250,11 @@ export function ProfileDetailPage({
 							className="cursor-pointer"
 							onClick={() => setShowHiddenInfo((value) => !value)}
 						>
-							<Icon icon={showHiddenInfo ? ChevronDown : ChevronRight} size={14} />
-							{showHiddenInfo ? '隐藏信息' : '显示隐藏信息'}
+							<Icon
+								icon={showHiddenInfo ? ChevronDown : ChevronRight}
+								size={14}
+							/>
+							{showHiddenInfo ? t('detail.hideInfo') : t('detail.showInfo')}
 						</Button>
 						<Button
 							type="button"
@@ -223,17 +265,17 @@ export function ProfileDetailPage({
 							onClick={() => setConfirmClearCacheOpen(true)}
 						>
 							<Icon icon={Trash2} size={14} />
-							清理 cache
+							{t('detail.cleanCache')}
 						</Button>
 					</div>
 				</CardHeader>
 				<CardContent className="space-y-3 p-0">
 					{showHiddenInfo ? (
 						<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-							<DetailMetric label="环境 ID" value={profile.id} />
+							<DetailMetric label={t('detail.profileId')} value={profile.id} />
 							<PathMetric
-								label="Profile 目录"
-								value={runtimeDetails?.profileRootDir || '加载中...'}
+								label={t('detail.profileDir')}
+								value={runtimeDetails?.profileRootDir || t('common:loading')}
 								onOpen={
 									runtimeDetails?.profileRootDir
 										? () => void openDir(runtimeDetails.profileRootDir)
@@ -241,8 +283,8 @@ export function ProfileDetailPage({
 								}
 							/>
 							<PathMetric
-								label="User Data 目录"
-								value={runtimeDetails?.userDataDir || '加载中...'}
+								label={t('detail.userDataDir')}
+								value={runtimeDetails?.userDataDir || t('common:loading')}
 								onOpen={
 									runtimeDetails?.userDataDir
 										? () => void openDir(runtimeDetails.userDataDir)
@@ -250,8 +292,8 @@ export function ProfileDetailPage({
 								}
 							/>
 							<PathMetric
-								label="Cache 目录"
-								value={runtimeDetails?.cacheDataDir || '加载中...'}
+								label={t('detail.cacheDir')}
+								value={runtimeDetails?.cacheDataDir || t('common:loading')}
 								onOpen={
 									runtimeDetails?.cacheDataDir
 										? () => void openDir(runtimeDetails.cacheDataDir)
@@ -259,17 +301,18 @@ export function ProfileDetailPage({
 								}
 							/>
 							<DetailMetric
-								label="PID / Debug / Magic"
+								label={t('detail.pidDebugMagic')}
 								value={
 									runtimeDetails?.runtimeHandle
 										? `${runtimeDetails.runtimeHandle.pid ?? '-'} / ${runtimeDetails.runtimeHandle.debugPort ?? '-'} / ${runtimeDetails.runtimeHandle.magicPort ?? '-'}`
-										: '当前未运行'
+										: t('detail.currentNotRunning')
 								}
 							/>
 							<DetailMetric
-								label="Session"
+								label={t('detail.session')}
 								value={
-									runtimeDetails?.runtimeHandle?.sessionId?.toString() || '当前未运行'
+									runtimeDetails?.runtimeHandle?.sessionId?.toString() ||
+									t('detail.currentNotRunning')
 								}
 							/>
 						</div>
@@ -277,48 +320,56 @@ export function ProfileDetailPage({
 
 					<Card className="border border-border/60 shadow-none">
 						<CardHeader className="p-0 pb-2">
-							<CardTitle className="text-sm">启动参数</CardTitle>
+							<CardTitle className="text-sm">
+								{t('detail.launchParams')}
+							</CardTitle>
 						</CardHeader>
 						<CardContent className="space-y-3 p-0">
 							{profile.running ? (
 								<>
 									<div className="grid gap-3 md:grid-cols-2">
 										<DetailMetric
-											label="关键参数"
-											value={keyLaunchArgs.length ? keyLaunchArgs.join('\n') : '未解析到关键参数'}
+											label={t('detail.keyParams')}
+											value={
+												keyLaunchArgs.length
+													? keyLaunchArgs.join('\n')
+													: t('detail.noKeyParams')
+											}
 										/>
 										<DetailMetric
-											label="Extra Args"
+											label={t('detail.extraArgs')}
 											value={
 												runtimeDetails?.extraArgs?.length
 													? runtimeDetails.extraArgs.join('\n')
-													: '无'
+													: t('common:none')
 											}
 										/>
 									</div>
 									<div className="rounded-xl border border-border/70 bg-muted/20 p-3">
 										<p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-											完整启动参数
+											{t('detail.fullLaunchParams')}
 										</p>
 										<pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-xs">
 											{runtimeDetails?.launchArgs?.length
 												? runtimeDetails.launchArgs.join('\n')
 												: runtimeDetailsQuery.isLoading
-													? '加载中...'
-													: '当前未读取到启动参数'}
+													? t('common:loading')
+													: t('detail.noLaunchParams')}
 										</pre>
 									</div>
 								</>
 							) : (
 								<p className="text-sm text-muted-foreground">
-									当前未运行，启动参数会在环境运行后显示。
+									{t('detail.notRunningHint')}
 								</p>
 							)}
 						</CardContent>
 					</Card>
 
 					{runtimeDetailsQuery.error instanceof Error ? (
-						<p className="text-xs text-destructive">{runtimeDetailsQuery.error.message}</p>
+						<p className="text-xs text-destructive">
+							{runtimeDetailsQuery.error.message}
+						</p>
 					) : null}
 				</CardContent>
 			</Card>
@@ -327,37 +378,62 @@ export function ProfileDetailPage({
 				<Card className="p-4">
 					<CardHeader className="flex flex-row items-center gap-2 p-0 pb-3">
 						<Icon icon={Shield} size={16} />
-						<CardTitle className="text-sm">指纹来源</CardTitle>
+						<CardTitle className="text-sm">
+							{t('detail.fingerprintSource')}
+						</CardTitle>
 					</CardHeader>
 					<CardContent className="grid gap-3 p-0 md:grid-cols-2">
-						<DetailMetric label="模拟平台" value={source?.platform || basic?.platform || '未设置'} />
-						<DetailMetric label="设备预设" value={source?.devicePresetId || '未设置'} />
-						<DetailMetric label="浏览器版本" value={source?.browserVersion || basic?.browserVersion || '未设置'} />
-						<DetailMetric label="策略 / Seed Policy" value={`${source?.strategy || 'template'} / ${source?.seedPolicy || 'fixed'}`} />
-						<DetailMetric label="Catalog" value={source?.catalogVersion || '未设置'} />
 						<DetailMetric
-							label="WebRTC"
+							label={t('detail.simulatedPlatform')}
+							value={source?.platform || basic?.platform || t('common:notSet')}
+						/>
+						<DetailMetric
+							label={t('detail.devicePreset')}
+							value={source?.devicePresetId || t('common:notSet')}
+						/>
+						<DetailMetric
+							label={t('detail.browserVersion')}
+							value={
+								source?.browserVersion ||
+								basic?.browserVersion ||
+								t('common:notSet')
+							}
+						/>
+						<DetailMetric
+							label={t('detail.seedPolicy')}
+							value={`${source?.strategy || 'template'} / ${source?.seedPolicy || 'fixed'}`}
+						/>
+						<DetailMetric
+							label={t('detail.catalog')}
+							value={source?.catalogVersion || t('common:notSet')}
+						/>
+						<DetailMetric
+							label={t('detail.webrtc')}
 							value={formatWebRtcModeLabel(fingerprint?.webRtcMode)}
 						/>
 						<DetailMetric
-							label="设备名称"
+							label={t('detail.deviceName')}
 							value={
 								fingerprint?.deviceNameMode === 'custom'
-									? `自定义 · ${fingerprint.customDeviceName || '未设置'}`
+									? `${t('common:custom')} · ${fingerprint.customDeviceName || t('common:notSet')}`
 									: formatCustomValueModeLabel(fingerprint?.deviceNameMode)
 							}
 						/>
 						<DetailMetric
-							label="MAC 地址"
+							label={t('detail.macAddress')}
 							value={
 								fingerprint?.macAddressMode === 'custom'
-									? `自定义 · ${fingerprint.customMacAddress || '未设置'}`
+									? `${t('common:custom')} · ${fingerprint.customMacAddress || t('common:notSet')}`
 									: formatCustomValueModeLabel(fingerprint?.macAddressMode)
 							}
 						/>
 						<DetailMetric
-							label="Do Not Track"
-							value={fingerprint?.doNotTrackEnabled ? '开启' : '关闭'}
+							label={t('detail.doNotTrack')}
+							value={
+								fingerprint?.doNotTrackEnabled
+									? t('common:enabled')
+									: t('common:disabled')
+							}
 						/>
 					</CardContent>
 				</Card>
@@ -365,90 +441,119 @@ export function ProfileDetailPage({
 				<Card className="p-4">
 					<CardHeader className="flex flex-row items-center gap-2 p-0 pb-3">
 						<Icon icon={Sparkles} size={16} />
-						<CardTitle className="text-sm">指纹摘要</CardTitle>
+						<CardTitle className="text-sm">
+							{t('detail.fingerprintSummary')}
+						</CardTitle>
 					</CardHeader>
 					<CardContent className="space-y-3 p-0">
 						<div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-							<p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">UserAgent</p>
-							<p className="mt-1 break-words text-sm">{snapshot?.userAgent || '未生成'}</p>
+							<p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+								{t('detail.userAgent')}
+							</p>
+							<p className="mt-1 break-words text-sm">
+								{snapshot?.userAgent || t('common:notGenerated')}
+							</p>
 						</div>
 						<div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-							<p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">UA Metadata</p>
+							<p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+								{t('detail.uaMetadata')}
+							</p>
 							<p className="mt-1 break-words text-xs text-muted-foreground">
-								{snapshot?.customUaMetadata || '未生成'}
+								{snapshot?.customUaMetadata || t('common:notGenerated')}
 							</p>
 						</div>
 						<div className="grid gap-3 md:grid-cols-2">
 							<DetailMetric
-								label="平台参数"
-								value={snapshot?.customPlatform || '未设置'}
+								label={t('detail.platformParams')}
+								value={snapshot?.customPlatform || t('common:notSet')}
 							/>
 							<DetailMetric
-								label="分辨率 / DPR"
+								label={t('detail.resolutionDpr')}
 								value={
 									snapshot?.windowWidth && snapshot?.windowHeight
 										? `${snapshot.windowWidth}x${snapshot.windowHeight} · ${snapshot.deviceScaleFactor ?? '-'}x`
-										: '未设置'
+										: t('common:notSet')
 								}
 							/>
+						<DetailMetric
+							label={t('detail.cpuRam')}
+							value={
+								snapshot?.customCpuCores && snapshot?.customRamGb
+									? `${snapshot.customCpuCores} ${t('detail.core')} / ${snapshot.customRamGb} ${t('detail.gb')}`
+									: t('common:notSet')
+							}
+						/>
 							<DetailMetric
-								label="CPU / RAM"
+								label={t('detail.touchFormFactor')}
+								value={`${snapshot?.customTouchPoints ?? 0} / ${snapshot?.formFactor || t('common:notSet')}`}
+							/>
+							<DetailMetric
+								label={t('detail.glVendor')}
+								value={snapshot?.customGlVendor || t('common:notSet')}
+							/>
+							<DetailMetric
+								label={t('detail.glRenderer')}
+								value={snapshot?.customGlRenderer || t('common:notSet')}
+							/>
+							<DetailMetric
+								label={t('detail.language')}
+								value={snapshot?.language || t('common:notSet')}
+							/>
+							<DetailMetric
+								label={t('detail.timezone')}
+								value={snapshot?.timeZone || t('common:notSet')}
+							/>
+							<DetailMetric
+								label={t('detail.acceptLanguage')}
+								value={snapshot?.acceptLanguages || t('common:notSet')}
+							/>
+							<DetailMetric
+								label={t('detail.seed')}
 								value={
-									snapshot?.customCpuCores && snapshot?.customRamGb
-										? `${snapshot.customCpuCores} 核 / ${snapshot.customRamGb} GB`
-										: '未设置'
+									snapshot?.fingerprintSeed?.toString() ||
+									t('common:generatedOnStartup')
 								}
-							/>
-							<DetailMetric
-								label="触点 / 形态"
-								value={`${snapshot?.customTouchPoints ?? 0} / ${snapshot?.formFactor || '未设置'}`}
-							/>
-							<DetailMetric
-								label="GL Vendor"
-								value={snapshot?.customGlVendor || '未设置'}
-							/>
-							<DetailMetric
-								label="GL Renderer"
-								value={snapshot?.customGlRenderer || '未设置'}
-							/>
-							<DetailMetric label="语言" value={snapshot?.language || '未设置'} />
-							<DetailMetric label="时区" value={snapshot?.timeZone || '未设置'} />
-							<DetailMetric
-								label="Accept-Language"
-								value={snapshot?.acceptLanguages || '未设置'}
-							/>
-							<DetailMetric
-								label="Seed"
-								value={snapshot?.fingerprintSeed?.toString() || '启动时生成'}
 							/>
 						</div>
 						<div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-							<p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">字体集合</p>
+							<p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+								{t('detail.fontCollection')}
+							</p>
 							<p className="mt-1 text-sm">
 								{snapshot?.customFontList?.length
-									? `${snapshot.customFontList.length} 个字体`
-									: '未设置'}
+									? t('common:fontsCount', {
+											count: snapshot.customFontList.length,
+										})
+									: t('common:notSet')}
 							</p>
 							<p className="mt-1 break-words text-xs text-muted-foreground">
-								{snapshot?.customFontList?.slice(0, 10).join(' / ') || '未设置'}
+								{snapshot?.customFontList?.slice(0, 10).join(' / ') ||
+									t('common:notSet')}
 							</p>
 						</div>
 					</CardContent>
 				</Card>
 			</div>
 
-			<AlertDialog open={confirmClearCacheOpen} onOpenChange={setConfirmClearCacheOpen}>
+			<AlertDialog
+				open={confirmClearCacheOpen}
+				onOpenChange={setConfirmClearCacheOpen}
+			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>确认清理 cache</AlertDialogTitle>
+						<AlertDialogTitle>{t('detail.confirmCleanCache')}</AlertDialogTitle>
 						<AlertDialogDescription>
-							将清理当前环境的 cache-data 目录，只删除缓存文件，不会删除账号数据或 user-data。该操作仅允许在环境关闭后执行。
+							{t('detail.confirmCleanCacheDesc')}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel asChild>
-							<Button type="button" variant="outline" className="cursor-pointer">
-								取消
+							<Button
+								type="button"
+								variant="outline"
+								className="cursor-pointer"
+							>
+								{t('common:cancel')}
 							</Button>
 						</AlertDialogCancel>
 						<AlertDialogAction asChild>
@@ -458,7 +563,9 @@ export function ProfileDetailPage({
 								disabled={clearingCache}
 								onClick={() => void handleClearCache()}
 							>
-								{clearingCache ? '清理中...' : '确认清理'}
+								{clearingCache
+									? t('common:cleaningInProgress')
+									: t('detail.confirmClean')}
 							</Button>
 						</AlertDialogAction>
 					</AlertDialogFooter>
@@ -481,11 +588,21 @@ function PathMetric({
 		<div className="rounded-xl border border-border/70 bg-muted/20 p-3">
 			<div className="flex items-start justify-between gap-2">
 				<div className="min-w-0">
-					<p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
-					<p className="mt-1 break-words whitespace-pre-wrap text-sm">{value}</p>
+					<p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+						{label}
+					</p>
+					<p className="mt-1 break-words whitespace-pre-wrap text-sm">
+						{value}
+					</p>
 				</div>
 				{onOpen ? (
-					<Button type="button" size="icon" variant="ghost" className="h-8 w-8 cursor-pointer" onClick={onOpen}>
+					<Button
+						type="button"
+						size="icon"
+						variant="ghost"
+						className="h-8 w-8 cursor-pointer"
+						onClick={onOpen}
+					>
 						<Icon icon={FolderOpen} size={14} />
 					</Button>
 				) : null}

@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Link2, LoaderCircle, Unlink2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { z } from 'zod/v3';
 
 import {
@@ -32,12 +33,10 @@ import type {
 } from '@/entities/profile/model/types';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 
-const schema = z.object({
-	profileId: z.string().trim().min(1, '请选择环境'),
-	proxyId: z.string().trim().min(1, '请选择代理'),
-});
-
-type Values = z.infer<typeof schema>;
+type Values = {
+	profileId: string;
+	proxyId: string;
+};
 
 type ProxyBindingDialogProps = {
 	open: boolean;
@@ -62,6 +61,7 @@ export function ProxyBindingDialog({
 	onBindProfileProxy,
 	onUnbindProfileProxy,
 }: ProxyBindingDialogProps) {
+	const { t } = useTranslation(['proxy', 'common']);
 	const [unbindProfileId, setUnbindProfileId] = useState<string | null>(null);
 	const {
 		handleSubmit,
@@ -69,7 +69,10 @@ export function ProxyBindingDialog({
 		watch,
 		formState: { errors },
 	} = useForm<Values>({
-		resolver: zodResolver(schema),
+		resolver: zodResolver(z.object({
+			profileId: z.string().trim().min(1, t('common:placeholder.selectProfile')),
+			proxyId: z.string().trim().min(1, t('common:placeholder.selectProxy')),
+		})),
 		defaultValues: { profileId: '', proxyId: '' },
 	});
 
@@ -143,10 +146,8 @@ export function ProxyBindingDialog({
 			<Dialog open={open} onOpenChange={onOpenChange}>
 				<DialogContent className="max-w-3xl">
 					<DialogHeader>
-						<DialogTitle>环境绑定</DialogTitle>
-						<DialogDescription>
-							在弹窗内完成当前代理的绑定与解绑。
-						</DialogDescription>
+						<DialogTitle>{t('proxy:binding')}</DialogTitle>
+						<DialogDescription>{t('proxy:bindingDesc')}</DialogDescription>
 					</DialogHeader>
 					<form
 						className="space-y-3"
@@ -155,7 +156,7 @@ export function ProxyBindingDialog({
 						})}
 					>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">环境</p>
+							<p className="mb-1 text-xs text-muted-foreground">{t('common:profile')}</p>
 							<Select
 								value={selectedProfileId}
 								onValueChange={(value) =>
@@ -163,7 +164,7 @@ export function ProxyBindingDialog({
 								}
 							>
 								<SelectTrigger className="w-full cursor-pointer">
-									<SelectValue placeholder="选择环境" />
+									<SelectValue placeholder={t('common:placeholder.selectProfile')} />
 								</SelectTrigger>
 								<SelectContent>
 									{activeProfiles.map((profile) => (
@@ -180,7 +181,7 @@ export function ProxyBindingDialog({
 							) : null}
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">代理</p>
+							<p className="mb-1 text-xs text-muted-foreground">{t('common:proxy')}</p>
 							<Select
 								value={selectedProxyId}
 								onValueChange={(value) =>
@@ -189,7 +190,7 @@ export function ProxyBindingDialog({
 								disabled={Boolean(initialProxyId)}
 							>
 								<SelectTrigger className="w-full cursor-pointer">
-									<SelectValue placeholder="选择代理" />
+									<SelectValue placeholder={t('common:placeholder.selectProxy')} />
 								</SelectTrigger>
 								<SelectContent>
 									{activeProxies.map((proxy) => (
@@ -213,17 +214,17 @@ export function ProxyBindingDialog({
 								disabled={pending || !selectedProfileId || !selectedProxyId}
 							>
 								<Icon
-									icon={pending ? LoaderCircle : Link2}
-									size={13}
-									className={pending ? 'animate-spin' : ''}
-								/>
-								绑定
-							</Button>
+								icon={pending ? LoaderCircle : Link2}
+								size={13}
+								className={pending ? 'animate-spin' : ''}
+							/>
+							{t('common:bind')}
+						</Button>
 						</div>
 						<div className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-border/70 p-2">
 							{boundRows.length === 0 ? (
 								<p className="px-1 py-6 text-center text-xs text-muted-foreground">
-									暂无绑定关系
+									{t('common:noBound')}
 								</p>
 							) : (
 								boundRows.map(({ profile, proxy }) => (
@@ -264,10 +265,8 @@ export function ProxyBindingDialog({
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>确认解绑代理</AlertDialogTitle>
-						<AlertDialogDescription>
-							这会移除该环境当前绑定的代理。
-						</AlertDialogDescription>
+						<AlertDialogTitle>{t('proxy:unbindConfirm')}</AlertDialogTitle>
+						<AlertDialogDescription>{t('proxy:unbindDesc')}</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel asChild>
@@ -277,7 +276,7 @@ export function ProxyBindingDialog({
 								className="cursor-pointer"
 								disabled={pending}
 							>
-								取消
+								{t('common:cancel')}
 							</Button>
 						</AlertDialogCancel>
 						<AlertDialogAction asChild>
@@ -294,7 +293,7 @@ export function ProxyBindingDialog({
 								}}
 							>
 								{pending ? <LoaderCircle className="animate-spin" /> : null}
-								确认解绑
+								{t('proxy:confirmUnbind')}
 							</Button>
 						</AlertDialogAction>
 					</AlertDialogFooter>

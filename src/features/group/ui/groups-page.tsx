@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { FolderOpen, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -16,7 +17,7 @@ import {
 import { DataSection, EmptyState } from '@/components/common';
 import type { GroupItem } from '@/entities/group/model/types';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
-import { WORKSPACE_SECTIONS } from '@/app/model/workspace-sections';
+import { getWorkspaceSections } from '@/app/model/workspace-sections';
 import { useGroupManagementStore } from '@/store/group-management-store';
 import type { GroupsPageProps } from '@/features/group/model/types';
 import { GroupDeleteAlertDialog } from './group-delete-alert-dialog';
@@ -29,7 +30,8 @@ export function GroupsPage({
 	onDeleteGroup,
 	onOpenGroupProfiles,
 }: GroupsPageProps) {
-	const section = WORKSPACE_SECTIONS.groups;
+	const { t } = useTranslation('group');
+	const section = getWorkspaceSections().groups;
 	const searchKeyword = useGroupManagementStore((state) => state.searchKeyword);
 	const isFormOpen = useGroupManagementStore((state) => state.isFormOpen);
 	const editingGroupId = useGroupManagementStore(
@@ -86,13 +88,13 @@ export function GroupsPage({
 	return (
 		<div className="flex flex-col gap-3 h-full min-h-0">
 			<ActiveSectionCard
-				label="分组"
+				label={t('page.label', { defaultValue: '分组' })}
 				title={section.title}
 				description={section.desc}
 			/>
 
 			<DataSection
-				title="分组列表"
+				title={t('page.title')}
 				className="flex-1 min-h-0 overflow-hidden flex flex-col"
 				actions={
 					<>
@@ -105,7 +107,7 @@ export function GroupsPage({
 							<Input
 								value={searchKeyword}
 								onChange={(event) => setSearchKeyword(event.target.value)}
-								placeholder="搜索分组名称或备注"
+								placeholder={t('page.searchPlaceholder')}
 								className="pl-8"
 							/>
 						</div>
@@ -116,34 +118,34 @@ export function GroupsPage({
 							onClick={openCreateForm}
 						>
 							<Icon icon={Plus} size={14} />
-							新建分组
+							{t('page.newGroup')}
 						</Button>
 					</>
 				}
 			>
 				<div className="mb-3 grid gap-2 sm:grid-cols-2">
 					<div className="flex items-center justify-between rounded-xl border border-border/70 bg-background/75 px-3 py-2 text-xs">
-						<span className="text-muted-foreground">当前分组数</span>
+						<span className="text-muted-foreground">{t('page.currentGroups')}</span>
 						<Badge>{groups.length}</Badge>
 					</div>
 					<div className="flex items-center justify-between rounded-xl border border-border/70 bg-background/75 px-3 py-2 text-xs">
-						<span className="text-muted-foreground">覆盖环境数</span>
+						<span className="text-muted-foreground">{t('page.coveredProfiles')}</span>
 						<Badge variant="secondary">{totalProfiles}</Badge>
 					</div>
 				</div>
 
 				{filteredGroups.length === 0 ? (
-					<EmptyState title="没有匹配当前搜索条件的分组" />
+					<EmptyState title={t('page.noMatchingGroups')} />
 				) : (
 					<div className="overflow-hidden rounded-xl border border-border/70">
 						<Table>
 							<TableHeader>
 								<TableRow className="bg-muted/20 hover:bg-muted/20">
-									<TableHead>分组</TableHead>
-									<TableHead>备注</TableHead>
-									<TableHead className="w-[110px]">环境数</TableHead>
-									<TableHead className="w-[160px]">最近更新</TableHead>
-									<TableHead className="w-[140px] text-right">操作</TableHead>
+									<TableHead>{t('page.table.group')}</TableHead>
+									<TableHead>{t('page.table.note')}</TableHead>
+									<TableHead className="w-[110px]">{t('page.table.profileCount')}</TableHead>
+									<TableHead className="w-[160px]">{t('page.table.lastUpdated')}</TableHead>
+									<TableHead className="w-[140px] text-right">{t('page.table.actions')}</TableHead>
 								</TableRow>
 							</TableHeader>
 							<TableBody>
@@ -153,7 +155,7 @@ export function GroupsPage({
 											<div className="flex items-center gap-2">
 												<p className="font-medium">{group.name}</p>
 												<Badge variant="outline">
-													{group.profileCount} 个环境
+													{t('page.profileCountBadge', { count: group.profileCount })}
 												</Badge>
 											</div>
 										</TableCell>

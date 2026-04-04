@@ -1,5 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import { Controller, useForm } from 'react-hook-form';
 import {
 	Focus,
@@ -11,7 +13,7 @@ import {
 } from 'lucide-react';
 import { z } from 'zod/v3';
 
-import { WORKSPACE_SECTIONS } from '@/app/model/workspace-sections';
+import { getWorkspaceSections } from '@/app/model/workspace-sections';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 import {
 	Badge,
@@ -53,20 +55,20 @@ const batchActionFormSchema = z.object({
 	targetUrl: z
 		.string()
 		.trim()
-		.min(1, '请输入 URL')
+		.min(1, i18next.t('window:validation.enterUrl'))
 		.superRefine((value, ctx) => {
 			try {
 				const parsed = new URL(value);
 				if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
 					ctx.addIssue({
 						code: z.ZodIssueCode.custom,
-						message: 'URL 必须以 http:// 或 https:// 开头',
+						message: i18next.t('window:validation.urlMustStartWithHttp'),
 					});
 				}
 			} catch {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
-					message: '请输入合法 URL（必须以 http:// 或 https:// 开头）',
+					message: i18next.t('window:validation.invalidUrlFull'),
 				});
 			}
 		}),
@@ -81,7 +83,7 @@ function normalizeActionUrl(value: string) {
 	const trimmed = value.trim();
 	const parsed = new URL(trimmed);
 	if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-		throw new Error('URL 必须以 http:// 或 https:// 开头');
+		throw new Error(i18next.t('window:validation.urlMustStartWithHttp'));
 	}
 	return parsed.toString();
 }
@@ -119,7 +121,8 @@ export function WindowsPage({
 	onBatchOpenWindows,
 	onBatchFocusWindows,
 }: WindowsPageProps) {
-	const section = WORKSPACE_SECTIONS.windows;
+	const { t } = useTranslation('window');
+	const section = getWorkspaceSections().windows;
 	const [pendingProfileIds, setPendingProfileIds] = useState<Set<string>>(
 		new Set(),
 	);
@@ -233,7 +236,7 @@ export function WindowsPage({
 		try {
 			await action();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : '窗口同步操作失败');
+			setError(err instanceof Error ? err.message : t('page.syncFailed'));
 		}
 	};
 
@@ -242,7 +245,7 @@ export function WindowsPage({
 		if (!valid) {
 			throw new Error(
 				errors.targetUrl?.message ??
-					'请输入合法 URL（必须以 http:// 或 https:// 开头）',
+					i18next.t('window:validation.invalidUrlFull'),
 			);
 		}
 		return normalizeActionUrl(getValues('targetUrl'));
@@ -296,14 +299,20 @@ export function WindowsPage({
 		const items = [
 			sessionPayload?.master
 				? {
-						label: `主控 ${profileNameMap[sessionPayload.master.id] ?? sessionPayload.master.id}`,
+						label: t('syncDiag.masterPrefix', {
+							name:
+								profileNameMap[sessionPayload.master.id] ??
+								sessionPayload.master.id,
+						}),
 						boundBrowserId: sessionPayload.master.boundBrowserId ?? null,
 						boundWindowToken: sessionPayload.master.boundWindowToken ?? null,
 						coordinateMode: sessionPayload.master.coordinateMode ?? null,
 					}
 				: null,
 			...(sessionPayload?.slaves ?? []).map((item) => ({
-				label: `从控 ${profileNameMap[item.id] ?? item.id}`,
+				label: t('syncDiag.slavePrefix', {
+					name: profileNameMap[item.id] ?? item.id,
+				}),
 				boundBrowserId: item.boundBrowserId ?? null,
 				boundWindowToken: item.boundWindowToken ?? null,
 				coordinateMode: item.coordinateMode ?? null,
@@ -330,191 +339,206 @@ export function WindowsPage({
 	return (
 		<div className="flex flex-col gap-3 h-full min-h-0">
 			<ActiveSectionCard
-				label="同步"
+				label={t('page.syncLabel')}
 				title={section.title}
 				description={section.desc}
 			/>
 
 			<Card className="p-3 flex-1 min-h-64 overflow-hidden flex flex-col">
 				<CardHeader className="px-1 pb-2 shrink-0">
-					<CardTitle className="text-sm">同步列表</CardTitle>
+					<CardTitle className="text-sm">{t('page.syncList')}</CardTitle>
 				</CardHeader>
 				<CardContent className="px-1 pt-0 flex-1 min-h-0">
 					<ScrollArea className="h-full pr-1">
 						<div className="space-y-3">
 							<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-						<p>
-							已选择 {selectedRunningIds.length} / {runningProfileIds.length}{' '}
-							个运行中环境
-						</p>
-						{activeSyncSession ? (
-							<Badge variant="default">
-								同步中 · 主控{' '}
-								{profileNameMap[activeSyncSession.masterId] ??
-									activeSyncSession.masterId}
-							</Badge>
-						) : (
-							<Badge variant="secondary">当前未启动同步</Badge>
-						)}
-						<Badge
-							variant={
-								syncConnectionStatus === 'connected' ? 'default' : 'outline'
-							}
-						>
-							sidecar {syncConnectionStatus}
-						</Badge>
+								<p>
+									{t('page.selectedRunning', {
+										selected: selectedRunningIds.length,
+										total: runningProfileIds.length,
+									})}
+								</p>
+								{activeSyncSession ? (
+									<Badge variant="default">
+										{t('page.syncing', {
+											master:
+												profileNameMap[activeSyncSession.masterId] ??
+												activeSyncSession.masterId,
+										})}
+									</Badge>
+								) : (
+									<Badge variant="secondary">{t('page.notSyncing')}</Badge>
+								)}
+								<Badge
+									variant={
+										syncConnectionStatus === 'connected' ? 'default' : 'outline'
+									}
+								>
+									{t('page.sidecarStatus', { status: syncConnectionStatus })}
+								</Badge>
 							</div>
 
 							<div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_repeat(2,auto)]">
-						<Button
-							type="button"
-							className="cursor-pointer"
-							onClick={() =>
-								void runSyncAction(() =>
-									activeSyncSession
-										? onStopSync()
-										: onStartSync(selectedRunningIds, masterProfileId ?? ''),
-								)
-							}
-							disabled={
-								syncActionPending ||
-								(activeSyncSession ? !activeSyncSession : !startValidation.ok)
-							}
-						>
-							<Icon
-								icon={syncActionPending ? LoaderCircle : Sparkles}
-								size={14}
-								className={syncActionPending ? 'animate-spin' : ''}
-							/>
-							{syncActionPending
-								? activeSyncSession
-									? '停止同步中'
-									: '启动同步中'
-								: activeSyncSession
-									? '停止同步'
-									: '启动同步'}
-						</Button>
-						<Button
-							type="button"
-							variant="outline"
-							className="cursor-pointer"
-							onClick={() => void runAction(onRestartSync)}
-							disabled={syncActionPending || !activeSyncSession}
-						>
-							重启同步
-						</Button>
-						<Button
-							type="button"
-							variant="ghost"
-							size="sm"
-							className="cursor-pointer"
-							onClick={() => void runAction(onRefreshWindows)}
-							disabled={syncActionPending}
-						>
-							<Icon icon={RefreshCw} size={12} />
-							刷新同步状态
-						</Button>
-					</div>
+								<Button
+									type="button"
+									className="cursor-pointer"
+									onClick={() =>
+										void runSyncAction(() =>
+											activeSyncSession
+												? onStopSync()
+												: onStartSync(
+														selectedRunningIds,
+														masterProfileId ?? '',
+													),
+										)
+									}
+									disabled={
+										syncActionPending ||
+										(activeSyncSession
+											? !activeSyncSession
+											: !startValidation.ok)
+									}
+								>
+									<Icon
+										icon={syncActionPending ? LoaderCircle : Sparkles}
+										size={14}
+										className={syncActionPending ? 'animate-spin' : ''}
+									/>
+									{syncActionPending
+										? activeSyncSession
+											? t('page.stoppingSync')
+											: t('page.startingSync')
+										: activeSyncSession
+											? t('page.stopSync')
+											: t('page.startSync')}
+								</Button>
+								<Button
+									type="button"
+									variant="outline"
+									className="cursor-pointer"
+									onClick={() => void runAction(onRestartSync)}
+									disabled={syncActionPending || !activeSyncSession}
+								>
+									{t('syncActions.restartSync')}
+								</Button>
+								<Button
+									type="button"
+									variant="ghost"
+									size="sm"
+									className="cursor-pointer"
+									onClick={() => void runAction(onRefreshWindows)}
+									disabled={syncActionPending}
+								>
+									<Icon icon={RefreshCw} size={12} />
+									{t('syncActions.refreshSyncStatus')}
+								</Button>
+							</div>
 							{startValidation.reason ? (
 								<p className="text-xs text-muted-foreground">
 									{startValidation.reason}
 								</p>
 							) : null}
 
-					<div className="space-y-2">
-						{windowStates.map((item) => {
-							const selected = selectedProfileIds.includes(item.profileId);
-							const isMaster = masterProfileId === item.profileId;
-							return (
-								<div
-									key={item.profileId}
-									className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 px-3 py-2"
-								>
-									<div className="flex items-center gap-2">
-										<Checkbox
-											checked={selected}
-											onCheckedChange={(checked) =>
-												toggleProfile(item.profileId, checked === true)
-											}
-										/>
-										<div>
-											<p className="text-sm font-medium">
-												{profileNameMap[item.profileId] ?? item.profileId}
-											</p>
-											<p className="text-xs text-muted-foreground">
-												{item.totalWindows} 窗口 / {item.totalTabs} 标签 /{' '}
-												{item.host}:{item.magicSocketServerPort ?? '-'}
-											</p>
+							<div className="space-y-2">
+								{windowStates.map((item) => {
+									const selected = selectedProfileIds.includes(item.profileId);
+									const isMaster = masterProfileId === item.profileId;
+									return (
+										<div
+											key={item.profileId}
+											className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 px-3 py-2"
+										>
+											<div className="flex items-center gap-2">
+												<Checkbox
+													checked={selected}
+													onCheckedChange={(checked) =>
+														toggleProfile(item.profileId, checked === true)
+													}
+												/>
+												<div>
+													<p className="text-sm font-medium">
+														{profileNameMap[item.profileId] ?? item.profileId}
+													</p>
+													<p className="text-xs text-muted-foreground">
+														{t('syncDiag.windowsTabsInfo', {
+															windows: item.totalWindows,
+															tabs: item.totalTabs,
+															host: item.host,
+															port: item.magicSocketServerPort ?? '-',
+														})}
+													</p>
+												</div>
+												<Badge
+													variant={
+														item.syncRole === 'master'
+															? 'default'
+															: item.syncRole === 'slave'
+																? 'secondary'
+																: 'outline'
+													}
+												>
+													{item.syncRole === 'master'
+														? t('syncDiag.master')
+														: item.syncRole === 'slave'
+															? t('syncDiag.slave')
+															: t('syncDiag.notSynced')}
+												</Badge>
+												<Badge
+													variant={
+														item.instanceStatus === 'online'
+															? 'default'
+															: item.instanceStatus === 'unknown'
+																? 'outline'
+																: 'secondary'
+													}
+												>
+													{item.instanceStatus}
+												</Badge>
+												{item.platform ? (
+													<Badge variant="outline">{item.platform}</Badge>
+												) : null}
+												{item.lastProbeError ? (
+													<Badge variant="outline">
+														{t('syncDiag.probeError')}
+													</Badge>
+												) : null}
+												{item.boundBrowserId ? (
+													<Badge variant="outline">
+														browser {item.boundBrowserId}
+													</Badge>
+												) : null}
+												{item.boundWindowToken ? (
+													<Badge variant="outline">
+														token {item.boundWindowToken}
+													</Badge>
+												) : null}
+											</div>
+											<div className="flex items-center gap-2">
+												<Button
+													type="button"
+													size="sm"
+													variant={isMaster ? 'default' : 'outline'}
+													className="cursor-pointer"
+													onClick={() => setMasterProfileId(item.profileId)}
+													disabled={!selected}
+												>
+													<Icon icon={Focus} size={12} />
+													{t('syncDiag.setMaster')}
+												</Button>
+												<Button
+													type="button"
+													size="sm"
+													variant="ghost"
+													className="cursor-pointer"
+													onClick={() => onViewProfile(item.profileId)}
+												>
+													{t('syncDiag.profileDetail')}
+												</Button>
+											</div>
 										</div>
-										<Badge
-											variant={
-												item.syncRole === 'master'
-													? 'default'
-													: item.syncRole === 'slave'
-														? 'secondary'
-														: 'outline'
-											}
-										>
-											{item.syncRole === 'master'
-												? '主控'
-												: item.syncRole === 'slave'
-													? '从控'
-													: '未同步'}
-										</Badge>
-										<Badge
-											variant={
-												item.instanceStatus === 'online'
-													? 'default'
-													: item.instanceStatus === 'unknown'
-														? 'outline'
-														: 'secondary'
-											}
-										>
-											{item.instanceStatus}
-										</Badge>
-										{item.platform ? (
-											<Badge variant="outline">{item.platform}</Badge>
-										) : null}
-										{item.lastProbeError ? (
-											<Badge variant="outline">probe 异常</Badge>
-										) : null}
-										{item.boundBrowserId ? (
-											<Badge variant="outline">
-												browser {item.boundBrowserId}
-											</Badge>
-										) : null}
-										{item.boundWindowToken ? (
-											<Badge variant="outline">
-												token {item.boundWindowToken}
-											</Badge>
-										) : null}
-									</div>
-									<div className="flex items-center gap-2">
-										<Button
-											type="button"
-											size="sm"
-											variant={isMaster ? 'default' : 'outline'}
-											className="cursor-pointer"
-											onClick={() => setMasterProfileId(item.profileId)}
-											disabled={!selected}
-										>
-											<Icon icon={Focus} size={12} />
-											设为主控
-										</Button>
-										<Button
-											type="button"
-											size="sm"
-											variant="ghost"
-											className="cursor-pointer"
-											onClick={() => onViewProfile(item.profileId)}
-										>
-											环境详情
-										</Button>
-									</div>
-								</div>
-							);
-						})}
-					</div>
+									);
+								})}
+							</div>
 						</div>
 					</ScrollArea>
 				</CardContent>
@@ -522,35 +546,47 @@ export function WindowsPage({
 
 			<Card className="p-3 shrink-0">
 				<CardHeader className="px-1 pb-2">
-					<CardTitle className="text-sm">同步诊断</CardTitle>
+					<CardTitle className="text-sm">
+						{t('syncDiag.syncDiagnostics')}
+					</CardTitle>
 				</CardHeader>
 				<CardContent className="grid gap-3 px-1 pt-0 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
 					<div className="space-y-3">
 						<div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
 							<div className="rounded-lg border border-border/60 p-3">
-								<p className="text-xs text-muted-foreground">连接状态</p>
+								<p className="text-xs text-muted-foreground">
+									{t('syncDiag.connectionStatus')}
+								</p>
 								<p className="mt-1 text-sm font-medium">
 									{syncConnectionStatus}
 								</p>
 							</div>
 							<div className="rounded-lg border border-border/60 p-3">
-								<p className="text-xs text-muted-foreground">sidecar 端口</p>
+								<p className="text-xs text-muted-foreground">
+									{t('syncDiag.sidecarPort')}
+								</p>
 								<p className="mt-1 text-sm font-medium">{sidecarPort ?? '-'}</p>
 							</div>
 							<div className="rounded-lg border border-border/60 p-3">
-								<p className="text-xs text-muted-foreground">会话状态</p>
+								<p className="text-xs text-muted-foreground">
+									{t('syncDiag.sessionStatus')}
+								</p>
 								<p className="mt-1 text-sm font-medium">
 									{activeSyncSession?.status ?? 'stopped'}
 								</p>
 							</div>
 							<div className="rounded-lg border border-border/60 p-3">
-								<p className="text-xs text-muted-foreground">已转发事件</p>
+								<p className="text-xs text-muted-foreground">
+									{t('syncDiag.forwardedEvents')}
+								</p>
 								<p className="mt-1 text-sm font-medium">
 									{metrics?.eventsForwarded ?? 0}
 								</p>
 							</div>
 							<div className="rounded-lg border border-border/60 p-3">
-								<p className="text-xs text-muted-foreground">失败事件</p>
+								<p className="text-xs text-muted-foreground">
+									{t('syncDiag.failedEvents')}
+								</p>
 								<p className="mt-1 text-sm font-medium">
 									{metrics?.eventsFailed ?? 0}
 								</p>
@@ -558,19 +594,21 @@ export function WindowsPage({
 						</div>
 						<div className="rounded-lg border border-border/60 p-3 text-xs text-muted-foreground">
 							<p>
-								最近错误：
+								{t('syncDiag.lastError')}
 								<span className="ml-1 text-foreground">
-									{syncLastError ?? '无'}
+									{syncLastError ?? t('syncDiag.none')}
 								</span>
 							</p>
 							<p className="mt-1">
-								会话原因：
+								{t('syncDiag.sessionReason')}
 								<span className="ml-1 text-foreground">
-									{sessionPayload?.reason ?? syncLastError ?? '无'}
+									{sessionPayload?.reason ??
+										syncLastError ??
+										t('syncDiag.none')}
 								</span>
 							</p>
 							<p className="mt-1">
-								丢弃统计：
+								{t('syncDiag.dropStats')}
 								<span className="ml-1 text-foreground">
 									invalid {metrics?.eventsDroppedInvalid ?? 0} / session
 									mismatch {metrics?.eventsDroppedSessionMismatch ?? 0} /
@@ -581,7 +619,7 @@ export function WindowsPage({
 							</p>
 							{bindingDiagnostics.length > 0 ? (
 								<div className="mt-2 space-y-1">
-									<p className="text-foreground">绑定窗口</p>
+									<p className="text-foreground">{t('syncDiag.boundWindow')}</p>
 									{bindingDiagnostics.map((item) => (
 										<p key={item.label}>
 											{item.label}：
@@ -592,7 +630,7 @@ export function WindowsPage({
 										</p>
 									))}
 									<p>
-										坐标模式：
+										{t('syncDiag.coordinateMode')}
 										<span className="ml-1 text-foreground">
 											{bindingDiagnostics
 												.map(
@@ -608,10 +646,12 @@ export function WindowsPage({
 					</div>
 					<div className="grid gap-3">
 						<div className="rounded-lg border border-border/60 p-3">
-							<p className="mb-2 text-sm font-medium">最近 warning</p>
+							<p className="mb-2 text-sm font-medium">
+								{t('syncDiag.recentWarnings')}
+							</p>
 							<div className="space-y-2 text-xs text-muted-foreground">
 								{recentWarnings.length === 0 ? (
-									<p>暂无 warning</p>
+									<p>{t('syncDiag.noWarnings')}</p>
 								) : (
 									recentWarnings.slice(0, 5).map((item) => (
 										<div
@@ -629,10 +669,12 @@ export function WindowsPage({
 							</div>
 						</div>
 						<div className="rounded-lg border border-border/60 p-3">
-							<p className="mb-2 text-sm font-medium">最近 probe 错误</p>
+							<p className="mb-2 text-sm font-medium">
+								{t('syncDiag.recentProbeErrors')}
+							</p>
 							<div className="space-y-2 text-xs text-muted-foreground">
 								{recentProbeErrors.length === 0 ? (
-									<p>暂无 probe 错误</p>
+									<p>{t('syncDiag.noProbeErrors')}</p>
 								) : (
 									recentProbeErrors.slice(0, 5).map((item) => (
 										<div
@@ -652,7 +694,7 @@ export function WindowsPage({
 
 			<Card className="p-3 shrink-0">
 				<CardHeader className="px-1 pb-2">
-					<CardTitle className="text-sm">配置区</CardTitle>
+					<CardTitle className="text-sm">{t('page.configArea')}</CardTitle>
 				</CardHeader>
 				<CardContent className="min-w-0 px-1 pt-0">
 					<Tabs
@@ -662,9 +704,11 @@ export function WindowsPage({
 						}
 					>
 						<TabsList className="grid w-full grid-cols-3">
-							<TabsTrigger value="window">窗口管理</TabsTrigger>
-							<TabsTrigger value="tab">标签页管理</TabsTrigger>
-							<TabsTrigger value="text">文本输入</TabsTrigger>
+							<TabsTrigger value="window">
+								{t('page.windowManagement')}
+							</TabsTrigger>
+							<TabsTrigger value="tab">{t('page.tabManagement')}</TabsTrigger>
+							<TabsTrigger value="text">{t('page.textInput')}</TabsTrigger>
 						</TabsList>
 
 						<TabsContent value="window" className="mt-3 min-w-0 space-y-3">
@@ -672,7 +716,7 @@ export function WindowsPage({
 								<Card className="border border-border/60 shadow-none min-w-0">
 									<CardHeader className="pb-2">
 										<CardTitle className="text-sm">
-											统一大小 / 显示窗口
+											{t('arrange.uniformSize')}
 										</CardTitle>
 									</CardHeader>
 									<CardContent className="min-w-0 space-y-3">
@@ -691,7 +735,7 @@ export function WindowsPage({
 											)}
 										>
 											<div className="min-w-0 space-y-1">
-												<Label>宽度</Label>
+												<Label>{t('arrange.width')}</Label>
 												<Input
 													type="number"
 													{...windowBoundsForm.register('width')}
@@ -703,7 +747,7 @@ export function WindowsPage({
 												) : null}
 											</div>
 											<div className="min-w-0 space-y-1">
-												<Label>高度</Label>
+												<Label>{t('arrange.height')}</Label>
 												<Input
 													type="number"
 													{...windowBoundsForm.register('height')}
@@ -720,7 +764,7 @@ export function WindowsPage({
 													className="cursor-pointer"
 													disabled={selectedRunningIds.length === 0}
 												>
-													统一大小
+													{t('arrange.setSize')}
 												</Button>
 												<Button
 													type="button"
@@ -734,7 +778,7 @@ export function WindowsPage({
 													disabled={selectedRunningIds.length === 0}
 												>
 													<Icon icon={Monitor} size={14} />
-													显示窗口
+													{t('arrange.showWindow')}
 												</Button>
 											</div>
 										</form>
@@ -743,7 +787,9 @@ export function WindowsPage({
 
 								<Card className="border border-border/60 shadow-none min-w-0">
 									<CardHeader className="pb-2">
-										<CardTitle className="text-sm">窗口排列</CardTitle>
+										<CardTitle className="text-sm">
+											{t('arrange.windowArrange')}
+										</CardTitle>
 									</CardHeader>
 									<CardContent className="min-w-0 space-y-3">
 										<form
@@ -763,7 +809,7 @@ export function WindowsPage({
 											)}
 										>
 											<div className="min-w-0 space-y-1 md:col-span-2">
-												<Label>显示器</Label>
+												<Label>{t('arrange.monitor')}</Label>
 												<Controller
 													control={arrangeForm.control}
 													name="monitorId"
@@ -773,7 +819,9 @@ export function WindowsPage({
 															onValueChange={field.onChange}
 														>
 															<SelectTrigger className="cursor-pointer w-full">
-																<SelectValue placeholder="请选择显示器" />
+																<SelectValue
+																	placeholder={t('arrange.selectMonitor')}
+																/>
 															</SelectTrigger>
 															<SelectContent>
 																{displayMonitors.map((monitor) => (
@@ -781,8 +829,11 @@ export function WindowsPage({
 																		key={monitor.id}
 																		value={monitor.id}
 																	>
-																		{monitor.name}
-																		{monitor.isPrimary ? ' (主显示器)' : ''}
+																		{monitor.name} ({monitor.width}×
+																		{monitor.height})
+																		{monitor.isPrimary
+																			? ` (${t('arrange.primaryMonitor')})`
+																			: ''}
 																	</SelectItem>
 																))}
 															</SelectContent>
@@ -796,7 +847,7 @@ export function WindowsPage({
 												) : null}
 											</div>
 											<div className="min-w-0 space-y-1">
-												<Label>排列方式</Label>
+												<Label>{t('arrange.arrangeMode')}</Label>
 												<Controller
 													control={arrangeForm.control}
 													name="mode"
@@ -812,9 +863,11 @@ export function WindowsPage({
 																<SelectValue />
 															</SelectTrigger>
 															<SelectContent>
-																<SelectItem value="grid">宫格平铺</SelectItem>
+																<SelectItem value="grid">
+																	{t('arrange.grid')}
+																</SelectItem>
 																<SelectItem value="cascade">
-																	重叠平铺
+																	{t('arrange.cascade')}
 																</SelectItem>
 															</SelectContent>
 														</Select>
@@ -822,7 +875,7 @@ export function WindowsPage({
 												/>
 											</div>
 											<div className="min-w-0 space-y-1">
-												<Label>窗口间距</Label>
+												<Label>{t('arrange.windowGap')}</Label>
 												<Input
 													type="number"
 													{...arrangeForm.register('gap', {
@@ -832,14 +885,14 @@ export function WindowsPage({
 												/>
 											</div>
 											<div className="min-w-0 space-y-1">
-												<Label>宽度</Label>
+												<Label>{t('arrange.width')}</Label>
 												<Input
 													type="number"
 													{...arrangeForm.register('width')}
 												/>
 											</div>
 											<div className="min-w-0 space-y-1">
-												<Label>高度</Label>
+												<Label>{t('arrange.height')}</Label>
 												<Input
 													type="number"
 													{...arrangeForm.register('height')}
@@ -851,7 +904,7 @@ export function WindowsPage({
 													className="cursor-pointer"
 													disabled={selectedRunningIds.length === 0}
 												>
-													一键排列
+													{t('arrange.arrangeNow')}
 												</Button>
 											</div>
 										</form>
@@ -900,7 +953,9 @@ export function WindowsPage({
 						<TabsContent value="text" className="mt-3">
 							<Card className="border border-border/60 shadow-none">
 								<CardHeader className="pb-2">
-									<CardTitle className="text-sm">文本输入广播</CardTitle>
+									<CardTitle className="text-sm">
+										{t('textBroadcast.title')}
+									</CardTitle>
 								</CardHeader>
 								<CardContent className="space-y-3">
 									<form
@@ -911,10 +966,10 @@ export function WindowsPage({
 										)}
 									>
 										<div className="space-y-1">
-											<Label>发送到所有从控当前焦点输入框</Label>
+											<Label>{t('textBroadcast.desc')}</Label>
 											<Textarea
 												rows={5}
-												placeholder="输入要同步的文本"
+												placeholder={t('textBroadcast.placeholder')}
 												{...syncTextForm.register('text')}
 											/>
 											{syncTextForm.formState.errors.text ? (
@@ -929,7 +984,7 @@ export function WindowsPage({
 											disabled={!activeSyncSession}
 										>
 											<Icon icon={Send} size={14} />
-											广播文本
+											{t('textBroadcast.send')}
 										</Button>
 									</form>
 								</CardContent>

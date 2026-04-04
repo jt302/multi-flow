@@ -1,4 +1,14 @@
-import { Badge, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@/components/ui';
+import {
+	Badge,
+	Button,
+	Input,
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+	Textarea,
+} from '@/components/ui';
 import type { GroupItem } from '@/entities/group/model/types';
 import type { ProfileDevicePresetItem } from '@/entities/profile/model/types';
 import { PlatformGlyph } from '@/entities/profile/ui/platform-mark';
@@ -6,6 +16,7 @@ import type { ResourceItem } from '@/entities/resource/model/types';
 import { PLATFORM_OPTIONS } from '@/entities/profile/lib/platform-meta';
 import { cn } from '@/lib/utils';
 import type { UseFormReturn } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 
 import type { ProfileFormValues } from '../model/profile-form';
 import { DEFAULT_STARTUP_URL } from '../model/profile-form';
@@ -54,14 +65,23 @@ function PlatformOptionCard({
 				<div
 					className={cn(
 						'relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border',
-						selected ? 'border-white/15 bg-white/10 text-slate-50' : `${value.badgeClass} border-border/60`,
+						selected
+							? 'border-white/15 bg-white/10 text-slate-50'
+							: `${value.badgeClass} border-border/60`,
 					)}
 				>
 					<PlatformGlyph meta={value} size="lg" forceLight={selected} />
 				</div>
 				<div className="min-w-0 space-y-1">
-					<p className="min-w-0 break-words text-base font-semibold leading-none">{value.label}</p>
-					<p className={cn('text-xs leading-5', selected ? 'text-slate-50/75' : 'text-muted-foreground')}>
+					<p className="min-w-0 break-words text-base font-semibold leading-none">
+						{value.label}
+					</p>
+					<p
+						className={cn(
+							'text-xs leading-5',
+							selected ? 'text-slate-50/75' : 'text-muted-foreground',
+						)}
+					>
 						{value.hint}
 					</p>
 				</div>
@@ -73,7 +93,7 @@ function PlatformOptionCard({
 export function BasicSettingsSection({
 	form,
 	groups,
-	hostPlatform,
+	hostPlatform: _hostPlatform,
 	hostChromiumVersions,
 	selectedResource,
 	devicePresets,
@@ -88,31 +108,38 @@ export function BasicSettingsSection({
 	resourceStatusLabel,
 }: BasicSettingsSectionProps) {
 	const { register, setValue } = form;
+	const { t } = useTranslation(['profile', 'common']);
 
 	return (
 		<div className="rounded-xl border border-border/70 p-3">
-			<SectionTitle
-				title="基础设置"
-				description="环境名称、浏览器版本、模拟平台、设备预设与分组"
-			/>
+			<SectionTitle title={t('basic.title')} description={t('basic.desc')} />
 			<div className="grid gap-3 md:grid-cols-2">
 				<div>
-					<p className="mb-1 text-xs text-muted-foreground">环境名称</p>
-						<Input {...register('name')} placeholder="例如 AirDrop-001" />
+					<p className="mb-1 text-xs text-muted-foreground">
+						{t('basic.name')}
+					</p>
+					<Input
+						{...register('name')}
+						placeholder={t('basic.namePlaceholder')}
+					/>
 				</div>
 				<div>
-					<p className="mb-1 text-xs text-muted-foreground">分组</p>
+					<p className="mb-1 text-xs text-muted-foreground">
+						{t('basic.group')}
+					</p>
 					<Select
 						value={groupValue || '__none__'}
 						onValueChange={(value) =>
-							setValue('group', value === '__none__' ? '' : value, { shouldDirty: true })
+							setValue('group', value === '__none__' ? '' : value, {
+								shouldDirty: true,
+							})
 						}
 					>
 						<SelectTrigger>
-							<SelectValue placeholder="选择分组" />
+							<SelectValue placeholder={t('basic.selectGroup')} />
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value="__none__">未分组</SelectItem>
+							<SelectItem value="__none__">{t('basic.ungrouped')}</SelectItem>
 							{groups.map((group) => (
 								<SelectItem key={group.id} value={group.name}>
 									{group.name}
@@ -122,13 +149,17 @@ export function BasicSettingsSection({
 					</Select>
 				</div>
 				<div>
-					<p className="mb-1 text-xs text-muted-foreground">浏览器内核</p>
+					<p className="mb-1 text-xs text-muted-foreground">
+						{t('basic.browserEngine')}
+					</p>
 					<Select
 						value={browserKind}
-						onValueChange={(value) => setValue('browserKind', value, { shouldDirty: true })}
+						onValueChange={(value) =>
+							setValue('browserKind', value, { shouldDirty: true })
+						}
 					>
 						<SelectTrigger>
-							<SelectValue placeholder="选择内核" />
+							<SelectValue placeholder={t('basic.selectEngine')} />
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value="chromium">Chromium</SelectItem>
@@ -137,8 +168,10 @@ export function BasicSettingsSection({
 				</div>
 				<div>
 					<div className="mb-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-						<span>浏览器版本</span>
-						<Badge variant={selectedResource?.installed ? 'secondary' : 'outline'}>
+						<span>{t('basic.browserVersion')}</span>
+						<Badge
+							variant={selectedResource?.installed ? 'secondary' : 'outline'}
+						>
 							{resourceStatusLabel(selectedResource)}
 						</Badge>
 					</div>
@@ -152,22 +185,27 @@ export function BasicSettingsSection({
 						}
 					>
 						<SelectTrigger>
-							<SelectValue placeholder="选择浏览器版本" />
+							<SelectValue placeholder={t('basic.selectVersion')} />
 						</SelectTrigger>
 						<SelectContent>
 							{hostChromiumVersions.map((item) => (
 								<SelectItem key={item.id} value={item.version}>
-									{item.version} · {item.installed ? '已安装' : '未下载'}
+									{item.version} ·{' '}
+									{item.installed
+										? t('common:installed')
+										: t('common:notDownloaded')}
 								</SelectItem>
 							))}
 						</SelectContent>
 					</Select>
 					<p className="mt-1 text-[11px] text-muted-foreground">
-						仅展示当前宿主系统 {hostPlatform} 可运行的 Chromium 版本。
+						{t('basic.onlyHostVersions')}
 					</p>
 				</div>
 				<div className="md:col-span-2">
-					<p className="mb-1 text-xs text-muted-foreground">模拟平台</p>
+					<p className="mb-1 text-xs text-muted-foreground">
+						{t('basic.simulatedPlatform')}
+					</p>
 					<div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
 						{PLATFORM_OPTIONS.map((item) => (
 							<PlatformOptionCard
@@ -185,7 +223,9 @@ export function BasicSettingsSection({
 					</div>
 				</div>
 				<div className="md:col-span-2">
-					<p className="mb-1 text-xs text-muted-foreground">设备预设</p>
+					<p className="mb-1 text-xs text-muted-foreground">
+						{t('basic.devicePreset')}
+					</p>
 					<Select
 						value={devicePresetId}
 						onValueChange={(value) =>
@@ -196,39 +236,53 @@ export function BasicSettingsSection({
 						}
 					>
 						<SelectTrigger>
-							<SelectValue placeholder="选择设备预设" />
+							<SelectValue placeholder={t('basic.selectDevicePreset')} />
 						</SelectTrigger>
 						<SelectContent>
 							{devicePresets.map((item) => (
 								<SelectItem key={item.id} value={item.id}>
-									{item.label} · 分辨率 {item.viewportWidth}x{item.viewportHeight} · DPR {item.deviceScaleFactor}
+									{item.label} · 分辨率 {item.viewportWidth}x
+									{item.viewportHeight} · DPR {item.deviceScaleFactor}
 								</SelectItem>
 							))}
 						</SelectContent>
 					</Select>
 					<p className="mt-1 text-[11px] text-muted-foreground">
 						{devicePresetsLoading
-							? '设备预设加载中...'
+							? t('basic.devicePresetLoading')
 							: devicePresetsError
-								? `设备预设加载失败：${devicePresetsError}`
-								: '预设会决定 UA、UA metadata、默认分辨率、DPR、GL、字体、CPU、RAM 等整套指纹参数'}
+								? t('basic.devicePresetLoadFailed', {
+										error: devicePresetsError,
+									})
+								: t('basic.devicePresetHelp')}
 					</p>
 				</div>
 				<div>
-					<p className="mb-1 text-xs text-muted-foreground">备注</p>
-					<Input {...register('note')} placeholder="业务描述、批次等" />
+					<p className="mb-1 text-xs text-muted-foreground">
+						{t('basic.note')}
+					</p>
+					<Input
+						{...register('note')}
+						placeholder={t('basic.notePlaceholder')}
+					/>
 				</div>
 				<div className="md:col-span-2">
-					<p className="mb-1 text-xs text-muted-foreground">默认打开 URL</p>
+					<p className="mb-1 text-xs text-muted-foreground">
+						{t('basic.startupUrls')}
+					</p>
 					<Textarea
 						{...register('startupUrls')}
 						placeholder={`${DEFAULT_STARTUP_URL}\nhttps://example.com`}
 						className="min-h-24"
 					/>
-					<p className="mt-1 text-[11px] text-muted-foreground">每行一个 URL，仅支持 http 或 https。</p>
+					<p className="mt-1 text-[11px] text-muted-foreground">
+						{t('basic.startupUrlsHelp')}
+					</p>
 				</div>
 				<div>
-					<p className="mb-1 text-xs text-muted-foreground">浏览器背景色</p>
+					<p className="mb-1 text-xs text-muted-foreground">
+						{t('basic.browserBgColor')}
+					</p>
 					<div className="flex items-center gap-2">
 						<Input
 							type="color"

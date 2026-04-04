@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import {
@@ -14,6 +15,7 @@ type GroupActionsDeps = {
 };
 
 export function useGroupActions({ refreshGroups, refreshProfiles }: GroupActionsDeps) {
+	const { t } = useTranslation('group');
 	const createGroup = async (name: string, note: string) => {
 		const trimmedName = name.trim();
 		if (!trimmedName) {
@@ -22,9 +24,9 @@ export function useGroupActions({ refreshGroups, refreshProfiles }: GroupActions
 		try {
 			await createGroupApi(trimmedName, note);
 			await refreshGroups();
-			toast.success('分组已创建');
+			toast.success(t('actions.created'));
 		} catch (error) {
-			toast.error('创建分组失败');
+			toast.error(t('actions.createFailed'));
 			throw error;
 		}
 	};
@@ -37,9 +39,9 @@ export function useGroupActions({ refreshGroups, refreshProfiles }: GroupActions
 		try {
 			await updateGroupApi(groupId, trimmedName, note);
 			await Promise.all([refreshGroups(), refreshProfiles()]);
-			toast.success('分组已更新');
+			toast.success(t('actions.updated'));
 		} catch (error) {
-			toast.error('更新分组失败');
+			toast.error(t('actions.updateFailed'));
 			throw error;
 		}
 	};
@@ -48,9 +50,9 @@ export function useGroupActions({ refreshGroups, refreshProfiles }: GroupActions
 		try {
 			await deleteGroupApi(id);
 			await Promise.all([refreshGroups(), refreshProfiles()]);
-			toast.success('分组已删除');
+			toast.success(t('actions.deleted'));
 		} catch (error) {
-			toast.error('删除分组失败');
+			toast.error(t('actions.deleteFailed'));
 			throw error;
 		}
 	};
@@ -59,9 +61,9 @@ export function useGroupActions({ refreshGroups, refreshProfiles }: GroupActions
 		try {
 			await restoreGroupApi(id);
 			await refreshGroups();
-			toast.success('分组已恢复');
+			toast.success(t('actions.restored'));
 		} catch (error) {
-			toast.error('恢复分组失败');
+			toast.error(t('actions.restoreFailed'));
 			throw error;
 		}
 	};
@@ -70,9 +72,9 @@ export function useGroupActions({ refreshGroups, refreshProfiles }: GroupActions
 		try {
 			await purgeGroupApi(id);
 			await refreshGroups();
-			toast.success('分组已彻底删除');
+			toast.success(t('actions.permanentlyDeleted'));
 		} catch (error) {
-			toast.error('彻底删除分组失败');
+			toast.error(t('actions.permanentDeleteFailed'));
 			throw error;
 		}
 	};

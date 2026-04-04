@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import type { ProfileItem, ProfileProxyBindingMap } from '@/entities/profile/model/types';
@@ -34,6 +35,7 @@ export function useProxyPageState({
 	onBatchDeleteProxies,
 	onCheckProxy,
 }: UseProxyPageStateOptions) {
+	const { t } = useTranslation(['proxy', 'common']);
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [busyAction, setBusyAction] = useState<
@@ -61,7 +63,7 @@ export function useProxyPageState({
 		try {
 			return await fn();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : '代理操作失败');
+			setError(err instanceof Error ? err.message : t('proxy:actions.operationFailed'));
 			return null;
 		} finally {
 			setPending(false);
@@ -147,7 +149,7 @@ export function useProxyPageState({
 					items.push({
 						proxyId,
 						ok: false,
-						message: err instanceof Error ? err.message : '代理检测失败',
+						message: err instanceof Error ? err.message : t('proxy:actions.checkFailed'),
 					});
 				} finally {
 					processing.delete(proxyId);
@@ -166,9 +168,9 @@ export function useProxyPageState({
 			};
 			store.setLastBatchResult(result);
 			if (result.failedCount > 0) {
-				toast.warning(`批量检测完成：成功 ${result.successCount} 条，失败 ${result.failedCount} 条`);
+				toast.warning(t('common:batchResult', { action: t('proxy:actions.batchCheck'), success: result.successCount, fail: result.failedCount }));
 			} else {
-				toast.success(`批量检测完成：成功 ${result.successCount} 条`);
+				toast.success(t('common:batchResult', { action: t('proxy:actions.batchCheck'), success: result.successCount, fail: 0 }));
 			}
 		} finally {
 			setBatchChecking(false);
@@ -184,7 +186,7 @@ export function useProxyPageState({
 		try {
 			await onCheckProxy(proxyId);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : '代理检测失败');
+			setError(err instanceof Error ? err.message : t('proxy:actions.checkFailed'));
 		} finally {
 			setCheckingProxyIds((prev) => prev.filter((id) => id !== proxyId));
 		}

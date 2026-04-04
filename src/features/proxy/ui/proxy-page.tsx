@@ -1,5 +1,6 @@
+import { useTranslation } from 'react-i18next';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
-import { WORKSPACE_SECTIONS } from '@/app/model/workspace-sections';
+import { getWorkspaceSections } from '@/app/model/workspace-sections';
 import { DataSection } from '@/components/common';
 import type {
 	ProxyPageProps,
@@ -31,7 +32,8 @@ export function ProxyPage({
 	onUnbindProfileProxy,
 	onRefreshProxies,
 }: ProxyPageProps) {
-	const section = WORKSPACE_SECTIONS.proxy;
+	const { t } = useTranslation(['proxy', 'common']);
+	const section = getWorkspaceSections().proxy;
 	const {
 		store,
 		pending,
@@ -63,7 +65,7 @@ export function ProxyPage({
 	return (
 		<div className="flex flex-col gap-3 h-full min-h-0">
 			<ActiveSectionCard
-				label="代理池"
+				label={t('proxy:pool')}
 				title={section.title}
 				description={section.desc}
 			/>
@@ -73,7 +75,7 @@ export function ProxyPage({
 				boundCount={boundCount}
 			/>
 			<DataSection
-				title="代理资产列表"
+				title={t('proxy:assetList')}
 				contentClassName="p-0"
 				className="flex-1 min-h-0 overflow-hidden flex flex-col"
 			>
@@ -117,8 +119,7 @@ export function ProxyPage({
 			</DataSection>
 			{store.lastBatchResult && store.lastBatchResult.failedCount > 0 ? (
 				<p className="text-xs text-destructive">
-					批量操作存在失败项：成功 {store.lastBatchResult.successCount} 条，失败{' '}
-					{store.lastBatchResult.failedCount} 条。
+					{t('common:batchResult', { action: t('common:batchOperation'), success: store.lastBatchResult.successCount, fail: store.lastBatchResult.failedCount })}
 				</p>
 			) : null}
 			{error ? <p className="text-xs text-destructive">{error}</p> : null}

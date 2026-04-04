@@ -1,4 +1,5 @@
 import { Ellipsis, Globe, Link2, LoaderCircle, Pencil, RefreshCw, RotateCcw, Search, Trash2, Upload } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import GoogleIcon from '@/assets/icon/google.svg?react';
 import YouTubeIcon from '@/assets/icon/youtube.svg?react';
 
@@ -71,22 +72,22 @@ function resolveCountryFlag(countryCode: string) {
 	);
 }
 
-function resolveStatusLabel(item: ProxyItem) {
+function resolveStatusLabel(item: ProxyItem, t: (key: string) => string) {
 	switch (item.checkStatus) {
 		case 'ok':
 			return '';
 		case 'error':
-			return '检测异常';
+			return t('common:detectAbnormal');
 		case 'unsupported':
-			return '暂不支持';
+			return t('common:notSupported');
 		default:
-			return '未检测';
+			return t('common:notDetected');
 	}
 }
 
-function formatTimestamp(input: number | null) {
-	if (!input) return '未检测';
-	return new Date(input * 1000).toLocaleString('zh-CN', {
+function formatTimestamp(input: number | null, t: (key: string) => string, locale: string) {
+	if (!input) return t('common:notDetected');
+	return new Date(input * 1000).toLocaleString(locale, {
 		month: '2-digit',
 		day: '2-digit',
 		hour: '2-digit',
@@ -94,12 +95,12 @@ function formatTimestamp(input: number | null) {
 	});
 }
 
-function formatExpiry(input: number | null) {
-	if (!input) return '未设置';
+function formatExpiry(input: number | null, t: (key: string) => string, locale: string) {
+	if (!input) return t('common:notSet');
 	const now = Date.now();
 	const target = input * 1000;
-	if (target <= now) return '已过期';
-	return new Date(target).toLocaleString('zh-CN', {
+	if (target <= now) return t('common:expired');
+	return new Date(target).toLocaleString(locale, {
 		year: 'numeric',
 		month: '2-digit',
 		day: '2-digit',
@@ -137,13 +138,13 @@ function findTargetSiteCheck(item: ProxyItem, site: string) {
 	return item.targetSiteChecks.find((entry) => entry.site.trim().toLowerCase() === site);
 }
 
-function resolveTargetSiteSummary(item: ProxyItem) {
+function resolveTargetSiteSummary(item: ProxyItem, t: (key: string) => string) {
 	const statuses = TARGET_SITES.map(({ site }) => findTargetSiteCheck(item, site));
 	if (statuses.every((status) => !status)) {
-		return '未检测';
+		return t('common:notDetected');
 	}
 	const reachableCount = statuses.filter((status) => status?.reachable).length;
-	return `${reachableCount}/${TARGET_SITES.length} 可达`;
+	return `${reachableCount}/${TARGET_SITES.length} ${t('common:reachable')}`;
 }
 
 export function ProxyListCard({
@@ -169,6 +170,9 @@ export function ProxyListCard({
 	refreshing,
 	rowActionDisabled,
 }: ProxyListCardProps) {
+	const { t, i18n } = useTranslation();
+	const locale = i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US';
+
 	const activeProxyIds = proxies.filter((item) => item.lifecycle === 'active').map((item) => item.id);
 	const selectedActiveCount = activeProxyIds.filter((id) => selectedProxyIds.includes(id)).length;
 	const allActiveSelected = activeProxyIds.length > 0 && selectedActiveCount === activeProxyIds.length;
@@ -178,22 +182,22 @@ export function ProxyListCard({
 		<Card className="p-3">
 			<div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
 				<div>
-					<h2 className="text-sm font-semibold">代理列表</h2>
-					<p className="text-xs text-muted-foreground">已选 {selectedActiveCount} 个活跃代理</p>
+					<h2 className="text-sm font-semibold">{t('common:proxyList')}</h2>
+					<p className="text-xs text-muted-foreground">{t('common:selectedActiveCount', { count: selectedActiveCount })}</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
-					<Button type="button" variant="default" size="sm" disabled={pending || batchChecking || rowActionDisabled} onClick={onOpenCreate}><Icon icon={Pencil} size={12} />新增代理</Button>
-					<Button type="button" variant="outline" size="sm" disabled={pending || batchChecking || rowActionDisabled} onClick={onOpenImport}><Icon icon={Upload} size={12} />批量导入</Button>
-					<Button type="button" variant="outline" size="sm" disabled={pending || batchChecking || selectedActiveCount === 0} onClick={onBatchCheck}><Icon icon={batchChecking ? LoaderCircle : Search} size={12} className={batchChecking ? 'animate-spin' : ''} />批量检测</Button>
-					<Button type="button" variant="outline" size="sm" disabled={pending || batchChecking || rowActionDisabled || selectedActiveCount === 0} onClick={onOpenBatchEdit}><Icon icon={Pencil} size={12} />批量修改</Button>
-					<Button type="button" variant="outline" size="sm" disabled={pending || batchChecking || rowActionDisabled || selectedActiveCount === 0} onClick={onOpenBatchDelete}><Icon icon={Trash2} size={12} />批量删除</Button>
-					<Button type="button" variant="ghost" size="sm" disabled={pending || refreshing || batchChecking} onClick={onRefresh}><Icon icon={refreshing ? LoaderCircle : RefreshCw} size={12} className={refreshing ? 'animate-spin' : ''} />刷新</Button>
+					<Button type="button" variant="default" size="sm" disabled={pending || batchChecking || rowActionDisabled} onClick={onOpenCreate}><Icon icon={Pencil} size={12} />{t('common:createItem', { item: t('common:proxy') })}</Button>
+					<Button type="button" variant="outline" size="sm" disabled={pending || batchChecking || rowActionDisabled} onClick={onOpenImport}><Icon icon={Upload} size={12} />{t('common:batchImport')}</Button>
+					<Button type="button" variant="outline" size="sm" disabled={pending || batchChecking || selectedActiveCount === 0} onClick={onBatchCheck}><Icon icon={batchChecking ? LoaderCircle : Search} size={12} className={batchChecking ? 'animate-spin' : ''} />{t('common:batchCheck')}</Button>
+					<Button type="button" variant="outline" size="sm" disabled={pending || batchChecking || rowActionDisabled || selectedActiveCount === 0} onClick={onOpenBatchEdit}><Icon icon={Pencil} size={12} />{t('common:batchEdit')}</Button>
+					<Button type="button" variant="outline" size="sm" disabled={pending || batchChecking || rowActionDisabled || selectedActiveCount === 0} onClick={onOpenBatchDelete}><Icon icon={Trash2} size={12} />{t('common:batchDelete')}</Button>
+					<Button type="button" variant="ghost" size="sm" disabled={pending || refreshing || batchChecking} onClick={onRefresh}><Icon icon={refreshing ? LoaderCircle : RefreshCw} size={12} className={refreshing ? 'animate-spin' : ''} />{t('common:refresh')}</Button>
 				</div>
 			</div>
 
 			<div className="overflow-hidden rounded-xl border border-border/70">
 				{proxies.length === 0 ? (
-					<div className="px-4 py-10 text-center text-sm text-muted-foreground">暂无代理，请先新增。</div>
+					<div className="px-4 py-10 text-center text-sm text-muted-foreground">{t('common:noProxyAddFirst')}</div>
 				) : (
 					<Table className="table-fixed">
 						<colgroup>
@@ -212,12 +216,12 @@ export function ProxyListCard({
 										<Checkbox checked={allActiveSelected ? true : indeterminate ? 'indeterminate' : false} disabled={activeProxyIds.length === 0 || pending} onCheckedChange={(checked) => onSelectAll(checked === true)} />
 									</div>
 								</TableHead>
-								<TableHead>代理</TableHead>
-								<TableHead>GEO</TableHead>
-								<TableHead>出口</TableHead>
-								<TableHead>站点可达性</TableHead>
-								<TableHead className="w-[140px]">健康</TableHead>
-								<TableHead className="w-[92px] text-right">操作</TableHead>
+								<TableHead>{t('common:proxy')}</TableHead>
+								<TableHead>{t('common:geo')}</TableHead>
+								<TableHead>{t('common:exit')}</TableHead>
+								<TableHead>{t('common:siteReachability')}</TableHead>
+								<TableHead className="w-[140px]">{t('common:health')}</TableHead>
+								<TableHead className="w-[92px] text-right">{t('common:actions')}</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>
@@ -228,9 +232,9 @@ export function ProxyListCard({
 								const exitIpLabel =
 									item.exitIp ||
 									(item.checkStatus === 'ok'
-										? '出口 IP 获取失败'
-										: '未检测出口 IP');
-								const statusLabel = resolveStatusLabel(item);
+										? t('common:exitIpFetchFailed')
+										: t('common:exitIpNotDetected'));
+								const statusLabel = resolveStatusLabel(item, t);
 
 								return (
 									<TableRow key={item.id}>
@@ -250,7 +254,7 @@ export function ProxyListCard({
 													<Badge variant="outline" className="text-[10px] uppercase">{item.protocol}</Badge>
 												</div>
 												<p className="truncate text-xs text-muted-foreground">{formatProxyAddress(item.protocol, item.host, item.port)}</p>
-												<p className="truncate text-[11px] text-muted-foreground">{item.provider || '未填写供应商'} · 绑定 {boundCounts[item.id] ?? 0} 个环境</p>
+												<p className="truncate text-[11px] text-muted-foreground">{item.provider || t('common:providerNotSet')} · {t('common:itemBoundCount', { count: boundCounts[item.id] ?? 0 })}</p>
 											</div>
 										</TableCell>
 										<TableCell>
@@ -261,21 +265,21 @@ export function ProxyListCard({
 													) : (
 														<Icon icon={Globe} size={14} className="text-muted-foreground" />
 													)}
-													<span className="truncate">{item.country || '未知国家'}</span>
+													<span className="truncate">{item.country || t('common:unknownCountry')}</span>
 												</p>
-												<p className="truncate text-[11px] text-muted-foreground">{item.region || '未知区域'} / {item.city || '未知城市'}</p>
+												<p className="truncate text-[11px] text-muted-foreground">{item.region || t('common:unknownRegion')} / {item.city || t('common:unknownCity')}</p>
 											</div>
 										</TableCell>
 										<TableCell>
 											<p className="truncate font-medium">{exitIpLabel}</p>
-											<p className="truncate text-[11px] text-muted-foreground">最近检测 {formatTimestamp(item.lastCheckedAt)}</p>
+											<p className="truncate text-[11px] text-muted-foreground">{t('common:recentCheck')} {formatTimestamp(item.lastCheckedAt, t, locale)}</p>
 										</TableCell>
 										<TableCell>
-											<p className="truncate text-[11px] text-muted-foreground">{resolveTargetSiteSummary(item)}</p>
+											<p className="truncate text-[11px] text-muted-foreground">{resolveTargetSiteSummary(item, t)}</p>
 											<div className="mt-1 flex flex-col gap-1">
 												{TARGET_SITES.map(({ site, label, IconComponent }) => {
 													const target = findTargetSiteCheck(item, site);
-													const itemStatusLabel = !target ? '未检测' : target.reachable ? '可达' : '不可达';
+													const itemStatusLabel = !target ? t('common:notDetected') : target.reachable ? t('common:reachable') : t('common:unreachable');
 													const statusClass = !target
 														? 'text-muted-foreground'
 														: target.reachable
@@ -298,10 +302,10 @@ export function ProxyListCard({
 										</TableCell>
 										<TableCell className="w-[140px] align-top whitespace-normal">
 											<div className="flex flex-col gap-1">
-												<Badge variant={item.lifecycle === 'active' ? 'outline' : 'secondary'}>{item.lifecycle === 'active' ? '可用' : '已归档'}</Badge>
+												<Badge variant={item.lifecycle === 'active' ? 'outline' : 'secondary'}>{item.lifecycle === 'active' ? t('common:active') : t('common:archived')}</Badge>
 												{statusLabel ? <p className="text-[11px] text-muted-foreground">{statusLabel}</p> : null}
 												<p className={`truncate text-[11px] font-medium ${latencyTone}`}>
-													{latencyMs !== null ? `${latencyMs} ms` : item.checkStatus === 'ok' ? '延迟待回填' : item.checkMessage || `过期时间 ${formatExpiry(item.expiresAt)}`}
+													{latencyMs !== null ? t('common:latencyMs', { ms: latencyMs }) : item.checkStatus === 'ok' ? t('common:latencyPending') : item.checkMessage || `${t('common:expired')} ${formatExpiry(item.expiresAt, t, locale)}`}
 												</p>
 											</div>
 										</TableCell>
@@ -317,11 +321,11 @@ export function ProxyListCard({
 															<DropdownMenuContent align="end" className="w-44">
 																<DropdownMenuItem className="cursor-pointer" onClick={() => onOpenEdit(item.id)}>
 																	<Icon icon={Pencil} size={13} />
-																	编辑代理
+																	{t('common:editItem', { item: t('common:proxy') })}
 																</DropdownMenuItem>
 																<DropdownMenuItem className="cursor-pointer" onClick={() => onOpenBinding(item.id)}>
 																	<Icon icon={Link2} size={13} />
-																	环境绑定
+																	{t('common:bind')}
 																</DropdownMenuItem>
 																<DropdownMenuSeparator />
 																<DropdownMenuItem
@@ -329,13 +333,13 @@ export function ProxyListCard({
 																	onClick={() => onRequestDelete(item.id)}
 																>
 																	<Icon icon={Trash2} size={13} />
-																	删除代理
+																	{t('common:deleteItem', { item: t('common:proxy') })}
 																</DropdownMenuItem>
 															</DropdownMenuContent>
 														</DropdownMenu>
 													</>
 												) : (
-													<Button type="button" size="sm" variant="outline" disabled={pending || rowActionDisabled} onClick={() => onRestoreProxy(item.id)}><Icon icon={RotateCcw} size={12} />恢复</Button>
+													<Button type="button" size="sm" variant="outline" disabled={pending || rowActionDisabled} onClick={() => onRestoreProxy(item.id)}><Icon icon={RotateCcw} size={12} />{t('common:restore')}</Button>
 												)}
 											</div>
 										</TableCell>

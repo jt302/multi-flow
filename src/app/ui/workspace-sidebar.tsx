@@ -1,4 +1,5 @@
 import { Cpu, Play, RefreshCcw, Smartphone } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import {
 	Badge,
@@ -21,7 +22,7 @@ import {
 	useSidebar,
 } from '@/components/ui';
 import { cn } from '@/lib/utils';
-import { WORKSPACE_NAV_ITEMS } from '@/app/model/workspace-nav-items';
+import { getWorkspaceNavItems } from '@/app/model/workspace-nav-items';
 import type { NavId } from '@/app/model/workspace-types';
 import { PROFILES_DEVICE_PRESETS_PATH } from '@/app/workspace-routes';
 
@@ -44,6 +45,7 @@ export function WorkspaceSidebar({
 }: WorkspaceSidebarProps) {
 	const { state } = useSidebar();
 	const collapsed = state === 'collapsed';
+	const { t } = useTranslation('nav');
 
 	return (
 		<>
@@ -60,8 +62,12 @@ export function WorkspaceSidebar({
 							<Cpu className="size-4" />
 						</div>
 						<div className="min-w-0">
-							<p className="text-[10px] uppercase tracking-[0.2em] text-sidebar-foreground/65">multi-flow</p>
-							<p className="truncate text-base font-semibold leading-none">Workspace</p>
+							<p className="text-[10px] uppercase tracking-[0.2em] text-sidebar-foreground/65">
+								multi-flow
+							</p>
+							<p className="truncate text-base font-semibold leading-none">
+								Workspace
+							</p>
 						</div>
 					</div>
 				)}
@@ -69,12 +75,12 @@ export function WorkspaceSidebar({
 
 			<SidebarContent className="px-2 pb-2">
 				<SidebarGroup className="p-1">
-					<SidebarGroupLabel className="px-2 text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/60">
-						导航
-					</SidebarGroupLabel>
+				<SidebarGroupLabel className="px-2 text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/60">
+					{t('sidebar.navigation')}
+				</SidebarGroupLabel>
 					<SidebarGroupContent>
 						<SidebarMenu className="gap-1.5">
-							{WORKSPACE_NAV_ITEMS.map((item) => {
+							{getWorkspaceNavItems().map((item) => {
 								const active = item.id === activeNav;
 								const ItemIcon = item.icon;
 								const isProfilesItem = item.id === 'profiles';
@@ -103,8 +109,8 @@ export function WorkspaceSidebar({
 															? 'size-5 text-primary'
 															: 'size-5 text-sidebar-foreground/70'
 														: active
-														? 'bg-primary/20 text-primary'
-														: 'rounded-lg bg-sidebar-accent/65 text-sidebar-foreground/70',
+															? 'bg-primary/20 text-primary'
+															: 'rounded-lg bg-sidebar-accent/65 text-sidebar-foreground/70',
 													!collapsed && 'size-7 rounded-lg',
 												)}
 											>
@@ -115,15 +121,19 @@ export function WorkspaceSidebar({
 										{isProfilesItem && !collapsed && (
 											<SidebarMenuSub>
 												<SidebarMenuSubItem>
-													<SidebarMenuSubButton
-														type="button"
-														isActive={activePath === PROFILES_DEVICE_PRESETS_PATH}
-														onClick={() => onNavigate(PROFILES_DEVICE_PRESETS_PATH)}
-														className="cursor-pointer"
-													>
-														<Smartphone className="size-3.5" />
-														机型映射
-													</SidebarMenuSubButton>
+												<SidebarMenuSubButton
+													type="button"
+													isActive={
+														activePath === PROFILES_DEVICE_PRESETS_PATH
+													}
+													onClick={() =>
+														onNavigate(PROFILES_DEVICE_PRESETS_PATH)
+													}
+													className="cursor-pointer"
+												>
+													<Smartphone className="size-3.5" />
+													{t('sidebar.devicePresets')}
+												</SidebarMenuSubButton>
 												</SidebarMenuSubItem>
 											</SidebarMenuSub>
 										)}
@@ -138,33 +148,46 @@ export function WorkspaceSidebar({
 			<SidebarFooter className={cn('p-3 pt-1', collapsed && 'p-2 pt-1')}>
 				{collapsed ? (
 					<div className="flex justify-center">
-						<Button
-							type="button"
-							variant={isRunning ? 'default' : 'secondary'}
-							size="icon-sm"
-							aria-label={isRunning ? '暂停执行引擎' : '恢复执行引擎'}
-							title={isRunning ? '暂停执行引擎' : '恢复执行引擎'}
-							onClick={onToggleRunning}
-						>
+					<Button
+						type="button"
+						variant={isRunning ? 'default' : 'secondary'}
+						size="icon-sm"
+						aria-label={isRunning ? t('sidebar.pauseEngine') : t('sidebar.resumeEngine')}
+						title={isRunning ? t('sidebar.pauseEngine') : t('sidebar.resumeEngine')}
+						onClick={onToggleRunning}
+					>
 							{isRunning ? <RefreshCcw /> : <Play />}
 						</Button>
 					</div>
 				) : (
-					<Card className="border-sidebar-border/40 bg-sidebar-accent/30 shadow-sm transition-all duration-300">
-						<CardHeader className="p-3 pb-1.5">
-							<p className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/65">运行状态</p>
-						</CardHeader>
-						<CardContent className="flex flex-col gap-2 p-3 pt-0">
-							<div className="flex items-center justify-between text-xs">
-								<span>执行引擎</span>
-								<Badge variant={isRunning ? 'default' : 'secondary'}>{isRunning ? '活跃' : '暂停'}</Badge>
-							</div>
-							<Button type="button" variant="secondary" size="sm" onClick={onToggleRunning}>
-								{isRunning ? <RefreshCcw data-icon="inline-start" /> : <Play data-icon="inline-start" />}
-								{isRunning ? '暂停执行引擎' : '恢复执行引擎'}
-							</Button>
-						</CardContent>
-					</Card>
+				<Card className="border-sidebar-border/40 bg-sidebar-accent/30 shadow-sm transition-all duration-300">
+					<CardHeader className="p-3 pb-1.5">
+						<p className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/65">
+							{t('sidebar.runtimeStatus')}
+						</p>
+					</CardHeader>
+					<CardContent className="flex flex-col gap-2 p-3 pt-0">
+						<div className="flex items-center justify-between text-xs">
+							<span>{t('sidebar.executionEngine')}</span>
+							<Badge variant={isRunning ? 'default' : 'secondary'}>
+								{isRunning ? t('sidebar.active') : t('sidebar.paused')}
+							</Badge>
+						</div>
+						<Button
+							type="button"
+							variant="secondary"
+							size="sm"
+							onClick={onToggleRunning}
+						>
+							{isRunning ? (
+								<RefreshCcw data-icon="inline-start" />
+							) : (
+								<Play data-icon="inline-start" />
+							)}
+							{isRunning ? t('sidebar.pauseEngine') : t('sidebar.resumeEngine')}
+						</Button>
+					</CardContent>
+				</Card>
 				)}
 			</SidebarFooter>
 		</>

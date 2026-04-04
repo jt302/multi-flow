@@ -1,11 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select';
+
+const LANGUAGE_OPTIONS = [
+	{ value: 'zh-CN', label: 'settings:language.zhCN' },
+	{ value: 'en-US', label: 'settings:language.enUS' },
+] as const;
 
 export function GeneralSettingsPlaceholder() {
+	const { t, i18n } = useTranslation('settings');
 	const queryClient = useQueryClient();
 	const loggingQuery = useQuery({
 		queryKey: ['chromium-logging-enabled'],
@@ -23,27 +37,58 @@ export function GeneralSettingsPlaceholder() {
 	const loggingEnabled = loggingQuery.data ?? true;
 
 	return (
-		<Card className="border-border/40 bg-card/60 backdrop-blur-md">
-			<CardHeader>
-				<CardTitle className="text-base">通用设置</CardTitle>
-			</CardHeader>
-			<CardContent className="space-y-4">
-				<label className="flex items-start gap-3 cursor-pointer">
-					<Checkbox
-						checked={loggingEnabled}
-						onCheckedChange={(checked) => toggleLogging.mutate(!!checked)}
-						disabled={loggingQuery.isLoading || toggleLogging.isPending}
-						className="mt-0.5 cursor-pointer"
-					/>
-					<div className="space-y-0.5">
-						<Label className="text-sm cursor-pointer">Chromium 日志输出</Label>
-						<p className="text-xs text-muted-foreground">
-							启用后 Chromium 进程将输出 stderr
-							日志，关闭可减少资源占用。修改后对新启动的环境生效。
-						</p>
-					</div>
-				</label>
-			</CardContent>
-		</Card>
+		<div className="space-y-4">
+			<Card className="border-border/40 bg-card/60 backdrop-blur-md">
+				<CardHeader>
+					<CardTitle className="text-base">{t('general.title')}</CardTitle>
+				</CardHeader>
+				<CardContent className="space-y-4">
+					<label className="flex items-start gap-3 cursor-pointer">
+						<Checkbox
+							checked={loggingEnabled}
+							onCheckedChange={(checked) => toggleLogging.mutate(!!checked)}
+							disabled={loggingQuery.isLoading || toggleLogging.isPending}
+							className="mt-0.5 cursor-pointer"
+						/>
+						<div className="space-y-0.5">
+							<Label className="text-sm cursor-pointer">
+								{t('general.chromiumLogging')}
+							</Label>
+							<p className="text-xs text-muted-foreground">
+								{t('general.chromiumLoggingDesc')}
+							</p>
+						</div>
+					</label>
+				</CardContent>
+			</Card>
+
+			<Card className="border-border/40 bg-card/60 backdrop-blur-md">
+				<CardHeader>
+					<CardTitle className="text-base">{t('language.title')}</CardTitle>
+					<p className="text-xs text-muted-foreground">{t('language.desc')}</p>
+				</CardHeader>
+				<CardContent>
+					<Select
+						value={i18n.language}
+						onValueChange={(lng) => i18n.changeLanguage(lng)}
+					>
+						<SelectTrigger className="w-48 cursor-pointer">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{LANGUAGE_OPTIONS.map((opt) => (
+								<SelectItem
+									key={opt.value}
+									value={opt.value}
+									className="cursor-pointer"
+								>
+									{t(opt.label)}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</CardContent>
+			</Card>
+		</div>
 	);
 }

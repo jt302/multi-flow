@@ -1,4 +1,5 @@
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 import { AutomationCanvasPage } from '@/features/automation-canvas/ui/automation-canvas-page';
 import { useAutomationStore } from '@/store/automation-store';
@@ -7,6 +8,7 @@ import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
 import { useAutomationActions } from '@/features/automation/model/use-automation-actions';
 
 export function AutomationCanvasRoutePage() {
+	const { t } = useTranslation('common');
 	const { scriptId } = useParams<{ scriptId: string }>();
 	const { data: scripts = [], isLoading } = useAutomationScriptsQuery();
 	const { data: profiles = [] } = useProfilesQuery();
@@ -27,7 +29,7 @@ export function AutomationCanvasRoutePage() {
 	if (isLoading) {
 		return (
 			<div className="flex items-center justify-center h-screen text-sm text-muted-foreground">
-				加载中…
+				{t('loading')}
 			</div>
 		);
 	}
@@ -35,7 +37,7 @@ export function AutomationCanvasRoutePage() {
 	if (!script) {
 		return (
 			<div className="flex items-center justify-center h-screen text-sm text-muted-foreground">
-				脚本未找到
+				{t('scriptNotFound')}
 			</div>
 		);
 	}

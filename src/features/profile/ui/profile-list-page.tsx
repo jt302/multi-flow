@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 import {
 	ConfirmActionDialog,
@@ -9,7 +10,7 @@ import {
 import { filterProfiles } from '@/entities/profile/lib/profile-list';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
-import { WORKSPACE_SECTIONS } from '@/app/model/workspace-sections';
+import { getWorkspaceSections } from '@/app/model/workspace-sections';
 import { useProfileListStore } from '@/store/profile-list-store';
 import type { ProfileListPageProps } from '../model/profile-list-types';
 import { ProfileListStats } from './profile-list-stats';
@@ -40,7 +41,9 @@ export function ProfileListPage({
 	onExportProfileCookies,
 	onRefreshProfiles,
 }: ProfileListPageProps) {
-	const section = WORKSPACE_SECTIONS.profiles;
+	const { t } = useTranslation('profile');
+	const { t: tNav } = useTranslation('nav');
+	const section = getWorkspaceSections().profiles;
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [stopAllRunningDialogOpen, setStopAllRunningDialogOpen] =
 		useState(false);
@@ -179,20 +182,20 @@ export function ProfileListPage({
 		try {
 			await action();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : '环境操作失败');
+			setError(err instanceof Error ? err.message : t('errors.operationFailed'));
 		}
 	};
 
 	const isEmpty = filteredProfiles.length === 0;
 	const emptyText =
 		profiles.length === 0
-			? '暂无环境，先创建一个环境。'
-			: '没有匹配当前筛选条件的环境。';
+			? t('list.emptyNoProfiles')
+			: t('list.emptyNoMatch');
 
 	return (
 		<div className="flex flex-col gap-3 h-full min-h-0">
 			<ActiveSectionCard
-				label="环境"
+				label={tNav('labels.profile')}
 				title={section.title}
 				description={section.desc}
 			/>
@@ -205,7 +208,7 @@ export function ProfileListPage({
 			/>
 
 			<DataSection
-				title="环境列表"
+				title={t('list.title')}
 				contentClassName="p-1 pt-0"
 				className="flex-1 min-h-0 overflow-hidden flex flex-col"
 			>
@@ -256,7 +259,7 @@ export function ProfileListPage({
 							try {
 								await onRefreshProfiles();
 							} catch (err) {
-								setError(err instanceof Error ? err.message : '刷新环境失败');
+								setError(err instanceof Error ? err.message : t('errors.refreshFailed'));
 							}
 						})();
 					}}
@@ -292,9 +295,9 @@ export function ProfileListPage({
 				/>
 				<ConfirmActionDialog
 					open={stopAllRunningDialogOpen}
-					title="确认一键停止运行中环境"
-					description={`确认停止当前筛选结果中的 ${filteredRunningIds.length} 个运行中环境？`}
-					confirmText={stopAllRunningPending ? '停止中...' : '确认停止'}
+					title={t('list.stopAllConfirmTitle')}
+					description={t('list.stopAllConfirmDesc', { count: filteredRunningIds.length })}
+					confirmText={stopAllRunningPending ? t('list.stopping') : t('list.confirmStop')}
 					pending={stopAllRunningPending}
 					onOpenChange={setStopAllRunningDialogOpen}
 					onConfirm={() => {

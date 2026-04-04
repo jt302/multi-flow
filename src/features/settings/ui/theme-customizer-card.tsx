@@ -1,7 +1,11 @@
 import { Palette } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { Button, Card, Icon, Input } from '@/components/ui';
-import { THEME_PRESET_KEYS, THEME_PRESETS } from '@/entities/theme/model/presets';
+import {
+	THEME_PRESET_KEYS,
+	THEME_PRESETS,
+} from '@/entities/theme/model/presets';
 import { cn } from '@/lib/utils';
 import type { ThemeCustomizerCardProps } from '@/features/settings/model/types';
 
@@ -13,6 +17,7 @@ export function ThemeCustomizerCard({
 	onCustomColorChange,
 	onToggleCustomColor,
 }: ThemeCustomizerCardProps) {
+	const { t } = useTranslation('settings');
 	const customColorPickerId = 'theme-custom-color-picker';
 	const customColorTextId = 'theme-custom-color-text';
 
@@ -20,7 +25,7 @@ export function ThemeCustomizerCard({
 		<Card className="min-w-0 p-4">
 			<div className="mb-3 flex items-center gap-2">
 				<Icon icon={Palette} size={15} />
-				<h3 className="text-sm font-semibold">主题定制</h3>
+				<h3 className="text-sm font-semibold">{t('theme.title')}</h3>
 			</div>
 
 			<div className="flex flex-wrap gap-2">
@@ -32,37 +37,56 @@ export function ThemeCustomizerCard({
 						onClick={() => onPresetChange(item)}
 						className={cn(
 							'h-auto flex-1 min-w-[6rem] flex-col items-start gap-1 rounded-xl px-2 py-2 text-left text-xs',
-							!useCustomColor && preset === item && 'border-primary bg-primary/14 text-foreground',
+							!useCustomColor &&
+								preset === item &&
+								'border-primary bg-primary/14 text-foreground',
 						)}
 					>
 						<div className="flex items-center gap-1.5">
-							<span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: THEME_PRESETS[item].light }} />
+							<span
+								className="inline-block h-2.5 w-2.5 rounded-full"
+								style={{ backgroundColor: THEME_PRESETS[item].light }}
+							/>
 							{item}
 						</div>
-						<p className="text-[11px] text-muted-foreground">亮/暗双态</p>
+						<p className="text-[11px] text-muted-foreground">
+							{t('theme.dualMode')}
+						</p>
 					</Button>
 				))}
 			</div>
 
-				<label htmlFor={customColorTextId} className="mt-4 block text-xs text-muted-foreground">自定义主色</label>
-				<div className="mt-2 flex items-center gap-2">
-					<Input
-						id={customColorPickerId}
-						type="color"
+			<label
+				htmlFor={customColorTextId}
+				className="mt-4 block text-xs text-muted-foreground"
+			>
+				{t('theme.customPrimaryColor')}
+			</label>
+			<div className="mt-2 flex items-center gap-2">
+				<Input
+					id={customColorPickerId}
+					type="color"
 					value={customColor}
 					onChange={(event) => onCustomColorChange(event.target.value)}
 					className="h-10 w-12 cursor-pointer rounded-lg p-1"
 				/>
-					<Input
-						id={customColorTextId}
-						type="text"
+				<Input
+					id={customColorTextId}
+					type="text"
 					value={customColor}
 					onChange={(event) => onCustomColorChange(event.target.value)}
 					className="w-0 min-w-0 flex-1 bg-card uppercase tracking-wide"
 				/>
 			</div>
-			<Button type="button" variant={useCustomColor ? 'default' : 'outline'} onClick={onToggleCustomColor} className="mt-3 w-full">
-				{useCustomColor ? '使用自定义主色' : '切换到自定义主色'}
+			<Button
+				type="button"
+				variant={useCustomColor ? 'default' : 'outline'}
+				onClick={onToggleCustomColor}
+				className="mt-3 w-full"
+			>
+				{useCustomColor
+					? t('theme.useCustomColor')
+					: t('theme.switchToCustomColor')}
 			</Button>
 		</Card>
 	);

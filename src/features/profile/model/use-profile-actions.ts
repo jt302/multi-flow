@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import i18n from '@/shared/i18n';
 
 import {
 	batchCloseProfiles as batchCloseProfilesApi,
@@ -49,10 +50,12 @@ export function useProfileActions({
 	refreshResources,
 	refreshDevicePresets,
 }: ProfileActionsDeps) {
+	
+
 	const createProfile = async (payload: CreateProfilePayload) => {
 		const name = payload.name.trim();
 		if (!name) {
-			throw new Error('环境名称不能为空');
+			throw new Error(i18n.t('profile:profileNameRequired'));
 		}
 		try {
 			await createProfileApi({
@@ -63,9 +66,9 @@ export function useProfileActions({
 				settings: payload.settings,
 			});
 			await Promise.all([refreshProfilesAndBindings(), refreshGroups()]);
-			toast.success('环境已创建');
+			toast.success(i18n.t('profile:profileCreated'));
 		} catch (error) {
-			toast.error('创建环境失败');
+			toast.error(i18n.t('profile:createProfileFailed'));
 			throw error;
 		}
 	};
@@ -74,9 +77,9 @@ export function useProfileActions({
 		try {
 			await createProfileDevicePresetApi(payload);
 			await refreshDevicePresets();
-			toast.success('机型映射已添加');
+			toast.success(i18n.t('profile:devicePresetAdded'));
 		} catch (error) {
-			toast.error('添加机型映射失败');
+			toast.error(i18n.t('profile:addDevicePresetFailed'));
 			throw error;
 		}
 	};
@@ -88,9 +91,9 @@ export function useProfileActions({
 		try {
 			await updateProfileDevicePresetApi(presetId, payload);
 			await Promise.all([refreshDevicePresets(), refreshProfilesAndBindings()]);
-			toast.success('机型映射已更新');
+			toast.success(i18n.t('profile:devicePresetUpdated'));
 		} catch (error) {
-			toast.error('更新机型映射失败');
+			toast.error(i18n.t('profile:updateDevicePresetFailed'));
 			throw error;
 		}
 	};
@@ -99,9 +102,9 @@ export function useProfileActions({
 		try {
 			await deleteProfileDevicePresetApi(presetId);
 			await Promise.all([refreshDevicePresets(), refreshProfilesAndBindings()]);
-			toast.success('机型映射已删除');
+			toast.success(i18n.t('profile:devicePresetDeleted'));
 		} catch (error) {
-			toast.error('删除机型映射失败');
+			toast.error(i18n.t('profile:deleteDevicePresetFailed'));
 			throw error;
 		}
 	};
@@ -109,7 +112,7 @@ export function useProfileActions({
 	const updateProfile = async (profileId: string, payload: CreateProfilePayload) => {
 		const name = payload.name.trim();
 		if (!name) {
-			throw new Error('环境名称不能为空');
+			throw new Error(i18n.t('profile:profileNameRequired'));
 		}
 		try {
 			await updateProfileApi(profileId, {
@@ -117,9 +120,9 @@ export function useProfileActions({
 				name,
 			});
 			await Promise.all([refreshProfilesAndBindings(), refreshGroups(), refreshWindows()]);
-			toast.success('环境配置已更新');
+			toast.success(i18n.t('profile:profileUpdated'));
 		} catch (error) {
-			toast.error('更新环境配置失败');
+			toast.error(i18n.t('profile:updateProfileFailed'));
 			throw error;
 		}
 	};
@@ -130,16 +133,16 @@ export function useProfileActions({
 	) => {
 		try {
 			await updateProfileVisualApi(profileId, payload);
-			toast.success('环境外观已更新');
+			toast.success(i18n.t('profile:profileVisualUpdated'));
 			const refreshResults = await Promise.allSettled([
 				refreshProfilesAndBindings(),
 				refreshWindows(),
 			]);
 			if (refreshResults.some((item) => item.status === 'rejected')) {
-				toast.warning('外观已保存，状态刷新延迟');
+				toast.warning(i18n.t('profile:visualSavedRefreshDelayed'));
 			}
 		} catch (error) {
-			toast.error('更新环境外观失败');
+			toast.error(i18n.t('profile:updateProfileVisualFailed'));
 			throw error;
 		}
 	};
@@ -147,7 +150,7 @@ export function useProfileActions({
 	const openProfile = async (profileId: string) => {
 		await withProfileActionLock(profileId, async () => {
 			setActionState(profileId, 'opening');
-			const toastId = toast.loading('环境启动中...');
+			const toastId = toast.loading(i18n.t('profile:startingEnv'));
 			let lastShownPercent = -1;
 			try {
 				await openProfileApi(profileId, (progress) => {
@@ -166,36 +169,36 @@ export function useProfileActions({
 						}
 						if (percent !== null) {
 							lastShownPercent = percent;
-							toast.loading(`浏览器版本下载中 ${percent}%`, { id: toastId });
+							toast.loading(i18n.t('profile:downloadingBrowserVersion', { percent }), { id: toastId });
 						} else {
-							toast.loading('浏览器版本下载中...', { id: toastId });
+							toast.loading(i18n.t('profile:downloadingBrowserVersion'), { id: toastId });
 						}
 						return;
 					}
 					if (progress.stage === 'install') {
-						toast.loading('浏览器版本安装中...', { id: toastId });
+						toast.loading(i18n.t('profile:installingBrowserVersion'), { id: toastId });
 						return;
 					}
 					if (progress.stage === 'done') {
-						toast.loading('浏览器版本已就绪，继续启动环境...', { id: toastId });
+						toast.loading(i18n.t('profile:browserVersionReady'), { id: toastId });
 					}
 				});
 				await Promise.all([refreshProfilesAndBindings(), refreshWindows(), refreshResources()]);
-				toast.success('环境已启动', { id: toastId });
+				toast.success(i18n.t('profile:envStarted'), { id: toastId });
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				if (message.includes('no chromium build')) {
-					toast.error('当前系统没有这个浏览器版本', {
+					toast.error(i18n.t('profile:noBrowserForSystem'), {
 						id: toastId,
-						description: '请切换到宿主系统可用的 Chromium 版本后再启动',
+						description: i18n.t('profile:noBrowserForSystemDesc'),
 					});
 				} else if (message.includes('current system has no chromium builds')) {
-					toast.error('当前系统没有可用的 Chromium 构建', {
+					toast.error(i18n.t('profile:noChromiumBuilds'), {
 						id: toastId,
-						description: '请先检查资源清单和当前宿主系统平台',
+						description: i18n.t('profile:noChromiumBuildsDesc'),
 					});
 				} else {
-					toast.error('启动环境失败', { id: toastId });
+					toast.error(i18n.t('profile:startEnvFailed'), { id: toastId });
 				}
 				throw error;
 			} finally {
@@ -210,9 +213,9 @@ export function useProfileActions({
 			try {
 				await closeProfileApi(profileId);
 				await Promise.all([refreshProfilesAndBindings(), refreshWindows()]);
-				toast.success('环境已关闭');
+				toast.success(i18n.t('profile:envClosed'));
 			} catch (error) {
-				toast.error('关闭环境失败');
+				toast.error(i18n.t('profile:closeEnvFailed'));
 				throw error;
 			} finally {
 				setActionState(profileId, null);
@@ -225,9 +228,9 @@ export function useProfileActions({
 		try {
 			await deleteProfileApi(profileId);
 			await Promise.all([refreshProfilesAndBindings(), refreshGroups(), refreshWindows()]);
-			toast.success('环境已归档');
+			toast.success(i18n.t('profile:envArchived'));
 		} catch (error) {
-			toast.error('删除环境失败');
+			toast.error(i18n.t('profile:deleteEnvFailed'));
 			throw error;
 		} finally {
 			setActionState(profileId, null);
@@ -239,9 +242,9 @@ export function useProfileActions({
 		try {
 			await restoreProfileApi(profileId);
 			await Promise.all([refreshProfilesAndBindings(), refreshGroups(), refreshWindows()]);
-			toast.success('环境已恢复');
+			toast.success(i18n.t('profile:envRestored'));
 		} catch (error) {
-			toast.error('恢复环境失败');
+			toast.error(i18n.t('profile:restoreEnvFailed'));
 			throw error;
 		} finally {
 			setActionState(profileId, null);
@@ -253,9 +256,9 @@ export function useProfileActions({
 		try {
 			await purgeProfileApi(profileId);
 			await Promise.all([refreshProfilesAndBindings(), refreshGroups(), refreshWindows()]);
-			toast.success('环境已彻底删除');
+			toast.success(i18n.t('profile:envPermanentlyDeleted'));
 		} catch (error) {
-			toast.error('彻底删除环境失败');
+			toast.error(i18n.t('profile:purgeEnvFailed'));
 			throw error;
 		} finally {
 			setActionState(profileId, null);
@@ -271,7 +274,7 @@ export function useProfileActions({
 				items: [],
 			} satisfies BatchProfileActionResponse;
 		}
-		const toastId = toast.loading('批量启动环境中...');
+		const toastId = toast.loading(i18n.t('profile:batchStartingEnv'));
 		let lastShownPercent = -1;
 		try {
 			const result = await batchOpenProfilesApi(profileIds, (progress) => {
@@ -290,18 +293,18 @@ export function useProfileActions({
 					}
 					if (percent !== null) {
 						lastShownPercent = percent;
-						toast.loading(`批量启动准备浏览器资源 ${percent}%`, { id: toastId });
+						toast.loading(i18n.t('profile:batchPreparingBrowserResource', { percent }), { id: toastId });
 					} else {
-						toast.loading('批量启动准备浏览器资源...', { id: toastId });
+						toast.loading(i18n.t('profile:batchPreparingBrowserResource'), { id: toastId });
 					}
 					return;
 				}
 				if (progress.stage === 'install') {
-					toast.loading('批量启动安装浏览器资源...', { id: toastId });
+					toast.loading(i18n.t('profile:batchInstallingBrowserResource'), { id: toastId });
 					return;
 				}
 				if (progress.stage === 'done') {
-					toast.loading('浏览器资源已就绪，继续批量启动...', { id: toastId });
+					toast.loading(i18n.t('profile:browserResourceReady'), { id: toastId });
 				}
 			});
 			await Promise.all([
@@ -310,17 +313,17 @@ export function useProfileActions({
 				refreshResources(),
 			]);
 			if (result.failedCount > 0) {
-				toast.warning(`批量启动完成：成功 ${result.successCount}，失败 ${result.failedCount}`, {
+				toast.warning(i18n.t('profile:batchStartCompleteWarning', { successCount: result.successCount, failedCount: result.failedCount }), {
 					id: toastId,
 				});
 			} else {
-				toast.success(`批量启动完成：${result.successCount}/${result.total}`, {
+				toast.success(i18n.t('profile:batchStartComplete', { successCount: result.successCount, total: result.total }), {
 					id: toastId,
 				});
 			}
 			return result;
 		} catch (error) {
-			toast.error('批量启动环境失败', { id: toastId });
+			toast.error(i18n.t('profile:batchStartEnvFailed'), { id: toastId });
 			throw error;
 		}
 	};
@@ -338,13 +341,13 @@ export function useProfileActions({
 			const result = await batchCloseProfilesApi(profileIds);
 			await Promise.all([refreshProfilesAndBindings(), refreshWindows()]);
 			if (result.failedCount > 0) {
-				toast.warning(`批量关闭完成：成功 ${result.successCount}，失败 ${result.failedCount}`);
+				toast.warning(i18n.t('profile:batchCloseCompleteWarning', { successCount: result.successCount, failedCount: result.failedCount }));
 			} else {
-				toast.success(`批量关闭完成：${result.successCount}/${result.total}`);
+				toast.success(i18n.t('profile:batchCloseComplete', { successCount: result.successCount, total: result.total }));
 			}
 			return result;
 		} catch (error) {
-			toast.error('批量关闭环境失败');
+			toast.error(i18n.t('profile:batchCloseEnvFailed'));
 			throw error;
 		}
 	};
@@ -353,9 +356,9 @@ export function useProfileActions({
 		try {
 			await setProfileGroupApi(profileId, groupName);
 			await Promise.all([refreshProfilesAndBindings(), refreshGroups()]);
-			toast.success(groupName ? '分组已更新' : '分组已清空');
+			toast.success(groupName ? i18n.t('profile:groupUpdated') : i18n.t('profile:groupCleared'));
 		} catch (error) {
-			toast.error(groupName ? '更新分组失败' : '清空分组失败');
+			toast.error(groupName ? i18n.t('profile:updateGroupFailed') : i18n.t('profile:clearGroupFailed'));
 			throw error;
 		}
 	};
@@ -373,13 +376,13 @@ export function useProfileActions({
 			const result = await batchSetProfileGroupApi(profileIds, groupName);
 			await Promise.all([refreshProfilesAndBindings(), refreshGroups()]);
 			if (result.failedCount > 0) {
-				toast.warning(groupName ? '部分环境分组设置失败' : '部分环境清空分组失败');
+				toast.warning(groupName ? i18n.t('profile:batchSetGroupPartialFailed') : i18n.t('profile:batchClearGroupPartialFailed'));
 			} else {
-				toast.success(groupName ? '批量分组设置完成' : '批量清空分组完成');
+				toast.success(groupName ? i18n.t('profile:batchSetGroupComplete') : i18n.t('profile:batchClearGroupComplete'));
 			}
 			return result;
 		} catch (error) {
-			toast.error(groupName ? '批量分组设置失败' : '批量清空分组失败');
+			toast.error(groupName ? i18n.t('profile:batchSetGroupFailed') : i18n.t('profile:batchClearGroupFailed'));
 			throw error;
 		}
 	};
@@ -394,12 +397,12 @@ export function useProfileActions({
 	) => {
 		try {
 			const result = await exportProfileCookiesApi(profileId, payload);
-			toast.success('Cookie 已导出', {
+			toast.success(i18n.t('profile:cookieExported'), {
 				description: result.path,
 			});
 			return result;
 		} catch (error) {
-			toast.error('导出 Cookie 失败');
+			toast.error(i18n.t('profile:exportCookieFailed'));
 			throw error;
 		}
 	};

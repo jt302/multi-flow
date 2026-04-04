@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -23,19 +24,22 @@ export function ProfileBatchClearGroupDialog({
 	onOpenChange,
 	onConfirm,
 }: ProfileBatchClearGroupDialogProps) {
+	const { t } = useTranslation(['common', 'profile']);
+
 	return (
 		<AlertDialog open={open} onOpenChange={onOpenChange}>
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogTitle>确认清空分组</AlertDialogTitle>
+					<AlertDialogTitle>{t('profile:clearGroupConfirm')}</AlertDialogTitle>
 					<AlertDialogDescription>
-						这会清空当前已选 {selectedCount} 个环境的分组信息。该操作会直接生效。
+						{t('profile:clearGroupDesc', { count: selectedCount })}
+						{t('profile:actionImmediate')}
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
 					<AlertDialogCancel asChild>
 						<Button type="button" variant="ghost" className="cursor-pointer">
-							取消
+							{t('common:cancel')}
 						</Button>
 					</AlertDialogCancel>
 					<AlertDialogAction asChild>
@@ -45,7 +49,7 @@ export function ProfileBatchClearGroupDialog({
 							className="cursor-pointer"
 							onClick={onConfirm}
 						>
-							确认清空
+							{t('common:confirmClear')}
 						</Button>
 					</AlertDialogAction>
 				</AlertDialogFooter>

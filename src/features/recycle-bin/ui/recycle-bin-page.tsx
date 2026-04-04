@@ -1,5 +1,6 @@
 import { RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Badge, Button, Icon, TableCell, TableRow } from '@/components/ui';
 import {
@@ -12,15 +13,20 @@ import { countDeletedRecycleBinItems } from '@/features/recycle-bin/model/recycl
 import type { RecycleBinPageProps } from '@/features/recycle-bin/model-types';
 import { RecycleBinSection } from './recycle-bin-section';
 
-function formatDeletedAt(ts: number | null | undefined): string {
+function formatDeletedAt(
+	ts: number | null | undefined,
+	t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
 	if (!ts) {
-		return '未知时间';
+		return t('common:unknownTime');
 	}
 	const diff = Math.max(0, Math.floor(Date.now() / 1000) - ts);
-	if (diff < 60) return '刚刚';
-	if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`;
-	if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`;
-	return `${Math.floor(diff / 86400)} 天前`;
+	if (diff < 60) return t('common:justNow');
+	if (diff < 3600)
+		return t('common:minutesAgo', { count: Math.floor(diff / 60) });
+	if (diff < 86400)
+		return t('common:hoursAgo', { count: Math.floor(diff / 3600) });
+	return t('common:daysAgo', { count: Math.floor(diff / 86400) });
 }
 
 type PurgeTarget = {
@@ -46,6 +52,7 @@ function DeletedItemRow({
 	onRestore: () => void;
 	onPurge: () => void;
 }) {
+	const { t } = useTranslation(['recycle', 'common']);
 	return (
 		<TableRow>
 			<TableCell>
@@ -53,7 +60,8 @@ function DeletedItemRow({
 			</TableCell>
 			<TableCell className="w-[280px]">
 				<p className="truncate text-xs text-muted-foreground">
-					{item.id} · 删除于 {formatDeletedAt(item.deletedAt)}
+					{item.id} ·{' '}
+					{t('deletedAt', { time: formatDeletedAt(item.deletedAt, t) })}
 				</p>
 			</TableCell>
 			<TableCell className="w-[220px] text-right">
@@ -66,7 +74,7 @@ function DeletedItemRow({
 						onClick={onRestore}
 					>
 						<Icon icon={RotateCcw} size={12} />
-						恢复
+						{t('restore')}
 					</Button>
 					<Button
 						type="button"
@@ -76,7 +84,7 @@ function DeletedItemRow({
 						onClick={onPurge}
 					>
 						<Icon icon={Trash2} size={12} />
-						彻底删除
+						{t('permanentDelete')}
 					</Button>
 				</div>
 			</TableCell>
@@ -99,6 +107,7 @@ export function RecycleBinPage({
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [purgeTarget, setPurgeTarget] = useState<PurgeTarget | null>(null);
+	const { t } = useTranslation(['recycle', 'common']);
 
 	const deletedProfiles = useMemo(
 		() => profiles.filter((item) => item.lifecycle === 'deleted'),
@@ -125,7 +134,7 @@ export function RecycleBinPage({
 		try {
 			await action();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : '回收站操作失败');
+			setError(err instanceof Error ? err.message : t('operationFailed'));
 		} finally {
 			setPending(false);
 		}
@@ -148,14 +157,10 @@ export function RecycleBinPage({
 
 	return (
 		<div className="flex flex-col gap-3 h-full min-h-0">
-			<PageHeader
-				label="settings"
-				title="回收站"
-				description="统一恢复或彻底删除已归档数据"
-			/>
+			<PageHeader label="settings" title={t('title')} description={t('desc')} />
 
 			<DataSection
-				title="统计"
+				title={t('stats')}
 				actions={
 					<Button
 						type="button"
@@ -166,20 +171,20 @@ export function RecycleBinPage({
 						}}
 					>
 						<Icon icon={RefreshCw} size={12} />
-						刷新
+						{t('common:refresh')}
 					</Button>
 				}
 			>
 				<div className="rounded-xl border border-border/70 bg-background/70 px-3 py-2 text-xs">
 					<div className="flex items-center gap-2">
 						<Icon icon={Trash2} size={12} />
-						<span className="text-muted-foreground">已归档项目</span>
+						<span className="text-muted-foreground">{t('archivedItems')}</span>
 						<Badge>{totalDeleted}</Badge>
 					</div>
 				</div>
 			</DataSection>
 
-			<RecycleBinSection title="环境" items={deletedProfiles}>
+			<RecycleBinSection title={t('profiles')} items={deletedProfiles}>
 				{(item) => (
 					<DeletedItemRow
 						key={item.id}
@@ -195,7 +200,7 @@ export function RecycleBinPage({
 				)}
 			</RecycleBinSection>
 
-			<RecycleBinSection title="代理" items={deletedProxies}>
+			<RecycleBinSection title={t('proxies')} items={deletedProxies}>
 				{(item) => (
 					<DeletedItemRow
 						key={item.id}
@@ -212,7 +217,7 @@ export function RecycleBinPage({
 			</RecycleBinSection>
 
 			<RecycleBinSection
-				title="分组"
+				title={t('groups')}
 				items={deletedGroups}
 				footer={
 					error ? <p className="text-xs text-destructive">{error}</p> : null
@@ -235,9 +240,9 @@ export function RecycleBinPage({
 
 			<ConfirmActionDialog
 				open={Boolean(purgeTarget)}
-				title="确认彻底删除"
-				description={`${purgeTarget?.name || '该项目'} 将被彻底删除且不能恢复，请确认这不是误操作。`}
-				confirmText="彻底删除"
+				title={t('confirmDelete')}
+				description={t('confirmDeleteDesc', { name: purgeTarget?.name || '' })}
+				confirmText={t('permanentDelete')}
 				pending={pending}
 				onOpenChange={(open) => {
 					if (!open) {

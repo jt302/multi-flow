@@ -1,19 +1,26 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { z } from 'zod/v3';
 
 import { Button, Input } from '@/components/ui';
 import type { ProfileWindowItem, WindowBoundsItem } from '@/entities/window-session/model/types';
 
-const windowBoundsFormSchema = z.object({
-	x: z.coerce.number().int('X 必须是整数'),
-	y: z.coerce.number().int('Y 必须是整数'),
-	width: z.coerce.number().int('宽度必须是整数').min(1, '宽度必须大于 0'),
-	height: z.coerce.number().int('高度必须是整数').min(1, '高度必须大于 0'),
-});
+const windowBoundsFormSchema = (t: (key: string) => string) =>
+	z.object({
+		x: z.coerce.number().int(t('validation:xInteger')),
+		y: z.coerce.number().int(t('validation:yInteger')),
+		width: z.coerce.number().int(t('validation:widthInteger')).min(1, t('validation:widthMin')),
+		height: z.coerce.number().int(t('validation:heightInteger')).min(1, t('validation:heightMin')),
+	});
 
-type WindowBoundsFormValues = z.infer<typeof windowBoundsFormSchema>;
+type WindowBoundsFormValues = {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+};
 
 type WindowBoundsFormProps = {
 	window: ProfileWindowItem;
@@ -22,13 +29,17 @@ type WindowBoundsFormProps = {
 };
 
 export function WindowBoundsForm({ window, controllable, onApply }: WindowBoundsFormProps) {
+	const { t } = useTranslation(['common', 'window']);
+
+	const schema = windowBoundsFormSchema((key: string) => t(`window:${key}`));
+
 	const {
 		register,
 		handleSubmit,
 		reset,
 		formState: { errors },
 	} = useForm<WindowBoundsFormValues>({
-		resolver: zodResolver(windowBoundsFormSchema),
+		resolver: zodResolver(schema),
 		defaultValues: {
 			x: window.bounds?.x ?? 0,
 			y: window.bounds?.y ?? 0,
@@ -58,12 +69,12 @@ export function WindowBoundsForm({ window, controllable, onApply }: WindowBounds
 				});
 			})}
 		>
-			<Input {...register('x')} inputMode="numeric" placeholder="X" className="h-8 text-xs" />
-			<Input {...register('y')} inputMode="numeric" placeholder="Y" className="h-8 text-xs" />
-			<Input {...register('width')} inputMode="numeric" placeholder="宽度" className="h-8 text-xs" />
-			<Input {...register('height')} inputMode="numeric" placeholder="高度" className="h-8 text-xs" />
+			<Input {...register('x')} inputMode="numeric" placeholder={t('common:x')} className="h-8 text-xs" />
+			<Input {...register('y')} inputMode="numeric" placeholder={t('common:y')} className="h-8 text-xs" />
+			<Input {...register('width')} inputMode="numeric" placeholder={t('common:width')} className="h-8 text-xs" />
+			<Input {...register('height')} inputMode="numeric" placeholder={t('common:height')} className="h-8 text-xs" />
 			<Button type="submit" size="sm" variant="outline" className="cursor-pointer" disabled={!controllable}>
-				应用窗口尺寸
+				{t('window:applyBounds')}
 			</Button>
 			{errors.x || errors.y || errors.width || errors.height ? (
 				<p className="text-xs text-destructive md:col-span-5">

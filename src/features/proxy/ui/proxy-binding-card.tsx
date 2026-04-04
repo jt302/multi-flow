@@ -2,6 +2,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Link2, Unlink2 } from 'lucide-react';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import { z } from 'zod/v3';
 
 import {
@@ -21,8 +23,8 @@ import type { ProfileItem, ProfileProxyBindingMap } from '@/entities/profile/mod
 import type { ProxyItem } from '@/entities/proxy/model/types';
 
 const proxyBindingFormSchema = z.object({
-	profileId: z.string().trim().min(1, '请选择环境'),
-	proxyId: z.string().trim().min(1, '请选择代理'),
+	profileId: z.string().trim().min(1, i18next.t('proxy:validation.selectProfile')),
+	proxyId: z.string().trim().min(1, i18next.t('proxy:validation.selectProxy')),
 });
 
 type ProxyBindingFormValues = z.infer<typeof proxyBindingFormSchema>;
@@ -44,6 +46,8 @@ export function ProxyBindingCard({
 	onBindProfileProxy,
 	onUnbindProfileProxy,
 }: ProxyBindingCardProps) {
+	const { t } = useTranslation(['common', 'proxy']);
+
 	const {
 		handleSubmit,
 		setValue,
@@ -83,7 +87,7 @@ export function ProxyBindingCard({
 	return (
 		<Card className="p-4">
 			<CardHeader className="p-0">
-				<CardTitle className="text-sm">环境绑定</CardTitle>
+				<CardTitle className="text-sm">{t('proxy:binding')}</CardTitle>
 			</CardHeader>
 			<CardContent className="p-0 pt-3">
 				<form
@@ -95,7 +99,7 @@ export function ProxyBindingCard({
 					<div>
 						<Select value={selectedProfileId} onValueChange={(value) => setValue('profileId', value, { shouldValidate: true })}>
 							<SelectTrigger className="w-full">
-								<SelectValue placeholder="选择环境" />
+								<SelectValue placeholder={t('common:placeholder.selectProfile')} />
 							</SelectTrigger>
 							<SelectContent>
 								{activeProfiles.map((profile) => (
@@ -110,7 +114,7 @@ export function ProxyBindingCard({
 					<div>
 						<Select value={selectedProxyId} onValueChange={(value) => setValue('proxyId', value, { shouldValidate: true })}>
 							<SelectTrigger className="w-full">
-								<SelectValue placeholder="选择代理" />
+								<SelectValue placeholder={t('common:placeholder.selectProxy')} />
 							</SelectTrigger>
 							<SelectContent>
 								{activeProxies.map((proxy) => (
@@ -125,16 +129,16 @@ export function ProxyBindingCard({
 					<div className="grid grid-cols-2 gap-2">
 						<Button type="submit" variant="outline" disabled={pending || !selectedProfileId || !selectedProxyId}>
 							<Icon icon={Link2} size={13} />
-							绑定
+							{t('common:bind')}
 						</Button>
 						<Button type="button" variant="outline" disabled={pending || !selectedProfileId} onClick={() => void onUnbindProfileProxy(selectedProfileId)}>
 							<Icon icon={Unlink2} size={13} />
-							解绑
+							{t('common:unbind')}
 						</Button>
 					</div>
 					<div className="max-h-48 space-y-1.5 overflow-y-auto rounded-xl border border-border/70 p-2">
 						{boundRows.length === 0 ? (
-							<p className="px-1 py-6 text-center text-xs text-muted-foreground">暂无绑定关系</p>
+							<p className="px-1 py-6 text-center text-xs text-muted-foreground">{t('common:noBound')}</p>
 						) : (
 							boundRows.map(({ profile, proxy }) => (
 								<div

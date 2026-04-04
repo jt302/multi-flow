@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
 	Button,
@@ -34,6 +35,7 @@ export function ProfileBatchGroupDialog({
 	onValueChange,
 	onConfirm,
 }: ProfileBatchGroupDialogProps) {
+	const { t } = useTranslation('profile');
 	useEffect(() => {
 		if (!open || value || groupOptions.length === 0) {
 			return;
@@ -45,17 +47,17 @@ export function ProfileBatchGroupDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>批量设置分组</DialogTitle>
+					<DialogTitle>{t('list:batchSetGroupTitle')}</DialogTitle>
 					<DialogDescription>
-						为当前已选的 {selectedCount} 个环境设置分组。
+						{t('list:batchSetGroupDesc', { count: selectedCount })}
 					</DialogDescription>
 				</DialogHeader>
 
 				<div className="space-y-2">
-					<p className="text-sm font-medium">目标分组</p>
+					<p className="text-sm font-medium">{t('list:targetGroup')}</p>
 					<Select value={value} onValueChange={onValueChange}>
 						<SelectTrigger>
-							<SelectValue placeholder="选择一个分组" />
+							<SelectValue placeholder={t('list:selectGroup')} />
 						</SelectTrigger>
 						<SelectContent>
 							{groupOptions.map((groupName) => (
@@ -74,7 +76,7 @@ export function ProfileBatchGroupDialog({
 						className="cursor-pointer"
 						onClick={() => onOpenChange(false)}
 					>
-						取消
+						{t('common:cancel')}
 					</Button>
 					<Button
 						type="button"
@@ -82,7 +84,7 @@ export function ProfileBatchGroupDialog({
 						onClick={onConfirm}
 						disabled={!value}
 					>
-						确认设置
+						{t('list:confirmSet')}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

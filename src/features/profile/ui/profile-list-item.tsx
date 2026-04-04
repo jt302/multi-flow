@@ -19,6 +19,7 @@ import { useEffect, useState } from 'react';
 import { save } from '@tauri-apps/plugin-dialog';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 import {
 	Badge,
@@ -105,17 +106,23 @@ type ProfileListItemProps = {
 	onRefreshProfiles: () => Promise<void>;
 };
 
-function resolveRunningLabel(running: boolean, actionState?: ProfileActionState) {
+function resolveRunningLabel(running: boolean, actionState?: ProfileActionState, t?: (key: string) => string) {
+	if (!t) {
+		if (actionState === 'opening') return 'Opening';
+		if (actionState === 'closing') return 'Closing';
+		if (actionState === 'recovering') return 'Recovering';
+		return running ? 'Running' : 'Not Running';
+	}
 	if (actionState === 'opening') {
-		return '启动中';
+		return t('profile:status.opening');
 	}
 	if (actionState === 'closing') {
-		return '关闭中';
+		return t('profile:status.closing');
 	}
 	if (actionState === 'recovering') {
-		return '异常回收中';
+		return t('profile:status.recovering');
 	}
-	return running ? '运行中' : '未运行';
+	return running ? t('profile:status.running') : t('profile:status.notRunning');
 }
 
 function resolveCountryFlag(countryCode: string) {
@@ -128,32 +135,46 @@ function resolveCountryFlag(countryCode: string) {
 	);
 }
 
-function resolveProxyExitIp(proxy?: ProxyItem) {
+function resolveProxyExitIp(proxy?: ProxyItem, t?: (key: string) => string) {
+	if (!t) {
+		if (!proxy) return 'No Proxy';
+		if (proxy.exitIp.trim()) return proxy.exitIp;
+		return proxy.checkStatus === 'ok' ? 'Exit IP fetch failed' : 'Exit IP not checked';
+	}
 	if (!proxy) {
-		return '未绑定代理';
+		return t('profile:proxy.notBound');
 	}
 	if (proxy.exitIp.trim()) {
 		return proxy.exitIp;
 	}
-	return proxy.checkStatus === 'ok' ? '出口 IP 获取失败' : '未检测出口 IP';
+	return proxy.checkStatus === 'ok' ? t('profile:proxy.exitIpFailed') : t('profile:proxy.exitIpNotChecked');
 }
 
-function resolveProxyConnectivity(proxy?: ProxyItem): {
+function resolveProxyConnectivity(proxy?: ProxyItem, t?: (key: string) => string): {
 	label: string;
 	toneClassName: string;
 } {
+	if (!t) {
+		if (!proxy) return { label: 'Not Bound', toneClassName: 'text-muted-foreground' };
+		switch (proxy.checkStatus) {
+			case 'ok': return { label: 'Available', toneClassName: 'text-emerald-600 dark:text-emerald-400' };
+			case 'error': return { label: 'Error', toneClassName: 'text-destructive' };
+			case 'unsupported': return { label: 'Not Supported', toneClassName: 'text-amber-600 dark:text-amber-400' };
+			default: return { label: 'Not Checked', toneClassName: 'text-muted-foreground' };
+		}
+	}
 	if (!proxy) {
-		return { label: '未绑定', toneClassName: 'text-muted-foreground' };
+		return { label: t('profile:proxyConnectivity.notBound'), toneClassName: 'text-muted-foreground' };
 	}
 	switch (proxy.checkStatus) {
 		case 'ok':
-			return { label: '可用', toneClassName: 'text-emerald-600 dark:text-emerald-400' };
+			return { label: t('profile:proxyConnectivity.ok'), toneClassName: 'text-emerald-600 dark:text-emerald-400' };
 		case 'error':
-			return { label: '异常', toneClassName: 'text-destructive' };
+			return { label: t('profile:proxyConnectivity.error'), toneClassName: 'text-destructive' };
 		case 'unsupported':
-			return { label: '暂不支持', toneClassName: 'text-amber-600 dark:text-amber-400' };
+			return { label: t('profile:proxyConnectivity.unsupported'), toneClassName: 'text-amber-600 dark:text-amber-400' };
 		default:
-			return { label: '未检测', toneClassName: 'text-muted-foreground' };
+			return { label: t('profile:proxyConnectivity.notChecked'), toneClassName: 'text-muted-foreground' };
 	}
 }
 
@@ -205,28 +226,35 @@ export function ProfileListItem({
 	onExportProfileCookies,
 	onRefreshProfiles,
 }: ProfileListItemProps) {
+	const { t } = useTranslation(['profile', 'common']);
 	const actionPending = Boolean(actionState);
-	const runLabel = resolveRunningLabel(item.running, actionState);
+	const runLabel = resolveRunningLabel(item.running, actionState, t);
 	const platformMeta = resolvePlatformMeta(item);
 	const currentBg = item.settings?.basic?.browserBgColor ?? '#0F8A73';
 	const currentToolbarText = item.settings?.basic?.toolbarText ?? item.name;
+	const noteNotFilled = t('profile:note.notFilled');
+	const noteNone = t('profile:note.none');
 	const normalizedNote =
-		item.note?.trim() && item.note.trim() !== '未填写备注' ? item.note.trim() : '无备注';
-	const groupLabel = item.group?.trim() || '未分组';
+		item.note?.trim() && item.note.trim() !== noteNotFilled ? item.note.trim() : noteNone;
+	const groupNotGrouped = t('profile:group.notGrouped');
+	const groupLabel = item.group?.trim() || groupNotGrouped;
+	const presetNotSet = t('profile:preset.notSet');
 	const presetLabel =
 		item.settings?.fingerprint?.fingerprintSnapshot?.presetLabel?.trim() ||
 		item.settings?.basic?.devicePresetId?.trim() ||
-		'未设置预设';
+		presetNotSet;
 	const browserVersionMeta = resolveBrowserVersionMeta(item, resources);
 	const toolbarTextTrimmed = currentToolbarText.trim();
 	const showToolbarText = Boolean(toolbarTextTrimmed) && toolbarTextTrimmed !== item.name.trim();
 	const proxyFlag = boundProxy ? resolveCountryFlag(boundProxy.country) : null;
+	const unknownCountry = t('common:unknownCountry');
+	const unknownRegion = t('common:unknownRegion');
 	const proxyLocation = boundProxy
-		? `${boundProxy.country?.trim() || '未知国家'} / ${boundProxy.region?.trim() || '未知地区'}`
-		: '未绑定代理';
-	const proxyIp = resolveProxyExitIp(boundProxy);
-	const proxyType = boundProxy ? boundProxy.protocol.toUpperCase() : '未绑定';
-	const proxyConnectivity = resolveProxyConnectivity(boundProxy);
+		? `${boundProxy.country?.trim() || unknownCountry} / ${boundProxy.region?.trim() || unknownRegion}`
+		: t('profile:proxy.notBound');
+	const proxyIp = resolveProxyExitIp(boundProxy, t);
+	const proxyType = boundProxy ? boundProxy.protocol.toUpperCase() : t('profile:proxy.notBound');
+	const proxyConnectivity = resolveProxyConnectivity(boundProxy, t);
 	const editConfigDisabled = actionPending || item.running;
 	const isBgEditing = quickEdit?.profileId === item.id && quickEdit.field === 'background';
 	const isToolbarEditing = quickEdit?.profileId === item.id && quickEdit.field === 'toolbar';
@@ -266,10 +294,10 @@ export function ProfileListItem({
 			setSelectedCookieSiteUrl(result.siteUrls[0] ?? '');
 			setSiteExportDialogOpen(true);
 			if (result.siteUrls.length === 0) {
-				setCookieSiteError('当前环境没有可导出的站点 Cookie。');
+				setCookieSiteError(t('profile:cookies.noSitesToExport'));
 			}
 		} catch (error) {
-			setCookieSiteError(error instanceof Error ? error.message : '读取 Cookie 站点失败');
+			setCookieSiteError(error instanceof Error ? error.message : t('profile:cookies.readSiteFailed'));
 			setCookieSiteUrls([]);
 			setSelectedCookieSiteUrl('');
 			setSiteExportDialogOpen(true);
@@ -287,6 +315,54 @@ export function ProfileListItem({
 			mode: 'all',
 			exportPath,
 		});
+	};
+
+	const handleSavePlugins = async () => {
+		setPluginSaving(true);
+		try {
+			await updateProfilePlugins(item.id, pluginDraft);
+			await onRefreshProfiles();
+			toast.success(t('profile:plugins.updated'));
+			if (item.running) {
+				toast.info(t('profile:plugins.needsRestart'));
+			}
+			setPluginDialogOpen(false);
+		} catch (error) {
+			toast.error(
+				error instanceof Error
+					? error.message
+					: t('profile:plugins.updateFailed'),
+			);
+		} finally {
+			setPluginSaving(false);
+		}
+	};
+
+	const handleExportSiteCookie = async () => {
+		setCookieSiteExporting(true);
+		try {
+			const exportPath = await selectCookieExportPath(
+				item.name,
+				selectedCookieSiteUrl,
+			);
+			if (!exportPath) {
+				return;
+			}
+			await onExportProfileCookies(item.id, {
+				mode: 'site',
+				url: selectedCookieSiteUrl,
+				exportPath,
+			});
+			setSiteExportDialogOpen(false);
+		} catch (error) {
+			setCookieSiteError(
+				error instanceof Error
+					? error.message
+					: t('profile:cookies.exportFailed'),
+			);
+		} finally {
+			setCookieSiteExporting(false);
+		}
 	};
 
 	return (
@@ -327,7 +403,7 @@ export function ProfileListItem({
 							>
 								{currentBg}
 							</span>
-							<span className="truncate">备注 {normalizedNote}</span>
+							<span className="truncate">{t('profile:basic.note')} {normalizedNote}</span>
 						</p>
 					</div>
 				</TableCell>
@@ -354,10 +430,10 @@ export function ProfileListItem({
 							)}
 							<span className="truncate">{proxyLocation}</span>
 						</p>
-						<p className="truncate text-[11px] text-muted-foreground">IP: {proxyIp}</p>
-						<p className="truncate text-[11px] text-muted-foreground">代理类型: {proxyType}</p>
+						<p className="truncate text-[11px] text-muted-foreground">{t('profile:proxy.ip')}: {proxyIp}</p>
+						<p className="truncate text-[11px] text-muted-foreground">{t('profile:proxy.type')}: {proxyType}</p>
 						<p className={cn('truncate text-[11px] font-medium', proxyConnectivity.toneClassName)}>
-							连通性: {proxyConnectivity.label}
+							{t('profile:proxy.connectivity')}: {proxyConnectivity.label}
 						</p>
 					</div>
 				</TableCell>
@@ -366,7 +442,7 @@ export function ProfileListItem({
 					<Badge variant={item.running || actionPending ? 'default' : 'secondary'}>
 						{runLabel}
 					</Badge>
-					<p className="mt-1 text-[11px] text-muted-foreground">最近: {formatProfileTime(item.lastOpenedAt)}</p>
+					<p className="mt-1 text-[11px] text-muted-foreground">{t('profile:time.recent')}: {formatProfileTime(item.lastOpenedAt)}</p>
 				</TableCell>
 
 				<TableCell className="w-[130px] align-top text-right">
@@ -403,7 +479,7 @@ export function ProfileListItem({
 											? 'text-sky-600 hover:bg-sky-500/10 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300'
 											: 'text-muted-foreground/60',
 									)}
-									title={item.running ? '显示浏览器窗口' : '环境未运行'}
+									title={item.running ? t('common:showWindow') : t('common:envNotRunning')}
 									disabled={actionPending || !item.running}
 									onClick={() => {
 										void onRunAction(() => onFocusProfileWindow(item.id));
@@ -426,7 +502,7 @@ export function ProfileListItem({
 									<DropdownMenuContent align="end" className="w-56">
 										<DropdownMenuItem className="cursor-pointer" onClick={() => onViewProfile(item.id)}>
 											<Icon icon={Eye} size={13} />
-											查看详情
+											{t('profile:actions.viewDetail')}
 										</DropdownMenuItem>
 										<DropdownMenuSeparator />
 										<DropdownMenuItem
@@ -436,12 +512,12 @@ export function ProfileListItem({
 											}}
 										>
 											<Icon icon={Palette} size={13} />
-											修改背景色
+											{t('profile:actions.modifyBgColor')}
 										</DropdownMenuItem>
 										<DropdownMenuSub>
 											<DropdownMenuSubTrigger className="cursor-pointer">
 												<Icon icon={FolderTree} size={13} />
-												设置分组
+												{t('profile:actions.setGroup')}
 											</DropdownMenuSubTrigger>
 											<DropdownMenuSubContent className="w-48">
 												{groups.map((group) => (
@@ -462,7 +538,7 @@ export function ProfileListItem({
 														void onRunAction(() => onSetProfileGroup(item.id));
 													}}
 												>
-													清空分组
+													{t('profile:actions.clearGroup')}
 												</DropdownMenuItem>
 											</DropdownMenuSubContent>
 										</DropdownMenuSub>
@@ -473,7 +549,7 @@ export function ProfileListItem({
 											}}
 										>
 											<Icon icon={Type} size={13} />
-											修改工具栏文本
+											{t('profile:actions.modifyToolbar')}
 										</DropdownMenuItem>
 										<DropdownMenuItem
 											className="cursor-pointer"
@@ -486,7 +562,7 @@ export function ProfileListItem({
 											}}
 										>
 											<Icon icon={Wrench} size={13} />
-											修改环境配置
+											{t('profile:actions.editConfig')}
 										</DropdownMenuItem>
 										<DropdownMenuItem
 											className="cursor-pointer"
@@ -495,13 +571,13 @@ export function ProfileListItem({
 											}}
 										>
 											<Icon icon={Puzzle} size={13} />
-											插件管理
+											{t('profile:actions.pluginManage')}
 										</DropdownMenuItem>
 										{!item.running ? (
 											<DropdownMenuSub>
 												<DropdownMenuSubTrigger className="cursor-pointer">
 													<Icon icon={FileDown} size={13} />
-													导出 Cookie
+													{t('profile:actions.exportCookie')}
 												</DropdownMenuSubTrigger>
 												<DropdownMenuSubContent className="w-52">
 													<DropdownMenuItem
@@ -511,7 +587,7 @@ export function ProfileListItem({
 															void onRunAction(exportAllCookies);
 														}}
 													>
-														导出整个 profile
+														{t('profile:actions.exportAll')}
 													</DropdownMenuItem>
 													<DropdownMenuItem
 														className="cursor-pointer"
@@ -520,7 +596,7 @@ export function ProfileListItem({
 															void openSiteExportDialog();
 														}}
 													>
-														按站点导出
+														{t('profile:actions.exportBySite')}
 													</DropdownMenuItem>
 												</DropdownMenuSubContent>
 											</DropdownMenuSub>
@@ -534,7 +610,7 @@ export function ProfileListItem({
 											}}
 										>
 											<Icon icon={Trash2} size={13} />
-											删除环境
+											{t('profile:actions.delete')}
 										</DropdownMenuItem>
 									</DropdownMenuContent>
 								</DropdownMenu>
@@ -554,7 +630,7 @@ export function ProfileListItem({
 								) : (
 									<Icon icon={RotateCcw} size={12} />
 								)}
-								{actionState === 'restoring' ? '恢复中' : '恢复'}
+								{actionState === 'restoring' ? t('profile:actions.recovering') : t('profile:actions.recover')}
 							</Button>
 						)}
 					</div>
@@ -564,9 +640,9 @@ export function ProfileListItem({
 			<Dialog open={isBgEditing} onOpenChange={(open) => onQuickEditChange(open ? { profileId: item.id, field: 'background' } : null)}>
 				<DialogContent>
 					<DialogHeader>
-						<DialogTitle>修改浏览器背景色</DialogTitle>
+						<DialogTitle>{t('profile:backgroundColor.title')}</DialogTitle>
 						<DialogDescription>
-							设置后会同步更新该环境的背景色。点击“重置背景色”会移除背景色参数，恢复默认表现。
+							{t('profile:backgroundColor.desc')}
 						</DialogDescription>
 					</DialogHeader>
 					<BackgroundQuickEditForm
@@ -598,7 +674,7 @@ export function ProfileListItem({
 				<TableRow className="bg-muted/15">
 					<TableCell colSpan={7}>
 						<div className="rounded-lg border border-border/70 bg-background/70 p-2">
-							<p className="mb-2 text-xs text-muted-foreground">修改工具栏文本（留空将回退为环境名称）</p>
+							<p className="mb-2 text-xs text-muted-foreground">{t('profile:toolbarText.title')}</p>
 							<ToolbarQuickEditForm
 								initialToolbarText={currentToolbarText}
 								disabled={actionPending}
@@ -620,14 +696,14 @@ export function ProfileListItem({
 			<Dialog open={pluginDialogOpen} onOpenChange={setPluginDialogOpen}>
 				<DialogContent className="max-w-3xl">
 					<DialogHeader>
-						<DialogTitle>环境插件管理</DialogTitle>
+						<DialogTitle>{t('profile:plugins.title')}</DialogTitle>
 						<DialogDescription>
-							为当前环境选择要安装的已下载插件。运行中的环境保存后需要重启才会生效。
+							{t('profile:plugins.desc')}
 						</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-3">
 						{pluginPackagesQuery.isLoading || profilePluginsQuery.isLoading ? (
-							<p className="text-sm text-muted-foreground">正在读取插件配置...</p>
+							<p className="text-sm text-muted-foreground">{t('profile:plugins.loading')}</p>
 						) : null}
 						{pluginPackagesQuery.error instanceof Error ? (
 							<p className="text-sm text-destructive">
@@ -659,36 +735,36 @@ export function ProfileListItem({
 													id={installId}
 													checked={Boolean(selected)}
 												className="mt-0.5 cursor-pointer"
-												onCheckedChange={(checked) => {
-													setPluginDraft((prev) => {
-														if (checked !== true) {
-															return prev.filter(
-																(entry) =>
-																	entry.packageId !== plugin.packageId,
-															);
-														}
-														return [
-															...prev.filter(
-																(entry) =>
-																	entry.packageId !== plugin.packageId,
-															),
-															{ packageId: plugin.packageId, enabled: true },
-														];
-													});
-												}}
-											/>
-											<div className="min-w-0 flex-1">
-												<div className="flex flex-wrap items-center gap-2">
-													<p className="font-medium text-foreground">
-														{plugin.name}
-													</p>
-													<Badge variant="outline">v{plugin.version}</Badge>
+													onCheckedChange={(checked) => {
+														setPluginDraft((prev) => {
+															if (checked !== true) {
+																return prev.filter(
+																	(entry) =>
+																		entry.packageId !== plugin.packageId,
+																);
+															}
+															return [
+																...prev.filter(
+																	(entry) =>
+																		entry.packageId !== plugin.packageId,
+																),
+																{ packageId: plugin.packageId, enabled: true },
+															];
+														});
+													}}
+												/>
+												<div className="min-w-0 flex-1">
+													<div className="flex flex-wrap items-center gap-2">
+														<p className="font-medium text-foreground">
+															{plugin.name}
+														</p>
+														<Badge variant="outline">v{plugin.version}</Badge>
+													</div>
+													<p className="mt-1 text-xs text-muted-foreground">
+															{plugin.description?.trim() || t('profile:plugins.noDescription')}
+														</p>
 												</div>
-												<p className="mt-1 text-xs text-muted-foreground">
-													{plugin.description?.trim() || '暂无描述'}
-												</p>
-											</div>
-										</label>
+											</label>
 											<label
 												htmlFor={enabledId}
 												className="flex items-center gap-2 text-xs text-muted-foreground"
@@ -696,30 +772,30 @@ export function ProfileListItem({
 												<Checkbox
 													id={enabledId}
 													checked={selected?.enabled ?? false}
-												disabled={!selected}
-												className="cursor-pointer"
-												onCheckedChange={(checked) => {
-													setPluginDraft((prev) =>
-														prev.map((entry) =>
-															entry.packageId === plugin.packageId
-																? {
-																		...entry,
-																		enabled: checked === true,
-																	}
-																: entry,
-														),
-													);
-												}}
-											/>
-											启用
-										</label>
+													disabled={!selected}
+													className="cursor-pointer"
+													onCheckedChange={(checked) => {
+														setPluginDraft((prev) =>
+															prev.map((entry) =>
+																entry.packageId === plugin.packageId
+																	? {
+																			...entry,
+																			enabled: checked === true,
+																		}
+																	: entry,
+															),
+														);
+													}}
+												/>
+												{t('profile:plugins.enabled')}
+											</label>
 									</div>
 								</div>
 							);
 						})}
 						{!pluginPackagesQuery.isLoading && (pluginPackagesQuery.data?.length ?? 0) === 0 ? (
 							<p className="text-sm text-muted-foreground">
-								当前还没有已下载插件，请先到插件页下载。
+								{t('profile:plugins.noPlugins')}
 							</p>
 						) : null}
 					</div>
@@ -730,7 +806,7 @@ export function ProfileListItem({
 							className="cursor-pointer"
 							onClick={() => setPluginDialogOpen(false)}
 						>
-							取消
+							{t('common:cancel')}
 						</Button>
 						<Button
 							type="button"
@@ -738,31 +814,13 @@ export function ProfileListItem({
 							disabled={pluginSaving}
 							onClick={() => {
 								setPluginSaving(true);
-								void (async () => {
-									try {
-										await updateProfilePlugins(item.id, pluginDraft);
-										await onRefreshProfiles();
-										toast.success('环境插件已更新');
-										if (item.running) {
-											toast.info('当前环境正在运行，重启后插件变更才会生效');
-										}
-										setPluginDialogOpen(false);
-									} catch (error) {
-										toast.error(
-											error instanceof Error
-												? error.message
-												: '更新环境插件失败',
-										);
-									} finally {
-										setPluginSaving(false);
-									}
-								})();
+								void handleSavePlugins();
 							}}
 						>
 							{pluginSaving ? (
 								<Icon icon={Loader2} size={12} className="animate-spin" />
 							) : null}
-							保存插件配置
+							{t('profile:plugins.saveConfig')}
 						</Button>
 					</DialogFooter>
 				</DialogContent>
@@ -779,14 +837,14 @@ export function ProfileListItem({
 			>
 				<DialogContent>
 					<DialogHeader>
-						<DialogTitle>按站点导出 Cookie</DialogTitle>
+						<DialogTitle>{t('profile:cookies.exportBySite')}</DialogTitle>
 						<DialogDescription>
-							从当前环境本地 Cookie 文件中选择一个站点导出。
+							{t('profile:basic.cookieHelp')}
 						</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-3">
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">站点</p>
+							<p className="mb-1 text-xs text-muted-foreground">{t('profile:cookies.selectSite')}</p>
 							<Select
 								value={selectedCookieSiteUrl}
 								onValueChange={setSelectedCookieSiteUrl}
@@ -795,7 +853,7 @@ export function ProfileListItem({
 								<SelectTrigger className="cursor-pointer">
 									<SelectValue
 										placeholder={
-											cookieSiteLoading ? '读取中...' : '选择站点'
+											cookieSiteLoading ? t('profile:cookies.reading') : t('profile:cookies.selectSite')
 										}
 									/>
 								</SelectTrigger>
@@ -819,7 +877,7 @@ export function ProfileListItem({
 							className="cursor-pointer"
 							onClick={() => setSiteExportDialogOpen(false)}
 						>
-							取消
+							{t('common:cancel')}
 						</Button>
 						<Button
 							type="button"
@@ -831,37 +889,13 @@ export function ProfileListItem({
 							}
 							onClick={() => {
 								setCookieSiteExporting(true);
-								void (async () => {
-									try {
-										const exportPath = await selectCookieExportPath(
-											item.name,
-											selectedCookieSiteUrl,
-										);
-										if (!exportPath) {
-											return;
-										}
-										await onExportProfileCookies(item.id, {
-											mode: 'site',
-											url: selectedCookieSiteUrl,
-											exportPath,
-										});
-										setSiteExportDialogOpen(false);
-									} catch (error) {
-										setCookieSiteError(
-											error instanceof Error
-												? error.message
-												: '按站点导出 Cookie 失败',
-										);
-									} finally {
-										setCookieSiteExporting(false);
-									}
-								})();
+								void handleExportSiteCookie();
 							}}
 						>
 							{cookieSiteExporting ? (
 								<Icon icon={Loader2} size={12} className="animate-spin" />
 							) : null}
-							确认导出
+							{t('common:confirm')}
 						</Button>
 					</DialogFooter>
 				</DialogContent>

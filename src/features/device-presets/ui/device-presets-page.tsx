@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import {
 	Badge,
@@ -27,8 +28,13 @@ import { DevicePresetForm } from '@/features/device-presets/ui/device-preset-for
 
 type DevicePresetsPageProps = {
 	devicePresets: ProfileDevicePresetItem[];
-	onCreateDevicePreset: (payload: SaveProfileDevicePresetPayload) => Promise<void>;
-	onUpdateDevicePreset: (presetId: string, payload: SaveProfileDevicePresetPayload) => Promise<void>;
+	onCreateDevicePreset: (
+		payload: SaveProfileDevicePresetPayload,
+	) => Promise<void>;
+	onUpdateDevicePreset: (
+		presetId: string,
+		payload: SaveProfileDevicePresetPayload,
+	) => Promise<void>;
 	onDeleteDevicePreset: (presetId: string) => Promise<void>;
 	onRefreshDevicePresets: () => Promise<void>;
 };
@@ -41,16 +47,24 @@ export function DevicePresetsPage({
 	onRefreshDevicePresets,
 }: DevicePresetsPageProps) {
 	const [formOpen, setFormOpen] = useState(false);
-	const [deleteTarget, setDeleteTarget] = useState<ProfileDevicePresetItem | null>(null);
+	const [deleteTarget, setDeleteTarget] =
+		useState<ProfileDevicePresetItem | null>(null);
 	const [deleting, setDeleting] = useState(false);
+	const { t } = useTranslation(['device', 'common']);
 
-	const { form, activePreset, setActivePresetId, resetPresetEditor, handleSavePreset } =
-		useDevicePresetEditor({
-			devicePresets,
-			onCreateDevicePreset,
-			onUpdateDevicePreset,
-			onRefreshDevicePresets,
-		});
+	const {
+		form,
+		activePreset,
+		setActivePresetId,
+		resetPresetEditor,
+		handleSavePreset,
+	} = useDevicePresetEditor({
+		devicePresets,
+		onCreateDevicePreset,
+		onUpdateDevicePreset,
+		onRefreshDevicePresets,
+		t,
+	});
 
 	function openCreate() {
 		resetPresetEditor();
@@ -88,14 +102,14 @@ export function DevicePresetsPage({
 			{/* Header */}
 			<div className="flex items-center justify-between">
 				<div>
-					<h2 className="text-lg font-semibold">机型映射</h2>
+					<h2 className="text-lg font-semibold">{t('page.title')}</h2>
 					<p className="text-sm text-muted-foreground mt-0.5">
-						管理环境可用的设备指纹预设，创建环境时可选择对应机型
+						{t('page.desc')}
 					</p>
 				</div>
 				<Button type="button" onClick={openCreate} className="cursor-pointer">
 					<Plus className="h-4 w-4 mr-1.5" />
-					新增机型预设
+					{t('page.addPreset')}
 				</Button>
 			</div>
 
@@ -103,8 +117,8 @@ export function DevicePresetsPage({
 			<Card className="border-border/40 bg-card/60 backdrop-blur-md shadow-sm">
 				{devicePresets.length === 0 ? (
 					<div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-						<p className="text-sm">暂无机型预设</p>
-						<p className="text-xs mt-1">点击右上角「新增机型预设」创建第一个</p>
+						<p className="text-sm">{t('page.empty')}</p>
+						<p className="text-xs mt-1">{t('page.emptyHint')}</p>
 					</div>
 				) : (
 					<ScrollArea className="max-h-[calc(100vh-280px)]">
@@ -116,19 +130,29 @@ export function DevicePresetsPage({
 								>
 									<div className="min-w-0 flex-1">
 										<div className="flex items-center gap-2">
-											<p className="text-sm font-medium truncate">{preset.label}</p>
-											<Badge variant="outline" className="text-xs flex-shrink-0">
+											<p className="text-sm font-medium truncate">
+												{preset.label}
+											</p>
+											<Badge
+												variant="outline"
+												className="text-xs flex-shrink-0"
+											>
 												{preset.formFactor}
 											</Badge>
-											{preset.mobile && preset.formFactor.trim().toLowerCase() !== 'mobile' && (
-												<Badge variant="secondary" className="text-xs flex-shrink-0">
-													移动
-												</Badge>
-											)}
+											{preset.mobile &&
+												preset.formFactor.trim().toLowerCase() !== 'mobile' && (
+													<Badge
+														variant="secondary"
+														className="text-xs flex-shrink-0"
+													>
+														{t('common:mobile')}
+													</Badge>
+												)}
 										</div>
 										<p className="text-xs text-muted-foreground mt-0.5">
-											{preset.platform} · {preset.viewportWidth}×{preset.viewportHeight} · DPR{' '}
-											{preset.deviceScaleFactor} · {preset.arch} {preset.bitness}-bit
+											{preset.platform} · {preset.viewportWidth}×
+											{preset.viewportHeight} · DPR {preset.deviceScaleFactor} ·{' '}
+											{preset.arch} {preset.bitness}-bit
 										</p>
 									</div>
 
@@ -149,7 +173,7 @@ export function DevicePresetsPage({
 												onClick={() => openEdit(preset)}
 											>
 												<Pencil className="h-3.5 w-3.5 mr-2" />
-												编辑
+												{t('common:edit')}
 											</DropdownMenuItem>
 											<DropdownMenuSeparator />
 											<DropdownMenuItem
@@ -157,7 +181,7 @@ export function DevicePresetsPage({
 												onClick={() => setDeleteTarget(preset)}
 											>
 												<Trash2 className="h-3.5 w-3.5 mr-2" />
-												删除
+												{t('common:delete')}
 											</DropdownMenuItem>
 										</DropdownMenuContent>
 									</DropdownMenu>
@@ -169,27 +193,41 @@ export function DevicePresetsPage({
 			</Card>
 
 			{/* Edit / Create Dialog */}
-			<Dialog open={formOpen} onOpenChange={(v) => { if (!v) handleFormReset(); }}>
+			<Dialog
+				open={formOpen}
+				onOpenChange={(v) => {
+					if (!v) handleFormReset();
+				}}
+			>
 				<DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
 					<DialogHeader>
-						<DialogTitle>{activePreset ? '编辑机型预设' : '新增机型预设'}</DialogTitle>
+						<DialogTitle>
+							{activePreset ? t('page.editPreset') : t('page.addPreset')}
+						</DialogTitle>
 					</DialogHeader>
 					<DevicePresetForm
 						form={form}
 						activePreset={activePreset}
 						onReset={handleFormReset}
-						onSubmit={() => { void handleFormSubmit(); }}
+						onSubmit={() => {
+							void handleFormSubmit();
+						}}
 					/>
 				</DialogContent>
 			</Dialog>
 
 			{/* Delete Confirm Dialog */}
-			<Dialog open={Boolean(deleteTarget)} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+			<Dialog
+				open={Boolean(deleteTarget)}
+				onOpenChange={(v) => {
+					if (!v) setDeleteTarget(null);
+				}}
+			>
 				<DialogContent className="max-w-lg">
 					<DialogHeader>
-						<DialogTitle>删除机型预设</DialogTitle>
+						<DialogTitle>{t('page.deleteTitle')}</DialogTitle>
 						<DialogDescription>
-							确定要删除「{deleteTarget?.label}」吗？已关联此预设的环境将失去机型配置，此操作无法撤销。
+							{t('page.deleteDesc', { name: deleteTarget?.label })}
 						</DialogDescription>
 					</DialogHeader>
 					<DialogFooter className="gap-2">
@@ -199,16 +237,20 @@ export function DevicePresetsPage({
 							onClick={() => setDeleteTarget(null)}
 							className="cursor-pointer"
 						>
-							取消
+							{t('common:cancel')}
 						</Button>
 						<Button
 							type="button"
 							variant="destructive"
 							disabled={deleting}
-							onClick={() => { void confirmDelete(); }}
+							onClick={() => {
+								void confirmDelete();
+							}}
 							className="cursor-pointer"
 						>
-							{deleting ? '删除中…' : '确认删除'}
+							{deleting
+								? t('common:deletingInProgress')
+								: t('page.confirmDelete')}
 						</Button>
 					</DialogFooter>
 				</DialogContent>

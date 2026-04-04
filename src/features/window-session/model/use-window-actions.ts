@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import {
@@ -29,14 +30,15 @@ export function useWindowActions({
 	refreshWindowsStable,
 	refreshProfilesAndBindings,
 }: WindowActionsDeps) {
+	const { t } = useTranslation(['window', 'common']);
 	const openTab = async (profileId: string, url?: string) => {
 		await withWindowActionLock(profileId, async () => {
 			try {
 				await openProfileTabApi(profileId, url);
 				await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
-				toast.success('已新增标签页');
+				toast.success(t('window:actions.tabOpened'));
 			} catch (error) {
-				toast.error('新增标签页失败');
+				toast.error(t('window:actions.tabOpenFailed'));
 				throw error;
 			}
 		});
@@ -47,9 +49,9 @@ export function useWindowActions({
 			try {
 				await closeProfileTabApi(profileId, tabId);
 				await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
-				toast.success('标签页已关闭');
+				toast.success(t('window:actions.tabClosed'));
 			} catch (error) {
-				toast.error('关闭标签页失败');
+				toast.error(t('window:actions.tabCloseFailed'));
 				throw error;
 			}
 		});
@@ -60,9 +62,9 @@ export function useWindowActions({
 			try {
 				await closeInactiveTabsApi(profileId, windowId);
 				await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
-				toast.success('后台标签已关闭');
+				toast.success(t('window:actions.inactiveTabsClosed'));
 			} catch (error) {
-				toast.error('关闭后台标签失败');
+				toast.error(t('window:actions.inactiveTabsCloseFailed'));
 				throw error;
 			}
 		});
@@ -73,9 +75,9 @@ export function useWindowActions({
 			try {
 				await activateTabApi(profileId, tabId);
 				await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
-				toast.success('标签页已激活');
+				toast.success(t('window:actions.tabActivated'));
 			} catch (error) {
-				toast.error('激活标签页失败');
+				toast.error(t('window:actions.tabActivateFailed'));
 				throw error;
 			}
 		});
@@ -86,9 +88,9 @@ export function useWindowActions({
 			try {
 				await activateTabByIndexApi(profileId, index, windowId);
 				await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
-				toast.success('标签页索引切换成功');
+				toast.success(t('window:actions.tabIndexSwitched'));
 			} catch (error) {
-				toast.error('按索引激活标签页失败');
+				toast.error(t('window:actions.tabIndexSwitchFailed'));
 				throw error;
 			}
 		});
@@ -99,9 +101,9 @@ export function useWindowActions({
 			try {
 				await openProfileWindowApi(profileId, url);
 				await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
-				toast.success('已新增窗口');
+				toast.success(t('window:actions.windowOpened'));
 			} catch (error) {
-				toast.error('新增窗口失败');
+				toast.error(t('window:actions.windowOpenFailed'));
 				throw error;
 			}
 		});
@@ -112,9 +114,9 @@ export function useWindowActions({
 			try {
 				await closeProfileWindowApi(profileId, windowId);
 				await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
-				toast.success('窗口已关闭');
+				toast.success(t('window:actions.windowClosed'));
 			} catch (error) {
-				toast.error('关闭窗口失败');
+				toast.error(t('window:actions.windowCloseFailed'));
 				throw error;
 			}
 		});
@@ -125,9 +127,9 @@ export function useWindowActions({
 			try {
 				await focusProfileWindowApi(profileId, windowId);
 				await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
-				toast.success('窗口已聚焦');
+				toast.success(t('window:actions.windowFocused'));
 			} catch (error) {
-				toast.error('聚焦窗口失败');
+				toast.error(t('window:actions.windowFocusFailed'));
 				throw error;
 			}
 		});
@@ -142,9 +144,9 @@ export function useWindowActions({
 			try {
 				await setProfileWindowBoundsApi(profileId, bounds, windowId);
 				await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
-				toast.success('窗口尺寸已更新');
+				toast.success(t('window:actions.boundsUpdated'));
 			} catch (error) {
-				toast.error('设置窗口尺寸失败');
+				toast.error(t('window:actions.boundsUpdateFailed'));
 				throw error;
 			}
 		});
@@ -155,12 +157,12 @@ export function useWindowActions({
 			const result = await batchOpenProfileTabsApi(profileIds, url);
 			await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
 			if (result.failedCount > 0) {
-				toast.warning(`批量新标签完成：成功 ${result.successCount}，失败 ${result.failedCount}`);
+				toast.warning(t('common:batchResult', { action: t('window:actions.batchOpenTabs'), success: result.successCount, fail: result.failedCount }));
 			} else {
-				toast.success(`批量新标签完成：${result.successCount}/${result.total}`);
+				toast.success(t('common:batchResult', { action: t('window:actions.batchOpenTabs'), success: result.successCount, fail: 0 }));
 			}
 		} catch (error) {
-			toast.error('批量新增标签页失败');
+			toast.error(t('window:actions.batchOpenTabsFailed'));
 			throw error;
 		}
 	};
@@ -170,12 +172,12 @@ export function useWindowActions({
 			const result = await batchCloseProfileTabsApi(profileIds);
 			await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
 			if (result.failedCount > 0) {
-				toast.warning(`批量关标签完成：成功 ${result.successCount}，失败 ${result.failedCount}`);
+				toast.warning(t('common:batchResult', { action: t('window:actions.batchCloseTabs'), success: result.successCount, fail: result.failedCount }));
 			} else {
-				toast.success(`批量关标签完成：${result.successCount}/${result.total}`);
+				toast.success(t('common:batchResult', { action: t('window:actions.batchCloseTabs'), success: result.successCount, fail: 0 }));
 			}
 		} catch (error) {
-			toast.error('批量关闭标签页失败');
+			toast.error(t('window:actions.batchCloseTabsFailed'));
 			throw error;
 		}
 	};
@@ -185,12 +187,12 @@ export function useWindowActions({
 			const result = await batchCloseInactiveTabsApi(profileIds);
 			await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
 			if (result.failedCount > 0) {
-				toast.warning(`批量关后台标签完成：成功 ${result.successCount}，失败 ${result.failedCount}`);
+				toast.warning(t('common:batchResult', { action: t('window:actions.batchCloseInactiveTabs'), success: result.successCount, fail: result.failedCount }));
 			} else {
-				toast.success(`批量关后台标签完成：${result.successCount}/${result.total}`);
+				toast.success(t('common:batchResult', { action: t('window:actions.batchCloseInactiveTabs'), success: result.successCount, fail: 0 }));
 			}
 		} catch (error) {
-			toast.error('批量关闭后台标签失败');
+			toast.error(t('window:actions.batchCloseInactiveTabsFailed'));
 			throw error;
 		}
 	};
@@ -200,12 +202,12 @@ export function useWindowActions({
 			const result = await batchOpenProfileWindowsApi(profileIds, url);
 			await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
 			if (result.failedCount > 0) {
-				toast.warning(`批量新窗口完成：成功 ${result.successCount}，失败 ${result.failedCount}`);
+				toast.warning(t('common:batchResult', { action: t('window:actions.batchOpenWindows'), success: result.successCount, fail: result.failedCount }));
 			} else {
-				toast.success(`批量新窗口完成：${result.successCount}/${result.total}`);
+				toast.success(t('common:batchResult', { action: t('window:actions.batchOpenWindows'), success: result.successCount, fail: 0 }));
 			}
 		} catch (error) {
-			toast.error('批量新增窗口失败');
+			toast.error(t('window:actions.batchOpenWindowsFailed'));
 			throw error;
 		}
 	};
@@ -215,12 +217,12 @@ export function useWindowActions({
 			const result = await batchFocusProfileWindowsApi(profileIds);
 			await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
 			if (result.failedCount > 0) {
-				toast.warning(`批量聚焦完成：成功 ${result.successCount}，失败 ${result.failedCount}`);
+				toast.warning(t('common:batchResult', { action: t('window:actions.batchFocusWindows'), success: result.successCount, fail: result.failedCount }));
 			} else {
-				toast.success(`批量聚焦完成：${result.successCount}/${result.total}`);
+				toast.success(t('common:batchResult', { action: t('window:actions.batchFocusWindows'), success: result.successCount, fail: 0 }));
 			}
 		} catch (error) {
-			toast.error('批量聚焦窗口失败');
+			toast.error(t('window:actions.batchFocusWindowsFailed'));
 			throw error;
 		}
 	};

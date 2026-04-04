@@ -1,10 +1,11 @@
 import { Logs, MonitorCog, MoonStar, Search, Sun } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/lib/utils';
 
-import { WORKSPACE_SECTIONS } from '@/app/model/workspace-sections';
-import { WORKSPACE_NAV_ITEMS } from '@/app/model/workspace-nav-items';
+import { getWorkspaceSections } from '@/app/model/workspace-sections';
+import { getWorkspaceNavItems } from '@/app/model/workspace-nav-items';
 import { resolvePathFromNav } from '@/app/workspace-routes';
 import type { NavId } from '@/app/model/workspace-types';
 import {
@@ -35,12 +36,13 @@ export function WorkspaceTopbar({
 	onOpenLogPanel,
 	onNavigate,
 }: WorkspaceTopbarProps) {
+	const { t } = useTranslation('common');
 	const [commandOpen, setCommandOpen] = useState(false);
-	const section = WORKSPACE_SECTIONS[activeNav];
+	const section = getWorkspaceSections()[activeNav];
 
 	const navCommands = useMemo(
 		() =>
-			WORKSPACE_NAV_ITEMS.map((item) => ({
+			getWorkspaceNavItems().map((item) => ({
 				label: item.label,
 				path: resolvePathFromNav(item.id),
 			})),
@@ -82,7 +84,7 @@ export function WorkspaceTopbar({
 							data-icon="inline-start"
 							className="text-muted-foreground"
 						/>
-						搜索命令
+						{t('nav:searchCommand')}
 					</Button>
 					<Button
 						type="button"
@@ -91,7 +93,7 @@ export function WorkspaceTopbar({
 						onClick={onOpenLogPanel}
 					>
 						<Logs data-icon="inline-start" className="text-muted-foreground" />
-						日志面板
+						{t('nav:logPanel')}
 					</Button>
 					<div className="flex items-center rounded-xl border border-border/40 bg-background/50 dark:bg-background/50 p-1 shadow-sm transition-all duration-300 hover:shadow-md">
 						<Button
@@ -137,13 +139,13 @@ export function WorkspaceTopbar({
 			<CommandDialog
 				open={commandOpen}
 				onOpenChange={setCommandOpen}
-				title="全局命令"
-				description="快速跳转页面与触发常用动作"
+				title={t('nav:globalCommand')}
+				description={t('nav:globalCommandDesc')}
 			>
-				<CommandInput placeholder="输入页面或命令关键字..." />
+				<CommandInput placeholder={t('nav:commandPlaceholder')} />
 				<CommandList>
-					<CommandEmpty>没有匹配项</CommandEmpty>
-					<CommandGroup heading="页面跳转">
+					<CommandEmpty>{t('common:noMatches')}</CommandEmpty>
+					<CommandGroup heading={t('nav:pageJump')}>
 						{navCommands.map((command) => (
 							<CommandItem
 								key={command.path}
@@ -157,14 +159,14 @@ export function WorkspaceTopbar({
 						))}
 					</CommandGroup>
 					<CommandSeparator />
-					<CommandGroup heading="动作">
+					<CommandGroup heading={t('nav:actions')}>
 						<CommandItem
 							onSelect={() => {
 								onOpenLogPanel?.();
 								setCommandOpen(false);
 							}}
 						>
-							打开日志面板
+							{t('nav:openLogPanel')}
 						</CommandItem>
 					</CommandGroup>
 				</CommandList>

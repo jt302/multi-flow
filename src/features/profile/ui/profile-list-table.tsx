@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 import {
 	Checkbox,
 	Table,
@@ -93,11 +95,12 @@ export function ProfileListTable({
 	onRunAction,
 	onErrorReset,
 }: ProfileListTableProps) {
+	const { t } = useTranslation('profile');
 	return (
 		<div className="overflow-hidden rounded-xl border border-border/70">
 			{profiles.length === 0 ? (
 				<div className="px-4 py-10 text-center text-sm text-muted-foreground">
-					没有匹配当前筛选条件的环境。
+					{t('list:emptyNoMatch')}
 				</div>
 			) : (
 				<Table>
@@ -123,12 +126,12 @@ export function ProfileListTable({
 									<span aria-hidden="true" className="h-9 w-9" />
 								</div>
 							</TableHead>
-							<TableHead>环境</TableHead>
-							<TableHead>备注 / 版本</TableHead>
-							<TableHead>设备</TableHead>
-							<TableHead>代理信息</TableHead>
-							<TableHead className="w-[140px]">运行状态</TableHead>
-							<TableHead className="w-[130px] text-right">操作</TableHead>
+							<TableHead>{t('list:profile')}</TableHead>
+							<TableHead>{t('list:noteVersion')}</TableHead>
+							<TableHead>{t('list:device')}</TableHead>
+							<TableHead>{t('list:proxy')}</TableHead>
+							<TableHead className="w-[140px]">{t('list:status')}</TableHead>
+							<TableHead className="w-[130px] text-right">{t('list:action')}</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>

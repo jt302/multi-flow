@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Icon } from '@/components/ui';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
-import { WORKSPACE_SECTIONS } from '@/app/model/workspace-sections';
+import { getWorkspaceSections } from '@/app/model/workspace-sections';
 import type { SettingsPageProps } from '@/features/settings/model/types';
 import {
-	SETTINGS_TABS,
+	getSettingsTabs,
 	DEFAULT_SETTINGS_TAB,
 	type SettingsTabId,
 } from './settings-tab-constants';
 import { ThemeCustomizerCard } from './theme-customizer-card';
 import { AiProviderConfigCard } from './ai-provider-config-card';
+import { CaptchaSolverConfigCard } from './captcha-solver-config-card';
 import { ResourceManagementCard } from './resource-management-card';
 import { GeneralSettingsPlaceholder } from './general-settings-placeholder';
 import { RecycleBinRoutePage } from '@/pages/recycle-bin';
@@ -30,11 +32,13 @@ export function SettingsPage({
 	onDownloadResource,
 	resourceProgress,
 }: SettingsPageProps) {
-	const section = WORKSPACE_SECTIONS.settings;
+	const { t } = useTranslation('settings');
+	const section = getWorkspaceSections().settings;
+	const settingsTabs = getSettingsTabs();
 	const [pendingKey, setPendingKey] = useState('');
 	const [activeTab, setActiveTabRaw] = useState<SettingsTabId>(() => {
 		const saved = localStorage.getItem('mf_settings_tab');
-		return SETTINGS_TABS.some((t) => t.id === saved)
+		return settingsTabs.some((t) => t.id === saved)
 			? (saved as SettingsTabId)
 			: DEFAULT_SETTINGS_TAB;
 	});
@@ -67,7 +71,7 @@ export function SettingsPage({
 	return (
 		<div className="flex h-full min-h-0 w-full flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
 			<ActiveSectionCard
-				label="通用设置"
+				label={t('general.title')}
 				title={section.title}
 				description={section.desc}
 			/>
@@ -75,7 +79,7 @@ export function SettingsPage({
 			<div className="grid grid-cols-[11rem_1fr] gap-4 flex-1 min-h-0">
 				{/* 左侧 Tab 导航 */}
 				<nav className="flex flex-col self-start h-fit rounded-xl border border-border/40 bg-card/60 backdrop-blur-md p-2 gap-0.5">
-					{SETTINGS_TABS.map((tab) => (
+					{settingsTabs.map((tab) => (
 						<button
 							key={tab.id}
 							type="button"
@@ -131,7 +135,12 @@ export function SettingsPage({
 							/>
 						)}
 
-						{activeTab === 'ai' && <AiProviderConfigCard />}
+						{activeTab === 'ai' && (
+							<div className="space-y-4">
+								<AiProviderConfigCard />
+								<CaptchaSolverConfigCard />
+							</div>
+						)}
 
 						{activeTab === 'recycle-bin' && <RecycleBinRoutePage />}
 					</div>

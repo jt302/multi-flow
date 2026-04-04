@@ -1,5 +1,6 @@
 import { Plus, Save } from 'lucide-react';
 import { Controller, type UseFormReturn } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 
 import {
 	Badge,
@@ -41,6 +42,7 @@ export function DevicePresetForm({
 	onSubmit,
 }: DevicePresetFormProps) {
 	const mobileCheckboxId = 'device-preset-mobile';
+	const { t } = useTranslation(['device', 'common']);
 	const {
 		register,
 		control,
@@ -52,12 +54,18 @@ export function DevicePresetForm({
 			<CardHeader className="p-0">
 				<div className="flex items-center justify-between gap-3">
 					<div>
-						<CardTitle className="text-sm">{activePreset ? '编辑机型映射' : '新增机型映射'}</CardTitle>
+						<CardTitle className="text-sm">
+							{activePreset ? t('form.editTitle') : t('form.createTitle')}
+						</CardTitle>
 						<p className="mt-1 text-xs text-muted-foreground">
-							这里维护环境创建、环境列表展示和启动链路共用的机型映射参数。
+							{t('form.cardDesc')}
 						</p>
 					</div>
-					{activePreset ? <Badge variant="outline">编辑中</Badge> : <Badge variant="secondary">待保存新项</Badge>}
+					{activePreset ? (
+						<Badge variant="outline">{t('form.editing')}</Badge>
+					) : (
+						<Badge variant="secondary">{t('form.pendingSave')}</Badge>
+					)}
 				</div>
 			</CardHeader>
 			<CardContent className="p-0 pt-4">
@@ -70,19 +78,30 @@ export function DevicePresetForm({
 				>
 					<div className="grid gap-3 md:grid-cols-2">
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">机型名称</p>
-							<Input {...register('label')} placeholder="例如 Pixel 8 Lab" />
-							{errors.label ? <p className="mt-1 text-xs text-destructive">{errors.label.message}</p> : null}
+							<p className="mb-1 text-xs text-muted-foreground">
+								{t('form.name')}
+							</p>
+							<Input
+								{...register('label')}
+								placeholder={t('form.namePlaceholder')}
+							/>
+							{errors.label ? (
+								<p className="mt-1 text-xs text-destructive">
+									{errors.label.message}
+								</p>
+							) : null}
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">平台</p>
+							<p className="mb-1 text-xs text-muted-foreground">
+								{t('form.platform')}
+							</p>
 							<Controller
 								control={control}
 								name="platform"
 								render={({ field }) => (
 									<Select value={field.value} onValueChange={field.onChange}>
 										<SelectTrigger className="w-full">
-											<SelectValue placeholder="选择平台" />
+											<SelectValue placeholder={t('form.selectPlatform')} />
 										</SelectTrigger>
 										<SelectContent>
 											{PLATFORM_OPTIONS.map((option) => (
@@ -96,37 +115,70 @@ export function DevicePresetForm({
 							/>
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">平台版本</p>
-							<Input {...register('platformVersion')} placeholder="例如 14.0.0" />
+							<p className="mb-1 text-xs text-muted-foreground">
+								{t('form.platformVersion')}
+							</p>
+							<Input
+								{...register('platformVersion')}
+								placeholder={t('form.platformVersionPlaceholder')}
+							/>
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">平台参数</p>
-							<Input {...register('customPlatform')} placeholder="例如 Win32 / MacIntel / Linux armv81" />
-						</div>
-					</div>
-
-					<div className="grid gap-3 md:grid-cols-4">
-						<div>
-							<p className="mb-1 text-xs text-muted-foreground">宽度</p>
-							<Input type="number" {...register('viewportWidth', { valueAsNumber: true })} />
-						</div>
-						<div>
-							<p className="mb-1 text-xs text-muted-foreground">高度</p>
-							<Input type="number" {...register('viewportHeight', { valueAsNumber: true })} />
-						</div>
-						<div>
-							<p className="mb-1 text-xs text-muted-foreground">DPR</p>
-							<Input type="number" step="0.125" {...register('deviceScaleFactor', { valueAsNumber: true })} />
-						</div>
-						<div>
-							<p className="mb-1 text-xs text-muted-foreground">触点</p>
-							<Input type="number" {...register('touchPoints', { valueAsNumber: true })} />
+							<p className="mb-1 text-xs text-muted-foreground">
+								{t('form.platformParams')}
+							</p>
+							<Input
+								{...register('customPlatform')}
+								placeholder={t('form.platformParamsPlaceholder')}
+							/>
 						</div>
 					</div>
 
 					<div className="grid gap-3 md:grid-cols-4">
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">架构</p>
+							<p className="mb-1 text-xs text-muted-foreground">
+								{t('form.width')}
+							</p>
+							<Input
+								type="number"
+								{...register('viewportWidth', { valueAsNumber: true })}
+							/>
+						</div>
+						<div>
+							<p className="mb-1 text-xs text-muted-foreground">
+								{t('form.height')}
+							</p>
+							<Input
+								type="number"
+								{...register('viewportHeight', { valueAsNumber: true })}
+							/>
+						</div>
+						<div>
+							<p className="mb-1 text-xs text-muted-foreground">
+								{t('form.dpr')}
+							</p>
+							<Input
+								type="number"
+								step="0.125"
+								{...register('deviceScaleFactor', { valueAsNumber: true })}
+							/>
+						</div>
+						<div>
+							<p className="mb-1 text-xs text-muted-foreground">
+								{t('form.touchPoints')}
+							</p>
+							<Input
+								type="number"
+								{...register('touchPoints', { valueAsNumber: true })}
+							/>
+						</div>
+					</div>
+
+					<div className="grid gap-3 md:grid-cols-4">
+						<div>
+							<p className="mb-1 text-xs text-muted-foreground">
+								{t('form.arch')}
+							</p>
 							<Controller
 								control={control}
 								name="arch"
@@ -147,7 +199,9 @@ export function DevicePresetForm({
 							/>
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">位数</p>
+							<p className="mb-1 text-xs text-muted-foreground">
+								{t('form.bitness')}
+							</p>
 							<Controller
 								control={control}
 								name="bitness"
@@ -168,7 +222,9 @@ export function DevicePresetForm({
 							/>
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">形态</p>
+							<p className="mb-1 text-xs text-muted-foreground">
+								{t('form.formFactor')}
+							</p>
 							<Controller
 								control={control}
 								name="formFactor"
@@ -189,7 +245,10 @@ export function DevicePresetForm({
 							/>
 						</div>
 						<div className="flex items-end">
-							<label htmlFor={mobileCheckboxId} className="flex h-9 items-center gap-2 text-sm text-foreground">
+							<label
+								htmlFor={mobileCheckboxId}
+								className="flex h-9 items-center gap-2 text-sm text-foreground"
+							>
 								<Controller
 									control={control}
 									name="mobile"
@@ -197,48 +256,84 @@ export function DevicePresetForm({
 										<Checkbox
 											id={mobileCheckboxId}
 											checked={field.value}
-											onCheckedChange={(checked) => field.onChange(Boolean(checked))}
+											onCheckedChange={(checked) =>
+												field.onChange(Boolean(checked))
+											}
 										/>
 									)}
 								/>
-								移动设备
+								{t('form.mobileDevice')}
 							</label>
 						</div>
 					</div>
 
 					<div className="grid gap-3 md:grid-cols-2">
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">GL Vendor</p>
-							<Input {...register('customGlVendor')} placeholder="例如 Apple / Qualcomm / Google Inc. (Intel)" />
+							<p className="mb-1 text-xs text-muted-foreground">
+								{t('form.glVendor')}
+							</p>
+							<Input
+								{...register('customGlVendor')}
+								placeholder={t('form.glVendorPlaceholder')}
+							/>
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">GL Renderer</p>
-							<Input {...register('customGlRenderer')} placeholder="例如 Apple M3 / Adreno 750" />
+							<p className="mb-1 text-xs text-muted-foreground">
+								{t('form.glRenderer')}
+							</p>
+							<Input
+								{...register('customGlRenderer')}
+								placeholder={t('form.glRendererPlaceholder')}
+							/>
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">CPU 核心数</p>
-							<Input type="number" {...register('customCpuCores', { valueAsNumber: true })} />
+							<p className="mb-1 text-xs text-muted-foreground">
+								{t('form.cpuCores')}
+							</p>
+							<Input
+								type="number"
+								{...register('customCpuCores', { valueAsNumber: true })}
+							/>
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">内存 (GB)</p>
-							<Input type="number" {...register('customRamGb', { valueAsNumber: true })} />
-							{errors.customRamGb ? <p className="mt-1 text-xs text-destructive">{errors.customRamGb.message}</p> : null}
+							<p className="mb-1 text-xs text-muted-foreground">
+								{t('form.memory')}
+							</p>
+							<Input
+								type="number"
+								{...register('customRamGb', { valueAsNumber: true })}
+							/>
+							{errors.customRamGb ? (
+								<p className="mt-1 text-xs text-destructive">
+									{errors.customRamGb.message}
+								</p>
+							) : null}
 						</div>
 					</div>
 
 					<div>
-						<p className="mb-1 text-xs text-muted-foreground">UA 模板</p>
-						<Textarea rows={4} {...register('userAgentTemplate')} placeholder="Mozilla/5.0 (...) Chrome/{version} Safari/537.36" />
-						{errors.userAgentTemplate ? <p className="mt-1 text-xs text-destructive">{errors.userAgentTemplate.message}</p> : null}
+						<p className="mb-1 text-xs text-muted-foreground">
+							{t('form.uaTemplate')}
+						</p>
+						<Textarea
+							rows={4}
+							{...register('userAgentTemplate')}
+							placeholder="Mozilla/5.0 (...) Chrome/{version} Safari/537.36"
+						/>
+						{errors.userAgentTemplate ? (
+							<p className="mt-1 text-xs text-destructive">
+								{errors.userAgentTemplate.message}
+							</p>
+						) : null}
 					</div>
 
 					<div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-3">
 						<Button type="button" variant="ghost" onClick={onReset}>
-							清空并新建
+							{t('form.clearAndNew')}
 						</Button>
 						<Button type="submit" disabled={isSubmitting}>
 							<Icon icon={activePreset ? Save : Plus} size={14} />
-							{activePreset ? '保存修改' : '保存新机型'}
+							{activePreset ? t('form.saveChanges') : t('form.saveNewPreset')}
 						</Button>
 					</div>
 				</form>

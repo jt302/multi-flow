@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { z } from 'zod/v3';
 
 import {
@@ -21,16 +22,16 @@ import type { CreateProxyPayload, ProxyProtocol } from '@/features/proxy/model/t
 
 const PROTOCOL_OPTIONS: ProxyProtocol[] = ['http', 'https', 'socks5', 'ssh'];
 
-const createProxyFormSchema = z.object({
-	name: z.string().trim().min(1, '代理名称不能为空'),
+const createProxyFormSchema = (t: (key: string) => string) => z.object({
+	name: z.string().trim().min(1, t('common:errors.proxyNameRequired')),
 	protocol: z.enum(['http', 'https', 'socks5', 'ssh']),
-	host: z.string().trim().min(1, '主机地址不能为空'),
-	port: z.coerce.number().int('端口必须是整数').min(1, '端口必须在 1-65535 范围').max(65535, '端口必须在 1-65535 范围'),
+	host: z.string().trim().min(1, t('common:errors.hostRequired')),
+	port: z.coerce.number().int(t('common:errors.portInteger')).min(1, t('common:errors.portRange')).max(65535, t('common:errors.portRange')),
 	provider: z.string(),
 	note: z.string(),
 });
 
-type ProxyCreateFormValues = z.infer<typeof createProxyFormSchema>;
+type ProxyCreateFormValues = z.infer<ReturnType<typeof createProxyFormSchema>>;
 
 type ProxyCreateCardProps = {
 	pending: boolean;
@@ -38,6 +39,7 @@ type ProxyCreateCardProps = {
 };
 
 export function ProxyCreateCard({ pending, onCreateProxy }: ProxyCreateCardProps) {
+	const { t } = useTranslation();
 	const {
 		register,
 		handleSubmit,
@@ -46,7 +48,7 @@ export function ProxyCreateCard({ pending, onCreateProxy }: ProxyCreateCardProps
 		reset,
 		formState: { errors },
 	} = useForm<ProxyCreateFormValues>({
-		resolver: zodResolver(createProxyFormSchema),
+		resolver: zodResolver(createProxyFormSchema(t)),
 		defaultValues: {
 			name: '',
 			protocol: 'http',
@@ -60,7 +62,7 @@ export function ProxyCreateCard({ pending, onCreateProxy }: ProxyCreateCardProps
 	return (
 		<Card className="p-4">
 			<CardHeader className="p-0">
-				<CardTitle className="text-sm">新增代理</CardTitle>
+				<CardTitle className="text-sm">{t('common:createItem', { item: t('common:proxy') })}</CardTitle>
 			</CardHeader>
 			<CardContent className="p-0 pt-3">
 				<form
@@ -85,15 +87,15 @@ export function ProxyCreateCard({ pending, onCreateProxy }: ProxyCreateCardProps
 					})}
 				>
 					<div>
-						<p className="mb-1 text-xs text-muted-foreground">代理名称</p>
-						<Input {...register('name')} placeholder="例如 Proxy-US-01" />
+						<p className="mb-1 text-xs text-muted-foreground">{t('common:name')}</p>
+						<Input {...register('name')} placeholder={t('common:placeholder.proxyNameExample')} />
 						{errors.name ? <p className="mt-1 text-xs text-destructive">{errors.name.message}</p> : null}
 					</div>
 					<div className="grid grid-cols-[120px_minmax(0,1fr)_90px] gap-2">
 						<div>
 							<Select value={watch('protocol')} onValueChange={(value: string) => setValue('protocol', value as ProxyProtocol, { shouldValidate: true })}>
 								<SelectTrigger className="w-full">
-									<SelectValue placeholder="协议" />
+									<SelectValue placeholder={t('common:protocol')} />
 								</SelectTrigger>
 								<SelectContent>
 									{PROTOCOL_OPTIONS.map((protocol) => (
@@ -105,19 +107,19 @@ export function ProxyCreateCard({ pending, onCreateProxy }: ProxyCreateCardProps
 							</Select>
 						</div>
 						<div>
-							<Input {...register('host')} placeholder="host / ip" />
+							<Input {...register('host')} placeholder={t('common:placeholder.hostIp')} />
 							{errors.host ? <p className="mt-1 text-xs text-destructive">{errors.host.message}</p> : null}
 						</div>
 						<div>
-							<Input type="number" {...register('port')} placeholder="port" />
+							<Input type="number" {...register('port')} placeholder={t('common:placeholder.port')} />
 							{errors.port ? <p className="mt-1 text-xs text-destructive">{errors.port.message}</p> : null}
 						</div>
 					</div>
-					<Input {...register('provider')} placeholder="供应商" />
-					<Input {...register('note')} placeholder="备注" />
+					<Input {...register('provider')} placeholder={t('common:protocol')} />
+					<Input {...register('note')} placeholder={t('common:note')} />
 					<Button type="submit" className="w-full" disabled={pending}>
 						<Icon icon={Plus} size={14} />
-						新增代理
+						{t('common:createItem', { item: t('common:proxy') })}
 					</Button>
 				</form>
 			</CardContent>

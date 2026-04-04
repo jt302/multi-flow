@@ -8,33 +8,37 @@ import type {
 	SaveProfileDevicePresetPayload,
 } from '@/entities/profile/model/types';
 
-export const devicePresetSchema = z.object({
-	label: z.string().trim().min(1, '机型名称不能为空'),
-	platform: z.string().trim().min(1, '平台不能为空'),
-	platformVersion: z.string().trim().min(1, '平台版本不能为空'),
-	viewportWidth: z.number().int().min(1, '宽度必须大于 0'),
-	viewportHeight: z.number().int().min(1, '高度必须大于 0'),
-	deviceScaleFactor: z.number().positive('DPR 必须大于 0'),
-	touchPoints: z.number().int().min(0, '触点不能小于 0'),
-	customPlatform: z.string().trim().min(1, '平台参数不能为空'),
-	arch: z.string().trim().min(1, '架构不能为空'),
-	bitness: z.string().trim().min(1, '位数不能为空'),
-	mobile: z.boolean(),
-	formFactor: z.string().trim().min(1, '形态不能为空'),
-	userAgentTemplate: z
-		.string()
-		.trim()
-		.min(1, 'UA 模板不能为空')
-		.refine((value) => value.includes('{version}'), {
-			message: 'UA 模板必须包含 {version}',
-		}),
-	customGlVendor: z.string().trim().min(1, 'GL Vendor 不能为空'),
-	customGlRenderer: z.string().trim().min(1, 'GL Renderer 不能为空'),
-	customCpuCores: z.number().int().min(1, 'CPU 核心数必须大于 0'),
-	customRamGb: z.number().int().min(1, '内存必须大于 0').max(8, '内存最大为 8 GB'),
-});
+export const createDevicePresetSchema = (t: (key: string) => string) =>
+	z.object({
+		label: z.string().trim().min(1, t('common:validation.devicePreset.nameRequired')),
+		platform: z.string().trim().min(1, t('common:validation.devicePreset.platformRequired')),
+		platformVersion: z.string().trim().min(1, t('common:validation.devicePreset.platformVersionRequired')),
+		viewportWidth: z.number().int().min(1, t('common:validation.devicePreset.widthMin')),
+		viewportHeight: z.number().int().min(1, t('common:validation.devicePreset.heightMin')),
+		deviceScaleFactor: z.number().positive(t('common:validation.devicePreset.dprPositive')),
+		touchPoints: z.number().int().min(0, t('common:validation.devicePreset.touchPointsMin')),
+		customPlatform: z.string().trim().min(1, t('common:validation.devicePreset.customPlatformRequired')),
+		arch: z.string().trim().min(1, t('common:validation.devicePreset.archRequired')),
+		bitness: z.string().trim().min(1, t('common:validation.devicePreset.bitnessRequired')),
+		mobile: z.boolean(),
+		formFactor: z.string().trim().min(1, t('common:validation.devicePreset.formFactorRequired')),
+		userAgentTemplate: z
+			.string()
+			.trim()
+			.min(1, t('common:validation.devicePreset.uaTemplateRequired'))
+			.refine((value) => value.includes('{version}'), {
+				message: t('common:validation.devicePreset.uaTemplateVersion'),
+			}),
+		customGlVendor: z.string().trim().min(1, t('common:validation.devicePreset.glVendorRequired')),
+		customGlRenderer: z.string().trim().min(1, t('common:validation.devicePreset.glRendererRequired')),
+		customCpuCores: z.number().int().min(1, t('common:validation.devicePreset.cpuCoresMin')),
+		customRamGb: z.number()
+			.int()
+			.min(1, t('common:validation.devicePreset.memoryMin'))
+			.max(8, t('common:validation.devicePreset.memoryMax')),
+	});
 
-export type DevicePresetFormValues = z.infer<typeof devicePresetSchema>;
+export type DevicePresetFormValues = z.infer<ReturnType<typeof createDevicePresetSchema>>;
 
 export const PLATFORM_OPTIONS = [
 	{ value: 'macos', label: 'macOS' },
@@ -132,6 +136,7 @@ type UseDevicePresetEditorOptions = {
 	onCreateDevicePreset: (payload: SaveProfileDevicePresetPayload) => Promise<void>;
 	onUpdateDevicePreset: (presetId: string, payload: SaveProfileDevicePresetPayload) => Promise<void>;
 	onRefreshDevicePresets: () => Promise<void>;
+	t: (key: string) => string;
 };
 
 export function useDevicePresetEditor({
@@ -139,12 +144,16 @@ export function useDevicePresetEditor({
 	onCreateDevicePreset,
 	onUpdateDevicePreset,
 	onRefreshDevicePresets,
+	t,
 }: UseDevicePresetEditorOptions) {
 	const [activePresetId, setActivePresetId] = useState<string | null>(null);
 	const activePreset = useMemo(
 		() => devicePresets.find((item) => item.id === activePresetId) ?? null,
 		[activePresetId, devicePresets],
 	);
+
+	const devicePresetSchema = useMemo(() => createDevicePresetSchema(t), [t]);
+
 	const form = useForm<DevicePresetFormValues>({
 		resolver: zodResolver(devicePresetSchema),
 		defaultValues: getDefaultPresetValues(),
