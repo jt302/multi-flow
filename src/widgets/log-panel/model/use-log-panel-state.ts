@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import type { BackendLogEvent } from '@/entities/log-entry/api/logs-api';
@@ -168,6 +169,7 @@ export function filterBackendLogs(
 }
 
 export function useLogPanelState() {
+	const { t } = useTranslation('log');
 	const [state, dispatch] = useReducer(reducer, initialState);
 	const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -183,7 +185,7 @@ export function useLogPanelState() {
 				}
 			} catch (error) {
 				if (!disposed) {
-					toast.error('读取后端日志失败');
+					toast.error(t('errors.readFailed'));
 				}
 				console.error(error);
 			} finally {
@@ -198,7 +200,7 @@ export function useLogPanelState() {
 				});
 			} catch (error) {
 				if (!disposed) {
-					toast.error('订阅日志事件失败');
+					toast.error(t('errors.subscribeFailed'));
 				}
 				console.error(error);
 			}
@@ -258,7 +260,7 @@ export function useLogPanelState() {
 		try {
 			await openLogPanelWindow();
 		} catch (error) {
-			toast.error('打开独立日志窗口失败');
+			toast.error(t('errors.openWindowFailed'));
 			console.error(error);
 		} finally {
 			dispatch({ type: 'set_opening_window', value: false });
@@ -275,11 +277,11 @@ export function useLogPanelState() {
 				filteredLogs.map((item) => item.line),
 				`backend-logs-filtered-${Date.now()}.log`,
 			);
-			toast.success(`已导出 ${result.lineCount} 条日志`, {
+			toast.success(t('exported', { count: result.lineCount }), {
 				description: result.path,
 			});
 		} catch (error) {
-			toast.error('导出日志失败');
+			toast.error(t('errors.exportFailed'));
 			console.error(error);
 		} finally {
 			dispatch({ type: 'set_exporting', value: false });

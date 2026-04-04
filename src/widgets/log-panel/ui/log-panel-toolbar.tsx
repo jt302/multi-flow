@@ -7,9 +7,17 @@ import {
 	SquareArrowOutUpRight,
 	Trash2,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
-import { Badge, Button, CardHeader, CardTitle, Icon, Input } from '@/components/ui';
+import {
+	Badge,
+	Button,
+	CardHeader,
+	CardTitle,
+	Icon,
+	Input,
+} from '@/components/ui';
 import { LEVEL_OPTIONS } from '../model/use-log-panel-state';
 
 type LogPanelToolbarProps = {
@@ -59,12 +67,15 @@ export function LogPanelToolbar({
 	onKeywordChange,
 	onLevelFilterChange,
 }: LogPanelToolbarProps) {
+	const { t } = useTranslation('log');
 	return (
 		<CardHeader className="gap-3 pb-3">
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<div>
-					<p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">backend / logs</p>
-					<CardTitle className="mt-1 text-base">后端日志面板</CardTitle>
+					<p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+						backend / logs
+					</p>
+					<CardTitle className="mt-1 text-base">{t('toolbar.title')}</CardTitle>
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
 					{isStandalone ? null : (
@@ -73,30 +84,57 @@ export function LogPanelToolbar({
 							className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
 						>
 							<Icon icon={ArrowLeft} size={13} />
-							返回控制台
+							{t('toolbar.backToConsole')}
 						</Link>
 					)}
 					{isStandalone ? null : (
-						<Button type="button" variant="secondary" size="sm" disabled={openingWindow} onClick={onOpenDetachedWindow}>
+						<Button
+							type="button"
+							variant="secondary"
+							size="sm"
+							disabled={openingWindow}
+							onClick={onOpenDetachedWindow}
+						>
 							<Icon icon={SquareArrowOutUpRight} size={13} />
-							打开独立窗口
+							{t('toolbar.openWindow')}
 						</Button>
 					)}
-					<Button type="button" variant={autoScroll ? 'default' : 'outline'} size="sm" onClick={onToggleAutoScroll}>
+					<Button
+						type="button"
+						variant={autoScroll ? 'default' : 'outline'}
+						size="sm"
+						onClick={onToggleAutoScroll}
+					>
 						<Icon icon={ScanSearch} size={13} />
-						自动滚动
+						{t('toolbar.autoScroll')}
 					</Button>
-					<Button type="button" variant="outline" size="sm" onClick={onClearLogs}>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						onClick={onClearLogs}
+					>
 						<Icon icon={Trash2} size={13} />
-						清空视图
+						{t('toolbar.clearView')}
 					</Button>
-					<Button type="button" variant={groupByProfile ? 'default' : 'outline'} size="sm" onClick={onToggleGroupByProfile}>
+					<Button
+						type="button"
+						variant={groupByProfile ? 'default' : 'outline'}
+						size="sm"
+						onClick={onToggleGroupByProfile}
+					>
 						<Icon icon={ChevronsUpDown} size={13} />
-						按 Profile 分组
+						{t('toolbar.groupByProfile')}
 					</Button>
-					<Button type="button" variant="outline" size="sm" disabled={exporting} onClick={onExportCurrent}>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						disabled={exporting}
+						onClick={onExportCurrent}
+					>
 						<Icon icon={Download} size={13} />
-						导出过滤结果
+						{t('toolbar.exportFiltered')}
 					</Button>
 				</div>
 			</div>
@@ -118,33 +156,43 @@ export function LogPanelToolbar({
 				</div>
 				<Input
 					value={componentFilter}
-					onChange={(event) => onComponentFilterChange(event.currentTarget.value)}
-					placeholder="按 component 过滤，例如 engine_manager"
+					onChange={(event) =>
+						onComponentFilterChange(event.currentTarget.value)
+					}
+					placeholder={t('toolbar.componentFilter')}
 					className="bg-background/75"
 				/>
 				<Input
 					value={profileFilter}
 					onChange={(event) => onProfileFilterChange(event.currentTarget.value)}
-					placeholder="按 profile_id 过滤，例如 pf_000001"
+					placeholder={t('toolbar.profileFilter')}
 					className="bg-background/75"
 				/>
 				<Input
 					value={keyword}
 					onChange={(event) => onKeywordChange(event.currentTarget.value)}
-					placeholder="搜索日志内容"
+					placeholder={t('toolbar.searchContent')}
 					className="bg-background/75"
 				/>
 			</div>
 
 			<div className="flex items-center gap-2 text-xs text-muted-foreground">
-				<Badge variant="secondary">总计 {logCount}</Badge>
-				<Badge variant="secondary">过滤后 {filteredCount}</Badge>
-				<Badge variant="secondary">级别 {levelFilter}</Badge>
-				{groupByProfile ? <Badge variant="secondary">分组视图</Badge> : null}
+				<Badge variant="secondary">
+					{t('toolbar.total', { count: logCount })}
+				</Badge>
+				<Badge variant="secondary">
+					{t('toolbar.filtered', { count: filteredCount })}
+				</Badge>
+				<Badge variant="secondary">
+					{t('toolbar.level', { level: levelFilter })}
+				</Badge>
+				{groupByProfile ? (
+					<Badge variant="secondary">{t('toolbar.groupView')}</Badge>
+				) : null}
 				{loading ? (
 					<span className="inline-flex items-center gap-1">
 						<Icon icon={RefreshCw} size={12} className="animate-spin" />
-						加载历史日志中...
+						{t('toolbar.loadingHistory')}
 					</span>
 				) : null}
 			</div>

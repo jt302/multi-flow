@@ -8,12 +8,12 @@ use std::thread;
 use std::time::Duration;
 
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri::plugin::Builder as TauriPluginBuilder;
 use tauri::utils::config::WindowConfig;
 use tauri::{
     AppHandle, Manager, RunEvent, WebviewWindow, WebviewWindowBuilder, Window, WindowEvent,
 };
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 
@@ -167,6 +167,10 @@ pub fn run() {
             commands::automation_commands::create_ai_config,
             commands::automation_commands::update_ai_config,
             commands::automation_commands::delete_ai_config,
+            commands::automation_commands::list_captcha_configs,
+            commands::automation_commands::create_captcha_config,
+            commands::automation_commands::update_captcha_config,
+            commands::automation_commands::delete_captcha_config,
             commands::automation_commands::read_chromium_logging_enabled,
             commands::automation_commands::update_chromium_logging_enabled,
             commands::automation_commands::update_script_canvas_positions,
@@ -304,7 +308,7 @@ fn setup_native_menu(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Err
         .minimize()
         .build()?;
     let tools_submenu = SubmenuBuilder::new(app, "Tools")
-        .item(&MenuItemBuilder::with_id(MENU_ID_OPEN_LOG_PANEL, "打开日志面板").build(app)?)
+        .item(&MenuItemBuilder::with_id(MENU_ID_OPEN_LOG_PANEL, "Log Panel").build(app)?)
         .item(&MenuItemBuilder::with_id(MENU_ID_OPEN_DATA_DIR, "打开数据目录").build(app)?)
         .build()?;
     let menu = MenuBuilder::new(app)
@@ -570,7 +574,10 @@ impl MainWindowStateSource for Window {
     }
 
     fn current_monitor_snapshot(&self) -> Option<SavedMonitorSnapshot> {
-        self.current_monitor().ok().flatten().map(saved_monitor_snapshot)
+        self.current_monitor()
+            .ok()
+            .flatten()
+            .map(saved_monitor_snapshot)
     }
 
     fn available_monitor_snapshots(&self) -> Vec<SavedMonitorSnapshot> {
@@ -615,7 +622,10 @@ impl MainWindowStateSource for WebviewWindow {
     }
 
     fn current_monitor_snapshot(&self) -> Option<SavedMonitorSnapshot> {
-        self.current_monitor().ok().flatten().map(saved_monitor_snapshot)
+        self.current_monitor()
+            .ok()
+            .flatten()
+            .map(saved_monitor_snapshot)
     }
 
     fn available_monitor_snapshots(&self) -> Vec<SavedMonitorSnapshot> {
@@ -662,8 +672,11 @@ fn apply_saved_main_window_state(app: &AppHandle, mut config: WindowConfig) -> W
         return config;
     };
 
-    let restored =
-        apply_saved_main_window_state_with_monitors(config, &loaded.state, &collect_saved_monitor_snapshots(app));
+    let restored = apply_saved_main_window_state_with_monitors(
+        config,
+        &loaded.state,
+        &collect_saved_monitor_snapshots(app),
+    );
 
     logger::info(
         "main_window",
@@ -704,11 +717,7 @@ fn apply_saved_main_window_state_with_monitors(
     config
 }
 
-fn save_main_window_state<T: MainWindowStateSource>(
-    window: &T,
-    reason: &str,
-    log_success: bool,
-) {
+fn save_main_window_state<T: MainWindowStateSource>(window: &T, reason: &str, log_success: bool) {
     match capture_main_window_state(window).and_then(|state| {
         let path = main_window_state_path(&window.app_handle_owned())?;
         save_main_window_state_to_path(&path, &state)?;
@@ -732,7 +741,10 @@ fn save_main_window_state<T: MainWindowStateSource>(
             }
         }
         Err(err) => {
-            logger::warn("main_window", format!("save state via {reason} failed: {err}"));
+            logger::warn(
+                "main_window",
+                format!("save state via {reason} failed: {err}"),
+            );
         }
     }
 }
@@ -794,10 +806,7 @@ fn load_saved_main_window_state_from_path(path: &Path) -> Option<SavedMainWindow
     serde_json::from_str(&content).ok()
 }
 
-fn save_main_window_state_to_path(
-    path: &Path,
-    state: &SavedMainWindowState,
-) -> Result<(), String> {
+fn save_main_window_state_to_path(path: &Path, state: &SavedMainWindowState) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
             .map_err(|err| format!("create main window state dir failed: {err}"))?;
@@ -816,8 +825,16 @@ fn load_saved_main_window_plugin_state(app: &AppHandle) -> Option<SavedMainWindo
     Some(SavedMainWindowState {
         width: state.width,
         height: state.height,
-        x: if state.maximized { state.prev_x } else { state.x },
-        y: if state.maximized { state.prev_y } else { state.y },
+        x: if state.maximized {
+            state.prev_x
+        } else {
+            state.x
+        },
+        y: if state.maximized {
+            state.prev_y
+        } else {
+            state.y
+        },
         maximized: state.maximized,
         fullscreen: state.fullscreen,
         monitor: None,
@@ -857,12 +874,10 @@ fn capture_monitor_snapshot_for_window<T: MainWindowStateSource>(
     width: u32,
     height: u32,
 ) -> Option<SavedMonitorSnapshot> {
-    window
-        .current_monitor_snapshot()
-        .or_else(|| {
-            let monitors = window.available_monitor_snapshots();
-            find_monitor_for_saved_main_window(&monitors, x, y, width, height)
-        })
+    window.current_monitor_snapshot().or_else(|| {
+        let monitors = window.available_monitor_snapshots();
+        find_monitor_for_saved_main_window(&monitors, x, y, width, height)
+    })
 }
 
 fn find_restore_monitor_for_main_window(
