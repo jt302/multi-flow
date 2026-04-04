@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import type { ScriptStep } from './types';
 
 // ─── Step kind 完整列表（来自 script-editor-dialog.tsx）────────────────────────
@@ -238,6 +240,14 @@ export const KIND_LABELS: Record<string, string> = {
 	captcha_inject_token: '注入Token', captcha_solve_and_inject: '一键求解',
 	captcha_get_balance: '查询余额',
 };
+
+/** 获取步骤的本地化显示名称（支持 i18n，回退到 KIND_LABELS 中文常量） */
+export function getKindLabel(kind: string): string {
+	const key = `automation:stepLabels.${kind}`;
+	const translated = i18next.t(key);
+	// i18next 找不到 key 时返回 key 本身，此时回退到中文常量
+	return translated !== key ? translated : (KIND_LABELS[kind] ?? kind);
+}
 
 // ─── 步骤功能说明（tooltip 显示） ─────────────────────────────────────────────
 
