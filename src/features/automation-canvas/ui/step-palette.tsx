@@ -13,8 +13,8 @@ import { ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Search } from '
 import {
 	GROUP_COLORS,
 	KIND_DESCRIPTIONS,
-	KIND_LABELS,
 	PALETTE_DOT_COLORS,
+	getKindLabel,
 	PALETTE_GROUPS,
 } from '@/entities/automation/model/step-registry';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -62,7 +62,7 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 		const favoriteGroup = {
 			label: favoritesLabel,
 			kinds: FAVORITE_KINDS.filter((k) =>
-				!isSearching || (KIND_LABELS[k] ?? k).toLowerCase().includes(q) || k.toLowerCase().includes(q),
+				!isSearching || getKindLabel(k).toLowerCase().includes(q) || k.toLowerCase().includes(q),
 			),
 		};
 
@@ -73,7 +73,7 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 			kinds: group.kinds.filter((kind) => {
 				if (favoriteSet.has(kind)) return false;
 				if (!isSearching) return true;
-				const label = KIND_LABELS[kind] ?? kind;
+				const label = getKindLabel(kind);
 				return label.toLowerCase().includes(q) || kind.toLowerCase().includes(q);
 			}),
 		})).filter((group) => group.kinds.length > 0);
@@ -170,7 +170,7 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 											<span
 												className={`w-1 h-3.5 rounded-full flex-shrink-0 opacity-30 group-hover/item:opacity-60 transition-opacity ${PALETTE_DOT_COLORS[group.label] ?? 'bg-muted-foreground/50'}`}
 											/>
-											<span className="truncate">{KIND_LABELS[kind] ?? kind}</span>
+											<span className="truncate">{getKindLabel(kind)}</span>
 										</button>
 									))}
 							</div>
