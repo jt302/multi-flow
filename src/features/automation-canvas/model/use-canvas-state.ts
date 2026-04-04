@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Position, addEdge, applyEdgeChanges, applyNodeChanges } from '@xyflow/react';
 import type { Connection, Edge, EdgeChange, Node, NodeChange } from '@xyflow/react';
+import i18next from 'i18next';
 import { toast } from 'sonner';
 
 import type {
@@ -296,11 +297,11 @@ export function useCanvasState(
 						.map((s) => KIND_LABELS[s.kind] || s.kind)
 						.join('、');
 					toast.warning(
-						`${orphanedCount} 个步骤未连接到流程中：${orphanedNames}`,
+						i18next.t('canvas:orphan.warning', { count: orphanedCount, names: orphanedNames }),
 						{
 							duration: 8000,
 							action: {
-								label: '删除孤立步骤',
+								label: i18next.t('canvas:orphan.deleteAction'),
 								onClick: () => {
 									const kept = flatSteps.slice(0, flatSteps.length - orphanedCount);
 									void saveScript(kept);
