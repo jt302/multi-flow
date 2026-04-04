@@ -3,6 +3,8 @@
  * 流程编辑器操作指南对话框
  */
 
+import { useTranslation } from 'react-i18next';
+
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
 	Dialog,
@@ -16,73 +18,75 @@ type Props = {
 	onOpenChange: (open: boolean) => void;
 };
 
-const sections = [
-	{
-		title: '基本操作',
-		items: [
-			{ key: '添加步骤', desc: '从左侧面板点击步骤类型，新步骤将出现在画布中心' },
-			{ key: '选中节点', desc: '左键点击节点，右侧弹出属性编辑面板' },
-			{ key: '移动节点', desc: '左键拖拽节点到新位置' },
-			{ key: '画布平移', desc: '鼠标中键或右键拖拽画布' },
-			{ key: '画布缩放', desc: '鼠标滚轮缩放，或使用左下角 +/- 按钮' },
-			{ key: '适应视图', desc: '点击左下角「适应」按钮，所有节点居中显示' },
-		],
-	},
-	{
-		title: '连接与流程',
-		items: [
-			{ key: '连接节点', desc: '从节点底部圆点拖拽到另一个节点顶部圆点' },
-			{ key: '删除连线', desc: '点击连线使其高亮，按 Backspace 或 Delete 键删除' },
-			{ key: '更改流程顺序', desc: '删除旧连线，重新从源节点拖拽到目标节点' },
-			{ key: 'Start 节点', desc: '绿色起点标记，拖拽其连线到任意步骤节点设置流程入口' },
-		],
-	},
-	{
-		title: '选择与批量操作',
-		items: [
-			{ key: '框选节点', desc: '在画布空白处左键拖拽创建选择框，框内节点被选中' },
-			{ key: '全选', desc: 'Cmd/Ctrl + A 选中所有节点' },
-			{ key: '复制节点', desc: '选中节点后 Cmd/Ctrl + C 复制' },
-			{ key: '粘贴节点', desc: 'Cmd/Ctrl + V 粘贴已复制的节点' },
-			{ key: '复制当前节点', desc: 'Cmd/Ctrl + D 快速复制当前选中的步骤' },
-			{ key: '删除节点', desc: '选中节点后按 Backspace 或 Delete 键' },
-		],
-	},
-	{
-		title: '保存与运行',
-		items: [
-			{ key: '手动保存', desc: '点击工具栏保存按钮或 Cmd/Ctrl + S' },
-			{ key: '自动保存', desc: '编辑后 2 秒自动保存，工具栏显示保存状态' },
-			{ key: '关闭窗口', desc: '关闭时自动保存未持久化的变更' },
-			{ key: '运行脚本', desc: '点击工具栏「运行」按钮，选择环境后执行' },
-			{ key: '取消运行', desc: '运行中点击「取消」按钮终止执行' },
-		],
-	},
-	{
-		title: '步骤属性',
-		items: [
-			{ key: '编辑属性', desc: '点击节点后在右侧面板修改参数' },
-			{ key: '调整面板宽度', desc: '拖拽面板左侧边缘调整宽度' },
-			{ key: '变量插入', desc: '文本字段右侧的变量按钮可插入 {{变量名}}' },
-			{ key: '选择器类型', desc: '支持 CSS、XPath、Text 三种元素定位方式' },
-		],
-	},
-	{
-		title: '条件与循环',
-		items: [
-			{ key: '条件分支', desc: '条件节点有 then/else 两个输出口，连接到不同步骤' },
-			{ key: '循环', desc: '循环节点有 body（循环体）和 next（循环后）两个输出口' },
-			{ key: '对话框分支', desc: '确认对话框节点可定义多个按钮，每个按钮对应一条分支' },
-		],
-	},
-];
-
 export function CanvasHelpDialog({ open, onOpenChange }: Props) {
+	const { t } = useTranslation('canvas');
+
+	const sections = [
+		{
+			title: t('help.basic'),
+			items: [
+				{ key: t('help.basicOps.addStep'), desc: t('help.basicOps.addStepDesc') },
+				{ key: t('help.basicOps.selectNode'), desc: t('help.basicOps.selectNodeDesc') },
+				{ key: t('help.basicOps.moveNode'), desc: t('help.basicOps.moveNodeDesc') },
+				{ key: t('help.basicOps.pan'), desc: t('help.basicOps.panDesc') },
+				{ key: t('help.basicOps.zoom'), desc: t('help.basicOps.zoomDesc') },
+				{ key: t('help.basicOps.fitView'), desc: t('help.basicOps.fitViewDesc') },
+			],
+		},
+		{
+			title: t('help.connections'),
+			items: [
+				{ key: t('help.connectionOps.connect'), desc: t('help.connectionOps.connectDesc') },
+				{ key: t('help.connectionOps.deleteEdge'), desc: t('help.connectionOps.deleteEdgeDesc') },
+				{ key: t('help.connectionOps.changeOrder'), desc: t('help.connectionOps.changeOrderDesc') },
+				{ key: t('help.connectionOps.startNode'), desc: t('help.connectionOps.startNodeDesc') },
+			],
+		},
+		{
+			title: t('help.selection'),
+			items: [
+				{ key: t('help.selectionOps.boxSelect'), desc: t('help.selectionOps.boxSelectDesc') },
+				{ key: t('help.selectionOps.selectAll'), desc: t('help.selectionOps.selectAllDesc') },
+				{ key: t('help.selectionOps.copy'), desc: t('help.selectionOps.copyDesc') },
+				{ key: t('help.selectionOps.paste'), desc: t('help.selectionOps.pasteDesc') },
+				{ key: t('help.selectionOps.duplicate'), desc: t('help.selectionOps.duplicateDesc') },
+				{ key: t('help.selectionOps.deleteNode'), desc: t('help.selectionOps.deleteNodeDesc') },
+			],
+		},
+		{
+			title: t('help.saveRun'),
+			items: [
+				{ key: t('help.saveRunOps.manualSave'), desc: t('help.saveRunOps.manualSaveDesc') },
+				{ key: t('help.saveRunOps.autoSave'), desc: t('help.saveRunOps.autoSaveDesc') },
+				{ key: t('help.saveRunOps.closeWindow'), desc: t('help.saveRunOps.closeWindowDesc') },
+				{ key: t('help.saveRunOps.runScript'), desc: t('help.saveRunOps.runScriptDesc') },
+				{ key: t('help.saveRunOps.cancelRun'), desc: t('help.saveRunOps.cancelRunDesc') },
+			],
+		},
+		{
+			title: t('help.properties'),
+			items: [
+				{ key: t('help.propertyOps.editProps'), desc: t('help.propertyOps.editPropsDesc') },
+				{ key: t('help.propertyOps.resizePanel'), desc: t('help.propertyOps.resizePanelDesc') },
+				{ key: t('help.propertyOps.insertVar'), desc: t('help.propertyOps.insertVarDesc') },
+				{ key: t('help.propertyOps.selectorType'), desc: t('help.propertyOps.selectorTypeDesc') },
+			],
+		},
+		{
+			title: t('help.controlFlow'),
+			items: [
+				{ key: t('help.controlFlowOps.condition'), desc: t('help.controlFlowOps.conditionDesc') },
+				{ key: t('help.controlFlowOps.loop'), desc: t('help.controlFlowOps.loopDesc') },
+				{ key: t('help.controlFlowOps.dialog'), desc: t('help.controlFlowOps.dialogDesc') },
+			],
+		},
+	];
+
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="max-w-lg max-h-[80vh] flex flex-col p-0">
 				<DialogHeader className="px-5 pt-5 pb-3 border-b shrink-0">
-					<DialogTitle className="text-sm font-semibold">流程编辑器操作指南</DialogTitle>
+					<DialogTitle className="text-sm font-semibold">{t('help.title')}</DialogTitle>
 				</DialogHeader>
 				<ScrollArea className="flex-1 min-h-0">
 					<div className="px-5 py-4 space-y-5">

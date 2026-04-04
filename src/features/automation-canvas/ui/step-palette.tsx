@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Search } from 'lucide-react';
 
@@ -38,9 +39,11 @@ const FAVORITE_KINDS = [
 ];
 
 export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
+	const { t } = useTranslation('canvas');
 	const [search, setSearch] = useState('');
 	const searchRef = useRef<HTMLInputElement>(null);
-	const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(['常用']));
+	const favoritesLabel = t('palette.favorites');
+	const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set([favoritesLabel]));
 
 	const toggleGroup = useCallback((label: string) => {
 		setExpandedGroups((prev) => {
@@ -57,7 +60,7 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 
 		// 构建常用组
 		const favoriteGroup = {
-			label: '常用',
+			label: favoritesLabel,
 			kinds: FAVORITE_KINDS.filter((k) =>
 				!isSearching || (KIND_LABELS[k] ?? k).toLowerCase().includes(q) || k.toLowerCase().includes(q),
 			),
@@ -86,7 +89,7 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 					type="button"
 					className="p-1.5 rounded-md hover:bg-accent cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
 					onClick={onToggleCollapse}
-					title="展开步骤面板"
+					title={t('palette.expandPanel')}
 				>
 					<ChevronsRight className="h-4 w-4" />
 				</button>
@@ -99,13 +102,13 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 			{/* 标题行 + 折叠按钮 */}
 			<div className="flex items-center justify-between px-2.5 py-2 border-b flex-shrink-0">
 				<span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-					添加步骤
+					{t('palette.addSteps')}
 				</span>
 				<button
 					type="button"
 					className="p-1 rounded hover:bg-accent cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
 					onClick={onToggleCollapse}
-					title="折叠面板"
+					title={t('palette.collapsePanel')}
 				>
 					<ChevronsLeft className="h-3.5 w-3.5" />
 				</button>
@@ -119,7 +122,7 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 						ref={searchRef}
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
-						placeholder="搜索步骤..."
+						placeholder={t('palette.searchSteps')}
 						className="h-7 text-xs pl-7 pr-2"
 					/>
 				</div>
@@ -175,7 +178,7 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 					})}
 					{filteredGroups.length === 0 && (
 						<p className="text-xs text-muted-foreground text-center py-4">
-							无匹配步骤
+							{t('palette.noMatch')}
 						</p>
 					)}
 				</div>
