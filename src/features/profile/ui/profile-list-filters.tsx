@@ -1,4 +1,5 @@
 import { Play, Plus, RefreshCw, Square } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import {
 	Button,
@@ -60,19 +61,20 @@ export function ProfileListFilters({
 	onRefresh,
 	onCreateClick,
 }: ProfileListFiltersProps) {
+	const { t } = useTranslation(['common']);
 	return (
 		<>
 			<div className="mb-3 px-1">
 				<div className="flex flex-wrap items-center justify-between gap-2">
-					<h2 className="text-sm font-semibold">环境列表</h2>
+					<h2 className="text-sm font-semibold">{t('common:profileList')}</h2>
 					<div className="flex items-center gap-2">
 						<Button type="button" variant="ghost" size="sm" className="cursor-pointer" onClick={onRefresh}>
 							<Icon icon={RefreshCw} size={12} />
-							刷新
+							{t('common:refresh')}
 						</Button>
 						<Button type="button" size="sm" className="cursor-pointer" onClick={onCreateClick}>
 							<Icon icon={Plus} size={14} />
-							创建环境
+							{t('common:createItem', { item: t('common:profile') })}
 						</Button>
 					</div>
 				</div>
@@ -82,14 +84,14 @@ export function ProfileListFilters({
 				<Input
 					value={keyword}
 					onChange={(event) => onChange({ keyword: event.target.value })}
-					placeholder="搜索名称/分组/备注"
+					placeholder={t('common:searchProfile')}
 				/>
 				<Select value={groupFilter} onValueChange={(value) => onChange({ groupFilter: value })}>
 					<SelectTrigger className="w-full">
-						<SelectValue placeholder="全部分组" />
+						<SelectValue placeholder={t('common:allGroups')} />
 					</SelectTrigger>
 					<SelectContent>
-						<SelectItem value="all">全部分组</SelectItem>
+						<SelectItem value="all">{t('common:allGroups')}</SelectItem>
 						{groupOptions.map((groupName) => (
 							<SelectItem key={groupName} value={groupName}>
 								{groupName}
@@ -104,12 +106,12 @@ export function ProfileListFilters({
 					}
 				>
 					<SelectTrigger className="w-full">
-						<SelectValue placeholder="全部运行态" />
+						<SelectValue placeholder={t('common:allRunningStates')} />
 					</SelectTrigger>
 					<SelectContent>
-						<SelectItem value="all">全部运行态</SelectItem>
-						<SelectItem value="running">仅运行中</SelectItem>
-						<SelectItem value="stopped">仅未运行</SelectItem>
+						<SelectItem value="all">{t('common:allRunningStates')}</SelectItem>
+						<SelectItem value="running">{t('common:onlyRunning')}</SelectItem>
+						<SelectItem value="stopped">{t('common:onlyStopped')}</SelectItem>
 					</SelectContent>
 				</Select>
 				<Select
@@ -119,19 +121,19 @@ export function ProfileListFilters({
 					}
 				>
 					<SelectTrigger className="w-full">
-						<SelectValue placeholder="可用环境" />
+						<SelectValue placeholder={t('common:availableProfiles')} />
 					</SelectTrigger>
 					<SelectContent>
-						<SelectItem value="active">可用环境</SelectItem>
-						<SelectItem value="deleted">已归档</SelectItem>
-						<SelectItem value="all">全部生命周期</SelectItem>
+						<SelectItem value="active">{t('common:availableProfiles')}</SelectItem>
+						<SelectItem value="deleted">{t('common:archived')}</SelectItem>
+						<SelectItem value="all">{t('common:allLifecycles')}</SelectItem>
 					</SelectContent>
 				</Select>
 			</div>
 
 			<div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
 				<p>
-					已选择 {selectedCount} / {selectableCount} 个当前筛选环境
+					{t('common:selectedCountOfFiltered', { selected: selectedCount, total: selectableCount })}
 				</p>
 				<div className="flex flex-wrap items-center gap-2">
 					<Button
@@ -142,7 +144,7 @@ export function ProfileListFilters({
 						onClick={onOpenBatchGroupDialog}
 						disabled={selectedCount === 0 || groupOptions.length === 0}
 					>
-						批量设组
+						{t('common:batchSetGroup')}
 					</Button>
 					<Button
 						type="button"
@@ -152,7 +154,7 @@ export function ProfileListFilters({
 						onClick={onOpenBatchClearDialog}
 						disabled={selectedCount === 0}
 					>
-						清空分组
+						{t('common:clearGroup')}
 					</Button>
 					<Button
 						type="button"
@@ -163,7 +165,7 @@ export function ProfileListFilters({
 						disabled={stoppedSelectedCount === 0}
 					>
 						<Icon icon={Play} size={12} />
-						批量启动 {stoppedSelectedCount > 0 ? `(${stoppedSelectedCount})` : ''}
+						{t('common:batchOpen')} {stoppedSelectedCount > 0 ? `(${stoppedSelectedCount})` : ''}
 					</Button>
 					<Button
 						type="button"
@@ -174,7 +176,7 @@ export function ProfileListFilters({
 						disabled={runningSelectedCount === 0}
 					>
 						<Icon icon={Square} size={12} />
-						批量关闭 {runningSelectedCount > 0 ? `(${runningSelectedCount})` : ''}
+						{t('common:batchClose')} {runningSelectedCount > 0 ? `(${runningSelectedCount})` : ''}
 					</Button>
 					<Button
 						type="button"
@@ -185,7 +187,7 @@ export function ProfileListFilters({
 						disabled={stopAllRunningPending || stopAllRunningCount === 0}
 					>
 						<Icon icon={Square} size={12} />
-						一键停止运行中 {stopAllRunningCount > 0 ? `(${stopAllRunningCount})` : ''}
+						{t('common:stopAllRunning')} {stopAllRunningCount > 0 ? `(${stopAllRunningCount})` : ''}
 					</Button>
 				</div>
 			</div>

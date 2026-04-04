@@ -1,4 +1,5 @@
 import { LoaderCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -26,19 +27,20 @@ export function ProxyDeleteAlertDialog({
 	onOpenChange,
 	onConfirm,
 }: ProxyDeleteAlertDialogProps) {
+	const { t } = useTranslation(['proxy', 'common']);
 	return (
 		<AlertDialog open={open} onOpenChange={onOpenChange}>
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogTitle>确认删除代理</AlertDialogTitle>
+					<AlertDialogTitle>{t('common:deleteItemConfirm', { item: t('common:proxy') })}</AlertDialogTitle>
 					<AlertDialogDescription>
-						这会归档代理 “{proxyName}”，并移除相关环境绑定。此操作属于危险操作，需要二次确认。
+						{t('proxy:archiveProxy', { name: proxyName })}，{t('proxy:removeBindings')}。{t('common:dangerousOperation')}。
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
 					<AlertDialogCancel asChild>
 						<Button type="button" variant="ghost" className="cursor-pointer" disabled={pending}>
-							取消
+							{t('common:cancel')}
 						</Button>
 					</AlertDialogCancel>
 					<AlertDialogAction asChild>
@@ -50,7 +52,7 @@ export function ProxyDeleteAlertDialog({
 							onClick={onConfirm}
 						>
 							{pending ? <LoaderCircle className="animate-spin" /> : null}
-							确认删除
+							{t('common:confirm')}
 						</Button>
 					</AlertDialogAction>
 				</AlertDialogFooter>

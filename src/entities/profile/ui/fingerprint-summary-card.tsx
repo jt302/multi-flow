@@ -1,4 +1,5 @@
 import { CircleAlert, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { Badge, Icon } from '@/components/ui';
 
@@ -33,129 +34,156 @@ export function FingerprintSummaryCard({
 	mergedPreviewSnapshot,
 	resourceStatusLabel,
 }: FingerprintSummaryCardProps) {
+	const { t } = useTranslation(['profile', 'common']);
 	return (
 		<div className="rounded-xl border border-border/70 p-3">
 			<SectionTitle
-				title="指纹摘要"
-				description="右侧固定展示当前配置最终会注入给 Chromium 的关键参数"
+				title={t('detail.fingerprintSummary')}
+				description={t('detail.fingerprintSummaryDesc')}
 			/>
 			<div className="rounded-xl border border-dashed border-border/70 bg-muted/25 p-3">
 				<div className="mb-3 flex flex-wrap items-center gap-2">
-					<Badge variant="secondary">宿主资源 {hostPlatform}</Badge>
+					<Badge variant="secondary">
+						{t('detail.hostResource', { platform: hostPlatform })}
+					</Badge>
 					<Badge
 						variant={selectedResource?.installed ? 'secondary' : 'outline'}
 					>
-						{browserVersion || '未选择版本'} · {resourceStatusLabel(selectedResource)}
+						{browserVersion || t('detail.noVersionSelected')} ·{' '}
+						{resourceStatusLabel(selectedResource)}
 					</Badge>
 					{mergedPreviewSnapshot?.presetLabel ? (
 						<Badge variant="outline">{mergedPreviewSnapshot.presetLabel}</Badge>
 					) : null}
 					{randomFingerprint ? (
-						<Badge variant="outline">启动时随机 Seed</Badge>
+						<Badge variant="outline">{t('detail.randomSeedOnStart')}</Badge>
 					) : (
-						<Badge variant="secondary">固定 Seed</Badge>
+						<Badge variant="secondary">{t('detail.fixedSeed')}</Badge>
 					)}
 				</div>
 				{previewLoading ? (
 					<div className="flex items-center gap-2 text-sm text-muted-foreground">
 						<Icon icon={Loader2} size={14} className="animate-spin" />
-						正在解析指纹摘要...
+						{t('detail.parsingFingerprint')}
 					</div>
 				) : mergedPreviewSnapshot ? (
 					<div className="space-y-3">
 						<div>
 							<p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-								UserAgent
+								{t('detail.userAgent')}
 							</p>
 							<p className="mt-1 break-words text-xs">
-								{mergedPreviewSnapshot.userAgent || '未生成'}
+								{mergedPreviewSnapshot.userAgent || t('common:notGenerated')}
 							</p>
 						</div>
 						<div>
 							<p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-								UA Metadata
+								{t('detail.uaMetadata')}
 							</p>
 							<p className="mt-1 break-words text-xs text-muted-foreground">
-								{mergedPreviewSnapshot.customUaMetadata || '未生成'}
+								{mergedPreviewSnapshot.customUaMetadata ||
+									t('common:notGenerated')}
 							</p>
 						</div>
 						<div className="grid gap-2 sm:grid-cols-2">
 							<SummaryMetric
-								label="平台参数"
-								value={mergedPreviewSnapshot.customPlatform || '未设置'}
+								label={t('detail.platformParams')}
+								value={
+									mergedPreviewSnapshot.customPlatform || t('common:notSet')
+								}
 							/>
 							<SummaryMetric
-								label="分辨率 / DPR"
+								label={t('detail.resolutionDpr')}
 								value={
 									mergedPreviewSnapshot.windowWidth &&
 									mergedPreviewSnapshot.windowHeight
 										? `${mergedPreviewSnapshot.windowWidth}x${mergedPreviewSnapshot.windowHeight} · ${mergedPreviewSnapshot.deviceScaleFactor ?? '-'}x`
-										: '未设置'
+										: t('common:notSet')
 								}
 							/>
 							<SummaryMetric
-								label="CPU / RAM"
+								label={t('detail.cpuRam')}
 								value={
 									mergedPreviewSnapshot.customCpuCores &&
 									mergedPreviewSnapshot.customRamGb
-										? `${mergedPreviewSnapshot.customCpuCores} 核 / ${mergedPreviewSnapshot.customRamGb} GB`
-										: '未设置'
+										? `${mergedPreviewSnapshot.customCpuCores} ${t('common:coreUnit')} / ${mergedPreviewSnapshot.customRamGb} GB`
+										: t('common:notSet')
 								}
 							/>
 							<SummaryMetric
-								label="触点"
-								value={mergedPreviewSnapshot.customTouchPoints?.toString() || '桌面模式'}
+								label={t('detail.touchFormFactor')}
+								value={
+									mergedPreviewSnapshot.customTouchPoints?.toString() ||
+									t('common:desktopMode')
+								}
 							/>
 							<SummaryMetric
-								label="语言"
-								value={mergedPreviewSnapshot.language || '跟随代理或系统'}
+								label={t('detail.language')}
+								value={
+									mergedPreviewSnapshot.language ||
+									t('common:followProxyOrSystem')
+								}
 							/>
 							<SummaryMetric
-								label="时区"
-								value={mergedPreviewSnapshot.timeZone || '跟随代理或系统'}
+								label={t('detail.timezone')}
+								value={
+									mergedPreviewSnapshot.timeZone ||
+									t('common:followProxyOrSystem')
+								}
 							/>
 							<SummaryMetric
-								label="Accept-Language"
-								value={mergedPreviewSnapshot.acceptLanguages || '未覆盖'}
+								label={t('detail.acceptLanguage')}
+								value={
+									mergedPreviewSnapshot.acceptLanguages || t('common:notSet')
+								}
 							/>
 							<SummaryMetric
-								label="Seed"
-								value={mergedPreviewSnapshot.fingerprintSeed?.toString() || '启动时生成'}
+								label={t('detail.seed')}
+								value={
+									mergedPreviewSnapshot.fingerprintSeed?.toString() ||
+									t('common:generatedOnStartup')
+								}
 							/>
 						</div>
 						<div>
 							<p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-								GL / GPU
+								{t('detail.glGpu')}
 							</p>
 							<p className="mt-1 text-xs">
-								{mergedPreviewSnapshot.customGlVendor || '未设置'}
+								{mergedPreviewSnapshot.customGlVendor || t('common:notSet')}
 							</p>
 							<p className="mt-1 break-words text-xs text-muted-foreground">
-								{mergedPreviewSnapshot.customGlRenderer || '未设置'}
+								{mergedPreviewSnapshot.customGlRenderer || t('common:notSet')}
 							</p>
 						</div>
 						<div>
 							<p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-								字体集合
+								{t('detail.fontCollection')}
 							</p>
 							<p className="mt-1 text-xs">
 								{mergedPreviewSnapshot.customFontList?.length
-									? `${mergedPreviewSnapshot.customFontList.length} 个字体`
-									: '未设置'}
+									? t('common:fontsCount', {
+											count: mergedPreviewSnapshot.customFontList.length,
+										})
+									: t('common:notSet')}
 							</p>
 							<p className="mt-1 break-words text-xs text-muted-foreground">
-								{mergedPreviewSnapshot.customFontList?.slice(0, 6).join(' / ') || '未设置'}
+								{mergedPreviewSnapshot.customFontList
+									?.slice(0, 6)
+									.join(' / ') || t('common:notSet')}
 							</p>
 						</div>
 					</div>
 				) : (
 					<div className="flex items-center gap-2 text-sm text-destructive">
 						<Icon icon={CircleAlert} size={14} />
-						{previewError || '指纹摘要暂不可用'}
+						{previewError || t('detail.fingerprintUnavailable')}
 					</div>
 				)}
 			</div>
-			{previewError ? <p className="mt-2 text-xs text-destructive">{previewError}</p> : null}
+			{previewError ? (
+				<p className="mt-2 text-xs text-destructive">{previewError}</p>
+			) : null}
 		</div>
 	);
 }

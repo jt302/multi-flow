@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Focus, RefreshCw, Rows3, SquareStack, X } from 'lucide-react';
 import type { FieldErrors, UseFormRegister } from 'react-hook-form';
 
@@ -32,10 +33,12 @@ export function WindowBatchActionsCard({
 	onBatchFocusWindows,
 	onRefreshWindows,
 }: WindowBatchActionsCardProps) {
+	const { t } = useTranslation('window');
+
 	return (
 		<Card className="p-3">
 			<CardHeader className="px-1 pb-2">
-				<CardTitle className="text-sm">批量操作</CardTitle>
+				<CardTitle className="text-sm">{t('batch.title')}</CardTitle>
 			</CardHeader>
 			<CardContent className="space-y-3 px-1 pt-0">
 				<div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_repeat(5,auto)]">
@@ -45,30 +48,30 @@ export function WindowBatchActionsCard({
 					</div>
 					<Button type="button" variant="outline" className="cursor-pointer" onClick={onBatchOpenTabs} disabled={selectedRunningIds.length === 0}>
 						<Icon icon={Rows3} size={14} />
-						批量新标签
+						{t('batch.batchNewTab')}
 					</Button>
 					<Button type="button" variant="outline" className="cursor-pointer" onClick={onBatchOpenWindows} disabled={selectedRunningIds.length === 0}>
 						<Icon icon={SquareStack} size={14} />
-						批量新窗口
+						{t('batch.batchNewWindow')}
 					</Button>
 					<Button type="button" variant="outline" className="cursor-pointer" onClick={onBatchCloseTabs} disabled={selectedRunningIds.length === 0}>
 						<Icon icon={X} size={14} />
-						批量关当前标签
+						{t('batch.batchCloseCurrentTab')}
 					</Button>
 					<Button type="button" variant="outline" className="cursor-pointer" onClick={onBatchCloseInactiveTabs} disabled={selectedRunningIds.length === 0}>
 						<Icon icon={X} size={14} />
-						批量关后台标签
+						{t('batch.batchCloseBgTab')}
 					</Button>
 					<Button type="button" variant="outline" className="cursor-pointer" onClick={onBatchFocusWindows} disabled={selectedRunningIds.length === 0}>
 						<Icon icon={Focus} size={14} />
-						批量聚焦
+						{t('batch.batchFocus')}
 					</Button>
 				</div>
 				<div className="flex items-center justify-between text-xs text-muted-foreground">
-					<p>已选择 {selectedRunningIds.length} / {runningProfileIds.length} 个运行中环境</p>
+					<p>{t('batch.selectedRunning', { selected: selectedRunningIds.length, total: runningProfileIds.length })}</p>
 					<Button type="button" variant="ghost" size="sm" className="cursor-pointer" onClick={onRefreshWindows}>
 						<Icon icon={RefreshCw} size={12} />
-						刷新窗口状态
+						{t('batch.refreshWindowState')}
 					</Button>
 				</div>
 			</CardContent>

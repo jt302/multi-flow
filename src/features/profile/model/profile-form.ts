@@ -1,5 +1,5 @@
 import { z } from 'zod/v3';
-
+import i18next from 'i18next';
 import type {
 	CookieStateFile,
 	ProfileDevicePresetItem,
@@ -16,18 +16,18 @@ const MAC_ADDRESS_PATTERN = /^[0-9A-F]{2}(?::[0-9A-F]{2}){5}$/i;
 
 export const profileFormSchema = z
 	.object({
-		name: z.string().trim().min(1, '环境名称不能为空'),
+		name: z.string().trim().min(1, i18next.t('validation:nameRequired')),
 		group: z.string(),
 		note: z.string(),
 		browserKind: z.string().trim().min(1),
-		browserVersion: z.string().trim().min(1, '浏览器版本不能为空'),
-		platform: z.string().trim().min(1, '模拟平台不能为空'),
-		devicePresetId: z.string().trim().min(1, '设备预设不能为空'),
+		browserVersion: z.string().trim().min(1, i18next.t('validation:browserVersionRequired')),
+		platform: z.string().trim().min(1, i18next.t('validation:platformRequired')),
+		devicePresetId: z.string().trim().min(1, i18next.t('validation:devicePresetRequired')),
 		startupUrls: z.string(),
 		browserBgColor: z
 			.string()
 			.trim()
-			.regex(/^#[0-9a-fA-F]{6}$/, '浏览器背景色必须是 #RRGGBB 格式'),
+			.regex(/^#[0-9a-fA-F]{6}$/, i18next.t('validation:bgColorFormat')),
 		proxyId: z.string(),
 		language: z.string(),
 		timezoneId: z.string(),
@@ -46,7 +46,7 @@ export const profileFormSchema = z
 		cookieStateJson: z.string(),
 		pluginSelections: z.array(
 			z.object({
-				packageId: z.string().trim().min(1, '插件包 ID 不能为空'),
+				packageId: z.string().trim().min(1, i18next.t('validation:pluginIdRequired')),
 				enabled: z.boolean(),
 			}),
 		),
@@ -55,9 +55,9 @@ export const profileFormSchema = z
 		latitude: z.string(),
 		longitude: z.string(),
 		accuracy: z.string(),
-		viewportWidth: z.number().int().min(1, '分辨率宽度必须大于 0'),
-		viewportHeight: z.number().int().min(1, '分辨率高度必须大于 0'),
-		deviceScaleFactor: z.number().positive('DPR 必须大于 0'),
+		viewportWidth: z.number().int().min(1, i18next.t('validation:viewportWidthMin')),
+		viewportHeight: z.number().int().min(1, i18next.t('validation:viewportHeightMin')),
+		deviceScaleFactor: z.number().positive(i18next.t('validation:dprPositive')),
 		fingerprintSeed: z.number().int().nonnegative().nullable(),
 	})
 	.superRefine((values, ctx) => {
@@ -68,7 +68,7 @@ export const profileFormSchema = z
 				if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
 					ctx.addIssue({
 						code: z.ZodIssueCode.custom,
-						message: '默认打开 URL 必须是 http 或 https',
+						message: i18next.t('validation:urlProtocol'),
 						path: ['startupUrls'],
 					});
 					break;
@@ -76,7 +76,7 @@ export const profileFormSchema = z
 			} catch {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
-					message: '默认打开 URL 格式不正确',
+					message: i18next.t('validation:urlFormat'),
 					path: ['startupUrls'],
 				});
 				break;
@@ -88,7 +88,7 @@ export const profileFormSchema = z
 			if (!ip) {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
-					message: 'WebRTC 选择替换时，必须填写 IP',
+					message: i18next.t('validation:webrtcIpRequired'),
 					path: ['webrtcIpOverride'],
 				});
 			}
@@ -99,13 +99,13 @@ export const profileFormSchema = z
 			if (!deviceName) {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
-					message: '设备名称选择自定义时不能为空',
+					message: i18next.t('validation:customDeviceNameRequired'),
 					path: ['customDeviceName'],
 				});
 			} else if (!DEVICE_NAME_PATTERN.test(deviceName)) {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
-					message: '设备名称仅支持 ASCII 字母、数字和连字符，长度 1-63',
+					message: i18next.t('validation:customDeviceNameFormat'),
 					path: ['customDeviceName'],
 				});
 			}
@@ -116,13 +116,13 @@ export const profileFormSchema = z
 			if (!macAddress) {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
-					message: 'MAC 地址选择自定义时不能为空',
+					message: i18next.t('validation:customMacAddressRequired'),
 					path: ['customMacAddress'],
 				});
 			} else if (!MAC_ADDRESS_PATTERN.test(macAddress)) {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
-					message: 'MAC 地址必须是合法的 AA:BB:CC:DD:EE:FF 格式',
+					message: i18next.t('validation:customMacAddressFormat'),
 					path: ['customMacAddress'],
 				});
 			}
@@ -146,7 +146,7 @@ export const profileFormSchema = z
 		if (fontList.length === 0) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
-				message: '字体列表不能为空',
+				message: i18next.t('validation:fontListRequired'),
 				path: ['customFontListText'],
 			});
 		}
@@ -160,7 +160,7 @@ export const profileFormSchema = z
 		if (!latText || !Number.isFinite(lat) || lat < -90 || lat > 90) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
-				message: '纬度范围必须是 -90 到 90',
+				message: i18next.t('validation:latitudeRange'),
 				path: ['latitude'],
 			});
 		}
@@ -169,7 +169,7 @@ export const profileFormSchema = z
 		if (!lngText || !Number.isFinite(lng) || lng < -180 || lng > 180) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
-				message: '经度范围必须是 -180 到 180',
+				message: i18next.t('validation:longitudeRange'),
 				path: ['longitude'],
 			});
 		}
@@ -178,7 +178,7 @@ export const profileFormSchema = z
 			if (!Number.isFinite(acc) || acc <= 0) {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
-					message: '地理精度必须大于 0',
+					message: i18next.t('validation:accuracyPositive'),
 					path: ['accuracy'],
 				});
 			}

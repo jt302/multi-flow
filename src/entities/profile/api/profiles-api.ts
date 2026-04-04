@@ -16,6 +16,7 @@ import type {
 	SaveProfileDevicePresetPayload,
 } from '@/entities/profile/model/types';
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
+import i18next from 'i18next';
 
 import {
 	createResourceTaskId,
@@ -50,8 +51,8 @@ function mapBackendProfile(item: BackendProfile): ProfileItem {
 	return {
 		id: item.id,
 		name: item.name,
-		group: item.group?.trim() || '未分组',
-		note: item.note?.trim() || '未填写备注',
+		group: item.group?.trim() || i18next.t('profile:basic.ungrouped'),
+		note: item.note?.trim() || i18next.t('profile:basic.noNote'),
 		settings: item.settings ?? undefined,
 		lifecycle: item.lifecycle,
 		running: item.running,

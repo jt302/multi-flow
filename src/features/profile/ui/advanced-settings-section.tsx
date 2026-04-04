@@ -24,6 +24,7 @@ import {
 	type ProfileFormValues,
 } from '../model/profile-form';
 import { SectionTitle } from './section-title';
+import { useTranslation } from 'react-i18next';
 
 type AdvancedSettingsSectionProps = {
 	form: UseFormReturn<ProfileFormValues>;
@@ -53,6 +54,7 @@ export function AdvancedSettingsSection({
 	hasProxyGeolocation,
 }: AdvancedSettingsSectionProps) {
 	const { register, setValue } = form;
+	const { t } = useTranslation(['profile', 'common']);
 	const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
 	const [mergeCookieText, setMergeCookieText] = useState('');
 	const [mergeError, setMergeError] = useState<string | null>(null);
@@ -68,14 +70,17 @@ export function AdvancedSettingsSection({
 	const accuracyId = 'profile-accuracy';
 	const geolocationSourceLabel =
 		geolocationSource === 'proxy'
-			? '代理 GEO'
-			: geolocationSource === 'manual'
-				? '手动设置'
-				: '未设置';
+							? t('fingerprint:sourceProxyGeo')
+							: geolocationSource === 'manual'
+				? t('fingerprint.sourceManual')
+				: t('common:notSet');
 
 	return (
 		<div className="rounded-xl border border-border/70 p-3">
-			<SectionTitle title="高级设置" description="无头模式、启动参数与地理位置" />
+			<SectionTitle
+				title={t('advanced.title')}
+				description={t('advanced.desc')}
+			/>
 			<div className="space-y-3">
 				<label htmlFor={headlessId} className="flex items-center gap-2 text-sm">
 					<Checkbox
@@ -88,9 +93,12 @@ export function AdvancedSettingsSection({
 							})
 						}
 					/>
-					无头模式 (Headless)
+					{t('advanced.headless')}
 				</label>
-				<label htmlFor={disableImagesId} className="flex items-center gap-2 text-sm">
+				<label
+					htmlFor={disableImagesId}
+					className="flex items-center gap-2 text-sm"
+				>
 					<Checkbox
 						id={disableImagesId}
 						checked={disableImages}
@@ -101,11 +109,14 @@ export function AdvancedSettingsSection({
 							})
 						}
 					/>
-					禁用图片加载
+					{t('advanced.disableImages')}
 				</label>
 				<div className="space-y-2">
-					<label htmlFor={geolocationModeId} className="block text-xs text-muted-foreground">
-						地理位置模式
+					<label
+						htmlFor={geolocationModeId}
+						className="block text-xs text-muted-foreground"
+					>
+						{t('advanced.geoMode')}
 					</label>
 					<Select
 						value={geolocationMode}
@@ -116,28 +127,34 @@ export function AdvancedSettingsSection({
 							})
 						}
 					>
-						<SelectTrigger id={geolocationModeId} className="w-full cursor-pointer">
-							<SelectValue placeholder="选择地理位置模式" />
+						<SelectTrigger
+							id={geolocationModeId}
+							className="w-full cursor-pointer"
+						>
+							<SelectValue placeholder={t('advanced.selectGeoMode')} />
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value="off">关闭</SelectItem>
-							<SelectItem value="ip">跟随 IP</SelectItem>
-							<SelectItem value="custom">自定义</SelectItem>
+							<SelectItem value="off">{t('common:disabled')}</SelectItem>
+							<SelectItem value="ip">{t('common:followIp')}</SelectItem>
+							<SelectItem value="custom">{t('common:custom')}</SelectItem>
 						</SelectContent>
 					</Select>
 					{geolocationMode === 'ip' ? (
 						<p className="text-[11px] text-muted-foreground">
 							{hasProxyGeolocation
-								? '启动时优先使用代理最近一次 GEO 结果；若代理无 GEO，再回退本机公网 IP。'
-								: '启动时会查询本机公网 IP 并使用本地 GEO 库解析结果。'}
+								? t('advanced.geoFollowIpHint')
+								: t('advanced.geoCustomHint')}
 						</p>
 					) : (
 						<p className="text-[11px] text-muted-foreground">
-							当前来源: {geolocationSourceLabel}
+							{t('advanced.currentSource')} {geolocationSourceLabel}
 						</p>
 					)}
 				</div>
-				<label htmlFor={autoAllowGeolocationId} className="flex items-center gap-2 text-sm">
+				<label
+					htmlFor={autoAllowGeolocationId}
+					className="flex items-center gap-2 text-sm"
+				>
 					<Checkbox
 						id={autoAllowGeolocationId}
 						checked={autoAllowGeolocation}
@@ -148,12 +165,15 @@ export function AdvancedSettingsSection({
 							})
 						}
 					/>
-					地理位置权限始终允许
+					{t('advanced.geoPermissionAlwaysAllow')}
 				</label>
 				<div>
 					<div className="mb-1 flex items-center justify-between gap-2">
-						<label htmlFor={cookieStateJsonId} className="block text-xs text-muted-foreground">
-							Cookie JSON
+						<label
+							htmlFor={cookieStateJsonId}
+							className="block text-xs text-muted-foreground"
+						>
+							{t('advanced.cookieJson')}
 						</label>
 						<Button
 							type="button"
@@ -166,62 +186,92 @@ export function AdvancedSettingsSection({
 								setMergeDialogOpen(true);
 							}}
 						>
-							合并 Cookie
+							{t('advanced.mergeCookie')}
 						</Button>
 					</div>
 					<Textarea
 						id={cookieStateJsonId}
 						{...register('cookieStateJson')}
-						placeholder={'{\n  "environment_id": "env_001",\n  "managed_cookies": []\n}'}
+						placeholder={
+							'{\n  "environment_id": "env_001",\n  "managed_cookies": []\n}'
+						}
 						className="min-h-[180px] font-mono text-[12px]"
 					/>
 					<p className="mt-1 text-[11px] text-muted-foreground">
-						仅支持 Chromium `cookie-state-file` 兼容 JSON。保存环境后会写入环境本地 Cookie 文件，启动时会注入到当前 profile。
+						{t('advanced.cookieHelp')}
 					</p>
 					{cookieStateLoading ? (
 						<p className="mt-1 text-[11px] text-muted-foreground">
-							正在读取环境本地 Cookie 文件...
+							{t('advanced.readingCookie')}
 						</p>
 					) : null}
 					{cookieStateError ? (
-						<p className="mt-1 text-[11px] text-destructive">{cookieStateError}</p>
+						<p className="mt-1 text-[11px] text-destructive">
+							{cookieStateError}
+						</p>
 					) : null}
 					{cookieStateJson.trim() ? (
 						<p className="mt-1 text-[11px] text-muted-foreground">
-							当前已填写环境本地 Cookie 文件内容。
+							{t('advanced.cookieLoaded')}
 						</p>
 					) : null}
 				</div>
 				<div>
-					<label htmlFor={launchArgsId} className="mb-1 block text-xs text-muted-foreground">
-						自定义启动参数（每行一个）
+					<label
+						htmlFor={launchArgsId}
+						className="mb-1 block text-xs text-muted-foreground"
+					>
+						{t('advanced.customLaunchArgs')}
 					</label>
 					<Textarea
 						id={launchArgsId}
 						{...register('customLaunchArgsText')}
-						placeholder={'--custom-main-language=zh-CN\n--custom-time-zone=Asia/Shanghai\n--disable-features=OptimizationHints'}
+						placeholder={
+							'--custom-main-language=zh-CN\n--custom-time-zone=Asia/Shanghai\n--disable-features=OptimizationHints'
+						}
 						className="min-h-[112px]"
 					/>
 				</div>
 				{geolocationMode === 'custom' ? (
 					<div className="grid gap-3 md:grid-cols-3">
 						<div>
-							<label htmlFor={latitudeId} className="mb-1 block text-xs text-muted-foreground">
-								纬度
+							<label
+								htmlFor={latitudeId}
+								className="mb-1 block text-xs text-muted-foreground"
+							>
+								{t('advanced.latitude')}
 							</label>
-							<Input id={latitudeId} {...register('latitude')} placeholder="31.2304" />
+							<Input
+								id={latitudeId}
+								{...register('latitude')}
+								placeholder="31.2304"
+							/>
 						</div>
 						<div>
-							<label htmlFor={longitudeId} className="mb-1 block text-xs text-muted-foreground">
-								经度
+							<label
+								htmlFor={longitudeId}
+								className="mb-1 block text-xs text-muted-foreground"
+							>
+								{t('advanced.longitude')}
 							</label>
-							<Input id={longitudeId} {...register('longitude')} placeholder="121.4737" />
+							<Input
+								id={longitudeId}
+								{...register('longitude')}
+								placeholder="121.4737"
+							/>
 						</div>
 						<div>
-							<label htmlFor={accuracyId} className="mb-1 block text-xs text-muted-foreground">
-								精度(米)
+							<label
+								htmlFor={accuracyId}
+								className="mb-1 block text-xs text-muted-foreground"
+							>
+								{t('advanced.accuracy')}
 							</label>
-							<Input id={accuracyId} {...register('accuracy')} placeholder="20" />
+							<Input
+								id={accuracyId}
+								{...register('accuracy')}
+								placeholder="20"
+							/>
 						</div>
 					</div>
 				) : null}
@@ -229,14 +279,17 @@ export function AdvancedSettingsSection({
 			<Dialog open={mergeDialogOpen} onOpenChange={setMergeDialogOpen}>
 				<DialogContent className="max-w-3xl">
 					<DialogHeader>
-						<DialogTitle>合并 Cookie</DialogTitle>
+						<DialogTitle>{t('advanced.mergeCookie')}</DialogTitle>
 						<DialogDescription>
-							输入另一段 Cookie JSON，确认后会按 name + domain + path 合并，后输入覆盖先输入。
+							{t('advanced.mergeCookieDesc')}
 						</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-2">
-						<label htmlFor={mergeCookieStateJsonId} className="block text-xs text-muted-foreground">
-							待合并 Cookie JSON
+						<label
+							htmlFor={mergeCookieStateJsonId}
+							className="block text-xs text-muted-foreground"
+						>
+							{t('advanced.cookieToMerge')}
 						</label>
 						<Textarea
 							id={mergeCookieStateJsonId}
@@ -261,7 +314,7 @@ export function AdvancedSettingsSection({
 							className="cursor-pointer"
 							onClick={() => setMergeDialogOpen(false)}
 						>
-							取消
+							{t('common:cancel')}
 						</Button>
 						<Button
 							type="button"
@@ -286,12 +339,12 @@ export function AdvancedSettingsSection({
 									setMergeError(
 										error instanceof Error
 											? error.message
-											: '合并 Cookie 失败',
+											: t('advanced.mergeCookieFailed'),
 									);
 								}
 							}}
 						>
-							确认合并
+							{t('advanced.mergeCookie')}
 						</Button>
 					</DialogFooter>
 				</DialogContent>

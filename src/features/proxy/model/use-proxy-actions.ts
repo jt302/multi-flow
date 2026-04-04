@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import {
@@ -15,7 +16,6 @@ import {
 	updateProxy as updateProxyApi,
 } from '@/entities/proxy/api/proxy-api';
 import type {
-	BatchProxyActionResponse,
 	CreateProxyPayload,
 	ImportProxiesPayload,
 	UpdateProxyPayload,
@@ -26,21 +26,18 @@ type ProxyActionsDeps = {
 	refreshProfilesAndBindings: () => Promise<void>;
 };
 
-function formatBatchResultMessage(action: string, result: BatchProxyActionResponse) {
-	return `${action}完成：成功 ${result.successCount} 条，失败 ${result.failedCount} 条`;
-}
-
 export function useProxyActions({
 	refreshProxies,
 	refreshProfilesAndBindings,
 }: ProxyActionsDeps) {
+	const { t } = useTranslation(['proxy', 'common']);
 	const createProxy = async (payload: CreateProxyPayload) => {
 		try {
 			await createProxyApi(payload);
 			await refreshProxies();
-			toast.success('代理已创建');
+			toast.success(t('proxy:actions.created'));
 		} catch (error) {
-			toast.error('创建代理失败');
+			toast.error(t('proxy:actions.createFailed'));
 			throw error;
 		}
 	};
@@ -49,9 +46,9 @@ export function useProxyActions({
 		try {
 			await updateProxyApi(proxyId, payload);
 			await refreshProxies();
-			toast.success('代理已更新');
+			toast.success(t('proxy:actions.updated'));
 		} catch (error) {
-			toast.error('更新代理失败');
+			toast.error(t('proxy:actions.updateFailed'));
 			throw error;
 		}
 	};
@@ -60,9 +57,9 @@ export function useProxyActions({
 		try {
 			await deleteProxyApi(proxyId);
 			await Promise.all([refreshProxies(), refreshProfilesAndBindings()]);
-			toast.success('代理已删除');
+			toast.success(t('proxy:actions.deleted'));
 		} catch (error) {
-			toast.error('删除代理失败');
+			toast.error(t('proxy:actions.deleteFailed'));
 			throw error;
 		}
 	};
@@ -71,10 +68,10 @@ export function useProxyActions({
 		try {
 			const result = await batchDeleteProxiesApi(proxyIds);
 			await Promise.all([refreshProxies(), refreshProfilesAndBindings()]);
-			toast.success(formatBatchResultMessage('批量删除', result));
+			toast.success(t('common:batchResult', { action: t('proxy:actions.batchDelete'), success: result.successCount, fail: result.failedCount }));
 			return result;
 		} catch (error) {
-			toast.error('批量删除代理失败');
+			toast.error(t('proxy:actions.batchDeleteFailed'));
 			throw error;
 		}
 	};
@@ -83,9 +80,9 @@ export function useProxyActions({
 		try {
 			await restoreProxyApi(proxyId);
 			await refreshProxies();
-			toast.success('代理已恢复');
+			toast.success(t('proxy:actions.restored'));
 		} catch (error) {
-			toast.error('恢复代理失败');
+			toast.error(t('proxy:actions.restoreFailed'));
 			throw error;
 		}
 	};
@@ -94,9 +91,9 @@ export function useProxyActions({
 		try {
 			await purgeProxyApi(proxyId);
 			await Promise.all([refreshProxies(), refreshProfilesAndBindings()]);
-			toast.success('代理已彻底删除');
+			toast.success(t('proxy:actions.permanentlyDeleted'));
 		} catch (error) {
-			toast.error('彻底删除代理失败');
+			toast.error(t('proxy:actions.permanentDeleteFailed'));
 			throw error;
 		}
 	};
@@ -105,10 +102,10 @@ export function useProxyActions({
 		try {
 			const result = await batchUpdateProxiesApi(proxyIds, payload);
 			await refreshProxies();
-			toast.success(formatBatchResultMessage('批量修改', result));
+			toast.success(t('common:batchResult', { action: t('proxy:actions.batchEdit'), success: result.successCount, fail: result.failedCount }));
 			return result;
 		} catch (error) {
-			toast.error('批量修改代理失败');
+			toast.error(t('proxy:actions.batchEditFailed'));
 			throw error;
 		}
 	};
@@ -118,10 +115,10 @@ export function useProxyActions({
 		try {
 			const result = await importProxiesApi(payload);
 			await refreshProxies();
-			toast.success(formatBatchResultMessage('批量导入', result));
+			toast.success(t('common:batchResult', { action: t('proxy:actions.batchImport'), success: result.successCount, fail: result.failedCount }));
 			return result;
 		} catch (error) {
-			toast.error('批量导入代理失败');
+			toast.error(t('proxy:actions.batchImportFailed'));
 			throw error;
 		}
 	};
@@ -134,11 +131,11 @@ export function useProxyActions({
 			await checkProxyApi(proxyId);
 			await refreshProxies();
 			if (!options?.silent) {
-				toast.success('代理检测已完成');
+				toast.success(t('proxy:actions.checkCompleted'));
 			}
 		} catch (error) {
 			if (!options?.silent) {
-				toast.error('代理检测失败');
+				toast.error(t('proxy:actions.checkFailed'));
 			}
 			throw error;
 		}
@@ -148,10 +145,10 @@ export function useProxyActions({
 		try {
 			const result = await batchCheckProxiesApi(proxyIds);
 			await refreshProxies();
-			toast.success(formatBatchResultMessage('批量检测', result));
+			toast.success(t('common:batchResult', { action: t('proxy:actions.batchCheck'), success: result.successCount, fail: result.failedCount }));
 			return result;
 		} catch (error) {
-			toast.error('批量检测代理失败');
+			toast.error(t('proxy:actions.batchCheckFailed'));
 			throw error;
 		}
 	};
@@ -159,9 +156,9 @@ export function useProxyActions({
 		try {
 			await bindProfileProxyApi(profileId, proxyId);
 			await refreshProfilesAndBindings();
-			toast.success('绑定已更新');
+			toast.success(t('proxy:actions.bindingUpdated'));
 		} catch (error) {
-			toast.error('绑定代理失败');
+			toast.error(t('proxy:actions.bindFailed'));
 			throw error;
 		}
 	};
@@ -170,9 +167,9 @@ export function useProxyActions({
 		try {
 			await unbindProfileProxyApi(profileId);
 			await refreshProfilesAndBindings();
-			toast.success('已解除绑定');
+			toast.success(t('proxy:actions.unbound'));
 		} catch (error) {
-			toast.error('解绑代理失败');
+			toast.error(t('proxy:actions.unbindFailed'));
 			throw error;
 		}
 	};

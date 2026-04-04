@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -24,20 +25,22 @@ export function GroupDeleteAlertDialog({
 	onOpenChange,
 	onConfirm,
 }: GroupDeleteAlertDialogProps) {
+	const { t } = useTranslation('group');
+
 	return (
 		<AlertDialog open={open} onOpenChange={onOpenChange}>
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogTitle>确认删除分组</AlertDialogTitle>
+					<AlertDialogTitle>{t('delete.title')}</AlertDialogTitle>
 					<AlertDialogDescription>
-						删除后，当前分组下关联环境的分组信息会被清空。该操作不会自动恢复历史绑定。
-						{group ? ` 当前分组：${group.name}` : ''}
+						{t('delete.description')}
+						{group ? ` ${t('delete.currentGroup', { name: group.name })}` : ''}
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
 					<AlertDialogCancel asChild>
 						<Button type="button" variant="ghost" className="cursor-pointer">
-							取消
+							{t('delete.cancel')}
 						</Button>
 					</AlertDialogCancel>
 					<AlertDialogAction asChild>
@@ -49,7 +52,7 @@ export function GroupDeleteAlertDialog({
 								void onConfirm();
 							}}
 						>
-							确认删除
+							{t('delete.confirmDelete')}
 						</Button>
 					</AlertDialogAction>
 				</AlertDialogFooter>

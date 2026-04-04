@@ -1,4 +1,5 @@
 import { Suspense, useState, type CSSProperties } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -41,6 +42,7 @@ export function WorkspaceLayout() {
 					: window.localStorage.getItem(SIDEBAR_STORAGE_KEY),
 		}),
 	);
+	const { t } = useTranslation('common');
 	const profileNavigationIntent = useWorkspaceNavigationStore(
 		(state) => state.profileNavigationIntent,
 	);
@@ -57,7 +59,7 @@ export function WorkspaceLayout() {
 			try {
 				await openLogPanelWindow();
 			} catch {
-				toast.error('打开日志面板失败，已切换到内嵌页面');
+				toast.error(t('openLogPanelFailed'));
 				navigate('/logs');
 			}
 		})();
@@ -148,16 +150,16 @@ export function WorkspaceLayout() {
 									key={location.pathname}
 									className="flex h-full w-full min-w-0 flex-col animate-in fade-in zoom-in-[0.98] duration-500 fill-mode-both"
 								>
-									<Suspense
-										fallback={
-											<Card className="p-6 text-sm text-muted-foreground border-border/40 bg-transparent flex items-center justify-center min-h-[50vh]">
-												<div className="flex flex-col items-center gap-3 opacity-60">
-													<div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
-													<span>加载中</span>
-												</div>
-											</Card>
-										}
-									>
+								<Suspense
+									fallback={
+										<Card className="p-6 text-sm text-muted-foreground border-border/40 bg-transparent flex items-center justify-center min-h-[50vh]">
+											<div className="flex flex-col items-center gap-3 opacity-60">
+												<div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+												<span>{t('loading')}</span>
+											</div>
+										</Card>
+									}
+								>
 										<Outlet context={outletContext} />
 									</Suspense>
 								</div>

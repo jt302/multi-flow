@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -133,17 +134,19 @@ const PROVIDER_CONFIG: Record<AiProviderType, ProviderMeta> = {
 		requiresApiKey: false,
 	},
 	custom: {
-		label: '自定义',
+		label: 'Custom',
 		defaultBaseUrl: '',
 		models: [],
 		requiresApiKey: true,
 	},
 };
 
-const AI_PROVIDERS = Object.entries(PROVIDER_CONFIG).map(([value, meta]) => ({
-	value: value as AiProviderType,
-	label: meta.label,
-}));
+function getAiProviders(t: (key: string) => string) {
+	return Object.entries(PROVIDER_CONFIG).map(([value, meta]) => ({
+		value: value as AiProviderType,
+		label: value === 'custom' ? t('settings:ai.custom') : meta.label,
+	}));
+}
 
 type FormValues = {
 	name: string;
@@ -155,7 +158,9 @@ type FormValues = {
 };
 
 export function AiProviderConfigCard() {
+	const { t } = useTranslation(['settings', 'common']);
 	const queryClient = useQueryClient();
+	const aiProviders = getAiProviders(t);
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editingEntry, setEditingEntry] = useState<AiConfigEntry | null>(null);
 	const [deleteTarget, setDeleteTarget] = useState<AiConfigEntry | null>(null);
@@ -184,29 +189,32 @@ export function AiProviderConfigCard() {
 		mutationFn: createAiConfig,
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.aiConfigs });
-			toast.success('已添加 AI 配置');
+			toast.success(t('settings:ai.added'));
 			closeDialog();
 		},
-		onError: (e) => toast.error(`添加失败: ${e}`),
+		onError: (e) =>
+			toast.error(t('settings:ai.addFailed', { error: String(e) })),
 	});
 
 	const updateMutation = useMutation({
 		mutationFn: updateAiConfig,
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.aiConfigs });
-			toast.success('已更新 AI 配置');
+			toast.success(t('settings:ai.updated'));
 			closeDialog();
 		},
-		onError: (e) => toast.error(`更新失败: ${e}`),
+		onError: (e) =>
+			toast.error(t('settings:ai.updateFailed', { error: String(e) })),
 	});
 
 	const deleteMutation = useMutation({
 		mutationFn: deleteAiConfig,
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.aiConfigs });
-			toast.success('已删除 AI 配置');
+			toast.success(t('settings:ai.deleted'));
 		},
-		onError: (e) => toast.error(`删除失败: ${e}`),
+		onError: (e) =>
+			toast.error(t('settings:ai.deleteFailed', { error: String(e) })),
 	});
 
 	function openAdd() {
@@ -244,7 +252,7 @@ export function AiProviderConfigCard() {
 
 	function onSubmit(values: FormValues) {
 		const payload = {
-			name: values.name.trim() || '未命名配置',
+			name: values.name.trim() || t('settings:ai.unnamed'),
 			provider: values.provider as AiProviderType,
 			baseUrl: values.baseUrl || undefined,
 			apiKey: values.apiKey || undefined,
@@ -264,7 +272,7 @@ export function AiProviderConfigCard() {
 		<>
 			<Card className="p-4">
 				<CardHeader className="p-0 mb-3 flex flex-row items-center justify-between">
-					<CardTitle className="text-sm">AI 模型配置</CardTitle>
+					<CardTitle className="text-sm">{t('settings:ai.title')}</CardTitle>
 					<Button
 						size="sm"
 						variant="outline"
@@ -272,13 +280,13 @@ export function AiProviderConfigCard() {
 						onClick={openAdd}
 					>
 						<Plus className="h-3.5 w-3.5 mr-1" />
-						添加
+						{t('common:add')}
 					</Button>
 				</CardHeader>
 				<CardContent className="p-0">
 					{configs.length === 0 ? (
 						<p className="text-xs text-muted-foreground py-4 text-center">
-							暂无 AI 配置，点击「添加」创建第一个
+							{t('settings:ai.empty')}
 						</p>
 					) : (
 						<div className="space-y-2">
@@ -292,7 +300,7 @@ export function AiProviderConfigCard() {
 											{entry.name}
 										</div>
 										<div className="text-xs text-muted-foreground truncate">
-											{AI_PROVIDERS.find((p) => p.value === entry.provider)
+											{aiProviders.find((p) => p.value === entry.provider)
 												?.label ??
 												entry.provider ??
 												'—'}
@@ -333,21 +341,21 @@ export function AiProviderConfigCard() {
 			>
 				<DialogContent className="sm:max-w-xl">
 					<DialogHeader>
-						<DialogTitle>
-							{editingEntry ? '编辑 AI 配置' : '添加 AI 配置'}
-						</DialogTitle>
+					<DialogTitle>
+						{editingEntry ? t('settings:aiDialog.editTitle') : t('settings:aiDialog.createTitle')}
+					</DialogTitle>
 					</DialogHeader>
 					<form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-						<div className="space-y-1.5">
-							<Label className="text-xs">配置名称</Label>
-							<Input
-								{...register('name')}
-								placeholder="例如：GPT-4o"
-								className="h-8 text-xs"
-							/>
-						</div>
-						<div className="space-y-1.5">
-							<Label className="text-xs">提供商</Label>
+					<div className="space-y-1.5">
+						<Label className="text-xs">{t('settings:aiDialog.configName')}</Label>
+						<Input
+							{...register('name')}
+							placeholder={t('settings:aiDialog.configNamePlaceholder')}
+							className="h-8 text-xs"
+						/>
+					</div>
+					<div className="space-y-1.5">
+						<Label className="text-xs">{t('settings:aiDialog.provider')}</Label>
 							<Select
 								value={selectedProvider}
 								onValueChange={(v) => setValue('provider', v as AiProviderType)}
@@ -356,7 +364,7 @@ export function AiProviderConfigCard() {
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
-									{AI_PROVIDERS.map((p) => (
+									{aiProviders.map((p) => (
 										<SelectItem
 											key={p.value}
 											value={p.value}
@@ -370,7 +378,7 @@ export function AiProviderConfigCard() {
 						</div>
 						{providerMeta.requiresApiKey && (
 							<div className="space-y-1.5">
-								<Label className="text-xs">API Key</Label>
+								<Label className="text-xs">{t('settings:captcha.apiKey')}</Label>
 								<Input
 									{...register('apiKey')}
 									type="password"
@@ -382,12 +390,20 @@ export function AiProviderConfigCard() {
 							</div>
 						)}
 						<div className="space-y-1.5">
-							<Label className="text-xs">模型</Label>
-							<Input
-								{...register('model')}
-								placeholder={providerMeta.models.length > 0 ? '选择或输入模型名称' : '输入模型名称'}
+						<Label className="text-xs">{t('settings:aiDialog.model')}</Label>
+						<Input
+							{...register('model')}
+							placeholder={
+								providerMeta.models.length > 0
+									? t('settings:aiDialog.modelPlaceholder')
+									: t('settings:aiDialog.modelInputLabel')
+							}
 								className="h-8 text-xs"
-								list={providerMeta.models.length > 0 ? `model-suggestions-${watch('provider')}` : undefined}
+								list={
+									providerMeta.models.length > 0
+										? `model-suggestions-${watch('provider')}`
+										: undefined
+								}
 							/>
 							{providerMeta.models.length > 0 && (
 								<datalist id={`model-suggestions-${watch('provider')}`}>
@@ -397,79 +413,79 @@ export function AiProviderConfigCard() {
 								</datalist>
 							)}
 						</div>
-						<div className="space-y-1.5">
-							<Label className="text-xs">Agent 语言</Label>
-							<Select
-								value={watch('locale') || 'zh'}
-								onValueChange={(v) => setValue('locale', v)}
-							>
-								<SelectTrigger className="h-8 text-xs cursor-pointer">
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="zh" className="text-xs cursor-pointer">
-										中文
-									</SelectItem>
-									<SelectItem value="en" className="text-xs cursor-pointer">
-										English
-									</SelectItem>
-								</SelectContent>
-							</Select>
-							<p className="text-[10px] text-muted-foreground">
-								AI Agent 系统提示词的语言
-							</p>
-						</div>
+					<div className="space-y-1.5">
+						<Label className="text-xs">{t('settings:aiDialog.agentLanguage')}</Label>
+						<Select
+							value={watch('locale') || 'zh'}
+							onValueChange={(v) => setValue('locale', v)}
+						>
+							<SelectTrigger className="h-8 text-xs cursor-pointer">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="zh" className="text-xs cursor-pointer">
+									{t('settings:language.zhCN')}
+								</SelectItem>
+								<SelectItem value="en" className="text-xs cursor-pointer">
+									{t('settings:language.enUS')}
+								</SelectItem>
+							</SelectContent>
+						</Select>
+						<p className="text-[10px] text-muted-foreground">
+							{t('settings:aiDialog.agentLanguageHint')}
+						</p>
+					</div>
 						{/* Base URL: 自定义提供商始终显示，其他提供商折叠在高级选项中 */}
-						{selectedProvider === 'custom' ? (
-							<div className="space-y-1.5">
-								<Label className="text-xs">Base URL</Label>
-								<Input
-									{...register('baseUrl')}
-									placeholder="https://your-api-endpoint.com/v1"
-									className="h-8 text-xs"
-								/>
-							</div>
-						) : (
-							<div className="space-y-1.5">
-								<button
-									type="button"
-									className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-									onClick={() => setShowAdvanced(!showAdvanced)}
-								>
-									{showAdvanced ? (
-										<ChevronUp className="h-3 w-3" />
-									) : (
-										<ChevronDown className="h-3 w-3" />
-									)}
-									高级选项
-								</button>
-								{showAdvanced && (
-									<div className="space-y-1.5 pl-1">
-										<Label className="text-xs">
-											Base URL
-											<span className="text-muted-foreground ml-1">
-												（留空使用默认值）
-											</span>
-										</Label>
-										<Input
-											{...register('baseUrl')}
-											placeholder={providerMeta.defaultBaseUrl}
-											className="h-8 text-xs"
-										/>
-									</div>
-								)}
-							</div>
-						)}
-						<DialogFooter>
-							<Button
-								type="submit"
-								size="sm"
-								className="cursor-pointer"
-								disabled={isPending}
+					{selectedProvider === 'custom' ? (
+						<div className="space-y-1.5">
+							<Label className="text-xs">{t('settings:captcha.baseUrl')}</Label>
+							<Input
+								{...register('baseUrl')}
+								placeholder="https://your-api-endpoint.com/v1"
+								className="h-8 text-xs"
+							/>
+						</div>
+					) : (
+						<div className="space-y-1.5">
+							<button
+								type="button"
+								className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+								onClick={() => setShowAdvanced(!showAdvanced)}
 							>
-								{isPending ? '保存中...' : '保存'}
-							</Button>
-						</DialogFooter>
+								{showAdvanced ? (
+									<ChevronUp className="h-3 w-3" />
+								) : (
+									<ChevronDown className="h-3 w-3" />
+								)}
+								{t('settings:aiDialog.advancedOptions')}
+							</button>
+							{showAdvanced && (
+								<div className="space-y-1.5 pl-1">
+									<Label className="text-xs">
+										{t('settings:captcha.baseUrl')}
+										<span className="text-muted-foreground ml-1">
+											{t('settings:captcha.baseUrlHint')}
+										</span>
+									</Label>
+									<Input
+										{...register('baseUrl')}
+										placeholder={providerMeta.defaultBaseUrl}
+										className="h-8 text-xs"
+									/>
+								</div>
+							)}
+						</div>
+					)}
+					<DialogFooter>
+						<Button
+							type="submit"
+							size="sm"
+							className="cursor-pointer"
+							disabled={isPending}
+						>
+							{isPending ? t('settings:aiDialog.saving') : t('settings:aiDialog.save')}
+						</Button>
+					</DialogFooter>
 					</form>
 				</DialogContent>
 			</Dialog>
@@ -483,14 +499,14 @@ export function AiProviderConfigCard() {
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>删除 AI 配置</AlertDialogTitle>
+						<AlertDialogTitle>{t('settings:aiDialog.deleteTitle')}</AlertDialogTitle>
 						<AlertDialogDescription>
-							确定要删除「{deleteTarget?.name}」吗？此操作无法撤销。
+							{t('settings:aiDialog.deleteDesc', { name: deleteTarget?.name })}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel className="cursor-pointer">
-							取消
+							{t('settings:aiDialog.cancel')}
 						</AlertDialogCancel>
 						<AlertDialogAction
 							className="cursor-pointer"
@@ -499,7 +515,7 @@ export function AiProviderConfigCard() {
 								setDeleteTarget(null);
 							}}
 						>
-							删除
+							{t('settings:aiDialog.delete')}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

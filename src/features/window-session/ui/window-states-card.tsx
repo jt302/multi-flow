@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Eye, Focus, LayoutPanelTop, Plus, X } from 'lucide-react';
 
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Checkbox, Icon } from '@/components/ui';
@@ -46,6 +47,8 @@ export function WindowStatesCard({
 	onFocusWindow,
 	onSetWindowBounds,
 }: WindowStatesCardProps) {
+	const { t } = useTranslation('window');
+
 	const profileNameMap = profiles.reduce<Record<string, string>>((acc, item) => {
 		acc[item.id] = item.name;
 		return acc;
@@ -62,12 +65,12 @@ export function WindowStatesCard({
 	return (
 		<Card className="p-3">
 			<CardHeader className="px-1 pb-2">
-				<CardTitle className="text-sm">运行环境窗口</CardTitle>
+				<CardTitle className="text-sm">{t('states.title')}</CardTitle>
 			</CardHeader>
 			<CardContent className="space-y-2 px-1 pt-0">
 				{windowStates.length === 0 ? (
 					<div className="rounded-xl border border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
-						当前没有运行中的环境窗口
+						{t('states.noRunningWindows')}
 					</div>
 				) : (
 					windowStates.map((state) => {
@@ -86,18 +89,18 @@ export function WindowStatesCard({
 											onCheckedChange={(checked) => onSelectProfile(state.profileId, checked === true)}
 										/>
 										<p className="text-sm font-semibold">{profileLabel}</p>
-										<Badge variant="outline">{state.totalWindows} 窗口</Badge>
-										<Badge variant="secondary">{state.totalTabs} 标签</Badge>
+										<Badge variant="outline">{state.totalWindows} {t('states.windows')}</Badge>
+										<Badge variant="secondary">{state.totalTabs} {t('states.tabs')}</Badge>
 										<Badge variant={isRunning ? 'default' : 'secondary'}>
-											{isRunning ? (profileBusy ? '操作中' : '运行中') : '已停止'}
+											{isRunning ? (profileBusy ? t('states.operating') : t('states.running')) : t('states.stopped')}
 										</Badge>
-										{isRunning && !hasWindowSnapshot ? <Badge variant="outline">窗口状态同步中</Badge> : null}
+										{isRunning && !hasWindowSnapshot ? <Badge variant="outline">{t('states.syncing')}</Badge> : null}
 										{state.pid ? <Badge variant="secondary">PID {state.pid}</Badge> : null}
 									</div>
 									<div className="flex items-center gap-1">
 										<Button type="button" size="sm" variant="outline" className="cursor-pointer" onClick={() => onViewProfile(state.profileId)}>
 											<Icon icon={Eye} size={12} />
-											环境详情
+											{t('states.profileDetail')}
 										</Button>
 										<Button
 											type="button"
@@ -108,7 +111,7 @@ export function WindowStatesCard({
 											disabled={!controllable}
 										>
 											<Icon icon={Plus} size={12} />
-											新标签
+											{t('states.newTab')}
 										</Button>
 										<Button
 											type="button"
@@ -119,15 +122,15 @@ export function WindowStatesCard({
 											disabled={!controllable}
 										>
 											<Icon icon={LayoutPanelTop} size={12} />
-											新窗口
+											{t('states.newWindow')}
 										</Button>
 										<Button type="button" size="sm" variant="outline" className="cursor-pointer" onClick={() => onRunProfileAction(state.profileId, async () => onCloseTab(state.profileId))} disabled={!controllable}>
 											<Icon icon={X} size={12} />
-											关当前标签
+											{t('states.closeCurrentTab')}
 										</Button>
 										<Button type="button" size="sm" variant="outline" className="cursor-pointer" onClick={() => onRunProfileAction(state.profileId, async () => onCloseInactiveTabs(state.profileId))} disabled={!controllable}>
 											<Icon icon={X} size={12} />
-											关后台标签
+											{t('states.closeBgTabs')}
 										</Button>
 									</div>
 								</div>
@@ -137,8 +140,8 @@ export function WindowStatesCard({
 										<div key={`${state.profileId}-${window.windowId}`} className="rounded-lg border border-border/60 p-2">
 											<div className="mb-1 flex items-center justify-between">
 												<div className="flex items-center gap-2 text-xs">
-													<Badge variant={window.focused ? 'default' : 'secondary'}>窗口 #{window.windowId}</Badge>
-													<Badge variant="outline">{window.tabCount} 标签</Badge>
+													<Badge variant={window.focused ? 'default' : 'secondary'}>{t('states.windowNumber', { id: window.windowId })}</Badge>
+													<Badge variant="outline">{window.tabCount} {t('states.tabs')}</Badge>
 												</div>
 												<div className="flex items-center gap-1">
 													<Button type="button" size="icon" variant="ghost" className="h-7 w-7 cursor-pointer" onClick={() => onRunProfileAction(state.profileId, async () => onFocusWindow(state.profileId, window.windowId))} disabled={!controllable}>
@@ -168,7 +171,7 @@ export function WindowStatesCard({
 													>
 														<div className="min-w-0">
 															<div className="flex items-center gap-2">
-																{tab.active ? <Badge variant="default">当前</Badge> : <Badge variant="secondary">后台</Badge>}
+																{tab.active ? <Badge variant="default">{t('states.current')}</Badge> : <Badge variant="secondary">{t('states.background')}</Badge>}
 																<p className="truncate text-xs font-medium">{tab.title}</p>
 															</div>
 															<p className="truncate text-[11px] text-muted-foreground">{tab.url}</p>
@@ -187,7 +190,7 @@ export function WindowStatesCard({
 											<div className="mt-2 flex justify-end">
 												<Button type="button" size="sm" variant="ghost" className="cursor-pointer" onClick={() => onRunProfileAction(state.profileId, async () => onActivateTabByIndex(state.profileId, 0, window.windowId))} disabled={!controllable}>
 													<Icon icon={Focus} size={12} />
-													按索引激活第 1 个标签
+													{t('states.activateFirstTab')}
 												</Button>
 											</div>
 										</div>
@@ -199,7 +202,7 @@ export function WindowStatesCard({
 				)}
 				{runningWithoutWindows.length > 0 ? (
 					<div className="rounded-xl border border-dashed border-border/70 px-3 py-2 text-xs text-muted-foreground">
-						以下环境处于运行中，但窗口信息尚未同步：
+						{t('states.runningWithoutWindows')}
 						{runningWithoutWindows.map((item) => ` ${item.name}(${item.id})`).join('、')}
 					</div>
 				) : null}

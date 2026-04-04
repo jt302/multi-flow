@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 
 type ProfileListStatsProps = {
@@ -13,20 +14,21 @@ export function ProfileListStats({
 	activeCount,
 	runningCount,
 }: ProfileListStatsProps) {
+	const { t } = useTranslation('profile');
 	return (
 		<div className="grid gap-3 md:grid-cols-3">
 			<Card className="p-3">
 				<CardHeader className="px-1 pb-1">
-					<CardTitle className="text-xs text-muted-foreground">环境总数</CardTitle>
+					<CardTitle className="text-xs text-muted-foreground">{t('stats:totalProfiles')}</CardTitle>
 				</CardHeader>
 				<CardContent className="px-1 pt-0">
 					<p className="text-2xl font-semibold">{filteredCount}</p>
-					<p className="text-xs text-muted-foreground">总计 {totalCount}</p>
+					<p className="text-xs text-muted-foreground">{t('stats:total', { count: totalCount })}</p>
 				</CardContent>
 			</Card>
 			<Card className="p-3">
 				<CardHeader className="px-1 pb-1">
-					<CardTitle className="text-xs text-muted-foreground">活跃环境</CardTitle>
+					<CardTitle className="text-xs text-muted-foreground">{t('stats:activeProfiles')}</CardTitle>
 				</CardHeader>
 				<CardContent className="px-1 pt-0">
 					<p className="text-2xl font-semibold">{activeCount}</p>
@@ -34,7 +36,7 @@ export function ProfileListStats({
 			</Card>
 			<Card className="p-3">
 				<CardHeader className="px-1 pb-1">
-					<CardTitle className="text-xs text-muted-foreground">运行中</CardTitle>
+					<CardTitle className="text-xs text-muted-foreground">{t('stats:running')}</CardTitle>
 				</CardHeader>
 				<CardContent className="px-1 pt-0">
 					<p className="text-2xl font-semibold">{runningCount}</p>

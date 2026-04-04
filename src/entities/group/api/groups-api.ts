@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
 import type { GroupItem } from '@/entities/group/model/types';
 
@@ -23,27 +25,27 @@ const DEFAULT_GROUPS: GroupItem[] = [
 	{
 		id: 'g_airdrop',
 		name: 'AirDrop',
-		note: '空投批量任务',
+		note: i18next.t('group:mock.airdropNote'),
 		profileCount: 12,
-		updatedAt: '刚刚',
+		updatedAt: i18next.t('common:justNow'),
 		lifecycle: 'active',
 		deletedAt: null,
 	},
 	{
 		id: 'g_farm',
 		name: 'Farm',
-		note: '收益农场矩阵',
+		note: i18next.t('group:mock.farmNote'),
 		profileCount: 8,
-		updatedAt: '8 分钟前',
+		updatedAt: i18next.t('common:minutesAgo', { count: 8 }),
 		lifecycle: 'active',
 		deletedAt: null,
 	},
 	{
 		id: 'g_brand',
 		name: 'Brand',
-		note: '品牌账号运营',
+		note: i18next.t('group:mock.brandNote'),
 		profileCount: 5,
-		updatedAt: '20 分钟前',
+		updatedAt: i18next.t('common:minutesAgo', { count: 20 }),
 		lifecycle: 'active',
 		deletedAt: null,
 	},
@@ -53,22 +55,22 @@ function formatTimeAgo(unixTs: number): string {
 	const now = Math.floor(Date.now() / 1000);
 	const diff = Math.max(0, now - unixTs);
 	if (diff < 60) {
-		return '刚刚';
+		return i18next.t('common:justNow');
 	}
 	if (diff < 3600) {
-		return `${Math.floor(diff / 60)} 分钟前`;
+		return i18next.t('common:minutesAgo', { count: Math.floor(diff / 60) });
 	}
 	if (diff < 86400) {
-		return `${Math.floor(diff / 3600)} 小时前`;
+		return i18next.t('common:hoursAgo', { count: Math.floor(diff / 3600) });
 	}
-	return `${Math.floor(diff / 86400)} 天前`;
+	return i18next.t('common:daysAgo', { count: Math.floor(diff / 86400) });
 }
 
 function mapBackendGroup(item: BackendGroup): GroupItem {
 	return {
 		id: item.id,
 		name: item.name,
-		note: item.note ?? '未填写备注',
+		note: item.note ?? i18next.t('group:mock.noNote'),
 		profileCount: item.profileCount,
 		rawUpdatedAt: item.updatedAt,
 		updatedAt: formatTimeAgo(item.updatedAt),

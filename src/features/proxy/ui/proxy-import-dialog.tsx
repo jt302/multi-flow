@@ -1,7 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LoaderCircle } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { z } from 'zod/v3';
 
 import {
@@ -21,12 +22,13 @@ import {
 } from '@/components/ui';
 import type { ImportProxiesPayload, ProxyProtocol } from '@/features/proxy/model/types';
 
-const schema = z.object({
-	protocol: z.enum(['http', 'https', 'socks5', 'ssh']),
-	content: z.string().trim().min(1, '请输入代理列表'),
-});
+const createSchema = (t: (key: string) => string) =>
+	z.object({
+		protocol: z.enum(['http', 'https', 'socks5', 'ssh']),
+		content: z.string().trim().min(1, t('proxy:enterProxyList')),
+	});
 
-type Values = z.infer<typeof schema>;
+type Values = z.infer<ReturnType<typeof createSchema>>;
 
 type ProxyImportDialogProps = {
 	open: boolean;
@@ -35,12 +37,16 @@ type ProxyImportDialogProps = {
 	onConfirm: (payload: ImportProxiesPayload) => Promise<void>;
 };
 
-const DEFAULT_VALUES: Values = {
-	protocol: 'http',
+const DEFAULT_VALUES = {
+	protocol: 'http' as ProxyProtocol,
 	content: '',
 };
 
 export function ProxyImportDialog({ open, pending, onOpenChange, onConfirm }: ProxyImportDialogProps) {
+	const { t } = useTranslation(['proxy', 'common']);
+
+	const schema = useMemo(() => createSchema(t), [t]);
+
 	const {
 		handleSubmit,
 		setValue,
@@ -65,8 +71,10 @@ export function ProxyImportDialog({ open, pending, onOpenChange, onConfirm }: Pr
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>批量导入代理</DialogTitle>
-					<DialogDescription>协议统一选择，每行一个代理。支持 `host:port` 或 `host:port:user:pass`。</DialogDescription>
+					<DialogTitle>{t('proxy:batchImport')}</DialogTitle>
+					<DialogDescription>
+						{t('proxy:protocolUnified')}，{t('proxy:onePerLine')}。{t('proxy:formatHint')}。
+					</DialogDescription>
 				</DialogHeader>
 				<form
 					className="space-y-3"
@@ -79,10 +87,14 @@ export function ProxyImportDialog({ open, pending, onOpenChange, onConfirm }: Pr
 					})}
 				>
 					<div>
-						<p className="mb-1 text-xs text-muted-foreground">协议</p>
-						<Select value={protocol} onValueChange={(value) => setValue('protocol', value as ProxyProtocol, { shouldValidate: true })} disabled={pending}>
+						<p className="mb-1 text-xs text-muted-foreground">{t('common:protocol')}</p>
+						<Select
+							value={protocol}
+							onValueChange={(value) => setValue('protocol', value as ProxyProtocol, { shouldValidate: true })}
+							disabled={pending}
+						>
 							<SelectTrigger className="w-full cursor-pointer">
-								<SelectValue placeholder="协议" />
+								<SelectValue placeholder={t('proxy:protocolPlaceholder')} />
 							</SelectTrigger>
 							<SelectContent>
 								{['http', 'https', 'socks5', 'ssh'].map((item) => (
@@ -92,15 +104,30 @@ export function ProxyImportDialog({ open, pending, onOpenChange, onConfirm }: Pr
 						</Select>
 					</div>
 					<div>
-						<p className="mb-1 text-xs text-muted-foreground">代理列表</p>
-						<Textarea {...register('content')} rows={10} placeholder={'127.0.0.1:8080\n127.0.0.2:8081:user:pass'} disabled={pending} />
-						{errors.content ? <p className="mt-1 text-xs text-destructive">{errors.content.message}</p> : null}
+						<p className="mb-1 text-xs text-muted-foreground">{t('proxy:list')}</p>
+						<Textarea
+							{...register('content')}
+							rows={10}
+							placeholder={'127.0.0.1:8080\n127.0.0.2:8081:user:pass'}
+							disabled={pending}
+						/>
+						{errors.content ? (
+							<p className="mt-1 text-xs text-destructive">{errors.content.message}</p>
+						) : null}
 					</div>
 					<DialogFooter>
-						<Button type="button" variant="ghost" className="cursor-pointer" disabled={pending} onClick={() => onOpenChange(false)}>取消</Button>
+						<Button
+							type="button"
+							variant="ghost"
+							className="cursor-pointer"
+							disabled={pending}
+							onClick={() => onOpenChange(false)}
+						>
+							{t('common:cancel')}
+						</Button>
 						<Button type="submit" className="cursor-pointer" disabled={pending}>
 							{pending ? <LoaderCircle className="animate-spin" /> : null}
-							开始导入
+							{t('proxy:startImport')}
 						</Button>
 					</DialogFooter>
 				</form>

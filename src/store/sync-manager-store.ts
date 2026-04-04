@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 
@@ -100,7 +101,7 @@ export function createSyncManagerStore(options: CreateStoreOptions = {}) {
 			initPromise = (async () => {
 				try {
 					const ready = await ensureSidecarStarted().catch((error) => {
-						throw stageError('sync sidecar 启动失败', error);
+						throw stageError(i18next.t('window:sync.sidecarStartFailed'), error);
 					});
 					set({ sidecarPort: ready.port });
 					client = createClient(`ws://127.0.0.1:${ready.port}/`);
@@ -141,13 +142,13 @@ export function createSyncManagerStore(options: CreateStoreOptions = {}) {
 					];
 					await client.connect().catch((error) => {
 						throw stageError(
-							`sync sidecar 连接失败 (ws://127.0.0.1:${ready.port}/)`,
+							i18next.t('window:sync.sidecarConnectFailed', { port: ready.port }),
 							error,
 						);
 					});
 					const sessionPayload = normalizeSessionPayload(
 						await client.request('sync.get_session', {}).catch((error) => {
-							throw stageError('sync sidecar 会话查询失败', error);
+							throw stageError(i18next.t('window:sync.sidecarQueryFailed'), error);
 						}),
 					);
 					const registeredTargets = [...localTargets.values()].filter(
@@ -165,7 +166,7 @@ export function createSyncManagerStore(options: CreateStoreOptions = {}) {
 								}),
 							),
 						).catch((error) => {
-							throw stageError('sync sidecar 注册 Chromium 实例失败', error);
+							throw stageError(i18next.t('window:sync.sidecarRegisterFailed'), error);
 						});
 					}
 					set({
@@ -199,7 +200,7 @@ export function createSyncManagerStore(options: CreateStoreOptions = {}) {
 			syncLocalTargets: async (targets) => {
 				await get().ensureConnected();
 				if (!client) {
-					throw new Error('sync manager client is unavailable');
+					throw new Error(i18next.t('window:sync.clientUnavailable'));
 				}
 
 				const previousIds = new Set(localTargets.keys());
@@ -241,7 +242,7 @@ export function createSyncManagerStore(options: CreateStoreOptions = {}) {
 			probeInstances: async (instanceIds) => {
 				await get().ensureConnected();
 				if (!client) {
-					throw new Error('sync manager client is unavailable');
+					throw new Error(i18next.t('window:sync.clientUnavailable'));
 				}
 				const ids = [...new Set(instanceIds.filter(Boolean))];
 				await Promise.all(
@@ -282,7 +283,7 @@ export function createSyncManagerStore(options: CreateStoreOptions = {}) {
 			startSync: async (masterId, slaveIds) => {
 				await get().ensureConnected();
 				if (!client) {
-					throw new Error('sync manager client is unavailable');
+					throw new Error(i18next.t('window:sync.clientUnavailable'));
 				}
 				const { masterBrowserId, slaveBrowserIds } = validateSyncTargetsForStart(
 					localTargets,
@@ -298,7 +299,7 @@ export function createSyncManagerStore(options: CreateStoreOptions = {}) {
 							slave_browser_ids: slaveBrowserIds,
 						})
 						.catch((error) => {
-							throw stageError('sync.start 调用失败', error);
+							throw stageError(i18next.t('window:sync.syncStartFailed'), error);
 						}),
 				);
 				set({ sessionPayload });
@@ -307,10 +308,10 @@ export function createSyncManagerStore(options: CreateStoreOptions = {}) {
 			stopSync: async () => {
 				await get().ensureConnected();
 				if (!client) {
-					throw new Error('sync manager client is unavailable');
+					throw new Error(i18next.t('window:sync.clientUnavailable'));
 				}
 				await client.request('sync.stop', {}).catch((error) => {
-					throw stageError('sync.stop 调用失败', error);
+					throw stageError(i18next.t('window:sync.syncStopFailed'), error);
 				});
 				set({
 					sessionPayload: {

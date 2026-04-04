@@ -3,6 +3,7 @@ import type { ResourceItem } from '@/entities/resource/model/types';
 import type { PlatformVisualMeta } from '@/entities/profile/lib/platform-meta';
 import { getPlatformMeta } from '@/entities/profile/lib/platform-meta';
 import { detectClientPlatform } from '@/shared/lib/platform';
+import i18next from 'i18next';
 
 export type ProfileListRunningFilter = 'all' | 'running' | 'stopped';
 export type ProfileListLifecycleFilter = 'all' | 'active' | 'deleted';
@@ -16,19 +17,19 @@ export type ProfileListFiltersState = {
 
 export function formatProfileTime(unixTs: number | null): string {
 	if (!unixTs) {
-		return '未启动';
+		return i18next.t('profile:time.notStarted');
 	}
 	const diff = Math.max(0, Math.floor(Date.now() / 1000) - unixTs);
 	if (diff < 60) {
-		return '刚刚';
+		return i18next.t('profile:time.justNow');
 	}
 	if (diff < 3600) {
-		return `${Math.floor(diff / 60)} 分钟前`;
+		return i18next.t('profile:time.minutesAgo', { count: Math.floor(diff / 60) });
 	}
 	if (diff < 86400) {
-		return `${Math.floor(diff / 3600)} 小时前`;
+		return i18next.t('profile:time.hoursAgo', { count: Math.floor(diff / 3600) });
 	}
-	return `${Math.floor(diff / 86400)} 天前`;
+	return i18next.t('profile:time.daysAgo', { count: Math.floor(diff / 86400) });
 }
 
 export function resolvePlatformMeta(profile: ProfileItem): PlatformVisualMeta {
@@ -70,8 +71,8 @@ export function resolveBrowserVersionMeta(
 	const browserVersion = profile.settings?.basic?.browserVersion?.trim();
 	if (!browserVersion) {
 		return {
-			versionLabel: '自动选择',
-			resourceLabel: '启动时按宿主系统最新版本解析',
+			versionLabel: i18next.t('common:autoSelect'),
+			resourceLabel: i18next.t('profile:basic.versionAutoResolve'),
 		};
 	}
 	const hostPlatform = detectClientPlatform();
@@ -85,8 +86,8 @@ export function resolveBrowserVersionMeta(
 		versionLabel: browserVersion,
 		resourceLabel: resource
 			? resource.installed
-				? '已安装'
-				: '未下载，启动时自动下载'
-			: '当前宿主系统无该版本资源',
+				? i18next.t('common:installed')
+				: i18next.t('profile:basic.versionNoResource')
+			: i18next.t('profile:basic.versionNotAvailable'),
 	};
 }

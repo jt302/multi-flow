@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import type {
 	LocalSyncTargetItem,
 	SyncManagerInstanceInfo,
@@ -194,28 +196,28 @@ export function validateSyncTargetsForStart(
 ) {
 	const masterTarget = localTargets.get(masterId);
 	if (!masterTarget) {
-		throw new Error(`主控环境不存在：${masterId}`);
+		throw new Error(i18next.t('window:sync.masterNotExist', { id: masterId }));
 	}
 	if (masterTarget.magicSocketServerPort === null) {
-		throw new Error(`主控环境未连接到 Chromium 控制端口：${masterId}`);
+		throw new Error(i18next.t('window:sync.masterNotConnected', { id: masterId }));
 	}
 	const masterBrowserId = pickBoundWindowId(masterTarget);
 	if (typeof masterBrowserId !== 'number') {
-		throw new Error(`主控环境没有可绑定的浏览器窗口：${masterId}`);
+		throw new Error(i18next.t('window:sync.masterNoWindows', { id: masterId }));
 	}
 
 	const slaveBrowserIds = Object.fromEntries(
 		slaveIds.map((slaveId) => {
 			const slaveTarget = localTargets.get(slaveId);
 			if (!slaveTarget) {
-				throw new Error(`从控环境不存在：${slaveId}`);
+				throw new Error(i18next.t('window:sync.slaveNotExist', { id: slaveId }));
 			}
 			if (slaveTarget.magicSocketServerPort === null) {
-				throw new Error(`从控环境未连接到 Chromium 控制端口：${slaveId}`);
+				throw new Error(i18next.t('window:sync.slaveNotConnected', { id: slaveId }));
 			}
 			const browserId = pickBoundWindowId(slaveTarget);
 			if (typeof browserId !== 'number') {
-				throw new Error(`从控环境没有可绑定的浏览器窗口：${slaveId}`);
+				throw new Error(i18next.t('window:sync.slaveNoWindows', { id: slaveId }));
 			}
 			return [slaveId, browserId] as const;
 		}),

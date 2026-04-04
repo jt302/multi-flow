@@ -1,11 +1,23 @@
 import { Sparkles } from 'lucide-react';
 import type { UseFormReturn } from 'react-hook-form';
 
-import { Button, Checkbox, Icon, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@/components/ui';
+import {
+	Button,
+	Checkbox,
+	Icon,
+	Input,
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+	Textarea,
+} from '@/components/ui';
 import type { WebRtcMode } from '@/entities/profile/model/types';
 
 import type { ProfileFormValues } from '../model/profile-form';
 import { SectionTitle } from './section-title';
+import { useTranslation } from 'react-i18next';
 
 type FingerprintSettingsSectionProps = {
 	form: UseFormReturn<ProfileFormValues>;
@@ -51,6 +63,7 @@ export function FingerprintSettingsSection({
 	hasProxySuggestions,
 }: FingerprintSettingsSectionProps) {
 	const { register, setValue } = form;
+	const { t } = useTranslation(['profile', 'common']);
 	const languageId = 'profile-language';
 	const timezoneId = 'profile-timezone';
 	const customFontListId = 'profile-custom-font-list';
@@ -68,43 +81,78 @@ export function FingerprintSettingsSection({
 	return (
 		<div className="rounded-xl border border-border/70 p-3">
 			<SectionTitle
-				title="指纹策略"
-				description="只配置上层意图，系统按平台/设备/版本自动解析整套指纹"
+				title={t('fingerprint.title')}
+				description={t('fingerprint.desc')}
 			/>
 			{hasProxySuggestions ? (
 				<div className="mb-3 flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-					<p>已接入代理默认值，语言/时区可自动填充，也可以手动覆盖。</p>
-					<Button type="button" size="sm" variant="outline" className="cursor-pointer" onClick={onRestoreProxySuggestions}>
-						恢复代理默认
+					<p>{t('fingerprint.proxyDefaultHint')}</p>
+					<Button
+						type="button"
+						size="sm"
+						variant="outline"
+						className="cursor-pointer"
+						onClick={onRestoreProxySuggestions}
+					>
+						{t('fingerprint.restoreProxyDefault')}
 					</Button>
 				</div>
 			) : null}
 			<div className="grid gap-3 md:grid-cols-2">
 				<div>
-						<label htmlFor={languageId} className="mb-1 block text-xs text-muted-foreground">语言</label>
-						<Input
-							id={languageId}
-							{...register('language', {
-								onChange: () => onMarkManual('language'),
-							})}
-							placeholder="如 zh-CN / en-US"
-						/>
-						<p className="mt-1 text-[11px] text-muted-foreground">来源: {languageSource === 'proxy' ? '代理默认' : languageSource === 'manual' ? '手动设置' : '未设置'}</p>
+					<label
+						htmlFor={languageId}
+						className="mb-1 block text-xs text-muted-foreground"
+					>
+						{t('fingerprint.language')}
+					</label>
+					<Input
+						id={languageId}
+						{...register('language', {
+							onChange: () => onMarkManual('language'),
+						})}
+						placeholder={t('fingerprint.languagePlaceholder')}
+					/>
+					<p className="mt-1 text-[11px] text-muted-foreground">
+						{t('fingerprint.sourceLabel')}{' '}
+						{languageSource === 'proxy'
+							? t('fingerprint.sourceProxy')
+							: languageSource === 'manual'
+								? t('fingerprint.sourceManual')
+								: t('common:notSet')}
+					</p>
 				</div>
 				<div>
-						<label htmlFor={timezoneId} className="mb-1 block text-xs text-muted-foreground">时区</label>
-						<Input
-							id={timezoneId}
-							{...register('timezoneId', {
-								onChange: () => onMarkManual('timezoneId'),
-							})}
-							placeholder="如 Asia/Shanghai"
-						/>
-						<p className="mt-1 text-[11px] text-muted-foreground">来源: {timezoneSource === 'proxy' ? '代理默认' : timezoneSource === 'manual' ? '手动设置' : '未设置'}</p>
+					<label
+						htmlFor={timezoneId}
+						className="mb-1 block text-xs text-muted-foreground"
+					>
+						{t('fingerprint.timezone')}
+					</label>
+					<Input
+						id={timezoneId}
+						{...register('timezoneId', {
+							onChange: () => onMarkManual('timezoneId'),
+						})}
+						placeholder={t('fingerprint.timezonePlaceholder')}
+					/>
+					<p className="mt-1 text-[11px] text-muted-foreground">
+						{t('fingerprint.sourceLabel')}{' '}
+						{timezoneSource === 'proxy'
+							? t('fingerprint.sourceProxy')
+							: timezoneSource === 'manual'
+								? t('fingerprint.sourceManual')
+								: t('common:notSet')}
+					</p>
 				</div>
 				<div className="md:col-span-2">
 					<div className="mb-1 flex items-center justify-between gap-2">
-							<label htmlFor={customFontListId} className="text-xs text-muted-foreground">字体列表</label>
+						<label
+							htmlFor={customFontListId}
+							className="text-xs text-muted-foreground"
+						>
+							{t('fingerprint.fontList')}
+						</label>
 						<Button
 							type="button"
 							size="sm"
@@ -113,21 +161,25 @@ export function FingerprintSettingsSection({
 							onClick={onRegenerateFonts}
 						>
 							<Icon icon={Sparkles} size={12} />
-							随机生成
+							{t('fingerprint.randomGenerate')}
 						</Button>
 					</div>
-						<Textarea
-							id={customFontListId}
-							{...register('customFontListText')}
+					<Textarea
+						id={customFontListId}
+						{...register('customFontListText')}
 						placeholder={'Arial\nHelvetica Neue\nSegoe UI'}
 						className="min-h-[140px]"
 					/>
 					<p className="mt-1 text-[11px] text-muted-foreground">
-						当前平台字体池 {availableFontFamiliesCount} 项。进入页面会先随机生成一套，可继续手动修改。
+						{t('fingerprint.fontPoolHelp', {
+							count: availableFontFamiliesCount,
+						})}
 					</p>
 				</div>
 				<div className="md:col-span-2">
-					<p className="mb-1 text-xs text-muted-foreground">设备名称</p>
+					<p className="mb-1 text-xs text-muted-foreground">
+						{t('fingerprint.deviceName')}
+					</p>
 					<Select
 						value={deviceNameMode}
 						onValueChange={(value) =>
@@ -138,21 +190,28 @@ export function FingerprintSettingsSection({
 						}
 					>
 						<SelectTrigger id={deviceNameModeId}>
-							<SelectValue placeholder="选择设备名称模式" />
+							<SelectValue
+								placeholder={t('fingerprint.selectDeviceNameMode')}
+							/>
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value="real">真实</SelectItem>
-							<SelectItem value="custom">自定义</SelectItem>
+							<SelectItem value="real">{t('common:real')}</SelectItem>
+							<SelectItem value="custom">{t('common:custom')}</SelectItem>
 						</SelectContent>
 					</Select>
 					<p className="mt-1 text-[11px] text-muted-foreground">
-						覆盖 Chromium 进程内可见的主机名，不影响系统真实设备名。
+						{t('fingerprint.deviceNameOverrideHelp')}
 					</p>
 				</div>
 				{deviceNameMode === 'custom' ? (
 					<div className="md:col-span-2">
 						<div className="mb-1 flex items-center justify-between gap-2">
-							<label htmlFor={customDeviceNameId} className="text-xs text-muted-foreground">自定义设备名称</label>
+							<label
+								htmlFor={customDeviceNameId}
+								className="text-xs text-muted-foreground"
+							>
+								{t('fingerprint.customDeviceName')}
+							</label>
 							<Button
 								type="button"
 								size="sm"
@@ -161,21 +220,24 @@ export function FingerprintSettingsSection({
 								onClick={onRegenerateCustomDeviceName}
 							>
 								<Icon icon={Sparkles} size={12} />
-								随机生成
+								{t('fingerprint.randomGenerate')}
 							</Button>
 						</div>
 						<Input
 							id={customDeviceNameId}
 							{...register('customDeviceName')}
-							placeholder="例如 device-a1b2c3d4"
+							placeholder={t('fingerprint.customDeviceNamePlaceholder')}
 						/>
 						<p className="mt-1 text-[11px] text-muted-foreground">
-							当前值：{customDeviceName}
+							{t('fingerprint.currentValue')}
+							{customDeviceName}
 						</p>
 					</div>
 				) : null}
 				<div className="md:col-span-2">
-					<p className="mb-1 text-xs text-muted-foreground">MAC 地址</p>
+					<p className="mb-1 text-xs text-muted-foreground">
+						{t('fingerprint.macAddress')}
+					</p>
 					<Select
 						value={macAddressMode}
 						onValueChange={(value) =>
@@ -186,21 +248,26 @@ export function FingerprintSettingsSection({
 						}
 					>
 						<SelectTrigger id={macAddressModeId}>
-							<SelectValue placeholder="选择 MAC 地址模式" />
+							<SelectValue placeholder={t('fingerprint.selectMacMode')} />
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value="real">真实</SelectItem>
-							<SelectItem value="custom">自定义</SelectItem>
+							<SelectItem value="real">{t('common:real')}</SelectItem>
+							<SelectItem value="custom">{t('common:custom')}</SelectItem>
 						</SelectContent>
 					</Select>
 					<p className="mt-1 text-[11px] text-muted-foreground">
-						覆盖 Chromium 导出的网络接口 MAC，不修改系统真实网卡地址。
+						{t('fingerprint.macOverrideHelp')}
 					</p>
 				</div>
 				{macAddressMode === 'custom' ? (
 					<div className="md:col-span-2">
 						<div className="mb-1 flex items-center justify-between gap-2">
-							<label htmlFor={customMacAddressId} className="text-xs text-muted-foreground">自定义 MAC 地址</label>
+							<label
+								htmlFor={customMacAddressId}
+								className="text-xs text-muted-foreground"
+							>
+								{t('fingerprint.customMac')}
+							</label>
 							<Button
 								type="button"
 								size="sm"
@@ -209,16 +276,17 @@ export function FingerprintSettingsSection({
 								onClick={onRegenerateCustomMacAddress}
 							>
 								<Icon icon={Sparkles} size={12} />
-								随机生成
+								{t('fingerprint.randomGenerate')}
 							</Button>
 						</div>
 						<Input
 							id={customMacAddressId}
 							{...register('customMacAddress')}
-							placeholder="例如 A2:11:22:33:44:55"
+							placeholder={t('fingerprint.customMacPlaceholder')}
 						/>
 						<p className="mt-1 text-[11px] text-muted-foreground">
-							当前值：{customMacAddress}
+							{t('fingerprint.currentValue')}
+							{customMacAddress}
 						</p>
 					</div>
 				) : null}
@@ -237,15 +305,19 @@ export function FingerprintSettingsSection({
 							}
 						/>
 						<div>
-							<p className="font-medium text-foreground">Do Not Track</p>
+							<p className="font-medium text-foreground">
+								{t('fingerprint.doNotTrack')}
+							</p>
 							<p className="mt-1 text-xs text-muted-foreground">
-								发送“Do Not Track”请求给网站，要求网站不收集或不跟踪您的浏览数据。
+								{t('fingerprint.doNotTrackDesc')}
 							</p>
 						</div>
 					</label>
 				</div>
 				<div className="md:col-span-2">
-					<p className="mb-1 text-xs text-muted-foreground">WebRTC</p>
+					<p className="mb-1 text-xs text-muted-foreground">
+						{t('fingerprint.webrtc')}
+					</p>
 					<Select
 						value={webRtcMode}
 						onValueChange={(value) =>
@@ -256,24 +328,38 @@ export function FingerprintSettingsSection({
 						}
 					>
 						<SelectTrigger>
-							<SelectValue placeholder="选择 WebRTC 策略" />
+							<SelectValue placeholder={t('fingerprint.selectWebrtcPolicy')} />
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value="real">真实（不覆盖）</SelectItem>
-							<SelectItem value="follow_ip">跟随 IP</SelectItem>
-							<SelectItem value="replace">替换（指定 IP）</SelectItem>
-							<SelectItem value="disable">禁用</SelectItem>
+							<SelectItem value="real">{t('common:realNoOverride')}</SelectItem>
+							<SelectItem value="follow_ip">{t('common:followIp')}</SelectItem>
+							<SelectItem value="replace">{t('common:replace')}</SelectItem>
+							<SelectItem value="disable">{t('common:disable')}</SelectItem>
 						</SelectContent>
 					</Select>
 				</div>
 				{webRtcMode === 'replace' ? (
 					<div className="md:col-span-2">
-							<label htmlFor={webrtcIpOverrideId} className="mb-1 block text-xs text-muted-foreground">WebRTC 替换 IP</label>
-							<Input id={webrtcIpOverrideId} {...register('webrtcIpOverride')} placeholder="例如 8.8.8.8" />
+						<label
+							htmlFor={webrtcIpOverrideId}
+							className="mb-1 block text-xs text-muted-foreground"
+						>
+							{t('fingerprint.webrtcReplaceIp')}
+						</label>
+						<Input
+							id={webrtcIpOverrideId}
+							{...register('webrtcIpOverride')}
+							placeholder={t('fingerprint.webrtcReplaceIpPlaceholder')}
+						/>
 					</div>
 				) : null}
 				<div>
-					<label htmlFor={viewportWidthId} className="mb-1 block text-xs text-muted-foreground">分辨率宽度</label>
+					<label
+						htmlFor={viewportWidthId}
+						className="mb-1 block text-xs text-muted-foreground"
+					>
+						{t('fingerprint.resolutionWidth')}
+					</label>
 					<Input
 						id={viewportWidthId}
 						type="number"
@@ -281,7 +367,12 @@ export function FingerprintSettingsSection({
 					/>
 				</div>
 				<div>
-					<label htmlFor={viewportHeightId} className="mb-1 block text-xs text-muted-foreground">分辨率高度</label>
+					<label
+						htmlFor={viewportHeightId}
+						className="mb-1 block text-xs text-muted-foreground"
+					>
+						{t('fingerprint.resolutionHeight')}
+					</label>
 					<Input
 						id={viewportHeightId}
 						type="number"
@@ -289,7 +380,12 @@ export function FingerprintSettingsSection({
 					/>
 				</div>
 				<div className="md:col-span-2">
-					<label htmlFor={deviceScaleFactorId} className="mb-1 block text-xs text-muted-foreground">DPR</label>
+					<label
+						htmlFor={deviceScaleFactorId}
+						className="mb-1 block text-xs text-muted-foreground"
+					>
+						{t('fingerprint.dpr')}
+					</label>
 					<Input
 						id={deviceScaleFactorId}
 						type="number"
@@ -297,13 +393,17 @@ export function FingerprintSettingsSection({
 						{...register('deviceScaleFactor', { valueAsNumber: true })}
 					/>
 					<p className="mt-1 text-[11px] text-muted-foreground">
-						初始值来自当前机型预设；如果切换机型预设，这里的分辨率会重置成新预设默认值。
+						{t('fingerprint.resolutionHelp')}
 					</p>
 				</div>
 				<div className="md:col-span-2 flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
 					<div>
-						<p className="text-xs text-muted-foreground">Fingerprint Seed</p>
-						<p className="mt-1 text-sm">{fingerprintSeed ?? '未生成'}</p>
+						<p className="text-xs text-muted-foreground">
+							{t('fingerprint.fingerprintSeed')}
+						</p>
+						<p className="mt-1 text-sm">
+							{fingerprintSeed ?? t('common:notGenerated')}
+						</p>
 					</div>
 					<Button
 						type="button"
@@ -313,20 +413,23 @@ export function FingerprintSettingsSection({
 						onClick={onRegenerateFingerprintSeed}
 					>
 						<Icon icon={Sparkles} size={12} />
-						随机 Seed
+						{t('fingerprint.randomSeed')}
 					</Button>
 				</div>
-					<label htmlFor={randomFingerprintId} className="flex items-center gap-2 text-sm md:col-span-2">
-						<Checkbox
-							id={randomFingerprintId}
-							checked={randomFingerprint}
+				<label
+					htmlFor={randomFingerprintId}
+					className="flex items-center gap-2 text-sm md:col-span-2"
+				>
+					<Checkbox
+						id={randomFingerprintId}
+						checked={randomFingerprint}
 						onCheckedChange={(checked) =>
 							setValue('randomFingerprint', checked === true, {
 								shouldDirty: true,
 							})
 						}
 					/>
-					启动时随机 fingerprint-seed（不随机整套指纹）
+					{t('fingerprint.randomSeedOnStart')}
 				</label>
 			</div>
 		</div>

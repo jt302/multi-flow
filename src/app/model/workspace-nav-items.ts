@@ -9,17 +9,21 @@ import {
 	Puzzle,
 	Settings2,
 } from 'lucide-react';
+import i18next from 'i18next';
 
 import type { NavItem } from './workspace-types';
 
-export const WORKSPACE_NAV_ITEMS: NavItem[] = [
-	{ id: 'dashboard', label: '总览', icon: LayoutDashboard },
-	{ id: 'profiles', label: '环境', icon: FolderKanban },
-	{ id: 'plugins', label: '插件', icon: Puzzle },
-	{ id: 'groups', label: '分组', icon: Folders },
-	{ id: 'proxy', label: '代理池', icon: Globe2 },
-	{ id: 'windows', label: '窗口同步', icon: PanelsTopLeft },
-	{ id: 'browser-control', label: '浏览器控制', icon: AppWindow },
-	{ id: 'automation', label: '自动化', icon: Bot },
-	{ id: 'settings', label: '设置', icon: Settings2 },
-];
+export function getWorkspaceNavItems(): NavItem[] {
+	const t = i18next.t.bind(i18next);
+	return [
+		{ id: 'dashboard', label: t('nav:dashboard'), icon: LayoutDashboard },
+		{ id: 'profiles', label: t('nav:profiles'), icon: FolderKanban },
+		{ id: 'plugins', label: t('nav:plugins'), icon: Puzzle },
+		{ id: 'groups', label: t('nav:groups'), icon: Folders },
+		{ id: 'proxy', label: t('nav:proxy'), icon: Globe2 },
+		{ id: 'windows', label: t('nav:windows'), icon: PanelsTopLeft },
+		{ id: 'browser-control', label: t('nav:browserControl'), icon: AppWindow },
+		{ id: 'automation', label: t('nav:automation'), icon: Bot },
+		{ id: 'settings', label: t('nav:settings'), icon: Settings2 },
+	];
+}

@@ -1,4 +1,5 @@
 import { BarChart3, Globe2, PanelsTopLeft } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import {
 	Badge,
@@ -11,7 +12,7 @@ import {
 import { DataSection } from '@/components/common';
 import { MetricsGrid } from './metrics-grid';
 import { SessionTableCard } from '@/widgets/session-table-card/ui/session-table-card';
-import { WORKSPACE_SECTIONS } from '@/app/model/workspace-sections';
+import { getWorkspaceSections } from '@/app/model/workspace-sections';
 import type { PresetKey } from '@/entities/theme/model/types';
 
 type DashboardPageProps = {
@@ -25,7 +26,8 @@ export function DashboardPage({
 	useCustomColor,
 	preset,
 }: DashboardPageProps) {
-	const section = WORKSPACE_SECTIONS.dashboard;
+	const { t } = useTranslation('dashboard');
+	const section = getWorkspaceSections().dashboard;
 
 	return (
 		<div className="flex flex-col gap-3 h-full min-h-0">
@@ -35,40 +37,42 @@ export function DashboardPage({
 				preset={preset}
 			/>
 
-			<DataSection title="运行速览" contentClassName="p-0">
+			<DataSection title={t('quickView')} contentClassName="p-0">
 				<div className="grid gap-3 p-1 md:grid-cols-3">
 					<Card className="p-3">
 						<CardHeader className="p-0">
 							<CardTitle className="flex items-center gap-2 text-sm">
 								<Icon icon={BarChart3} size={14} />
-								运行概况
+								{t('overview.title')}
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="p-0 pt-2 text-xs text-muted-foreground">
-							环境、代理和任务状态都在 1 分钟内更新。
+							{t('overview.desc')}
 						</CardContent>
 					</Card>
 					<Card className="p-3">
 						<CardHeader className="p-0">
 							<CardTitle className="flex items-center gap-2 text-sm">
 								<Icon icon={Globe2} size={14} />
-								代理健康
+								{t('proxyHealth.title')}
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="p-0 pt-2 text-xs text-muted-foreground">
-							今日失败节点主要集中在 DE 节点，建议切备用线路。
+							{t('proxyHealth.desc')}
 						</CardContent>
 					</Card>
 					<Card className="p-3">
 						<CardHeader className="p-0">
 							<CardTitle className="flex items-center gap-2 text-sm">
 								<Icon icon={PanelsTopLeft} size={14} />
-								窗口同步
+								{t('windowSync.title')}
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="p-0 pt-2 text-xs text-muted-foreground">
-							当前主从同步会话稳定运行，
-							<Badge className="ml-1">2 组会话活跃</Badge>
+							{t('windowSync.desc')}
+							<Badge className="ml-1">
+								{t('windowSync.activeSessions', { count: 2 })}
+							</Badge>
 						</CardContent>
 					</Card>
 				</div>

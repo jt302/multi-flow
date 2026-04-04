@@ -2,7 +2,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import {
 	listFingerprintPresets,
 	listProfileFontFamilies,
@@ -58,9 +59,9 @@ type UseProfileCreateFormOptions = {
 
 export function resourceStatusLabel(item: ResourceItem | undefined) {
 	if (!item) {
-		return '当前宿主系统无该版本资源';
+		return i18next.t('profile:noResourceForVersion');
 	}
-	return item.installed ? '已安装' : '未下载，启动时自动下载';
+	return item.installed ? i18next.t('common:installed') : i18next.t('common:autoDownloadOnStartup');
 }
 
 export function useProfileCreateForm({
@@ -72,6 +73,7 @@ export function useProfileCreateForm({
 	initialProfile,
 	initialProxyId,
 }: UseProfileCreateFormOptions) {
+	const { t } = useTranslation();
 	const initialBasic = initialProfile?.settings?.basic;
 	const initialFingerprint = initialProfile?.settings?.fingerprint;
 	const initialAdvanced = initialProfile?.settings?.advanced;
@@ -149,8 +151,8 @@ export function useProfileCreateForm({
 		resolver: zodResolver(profileFormSchema),
 		defaultValues: {
 			name: initialProfile?.name ?? '',
-			group: initialProfile?.group === '未分组' ? '' : (initialProfile?.group ?? ''),
-			note: initialProfile?.note === '未填写备注' ? '' : (initialProfile?.note ?? ''),
+			group: initialProfile?.group === t('common:noGroup') ? '' : (initialProfile?.group ?? ''),
+			note: initialProfile?.note === t('common:noNote') ? '' : (initialProfile?.note ?? ''),
 			browserKind: initialBasic?.browserKind ?? 'chromium',
 			browserVersion: defaultBrowserVersion,
 			platform: defaultPlatform,
@@ -617,7 +619,7 @@ export function useProfileCreateForm({
 			);
 		}
 		if (!snapshot) {
-			setSubmitError('指纹摘要尚未就绪，请稍后再试');
+			setSubmitError(t('common:fingerprintNotReady'));
 			return;
 		}
 
@@ -701,7 +703,7 @@ export function useProfileCreateForm({
 			await onSubmit(payload);
 			onBack();
 		} catch (error) {
-			setSubmitError(error instanceof Error ? error.message : '保存环境失败');
+			setSubmitError(error instanceof Error ? error.message : t('common:saveProfileFailed'));
 		}
 	});
 

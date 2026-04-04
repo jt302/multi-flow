@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 import {
 	arrangeProfileWindows,
@@ -18,6 +19,8 @@ export function useWindowSyncActions({
 	refreshWindowsStable,
 	refreshProfilesAndBindings,
 }: WindowSyncActionsDeps) {
+	const { t } = useTranslation('window');
+
 	const refreshAll = async () => {
 		await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
 	};
@@ -30,10 +33,10 @@ export function useWindowSyncActions({
 			const slaveIds = profileIds.filter((profileId) => profileId !== masterProfileId);
 			await syncManagerStore.getState().startSync(masterProfileId, slaveIds);
 			await refreshAll();
-			toast.success('窗口同步已启动');
+			toast.success(t('syncActions.syncStarted'));
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
-			toast.error(`启动窗口同步失败：${message}`);
+			toast.error(t('syncActions.syncStartFailed', { message }));
 			throw error;
 		}
 	};
@@ -42,9 +45,9 @@ export function useWindowSyncActions({
 		try {
 			await syncManagerStore.getState().stopSync();
 			await refreshAll();
-			toast.success('窗口同步已停止');
+			toast.success(t('syncActions.syncStopped'));
 		} catch (error) {
-			toast.error('停止窗口同步失败');
+			toast.error(t('syncActions.syncStopFailed'));
 			throw error;
 		}
 	};
@@ -53,9 +56,9 @@ export function useWindowSyncActions({
 		try {
 			await syncManagerStore.getState().restartSync();
 			await refreshAll();
-			toast.success('窗口同步已重启');
+			toast.success(t('syncActions.syncRestarted'));
 		} catch (error) {
-			toast.error('重启窗口同步失败');
+			toast.error(t('syncActions.syncRestartFailed'));
 			throw error;
 		}
 	};
@@ -64,17 +67,17 @@ export function useWindowSyncActions({
 		try {
 			const slaveIds = syncManagerStore.getState().sessionPayload?.session?.slaveIds ?? [];
 			if (slaveIds.length === 0) {
-				throw new Error('当前没有可接收文本的从控环境');
+				throw new Error(t('syncActions.noSlaveForText'));
 			}
 			const result = await broadcastSyncText(slaveIds, text);
 			await refreshAll();
 			if (result.failedCount > 0) {
-				toast.warning(`文本同步完成：成功 ${result.successCount}，失败 ${result.failedCount}`);
+				toast.warning(t('syncActions.textSyncResult', { success: result.successCount, fail: result.failedCount }));
 			} else {
-				toast.success(`文本同步完成：${result.successCount}/${result.total}`);
+				toast.success(t('syncActions.textSyncResultShort', { success: result.successCount, total: result.total }));
 			}
 		} catch (error) {
-			toast.error('同步文本输入失败');
+			toast.error(t('syncActions.textSyncFailed'));
 			throw error;
 		}
 	};
@@ -84,12 +87,12 @@ export function useWindowSyncActions({
 			const result = await batchRestoreProfileWindows(profileIds);
 			await refreshAll();
 			if (result.failedCount > 0) {
-				toast.warning(`显示窗口完成：成功 ${result.successCount}，失败 ${result.failedCount}`);
+				toast.warning(t('syncActions.showWindowResult', { success: result.successCount, fail: result.failedCount }));
 			} else {
-				toast.success(`显示窗口完成：${result.successCount}/${result.total}`);
+				toast.success(t('syncActions.showWindowResultShort', { success: result.successCount, total: result.total }));
 			}
 		} catch (error) {
-			toast.error('显示窗口失败');
+			toast.error(t('syncActions.showWindowFailed'));
 			throw error;
 		}
 	};
@@ -99,12 +102,12 @@ export function useWindowSyncActions({
 			const result = await batchSetProfileWindowBounds(profileIds, bounds);
 			await refreshAll();
 			if (result.failedCount > 0) {
-				toast.warning(`统一大小完成：成功 ${result.successCount}，失败 ${result.failedCount}`);
+				toast.warning(t('syncActions.uniformSizeResult', { success: result.successCount, fail: result.failedCount }));
 			} else {
-				toast.success(`统一大小完成：${result.successCount}/${result.total}`);
+				toast.success(t('syncActions.uniformSizeResultShort', { success: result.successCount, total: result.total }));
 			}
 		} catch (error) {
-			toast.error('统一设置窗口大小失败');
+			toast.error(t('syncActions.uniformSizeFailed'));
 			throw error;
 		}
 	};
@@ -114,12 +117,12 @@ export function useWindowSyncActions({
 			const result = await arrangeProfileWindows(payload);
 			await refreshAll();
 			if (result.failedCount > 0) {
-				toast.warning(`窗口排列完成：成功 ${result.successCount}，失败 ${result.failedCount}`);
+				toast.warning(t('syncActions.arrangeResult', { success: result.successCount, fail: result.failedCount }));
 			} else {
-				toast.success(`窗口排列完成：${result.successCount}/${result.total}`);
+				toast.success(t('syncActions.arrangeResultShort', { success: result.successCount, total: result.total }));
 			}
 		} catch (error) {
-			toast.error('窗口排列失败');
+			toast.error(t('syncActions.arrangeFailed'));
 			throw error;
 		}
 	};

@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { zodResolver } from '@hookform/resolvers/zod';
+import i18next from 'i18next';
 import { Plus, Save } from 'lucide-react';
 import { z } from 'zod/v3';
 
@@ -25,7 +27,7 @@ import type { GroupEditorMode } from '@/store/group-management-store';
 import type { GroupItem } from '@/entities/group/model/types';
 
 export const groupFormSchema = z.object({
-	name: z.string().trim().min(1, '分组名称不能为空'),
+	name: z.string().trim().min(1, i18next.t('group:form.nameRequired')),
 	note: z.string(),
 });
 
@@ -46,6 +48,7 @@ export function GroupFormDialog({
 	onOpenChange,
 	onSubmit,
 }: GroupFormDialogProps) {
+	const { t } = useTranslation(['group', 'common']);
 	const form = useForm<GroupFormValues>({
 		resolver: zodResolver(groupFormSchema),
 		defaultValues: {
@@ -67,7 +70,7 @@ export function GroupFormDialog({
 		if (mode === 'edit' && group) {
 			reset({
 				name: group.name,
-				note: group.note === '未填写备注' ? '' : group.note,
+				note: group.note === i18next.t('group:mock.noNote') ? '' : group.note,
 			});
 			return;
 		}
@@ -78,9 +81,15 @@ export function GroupFormDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>{mode === 'edit' ? '编辑分组' : '新建分组'}</DialogTitle>
+					<DialogTitle>
+						{mode === 'edit'
+							? t('group:form.editTitle')
+							: t('group:form.createTitle')}
+					</DialogTitle>
 					<DialogDescription>
-						{mode === 'edit' ? '更新分组名称和备注信息。' : '创建一个新的分组，用于环境归类。'}
+						{mode === 'edit'
+							? t('group:form.editDesc')
+							: t('group:form.createDesc')}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -97,9 +106,12 @@ export function GroupFormDialog({
 							name="name"
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel>分组名称</FormLabel>
+									<FormLabel>{t('group:form.name')}</FormLabel>
 									<FormControl>
-										<Input {...field} placeholder="例如 AirDrop-Matrix" />
+										<Input
+											{...field}
+											placeholder={t('group:form.namePlaceholder')}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -111,9 +123,12 @@ export function GroupFormDialog({
 							name="note"
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel>备注</FormLabel>
+									<FormLabel>{t('group:form.note')}</FormLabel>
 									<FormControl>
-										<Input {...field} placeholder="任务目的或业务线" />
+										<Input
+											{...field}
+											placeholder={t('group:form.notePlaceholder')}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -127,11 +142,17 @@ export function GroupFormDialog({
 								className="cursor-pointer"
 								onClick={() => onOpenChange(false)}
 							>
-								取消
+								{t('common:cancel')}
 							</Button>
-							<Button type="submit" className="cursor-pointer" disabled={isSubmitting}>
+							<Button
+								type="submit"
+								className="cursor-pointer"
+								disabled={isSubmitting}
+							>
 								<Icon icon={mode === 'edit' ? Save : Plus} size={14} />
-								{mode === 'edit' ? '保存分组' : '新增分组'}
+								{mode === 'edit'
+									? t('group:form.saveGroup')
+									: t('group:form.createGroup')}
 							</Button>
 						</DialogFooter>
 					</form>

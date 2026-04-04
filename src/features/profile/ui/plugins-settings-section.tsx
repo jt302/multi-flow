@@ -1,5 +1,6 @@
 import { Puzzle } from 'lucide-react';
 import type { UseFormReturn } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 
 import { Badge, Button, Checkbox, Icon } from '@/components/ui';
 import type { PluginPackage } from '@/entities/plugin/model/types';
@@ -29,6 +30,7 @@ export function PluginsSettingsSection({
 	loading,
 	error,
 }: PluginsSettingsSectionProps) {
+	const { t } = useTranslation('profile');
 	const { setValue } = form;
 
 	const updateSelections = (next: ProfileFormValues['pluginSelections']) => {
@@ -41,16 +43,16 @@ export function PluginsSettingsSection({
 	return (
 		<div className="rounded-xl border border-border/70 p-3">
 			<SectionTitle
-				title="插件"
-				description="从已下载插件库中选择要跟随当前环境启动的插件。运行中的环境修改后需要重启才会生效。"
+				title={t('plugins:title')}
+				description={t('plugins:desc')}
 			/>
 			{loading ? (
-				<p className="text-xs text-muted-foreground">正在加载插件库...</p>
+				<p className="text-xs text-muted-foreground">{t('plugins:loading')}</p>
 			) : null}
 			{error ? <p className="text-xs text-destructive">{error}</p> : null}
 			{!loading && packages.length === 0 ? (
 				<div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-3 py-4 text-sm text-muted-foreground">
-					当前还没有已下载插件。先到独立的插件页通过扩展 ID 下载，再回到这里选择要安装到环境的插件。
+					{t('plugins:noPlugins')}
 				</div>
 			) : null}
 			<div className="space-y-2">
@@ -89,51 +91,51 @@ export function PluginsSettingsSection({
 											<Badge variant="outline">v{pkg.version}</Badge>
 											<Badge variant="secondary">{pkg.extensionId}</Badge>
 										</div>
-										<p className="mt-1 text-xs text-muted-foreground">
-											{pkg.description?.trim() || '暂无描述'}
-										</p>
+									<p className="mt-1 text-xs text-muted-foreground">
+										{pkg.description?.trim() || t('plugins:noDescription')}
+									</p>
 									</div>
 								</label>
 								<div className="flex items-center gap-2">
-									<label className="flex items-center gap-2 text-xs text-muted-foreground">
-										<Checkbox
-											checked={selected?.enabled ?? false}
-											disabled={!selected}
-											className="cursor-pointer"
-											onCheckedChange={(checked) => {
-												updateSelections(
-													pluginSelections.map((item) =>
-														item.packageId === pkg.packageId
-															? { ...item, enabled: checked === true }
-															: item,
-													),
-												);
-											}}
-										/>
-										启用
-									</label>
-									<Button
-										type="button"
-										variant="ghost"
-										size="sm"
-										className="h-7 cursor-pointer px-2 text-[11px]"
-										onClick={() => {
-											updateSelections(
-												pluginSelections.filter(
-													(item) => item.packageId !== pkg.packageId,
-												),
-											);
-										}}
+								<label className="flex items-center gap-2 text-xs text-muted-foreground">
+									<Checkbox
+										checked={selected?.enabled ?? false}
 										disabled={!selected}
-									>
-										<Icon icon={Puzzle} size={12} />
-										移除
-									</Button>
+										className="cursor-pointer"
+										onCheckedChange={(checked) => {
+											updateSelections(
+												pluginSelections.map((item) =>
+													item.packageId === pkg.packageId
+														? { ...item, enabled: checked === true }
+														: item,
+											),
+										);
+									}}
+									/>
+									{t('plugins:enabled')}
+								</label>
+								<Button
+									type="button"
+									variant="ghost"
+									size="sm"
+									className="h-7 cursor-pointer px-2 text-[11px]"
+									onClick={() => {
+										updateSelections(
+											pluginSelections.filter(
+												(item) => item.packageId !== pkg.packageId,
+											),
+										);
+									}}
+									disabled={!selected}
+								>
+									<Icon icon={Puzzle} size={12} />
+									{t('plugins:remove')}
+								</Button>
 								</div>
 							</div>
 							{pkg.updateStatus === 'update_available' ? (
 								<p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
-									检测到新版本 {pkg.latestVersion ?? '未知'}，如果希望环境使用新版本，请先去插件页更新插件包。
+									{t('plugins:version', { version: pkg.latestVersion ?? '?' })}
 								</p>
 							) : null}
 						</div>

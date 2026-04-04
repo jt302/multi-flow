@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Trash2 } from 'lucide-react';
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Icon } from '@/components/ui';
@@ -7,15 +8,17 @@ type AdvancedMaintenanceCardProps = {
 };
 
 export function AdvancedMaintenanceCard({ onOpenRecycleBin }: AdvancedMaintenanceCardProps) {
+  const { t } = useTranslation('settings');
+
   return (
     <Card className="border-border/40 bg-card/60 backdrop-blur-md shadow-sm transition-all duration-300">
       <CardHeader className="p-4 pb-2 border-b border-border/40">
-        <CardTitle className="text-sm font-medium">高级维护</CardTitle>
+        <CardTitle className="text-sm font-medium">{t('maintenance.title')}</CardTitle>
       </CardHeader>
       <CardContent className="p-4 pt-4 flex items-center justify-between">
         <div className="space-y-1">
-          <p className="text-sm font-medium leading-none">回收站</p>
-          <p className="text-xs text-muted-foreground">恢复或彻底删除已归档的数据</p>
+          <p className="text-sm font-medium leading-none">{t('maintenance.recycleBin')}</p>
+          <p className="text-xs text-muted-foreground">{t('maintenance.recycleBinDesc')}</p>
         </div>
         <Button
           type="button"
@@ -26,7 +29,7 @@ export function AdvancedMaintenanceCard({ onOpenRecycleBin }: AdvancedMaintenanc
           disabled={!onOpenRecycleBin}
         >
           <Icon icon={Trash2} size={14} className="mr-1" />
-          打开回收站
+          {t('maintenance.openRecycleBin')}
         </Button>
       </CardContent>
     </Card>

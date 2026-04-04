@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { LoaderCircle } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { z } from 'zod/v3';
 import GoogleIcon from '@/assets/icon/google.svg?react';
 import YouTubeIcon from '@/assets/icon/youtube.svg?react';
@@ -31,17 +32,13 @@ import type {
 import type { ProxyValueSource } from '@/entities/proxy/model/types';
 
 const PROTOCOL_OPTIONS: ProxyProtocol[] = ['http', 'https', 'socks5', 'ssh'];
-const VALUE_SOURCE_OPTIONS: Array<{ value: ProxyValueSource; label: string }> = [
-	{ value: 'ip', label: '基于 IP' },
-	{ value: 'custom', label: '自定义' },
-];
 
-const proxyFormSchema = z
+const proxyFormSchema = (t: (key: string) => string) => z
 	.object({
-		name: z.string().trim().min(1, '代理名称不能为空'),
+		name: z.string().trim().min(1, t('common:errors.proxyNameRequired')),
 		protocol: z.enum(['http', 'https', 'socks5', 'ssh']),
-		host: z.string().trim().min(1, '主机地址不能为空'),
-		port: z.coerce.number().int('端口必须是整数').min(1, '端口必须在 1-65535 范围').max(65535, '端口必须在 1-65535 范围'),
+		host: z.string().trim().min(1, t('common:errors.hostRequired')),
+		port: z.coerce.number().int(t('common:errors.portInteger')).min(1, t('common:errors.portRange')).max(65535, t('common:errors.portRange')),
 		username: z.string(),
 		password: z.string(),
 		provider: z.string(),
@@ -56,20 +53,20 @@ const proxyFormSchema = z
 		if (values.languageSource === 'custom' && !values.customLanguage.trim()) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
-				message: '语言来源为自定义时必须填写语言',
+				message: t('common:customLanguageRequired'),
 				path: ['customLanguage'],
 			});
 		}
 		if (values.timezoneSource === 'custom' && !values.customTimezone.trim()) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
-				message: '时区来源为自定义时必须填写时区',
+				message: t('common:customTimezoneRequired'),
 				path: ['customTimezone'],
 			});
 		}
 	});
 
-type ProxyFormValues = z.infer<typeof proxyFormSchema>;
+type ProxyFormValues = z.infer<ReturnType<typeof proxyFormSchema>>;
 
 type ProxyFormDialogProps = {
 	open: boolean;
@@ -148,6 +145,7 @@ export function ProxyFormDialog({
 	onCreateProxy,
 	onUpdateProxy,
 }: ProxyFormDialogProps) {
+	const { t } = useTranslation();
 	const {
 		register,
 		handleSubmit,
@@ -156,16 +154,16 @@ export function ProxyFormDialog({
 		reset,
 		formState: { errors },
 	} = useForm<ProxyFormValues>({
-		resolver: zodResolver(proxyFormSchema),
+		resolver: zodResolver(proxyFormSchema(t)),
 		defaultValues: DEFAULT_VALUES,
 	});
 
 	const isEdit = mode === 'edit';
-	const title = isEdit ? '修改代理' : '新增代理';
+	const title = isEdit ? t('common:editItem', { item: t('common:proxy') }) : t('common:createItem', { item: t('common:proxy') });
 	const description = isEdit
-		? '可以修改代理名称、协议、认证信息，以及语言/时区来源配置。基于 IP 的项会在保存后自动重新检测。'
-		: '填写代理基础信息后保存。若语言或时区选择基于 IP，保存后会自动检测出口画像。';
-	const submitLabel = isEdit ? '保存修改' : '创建代理';
+		? t('proxy:editDescription')
+		: t('proxy:createDescription');
+	const submitLabel = isEdit ? t('common:saveChanges') : t('common:createItem', { item: t('common:proxy') });
 
 	useEffect(() => {
 		if (!open) {
@@ -178,6 +176,12 @@ export function ProxyFormDialog({
 	const protocolValue = watch('protocol');
 	const languageSourceValue = watch('languageSource');
 	const timezoneSourceValue = watch('timezoneSource');
+
+	const VALUE_SOURCE_OPTIONS: Array<{ value: ProxyValueSource; label: string }> = [
+		{ value: 'ip', label: t('common:followIp') },
+		{ value: 'custom', label: t('common:custom') },
+	];
+
 	const submitHandler = useMemo(
 		() =>
 			handleSubmit(async (values) => {
@@ -239,15 +243,15 @@ export function ProxyFormDialog({
 				<form className="space-y-3" onSubmit={submitHandler}>
 					<div className="grid gap-3 md:grid-cols-2">
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">代理名称</p>
-							<Input {...register('name')} placeholder="例如 Proxy-US-01" disabled={pending} />
+							<p className="mb-1 text-xs text-muted-foreground">{t('common:name')}</p>
+							<Input {...register('name')} placeholder={t('common:placeholder.proxyNameExample')} disabled={pending} />
 							{errors.name ? <p className="mt-1 text-xs text-destructive">{errors.name.message}</p> : null}
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">协议</p>
+							<p className="mb-1 text-xs text-muted-foreground">{t('common:protocol')}</p>
 							<Select value={protocolValue} onValueChange={(value) => setValue('protocol', value as ProxyProtocol, { shouldValidate: true })} disabled={pending}>
 								<SelectTrigger className="w-full cursor-pointer">
-									<SelectValue placeholder="协议" />
+									<SelectValue placeholder={t('common:protocol')} />
 								</SelectTrigger>
 								<SelectContent>
 									{PROTOCOL_OPTIONS.map((protocol) => (
@@ -261,108 +265,108 @@ export function ProxyFormDialog({
 					</div>
 					<div className="grid grid-cols-[minmax(0,1fr)_120px] gap-3">
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">主机</p>
-							<Input {...register('host')} placeholder="host / ip" disabled={pending || isEdit} />
+							<p className="mb-1 text-xs text-muted-foreground">{t('common:host')}</p>
+							<Input {...register('host')} placeholder={t('common:placeholder.hostIp')} disabled={pending || isEdit} />
 							{errors.host ? <p className="mt-1 text-xs text-destructive">{errors.host.message}</p> : null}
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">端口</p>
-							<Input type="number" {...register('port')} placeholder="port" disabled={pending || isEdit} />
+							<p className="mb-1 text-xs text-muted-foreground">{t('common:port')}</p>
+							<Input type="number" {...register('port')} placeholder={t('common:placeholder.port')} disabled={pending || isEdit} />
 							{errors.port ? <p className="mt-1 text-xs text-destructive">{errors.port.message}</p> : null}
 						</div>
 					</div>
 					<div className="grid gap-3 md:grid-cols-2">
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">用户名</p>
-							<Input {...register('username')} placeholder="留空表示无认证" disabled={pending} />
+							<p className="mb-1 text-xs text-muted-foreground">{t('common:username')}</p>
+							<Input {...register('username')} placeholder={t('common:placeholder.leaveEmpty')} disabled={pending} />
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">密码</p>
-							<Input type="password" {...register('password')} placeholder="留空表示无认证" disabled={pending} />
+							<p className="mb-1 text-xs text-muted-foreground">{t('common:password')}</p>
+							<Input type="password" {...register('password')} placeholder={t('common:placeholder.leaveEmpty')} disabled={pending} />
 						</div>
 					</div>
 					<div>
-						<p className="mb-1 text-xs text-muted-foreground">供应商</p>
-						<Input {...register('provider')} placeholder="供应商" disabled={pending} />
+						<p className="mb-1 text-xs text-muted-foreground">{t('common:provider')}</p>
+						<Input {...register('provider')} placeholder={t('common:provider')} disabled={pending} />
 					</div>
 					<div>
-						<p className="mb-1 text-xs text-muted-foreground">过期时间</p>
+						<p className="mb-1 text-xs text-muted-foreground">{t('common:expiresAt')}</p>
 						<Input type="datetime-local" {...register('expiresAt')} disabled={pending} />
 					</div>
 					<div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-						<p className="mb-2 text-xs font-medium text-muted-foreground">语言 / 时区来源</p>
+						<p className="mb-2 text-xs font-medium text-muted-foreground">{t('proxy:langTimezoneSource')}</p>
 						<div className="grid gap-3 md:grid-cols-2">
 							<div>
-								<p className="mb-1 text-xs text-muted-foreground">语言来源</p>
+								<p className="mb-1 text-xs text-muted-foreground">{t('proxy:languageSource')}</p>
 								<Select
 									value={languageSourceValue}
 									onValueChange={(value) => setValue('languageSource', value as ProxyValueSource, { shouldValidate: true })}
 									disabled={pending}
 								>
-									<SelectTrigger className="w-full cursor-pointer">
-										<SelectValue placeholder="语言来源" />
-									</SelectTrigger>
-									<SelectContent>
-										{VALUE_SOURCE_OPTIONS.map((item) => (
-											<SelectItem key={item.value} value={item.value}>
-												{item.label}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-								{languageSourceValue === 'custom' ? (
-									<>
-										<Input {...register('customLanguage')} className="mt-2" placeholder="如 zh-CN / en-US" disabled={pending} />
-										{errors.customLanguage ? <p className="mt-1 text-xs text-destructive">{errors.customLanguage.message}</p> : null}
-									</>
-								) : (
-									<p className="mt-2 text-[11px] text-muted-foreground">保存后会基于代理出口 IP 和本地 GEO 数据自动推导。</p>
-								)}
+										<SelectTrigger className="w-full cursor-pointer">
+											<SelectValue placeholder={t('proxy:languageSource')} />
+										</SelectTrigger>
+										<SelectContent>
+											{VALUE_SOURCE_OPTIONS.map((item) => (
+												<SelectItem key={item.value} value={item.value}>
+													{item.label}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+									{languageSourceValue === 'custom' ? (
+										<>
+											<Input {...register('customLanguage')} className="mt-2" placeholder="zh-CN / en-US" disabled={pending} />
+											{errors.customLanguage ? <p className="mt-1 text-xs text-destructive">{errors.customLanguage.message}</p> : null}
+										</>
+									) : (
+										<p className="mt-2 text-[11px] text-muted-foreground">{t('proxy:autoDeriveHint')}</p>
+									)}
 							</div>
 							<div>
-								<p className="mb-1 text-xs text-muted-foreground">时区来源</p>
+								<p className="mb-1 text-xs text-muted-foreground">{t('proxy:timezoneSource')}</p>
 								<Select
 									value={timezoneSourceValue}
 									onValueChange={(value) => setValue('timezoneSource', value as ProxyValueSource, { shouldValidate: true })}
 									disabled={pending}
 								>
-									<SelectTrigger className="w-full cursor-pointer">
-										<SelectValue placeholder="时区来源" />
-									</SelectTrigger>
-									<SelectContent>
-										{VALUE_SOURCE_OPTIONS.map((item) => (
-											<SelectItem key={item.value} value={item.value}>
-												{item.label}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-								{timezoneSourceValue === 'custom' ? (
-									<>
-										<Input {...register('customTimezone')} className="mt-2" placeholder="如 Asia/Shanghai" disabled={pending} />
-										{errors.customTimezone ? <p className="mt-1 text-xs text-destructive">{errors.customTimezone.message}</p> : null}
-									</>
-								) : (
-									<p className="mt-2 text-[11px] text-muted-foreground">保存后会基于代理出口 IP 和本地 GEO 数据自动推导。</p>
-								)}
+										<SelectTrigger className="w-full cursor-pointer">
+											<SelectValue placeholder={t('proxy:timezoneSource')} />
+										</SelectTrigger>
+										<SelectContent>
+											{VALUE_SOURCE_OPTIONS.map((item) => (
+												<SelectItem key={item.value} value={item.value}>
+													{item.label}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+									{timezoneSourceValue === 'custom' ? (
+										<>
+											<Input {...register('customTimezone')} className="mt-2" placeholder="Asia/Shanghai" disabled={pending} />
+											{errors.customTimezone ? <p className="mt-1 text-xs text-destructive">{errors.customTimezone.message}</p> : null}
+										</>
+									) : (
+										<p className="mt-2 text-[11px] text-muted-foreground">{t('proxy:autoDeriveHint')}</p>
+									)}
 							</div>
 						</div>
 					</div>
 					<div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-						<p className="mb-2 text-xs font-medium text-muted-foreground">检测结果</p>
+						<p className="mb-2 text-xs font-medium text-muted-foreground">{t('proxy:checkResults')}</p>
 						<div className="grid gap-2 text-xs md:grid-cols-2">
-							<p>出口 IP: {proxy?.exitIp || '未检测'}</p>
-							<p>状态: {proxy?.checkStatus || 'unknown'}</p>
-							<p>国家 / 区域: {proxy ? `${proxy.country || '未知'} / ${proxy.region || '未知'}` : '未检测'}</p>
-							<p>城市: {proxy?.city || '未检测'}</p>
-							<p>经纬度: {proxy && proxy.latitude !== null && proxy.longitude !== null ? `${proxy.latitude}, ${proxy.longitude}` : '未检测'}</p>
-							<p>GEO 建议语言 / 时区: {proxy ? `${proxy.suggestedLanguage || '未检测'} / ${proxy.suggestedTimezone || '未检测'}` : '未检测'}</p>
-							<p>当前生效语言 / 时区: {proxy ? `${proxy.effectiveLanguage || '未生效'} / ${proxy.effectiveTimezone || '未生效'}` : '未检测'}</p>
-							<p>语言来源: {proxy ? `${proxy.languageSource === 'custom' ? '自定义' : '基于 IP'}${proxy.customLanguage ? ` (${proxy.customLanguage})` : ''}` : '未设置'}</p>
-							<p>时区来源: {proxy ? `${proxy.timezoneSource === 'custom' ? '自定义' : '基于 IP'}${proxy.customTimezone ? ` (${proxy.customTimezone})` : ''}` : '未设置'}</p>
+							<p>{t('proxy:exitIp')}: {proxy?.exitIp || t('common:notDetected')}</p>
+							<p>{t('common:status')}: {proxy?.checkStatus || 'unknown'}</p>
+							<p>{t('proxy:countryRegion')}: {proxy ? `${proxy.country || t('common:unknown')} / ${proxy.region || t('common:unknown')}` : t('common:notDetected')}</p>
+							<p>{t('proxy:city')}: {proxy?.city || t('common:notDetected')}</p>
+							<p>{t('proxy:latLong')}: {proxy && proxy.latitude !== null && proxy.longitude !== null ? `${proxy.latitude}, ${proxy.longitude}` : t('common:notDetected')}</p>
+							<p>{t('proxy:geoSuggestion')}: {proxy ? `${proxy.suggestedLanguage || t('common:notDetected')} / ${proxy.suggestedTimezone || t('common:notDetected')}` : t('common:notDetected')}</p>
+							<p>{t('proxy:currentEffective')}: {proxy ? `${proxy.effectiveLanguage || t('common:notSet')} / ${proxy.effectiveTimezone || t('common:notSet')}` : t('common:notDetected')}</p>
+							<p>{t('proxy:languageSource')}: {proxy ? `${proxy.languageSource === 'custom' ? t('common:custom') : t('common:followIp')}${proxy.customLanguage ? ` (${proxy.customLanguage})` : ''}` : t('common:notSet')}</p>
+							<p>{t('proxy:timezoneSource')}: {proxy ? `${proxy.timezoneSource === 'custom' ? t('common:custom') : t('common:followIp')}${proxy.customTimezone ? ` (${proxy.customTimezone})` : ''}` : t('common:notSet')}</p>
 						</div>
 						<div className="mt-2">
-							<p className="mb-1 text-xs font-medium text-muted-foreground">目标站点可达性</p>
+							<p className="mb-1 text-xs font-medium text-muted-foreground">{t('common:targetSiteChecks')}</p>
 							{proxy?.targetSiteChecks.length ? (
 								<div className="space-y-1 text-xs">
 									{proxy.targetSiteChecks.map((item) => {
@@ -375,7 +379,7 @@ export function ProxyFormDialog({
 												{IconComponent ? <IconComponent className="h-3.5 w-3.5 shrink-0" /> : null}
 												<span className="text-muted-foreground">{label}:</span>
 												<span className={item.reachable ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}>
-													{item.reachable ? '可达' : '不可达'}
+													{item.reachable ? t('common:reachable') : t('common:unreachable')}
 												</span>
 												{item.statusCode ? <span className="text-muted-foreground">HTTP {item.statusCode}</span> : null}
 												{item.error ? <span className="truncate text-muted-foreground">({item.error})</span> : null}
@@ -384,20 +388,20 @@ export function ProxyFormDialog({
 									})}
 								</div>
 							) : (
-								<p className="text-xs text-muted-foreground">未检测</p>
+								<p className="text-xs text-muted-foreground">{t('common:notDetected')}</p>
 							)}
 						</div>
 						{proxy?.checkMessage ? (
-							<p className="mt-2 text-xs text-muted-foreground">检测说明: {proxy.checkMessage}</p>
+							<p className="mt-2 text-xs text-muted-foreground">{t('proxy:checkMessage')}: {proxy.checkMessage}</p>
 						) : null}
 					</div>
 					<div>
-						<p className="mb-1 text-xs text-muted-foreground">备注</p>
-						<Textarea {...register('note')} rows={4} placeholder="备注" disabled={pending} />
+						<p className="mb-1 text-xs text-muted-foreground">{t('common:note')}</p>
+						<Textarea {...register('note')} rows={4} placeholder={t('common:note')} disabled={pending} />
 					</div>
 					<DialogFooter>
 						<Button type="button" variant="ghost" className="cursor-pointer" disabled={pending} onClick={() => onOpenChange(false)}>
-							取消
+							{t('common:cancel')}
 						</Button>
 						<Button type="submit" className="cursor-pointer" disabled={pending}>
 							{pending ? <LoaderCircle className="animate-spin" /> : null}

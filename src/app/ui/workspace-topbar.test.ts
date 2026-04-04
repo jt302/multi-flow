@@ -8,7 +8,7 @@ test('workspace topbar keeps sidebar trigger and shows current page title/descri
 	assert.equal(source.includes('<SidebarTrigger className="shrink-0" />'), true);
 	assert.equal(source.includes('Command + Navigation'), false);
 	assert.equal(source.includes('Breadcrumb'), false);
-	assert.equal(source.includes('WORKSPACE_SECTIONS[activeNav]'), true);
+	assert.equal(source.includes('getWorkspaceSections()[activeNav]'), true);
 	assert.equal(source.includes('text-sm font-semibold'), true);
 	assert.equal(source.includes('text-xs text-muted-foreground'), true);
 	assert.equal(source.includes('header className="flex items-center justify-between gap-3"'), true);

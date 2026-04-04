@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { z } from 'zod/v3';
 
 import { Button, Input } from '@/components/ui';
@@ -9,8 +10,10 @@ const backgroundQuickEditSchema = z.object({
 	browserBgColor: z
 		.string()
 		.trim()
-		.regex(/^#[0-9a-fA-F]{6}$/, '背景色格式必须是 #RRGGBB'),
+		.regex(/^#[0-9a-fA-F]{6}$/, i18next.t('profile:backgroundColor.invalidFormat')),
 });
+
+import i18next from 'i18next';
 
 const toolbarQuickEditSchema = z.object({
 	toolbarText: z.string(),
@@ -41,6 +44,7 @@ export function BackgroundQuickEditForm({
 	onSubmit,
 	onReset,
 }: BackgroundQuickEditFormProps) {
+	const { t } = useTranslation('profile');
 	const {
 		register,
 		handleSubmit,
@@ -96,13 +100,13 @@ export function BackgroundQuickEditForm({
 						onClick={() => void onReset()}
 						disabled={disabled}
 					>
-						重置背景色
+						{t('backgroundColor.reset')}
 					</Button>
 					<Button type="button" size="sm" variant="ghost" className="cursor-pointer" onClick={onCancel}>
-						取消
+						{t('common:cancel')}
 					</Button>
 					<Button type="submit" size="sm" variant="outline" className="cursor-pointer" disabled={disabled}>
-						保存背景色
+						{t('backgroundColor.save')}
 					</Button>
 				</div>
 			</div>
@@ -119,6 +123,7 @@ export function ToolbarQuickEditForm({
 	onCancel,
 	onSubmit,
 }: ToolbarQuickEditFormProps) {
+	const { t } = useTranslation('profile');
 	const {
 		register,
 		handleSubmit,
@@ -145,16 +150,16 @@ export function ToolbarQuickEditForm({
 			<div className="flex flex-wrap items-center gap-2">
 				<Input
 					{...register('toolbarText')}
-					placeholder="输入工具栏文本"
+					placeholder={t('toolbarText.placeholder')}
 					className="h-9 min-w-[260px] flex-1"
 					disabled={disabled}
 				/>
 				<div className="ml-auto flex items-center gap-1">
 					<Button type="button" size="sm" variant="ghost" className="cursor-pointer" onClick={onCancel}>
-						取消
+						{t('common:cancel')}
 					</Button>
 					<Button type="submit" size="sm" variant="outline" className="cursor-pointer" disabled={disabled}>
-						保存工具栏文本
+						{t('toolbarText.save')}
 					</Button>
 				</div>
 			</div>

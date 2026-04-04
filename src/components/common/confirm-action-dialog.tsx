@@ -9,6 +9,7 @@ import {
 	AlertDialogTitle,
 	Button,
 } from '@/components/ui';
+import { useTranslation } from 'react-i18next';
 
 type ConfirmActionDialogProps = {
 	open: boolean;
@@ -26,13 +27,16 @@ export function ConfirmActionDialog({
 	open,
 	title,
 	description,
-	confirmText = '确认',
-	cancelText = '取消',
+	confirmText,
+	cancelText,
 	confirmVariant = 'destructive',
 	pending = false,
 	onOpenChange,
 	onConfirm,
 }: ConfirmActionDialogProps) {
+	const { t } = useTranslation('common');
+	const resolvedConfirmText = confirmText ?? t('confirm');
+	const resolvedCancelText = cancelText ?? t('cancel');
 	return (
 		<AlertDialog open={open} onOpenChange={onOpenChange}>
 			<AlertDialogContent>
@@ -42,8 +46,13 @@ export function ConfirmActionDialog({
 				</AlertDialogHeader>
 				<AlertDialogFooter>
 					<AlertDialogCancel asChild>
-						<Button type="button" variant="ghost" className="cursor-pointer" disabled={pending}>
-							{cancelText}
+						<Button
+							type="button"
+							variant="ghost"
+							className="cursor-pointer"
+							disabled={pending}
+						>
+							{resolvedCancelText}
 						</Button>
 					</AlertDialogCancel>
 					<AlertDialogAction asChild>
@@ -54,7 +63,7 @@ export function ConfirmActionDialog({
 							disabled={pending}
 							onClick={onConfirm}
 						>
-							{confirmText}
+							{resolvedConfirmText}
 						</Button>
 					</AlertDialogAction>
 				</AlertDialogFooter>

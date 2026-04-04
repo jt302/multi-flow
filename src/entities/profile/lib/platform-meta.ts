@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { TerminalSquare, type LucideIcon } from 'lucide-react';
 import type { FC, SVGProps } from 'react';
 
@@ -27,7 +29,7 @@ export const PLATFORM_OPTIONS: PlatformVisualMeta[] = [
 		iconSvg: AppleIcon,
 		fallbackIcon: TerminalSquare,
 		code: 'MAC',
-		hint: '桌面 Apple',
+		hint: i18next.t('platform:desktopApple'),
 		badgeClass: 'bg-zinc-500/15 text-zinc-700 dark:text-zinc-300',
 		iconClass: 'text-zinc-700 dark:text-zinc-200',
 	},
@@ -37,7 +39,7 @@ export const PLATFORM_OPTIONS: PlatformVisualMeta[] = [
 		iconSvg: WindowsIcon,
 		fallbackIcon: TerminalSquare,
 		code: 'WIN',
-		hint: '桌面 Microsoft',
+		hint: i18next.t('platform:desktopMicrosoft'),
 		badgeClass: 'bg-sky-500/15 text-sky-700 dark:text-sky-300',
 		iconClass: 'text-sky-600 dark:text-sky-400',
 	},
@@ -47,7 +49,7 @@ export const PLATFORM_OPTIONS: PlatformVisualMeta[] = [
 		iconSvg: LinuxIcon,
 		fallbackIcon: TerminalSquare,
 		code: 'LNX',
-		hint: '桌面 Linux',
+		hint: i18next.t('platform:desktopLinux'),
 		badgeClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
 		iconClass: 'text-amber-600 dark:text-amber-400',
 	},
@@ -57,7 +59,7 @@ export const PLATFORM_OPTIONS: PlatformVisualMeta[] = [
 		iconSvg: AndroidIcon,
 		fallbackIcon: TerminalSquare,
 		code: 'AND',
-		hint: '移动触控',
+		hint: i18next.t('platform:mobileTouch'),
 		badgeClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
 		iconClass: 'text-emerald-600 dark:text-emerald-400',
 	},
@@ -78,10 +80,10 @@ export function getPlatformMeta(platform?: string | null): PlatformVisualMeta {
 	if (!normalized) {
 			return {
 				value: 'system',
-				label: '当前系统',
+				label: i18next.t('platform:currentSystem'),
 				fallbackIcon: TerminalSquare,
 				code: 'SYS',
-				hint: '宿主平台',
+				hint: i18next.t('platform:hostPlatform'),
 				badgeClass: 'bg-muted text-muted-foreground',
 				iconClass: 'text-muted-foreground',
 			};
@@ -104,10 +106,10 @@ export function getPlatformMeta(platform?: string | null): PlatformVisualMeta {
 
 	return {
 		value: normalized,
-		label: platform?.trim() || '未设置',
+		label: platform?.trim() || i18next.t('common:notSet'),
 		fallbackIcon: TerminalSquare,
 		code: 'SYS',
-		hint: '未知平台',
+		hint: i18next.t('platform:unknown'),
 		badgeClass: 'bg-muted text-muted-foreground',
 		iconClass: 'text-muted-foreground',
 	};

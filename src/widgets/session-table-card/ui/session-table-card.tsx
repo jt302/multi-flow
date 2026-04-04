@@ -1,4 +1,5 @@
 import { Activity } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { Badge, Button, Card, Icon } from '@/components/ui';
 import { getStatusVariant } from '@/shared/lib/status';
@@ -11,6 +12,7 @@ export function SessionTableCard({
 	rows,
 	className,
 }: SessionTableCardProps & { className?: string }) {
+	const { t } = useTranslation('common');
 	return (
 		<Card className={cn('min-w-0 p-3', className)}>
 			<div className="mb-2 flex items-center justify-between px-1">
@@ -22,7 +24,7 @@ export function SessionTableCard({
 					className="text-xs text-muted-foreground"
 				>
 					<Icon icon={Activity} size={12} />
-					刷新
+					{t('refresh')}
 				</Button>
 			</div>
 
