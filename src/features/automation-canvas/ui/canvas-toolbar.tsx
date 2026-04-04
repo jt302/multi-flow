@@ -16,6 +16,7 @@ import {
 	Variable,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 import type { ScriptVarDef } from '@/entities/automation/model/types';
 import { Badge } from '@/components/ui/badge';
@@ -81,7 +82,7 @@ export function CanvasToolbar({
 	onOpenHelp,
 }: Props) {
 	const navigate = useNavigate();
-	// 当页面在独立新窗口中（history 只有一条记录）时隐藏返回按钮
+	const { t } = useTranslation('canvas');
 	const isStandaloneWindow = window.history.length <= 1;
 
 	return (
@@ -93,7 +94,7 @@ export function CanvasToolbar({
 					variant="ghost"
 					className="h-7 w-7 cursor-pointer text-muted-foreground hover:text-foreground"
 					onClick={() => navigate('/automation')}
-					title="返回"
+					title={t('toolbar.back')}
 				>
 					<ArrowLeft className="h-3.5 w-3.5" />
 				</Button>
@@ -103,7 +104,7 @@ export function CanvasToolbar({
 			<div className="flex-1 min-w-0 flex items-center gap-2">
 				<span className="text-sm font-semibold truncate">{scriptName}</span>
 				<span className="text-[10px] text-muted-foreground tabular-nums">
-					{stepCount} 步骤
+					{t('toolbar.stepCount', { count: stepCount })}
 				</span>
 			</div>
 
@@ -118,7 +119,7 @@ export function CanvasToolbar({
 					variant="ghost"
 					size="icon"
 					className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
-					title="保存 (Cmd+S)"
+					title={t('toolbar.save')}
 					onClick={onSave}
 					disabled={saving}
 				>
@@ -135,13 +136,13 @@ export function CanvasToolbar({
 						className="h-8 px-2 cursor-pointer text-muted-foreground hover:text-foreground"
 					>
 						<Settings2 className="h-3.5 w-3.5 mr-1" />
-						设置
+						{t('common:settings')}
 					</Button>
 				</PopoverTrigger>
 				<PopoverContent className="w-64 p-3 space-y-3" align="end">
 					{/* 步骤延迟 */}
 					<div className="space-y-1.5">
-						<Label className="text-xs font-medium">步骤延迟 (ms)</Label>
+						<Label className="text-xs font-medium">{t('toolbar.stepDelay')} ({t('toolbar.ms')})</Label>
 						<Input
 							type="number"
 							min={0}
@@ -159,7 +160,7 @@ export function CanvasToolbar({
 					</div>
 					{/* 变量 */}
 					<div className="space-y-1.5">
-						<Label className="text-xs font-medium">脚本变量</Label>
+						<Label className="text-xs font-medium">{t('toolbar.variables')}</Label>
 						<Button
 							size="sm"
 							variant="outline"
@@ -167,7 +168,7 @@ export function CanvasToolbar({
 							onClick={onOpenVariables}
 						>
 							<Variable className="h-3.5 w-3.5 mr-1.5" />
-							管理变量{varsDefs.length > 0 && ` (${varsDefs.length})`}
+							{varsDefs.length > 0 ? t('toolbar.variablesCount', { count: varsDefs.length }) : t('toolbar.variables')}
 						</Button>
 					</div>
 				</PopoverContent>
@@ -178,7 +179,7 @@ export function CanvasToolbar({
 				variant="ghost"
 				size="icon"
 				className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
-				title="操作指南"
+				title={t('toolbar.help')}
 				onClick={onOpenHelp}
 			>
 				<HelpCircle className="h-3.5 w-3.5" />
@@ -193,7 +194,7 @@ export function CanvasToolbar({
 					onClick={onCancel}
 				>
 					<Square className="h-3.5 w-3.5 mr-1" />
-					取消
+					{t('toolbar.cancel')}
 				</Button>
 			) : (
 				<Button
@@ -203,7 +204,7 @@ export function CanvasToolbar({
 					onClick={onOpenRunDialog}
 				>
 					<Play className="h-3.5 w-3.5 mr-1" />
-					运行
+					{t('toolbar.run')}
 				</Button>
 			)}
 
@@ -213,10 +214,10 @@ export function CanvasToolbar({
 					{isRunning ? (
 						<>
 							<Loader2 className="h-2.5 w-2.5 mr-1 animate-spin" />
-							运行中
+							{t('toolbar.running')}
 						</>
 					) : (
-						'已完成'
+						t('toolbar.completed')
 					)}
 				</Badge>
 			)}
