@@ -232,11 +232,117 @@ export type ScriptStep =
 			duration_ms?: number;
 	  }
 	| {
+			kind: 'form_dialog';
+			title: string;
+			message?: string;
+			fields: AiDialogFormField[];
+			submit_label?: string;
+			output_key?: string;
+			timeout_ms?: number;
+			on_timeout?: 'confirm' | 'cancel';
+	  }
+	| {
+			kind: 'table_dialog';
+			title: string;
+			message?: string;
+			columns: AiDialogTableColumn[];
+			rows: Record<string, unknown>[];
+			selectable?: boolean;
+			multi_select?: boolean;
+			max_height?: number;
+			output_key?: string;
+			timeout_ms?: number;
+	  }
+	| {
+			kind: 'image_dialog';
+			title?: string;
+			message?: string;
+			image: string;
+			image_format?: string;
+			input_label?: string;
+			input_placeholder?: string;
+			output_key?: string;
+			timeout_ms?: number;
+	  }
+	| {
+			kind: 'countdown_dialog';
+			title?: string;
+			message: string;
+			seconds: number;
+			level?: 'info' | 'warning' | 'danger';
+			action_label?: string;
+			auto_proceed?: boolean;
+			output_key?: string;
+	  }
+	| {
+			kind: 'markdown_dialog';
+			title?: string;
+			content: string;
+			max_height?: number;
+			width?: string;
+			actions?: DialogButton[];
+			copyable?: boolean;
+			output_key?: string;
+	  }
+	| {
 			kind: 'cdp_handle_dialog';
 			action: 'accept' | 'dismiss';
 			prompt_text?: string;
 			output_key?: string;
-	  };
+	  }
+
+	// ── CDP Cookie & 存储步骤 ──────────────────────────────────────────────
+	| { kind: 'cdp_get_cookies'; urls?: string[]; output_key?: string }
+	| { kind: 'cdp_set_cookie'; name: string; value: string; domain?: string; path?: string; expires?: number; http_only?: boolean; secure?: boolean }
+	| { kind: 'cdp_delete_cookies'; name: string; domain?: string; path?: string }
+	| { kind: 'cdp_get_local_storage'; key?: string; output_key?: string }
+	| { kind: 'cdp_set_local_storage'; key: string; value: string }
+	| { kind: 'cdp_get_session_storage'; key?: string; output_key?: string }
+	| { kind: 'cdp_clear_storage'; origin?: string; storage_types?: string }
+
+	// ── CDP 页面 & 导航步骤 ────────────────────────────────────────────────
+	| { kind: 'cdp_get_current_url'; output_key?: string }
+	| { kind: 'cdp_get_page_source'; selector?: string; selector_type?: SelectorType; output_key?: string }
+	| { kind: 'cdp_wait_for_navigation'; timeout_ms?: number }
+
+	// ── CDP 模拟步骤 ──────────────────────────────────────────────────────
+	| { kind: 'cdp_emulate_device'; width: number; height: number; device_scale_factor?: number; mobile?: boolean; user_agent?: string }
+	| { kind: 'cdp_set_geolocation'; latitude: number; longitude: number; accuracy?: number }
+	| { kind: 'cdp_set_user_agent'; user_agent: string; platform?: string }
+
+	// ── CDP 元素 & 输入步骤 ────────────────────────────────────────────────
+	| { kind: 'cdp_get_element_box'; selector: string; selector_type?: SelectorType; output_key?: string }
+	| { kind: 'cdp_highlight_element'; selector: string; selector_type?: SelectorType; color?: string; duration_ms?: number }
+	| { kind: 'cdp_mouse_move'; x: number; y: number }
+	| { kind: 'cdp_drag_and_drop'; from_selector?: string; to_selector?: string; from_x?: number; from_y?: number; to_x?: number; to_y?: number; selector_type?: SelectorType }
+	| { kind: 'cdp_select_option'; selector: string; value?: string; index?: number; selector_type?: SelectorType; output_key?: string }
+	| { kind: 'cdp_check_checkbox'; selector: string; checked?: boolean; selector_type?: SelectorType }
+
+	// ── CDP 网络 & 导出步骤 ────────────────────────────────────────────────
+	| { kind: 'cdp_block_urls'; patterns: string[] }
+	| { kind: 'cdp_pdf'; path?: string; landscape?: boolean; scale?: number; paper_width?: number; paper_height?: number; output_key?: string }
+	| { kind: 'cdp_intercept_request'; url_pattern: string; action: string; headers?: Record<string, unknown>; body?: string; status?: number }
+
+	// ── CDP 事件缓冲步骤 ──────────────────────────────────────────────────
+	| { kind: 'cdp_get_console_logs'; limit?: number; level?: string; output_key?: string }
+	| { kind: 'cdp_get_network_requests'; limit?: number; url_pattern?: string; output_key?: string }
+
+	// ── Magic Controller 新增步骤 ──────────────────────────────────────────
+	| { kind: 'magic_get_maximized'; output_key?: string }
+	| { kind: 'magic_get_minimized'; output_key?: string }
+	| { kind: 'magic_get_fullscreen'; output_key?: string }
+	| { kind: 'magic_get_window_state'; output_key?: string }
+	| { kind: 'magic_import_cookies'; cookies: Record<string, unknown>[]; output_key?: string }
+
+	// ── App 新增步骤 ──────────────────────────────────────────────────────
+	| { kind: 'app_run_script'; script_id: string; profile_id?: string; initial_vars?: Record<string, unknown>; output_key?: string }
+
+	// ── CAPTCHA 步骤 ──────────────────────────────────────────────────────
+	| { kind: 'captcha_detect'; output_key?: string }
+	| { kind: 'captcha_solve'; captcha_type?: string; sitekey?: string; page_action?: string; image_base64?: string; output_key?: string }
+	| { kind: 'captcha_inject_token'; type: string; token: string }
+	| { kind: 'captcha_solve_and_inject'; auto_submit?: boolean; output_key?: string }
+	| { kind: 'captcha_get_balance'; output_key?: string };
 
 export type ScriptVarDef = { name: string; defaultValue: string };
 
@@ -347,6 +453,23 @@ export type AutomationHumanRequiredEvent = {
 	options?: string[];
 	multiSelect?: boolean;
 	buttons?: DialogButton[];
+	// 扩展字段
+	fields?: AiDialogFormField[];
+	submitLabel?: string;
+	columns?: AiDialogTableColumn[];
+	rows?: Record<string, unknown>[];
+	selectable?: boolean;
+	maxHeight?: number;
+	image?: string;
+	imageFormat?: string;
+	inputPlaceholder?: string;
+	seconds?: number;
+	actionLabel?: string;
+	autoProceed?: boolean;
+	content?: string;
+	width?: string;
+	copyable?: boolean;
+	level?: string;
 };
 
 export type AutomationHumanDismissedEvent = {
@@ -392,6 +515,7 @@ export type AiProviderConfig = {
 	baseUrl?: string;
 	apiKey?: string;
 	model?: string;
+	locale?: string;
 };
 
 export type CreateAutomationScriptPayload = {
@@ -417,15 +541,53 @@ export type AiConfigEntry = {
 	baseUrl?: string;
 	apiKey?: string;
 	model?: string;
+	locale?: string;
 };
 
 // ── AI Dialog 类型（前端 ↔ 后端弹窗交互） ───────────────────────────
 
-export type AiDialogType = 'message' | 'confirm' | 'input' | 'save_file' | 'open_file' | 'select_folder';
+export type AiDialogType =
+	| 'message' | 'confirm' | 'input' | 'save_file' | 'open_file' | 'select_folder'
+	| 'select' | 'form' | 'table' | 'image' | 'countdown' | 'toast' | 'markdown';
 
 export type AiDialogFileFilter = {
 	name: string;
 	extensions: string[];
+};
+
+/** select 弹窗选项 */
+export type AiDialogSelectOption = {
+	label: string;
+	value: string;
+	description?: string;
+};
+
+/** form 弹窗字段 */
+export type AiDialogFormField = {
+	name: string;
+	label: string;
+	fieldType?: string;
+	required?: boolean;
+	defaultValue?: string;
+	placeholder?: string;
+	options?: AiDialogSelectOption[];
+	validation?: string;
+	hint?: string;
+};
+
+/** table 弹窗列定义 */
+export type AiDialogTableColumn = {
+	key: string;
+	label: string;
+	width?: number;
+	align?: 'left' | 'center' | 'right';
+};
+
+/** 自定义操作按钮 */
+export type AiDialogAction = {
+	label: string;
+	value: string;
+	variant?: 'default' | 'destructive' | 'outline';
 };
 
 /** 后端 → 前端：弹窗请求 */
@@ -434,7 +596,7 @@ export type AiDialogRequest = {
 	dialogType: AiDialogType;
 	title?: string;
 	message: string;
-	level?: 'info' | 'warning' | 'error' | 'success';
+	level?: 'info' | 'warning' | 'error' | 'success' | 'danger';
 	label?: string;
 	defaultValue?: string;
 	placeholder?: string;
@@ -442,6 +604,26 @@ export type AiDialogRequest = {
 	filters?: AiDialogFileFilter[];
 	defaultName?: string;
 	content?: string;
+	// 扩展字段
+	options?: AiDialogSelectOption[];
+	maxSelect?: number;
+	fields?: AiDialogFormField[];
+	submitLabel?: string;
+	columns?: AiDialogTableColumn[];
+	rows?: Record<string, unknown>[];
+	selectable?: boolean;
+	maxHeight?: number;
+	image?: string;
+	imageFormat?: string;
+	inputPlaceholder?: string;
+	actions?: AiDialogAction[];
+	seconds?: number;
+	actionLabel?: string;
+	autoProceed?: boolean;
+	durationMs?: number;
+	persistent?: boolean;
+	width?: 'sm' | 'md' | 'lg' | 'xl';
+	copyable?: boolean;
 };
 
 /** 前端 → 后端：弹窗响应 */
@@ -449,4 +631,12 @@ export type AiDialogResponse = {
 	requestId: string;
 	confirmed: boolean;
 	value?: string;
+};
+
+export type CaptchaSolverConfig = {
+	id: string;
+	provider: string;
+	apiKey: string;
+	baseUrl?: string;
+	isDefault: boolean;
 };

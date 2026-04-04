@@ -1,3 +1,6 @@
+import i18next from 'i18next';
+import { useTranslation } from 'react-i18next';
+
 import type { AutomationScript } from '@/entities/automation/model/types';
 
 type Step = AutomationScript['steps'][number];
@@ -20,6 +23,7 @@ function selectorDisplay(item: Step) {
 }
 
 export function StepSummary({ step }: { step: Step }) {
+	const { t } = useTranslation('automation');
 	switch (step.kind) {
 		case 'navigate':
 			return <span className="text-muted-foreground">{step.url}</span>;
@@ -36,7 +40,9 @@ export function StepSummary({ step }: { step: Step }) {
 				</span>
 			);
 		case 'screenshot':
-			return <span className="text-muted-foreground">截图</span>;
+			return (
+				<span className="text-muted-foreground">{t('steps.screenshot')}</span>
+			);
 		case 'magic':
 			return <span className="text-muted-foreground">{step.command}</span>;
 		case 'cdp':
@@ -74,7 +80,9 @@ export function StepSummary({ step }: { step: Step }) {
 		case 'cdp_navigate':
 			return <span className="text-muted-foreground">{step.url}</span>;
 		case 'cdp_reload':
-			return <span className="text-muted-foreground">刷新页面</span>;
+			return (
+				<span className="text-muted-foreground">{t('steps.reloadPage')}</span>
+			);
 		case 'cdp_click':
 		case 'cdp_wait_for_selector':
 		case 'cdp_get_text':
@@ -103,7 +111,8 @@ export function StepSummary({ step }: { step: Step }) {
 		case 'cdp_screenshot':
 			return (
 				<span className="text-muted-foreground">
-					截图{step.output_path ? ` → ${step.output_path}` : '（默认目录）'}
+					{t('steps.screenshot')}
+					{step.output_path ? ` → ${step.output_path}` : t('steps.defaultDir')}
 				</span>
 			);
 		case 'magic_set_bounds':
@@ -113,17 +122,29 @@ export function StepSummary({ step }: { step: Step }) {
 				</span>
 			);
 		case 'magic_get_bounds':
-			return <span className="text-muted-foreground">获取窗口位置大小</span>;
+			return (
+				<span className="text-muted-foreground">{t('steps.getBounds')}</span>
+			);
 		case 'magic_set_maximized':
-			return <span className="text-muted-foreground">最大化</span>;
+			return (
+				<span className="text-muted-foreground">{t('steps.maximize')}</span>
+			);
 		case 'magic_set_minimized':
-			return <span className="text-muted-foreground">最小化</span>;
+			return (
+				<span className="text-muted-foreground">{t('steps.minimize')}</span>
+			);
 		case 'magic_set_closed':
-			return <span className="text-muted-foreground">关闭窗口</span>;
+			return (
+				<span className="text-muted-foreground">{t('steps.closeWindow')}</span>
+			);
 		case 'magic_set_restored':
-			return <span className="text-muted-foreground">还原</span>;
+			return (
+				<span className="text-muted-foreground">{t('steps.restore')}</span>
+			);
 		case 'magic_set_fullscreen':
-			return <span className="text-muted-foreground">全屏</span>;
+			return (
+				<span className="text-muted-foreground">{t('steps.fullscreen')}</span>
+			);
 		case 'magic_set_bg_color':
 			return (
 				<span className="text-muted-foreground">
@@ -133,11 +154,16 @@ export function StepSummary({ step }: { step: Step }) {
 		case 'magic_set_toolbar_text':
 			return <span className="text-muted-foreground">{step.text}</span>;
 		case 'magic_set_app_top_most':
-			return <span className="text-muted-foreground">激活窗口</span>;
+			return (
+				<span className="text-muted-foreground">
+					{t('steps.activateWindow')}
+				</span>
+			);
 		case 'magic_set_master_indicator_visible':
 			return (
 				<span className="text-muted-foreground">
-					{step.visible ? '显示' : '隐藏'}主控标记
+					{step.visible ? t('steps.show') : t('steps.hide')}
+					{t('steps.masterIndicator')}
 				</span>
 			);
 		case 'magic_open_new_tab':
@@ -150,9 +176,15 @@ export function StepSummary({ step }: { step: Step }) {
 		case 'magic_activate_tab_by_index':
 			return <span className="text-muted-foreground">index={step.index}</span>;
 		case 'magic_close_inactive_tabs':
-			return <span className="text-muted-foreground">关闭非活动标签页</span>;
+			return (
+				<span className="text-muted-foreground">
+					{t('steps.closeInactiveTabs')}
+				</span>
+			);
 		case 'magic_open_new_window':
-			return <span className="text-muted-foreground">新建窗口</span>;
+			return (
+				<span className="text-muted-foreground">{t('steps.newWindow')}</span>
+			);
 		case 'magic_type_string':
 			return (
 				<span className="text-muted-foreground">
@@ -162,13 +194,19 @@ export function StepSummary({ step }: { step: Step }) {
 		case 'magic_capture_app_shell':
 			return (
 				<span className="text-muted-foreground truncate max-w-48">
-					{step.output_path || '默认路径'}
+					{step.output_path || t('steps.defaultPath')}
 				</span>
 			);
 		case 'magic_get_browsers':
-			return <span className="text-muted-foreground">所有浏览器</span>;
+			return (
+				<span className="text-muted-foreground">{t('steps.allBrowsers')}</span>
+			);
 		case 'magic_get_active_browser':
-			return <span className="text-muted-foreground">活动浏览器</span>;
+			return (
+				<span className="text-muted-foreground">
+					{t('steps.activeBrowser')}
+				</span>
+			);
 		case 'magic_get_tabs':
 			return (
 				<span className="text-muted-foreground">
@@ -176,17 +214,25 @@ export function StepSummary({ step }: { step: Step }) {
 				</span>
 			);
 		case 'magic_get_active_tabs':
-			return <span className="text-muted-foreground">活动标签页</span>;
+			return (
+				<span className="text-muted-foreground">{t('steps.activeTabs')}</span>
+			);
 		case 'magic_get_switches':
 			return (
 				<span className="text-muted-foreground font-mono">{step.key}</span>
 			);
 		case 'magic_get_host_name':
-			return <span className="text-muted-foreground">主机名</span>;
+			return (
+				<span className="text-muted-foreground">{t('steps.hostname')}</span>
+			);
 		case 'magic_get_mac_address':
-			return <span className="text-muted-foreground">MAC地址</span>;
+			return (
+				<span className="text-muted-foreground">{t('steps.macAddress')}</span>
+			);
 		case 'magic_get_bookmarks':
-			return <span className="text-muted-foreground">书签树</span>;
+			return (
+				<span className="text-muted-foreground">{t('steps.bookmarkTree')}</span>
+			);
 		case 'magic_create_bookmark':
 			return (
 				<span className="text-muted-foreground">
@@ -204,19 +250,41 @@ export function StepSummary({ step }: { step: Step }) {
 				</span>
 			);
 		case 'magic_bookmark_current_tab':
-			return <span className="text-muted-foreground">收藏当前标签</span>;
+			return (
+				<span className="text-muted-foreground">
+					{t('steps.bookmarkCurrentTab')}
+				</span>
+			);
 		case 'magic_unbookmark_current_tab':
-			return <span className="text-muted-foreground">取消收藏当前标签</span>;
+			return (
+				<span className="text-muted-foreground">
+					{t('steps.unbookmarkCurrentTab')}
+				</span>
+			);
 		case 'magic_is_current_tab_bookmarked':
-			return <span className="text-muted-foreground">查询收藏状态</span>;
+			return (
+				<span className="text-muted-foreground">{t('steps.isBookmarked')}</span>
+			);
 		case 'magic_export_bookmark_state':
-			return <span className="text-muted-foreground">导出书签</span>;
+			return (
+				<span className="text-muted-foreground">
+					{t('steps.exportBookmarks')}
+				</span>
+			);
 		case 'magic_get_managed_cookies':
-			return <span className="text-muted-foreground">托管Cookie</span>;
+			return (
+				<span className="text-muted-foreground">
+					{t('steps.managedCookies')}
+				</span>
+			);
 		case 'magic_export_cookie_state':
 			return <span className="text-muted-foreground">{step.mode}</span>;
 		case 'magic_get_managed_extensions':
-			return <span className="text-muted-foreground">托管扩展</span>;
+			return (
+				<span className="text-muted-foreground">
+					{t('steps.managedExtensions')}
+				</span>
+			);
 		case 'magic_trigger_extension_action':
 			return (
 				<span className="text-muted-foreground font-mono">
@@ -224,15 +292,55 @@ export function StepSummary({ step }: { step: Step }) {
 				</span>
 			);
 		case 'magic_close_extension_popup':
-			return <span className="text-muted-foreground">关闭扩展Popup</span>;
+			return (
+				<span className="text-muted-foreground">
+					{t('steps.closeExtPopup')}
+				</span>
+			);
 		case 'magic_toggle_sync_mode':
 			return <span className="text-muted-foreground">{step.role}</span>;
 		case 'magic_get_sync_mode':
-			return <span className="text-muted-foreground">同步状态</span>;
+			return (
+				<span className="text-muted-foreground">{t('steps.syncStatus')}</span>
+			);
 		case 'magic_get_is_master':
-			return <span className="text-muted-foreground">是否主控</span>;
+			return (
+				<span className="text-muted-foreground">{t('steps.isMaster')}</span>
+			);
 		case 'magic_get_sync_status':
-			return <span className="text-muted-foreground">完整同步状态</span>;
+			return (
+				<span className="text-muted-foreground">
+					{t('steps.fullSyncStatus')}
+				</span>
+			);
+		case 'form_dialog':
+			return (
+				<span className="text-muted-foreground">
+					{step.title || 'Form'}{step.fields?.length ? ` (${step.fields.length} fields)` : ''}
+				</span>
+			);
+		case 'table_dialog':
+			return (
+				<span className="text-muted-foreground">
+					{step.title || 'Table'}{step.rows?.length ? ` (${step.rows.length} rows)` : ''}
+				</span>
+			);
+		case 'image_dialog':
+			return (
+				<span className="text-muted-foreground">{step.title || 'Image'}</span>
+			);
+		case 'countdown_dialog':
+			return (
+				<span className="text-muted-foreground">
+					{step.message ? `${step.message.slice(0, 30)} (${step.seconds}s)` : `${step.seconds}s`}
+				</span>
+			);
+		case 'markdown_dialog':
+			return (
+				<span className="text-muted-foreground">
+					{step.title || step.content?.slice(0, 40) || 'Markdown'}
+				</span>
+			);
 		default:
 			return null;
 	}
@@ -255,7 +363,7 @@ export function getStepSummaryText(step: Step): string {
 		case 'type':
 			return `"${step.text}" → ${selector}`;
 		case 'screenshot':
-			return '截图';
+			return i18next.t('automation:steps.screenshot');
 		case 'magic':
 			return step.command;
 		case 'cdp':
@@ -277,7 +385,7 @@ export function getStepSummaryText(step: Step): string {
 		case 'cdp_navigate':
 			return step.url;
 		case 'cdp_reload':
-			return '刷新页面';
+			return i18next.t('automation:steps.reloadPage');
 		case 'cdp_click':
 		case 'cdp_wait_for_selector':
 		case 'cdp_get_text':
@@ -291,30 +399,32 @@ export function getStepSummaryText(step: Step): string {
 			return `"${step.value}" → ${selector}`;
 		case 'cdp_screenshot':
 			return step.output_path
-				? `截图 → ${step.output_path}`
-				: '截图（默认目录）';
+				? `${i18next.t('automation:steps.screenshot')} → ${step.output_path}`
+				: i18next.t('automation:steps.screenshotDefaultDir');
 		case 'magic_set_bounds':
 			return `${step.x},${step.y} ${step.width}×${step.height}`;
 		case 'magic_get_bounds':
-			return '获取窗口位置大小';
+			return i18next.t('automation:steps.getBounds');
 		case 'magic_set_maximized':
-			return '最大化';
+			return i18next.t('automation:steps.maximize');
 		case 'magic_set_minimized':
-			return '最小化';
+			return i18next.t('automation:steps.minimize');
 		case 'magic_set_closed':
-			return '关闭窗口';
+			return i18next.t('automation:steps.closeWindow');
 		case 'magic_set_restored':
-			return '还原';
+			return i18next.t('automation:steps.restore');
 		case 'magic_set_fullscreen':
-			return '全屏';
+			return i18next.t('automation:steps.fullscreen');
 		case 'magic_set_bg_color':
 			return `rgb(${step.r ?? 255},${step.g ?? 255},${step.b ?? 255})`;
 		case 'magic_set_toolbar_text':
 			return step.text;
 		case 'magic_set_app_top_most':
-			return '激活窗口';
+			return i18next.t('automation:steps.activateWindow');
 		case 'magic_set_master_indicator_visible':
-			return step.visible ? '显示主控标记' : '隐藏主控标记';
+			return step.visible
+				? `${i18next.t('automation:steps.show')}${i18next.t('automation:steps.masterIndicator')}`
+				: `${i18next.t('automation:steps.hide')}${i18next.t('automation:steps.masterIndicator')}`;
 		case 'magic_open_new_tab':
 			return step.url;
 		case 'magic_close_tab':
@@ -323,29 +433,29 @@ export function getStepSummaryText(step: Step): string {
 		case 'magic_activate_tab_by_index':
 			return `index=${step.index}`;
 		case 'magic_close_inactive_tabs':
-			return '关闭非活动标签页';
+			return i18next.t('automation:steps.closeInactiveTabs');
 		case 'magic_open_new_window':
-			return '新建窗口';
+			return i18next.t('automation:steps.newWindow');
 		case 'magic_type_string':
 			return `"${step.text.slice(0, 40)}"`;
 		case 'magic_capture_app_shell':
-			return step.output_path || '默认路径';
+			return step.output_path || i18next.t('automation:steps.defaultPath');
 		case 'magic_get_browsers':
-			return '所有浏览器';
+			return i18next.t('automation:steps.allBrowsers');
 		case 'magic_get_active_browser':
-			return '活动浏览器';
+			return i18next.t('automation:steps.activeBrowser');
 		case 'magic_get_tabs':
 			return `browser_id=${step.browser_id}`;
 		case 'magic_get_active_tabs':
-			return '活动标签页';
+			return i18next.t('automation:steps.activeTabs');
 		case 'magic_get_switches':
 			return step.key;
 		case 'magic_get_host_name':
-			return '主机名';
+			return i18next.t('automation:steps.hostname');
 		case 'magic_get_mac_address':
-			return 'MAC地址';
+			return i18next.t('automation:steps.macAddress');
 		case 'magic_get_bookmarks':
-			return '书签树';
+			return i18next.t('automation:steps.bookmarkTree');
 		case 'magic_create_bookmark':
 			return `${step.title} → ${step.url.slice(0, 40)}`;
 		case 'magic_create_bookmark_folder':
@@ -355,31 +465,31 @@ export function getStepSummaryText(step: Step): string {
 		case 'magic_move_bookmark':
 			return `node_id=${step.node_id}`;
 		case 'magic_bookmark_current_tab':
-			return '收藏当前标签';
+			return i18next.t('automation:steps.bookmarkCurrentTab');
 		case 'magic_unbookmark_current_tab':
-			return '取消收藏当前标签';
+			return i18next.t('automation:steps.unbookmarkCurrentTab');
 		case 'magic_is_current_tab_bookmarked':
-			return '查询收藏状态';
+			return i18next.t('automation:steps.isBookmarked');
 		case 'magic_export_bookmark_state':
-			return '导出书签';
+			return i18next.t('automation:steps.exportBookmarks');
 		case 'magic_get_managed_cookies':
-			return '托管Cookie';
+			return i18next.t('automation:steps.managedCookies');
 		case 'magic_export_cookie_state':
 			return step.mode;
 		case 'magic_get_managed_extensions':
-			return '托管扩展';
+			return i18next.t('automation:steps.managedExtensions');
 		case 'magic_trigger_extension_action':
 			return `${step.extension_id.slice(0, 16)}...`;
 		case 'magic_close_extension_popup':
-			return '关闭扩展Popup';
+			return i18next.t('automation:steps.closeExtPopup');
 		case 'magic_toggle_sync_mode':
 			return step.role;
 		case 'magic_get_sync_mode':
-			return '同步状态';
+			return i18next.t('automation:steps.syncStatus');
 		case 'magic_get_is_master':
-			return '是否主控';
+			return i18next.t('automation:steps.isMaster');
 		case 'magic_get_sync_status':
-			return '完整同步状态';
+			return i18next.t('automation:steps.fullSyncStatus');
 		default:
 			return '';
 	}

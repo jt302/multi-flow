@@ -1,4 +1,5 @@
 import { FileInput, Plus, Search } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import type { AutomationScript } from '@/entities/automation/model/types';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,7 @@ export function ScriptListSidebar({
   onNew,
   onImport,
 }: Props) {
+  const { t } = useTranslation('automation');
   const { filtered, searchQuery, setSearchQuery } =
     useScriptListFilter(scripts);
 
@@ -30,14 +32,14 @@ export function ScriptListSidebar({
     <div className="w-64 shrink-0 border-r flex flex-col">
       {/* 顶部标题行 */}
       <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
-        <span className="text-sm font-medium">自动化脚本</span>
+        <span className="text-sm font-medium">{t('sidebar.title')}</span>
         <div className="flex items-center gap-1">
           <Button
             size="sm"
             variant="ghost"
             className="h-7 w-7 p-0 cursor-pointer"
             onClick={onImport}
-            title="导入脚本"
+            title={t('sidebar.import')}
           >
             <FileInput className="h-3.5 w-3.5" />
           </Button>
@@ -46,7 +48,7 @@ export function ScriptListSidebar({
             variant="ghost"
             className="h-7 w-7 p-0 cursor-pointer"
             onClick={onNew}
-            title="新建脚本"
+            title={t('sidebar.create')}
           >
             <Plus className="h-4 w-4" />
           </Button>
@@ -60,7 +62,7 @@ export function ScriptListSidebar({
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
             <Input
               className="h-7 pl-7 text-xs"
-              placeholder="搜索脚本..."
+              placeholder={t('sidebar.search')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -74,11 +76,11 @@ export function ScriptListSidebar({
           <div className="px-4 py-8 text-center text-sm text-muted-foreground">
             {scripts.length === 0 ? (
               <>
-                <p>暂无脚本</p>
-                <p className="mt-1">点击 + 新建</p>
+                <p>{t('sidebar.noScripts')}</p>
+                <p className="mt-1">{t('sidebar.clickToCreate')}</p>
               </>
             ) : (
-              <p>无匹配结果</p>
+              <p>{t('sidebar.noMatches')}</p>
             )}
           </div>
         ) : (

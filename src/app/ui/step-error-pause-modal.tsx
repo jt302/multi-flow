@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
 	cancelAutomationRun,
@@ -19,6 +20,7 @@ export function StepErrorPauseModal() {
 	const [pauseEvent, setPauseEvent] = useState<AutomationStepErrorPauseEvent | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 	const unlistenRef = useRef<(() => void) | null>(null);
+	const { t } = useTranslation('common');
 
 	useEffect(() => {
 		let mounted = true;
@@ -65,21 +67,21 @@ export function StepErrorPauseModal() {
 				onEscapeKeyDown={(e) => e.preventDefault()}
 			>
 				<DialogHeader>
-					<DialogTitle>步骤执行出错</DialogTitle>
+					<DialogTitle>{t('stepErrorTitle')}</DialogTitle>
 				</DialogHeader>
 				<div className="space-y-3 py-2">
-					<p className="text-sm text-muted-foreground">步骤 {pauseEvent.stepIndex + 1} 执行失败：</p>
+					<p className="text-sm text-muted-foreground">{t('stepFailed', { index: pauseEvent.stepIndex + 1 })}</p>
 					<div className="rounded bg-red-50 dark:bg-red-950/20 p-3">
 						<p className="text-sm text-red-500 break-all whitespace-pre-wrap font-mono">{pauseEvent.errorMessage}</p>
 					</div>
-					<p className="text-sm text-muted-foreground">是否跳过此步骤继续执行后续步骤？</p>
+					<p className="text-sm text-muted-foreground">{t('skipStepPrompt')}</p>
 				</div>
 				<DialogFooter>
 					<Button variant="outline" onClick={handleStop} disabled={submitting} className="cursor-pointer">
-						停止运行
+						{t('stopRun')}
 					</Button>
 					<Button onClick={handleContinue} disabled={submitting} className="cursor-pointer">
-						{submitting ? '处理中...' : '跳过并继续'}
+						{submitting ? t('processing') : t('skipAndContinue')}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

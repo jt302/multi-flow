@@ -8,6 +8,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { ChevronDown, FolderOpen, Trash2, Variable } from 'lucide-react';
 import { save as saveDialog } from '@tauri-apps/plugin-dialog';
@@ -59,11 +60,12 @@ export function StepPropertiesPanel({
 }: Props) {
 	const s = step as Record<string, unknown>;
 	const kind = step.kind;
+	const { t } = useTranslation(['automation', 'common']);
 
 	// ── 计算可用变量（脚本级 + 前置步骤输出） ─────────────────────────────────
 	const availableVars: { name: string; source: string }[] = [
 		// 脚本级变量
-		...varsDefs.map((v) => ({ name: v.name, source: '脚本变量' })),
+		...varsDefs.map((v) => ({ name: v.name, source: t('automation:properties.scriptVar') })),
 		// 前置步骤输出变量
 		...allSteps.slice(0, stepIndex).flatMap((stepItem, i) => {
 			const stepRecord = stepItem as Record<string, unknown>;
@@ -74,7 +76,7 @@ export function StepPropertiesPanel({
 			) {
 				results.push({
 					name: stepRecord['output_key'] as string,
-					source: `步骤 ${i + 1}`,
+					source: t('common:stepsCount', { count: i + 1 }),
 				});
 			}
 			if (
@@ -83,7 +85,7 @@ export function StepPropertiesPanel({
 			) {
 				results.push({
 					name: stepRecord['output_key_base64'] as string,
-					source: `步骤 ${i + 1}`,
+					source: t('common:stepsCount', { count: i + 1 }),
 				});
 			}
 			if (
@@ -92,7 +94,7 @@ export function StepPropertiesPanel({
 			) {
 				results.push({
 					name: stepRecord['iter_var'] as string,
-					source: `步骤 ${i + 1}`,
+					source: t('common:stepsCount', { count: i + 1 }),
 				});
 			}
 			return results;
@@ -145,14 +147,14 @@ export function StepPropertiesPanel({
 							variant="ghost"
 							size="icon"
 							className="h-7 w-7 flex-shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-							title="插入变量"
+							title={t("automation:properties.insertVar")}
 						>
 							<Variable className="h-3.5 w-3.5" />
 						</Button>
 					</PopoverTrigger>
 					<PopoverContent className="w-52 p-1" align="end">
 						<div className="text-xs text-muted-foreground px-2 py-1 font-medium">
-							选择变量
+							{t("automation:properties.selectVar")}
 						</div>
 						{availableVars.map((v, i) => (
 							<button
@@ -223,16 +225,16 @@ export function StepPropertiesPanel({
 	}
 
 	/** 选择器字段（CSS/XPath/Text 三种类型） */
-	function sf(label = '元素选择器', optional = false) {
+	function sf(label = t('automation:properties.selector'), optional = false) {
 		const sType = String(s['selector_type'] ?? 'css');
 		const placeholder =
 			sType === 'xpath'
 				? '//div[@id="main"]'
 				: sType === 'text'
-					? '按文本内容匹配'
+					? t('automation:properties.textMatch')
 					: optional
-						? 'CSS 选择器（留空则按坐标）'
-						: 'CSS 选择器';
+						? t('automation:properties.cssOptional')
+						: t('automation:properties.cssDefault');
 		return (
 			<div key="selector" className="space-y-1">
 				<Label className="text-xs">{label}</Label>
@@ -265,7 +267,7 @@ export function StepPropertiesPanel({
 		);
 	}
 
-	/** 输出变量名字段（带已有变量下拉选择） */
+
 	function outputKeyField(key: string, label: string) {
 		const value = String(s[key] ?? '');
 		return (
@@ -277,7 +279,7 @@ export function StepPropertiesPanel({
 						onChange={(e) =>
 							onUpdate({ ...step, [key]: e.target.value } as ScriptStep)
 						}
-						placeholder="新变量名或选择已有"
+						placeholder={t("automation:properties.newOrSelect")}
 						className="h-8 text-xs flex-1"
 					/>
 					{availableVars.length > 0 && (
@@ -288,14 +290,14 @@ export function StepPropertiesPanel({
 									variant="ghost"
 									size="icon"
 									className="h-8 w-8 flex-shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-									title="选择已有变量"
+									title={t("automation:properties.selectExisting")}
 								>
 									<ChevronDown className="h-3.5 w-3.5" />
 								</Button>
 							</PopoverTrigger>
 							<PopoverContent className="w-52 p-1" align="end">
 								<div className="text-xs text-muted-foreground px-2 py-1 font-medium">
-									选择已有变量
+									{t("automation:properties.selectExisting")}
 								</div>
 								{availableVars.map((v) => (
 									<button
@@ -323,16 +325,16 @@ export function StepPropertiesPanel({
 	}
 
 	/** output_key 字段快捷方式 */
-	const okf = () => outputKeyField('output_key', '输出变量名');
+	const okf = () => outputKeyField('output_key', t('automation:properties.outputKey'));
 
 	/** AI 工具类别可选常量 */
 	const AI_TOOL_CATEGORIES = [
-		{ value: 'utility', label: '通用工具' },
-		{ value: 'cdp', label: 'CDP 浏览器操作' },
-		{ value: 'magic', label: 'Magic 窗口控制' },
-		{ value: 'app', label: '应用数据' },
-		{ value: 'file', label: '文件操作' },
-		{ value: 'dialog', label: '对话框交互' },
+		{ value: 'utility', label: t('automation:toolCategories.utility') },
+		{ value: 'cdp', label: t('automation:toolCategories.cdp') },
+		{ value: 'magic', label: t('automation:toolCategories.magic') },
+		{ value: 'app', label: t('automation:toolCategories.app') },
+		{ value: 'file', label: t('automation:toolCategories.file') },
+		{ value: 'dialog', label: t('automation:toolCategories.dialog') },
 	] as const;
 
 	/** AI 步骤工具类别筛选字段 */
@@ -341,9 +343,9 @@ export function StepPropertiesPanel({
 			((s as Record<string, unknown>)['tool_categories'] as string[]) ?? [];
 		return (
 			<div key="tool_categories" className="space-y-1.5">
-				<Label className="text-xs">可用工具类别</Label>
+				<Label className="text-xs">{t('automation:toolCategories.available')}</Label>
 				<p className="text-[10px] text-muted-foreground">
-					不选 = 启用全部工具（默认）
+					{t('automation:toolCategories.allEnabledHint')}
 				</p>
 				<div className="grid grid-cols-2 gap-1.5">
 					{AI_TOOL_CATEGORIES.map(({ value, label }) => {
@@ -383,35 +385,35 @@ export function StepPropertiesPanel({
 		fields.push(tf('url', 'URL'));
 		fields.push(okf());
 	} else if (kind === 'wait') {
-		fields.push(nf('ms', '等待毫秒数'));
+		fields.push(nf('ms', t('automation:fields.waitMs')));
 	} else if (kind === 'click' || kind === 'cdp_click') {
 		fields.push(sf());
 	} else if (kind === 'type' || kind === 'cdp_type') {
 		fields.push(sf());
-		fields.push(tf('text', '输入文本', true));
+		fields.push(tf('text', t('automation:fields.inputText'), true));
 	} else if (kind === 'cdp_get_text') {
 		fields.push(sf());
 		fields.push(okf());
 	} else if (kind === 'cdp_wait_for_selector') {
 		fields.push(sf());
-		fields.push(nf('timeout_ms', '超时毫秒数'));
+		fields.push(nf('timeout_ms', t('automation:fields.timeoutMs')));
 	} else if (kind === 'cdp_wait_for_page_load') {
-		fields.push(nf('timeout_ms', '超时毫秒数'));
+		fields.push(nf('timeout_ms', t('automation:fields.timeoutMs')));
 	} else if (kind === 'cdp_scroll_to') {
-		fields.push(sf('元素选择器（可选）', true));
+		fields.push(sf(t('automation:properties.selectorOptional'), true));
 	} else if (kind === 'cdp_screenshot') {
-		fields.push(outputKeyField('output_key_file_path', '文件路径变量名'));
+		fields.push(outputKeyField('output_key_file_path', t('automation:fields.filePathVar')));
 		const pathValue = String(s['output_path'] ?? '');
 		fields.push(
 			<div key="output_path" className="space-y-1">
-				<Label className="text-xs">保存路径</Label>
+				<Label className="text-xs">{t('automation:fields.savePath')}</Label>
 				<div className="flex gap-1">
 					<Input
 						value={pathValue}
 						onChange={(e) =>
 							onUpdate({ ...step, output_path: e.target.value } as ScriptStep)
 						}
-						placeholder="留空则自动保存到默认目录"
+						placeholder={t("common:leaveEmptyForDefault")}
 						className="h-8 text-xs flex-1"
 					/>
 					<Button
@@ -419,12 +421,12 @@ export function StepPropertiesPanel({
 						variant="ghost"
 						size="icon"
 						className="h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-						title="选择保存路径"
+						title={t("automation:fields.selectSavePath")}
 						onClick={async () => {
 							const selected = await saveDialog({
 								defaultPath: pathValue || 'screenshot.png',
 								filters: [
-									{ name: '图片文件', extensions: ['png', 'jpeg', 'jpg'] },
+									{ name: t('automation:fields.imageFile'), extensions: ['png', 'jpeg', 'jpg'] },
 								],
 							});
 							if (selected) {
@@ -447,26 +449,26 @@ export function StepPropertiesPanel({
 	} else if (kind === 'cdp_get_all_tabs') {
 		fields.push(okf());
 	} else if (kind === 'cdp_switch_tab') {
-		fields.push(tf('target_id', 'Target ID（支持 {{变量}}）'));
+		fields.push(tf('target_id', t('automation:fields.targetId')));
 	} else if (kind === 'cdp_close_tab') {
-		fields.push(tf('target_id', 'Target ID（支持 {{变量}}）'));
+		fields.push(tf('target_id', t('automation:fields.targetId')));
 	} else if (kind === 'cdp_go_back' || kind === 'cdp_go_forward') {
-		fields.push(nf('steps', '步数'));
+		fields.push(nf('steps', t('common:steps')));
 	} else if (kind === 'cdp_upload_file') {
 		fields.push(sf());
-		fields.push(tf('files.0', '文件路径（支持 {{变量}}）'));
+		fields.push(tf('files.0', t('automation:fields.filePath')));
 	} else if (kind === 'cdp_download_file') {
 		const dlPathValue = String(s['download_path'] ?? '');
 		fields.push(
 			<div key="download_path" className="space-y-1">
-				<Label className="text-xs">下载目录</Label>
+				<Label className="text-xs">{t('automation:fields.downloadDir')}</Label>
 				<div className="flex gap-1">
 					<Input
 						value={dlPathValue}
 						onChange={(e) =>
 							onUpdate({ ...step, download_path: e.target.value } as ScriptStep)
 						}
-						placeholder="选择或输入下载目录"
+						placeholder={t("automation:fields.selectOrInputDownloadDir")}
 						className="h-8 text-xs flex-1"
 					/>
 					<Button
@@ -474,7 +476,7 @@ export function StepPropertiesPanel({
 						variant="ghost"
 						size="icon"
 						className="h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-						title="选择目录"
+						title={t("automation:fields.selectDir")}
 						onClick={async () => {
 							const { open } = await import('@tauri-apps/plugin-dialog');
 							const selected = await open({ directory: true });
@@ -495,7 +497,7 @@ export function StepPropertiesPanel({
 		const clipAction = String(s['action'] ?? 'copy');
 		fields.push(
 			<div key="action" className="space-y-1">
-				<Label className="text-xs">操作</Label>
+				<Label className="text-xs">{t('automation:action')}</Label>
 				<Select
 					value={clipAction}
 					onValueChange={(v) => onUpdate({ ...step, action: v } as ScriptStep)}
@@ -504,26 +506,26 @@ export function StepPropertiesPanel({
 						<SelectValue />
 					</SelectTrigger>
 					<SelectContent>
-						<SelectItem value="copy">复制 (Copy)</SelectItem>
-						<SelectItem value="paste">粘贴 (Paste)</SelectItem>
-						<SelectItem value="select_all">全选 (Select All)</SelectItem>
+						<SelectItem value="copy">{t('automation:actions.copy')} (Copy)</SelectItem>
+						<SelectItem value="paste">{t('automation:actions.paste')} (Paste)</SelectItem>
+						<SelectItem value="select_all">{t('common:selectAll')} (Select All)</SelectItem>
 					</SelectContent>
 				</Select>
 			</div>,
 		);
 	} else if (kind === 'cdp_execute_js') {
-		fields.push(tf('expression', 'JS 代码', true));
+		fields.push(tf('expression', t('automation:fields.jsCode'), true));
 		const jsFilePath = String(s['file_path'] ?? '');
 		fields.push(
 			<div key="file_path" className="space-y-1">
-				<Label className="text-xs">JS 文件路径（可选，优先于代码）</Label>
+				<Label className="text-xs">{t('automation:fields.jsFilePath')}</Label>
 				<div className="flex gap-1">
 					<Input
 						value={jsFilePath}
 						onChange={(e) =>
 							onUpdate({ ...step, file_path: e.target.value } as ScriptStep)
 						}
-						placeholder="留空则使用上方代码"
+						placeholder={t("automation:fields.leaveEmptyForAboveCode")}
 						className="h-8 text-xs flex-1"
 					/>
 					<Button
@@ -531,11 +533,11 @@ export function StepPropertiesPanel({
 						variant="ghost"
 						size="icon"
 						className="h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-						title="选择JS文件"
+						title={t("automation:fields.selectJsFile")}
 						onClick={async () => {
 							const { open } = await import('@tauri-apps/plugin-dialog');
 							const selected = await open({
-								filters: [{ name: 'JS文件', extensions: ['js', 'mjs'] }],
+								filters: [{ name: t('automation:fields.jsFile'), extensions: ['js', 'mjs'] }],
 							});
 							if (selected) {
 								onUpdate({
@@ -556,7 +558,7 @@ export function StepPropertiesPanel({
 		const textSrc = String(s['text_source'] ?? 'inline');
 		fields.push(
 			<div key="text_source" className="space-y-1">
-				<Label className="text-xs">文本来源</Label>
+				<Label className="text-xs">{t('automation:fields.textSource')}</Label>
 				<Select
 					value={textSrc}
 					onValueChange={(v) =>
@@ -567,27 +569,27 @@ export function StepPropertiesPanel({
 						<SelectValue />
 					</SelectTrigger>
 					<SelectContent>
-						<SelectItem value="inline">直接输入</SelectItem>
-						<SelectItem value="file">从文件读取</SelectItem>
-						<SelectItem value="variable">从变量读取</SelectItem>
+						<SelectItem value="inline">{t('automation:fields.inlineInput')}</SelectItem>
+						<SelectItem value="file">{t('automation:fields.readFromFile')}</SelectItem>
+						<SelectItem value="variable">{t('automation:fields.readFromVar')}</SelectItem>
 					</SelectContent>
 				</Select>
 			</div>,
 		);
 		if (textSrc === 'inline') {
-			fields.push(tf('text', '输入文本', true));
+			fields.push(tf('text', t('automation:fields.inputText'), true));
 		} else if (textSrc === 'file') {
 			const filePath = String(s['file_path'] ?? '');
 			fields.push(
 				<div key="file_path" className="space-y-1">
-					<Label className="text-xs">文本文件路径</Label>
+					<Label className="text-xs">{t('automation:fields.textFilePath')}</Label>
 					<div className="flex gap-1">
 						<Input
 							value={filePath}
 							onChange={(e) =>
 								onUpdate({ ...step, file_path: e.target.value } as ScriptStep)
 							}
-							placeholder="选择文本文件"
+							placeholder={t("automation:fields.selectTextFile")}
 							className="h-8 text-xs flex-1"
 						/>
 						<Button
@@ -595,12 +597,12 @@ export function StepPropertiesPanel({
 							variant="ghost"
 							size="icon"
 							className="h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-							title="选择文件"
+							title={t("common:selectFile")}
 							onClick={async () => {
 								const { open } = await import('@tauri-apps/plugin-dialog');
 								const selected = await open({
 									filters: [
-										{ name: '文本文件', extensions: ['txt', 'md', 'csv'] },
+										{ name: t('automation:fields.textFile'), extensions: ['txt', 'md', 'csv'] },
 									],
 								});
 								if (selected) {
@@ -617,13 +619,13 @@ export function StepPropertiesPanel({
 				</div>,
 			);
 		} else if (textSrc === 'variable') {
-			fields.push(tf('var_name', '变量名（不含 {{}}）'));
+			fields.push(tf('var_name', t('automation:fields.varName')));
 		}
 	} else if (kind === 'cdp_press_key') {
 		const keyVal = String(s['key'] ?? 'Enter');
 		fields.push(
 			<div key="key" className="space-y-1">
-				<Label className="text-xs">按键</Label>
+				<Label className="text-xs">{t('automation:fields.keyPress')}</Label>
 				<Select
 					value={keyVal}
 					onValueChange={(v) => onUpdate({ ...step, key: v } as ScriptStep)}
@@ -637,7 +639,7 @@ export function StepPropertiesPanel({
 						<SelectItem value="Escape">Escape</SelectItem>
 						<SelectItem value="Backspace">Backspace</SelectItem>
 						<SelectItem value="Delete">Delete</SelectItem>
-						<SelectItem value="Space">Space（空格）</SelectItem>
+						<SelectItem value="Space">Space ({t('automation:fields.spaceKey')})</SelectItem>
 						<SelectItem value="ArrowUp">ArrowUp</SelectItem>
 						<SelectItem value="ArrowDown">ArrowDown</SelectItem>
 						<SelectItem value="ArrowLeft">ArrowLeft</SelectItem>
@@ -660,7 +662,7 @@ export function StepPropertiesPanel({
 		};
 		fields.push(
 			<div key="modifiers" className="space-y-1">
-				<Label className="text-xs">修饰键</Label>
+				<Label className="text-xs">{t('automation:fields.modifierKeys')}</Label>
 				<div className="flex flex-wrap gap-3">
 					{(['ctrl', 'meta', 'alt', 'shift'] as const).map((mod) => (
 						<label
@@ -681,14 +683,14 @@ export function StepPropertiesPanel({
 				</div>
 			</div>,
 		);
-		fields.push(tf('key', '主键（如 c、a、F4、Enter）'));
+		fields.push(tf('key', t('automation:fields.keyName')));
 	} else if (kind === 'cdp_get_attribute') {
 		fields.push(sf());
-		fields.push(tf('attribute', '属性名（如 href、src、class）'));
+		fields.push(tf('attribute', t('automation:fields.attrName')));
 		fields.push(okf());
 	} else if (kind === 'cdp_set_input_value') {
 		fields.push(sf());
-		fields.push(tf('value', '设置的值（支持 {{变量}}）'));
+		fields.push(tf('value', t('automation:fields.setValue')));
 	} else if (kind === 'cdp_reload') {
 		const ignoreCache = Boolean(s['ignore_cache'] ?? false);
 		fields.push(
@@ -701,18 +703,18 @@ export function StepPropertiesPanel({
 					}
 					className="h-3.5 w-3.5 cursor-pointer"
 				/>
-				<Label className="text-xs">忽略缓存</Label>
+				<Label className="text-xs">{t('automation:fields.ignoreCache')}</Label>
 			</div>,
 		);
 	} else if (kind === 'wait_for_user') {
-		fields.push(tf('message', '提示消息', true));
-		fields.push(tf('input_label', '输入框标签（留空则无输入框）'));
+		fields.push(tf('message', t('automation:fields.message'), true));
+		fields.push(tf('input_label', t('automation:fields.inputLabel')));
 		fields.push(okf());
-		fields.push(nf('timeout_ms', '超时毫秒数（0=不超时）'));
+		fields.push(nf('timeout_ms', t('automation:fields.timeoutMsZero')));
 		const onTimeout = String(s['on_timeout'] ?? 'continue');
 		fields.push(
 			<div key="on_timeout" className="space-y-1">
-				<Label className="text-xs">超时后行为</Label>
+				<Label className="text-xs">{t('automation:fields.timeoutAction')}</Label>
 				<Select
 					value={onTimeout}
 					onValueChange={(v) =>
@@ -724,21 +726,21 @@ export function StepPropertiesPanel({
 					</SelectTrigger>
 					<SelectContent>
 						<SelectItem value="continue" className="cursor-pointer">
-							继续执行
+							{t('common:continue')}
 						</SelectItem>
 						<SelectItem value="fail" className="cursor-pointer">
-							标记失败
+							{t('automation:actions.markFailed')}
 						</SelectItem>
 					</SelectContent>
 				</Select>
 			</div>,
 		);
 	} else if (kind === 'print') {
-		fields.push(tf('text', '打印内容（支持 {{变量}}）', true));
+		fields.push(tf('text', t('automation:fields.printText'), true));
 		const lvl = String(s['level'] ?? 'info');
 		fields.push(
 			<div key="level" className="space-y-1">
-				<Label className="text-xs">日志级别</Label>
+				<Label className="text-xs">{t('automation:fields.logLevel')}</Label>
 				<Select
 					value={lvl}
 					onValueChange={(v) => onUpdate({ ...step, level: v } as ScriptStep)}
@@ -764,12 +766,12 @@ export function StepPropertiesPanel({
 			</div>,
 		);
 	} else if (kind === 'condition') {
-		fields.push(tf('condition_expr', '条件表达式'));
+		fields.push(tf('condition_expr', t('common:conditionExpr')));
 	} else if (kind === 'loop') {
 		const loopMode = String(s['mode'] ?? 'count');
 		fields.push(
 			<div key="mode" className="space-y-1">
-				<Label className="text-xs">循环模式</Label>
+				<Label className="text-xs">{t('common:loopMode')}</Label>
 				<Select
 					value={loopMode}
 					onValueChange={(v) => onUpdate({ ...step, mode: v } as ScriptStep)}
@@ -779,29 +781,29 @@ export function StepPropertiesPanel({
 					</SelectTrigger>
 					<SelectContent>
 						<SelectItem value="count" className="cursor-pointer">
-							按次数
+							{t('common:loopCount')}
 						</SelectItem>
 						<SelectItem value="while" className="cursor-pointer">
-							按条件（while）
+							{t('common:loopWhile')}
 						</SelectItem>
 					</SelectContent>
 				</Select>
 			</div>,
 		);
 		if (loopMode === 'count') {
-			fields.push(nf('count', '循环次数'));
+			fields.push(nf('count', t('automation:fields.loopCount')));
 		} else {
-			fields.push(tf('condition_expr', '循环条件表达式'));
-			fields.push(nf('max_iterations', '最大迭代次数（安全上限）'));
+			fields.push(tf('condition_expr', t('automation:fields.loopCondition')));
+			fields.push(nf('max_iterations', t('common:maxIterations')));
 		}
-		fields.push(tf('iter_var', '迭代变量名（可选）'));
+		fields.push(tf('iter_var', t('common:iterationVar')));
 	} else if (kind === 'ai_agent') {
-		fields.push(tf('prompt', 'Prompt（支持 {{变量}}）', true));
-		fields.push(tf('system_prompt', '系统提示词（可选）', true));
+		fields.push(tf('prompt', t('automation:fields.prompt'), true));
+		fields.push(tf('system_prompt', t('automation:fields.systemPrompt'), true));
 		const outputFormat = String(s['output_format'] ?? 'text');
 		fields.push(
 			<div key="output_format" className="space-y-1">
-				<Label className="text-xs">输出格式</Label>
+				<Label className="text-xs">{t('automation:fields.outputFormat')}</Label>
 				<Select
 					value={outputFormat}
 					onValueChange={(v) =>
@@ -813,24 +815,24 @@ export function StepPropertiesPanel({
 					</SelectTrigger>
 					<SelectContent>
 						<SelectItem value="text" className="cursor-pointer">
-							纯文本
+							{t('automation:fields.formatText')}
 						</SelectItem>
 						<SelectItem value="json" className="cursor-pointer">
-							JSON（配合 key 映射提取变量）
+							{t('automation:fields.formatJson')}
 						</SelectItem>
 					</SelectContent>
 				</Select>
 			</div>,
 		);
-		fields.push(nf('max_steps', '最大循环轮次'));
+		fields.push(nf('max_steps', t('automation:fields.maxRounds')));
 		fields.push(okf());
 		fields.push(toolCategoriesField());
 	} else if (kind === 'ai_judge') {
-		fields.push(tf('prompt', '判断提示词（描述需要AI判断的场景）', true));
+		fields.push(tf('prompt', t('automation:fields.judgePrompt'), true));
 		const outputMode = String(s['output_mode'] ?? 'boolean');
 		fields.push(
 			<div key="output_mode" className="space-y-1">
-				<Label className="text-xs">输出模式</Label>
+				<Label className="text-xs">{t('automation:fields.outputMode')}</Label>
 				<Select
 					value={outputMode}
 					onValueChange={(v) =>
@@ -842,10 +844,10 @@ export function StepPropertiesPanel({
 					</SelectTrigger>
 					<SelectContent>
 						<SelectItem value="boolean" className="cursor-pointer">
-							布尔值（true / false）
+							{t('automation:fields.booleanMode')}
 						</SelectItem>
 						<SelectItem value="percentage" className="cursor-pointer">
-							百分比（0 - 100）
+							{t('automation:fields.percentageMode')}
 						</SelectItem>
 					</SelectContent>
 				</Select>
@@ -856,7 +858,7 @@ export function StepPropertiesPanel({
 				</p>
 			</div>,
 		);
-		fields.push(nf('max_steps', '最大循环轮次'));
+		fields.push(nf('max_steps', t('automation:fields.maxRounds')));
 		fields.push(okf());
 		fields.push(toolCategoriesField());
 	} else if (kind === 'magic_open_new_tab') {
@@ -865,21 +867,21 @@ export function StepPropertiesPanel({
 	} else if (kind === 'magic_set_bounds') {
 		fields.push(nf('x', 'X'));
 		fields.push(nf('y', 'Y'));
-		fields.push(nf('width', '宽度'));
-		fields.push(nf('height', '高度'));
+		fields.push(nf('width', t('automation:fields.width')));
+		fields.push(nf('height', t('automation:fields.height')));
 	} else if (kind === 'magic_capture_app_shell') {
-		fields.push(outputKeyField('output_key_file_path', '文件路径变量名'));
+		fields.push(outputKeyField('output_key_file_path', t('automation:fields.filePathVar')));
 		const appShellPathValue = String(s['output_path'] ?? '');
 		fields.push(
 			<div key="output_path" className="space-y-1">
-				<Label className="text-xs">保存路径</Label>
+				<Label className="text-xs">{t('automation:fields.savePath')}</Label>
 				<div className="flex gap-1">
 					<Input
 						value={appShellPathValue}
 						onChange={(e) =>
 							onUpdate({ ...step, output_path: e.target.value } as ScriptStep)
 						}
-						placeholder="留空则自动保存到默认目录"
+						placeholder={t("common:leaveEmptyForDefault")}
 						className="h-8 text-xs flex-1"
 					/>
 					<Button
@@ -887,12 +889,12 @@ export function StepPropertiesPanel({
 						variant="ghost"
 						size="icon"
 						className="h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-						title="选择保存路径"
+						title={t("automation:fields.selectSavePath")}
 						onClick={async () => {
 							const selected = await saveDialog({
 								defaultPath: appShellPathValue || 'appshell.png',
 								filters: [
-									{ name: '图片文件', extensions: ['png', 'jpeg', 'jpg'] },
+									{ name: t('automation:fields.imageFile'), extensions: ['png', 'jpeg', 'jpg'] },
 								],
 							});
 							if (selected) {
@@ -915,18 +917,18 @@ export function StepPropertiesPanel({
 		kind === 'magic_enable_extension' ||
 		kind === 'magic_disable_extension'
 	) {
-		fields.push(tf('extension_id', '扩展 ID（从 managed extensions 获取）'));
+		fields.push(tf('extension_id', t('automation:fields.extensionId')));
 	} else if (kind === 'confirm_dialog') {
-		fields.push(tf('title', '标题'));
-		fields.push(tf('message', '提示消息', true));
+		fields.push(tf('title', t('common:title')));
+		fields.push(tf('message', t('automation:fields.message'), true));
 		// 动态按钮列表编辑器
 		const buttons = (s['buttons'] as DialogButton[] | undefined) ?? [
-			{ text: '确认', value: 'confirm', variant: 'default' },
-			{ text: '取消', value: 'cancel', variant: 'outline' },
+			{ text: t('common:confirm'), value: 'confirm', variant: 'default' },
+			{ text: t('common:cancel'), value: 'cancel', variant: 'outline' },
 		];
 		fields.push(
 			<div key="buttons" className="space-y-1">
-				<Label className="text-xs">按钮列表（最多 4 个）</Label>
+				<Label className="text-xs">{t('automation:fields.buttonList')}</Label>
 				<div className="space-y-1.5">
 					{buttons.map((btn: DialogButton, i: number) => (
 						<div key={i} className="flex gap-1 items-center">
@@ -937,7 +939,7 @@ export function StepPropertiesPanel({
 									newBtns[i] = { ...btn, text: e.target.value };
 									onUpdate({ ...step, buttons: newBtns } as ScriptStep);
 								}}
-								placeholder="按钮文本"
+								placeholder={t("automation:fields.buttonText")}
 								className="h-7 text-xs flex-1"
 							/>
 							<Input
@@ -947,7 +949,7 @@ export function StepPropertiesPanel({
 									newBtns[i] = { ...btn, value: e.target.value };
 									onUpdate({ ...step, buttons: newBtns } as ScriptStep);
 								}}
-								placeholder="值"
+								placeholder={t("automation:fields.buttonValue")}
 								className="h-7 text-xs w-20"
 							/>
 							<Select
@@ -1009,23 +1011,23 @@ export function StepPropertiesPanel({
 								} as ScriptStep)
 							}
 						>
-							+ 添加按钮
+							{`+ ${t("automation:fields.addButton")}`}
 						</Button>
 					)}
 				</div>
 			</div>,
 		);
-		fields.push(nf('timeout_ms', '超时毫秒数（0=不超时）'));
-		fields.push(tf('on_timeout_value', '超时默认值'));
+		fields.push(nf('timeout_ms', t('automation:fields.timeoutMsZero')));
+		fields.push(tf('on_timeout_value', t('automation:fields.timeoutDefaultValue')));
 		fields.push(okf());
 	} else if (kind === 'select_dialog') {
-		fields.push(tf('title', '标题'));
-		fields.push(tf('message', '说明文字（可选）', true));
+		fields.push(tf('title', t('common:title')));
+		fields.push(tf('message', t('automation:fields.descriptionOptional'), true));
 		// 动态选项列表编辑器
 		const options = (s['options'] as string[] | undefined) ?? [];
 		fields.push(
 			<div key="options" className="space-y-1">
-				<Label className="text-xs">选项列表</Label>
+				<Label className="text-xs">{t('automation:fields.optionList')}</Label>
 				<div className="space-y-1.5">
 					{options.map((opt: string, i: number) => (
 						<div key={i} className="flex gap-1">
@@ -1036,7 +1038,7 @@ export function StepPropertiesPanel({
 									newOpts[i] = e.target.value;
 									onUpdate({ ...step, options: newOpts } as ScriptStep);
 								}}
-								placeholder={`选项 ${i + 1}`}
+								placeholder={t("automation:fields.option", { index: i + 1 })}
 								className="h-7 text-xs flex-1"
 							/>
 							<Button
@@ -1064,7 +1066,7 @@ export function StepPropertiesPanel({
 							onUpdate({ ...step, options: [...options, ''] } as ScriptStep)
 						}
 					>
-						+ 添加选项
+						{`+ ${t("automation:fields.addOption")}`}
 					</Button>
 				</div>
 			</div>,
@@ -1079,18 +1081,18 @@ export function StepPropertiesPanel({
 					}
 					className="h-3.5 w-3.5 cursor-pointer"
 				/>
-				<Label className="text-xs">允许多选</Label>
+				<Label className="text-xs">{t('automation:fields.allowMultiSelect')}</Label>
 			</div>,
 		);
-		fields.push(nf('timeout_ms', '超时毫秒数（0=不超时）'));
+		fields.push(nf('timeout_ms', t('automation:fields.timeoutMsZero')));
 		fields.push(okf());
 	} else if (kind === 'notification') {
-		fields.push(tf('title', '标题'));
-		fields.push(tf('body', '内容', true));
+		fields.push(tf('title', t('common:title')));
+		fields.push(tf('body', t('common:body'), true));
 		const level = String(s['level'] ?? 'info');
 		fields.push(
 			<div key="level" className="space-y-1">
-				<Label className="text-xs">级别</Label>
+				<Label className="text-xs">{t('common:level')}</Label>
 				<Select
 					value={level}
 					onValueChange={(v) => onUpdate({ ...step, level: v } as ScriptStep)}
@@ -1115,12 +1117,12 @@ export function StepPropertiesPanel({
 				</Select>
 			</div>,
 		);
-		fields.push(nf('duration_ms', '显示时长毫秒数'));
+		fields.push(nf('duration_ms', t('automation:fields.durationMs')));
 	} else if (kind === 'cdp_handle_dialog') {
 		const action = String(s['action'] ?? 'accept');
 		fields.push(
 			<div key="action" className="space-y-1">
-				<Label className="text-xs">操作</Label>
+				<Label className="text-xs">{t('automation:action')}</Label>
 				<Select
 					value={action}
 					onValueChange={(v) => onUpdate({ ...step, action: v } as ScriptStep)}
@@ -1130,16 +1132,16 @@ export function StepPropertiesPanel({
 					</SelectTrigger>
 					<SelectContent>
 						<SelectItem value="accept" className="cursor-pointer">
-							接受 (Accept)
+							{t('automation:actions.accept')} (Accept)
 						</SelectItem>
 						<SelectItem value="dismiss" className="cursor-pointer">
-							关闭 (Dismiss)
+							{t('automation:actions.dismiss')} (Dismiss)
 						</SelectItem>
 					</SelectContent>
 				</Select>
 			</div>,
 		);
-		fields.push(tf('prompt_text', 'Prompt 输入文本（可选）'));
+		fields.push(tf('prompt_text', t('automation:fields.promptInputText')));
 		fields.push(okf());
 	} else if (
 		kind === 'cdp_get_browser_version' ||
@@ -1148,10 +1150,10 @@ export function StepPropertiesPanel({
 	) {
 		fields.push(okf());
 	} else if (kind === 'cdp_get_window_for_target') {
-		fields.push(tf('target_id', 'Target ID（可选，空=当前目标）'));
+		fields.push(tf('target_id', t('automation:fields.targetIdOptional')));
 		fields.push(okf());
 	} else if (kind === 'cdp_get_document') {
-		fields.push(nf('depth', '深度（-1=全量，默认1）'));
+		fields.push(nf('depth', t('automation:fields.depth')));
 		fields.push(
 			<div key="pierce" className="flex items-center gap-2">
 				<input
@@ -1162,12 +1164,12 @@ export function StepPropertiesPanel({
 						onUpdate({ ...step, pierce: e.target.checked } as ScriptStep)
 					}
 				/>
-				<Label className="text-xs">穿透 Shadow DOM</Label>
+				<Label className="text-xs">{t('automation:fields.pierceShadowDOM')}</Label>
 			</div>,
 		);
 		fields.push(okf());
 	} else if (kind === 'cdp_get_full_ax_tree') {
-		fields.push(nf('depth', '深度（可选，空=全量）'));
+		fields.push(nf('depth', t('automation:fields.depthOptional')));
 		fields.push(okf());
 	}
 
@@ -1180,14 +1182,14 @@ export function StepPropertiesPanel({
 					<span className="text-xs font-bold truncate">
 						{KIND_LABELS[kind] ?? kind}
 					</span>
-					<span className="text-[9px] text-muted-foreground">属性</span>
+					<span className="text-[9px] text-muted-foreground">{t("automation:properties.title")}</span>
 				</div>
 				<Button
 					size="sm"
 					variant="ghost"
 					className="h-6 w-6 p-0 cursor-pointer text-destructive hover:text-destructive"
 					onClick={onDelete}
-					title="删除步骤"
+					title={t("automation:properties.deleteStep")}
 				>
 					<Trash2 className="h-3 w-3" />
 				</Button>
@@ -1199,7 +1201,7 @@ export function StepPropertiesPanel({
 					{fields.length > 0 ? (
 						fields
 					) : (
-						<p className="text-xs text-muted-foreground">此步骤无可编辑字段</p>
+						<p className="text-xs text-muted-foreground">{t("automation:properties.noEditableFields")}</p>
 					)}
 				</div>
 			</ScrollArea>

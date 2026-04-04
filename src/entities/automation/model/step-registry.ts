@@ -10,440 +10,397 @@ export type StepKindDef = {
 	group: string;
 };
 
+/** 获取分组的本地化名称 */
+export function getGroupLabel(groupKey: string): string {
+	const key = `automation:stepGroups.${groupKey}`;
+	const translated = i18next.t(key);
+	// i18next 找不到 key 时返回 key 本身，此时回退到 key 作为显示
+	return translated !== key ? translated : groupKey;
+}
+
 export const STEP_KINDS: StepKindDef[] = [
 	// 基础
-	{ value: 'navigate', label: '导航 navigate', group: '基础' },
-	{ value: 'wait', label: '等待 wait', group: '基础' },
-	{ value: 'click', label: '点击 click', group: '基础' },
-	{ value: 'type', label: '输入 type', group: '基础' },
-	{ value: 'screenshot', label: '截图 screenshot', group: '基础' },
-	{ value: 'magic', label: 'Magic 原始指令', group: '基础' },
-	{ value: 'cdp', label: 'CDP 原始调用', group: '基础' },
+	{ value: 'navigate', label: 'navigate', group: 'basic' },
+	{ value: 'wait', label: 'wait', group: 'basic' },
+	{ value: 'click', label: 'click', group: 'basic' },
+	{ value: 'type', label: 'type', group: 'basic' },
+	{ value: 'screenshot', label: 'screenshot', group: 'basic' },
+	{ value: 'magic', label: 'magic', group: 'basic' },
+	{ value: 'cdp', label: 'cdp', group: 'basic' },
 	// 控制流
-	{ value: 'wait_for_user', label: '人工介入 wait_for_user', group: '控制流' },
-	{ value: 'condition', label: '条件分支 condition', group: '控制流' },
-	{ value: 'loop', label: '循环 loop', group: '控制流' },
-	{ value: 'break', label: '跳出循环 break', group: '控制流' },
-	{ value: 'continue', label: '继续下一轮 continue', group: '控制流' },
-	{ value: 'end', label: '结束流程 end', group: '控制流' },
-	{ value: 'print', label: '打印日志 print', group: '调试' },
+	{ value: 'wait_for_user', label: 'wait_for_user', group: 'controlFlow' },
+	{ value: 'condition', label: 'condition', group: 'controlFlow' },
+	{ value: 'loop', label: 'loop', group: 'controlFlow' },
+	{ value: 'break', label: 'break', group: 'controlFlow' },
+	{ value: 'continue', label: 'continue', group: 'controlFlow' },
+	{ value: 'end', label: 'end', group: 'controlFlow' },
+	{ value: 'print', label: 'print', group: 'debug' },
 	// AI 步骤
-	{ value: 'ai_agent', label: 'AI Agent（多轮工具调用）', group: 'AI' },
-	{ value: 'ai_judge', label: 'AI 判断', group: 'AI' },
+	{ value: 'ai_agent', label: 'ai_agent', group: 'ai' },
+	{ value: 'ai_judge', label: 'ai_judge', group: 'ai' },
 	// CDP 具名
-	{ value: 'cdp_navigate', label: 'CDP 导航', group: 'CDP' },
-	{ value: 'cdp_reload', label: 'CDP 刷新页面', group: 'CDP' },
-	{ value: 'cdp_click', label: 'CDP 点击', group: 'CDP' },
-	{ value: 'cdp_type', label: 'CDP 输入', group: 'CDP' },
-	{ value: 'cdp_scroll_to', label: 'CDP 滚动', group: 'CDP' },
-	{ value: 'cdp_wait_for_selector', label: 'CDP 等待元素', group: 'CDP' },
-	{ value: 'cdp_wait_for_page_load', label: 'CDP 等待页面加载', group: 'CDP' },
-	{ value: 'cdp_get_text', label: 'CDP 获取文本', group: 'CDP' },
-	{ value: 'cdp_get_attribute', label: 'CDP 获取属性', group: 'CDP' },
-	{ value: 'cdp_set_input_value', label: 'CDP 设置输入值', group: 'CDP' },
-	{ value: 'cdp_screenshot', label: 'CDP 截图(增强)', group: 'CDP' },
-	{ value: 'cdp_open_new_tab', label: 'CDP 新建标签页', group: 'CDP' },
-	{ value: 'cdp_get_all_tabs', label: 'CDP 获取所有标签', group: 'CDP' },
-	{ value: 'cdp_switch_tab', label: 'CDP 切换标签', group: 'CDP' },
-	{ value: 'cdp_close_tab', label: 'CDP 关闭标签', group: 'CDP' },
-	{ value: 'cdp_go_back', label: 'CDP 后退', group: 'CDP' },
-	{ value: 'cdp_go_forward', label: 'CDP 前进', group: 'CDP' },
-	{ value: 'cdp_upload_file', label: 'CDP 上传文件', group: 'CDP' },
-	{ value: 'cdp_download_file', label: 'CDP 设置下载路径', group: 'CDP' },
-	{ value: 'cdp_clipboard', label: 'CDP 剪贴板操作', group: 'CDP' },
-	{ value: 'cdp_execute_js', label: 'CDP 执行JS脚本', group: 'CDP' },
-	{ value: 'cdp_input_text', label: 'CDP 文本输入(增强)', group: 'CDP' },
-	{ value: 'cdp_press_key', label: 'CDP 按键', group: 'CDP' },
-	{ value: 'cdp_shortcut', label: 'CDP 快捷键', group: 'CDP' },
-	{ value: 'cdp_handle_dialog', label: 'CDP 处理弹窗', group: 'CDP' },
-	// CDP 信息查询
-	{ value: 'cdp_get_browser_version', label: 'CDP 浏览器版本', group: 'CDP' },
-	{ value: 'cdp_get_browser_command_line', label: 'CDP 启动参数', group: 'CDP' },
-	{ value: 'cdp_get_window_for_target', label: 'CDP 窗口信息', group: 'CDP' },
-	{ value: 'cdp_get_layout_metrics', label: 'CDP 页面布局指标', group: 'CDP' },
-	{ value: 'cdp_get_document', label: 'CDP 获取DOM根节点', group: 'CDP' },
-	{ value: 'cdp_get_full_ax_tree', label: 'CDP 无障碍树', group: 'CDP' },
+	{ value: 'cdp_navigate', label: 'cdp_navigate', group: 'cdp' },
+	{ value: 'cdp_reload', label: 'cdp_reload', group: 'cdp' },
+	{ value: 'cdp_click', label: 'cdp_click', group: 'cdp' },
+	{ value: 'cdp_type', label: 'cdp_type', group: 'cdp' },
+	{ value: 'cdp_scroll_to', label: 'cdp_scroll_to', group: 'cdp' },
+	{ value: 'cdp_wait_for_selector', label: 'cdp_wait_for_selector', group: 'cdp' },
+	{ value: 'cdp_wait_for_page_load', label: 'cdp_wait_for_page_load', group: 'cdp' },
+	{ value: 'cdp_get_text', label: 'cdp_get_text', group: 'cdp' },
+	{ value: 'cdp_get_attribute', label: 'cdp_get_attribute', group: 'cdp' },
+	{ value: 'cdp_set_input_value', label: 'cdp_set_input_value', group: 'cdp' },
+	{ value: 'cdp_screenshot', label: 'cdp_screenshot', group: 'cdp' },
+	{ value: 'cdp_open_new_tab', label: 'cdp_open_new_tab', group: 'cdp' },
+	{ value: 'cdp_get_all_tabs', label: 'cdp_get_all_tabs', group: 'cdp' },
+	{ value: 'cdp_switch_tab', label: 'cdp_switch_tab', group: 'cdp' },
+	{ value: 'cdp_close_tab', label: 'cdp_close_tab', group: 'cdp' },
+	{ value: 'cdp_go_back', label: 'cdp_go_back', group: 'cdp' },
+	{ value: 'cdp_go_forward', label: 'cdp_go_forward', group: 'cdp' },
+	{ value: 'cdp_upload_file', label: 'cdp_upload_file', group: 'cdp' },
+	{ value: 'cdp_download_file', label: 'cdp_download_file', group: 'cdp' },
+	{ value: 'cdp_clipboard', label: 'cdp_clipboard', group: 'cdp' },
+	{ value: 'cdp_execute_js', label: 'cdp_execute_js', group: 'cdp' },
+	{ value: 'cdp_input_text', label: 'cdp_input_text', group: 'cdp' },
+	{ value: 'cdp_press_key', label: 'cdp_press_key', group: 'cdp' },
+	{ value: 'cdp_shortcut', label: 'cdp_shortcut', group: 'cdp' },
+	{ value: 'cdp_handle_dialog', label: 'cdp_handle_dialog', group: 'cdp' },
+	{ value: 'cdp_get_browser_version', label: 'cdp_get_browser_version', group: 'cdp' },
+	{ value: 'cdp_get_browser_command_line', label: 'cdp_get_browser_command_line', group: 'cdp' },
+	{ value: 'cdp_get_window_for_target', label: 'cdp_get_window_for_target', group: 'cdp' },
+	{ value: 'cdp_get_layout_metrics', label: 'cdp_get_layout_metrics', group: 'cdp' },
+	{ value: 'cdp_get_document', label: 'cdp_get_document', group: 'cdp' },
+	{ value: 'cdp_get_full_ax_tree', label: 'cdp_get_full_ax_tree', group: 'cdp' },
 	// 弹窗 / 通知
-	{ value: 'confirm_dialog', label: '确认弹窗 confirm_dialog', group: '人工介入' },
-	{ value: 'select_dialog', label: '选择弹窗 select_dialog', group: '人工介入' },
-	{ value: 'notification', label: '通知 notification', group: '通知' },
+	{ value: 'confirm_dialog', label: 'confirm_dialog', group: 'manual' },
+	{ value: 'select_dialog', label: 'select_dialog', group: 'manual' },
+	{ value: 'form_dialog', label: 'form_dialog', group: 'manual' },
+	{ value: 'table_dialog', label: 'table_dialog', group: 'manual' },
+	{ value: 'image_dialog', label: 'image_dialog', group: 'manual' },
+	{ value: 'countdown_dialog', label: 'countdown_dialog', group: 'manual' },
+	{ value: 'markdown_dialog', label: 'markdown_dialog', group: 'manual' },
+	{ value: 'notification', label: 'notification', group: 'notification' },
 	// 窗口外观
-	{ value: 'magic_set_bounds', label: '设置窗口位置大小', group: '窗口外观' },
-	{ value: 'magic_get_bounds', label: '获取窗口位置大小', group: '窗口外观' },
-	{ value: 'magic_set_maximized', label: '最大化窗口', group: '窗口外观' },
-	{ value: 'magic_set_minimized', label: '最小化窗口', group: '窗口外观' },
-	{ value: 'magic_set_restored', label: '还原窗口', group: '窗口外观' },
-	{ value: 'magic_set_fullscreen', label: '全屏', group: '窗口外观' },
-	{ value: 'magic_set_closed', label: '关闭窗口', group: '窗口外观' },
-	{ value: 'magic_safe_quit', label: '关闭浏览器(安全退出)', group: '窗口外观' },
-	{ value: 'magic_set_bg_color', label: '设置背景色', group: '窗口外观' },
-	{ value: 'magic_set_toolbar_text', label: '设置工具栏文字', group: '窗口外观' },
-	{ value: 'magic_set_app_top_most', label: '激活窗口', group: '窗口外观' },
-	{ value: 'magic_set_master_indicator_visible', label: '主控标记显示', group: '窗口外观' },
+	{ value: 'magic_set_bounds', label: 'magic_set_bounds', group: 'window' },
+	{ value: 'magic_get_bounds', label: 'magic_get_bounds', group: 'window' },
+	{ value: 'magic_set_maximized', label: 'magic_set_maximized', group: 'window' },
+	{ value: 'magic_set_minimized', label: 'magic_set_minimized', group: 'window' },
+	{ value: 'magic_set_closed', label: 'magic_set_closed', group: 'window' },
+	{ value: 'magic_safe_quit', label: 'magic_safe_quit', group: 'window' },
+	{ value: 'magic_set_restored', label: 'magic_set_restored', group: 'window' },
+	{ value: 'magic_set_fullscreen', label: 'magic_set_fullscreen', group: 'window' },
+	{ value: 'magic_set_bg_color', label: 'magic_set_bg_color', group: 'window' },
+	{ value: 'magic_set_toolbar_text', label: 'magic_set_toolbar_text', group: 'window' },
+	{ value: 'magic_set_app_top_most', label: 'magic_set_app_top_most', group: 'window' },
+	{ value: 'magic_set_master_indicator_visible', label: 'magic_set_master_indicator_visible', group: 'window' },
 	// 标签页
-	{ value: 'magic_open_new_tab', label: '新建标签页', group: '标签页' },
-	{ value: 'magic_close_tab', label: '关闭标签页', group: '标签页' },
-	{ value: 'magic_activate_tab', label: '激活标签页(by id)', group: '标签页' },
-	{ value: 'magic_activate_tab_by_index', label: '激活标签页(by index)', group: '标签页' },
-	{ value: 'magic_close_inactive_tabs', label: '关闭非活动标签页', group: '标签页' },
-	{ value: 'magic_open_new_window', label: '新建窗口', group: '标签页' },
-	{ value: 'magic_type_string', label: '键入文本', group: '标签页' },
-	{ value: 'magic_capture_app_shell', label: '截图(整个窗口)', group: '标签页' },
+	{ value: 'magic_open_new_tab', label: 'magic_open_new_tab', group: 'tab' },
+	{ value: 'magic_close_tab', label: 'magic_close_tab', group: 'tab' },
+	{ value: 'magic_activate_tab', label: 'magic_activate_tab', group: 'tab' },
+	{ value: 'magic_activate_tab_by_index', label: 'magic_activate_tab_by_index', group: 'tab' },
+	{ value: 'magic_close_inactive_tabs', label: 'magic_close_inactive_tabs', group: 'tab' },
+	{ value: 'magic_open_new_window', label: 'magic_open_new_window', group: 'tab' },
+	{ value: 'magic_type_string', label: 'magic_type_string', group: 'tab' },
+	{ value: 'magic_capture_app_shell', label: 'magic_capture_app_shell', group: 'tab' },
 	// 浏览器信息
-	{ value: 'magic_get_browsers', label: '获取所有浏览器', group: '浏览器信息' },
-	{ value: 'magic_get_active_browser', label: '获取活动浏览器', group: '浏览器信息' },
-	{ value: 'magic_get_tabs', label: '获取标签页列表', group: '浏览器信息' },
-	{ value: 'magic_get_active_tabs', label: '获取活动标签页', group: '浏览器信息' },
-	{ value: 'magic_get_switches', label: '读取启动参数', group: '浏览器信息' },
-	{ value: 'magic_get_host_name', label: '读取主机名', group: '浏览器信息' },
-	{ value: 'magic_get_mac_address', label: '读取MAC地址', group: '浏览器信息' },
+	{ value: 'magic_get_browsers', label: 'magic_get_browsers', group: 'browser' },
+	{ value: 'magic_get_active_browser', label: 'magic_get_active_browser', group: 'browser' },
+	{ value: 'magic_get_tabs', label: 'magic_get_tabs', group: 'browser' },
+	{ value: 'magic_get_active_tabs', label: 'magic_get_active_tabs', group: 'browser' },
+	{ value: 'magic_get_switches', label: 'magic_get_switches', group: 'browser' },
+	{ value: 'magic_get_host_name', label: 'magic_get_host_name', group: 'browser' },
+	{ value: 'magic_get_mac_address', label: 'magic_get_mac_address', group: 'browser' },
 	// 书签
-	{ value: 'magic_get_bookmarks', label: '获取书签树', group: '书签' },
-	{ value: 'magic_create_bookmark', label: '创建书签', group: '书签' },
-	{ value: 'magic_create_bookmark_folder', label: '创建书签文件夹', group: '书签' },
-	{ value: 'magic_update_bookmark', label: '更新书签', group: '书签' },
-	{ value: 'magic_move_bookmark', label: '移动书签', group: '书签' },
-	{ value: 'magic_remove_bookmark', label: '删除书签', group: '书签' },
-	{ value: 'magic_bookmark_current_tab', label: '收藏当前标签', group: '书签' },
-	{ value: 'magic_unbookmark_current_tab', label: '取消收藏当前标签', group: '书签' },
-	{ value: 'magic_is_current_tab_bookmarked', label: '查询当前标签是否已收藏', group: '书签' },
-	{ value: 'magic_export_bookmark_state', label: '导出书签状态', group: '书签' },
+	{ value: 'magic_get_bookmarks', label: 'magic_get_bookmarks', group: 'bookmark' },
+	{ value: 'magic_create_bookmark', label: 'magic_create_bookmark', group: 'bookmark' },
+	{ value: 'magic_create_bookmark_folder', label: 'magic_create_bookmark_folder', group: 'bookmark' },
+	{ value: 'magic_update_bookmark', label: 'magic_update_bookmark', group: 'bookmark' },
+	{ value: 'magic_move_bookmark', label: 'magic_move_bookmark', group: 'bookmark' },
+	{ value: 'magic_remove_bookmark', label: 'magic_remove_bookmark', group: 'bookmark' },
+	{ value: 'magic_bookmark_current_tab', label: 'magic_bookmark_current_tab', group: 'bookmark' },
+	{ value: 'magic_unbookmark_current_tab', label: 'magic_unbookmark_current_tab', group: 'bookmark' },
+	{ value: 'magic_is_current_tab_bookmarked', label: 'magic_is_current_tab_bookmarked', group: 'bookmark' },
+	{ value: 'magic_export_bookmark_state', label: 'magic_export_bookmark_state', group: 'bookmark' },
 	// Cookie
-	{ value: 'magic_get_managed_cookies', label: '获取托管Cookie', group: 'Cookie' },
-	{ value: 'magic_export_cookie_state', label: '导出Cookie状态', group: 'Cookie' },
+	{ value: 'magic_get_managed_cookies', label: 'magic_get_managed_cookies', group: 'cookie' },
+	{ value: 'magic_export_cookie_state', label: 'magic_export_cookie_state', group: 'cookie' },
 	// 扩展
-	{ value: 'magic_get_managed_extensions', label: '获取托管扩展', group: '扩展' },
-	{ value: 'magic_trigger_extension_action', label: '触发扩展Action', group: '扩展' },
-	{ value: 'magic_close_extension_popup', label: '关闭扩展Popup', group: '扩展' },
-	{ value: 'magic_enable_extension', label: '启用扩展', group: '扩展' },
-	{ value: 'magic_disable_extension', label: '禁用扩展', group: '扩展' },
+	{ value: 'magic_get_managed_extensions', label: 'magic_get_managed_extensions', group: 'extension' },
+	{ value: 'magic_trigger_extension_action', label: 'magic_trigger_extension_action', group: 'extension' },
+	{ value: 'magic_close_extension_popup', label: 'magic_close_extension_popup', group: 'extension' },
+	{ value: 'magic_enable_extension', label: 'magic_enable_extension', group: 'extension' },
+	{ value: 'magic_disable_extension', label: 'magic_disable_extension', group: 'extension' },
 	// 同步模式
-	{ value: 'magic_toggle_sync_mode', label: '切换同步角色', group: '同步模式' },
-	{ value: 'magic_get_sync_mode', label: '获取同步状态', group: '同步模式' },
-	{ value: 'magic_get_is_master', label: '查询是否主控', group: '同步模式' },
-	{ value: 'magic_get_sync_status', label: '获取完整同步状态', group: '同步模式' },
+	{ value: 'magic_toggle_sync_mode', label: 'magic_toggle_sync_mode', group: 'sync' },
+	{ value: 'magic_get_sync_mode', label: 'magic_get_sync_mode', group: 'sync' },
+	{ value: 'magic_get_is_master', label: 'magic_get_is_master', group: 'sync' },
+	{ value: 'magic_get_sync_status', label: 'magic_get_sync_status', group: 'sync' },
 	// Cookie & 存储
-	{ value: 'cdp_get_cookies', label: 'CDP 获取Cookie', group: 'Cookie & 存储' },
-	{ value: 'cdp_set_cookie', label: 'CDP 设置Cookie', group: 'Cookie & 存储' },
-	{ value: 'cdp_delete_cookies', label: 'CDP 删除Cookie', group: 'Cookie & 存储' },
-	{ value: 'cdp_get_local_storage', label: 'CDP 读取LocalStorage', group: 'Cookie & 存储' },
-	{ value: 'cdp_set_local_storage', label: 'CDP 写入LocalStorage', group: 'Cookie & 存储' },
-	{ value: 'cdp_get_session_storage', label: 'CDP 读取SessionStorage', group: 'Cookie & 存储' },
-	{ value: 'cdp_clear_storage', label: 'CDP 清除存储', group: 'Cookie & 存储' },
+	{ value: 'cdp_get_cookies', label: 'cdp_get_cookies', group: 'storage' },
+	{ value: 'cdp_set_cookie', label: 'cdp_set_cookie', group: 'storage' },
+	{ value: 'cdp_delete_cookies', label: 'cdp_delete_cookies', group: 'storage' },
+	{ value: 'cdp_get_local_storage', label: 'cdp_get_local_storage', group: 'storage' },
+	{ value: 'cdp_set_local_storage', label: 'cdp_set_local_storage', group: 'storage' },
+	{ value: 'cdp_get_session_storage', label: 'cdp_get_session_storage', group: 'storage' },
+	{ value: 'cdp_clear_storage', label: 'cdp_clear_storage', group: 'storage' },
 	// 页面信息
-	{ value: 'cdp_get_current_url', label: 'CDP 获取当前URL', group: '页面信息' },
-	{ value: 'cdp_get_page_source', label: 'CDP 获取页面源码', group: '页面信息' },
-	{ value: 'cdp_wait_for_navigation', label: 'CDP 等待导航', group: '页面信息' },
+	{ value: 'cdp_get_current_url', label: 'cdp_get_current_url', group: 'pageInfo' },
+	{ value: 'cdp_get_page_source', label: 'cdp_get_page_source', group: 'pageInfo' },
+	{ value: 'cdp_wait_for_navigation', label: 'cdp_wait_for_navigation', group: 'pageInfo' },
 	// 设备模拟
-	{ value: 'cdp_emulate_device', label: 'CDP 模拟设备', group: '设备模拟' },
-	{ value: 'cdp_set_geolocation', label: 'CDP 设置地理位置', group: '设备模拟' },
-	{ value: 'cdp_set_user_agent', label: 'CDP 设置UA', group: '设备模拟' },
+	{ value: 'cdp_emulate_device', label: 'cdp_emulate_device', group: 'device' },
+	{ value: 'cdp_set_geolocation', label: 'cdp_set_geolocation', group: 'device' },
+	{ value: 'cdp_set_user_agent', label: 'cdp_set_user_agent', group: 'device' },
 	// 元素 & 输入
-	{ value: 'cdp_get_element_box', label: 'CDP 获取元素框', group: '元素 & 输入' },
-	{ value: 'cdp_highlight_element', label: 'CDP 高亮元素', group: '元素 & 输入' },
-	{ value: 'cdp_mouse_move', label: 'CDP 移动鼠标', group: '元素 & 输入' },
-	{ value: 'cdp_drag_and_drop', label: 'CDP 拖拽', group: '元素 & 输入' },
-	{ value: 'cdp_select_option', label: 'CDP 选择下拉选项', group: '元素 & 输入' },
-	{ value: 'cdp_check_checkbox', label: 'CDP 勾选框', group: '元素 & 输入' },
+	{ value: 'cdp_get_element_box', label: 'cdp_get_element_box', group: 'element' },
+	{ value: 'cdp_highlight_element', label: 'cdp_highlight_element', group: 'element' },
+	{ value: 'cdp_mouse_move', label: 'cdp_mouse_move', group: 'element' },
+	{ value: 'cdp_drag_and_drop', label: 'cdp_drag_and_drop', group: 'element' },
+	{ value: 'cdp_select_option', label: 'cdp_select_option', group: 'element' },
+	{ value: 'cdp_check_checkbox', label: 'cdp_check_checkbox', group: 'element' },
 	// 网络 & 导出
-	{ value: 'cdp_block_urls', label: 'CDP 屏蔽URL', group: '网络 & 导出' },
-	{ value: 'cdp_pdf', label: 'CDP 导出PDF', group: '网络 & 导出' },
-	{ value: 'cdp_intercept_request', label: 'CDP 拦截请求', group: '网络 & 导出' },
+	{ value: 'cdp_block_urls', label: 'cdp_block_urls', group: 'network' },
+	{ value: 'cdp_pdf', label: 'cdp_pdf', group: 'network' },
+	{ value: 'cdp_intercept_request', label: 'cdp_intercept_request', group: 'network' },
 	// 事件缓冲
-	{ value: 'cdp_get_console_logs', label: 'CDP 控制台日志', group: '调试' },
-	{ value: 'cdp_get_network_requests', label: 'CDP 网络请求', group: '调试' },
+	{ value: 'cdp_get_console_logs', label: 'cdp_get_console_logs', group: 'debug' },
+	{ value: 'cdp_get_network_requests', label: 'cdp_get_network_requests', group: 'debug' },
 	// Magic 窗口状态
-	{ value: 'magic_get_maximized', label: '是否最大化', group: '窗口状态' },
-	{ value: 'magic_get_minimized', label: '是否最小化', group: '窗口状态' },
-	{ value: 'magic_get_fullscreen', label: '是否全屏', group: '窗口状态' },
-	{ value: 'magic_get_window_state', label: '获取窗口状态', group: '窗口状态' },
-	{ value: 'magic_import_cookies', label: '导入Cookie', group: 'Cookie & 存储' },
+	{ value: 'magic_get_maximized', label: 'magic_get_maximized', group: 'windowState' },
+	{ value: 'magic_get_minimized', label: 'magic_get_minimized', group: 'windowState' },
+	{ value: 'magic_get_fullscreen', label: 'magic_get_fullscreen', group: 'windowState' },
+	{ value: 'magic_get_window_state', label: 'magic_get_window_state', group: 'windowState' },
+	{ value: 'magic_import_cookies', label: 'magic_import_cookies', group: 'storage' },
 	// App
-	{ value: 'app_run_script', label: '运行脚本', group: 'App' },
+	{ value: 'app_run_script', label: 'app_run_script', group: 'app' },
 	// CAPTCHA
-	{ value: 'captcha_detect', label: 'CAPTCHA 检测', group: 'CAPTCHA' },
-	{ value: 'captcha_solve', label: 'CAPTCHA 求解', group: 'CAPTCHA' },
-	{ value: 'captcha_inject_token', label: 'CAPTCHA 注入Token', group: 'CAPTCHA' },
-	{ value: 'captcha_solve_and_inject', label: 'CAPTCHA 一键求解', group: 'CAPTCHA' },
-	{ value: 'captcha_get_balance', label: 'CAPTCHA 查询余额', group: 'CAPTCHA' },
+	{ value: 'captcha_detect', label: 'captcha_detect', group: 'captcha' },
+	{ value: 'captcha_solve', label: 'captcha_solve', group: 'captcha' },
+	{ value: 'captcha_inject_token', label: 'captcha_inject_token', group: 'captcha' },
+	{ value: 'captcha_solve_and_inject', label: 'captcha_solve_and_inject', group: 'captcha' },
+	{ value: 'captcha_get_balance', label: 'captcha_get_balance', group: 'captcha' },
 ];
 
-// ─── Canvas 使用的显示标签（中文简称）─────────────────────────────────────────
-// 与原 automation-canvas-page.tsx 的 KIND_LABELS 完全一致
+// ─── Canvas 使用的显示标签（简称）─────────────────────────────────────────
+// 使用 i18n 获取本地化标签，KIND_LABELS 作为后备
 
-export const KIND_LABELS: Record<string, string> = {
-	navigate: '导航', wait: '等待', click: '点击',
-	type: '输入', screenshot: '截图', magic: 'Magic', cdp: 'CDP 原始',
-	wait_for_user: '等待人工', condition: '条件分支', loop: '循环',
-	break: 'Break', continue: 'Continue', end: '结束流程', print: '打印',
-	ai_agent: 'AI Agent',
-	ai_judge: 'AI 判断',
-	cdp_navigate: '导航', cdp_reload: '刷新',
-	cdp_click: '点击', cdp_type: '输入', cdp_scroll_to: '滚动',
-	cdp_wait_for_selector: '等待元素', cdp_wait_for_page_load: '等待页面加载', cdp_get_text: '获取文本',
-	cdp_get_attribute: '获取属性', cdp_set_input_value: '设置输入',
-	cdp_screenshot: '截图',
-	cdp_open_new_tab: '新建标签', cdp_get_all_tabs: '获取标签',
-	cdp_switch_tab: '切换标签', cdp_close_tab: '关闭标签',
-	cdp_go_back: '后退', cdp_go_forward: '前进',
-	cdp_upload_file: '上传文件', cdp_download_file: '设置下载',
-	cdp_clipboard: '剪贴板', cdp_execute_js: '执行JS',
-	cdp_input_text: '输入文本(增强)',
-	cdp_press_key: '按键', cdp_shortcut: '快捷键', cdp_handle_dialog: '处理弹窗',
-	cdp_get_browser_version: '浏览器版本', cdp_get_browser_command_line: '启动参数',
-	cdp_get_window_for_target: '窗口信息', cdp_get_layout_metrics: '页面布局',
-	cdp_get_document: 'DOM根节点', cdp_get_full_ax_tree: '无障碍树',
-	confirm_dialog: '确认弹窗', select_dialog: '选择弹窗', notification: '通知',
-	magic_set_bounds: '设置窗口尺寸', magic_get_bounds: '获取窗口尺寸',
-	magic_set_maximized: '最大化', magic_set_minimized: '最小化',
-	magic_set_closed: '关闭窗口', magic_safe_quit: '关闭浏览器',
-	magic_set_restored: '还原窗口',
-	magic_set_fullscreen: '全屏', magic_set_bg_color: '设置背景色',
-	magic_set_toolbar_text: '设置工具栏文本', magic_set_app_top_most: '置顶',
-	magic_set_master_indicator_visible: '指示器可见性',
-	magic_open_new_tab: '打开新标签', magic_close_tab: '关闭标签',
-	magic_activate_tab: '激活标签', magic_activate_tab_by_index: '激活标签(索引)',
-	magic_close_inactive_tabs: '关闭非活跃标签', magic_open_new_window: '打开新窗口',
-	magic_type_string: '输入文本',
-	magic_get_browsers: '获取浏览器', magic_get_active_browser: '获取活跃浏览器',
-	magic_get_tabs: '获取标签列表', magic_get_active_tabs: '获取活跃标签',
-	magic_get_switches: '获取开关', magic_get_host_name: '获取主机名',
-	magic_get_mac_address: '获取MAC地址',
-	magic_get_bookmarks: '获取书签', magic_create_bookmark: '创建书签',
-	magic_create_bookmark_folder: '创建书签文件夹', magic_update_bookmark: '更新书签',
-	magic_move_bookmark: '移动书签', magic_remove_bookmark: '删除书签',
-	magic_bookmark_current_tab: '收藏当前页', magic_unbookmark_current_tab: '取消收藏',
-	magic_is_current_tab_bookmarked: '是否已收藏', magic_export_bookmark_state: '导出书签状态',
-	magic_get_managed_cookies: '获取Cookie', magic_export_cookie_state: '导出Cookie状态',
-	magic_get_managed_extensions: '获取扩展', magic_trigger_extension_action: '触发扩展动作',
-	magic_close_extension_popup: '关闭扩展弹窗',
-	magic_enable_extension: '启用扩展', magic_disable_extension: '禁用扩展',
-	magic_toggle_sync_mode: '切换同步模式', magic_get_sync_mode: '获取同步模式',
-	magic_get_is_master: '是否主屏', magic_get_sync_status: '获取同步状态',
-	magic_capture_app_shell: '截图(应用外壳)',
-	cdp_get_cookies: '获取Cookie', cdp_set_cookie: '设置Cookie',
-	cdp_delete_cookies: '删除Cookie', cdp_get_local_storage: '读取LS',
-	cdp_set_local_storage: '写入LS', cdp_get_session_storage: '读取SS',
-	cdp_clear_storage: '清除存储', cdp_get_current_url: '获取URL',
-	cdp_get_page_source: '获取源码', cdp_wait_for_navigation: '等待导航',
-	cdp_emulate_device: '模拟设备', cdp_set_geolocation: '设置定位',
-	cdp_set_user_agent: '设置UA', cdp_get_element_box: '元素框',
-	cdp_highlight_element: '高亮元素', cdp_mouse_move: '移动鼠标',
-	cdp_drag_and_drop: '拖拽', cdp_select_option: '选择选项',
-	cdp_check_checkbox: '勾选框', cdp_block_urls: '屏蔽URL',
-	cdp_pdf: '导出PDF', cdp_intercept_request: '拦截请求',
-	cdp_get_console_logs: '控制台日志', cdp_get_network_requests: '网络请求',
-	magic_get_maximized: '是否最大化', magic_get_minimized: '是否最小化',
-	magic_get_fullscreen: '是否全屏', magic_get_window_state: '窗口状态',
-	magic_import_cookies: '导入Cookie', app_run_script: '运行脚本',
-	captcha_detect: '检测验证码', captcha_solve: '求解验证码',
-	captcha_inject_token: '注入Token', captcha_solve_and_inject: '一键求解',
-	captcha_get_balance: '查询余额',
-};
+export const KIND_LABELS: Record<string, string> = {};
 
-/** 获取步骤的本地化显示名称（支持 i18n，回退到 KIND_LABELS 中文常量） */
+/** 获取步骤的本地化显示名称（支持 i18n，回退到 kind 值本身） */
 export function getKindLabel(kind: string): string {
 	const key = `automation:stepLabels.${kind}`;
 	const translated = i18next.t(key);
-	// i18next 找不到 key 时返回 key 本身，此时回退到中文常量
+	// i18next 找不到 key 时返回 key 本身，此时回退到 kind 值
 	return translated !== key ? translated : (KIND_LABELS[kind] ?? kind);
 }
 
-// ─── 步骤功能说明（tooltip 显示） ─────────────────────────────────────────────
+/** 获取步骤功能说明（tooltip 显示） */
+export function getKindDescription(kind: string): string {
+	const key = `automation:stepDescriptions.${kind}`;
+	const translated = i18next.t(key);
+	return translated !== key ? translated : (KIND_DESCRIPTIONS[kind] ?? '');
+}
 
-export const KIND_DESCRIPTIONS: Record<string, string> = {
-	// 常用
-	cdp_navigate: '跳转到指定 URL，支持变量插值',
-	cdp_click: '点击页面元素，支持 CSS/XPath/Text 选择器',
-	cdp_type: '在输入框中键入文本，模拟键盘输入',
-	cdp_screenshot: '截取页面截图，保存为文件或 base64',
-	cdp_get_text: '获取页面元素的文本内容',
-	wait: '暂停执行指定毫秒数',
-	cdp_wait_for_page_load: '等待页面完全加载（readyState=complete）',
-	ai_agent: 'AI 智能体自主调用工具完成复杂任务',
-	// CDP
-	cdp_reload: '刷新当前页面，可选忽略缓存',
-	cdp_go_back: '浏览器后退',
-	cdp_go_forward: '浏览器前进',
-	cdp_set_input_value: '通过 JS 设置输入框值并触发 change 事件',
-	cdp_input_text: '多来源文本输入（直接/文件/变量）',
-	cdp_press_key: '模拟按键（Enter、Tab、Escape 等）',
-	cdp_shortcut: '模拟快捷键组合（如 Ctrl+S）',
-	cdp_scroll_to: '滚动到指定元素或坐标位置',
-	cdp_clipboard: '剪贴板操作（复制/粘贴/全选）',
-	cdp_upload_file: '向文件输入元素上传文件',
-	cdp_download_file: '配置浏览器下载目录',
-	cdp_wait_for_selector: '等待页面元素出现（可配超时）',
-	cdp_execute_js: '执行任意 JavaScript 代码并返回结果',
-	cdp_get_attribute: '获取元素的 HTML 属性值',
-	cdp_get_document: '获取 DOM 树结构',
-	cdp_get_full_ax_tree: '获取页面无障碍树（语义结构）',
-	cdp_open_new_tab: '在新标签页打开 URL',
-	cdp_get_all_tabs: '列出所有标签页',
-	cdp_switch_tab: '切换到指定标签页',
-	cdp_close_tab_by_target: '关闭指定标签页',
-	cdp: '直接调用 CDP 协议方法（高级）',
-	// 控制流
-	condition: '条件分支（if/else），根据变量或表达式判断',
-	loop: '循环执行子步骤（计数/条件/列表模式）',
-	break: '跳出当前循环',
-	continue: '跳过当前循环迭代',
-	end: '结束脚本执行',
-	// 人工介入
-	wait_for_user: '暂停执行，等待用户确认后继续',
-	confirm_dialog: '弹出确认对话框，用户选择分支',
-	select_dialog: '弹出选择对话框，用户从选项中选择',
-	notification: '发送桌面通知提醒',
-	// AI
-	ai_judge: 'AI 判断器：评估条件并返回 true/false 或 0-100 分',
-	// 调试
-	print: '输出日志信息到执行记录',
-	// Magic
-	magic_set_bounds: '设置浏览器窗口位置和大小',
-	magic_get_bounds: '获取浏览器窗口当前位置和大小',
-	magic_open_new_tab: '通过 Magic Controller 打开新标签',
-	magic_close_tab: '关闭指定标签页',
-	magic_activate_tab: '激活指定标签页',
-	magic_get_browsers: '获取所有浏览器实例列表',
-	magic_get_tabs: '获取指定浏览器的标签页列表',
-	magic_capture_app_shell: '截取完整浏览器窗口（含工具栏）',
-	magic_type_string: '通过 Magic Controller 输入文本',
-	magic_toggle_sync_mode: '切换窗口同步模式（主控/从控/关闭）',
-	magic_get_sync_status: '获取同步状态详情',
-	magic_get_managed_extensions: '列出已安装的浏览器扩展',
-	magic_trigger_extension_action: '触发扩展图标点击',
-	magic_get_bookmarks: '获取书签树',
-	magic_get_managed_cookies: '获取 Cookie 列表',
-	magic_export_cookie_state: '导出 Cookie 数据',
-	magic_safe_quit: '安全退出浏览器',
-	// CAPTCHA
-	captcha_detect: '自动检测页面上的验证码类型和参数',
-	captcha_solve: '调用求解服务破解指定类型验证码',
-	captcha_inject_token: '将验证码 token 注入页面表单字段',
-	captcha_solve_and_inject: '一键检测→求解→注入验证码',
-	captcha_get_balance: '查询验证码求解服务账户余额',
-	// App
-	app_run_script: '在指定环境中运行另一个自动化脚本',
-};
+// ─── 步骤功能说明（tooltip 显示） ─────────────────────────────────────────────
+// 使用 i18n，KIND_DESCRIPTIONS 作为后备
+
+export const KIND_DESCRIPTIONS: Record<string, string> = {};
 
 // ─── Canvas 使用的分组（与原 automation-canvas-page.tsx 完全一致）──────────────
 
 export const KIND_GROUPS: Record<string, string> = {
-	navigate: 'CDP', wait: '通用', click: 'CDP',
-	type: 'CDP', screenshot: 'CDP', magic: 'Magic', cdp: 'CDP',
-	wait_for_user: '人工介入', condition: '控制流', loop: '控制流',
-	break: '控制流', continue: '控制流', end: '控制流', print: '调试',
-	ai_agent: 'AI',
-	ai_judge: 'AI',
-	cdp_navigate: 'CDP', cdp_reload: 'CDP',
-	cdp_click: 'CDP', cdp_type: 'CDP', cdp_scroll_to: 'CDP',
-	cdp_wait_for_selector: 'CDP', cdp_wait_for_page_load: 'CDP', cdp_get_text: 'CDP',
-	cdp_get_attribute: 'CDP', cdp_set_input_value: 'CDP', cdp_screenshot: 'CDP',
-	cdp_open_new_tab: 'CDP', cdp_get_all_tabs: 'CDP',
-	cdp_switch_tab: 'CDP', cdp_close_tab: 'CDP',
-	cdp_go_back: 'CDP', cdp_go_forward: 'CDP',
-	cdp_upload_file: 'CDP', cdp_download_file: 'CDP',
-	cdp_clipboard: 'CDP', cdp_execute_js: 'CDP', cdp_input_text: 'CDP',
-	cdp_press_key: 'CDP', cdp_shortcut: 'CDP', cdp_handle_dialog: 'CDP',
-	cdp_get_browser_version: 'CDP', cdp_get_browser_command_line: 'CDP',
-	cdp_get_window_for_target: 'CDP', cdp_get_layout_metrics: 'CDP',
-	cdp_get_document: 'CDP', cdp_get_full_ax_tree: 'CDP',
-	confirm_dialog: '人工介入', select_dialog: '人工介入', notification: '通知',
-	magic_set_bounds: 'Magic', magic_get_bounds: 'Magic',
-	magic_set_maximized: 'Magic', magic_set_minimized: 'Magic',
-	magic_set_closed: 'Magic', magic_safe_quit: 'Magic',
-	magic_set_restored: 'Magic',
-	magic_set_fullscreen: 'Magic', magic_set_bg_color: 'Magic',
-	magic_set_toolbar_text: 'Magic', magic_set_app_top_most: 'Magic',
-	magic_set_master_indicator_visible: 'Magic',
-	magic_open_new_tab: 'Magic', magic_close_tab: 'Magic',
-	magic_activate_tab: 'Magic', magic_activate_tab_by_index: 'Magic',
-	magic_close_inactive_tabs: 'Magic', magic_open_new_window: 'Magic',
-	magic_type_string: 'Magic',
-	magic_get_browsers: 'Magic', magic_get_active_browser: 'Magic',
-	magic_get_tabs: 'Magic', magic_get_active_tabs: 'Magic',
-	magic_get_switches: 'Magic', magic_get_host_name: 'Magic',
-	magic_get_mac_address: 'Magic',
-	magic_get_bookmarks: 'Magic', magic_create_bookmark: 'Magic',
-	magic_create_bookmark_folder: 'Magic', magic_update_bookmark: 'Magic',
-	magic_move_bookmark: 'Magic', magic_remove_bookmark: 'Magic',
-	magic_bookmark_current_tab: 'Magic', magic_unbookmark_current_tab: 'Magic',
-	magic_is_current_tab_bookmarked: 'Magic', magic_export_bookmark_state: 'Magic',
-	magic_get_managed_cookies: 'Magic', magic_export_cookie_state: 'Magic',
-	magic_get_managed_extensions: '扩展', magic_trigger_extension_action: '扩展',
-	magic_close_extension_popup: '扩展',
-	magic_enable_extension: '扩展', magic_disable_extension: '扩展',
-	magic_toggle_sync_mode: 'Magic', magic_get_sync_mode: 'Magic',
-	magic_get_is_master: 'Magic', magic_get_sync_status: 'Magic',
-	magic_capture_app_shell: 'Magic',
-	cdp_get_cookies: 'CDP', cdp_set_cookie: 'CDP',
-	cdp_delete_cookies: 'CDP', cdp_get_local_storage: 'CDP',
-	cdp_set_local_storage: 'CDP', cdp_get_session_storage: 'CDP',
-	cdp_clear_storage: 'CDP', cdp_get_current_url: 'CDP',
-	cdp_get_page_source: 'CDP', cdp_wait_for_navigation: 'CDP',
-	cdp_emulate_device: 'CDP', cdp_set_geolocation: 'CDP',
-	cdp_set_user_agent: 'CDP', cdp_get_element_box: 'CDP',
-	cdp_highlight_element: 'CDP', cdp_mouse_move: 'CDP',
-	cdp_drag_and_drop: 'CDP', cdp_select_option: 'CDP',
-	cdp_check_checkbox: 'CDP', cdp_block_urls: 'CDP',
-	cdp_pdf: 'CDP', cdp_intercept_request: 'CDP',
-	cdp_get_console_logs: 'CDP', cdp_get_network_requests: 'CDP',
-	magic_get_maximized: 'Magic', magic_get_minimized: 'Magic',
-	magic_get_fullscreen: 'Magic', magic_get_window_state: 'Magic',
-	magic_import_cookies: 'Magic', app_run_script: 'App',
-	captcha_detect: 'CAPTCHA', captcha_solve: 'CAPTCHA',
-	captcha_inject_token: 'CAPTCHA', captcha_solve_and_inject: 'CAPTCHA',
-	captcha_get_balance: 'CAPTCHA',
+	// Basic
+	navigate: 'cdp', wait: 'general', click: 'cdp',
+	type: 'cdp', screenshot: 'cdp', magic: 'magic', cdp: 'cdp',
+	// Control Flow
+	wait_for_user: 'manual', condition: 'controlFlow', loop: 'controlFlow',
+	break: 'controlFlow', continue: 'controlFlow', end: 'controlFlow', print: 'debug',
+	// AI
+	ai_agent: 'ai',
+	ai_judge: 'ai',
+	// CDP named steps
+	cdp_navigate: 'cdp', cdp_reload: 'cdp',
+	cdp_click: 'cdp', cdp_type: 'cdp', cdp_scroll_to: 'cdp',
+	cdp_wait_for_selector: 'cdp', cdp_wait_for_page_load: 'cdp', cdp_get_text: 'cdp',
+	cdp_get_attribute: 'cdp', cdp_set_input_value: 'cdp', cdp_screenshot: 'cdp',
+	cdp_open_new_tab: 'cdp', cdp_get_all_tabs: 'cdp',
+	cdp_switch_tab: 'cdp', cdp_close_tab: 'cdp',
+	cdp_go_back: 'cdp', cdp_go_forward: 'cdp',
+	cdp_upload_file: 'cdp', cdp_download_file: 'cdp',
+	cdp_clipboard: 'cdp', cdp_execute_js: 'cdp', cdp_input_text: 'cdp',
+	cdp_press_key: 'cdp', cdp_shortcut: 'cdp', cdp_handle_dialog: 'cdp',
+	cdp_get_browser_version: 'cdp', cdp_get_browser_command_line: 'cdp',
+	cdp_get_window_for_target: 'cdp', cdp_get_layout_metrics: 'cdp',
+	cdp_get_document: 'cdp', cdp_get_full_ax_tree: 'cdp',
+	// Manual/Notification
+	confirm_dialog: 'manual', select_dialog: 'manual', notification: 'notification',
+	form_dialog: 'manual', table_dialog: 'manual', image_dialog: 'manual',
+	countdown_dialog: 'manual', markdown_dialog: 'manual',
+	// Window
+	magic_set_bounds: 'window', magic_get_bounds: 'window',
+	magic_set_maximized: 'window', magic_set_minimized: 'window',
+	magic_set_closed: 'window', magic_safe_quit: 'window',
+	magic_set_restored: 'window',
+	magic_set_fullscreen: 'window', magic_set_bg_color: 'window',
+	magic_set_toolbar_text: 'window', magic_set_app_top_most: 'window',
+	magic_set_master_indicator_visible: 'window',
+	// Tab
+	magic_open_new_tab: 'tab', magic_close_tab: 'tab',
+	magic_activate_tab: 'tab', magic_activate_tab_by_index: 'tab',
+	magic_close_inactive_tabs: 'tab', magic_open_new_window: 'tab',
+	magic_type_string: 'tab',
+	// Browser
+	magic_get_browsers: 'browser', magic_get_active_browser: 'browser',
+	magic_get_tabs: 'browser', magic_get_active_tabs: 'browser',
+	magic_get_switches: 'browser', magic_get_host_name: 'browser',
+	magic_get_mac_address: 'browser',
+	// Bookmark
+	magic_get_bookmarks: 'bookmark', magic_create_bookmark: 'bookmark',
+	magic_create_bookmark_folder: 'bookmark', magic_update_bookmark: 'bookmark',
+	magic_move_bookmark: 'bookmark', magic_remove_bookmark: 'bookmark',
+	magic_bookmark_current_tab: 'bookmark', magic_unbookmark_current_tab: 'bookmark',
+	magic_is_current_tab_bookmarked: 'bookmark', magic_export_bookmark_state: 'bookmark',
+	// Cookie
+	magic_get_managed_cookies: 'cookie', magic_export_cookie_state: 'cookie',
+	// Extension
+	magic_get_managed_extensions: 'extension', magic_trigger_extension_action: 'extension',
+	magic_close_extension_popup: 'extension',
+	magic_enable_extension: 'extension', magic_disable_extension: 'extension',
+	// Sync
+	magic_toggle_sync_mode: 'sync', magic_get_sync_mode: 'sync',
+	magic_get_is_master: 'sync', magic_get_sync_status: 'sync',
+	// Storage (cdp_*)
+	cdp_get_cookies: 'storage', cdp_set_cookie: 'storage',
+	cdp_delete_cookies: 'storage', cdp_get_local_storage: 'storage',
+	cdp_set_local_storage: 'storage', cdp_get_session_storage: 'storage',
+	cdp_clear_storage: 'storage', cdp_get_current_url: 'pageInfo',
+	cdp_get_page_source: 'pageInfo', cdp_wait_for_navigation: 'pageInfo',
+	// Device
+	cdp_emulate_device: 'device', cdp_set_geolocation: 'device',
+	cdp_set_user_agent: 'device',
+	// Element
+	cdp_get_element_box: 'element', cdp_highlight_element: 'element',
+	cdp_mouse_move: 'element', cdp_drag_and_drop: 'element',
+	cdp_select_option: 'element', cdp_check_checkbox: 'element',
+	// Network
+	cdp_block_urls: 'network', cdp_pdf: 'network',
+	cdp_intercept_request: 'network',
+	// Debug (console/network logs)
+	cdp_get_console_logs: 'debug', cdp_get_network_requests: 'debug',
+	// Window State
+	magic_get_maximized: 'windowState', magic_get_minimized: 'windowState',
+	magic_get_fullscreen: 'windowState', magic_get_window_state: 'windowState',
+	// Import cookies (storage)
+	magic_import_cookies: 'storage',
+	// App
+	app_run_script: 'app',
+	// CAPTCHA
+	captcha_detect: 'captcha', captcha_solve: 'captcha',
+	captcha_inject_token: 'captcha', captcha_solve_and_inject: 'captcha',
+	captcha_get_balance: 'captcha',
 };
 
 // ─── Canvas 组颜色 ────────────────────────────────────────────────────────────
 
 export const GROUP_COLORS: Record<string, string> = {
-	CDP: 'bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-300',
-	Magic: 'bg-purple-500/10 border-purple-500/30 text-purple-700 dark:text-purple-300',
-	AI: 'bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300',
-	控制流: 'bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-300',
-	人工介入: 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300',
-	通用: 'bg-muted border-border text-muted-foreground',	通知: 'bg-teal-500/10 border-teal-500/30 text-teal-700 dark:text-teal-300',	调试: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-700 dark:text-cyan-300',
-	扩展: 'bg-indigo-500/10 border-indigo-500/30 text-indigo-700 dark:text-indigo-300',
-	App: 'bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300',
-	CAPTCHA: 'bg-yellow-500/10 border-yellow-500/30 text-yellow-700 dark:text-yellow-300',
+	cdp: 'bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-300',
+	magic: 'bg-purple-500/10 border-purple-500/30 text-purple-700 dark:text-purple-300',
+	ai: 'bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300',
+	controlFlow: 'bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-300',
+	manual: 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300',
+	general: 'bg-muted border-border text-muted-foreground',
+	notification: 'bg-teal-500/10 border-teal-500/30 text-teal-700 dark:text-teal-300',
+	debug: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-700 dark:text-cyan-300',
+	extension: 'bg-indigo-500/10 border-indigo-500/30 text-indigo-700 dark:text-indigo-300',
+	app: 'bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300',
+	captcha: 'bg-yellow-500/10 border-yellow-500/30 text-yellow-700 dark:text-yellow-300',
+	// Window
+	window: 'bg-violet-500/10 border-violet-500/30 text-violet-700 dark:text-violet-300',
+	// Tab
+	tab: 'bg-fuchsia-500/10 border-fuchsia-500/30 text-fuchsia-700 dark:text-fuchsia-300',
+	// Browser
+	browser: 'bg-sky-500/10 border-sky-500/30 text-sky-700 dark:text-sky-300',
+	// Bookmark
+	bookmark: 'bg-pink-500/10 border-pink-500/30 text-pink-700 dark:text-pink-300',
+	// Cookie
+	cookie: 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300',
+	// Sync
+	sync: 'bg-lime-500/10 border-lime-500/30 text-lime-700 dark:text-lime-300',
+	// Storage
+	storage: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300',
+	// Page Info
+	pageInfo: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-700 dark:text-cyan-300',
+	// Device
+	device: 'bg-teal-500/10 border-teal-500/30 text-teal-700 dark:text-teal-300',
+	// Element
+	element: 'bg-blue-600/10 border-blue-600/30 text-blue-800 dark:text-blue-200',
+	// Network
+	network: 'bg-slate-500/10 border-slate-500/30 text-slate-700 dark:text-slate-300',
+	// Window State
+	windowState: 'bg-zinc-500/10 border-zinc-500/30 text-zinc-700 dark:text-zinc-300',
+	// Basic
+	basic: 'bg-muted border-border text-muted-foreground',
 };
 
 export const PALETTE_DOT_COLORS: Record<string, string> = {
-	CDP: 'bg-blue-500',
-	Magic: 'bg-purple-500',
-	AI: 'bg-orange-500',
-	控制流: 'bg-green-500',
-	人工介入: 'bg-amber-500',
-	通用: 'bg-muted-foreground/50',
-	通知: 'bg-teal-500',
-	调试: 'bg-cyan-500',
-	扩展: 'bg-indigo-500',
-	App: 'bg-rose-500',
-	CAPTCHA: 'bg-yellow-500',
+	cdp: 'bg-blue-500',
+	magic: 'bg-purple-500',
+	ai: 'bg-orange-500',
+	controlFlow: 'bg-green-500',
+	manual: 'bg-amber-500',
+	general: 'bg-muted-foreground/50',
+	notification: 'bg-teal-500',
+	debug: 'bg-cyan-500',
+	extension: 'bg-indigo-500',
+	app: 'bg-rose-500',
+	captcha: 'bg-yellow-500',
+	window: 'bg-violet-500',
+	tab: 'bg-fuchsia-500',
+	browser: 'bg-sky-500',
+	bookmark: 'bg-pink-500',
+	cookie: 'bg-amber-500',
+	sync: 'bg-lime-500',
+	storage: 'bg-emerald-500',
+	pageInfo: 'bg-cyan-500',
+	device: 'bg-teal-500',
+	element: 'bg-blue-600',
+	network: 'bg-slate-500',
+	windowState: 'bg-zinc-500',
+	basic: 'bg-muted-foreground/50',
 };
 
 /** 节点左侧色带（border-left 色） */
 export const GROUP_ACCENT_COLORS: Record<string, string> = {
-	CDP: 'border-l-blue-500',
-	Magic: 'border-l-purple-500',
-	AI: 'border-l-orange-500',
-	控制流: 'border-l-emerald-500',
-	人工介入: 'border-l-amber-500',
-	通用: 'border-l-slate-400 dark:border-l-slate-500',
-	通知: 'border-l-teal-500',
-	调试: 'border-l-cyan-500',
-	扩展: 'border-l-indigo-500',
-	App: 'border-l-rose-500',
-	CAPTCHA: 'border-l-yellow-500',
+	cdp: 'border-l-blue-500',
+	magic: 'border-l-purple-500',
+	ai: 'border-l-orange-500',
+	controlFlow: 'border-l-emerald-500',
+	manual: 'border-l-amber-500',
+	general: 'border-l-slate-400 dark:border-l-slate-500',
+	notification: 'border-l-teal-500',
+	debug: 'border-l-cyan-500',
+	extension: 'border-l-indigo-500',
+	app: 'border-l-rose-500',
+	captcha: 'border-l-yellow-500',
+	window: 'border-l-violet-500',
+	tab: 'border-l-fuchsia-500',
+	browser: 'border-l-sky-500',
+	bookmark: 'border-l-pink-500',
+	cookie: 'border-l-amber-500',
+	sync: 'border-l-lime-500',
+	storage: 'border-l-emerald-500',
+	pageInfo: 'border-l-cyan-500',
+	device: 'border-l-teal-500',
+	element: 'border-l-blue-600',
+	network: 'border-l-slate-500',
+	windowState: 'border-l-zinc-500',
+	basic: 'border-l-slate-400 dark:border-l-slate-500',
 };
 
 // ─── Canvas 拖拽面板分组 ──────────────────────────────────────────────────────
 
 export const PALETTE_GROUPS: { label: string; kinds: string[] }[] = [
 	{
-		label: 'CDP',
+		label: 'cdp',
 		kinds: ['cdp_navigate', 'cdp_reload', 'cdp_click', 'cdp_type',
 			'cdp_get_text', 'cdp_wait_for_selector', 'cdp_wait_for_page_load', 'cdp_scroll_to', 'cdp_screenshot',
 			'cdp_open_new_tab', 'cdp_get_all_tabs', 'cdp_switch_tab', 'cdp_close_tab',
@@ -462,14 +419,14 @@ export const PALETTE_GROUPS: { label: string; kinds: string[] }[] = [
 			'cdp_block_urls', 'cdp_pdf', 'cdp_intercept_request',
 			'cdp_get_console_logs', 'cdp_get_network_requests'],
 	},
-	{ label: '通用', kinds: ['wait', 'wait_for_user'] },
-	{ label: '人工介入', kinds: ['confirm_dialog', 'select_dialog'] },
-	{ label: '通知', kinds: ['notification'] },
-	{ label: '调试', kinds: ['print'] },
-	{ label: '控制流', kinds: ['condition', 'loop', 'break', 'continue', 'end'] },
-	{ label: 'AI', kinds: ['ai_agent', 'ai_judge'] },
+	{ label: 'general', kinds: ['wait', 'wait_for_user'] },
+	{ label: 'manual', kinds: ['confirm_dialog', 'select_dialog', 'form_dialog', 'table_dialog', 'image_dialog', 'countdown_dialog', 'markdown_dialog'] },
+	{ label: 'notification', kinds: ['notification'] },
+	{ label: 'debug', kinds: ['print'] },
+	{ label: 'controlFlow', kinds: ['condition', 'loop', 'break', 'continue', 'end'] },
+	{ label: 'ai', kinds: ['ai_agent', 'ai_judge'] },
 	{
-		label: 'Magic',
+		label: 'magic',
 		kinds: ['magic_get_browsers', 'magic_open_new_tab', 'magic_close_tab',
 			'magic_close_inactive_tabs', 'magic_activate_tab', 'magic_get_tabs', 'magic_set_bounds',
 			'magic_get_bounds', 'magic_set_maximized', 'magic_set_minimized',
@@ -478,16 +435,16 @@ export const PALETTE_GROUPS: { label: string; kinds: string[] }[] = [
 			'magic_get_window_state', 'magic_import_cookies'],
 	},
 	{
-		label: '扩展',
+		label: 'extension',
 		kinds: ['magic_get_managed_extensions', 'magic_trigger_extension_action',
 			'magic_close_extension_popup', 'magic_enable_extension', 'magic_disable_extension'],
 	},
 	{
-		label: 'App',
+		label: 'app',
 		kinds: ['app_run_script'],
 	},
 	{
-		label: 'CAPTCHA',
+		label: 'captcha',
 		kinds: ['captcha_detect', 'captcha_solve', 'captcha_inject_token',
 			'captcha_solve_and_inject', 'captcha_get_balance'],
 	},
@@ -544,9 +501,14 @@ export function defaultStep(kind: string): ScriptStep {
 		case 'cdp_get_layout_metrics': return { kind: 'cdp_get_layout_metrics' };
 		case 'cdp_get_document': return { kind: 'cdp_get_document', depth: 1 };
 		case 'cdp_get_full_ax_tree': return { kind: 'cdp_get_full_ax_tree' };
-		case 'confirm_dialog': return { kind: 'confirm_dialog', title: '', message: '', buttons: [{ text: '确认', value: 'confirm', variant: 'default' }, { text: '取消', value: 'cancel', variant: 'outline' }], button_branches: [] };
-		case 'select_dialog': return { kind: 'select_dialog', title: '', options: ['选项1', '选项2'] };
+		case 'confirm_dialog': return { kind: 'confirm_dialog', title: '', message: '', buttons: [{ text: i18next.t('automation:stepDefaults.confirm'), value: 'confirm', variant: 'default' }, { text: i18next.t('automation:stepDefaults.cancel'), value: 'cancel', variant: 'outline' }], button_branches: [] };
+		case 'select_dialog': return { kind: 'select_dialog', title: '', options: [i18next.t('automation:stepDefaults.option1'), i18next.t('automation:stepDefaults.option2')] };
 		case 'notification': return { kind: 'notification', title: '', body: '' };
+		case 'form_dialog': return { kind: 'form_dialog', title: '', fields: [{ name: 'field1', label: 'Field 1', fieldType: 'text' }] };
+		case 'table_dialog': return { kind: 'table_dialog', title: '', columns: [{ key: 'col1', label: 'Column 1' }], rows: [{ col1: '' }], selectable: false };
+		case 'image_dialog': return { kind: 'image_dialog', title: '', image: '' };
+		case 'countdown_dialog': return { kind: 'countdown_dialog', title: '', message: '', seconds: 10, level: 'warning' };
+		case 'markdown_dialog': return { kind: 'markdown_dialog', title: '', content: '' };
 		case 'magic_set_bounds': return { kind: 'magic_set_bounds', x: 0, y: 0, width: 1280, height: 800 };
 		case 'magic_get_bounds': return { kind: 'magic_get_bounds' };
 		case 'magic_set_maximized': return { kind: 'magic_set_maximized' };
@@ -638,8 +600,8 @@ export function defaultStep(kind: string): ScriptStep {
 
 export function getStepSummaryText(step: ScriptStep): string {
 	const s = step as Record<string, unknown>;
-	if (step.kind === 'cdp_wait_for_page_load') return `超时 ${String((s['timeout_ms'] ?? 30000))}ms`;
-	if (step.kind === 'cdp_go_back' || step.kind === 'cdp_go_forward') return `${String(s['steps'] ?? 1)} 步`;
+	if (step.kind === 'cdp_wait_for_page_load') return i18next.t('automation:stepSummaries.timeout', { ms: String((s['timeout_ms'] ?? 30000)) });
+	if (step.kind === 'cdp_go_back' || step.kind === 'cdp_go_forward') return i18next.t('automation:stepSummaries.steps', { count: String(s['steps'] ?? 1) });
 	if (step.kind === 'cdp_clipboard') return String(s['action'] ?? 'copy');
 	if (step.kind === 'cdp_input_text') return String(s['text_source'] ?? 'inline');
 	if (step.kind === 'cdp_press_key') return String(s['key'] ?? '');
@@ -647,38 +609,47 @@ export function getStepSummaryText(step: ScriptStep): string {
 		const mods = (s['modifiers'] as string[] | undefined ?? []).join('+');
 		return mods ? `${mods}+${String(s['key'] ?? '')}` : String(s['key'] ?? '');
 	}
-	if (step.kind === 'confirm_dialog') return String(s['title'] ?? '').slice(0, 40) || '确认';
-	if (step.kind === 'end') return String(s['message'] ?? '').slice(0, 40) || '结束';
-	if (step.kind === 'select_dialog') return String(s['title'] ?? '').slice(0, 40) || '选择';
-	if (step.kind === 'notification') return String(s['title'] ?? '').slice(0, 40) || '通知';
+	if (step.kind === 'form_dialog') return String(s['title'] ?? '').slice(0, 40) || 'Form';
+	if (step.kind === 'table_dialog') return String(s['title'] ?? '').slice(0, 40) || 'Table';
+	if (step.kind === 'image_dialog') return String(s['title'] ?? '').slice(0, 40) || 'Image';
+	if (step.kind === 'countdown_dialog') {
+		const sec = String(s['seconds'] ?? 10);
+		const msg = String(s['message'] ?? '').slice(0, 30);
+		return msg ? `${msg} (${sec}s)` : `${sec}s`;
+	}
+	if (step.kind === 'markdown_dialog') return String(s['title'] ?? '').slice(0, 40) || String(s['content'] ?? '').slice(0, 40);
+	if (step.kind === 'confirm_dialog') return String(s['title'] ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.confirm');
+	if (step.kind === 'end') return String(s['message'] ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.end');
+	if (step.kind === 'select_dialog') return String(s['title'] ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.select');
+	if (step.kind === 'notification') return String(s['title'] ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.notify');
 	if (step.kind === 'cdp_handle_dialog') return String(s['action'] ?? 'accept');
-	if (step.kind === 'cdp_get_document') return `depth=${String(s['depth'] ?? 1)}`;
-	if (step.kind === 'cdp_get_full_ax_tree') return s['depth'] ? `depth=${String(s['depth'])}` : '全量';
-	if (step.kind === 'cdp_get_window_for_target') return String(s['target_id'] ?? '').slice(0, 30) || '当前目标';
+	if (step.kind === 'cdp_get_document') return i18next.t('automation:stepSummaries.depth', { depth: String(s['depth'] ?? 1) });
+	if (step.kind === 'cdp_get_full_ax_tree') return s['depth'] ? i18next.t('automation:stepSummaries.depth', { depth: String(s['depth']) }) : i18next.t('automation:stepSummaries.full');
+	if (step.kind === 'cdp_get_window_for_target') return String(s['target_id'] ?? '').slice(0, 30) || i18next.t('automation:stepSummaries.currentTarget');
 	if (step.kind === 'cdp_download_file') return String(s['download_path'] ?? '').slice(0, 40);
 	if (step.kind === 'cdp_execute_js') return (String(s['file_path'] ?? '') || String(s['expression'] ?? '')).slice(0, 40);
-	if (step.kind === 'print') return String(s['text'] ?? '').slice(0, 40) || '(空)';
+	if (step.kind === 'print') return String(s['text'] ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.empty');
 	if (step.kind === 'magic_enable_extension' || step.kind === 'magic_disable_extension') return String(s['extension_id'] ?? '').slice(0, 40);
 	if (step.kind === 'cdp_set_cookie') return String(s['name'] ?? '').slice(0, 40);
 	if (step.kind === 'cdp_delete_cookies') return String(s['name'] ?? '').slice(0, 40);
-	if (step.kind === 'cdp_set_local_storage' || step.kind === 'cdp_get_local_storage') return String(s['key'] ?? '').slice(0, 40) || '全部';
-	if (step.kind === 'cdp_get_session_storage') return String(s['key'] ?? '').slice(0, 40) || '全部';
-	if (step.kind === 'cdp_wait_for_navigation') return `超时 ${String(s['timeout_ms'] ?? 30000)}ms`;
+	if (step.kind === 'cdp_set_local_storage' || step.kind === 'cdp_get_local_storage') return String(s['key'] ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.all');
+	if (step.kind === 'cdp_get_session_storage') return String(s['key'] ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.all');
+	if (step.kind === 'cdp_wait_for_navigation') return i18next.t('automation:stepSummaries.timeout', { ms: String(s['timeout_ms'] ?? 30000) });
 	if (step.kind === 'cdp_emulate_device') return `${String(s['width'])}×${String(s['height'])}`;
 	if (step.kind === 'cdp_set_geolocation') return `${String(s['latitude'])},${String(s['longitude'])}`;
 	if (step.kind === 'cdp_set_user_agent') return String(s['user_agent'] ?? '').slice(0, 40);
 	if (step.kind === 'cdp_mouse_move') return `(${String(s['x'])}, ${String(s['y'])})`;
 	if (step.kind === 'cdp_select_option') return String(s['value'] ?? '').slice(0, 40);
-	if (step.kind === 'cdp_check_checkbox') return s['checked'] === false ? '取消勾选' : '勾选';
+	if (step.kind === 'cdp_check_checkbox') return s['checked'] === false ? i18next.t('automation:stepSummaries.unchecked') : i18next.t('automation:stepSummaries.checked');
 	if (step.kind === 'cdp_block_urls') return String((s['patterns'] as string[] ?? []).join(', ')).slice(0, 40);
 	if (step.kind === 'cdp_pdf') return String(s['path'] ?? '').slice(0, 40) || 'PDF';
 	if (step.kind === 'cdp_intercept_request') return `${String(s['action'])} ${String(s['url_pattern'] ?? '')}`.slice(0, 40);
-	if (step.kind === 'cdp_get_console_logs') return s['level'] ? String(s['level']) : '全部';
-	if (step.kind === 'cdp_get_network_requests') return String(s['url_pattern'] ?? '').slice(0, 40) || '全部';
+	if (step.kind === 'cdp_get_console_logs') return s['level'] ? String(s['level']) : i18next.t('automation:stepSummaries.all');
+	if (step.kind === 'cdp_get_network_requests') return String(s['url_pattern'] ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.all');
 	if (step.kind === 'app_run_script') return String(s['script_id'] ?? '').slice(0, 40);
 	if (step.kind === 'captcha_solve') return String(s['captcha_type'] ?? 'auto');
 	if (step.kind === 'captcha_inject_token') return String(s['type'] ?? '');
-	if (step.kind === 'captcha_solve_and_inject') return s['auto_submit'] ? '自动提交' : '仅注入';
+	if (step.kind === 'captcha_solve_and_inject') return s['auto_submit'] ? i18next.t('automation:stepSummaries.autoSubmit') : i18next.t('automation:stepSummaries.injectOnly');
 	if (s['url']) return String(s['url']).slice(0, 40);
 	if (s['prompt']) return String(s['prompt']).slice(0, 40);
 	if (s['expression']) return String(s['expression']).slice(0, 40);

@@ -2,6 +2,8 @@ import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 
 import type {
+	AiDialogFormField,
+	AiDialogTableColumn,
 	AiExecutionDetail,
 	AutomationHumanRequiredEvent,
 	AutomationProgressEvent,
@@ -24,6 +26,23 @@ type HumanInterventionState = {
 	options?: string[];
 	multiSelect?: boolean;
 	buttons?: DialogButton[];
+	// 扩展字段
+	fields?: AiDialogFormField[];
+	submitLabel?: string;
+	columns?: AiDialogTableColumn[];
+	rows?: Record<string, unknown>[];
+	selectable?: boolean;
+	maxHeight?: number;
+	image?: string;
+	imageFormat?: string;
+	inputPlaceholder?: string;
+	seconds?: number;
+	actionLabel?: string;
+	autoProceed?: boolean;
+	content?: string;
+	width?: string;
+	copyable?: boolean;
+	level?: string;
 } | null;
 
 type AutomationStoreState = {
@@ -123,6 +142,22 @@ export const automationStore = createStore<AutomationStore>()((set) => ({
 				options: event.options,
 				multiSelect: event.multiSelect,
 				buttons: event.buttons,
+				fields: event.fields,
+				submitLabel: event.submitLabel,
+				columns: event.columns,
+				rows: event.rows,
+				selectable: event.selectable,
+				maxHeight: event.maxHeight,
+				image: event.image,
+				imageFormat: event.imageFormat,
+				inputPlaceholder: event.inputPlaceholder,
+				seconds: event.seconds,
+				actionLabel: event.actionLabel,
+				autoProceed: event.autoProceed,
+				content: event.content,
+				width: event.width,
+				copyable: event.copyable,
+				level: event.level,
 			},
 			liveRunStatus: 'waiting_human' as RunStatus,
 		}),

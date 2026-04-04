@@ -3,6 +3,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import { Download, Loader2, Network, Pencil, Play, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+
+import i18next from 'i18next';
 
 import { openAutomationCanvasWindow } from '@/entities/automation/api/automation-api';
 import { resolveScriptFlowEntryState } from '@/entities/automation/model/script-flow-entry';
@@ -53,7 +56,9 @@ async function exportScript(script: AutomationScript) {
 	const sanitized = script.name.replace(/[^\w\u4e00-\u9fa5-]/g, '_');
 	const filePath = await save({
 		defaultPath: `${sanitized}.json`,
-		filters: [{ name: 'JSON 文件', extensions: ['json'] }],
+		filters: [
+			{ name: i18next.t('automation:detail.jsonFile'), extensions: ['json'] },
+		],
 	});
 	if (!filePath) return;
 	await invoke('export_automation_script_to_file', {
@@ -82,6 +87,7 @@ export function ScriptDetailPanel({
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [runDialogOpen, setRunDialogOpen] = useState(false);
 	const flowEntryState = resolveScriptFlowEntryState(script);
+	const { t } = useTranslation(['automation', 'common']);
 
 	// 上下分栏：lowerHeight 为下方面板高度（px），默认 350px
 	const [lowerHeight, setLowerHeight] = useState(350);
@@ -141,7 +147,7 @@ export function ScriptDetailPanel({
 						variant="ghost"
 						className="h-6 w-6 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
 						onClick={onEdit}
-						title="重命名 / 修改描述"
+						title={t('detail.renameEdit')}
 					>
 						<Pencil className="h-3 w-3" />
 					</Button>
@@ -154,7 +160,7 @@ export function ScriptDetailPanel({
 						onClick={() => openAutomationCanvasWindow(script.id, script.name)}
 					>
 						<Network className="h-3.5 w-3.5 mr-1" />
-						流程编辑
+						{t('detail.flowEditor')}
 					</Button>
 					<Button
 						size="sm"
@@ -163,7 +169,7 @@ export function ScriptDetailPanel({
 						onClick={() => void exportScript(script)}
 					>
 						<Download className="h-3.5 w-3.5 mr-1" />
-						导出
+						{t('detail.export')}
 					</Button>
 					<Button
 						size="sm"
@@ -172,7 +178,7 @@ export function ScriptDetailPanel({
 						onClick={() => setDeleteOpen(true)}
 					>
 						<Trash2 className="h-3.5 w-3.5 mr-1" />
-						删除
+						{t('common:delete')}
 					</Button>
 					{isRunning ? (
 						<Button
@@ -182,7 +188,7 @@ export function ScriptDetailPanel({
 							onClick={onCancel}
 						>
 							<Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-							取消
+							{t('common:cancel')}
 						</Button>
 					) : (
 						<Button
@@ -192,7 +198,7 @@ export function ScriptDetailPanel({
 							onClick={() => setRunDialogOpen(true)}
 						>
 							<Play className="h-3.5 w-3.5 mr-1" />
-							运行
+							{t('detail.run')}
 						</Button>
 					)}
 				</div>
@@ -203,19 +209,21 @@ export function ScriptDetailPanel({
 				<div className="flex items-center px-5 pt-3 pb-1 shrink-0">
 					<div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
 						<span>
-							步骤 ({script.steps.length})
+							{t('detail.stepsCount', { count: script.steps.length })}
 							{isRunning && (
 								<Loader2 className="inline h-3 w-3 ml-1 animate-spin" />
 							)}
 						</span>
 						{!flowEntryState.entryConnected && (
 							<span className="rounded-full border border-amber-300/80 bg-amber-100/80 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-								入口未连接
+								{t('detail.entryNotConnected')}
 							</span>
 						)}
 						{flowEntryState.orphanedStepCount > 0 && (
 							<span className="rounded-full border border-zinc-300/80 bg-zinc-100/80 px-2 py-0.5 text-[11px] font-medium text-zinc-500 dark:border-zinc-600/60 dark:bg-zinc-800/60 dark:text-zinc-400">
-								另有 {flowEntryState.orphanedStepCount} 个孤立步骤
+								{t('detail.orphanedSteps', {
+									count: flowEntryState.orphanedStepCount,
+								})}
 							</span>
 						)}
 					</div>
@@ -251,7 +259,7 @@ export function ScriptDetailPanel({
 			>
 				<div className="flex items-center px-5 pt-2 pb-1 shrink-0">
 					<span className="text-xs font-medium text-muted-foreground">
-						运行记录 ({runs.length})
+						{t('detail.runHistoryCount', { count: runs.length })}
 					</span>
 				</div>
 				<div className="flex-1 min-h-0 overflow-hidden">
@@ -268,15 +276,15 @@ export function ScriptDetailPanel({
 			<AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>删除脚本</AlertDialogTitle>
+						<AlertDialogTitle>{t('common:deleteItem', { item: t('common:script') })}</AlertDialogTitle>
 						<AlertDialogDescription>
-							确认删除脚本「{script.name}」？此操作不可撤销。
+							{t('automation:deleteScriptConfirm', { name: script.name })}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel asChild>
 							<Button type="button" variant="ghost" className="cursor-pointer">
-								取消
+								{t('common:cancel')}
 							</Button>
 						</AlertDialogCancel>
 						<AlertDialogAction asChild>
@@ -286,7 +294,7 @@ export function ScriptDetailPanel({
 								className="cursor-pointer"
 								onClick={onDelete}
 							>
-								删除
+								{t('common:delete')}
 							</Button>
 						</AlertDialogAction>
 					</AlertDialogFooter>

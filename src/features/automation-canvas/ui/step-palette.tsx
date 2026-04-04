@@ -39,10 +39,10 @@ const FAVORITE_KINDS = [
 ];
 
 export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
-	const { t } = useTranslation('canvas');
+	const { t } = useTranslation(['automation', 'common']);
 	const [search, setSearch] = useState('');
 	const searchRef = useRef<HTMLInputElement>(null);
-	const favoritesLabel = t('palette.favorites');
+	const favoritesLabel = t('automation:palette.favorites', { ns: 'automation' });
 	const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set([favoritesLabel]));
 
 	const toggleGroup = useCallback((label: string) => {
@@ -89,7 +89,7 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 					type="button"
 					className="p-1.5 rounded-md hover:bg-accent cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
 					onClick={onToggleCollapse}
-					title={t('palette.expandPanel')}
+					title={t('automation:palette.expandPanel', { ns: 'automation' })}
 				>
 					<ChevronsRight className="h-4 w-4" />
 				</button>
@@ -102,13 +102,13 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 			{/* 标题行 + 折叠按钮 */}
 			<div className="flex items-center justify-between px-2.5 py-2 border-b flex-shrink-0">
 				<span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-					{t('palette.addSteps')}
+					{t('automation:palette.addSteps', { ns: 'automation' })}
 				</span>
 				<button
 					type="button"
 					className="p-1 rounded hover:bg-accent cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
 					onClick={onToggleCollapse}
-					title={t('palette.collapsePanel')}
+					title={t('automation:palette.collapsePanel', { ns: 'automation' })}
 				>
 					<ChevronsLeft className="h-3.5 w-3.5" />
 				</button>
@@ -122,7 +122,7 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 						ref={searchRef}
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
-						placeholder={t('palette.searchSteps')}
+						placeholder={t('common:placeholder.search', { ns: 'common' })}
 						className="h-7 text-xs pl-7 pr-2"
 					/>
 				</div>
@@ -178,7 +178,7 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 					})}
 					{filteredGroups.length === 0 && (
 						<p className="text-xs text-muted-foreground text-center py-4">
-							{t('palette.noMatch')}
+							{t('automation:palette.noMatch', { ns: 'automation' })}
 						</p>
 					)}
 				</div>

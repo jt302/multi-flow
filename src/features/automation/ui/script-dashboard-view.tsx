@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Network, Plus } from 'lucide-react';
 
 import { openAutomationCanvasWindow } from '@/entities/automation/api/automation-api';
@@ -13,11 +14,13 @@ type Props = {
 
 /** 默认仪表盘视图：未选中脚本时以网格卡片形式展示所有脚本 */
 export function ScriptDashboardView({ scripts, onSelect, onNew }: Props) {
+  const { t } = useTranslation('automation');
+
   if (scripts.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center space-y-3">
-          <p className="text-sm text-muted-foreground">暂无脚本</p>
+          <p className="text-sm text-muted-foreground">{t('dashboard.noScripts')}</p>
           <Button
             size="sm"
             variant="outline"
@@ -25,7 +28,7 @@ export function ScriptDashboardView({ scripts, onSelect, onNew }: Props) {
             onClick={onNew}
           >
             <Plus className="h-3.5 w-3.5 mr-1.5" />
-            新建脚本
+            {t('dashboard.newScript')}
           </Button>
         </div>
       </div>
@@ -58,11 +61,11 @@ export function ScriptDashboardView({ scripts, onSelect, onNew }: Props) {
             {/* 统计徽章 */}
             <div className="flex items-center gap-2 flex-wrap">
               <Badge variant="secondary" className="text-xs h-5">
-                {script.steps.length} 步骤
+                {script.steps.length} {t('dashboard.steps')}
               </Badge>
               {(script.associatedProfileIds?.length ?? 0) > 0 && (
                 <Badge variant="outline" className="text-xs h-5">
-                  {script.associatedProfileIds!.length} 环境
+                  {script.associatedProfileIds!.length} {t('dashboard.profiles')}
                 </Badge>
               )}
             </div>
@@ -79,7 +82,7 @@ export function ScriptDashboardView({ scripts, onSelect, onNew }: Props) {
                 }}
               >
                 <Network className="h-3 w-3 mr-1" />
-                打开画布
+                {t('dashboard.openCanvas')}
               </Button>
             </div>
           </div>

@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 /**
  * 步骤字段注册表
  *
@@ -64,7 +66,7 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
   ],
 
   // ── 等待 ──────────────────────────────────────────────────────────────────
-  wait: [{ type: 'number', key: 'ms', label: '等待毫秒数' }],
+  wait: [{ type: 'number', key: 'ms', label: i18next.t('automation:fields.waitMs') }],
 
   // ── 点击 ──────────────────────────────────────────────────────────────────
   click: [{ type: 'selector' }],
@@ -72,7 +74,7 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
   // ── 输入文本 ──────────────────────────────────────────────────────────────
   type: [
     { type: 'selector' },
-    { type: 'text', key: 'text', label: '输入文本', multiline: true },
+    { type: 'text', key: 'text', label: i18next.t('automation:fields.inputText'), multiline: true },
   ],
 
   // ── 截图（Magic Controller） ──────────────────────────────────────────────
@@ -80,11 +82,11 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
     {
       type: 'file_path',
       key: 'save_path',
-      label: '保存路径（留空自动生成，支持 {{变量}}）',
+      label: i18next.t('automation:fields.savePath'),
       mode: 'save',
-      filters: [{ name: '图片文件', extensions: ['png'] }],
+      filters: [{ name: i18next.t('automation:fields.filterImage'), extensions: ['png'] }],
     },
-    { type: 'output_key', label: '文件路径变量名' },
+    { type: 'output_key', label: i18next.t('automation:fields.filePathVar') },
   ],
 
   // ── 通用 Magic / CDP 命令（复杂结构，不提供标准字段） ──────────────────────
@@ -94,40 +96,40 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
   // ── 等待用户操作（含输入框、超时配置） ───────────────────────────────────
   // 字段较多且有条件逻辑，保留在面板直接渲染，此处记录标准部分
   wait_for_user: [
-    { type: 'text', key: 'message', label: '提示消息', multiline: true },
-    { type: 'text', key: 'input_label', label: '输入框标签（留空则无输入框）' },
+    { type: 'text', key: 'message', label: i18next.t('automation:fields.promptMessage'), multiline: true },
+    { type: 'text', key: 'input_label', label: i18next.t('automation:fields.inputLabel') },
     { type: 'output_key' },
-    { type: 'number', key: 'timeout_ms', label: '超时毫秒数（0=不超时）' },
+    { type: 'number', key: 'timeout_ms', label: i18next.t('automation:fields.timeoutMs') },
   ],
 
   // ── 条件分支（then/else 子步骤由 canvas 特殊渲染） ───────────────────────
   condition: [
-    { type: 'text', key: 'condition_expr', label: '条件表达式' },
+    { type: 'text', key: 'condition_expr', label: i18next.t('automation:fields.conditionExpr') },
   ],
 
   // ── 循环（body_steps 由 canvas 特殊渲染） ─────────────────────────────────
   loop: [
-    { type: 'number', key: 'count', label: '循环次数' },
-    { type: 'text', key: 'iter_var', label: '迭代变量名（可选）' },
+    { type: 'number', key: 'count', label: i18next.t('automation:fields.loopCount') },
+    { type: 'text', key: 'iter_var', label: i18next.t('automation:fields.iterVar') },
   ],
 
   // ── 流程控制（无字段） ─────────────────────────────────────────────────────
   break: [],
   continue: [],  end: [
-    { type: 'text', key: 'message', label: '结束备注（可选）' },
+    { type: 'text', key: 'message', label: i18next.t('automation:fields.endMessage') },
   ],
   // ── 打印日志 ──────────────────────────────────────────────────────────────
   print: [
     {
       type: 'text',
       key: 'text',
-      label: '打印内容（支持 {{变量}}）',
+      label: i18next.t('automation:fields.printContent'),
       multiline: true,
     },
     {
       type: 'select',
       key: 'level',
-      label: '日志级别',
+      label: i18next.t('automation:fields.logLevel'),
       options: [
         { value: 'info', label: 'info' },
         { value: 'warn', label: 'warn' },
@@ -142,26 +144,26 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
     {
       type: 'text',
       key: 'prompt',
-      label: 'Prompt（支持 {{变量}}）',
+      label: i18next.t('automation:fields.aiPrompt'),
       multiline: true,
     },
     {
       type: 'text',
       key: 'system_prompt',
-      label: '系统提示词（可选）',
+      label: i18next.t('automation:fields.systemPrompt'),
       multiline: true,
     },
     {
       type: 'select',
       key: 'output_format',
-      label: '输出格式',
+      label: i18next.t('automation:fields.outputFormat'),
       options: [
-        { value: 'text', label: '纯文本' },
-        { value: 'json', label: 'JSON（配合 key 映射提取变量）' },
+        { value: 'text', label: i18next.t('automation:fields.outputFormatText') },
+        { value: 'json', label: i18next.t('automation:fields.outputFormatJson') },
       ],
     },
     // output_key_map 是复杂数组结构，由面板直接渲染
-    { type: 'number', key: 'max_steps', label: '最大循环轮次', min: 1 },
+    { type: 'number', key: 'max_steps', label: i18next.t('automation:fields.maxIterations'), min: 1 },
     { type: 'output_key' },
   ],
 
@@ -169,11 +171,11 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
     {
       type: 'text',
       key: 'prompt',
-      label: '判断提示词（描述需要AI判断的场景）',
+      label: i18next.t('automation:fields.aiJudgePrompt'),
       multiline: true,
     },
     // output_mode 由面板直接渲染 Select 组件
-    { type: 'number', key: 'max_steps', label: '最大循环轮次', min: 1 },
+    { type: 'number', key: 'max_steps', label: i18next.t('automation:fields.maxIterations'), min: 1 },
     { type: 'output_key' },
   ],
 
@@ -184,25 +186,25 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
   ],
 
   cdp_reload: [
-    { type: 'checkbox', key: 'ignore_cache', label: '忽略缓存' },
+    { type: 'checkbox', key: 'ignore_cache', label: i18next.t('automation:fields.ignoreCache') },
   ],
 
   cdp_click: [{ type: 'selector' }],
 
   cdp_type: [
     { type: 'selector' },
-    { type: 'text', key: 'text', label: '输入文本', multiline: true },
+    { type: 'text', key: 'text', label: i18next.t('automation:fields.inputText'), multiline: true },
   ],
 
-  cdp_scroll_to: [{ type: 'selector', label: '元素选择器（可选）', optional: true }],
+  cdp_scroll_to: [{ type: 'selector', label: i18next.t('automation:fields.selectorOptional'), optional: true }],
 
   cdp_wait_for_selector: [
     { type: 'selector' },
-    { type: 'number', key: 'timeout_ms', label: '超时毫秒数' },
+    { type: 'number', key: 'timeout_ms', label: i18next.t('automation:fields.timeoutMs') },
   ],
 
   cdp_wait_for_page_load: [
-    { type: 'number', key: 'timeout_ms', label: '超时毫秒数' },
+    { type: 'number', key: 'timeout_ms', label: i18next.t('automation:fields.timeoutMs') },
   ],
 
   cdp_get_text: [
@@ -212,23 +214,23 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
 
   cdp_get_attribute: [
     { type: 'selector' },
-    { type: 'text', key: 'attribute', label: '属性名' },
+    { type: 'text', key: 'attribute', label: i18next.t('automation:fields.attributeName') },
     { type: 'output_key' },
   ],
 
   cdp_set_input_value: [
     { type: 'selector' },
-    { type: 'text', key: 'value', label: '值' },
+    { type: 'text', key: 'value', label: i18next.t('automation:fields.value') },
   ],
 
   cdp_screenshot: [
-    { type: 'output_key', key: 'output_key_file_path', label: '文件路径变量名' },
+    { type: 'output_key', key: 'output_key_file_path', label: i18next.t('automation:fields.filePathVar') },
     {
       type: 'file_path',
       key: 'output_path',
-      label: '保存路径',
+      label: i18next.t('automation:fields.savePath'),
       mode: 'save',
-      filters: [{ name: '图片文件', extensions: ['png', 'jpeg', 'jpg'] }],
+      filters: [{ name: i18next.t('automation:fields.filterImage'), extensions: ['png', 'jpeg', 'jpg'] }],
     },
   ],
 
@@ -240,27 +242,27 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
   cdp_get_all_tabs: [{ type: 'output_key' }],
 
   cdp_switch_tab: [
-    { type: 'text', key: 'target_id', label: 'Target ID（支持 {{变量}}）' },
+    { type: 'text', key: 'target_id', label: i18next.t('automation:fields.targetId') },
   ],
 
   cdp_close_tab: [
-    { type: 'text', key: 'target_id', label: 'Target ID（支持 {{变量}}）' },
+    { type: 'text', key: 'target_id', label: i18next.t('automation:fields.targetId') },
   ],
 
-  cdp_go_back: [{ type: 'number', key: 'steps', label: '步数' }],
+  cdp_go_back: [{ type: 'number', key: 'steps', label: i18next.t('automation:fields.steps') }],
 
-  cdp_go_forward: [{ type: 'number', key: 'steps', label: '步数' }],
+  cdp_go_forward: [{ type: 'number', key: 'steps', label: i18next.t('automation:fields.steps') }],
 
   cdp_upload_file: [
     { type: 'selector' },
-    { type: 'text', key: 'files.0', label: '文件路径（支持 {{变量}}）' },
+    { type: 'text', key: 'files.0', label: i18next.t('automation:fields.filePath') },
   ],
 
   cdp_download_file: [
     {
       type: 'file_path',
       key: 'download_path',
-      label: '下载目录',
+      label: i18next.t('automation:fields.downloadDirectory'),
       mode: 'directory',
     },
   ],
@@ -269,24 +271,24 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
     {
       type: 'select',
       key: 'action',
-      label: '操作',
+      label: i18next.t('automation:fields.action'),
       options: [
-        { value: 'copy', label: '复制 (Copy)' },
-        { value: 'paste', label: '粘贴 (Paste)' },
-        { value: 'select_all', label: '全选 (Select All)' },
+        { value: 'copy', label: i18next.t('automation:fields.actionCopy') },
+        { value: 'paste', label: i18next.t('automation:fields.actionPaste') },
+        { value: 'select_all', label: i18next.t('automation:fields.actionSelectAll') },
       ],
     },
   ],
 
   // cdp_execute_js: 含文件路径对话框和 JS 代码多行输入，field 混合，保留部分
   cdp_execute_js: [
-    { type: 'text', key: 'expression', label: 'JS 代码', multiline: true },
+    { type: 'text', key: 'expression', label: i18next.t('automation:fields.jsCode'), multiline: true },
     {
       type: 'file_path',
       key: 'file_path',
-      label: 'JS 文件路径（可选，优先于代码）',
+      label: i18next.t('automation:fields.jsFilePath'),
       mode: 'open',
-      filters: [{ name: 'JS文件', extensions: ['js', 'mjs'] }],
+      filters: [{ name: i18next.t('automation:fields.filterJs'), extensions: ['js', 'mjs'] }],
     },
     { type: 'output_key' },
   ],
@@ -297,11 +299,11 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
     {
       type: 'select',
       key: 'text_source',
-      label: '文本来源',
+      label: i18next.t('automation:fields.textSource'),
       options: [
-        { value: 'inline', label: '直接输入' },
-        { value: 'file', label: '从文件读取' },
-        { value: 'variable', label: '从变量读取' },
+        { value: 'inline', label: i18next.t('automation:fields.textSourceInline') },
+        { value: 'file', label: i18next.t('automation:fields.textSourceFile') },
+        { value: 'variable', label: i18next.t('automation:fields.textSourceVariable') },
       ],
     },
     {
@@ -309,21 +311,21 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
       watchKey: 'text_source',
       conditions: {
         inline: [
-          { type: 'text', key: 'text', label: '输入文本', multiline: true },
+          { type: 'text', key: 'text', label: i18next.t('automation:fields.inputText'), multiline: true },
         ],
         file: [
           {
             type: 'file_path',
             key: 'file_path',
-            label: '文本文件路径',
+            label: i18next.t('automation:fields.textFilePath'),
             mode: 'open',
             filters: [
-              { name: '文本文件', extensions: ['txt', 'md', 'csv'] },
+              { name: i18next.t('automation:fields.filterText'), extensions: ['txt', 'md', 'csv'] },
             ],
           },
         ],
         variable: [
-          { type: 'text', key: 'var_name', label: '变量名（不含 {{}}）' },
+          { type: 'text', key: 'var_name', label: i18next.t('automation:fields.varName') },
         ],
       },
     },
@@ -333,14 +335,14 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
     {
       type: 'select',
       key: 'key',
-      label: '按键',
+      label: i18next.t('automation:fields.key'),
       options: [
         { value: 'Enter', label: 'Enter' },
         { value: 'Tab', label: 'Tab' },
         { value: 'Escape', label: 'Escape' },
         { value: 'Backspace', label: 'Backspace' },
         { value: 'Delete', label: 'Delete' },
-        { value: 'Space', label: 'Space（空格）' },
+        { value: 'Space', label: 'Space' },
         { value: 'ArrowUp', label: 'ArrowUp' },
         { value: 'ArrowDown', label: 'ArrowDown' },
         { value: 'ArrowLeft', label: 'ArrowLeft' },
@@ -359,30 +361,103 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
   // ── 弹窗 / 通知步骤 ───────────────────────────────────────────────────────
 
   confirm_dialog: [
-    { type: 'text', key: 'title', label: '标题' },
-    { type: 'text', key: 'message', label: '提示消息', multiline: true },
+    { type: 'text', key: 'title', label: i18next.t('automation:fields.title') },
+    { type: 'text', key: 'message', label: i18next.t('automation:fields.promptMessage'), multiline: true },
     // buttons 由属性面板内联编辑器处理
-    { type: 'number', key: 'timeout_ms', label: '超时毫秒数（0=不超时）' },
-    { type: 'text', key: 'on_timeout_value', label: '超时默认值' },
+    { type: 'number', key: 'timeout_ms', label: i18next.t('automation:fields.timeoutMs') },
+    { type: 'text', key: 'on_timeout_value', label: i18next.t('automation:fields.timeoutDefault') },
     { type: 'output_key' },
   ],
 
   select_dialog: [
-    { type: 'text', key: 'title', label: '标题' },
-    { type: 'text', key: 'message', label: '说明文字（可选）', multiline: true },
-    { type: 'checkbox', key: 'multi_select', label: '允许多选' },
-    { type: 'number', key: 'timeout_ms', label: '超时毫秒数（0=不超时）' },
+    { type: 'text', key: 'title', label: i18next.t('automation:fields.title') },
+    { type: 'text', key: 'message', label: i18next.t('automation:fields.description'), multiline: true },
+    { type: 'checkbox', key: 'multi_select', label: i18next.t('automation:fields.allowMultiSelect') },
+    { type: 'number', key: 'timeout_ms', label: i18next.t('automation:fields.timeoutMs') },
     { type: 'output_key' },
     // options 数组由属性面板自定义渲染
   ],
 
+  form_dialog: [
+    { type: 'text', key: 'title', label: i18next.t('automation:fields.title') },
+    { type: 'text', key: 'message', label: i18next.t('automation:fields.description'), multiline: true },
+    { type: 'text', key: 'submit_label', label: i18next.t('automation:fields.submitLabel') },
+    { type: 'number', key: 'timeout_ms', label: i18next.t('automation:fields.timeoutMs') },
+    { type: 'output_key' },
+    // fields ���组由属性面板自定义渲染
+  ],
+
+  table_dialog: [
+    { type: 'text', key: 'title', label: i18next.t('automation:fields.title') },
+    { type: 'text', key: 'message', label: i18next.t('automation:fields.description'), multiline: true },
+    { type: 'checkbox', key: 'selectable', label: i18next.t('automation:fields.selectable') },
+    { type: 'checkbox', key: 'multi_select', label: i18next.t('automation:fields.allowMultiSelect') },
+    { type: 'number', key: 'max_height', label: i18next.t('automation:fields.maxHeight') },
+    { type: 'number', key: 'timeout_ms', label: i18next.t('automation:fields.timeoutMs') },
+    { type: 'output_key' },
+    // columns, rows 由属性面板自定义渲染
+  ],
+
+  image_dialog: [
+    { type: 'text', key: 'title', label: i18next.t('automation:fields.title') },
+    { type: 'text', key: 'message', label: i18next.t('automation:fields.description'), multiline: true },
+    { type: 'text', key: 'image', label: i18next.t('automation:fields.imageData') },
+    {
+      type: 'select', key: 'image_format', label: i18next.t('automation:fields.imageFormat'),
+      options: [
+        { value: 'png', label: 'PNG' },
+        { value: 'jpeg', label: 'JPEG' },
+        { value: 'webp', label: 'WebP' },
+        { value: 'gif', label: 'GIF' },
+      ],
+    },
+    { type: 'text', key: 'input_label', label: i18next.t('automation:fields.inputLabel') },
+    { type: 'text', key: 'input_placeholder', label: i18next.t('automation:fields.placeholder') },
+    { type: 'number', key: 'timeout_ms', label: i18next.t('automation:fields.timeoutMs') },
+    { type: 'output_key' },
+  ],
+
+  countdown_dialog: [
+    { type: 'text', key: 'title', label: i18next.t('automation:fields.title') },
+    { type: 'text', key: 'message', label: i18next.t('automation:fields.promptMessage'), multiline: true },
+    { type: 'number', key: 'seconds', label: i18next.t('automation:fields.countdownSeconds') },
+    {
+      type: 'select', key: 'level', label: i18next.t('automation:fields.level'),
+      options: [
+        { value: 'info', label: 'info' },
+        { value: 'warning', label: 'warning' },
+        { value: 'danger', label: 'danger' },
+      ],
+    },
+    { type: 'text', key: 'action_label', label: i18next.t('automation:fields.actionLabel') },
+    { type: 'checkbox', key: 'auto_proceed', label: i18next.t('automation:fields.autoProceed') },
+    { type: 'output_key' },
+  ],
+
+  markdown_dialog: [
+    { type: 'text', key: 'title', label: i18next.t('automation:fields.title') },
+    { type: 'text', key: 'content', label: i18next.t('automation:fields.content'), multiline: true },
+    { type: 'number', key: 'max_height', label: i18next.t('automation:fields.maxHeight') },
+    {
+      type: 'select', key: 'width', label: i18next.t('automation:fields.width'),
+      options: [
+        { value: 'sm', label: 'sm' },
+        { value: 'md', label: 'md' },
+        { value: 'lg', label: 'lg' },
+        { value: 'xl', label: 'xl' },
+      ],
+    },
+    { type: 'checkbox', key: 'copyable', label: i18next.t('automation:fields.copyable') },
+    { type: 'output_key' },
+  ],
+
   notification: [
-    { type: 'text', key: 'title', label: '标题' },
-    { type: 'text', key: 'body', label: '内容', multiline: true },
+    { type: 'text', key: 'title', label: i18next.t('automation:fields.title') },
+    { type: 'text', key: 'body', label: i18next.t('automation:fields.content'), multiline: true },
     {
       type: 'select',
       key: 'level',
-      label: '级别',
+      label: i18next.t('automation:fields.level'),
       options: [
         { value: 'info', label: 'info' },
         { value: 'success', label: 'success' },
@@ -390,20 +465,20 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
         { value: 'error', label: 'error' },
       ],
     },
-    { type: 'number', key: 'duration_ms', label: '显示时长毫秒数' },
+    { type: 'number', key: 'duration_ms', label: i18next.t('automation:fields.durationMs') },
   ],
 
   cdp_handle_dialog: [
     {
       type: 'select',
       key: 'action',
-      label: '操作',
+      label: i18next.t('automation:fields.action'),
       options: [
-        { value: 'accept', label: '接受 (Accept)' },
-        { value: 'dismiss', label: '关闭 (Dismiss)' },
+        { value: 'accept', label: i18next.t('automation:fields.dialogAccept') },
+        { value: 'dismiss', label: i18next.t('automation:fields.dialogDismiss') },
       ],
     },
-    { type: 'text', key: 'prompt_text', label: 'Prompt 输入文本（可选）' },
+    { type: 'text', key: 'prompt_text', label: i18next.t('automation:fields.promptInputText') },
     { type: 'output_key' },
   ],
 
@@ -411,17 +486,17 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
   cdp_get_browser_version: [{ type: 'output_key' }],
   cdp_get_browser_command_line: [{ type: 'output_key' }],
   cdp_get_window_for_target: [
-    { type: 'text', key: 'target_id', label: 'Target ID（可选，空=当前目标）' },
+    { type: 'text', key: 'target_id', label: i18next.t('automation:fields.targetIdOptional') },
     { type: 'output_key' },
   ],
   cdp_get_layout_metrics: [{ type: 'output_key' }],
   cdp_get_document: [
-    { type: 'number', key: 'depth', label: '深度（-1=全量，默认1）' },
-    { type: 'checkbox', key: 'pierce', label: '穿透 Shadow DOM' },
+    { type: 'number', key: 'depth', label: i18next.t('automation:fields.depth') },
+    { type: 'checkbox', key: 'pierce', label: i18next.t('automation:fields.pierceShadowDom') },
     { type: 'output_key' },
   ],
   cdp_get_full_ax_tree: [
-    { type: 'number', key: 'depth', label: '深度（可选，空=全量）' },
+    { type: 'number', key: 'depth', label: i18next.t('automation:fields.depthOptional') },
     { type: 'output_key' },
   ],
 
@@ -431,8 +506,8 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
   magic_set_bounds: [
     { type: 'number', key: 'x', label: 'X' },
     { type: 'number', key: 'y', label: 'Y' },
-    { type: 'number', key: 'width', label: '宽度' },
-    { type: 'number', key: 'height', label: '高度' },
+    { type: 'number', key: 'width', label: i18next.t('automation:fields.width') },
+    { type: 'number', key: 'height', label: i18next.t('automation:fields.height') },
   ],
 
   magic_get_bounds: [{ type: 'output_key' }],
@@ -445,20 +520,20 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
   magic_set_fullscreen: [],
 
   magic_set_bg_color: [
-    { type: 'number', key: 'r', label: 'R (0-255)', min: 0 },
-    { type: 'number', key: 'g', label: 'G (0-255)', min: 0 },
-    { type: 'number', key: 'b', label: 'B (0-255)', min: 0 },
+    { type: 'number', key: 'r', label: i18next.t('automation:fields.r'), min: 0 },
+    { type: 'number', key: 'g', label: i18next.t('automation:fields.g'), min: 0 },
+    { type: 'number', key: 'b', label: i18next.t('automation:fields.b'), min: 0 },
   ],
 
   magic_set_toolbar_text: [
-    { type: 'text', key: 'text', label: '工具栏文字' },
+    { type: 'text', key: 'text', label: i18next.t('automation:fields.toolbarText') },
   ],
 
   magic_set_app_top_most: [],
 
   magic_set_master_indicator_visible: [
-    { type: 'checkbox', key: 'visible', label: '是否可见' },
-    { type: 'text', key: 'label', label: '标签文字（可选）' },
+    { type: 'checkbox', key: 'visible', label: i18next.t('automation:fields.isVisible') },
+    { type: 'text', key: 'label', label: i18next.t('automation:fields.labelText') },
   ],
 
   // 标签页与窗口操作
@@ -476,7 +551,7 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
   ],
 
   magic_activate_tab_by_index: [
-    { type: 'number', key: 'index', label: '标签页索引' },
+    { type: 'number', key: 'index', label: i18next.t('automation:fields.tabIndex') },
   ],
 
   magic_close_inactive_tabs: [],
@@ -484,7 +559,7 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
   magic_open_new_window: [{ type: 'output_key' }],
 
   magic_type_string: [
-    { type: 'text', key: 'text', label: '输入文本（支持 {{变量}}）' },
+    { type: 'text', key: 'text', label: i18next.t('automation:fields.inputTextWithVar') },
   ],
 
   // 浏览器信息查询
@@ -493,7 +568,7 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
   magic_get_active_browser: [{ type: 'output_key' }],
 
   magic_get_tabs: [
-    { type: 'number', key: 'browser_id', label: 'Browser ID' },
+    { type: 'number', key: 'browser_id', label: i18next.t('automation:fields.browserId') },
     { type: 'output_key' },
   ],
 
@@ -512,31 +587,31 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
   magic_get_bookmarks: [{ type: 'output_key' }],
 
   magic_create_bookmark: [
-    { type: 'text', key: 'parent_id', label: '父节点 ID' },
-    { type: 'text', key: 'title', label: '标题' },
+    { type: 'text', key: 'parent_id', label: i18next.t('automation:fields.parentNodeId') },
+    { type: 'text', key: 'title', label: i18next.t('automation:fields.title') },
     { type: 'text', key: 'url', label: 'URL' },
     { type: 'output_key' },
   ],
 
   magic_create_bookmark_folder: [
-    { type: 'text', key: 'parent_id', label: '父节点 ID' },
-    { type: 'text', key: 'title', label: '文件夹名称' },
+    { type: 'text', key: 'parent_id', label: i18next.t('automation:fields.parentNodeId') },
+    { type: 'text', key: 'title', label: i18next.t('automation:fields.folderName') },
     { type: 'output_key' },
   ],
 
   magic_update_bookmark: [
-    { type: 'text', key: 'node_id', label: '节点 ID' },
-    { type: 'text', key: 'title', label: '新标题（可选）' },
-    { type: 'text', key: 'url', label: '新 URL（可选）' },
+    { type: 'text', key: 'node_id', label: i18next.t('automation:fields.nodeId') },
+    { type: 'text', key: 'title', label: i18next.t('automation:fields.newTitle') },
+    { type: 'text', key: 'url', label: i18next.t('automation:fields.newUrl') },
   ],
 
   magic_move_bookmark: [
-    { type: 'text', key: 'node_id', label: '节点 ID' },
-    { type: 'text', key: 'new_parent_id', label: '新父节点 ID' },
+    { type: 'text', key: 'node_id', label: i18next.t('automation:fields.nodeId') },
+    { type: 'text', key: 'new_parent_id', label: i18next.t('automation:fields.newParentId') },
   ],
 
   magic_remove_bookmark: [
-    { type: 'text', key: 'node_id', label: '节点 ID' },
+    { type: 'text', key: 'node_id', label: i18next.t('automation:fields.nodeId') },
   ],
 
   magic_bookmark_current_tab: [],
@@ -553,13 +628,13 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
     {
       type: 'select',
       key: 'mode',
-      label: '导出模式',
+      label: i18next.t('automation:fields.exportMode'),
       options: [
-        { value: 'all', label: '全部' },
-        { value: 'url', label: '按 URL' },
+        { value: 'all', label: i18next.t('automation:fields.exportModeAll') },
+        { value: 'url', label: i18next.t('automation:fields.exportModeUrl') },
       ],
     },
-    { type: 'text', key: 'url', label: 'URL（mode=url 时有效）' },
+    { type: 'text', key: 'url', label: i18next.t('automation:fields.urlForMode') },
     { type: 'output_key' },
   ],
 
@@ -567,14 +642,14 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
   magic_get_managed_extensions: [{ type: 'output_key' }],
 
   magic_trigger_extension_action: [
-    { type: 'text', key: 'extension_id', label: '扩展 ID' },
+    { type: 'text', key: 'extension_id', label: i18next.t('automation:fields.extensionId') },
   ],
 
   magic_close_extension_popup: [],
 
   // 同步模式
   magic_toggle_sync_mode: [
-    { type: 'text', key: 'role', label: '角色（master/slave）' },
+    { type: 'text', key: 'role', label: i18next.t('automation:fields.role') },
     { type: 'output_key' },
   ],
 
@@ -586,13 +661,13 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
 
   // 截图（app 壳）
   magic_capture_app_shell: [
-    { type: 'output_key', key: 'output_key_file_path', label: '文件路径变量名' },
+    { type: 'output_key', key: 'output_key_file_path', label: i18next.t('automation:fields.filePathVar') },
     {
       type: 'file_path',
       key: 'output_path',
-      label: '保存路径',
+      label: i18next.t('automation:fields.savePath'),
       mode: 'save',
-      filters: [{ name: '图片文件', extensions: ['png', 'jpeg', 'jpg'] }],
+      filters: [{ name: i18next.t('automation:fields.filterImage'), extensions: ['png', 'jpeg', 'jpg'] }],
     },
   ],
 };
