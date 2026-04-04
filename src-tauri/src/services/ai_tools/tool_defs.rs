@@ -25,13 +25,14 @@ fn tool(name: &str, description: &str, parameters: Value) -> Value {
 
 /// 返回所有工具定义
 pub fn all_tool_definitions() -> Vec<Value> {
-    let mut defs = Vec::with_capacity(120);
+    let mut defs = Vec::with_capacity(150);
     defs.extend(utility_tools());
     defs.extend(cdp_tools());
     defs.extend(magic_tools());
     defs.extend(app_tools());
     defs.extend(file_tools());
     defs.extend(dialog_tools());
+    defs.extend(captcha_tools());
     defs
 }
 
@@ -452,6 +453,318 @@ fn cdp_tools() -> Vec<Value> {
                 "properties": {
                     "depth": { "type": "integer", "description": "遍历深度（可选，不填则返回全部）" },
                     "output_key": { "type": "string", "description": "将无障碍树 JSON 存入此变量名" }
+                }
+            }),
+        ),
+        // ── Cookie & 存储 (7) ──
+        tool(
+            "cdp_get_cookies",
+            "获取当前页面或指定 URL 的 cookies",
+            json!({
+                "type": "object",
+                "properties": {
+                    "urls": { "type": "array", "items": { "type": "string" }, "description": "要获取 cookie 的 URL 列表（可选，不传则返回当前页面 cookies）" },
+                    "output_key": { "type": "string", "description": "将 cookie JSON 数组存入此变量名" }
+                }
+            }),
+        ),
+        tool(
+            "cdp_set_cookie",
+            "设置单个 cookie",
+            json!({
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string", "description": "Cookie 名称" },
+                    "value": { "type": "string", "description": "Cookie 值" },
+                    "domain": { "type": "string", "description": "Cookie 域名（可选）" },
+                    "path": { "type": "string", "description": "Cookie 路径（可选）" },
+                    "expires": { "type": "number", "description": "过期时间戳（可选，Unix 秒）" },
+                    "http_only": { "type": "boolean", "description": "是否 HttpOnly（可选）" },
+                    "secure": { "type": "boolean", "description": "是否仅 HTTPS（可选）" }
+                },
+                "required": ["name", "value"]
+            }),
+        ),
+        tool(
+            "cdp_delete_cookies",
+            "删除匹配的 cookies",
+            json!({
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string", "description": "要删除的 Cookie 名称" },
+                    "domain": { "type": "string", "description": "Cookie 域名（可选）" },
+                    "path": { "type": "string", "description": "Cookie 路径（可选）" }
+                },
+                "required": ["name"]
+            }),
+        ),
+        tool(
+            "cdp_get_local_storage",
+            "读取当前页面 localStorage 的指定 key 或全部",
+            json!({
+                "type": "object",
+                "properties": {
+                    "key": { "type": "string", "description": "要读取的 key（可选，不传返回全部）" },
+                    "output_key": { "type": "string", "description": "将结果存入此变量名" }
+                }
+            }),
+        ),
+        tool(
+            "cdp_set_local_storage",
+            "写入当前页面 localStorage",
+            json!({
+                "type": "object",
+                "properties": {
+                    "key": { "type": "string", "description": "localStorage key" },
+                    "value": { "type": "string", "description": "要写入的值" }
+                },
+                "required": ["key", "value"]
+            }),
+        ),
+        tool(
+            "cdp_get_session_storage",
+            "读取当前页面 sessionStorage 的指定 key 或全部",
+            json!({
+                "type": "object",
+                "properties": {
+                    "key": { "type": "string", "description": "要读取的 key（可选，不传返回全部）" },
+                    "output_key": { "type": "string", "description": "将结果存入此变量名" }
+                }
+            }),
+        ),
+        tool(
+            "cdp_clear_storage",
+            "清除指定来源的存储数据（cookies/localStorage/sessionStorage/cache 等）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "origin": { "type": "string", "description": "来源 URL（可选，默认当前页面）" },
+                    "storage_types": { "type": "string", "description": "要清除的存储类型，逗号分隔（如 cookies,local_storage,session_storage）" }
+                }
+            }),
+        ),
+        // ── 页面信息 & 导航 (3) ──
+        tool(
+            "cdp_get_current_url",
+            "获取当前页面 URL",
+            json!({
+                "type": "object",
+                "properties": {
+                    "output_key": { "type": "string", "description": "将当前 URL 存入此变量名" }
+                }
+            }),
+        ),
+        tool(
+            "cdp_get_page_source",
+            "获取页面或指定元素的 HTML 源码",
+            json!({
+                "type": "object",
+                "properties": {
+                    "selector": { "type": "string", "description": "CSS 选择器（可选，不传返回整个页面 HTML）" },
+                    "selector_type": { "type": "string", "enum": ["css", "xpath", "text"], "description": "选择器类型，默认 css" },
+                    "output_key": { "type": "string", "description": "将 HTML 源码存入此变量名" }
+                }
+            }),
+        ),
+        tool(
+            "cdp_wait_for_navigation",
+            "等待页面导航完成（适用于点击后的 SPA 跳转或表单提交）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "timeout_ms": { "type": "integer", "description": "超时时间（毫秒），默认 30000" }
+                }
+            }),
+        ),
+        // ── 设备模拟 (3) ──
+        tool(
+            "cdp_emulate_device",
+            "模拟移动设备视口和 User-Agent",
+            json!({
+                "type": "object",
+                "properties": {
+                    "width": { "type": "integer", "description": "视口宽度" },
+                    "height": { "type": "integer", "description": "视口高度" },
+                    "device_scale_factor": { "type": "number", "description": "设备缩放因子（可选，默认 1）" },
+                    "mobile": { "type": "boolean", "description": "是否为移动设备（可选，默认 false）" },
+                    "user_agent": { "type": "string", "description": "自定义 User-Agent（可选）" }
+                },
+                "required": ["width", "height"]
+            }),
+        ),
+        tool(
+            "cdp_set_geolocation",
+            "模拟地理位置",
+            json!({
+                "type": "object",
+                "properties": {
+                    "latitude": { "type": "number", "description": "纬度" },
+                    "longitude": { "type": "number", "description": "经度" },
+                    "accuracy": { "type": "number", "description": "精度（米）（可选，默认 1）" }
+                },
+                "required": ["latitude", "longitude"]
+            }),
+        ),
+        tool(
+            "cdp_set_user_agent",
+            "运行时修改 User-Agent",
+            json!({
+                "type": "object",
+                "properties": {
+                    "user_agent": { "type": "string", "description": "新的 User-Agent 字符串" },
+                    "platform": { "type": "string", "description": "平台标识（可选，如 Win32, MacIntel）" }
+                },
+                "required": ["user_agent"]
+            }),
+        ),
+        // ── 元素操作 & 输入 (6) ──
+        tool(
+            "cdp_get_element_box",
+            "获取元素的包围盒坐标（用于精确定位和截图裁剪）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "selector": { "type": "string", "description": "目标元素选择器" },
+                    "selector_type": { "type": "string", "enum": ["css", "xpath", "text"], "description": "选择器类型，默认 css" },
+                    "output_key": { "type": "string", "description": "将 {x,y,width,height} JSON 存入此变量名" }
+                },
+                "required": ["selector"]
+            }),
+        ),
+        tool(
+            "cdp_highlight_element",
+            "高亮显示页面元素（调试辅助，截图时标记目标）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "selector": { "type": "string", "description": "目标元素选择器" },
+                    "selector_type": { "type": "string", "enum": ["css", "xpath", "text"], "description": "选择器类型，默认 css" },
+                    "color": { "type": "string", "description": "高亮颜色（可选，默认 red，支持 CSS 颜色值）" },
+                    "duration_ms": { "type": "integer", "description": "高亮持续时间（毫秒，可选，默认 3000）" }
+                },
+                "required": ["selector"]
+            }),
+        ),
+        tool(
+            "cdp_mouse_move",
+            "移动鼠标到指定坐标（用于 hover 效果、拖拽前置）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "x": { "type": "number", "description": "目标 X 坐标" },
+                    "y": { "type": "number", "description": "目标 Y 坐标" }
+                },
+                "required": ["x", "y"]
+            }),
+        ),
+        tool(
+            "cdp_drag_and_drop",
+            "拖拽元素从 A 到 B（支持选择器或坐标）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "from_selector": { "type": "string", "description": "源元素选择器（与 from_x/from_y 二选一）" },
+                    "to_selector": { "type": "string", "description": "目标元素选择器（与 to_x/to_y 二选一）" },
+                    "from_x": { "type": "number", "description": "起始 X 坐标" },
+                    "from_y": { "type": "number", "description": "起始 Y 坐标" },
+                    "to_x": { "type": "number", "description": "目标 X 坐标" },
+                    "to_y": { "type": "number", "description": "目标 Y 坐标" },
+                    "selector_type": { "type": "string", "enum": ["css", "xpath", "text"], "description": "选择器类型，默认 css" }
+                }
+            }),
+        ),
+        tool(
+            "cdp_select_option",
+            "选择 <select> 下拉框的选项",
+            json!({
+                "type": "object",
+                "properties": {
+                    "selector": { "type": "string", "description": "select 元素选择器" },
+                    "value": { "type": "string", "description": "要选中的 value（与 index 二选一）" },
+                    "index": { "type": "integer", "description": "要选中的选项索引，0-based（与 value 二选一）" },
+                    "selector_type": { "type": "string", "enum": ["css", "xpath", "text"], "description": "选择器类型，默认 css" },
+                    "output_key": { "type": "string", "description": "将选中值存入此变量名" }
+                },
+                "required": ["selector"]
+            }),
+        ),
+        tool(
+            "cdp_check_checkbox",
+            "勾选/取消勾选 checkbox 或 radio",
+            json!({
+                "type": "object",
+                "properties": {
+                    "selector": { "type": "string", "description": "checkbox/radio 元素选择器" },
+                    "checked": { "type": "boolean", "description": "目标状态：true=勾选，false=取消，默认 true" },
+                    "selector_type": { "type": "string", "enum": ["css", "xpath", "text"], "description": "选择器类型，默认 css" }
+                },
+                "required": ["selector"]
+            }),
+        ),
+        // ── 网络 & 导出 (3) ──
+        tool(
+            "cdp_block_urls",
+            "屏蔽匹配模式的 URL（如广告、追踪器），支持 * 通配符",
+            json!({
+                "type": "object",
+                "properties": {
+                    "patterns": { "type": "array", "items": { "type": "string" }, "description": "URL 模式列表，支持 * 通配符" }
+                },
+                "required": ["patterns"]
+            }),
+        ),
+        tool(
+            "cdp_pdf",
+            "将当前页面导出为 PDF",
+            json!({
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string", "description": "保存路径（可选，不传则返回 base64）" },
+                    "landscape": { "type": "boolean", "description": "横向打印，默认 false" },
+                    "scale": { "type": "number", "description": "缩放比例（可选，默认 1）" },
+                    "paper_width": { "type": "number", "description": "纸张宽度（英寸，可选）" },
+                    "paper_height": { "type": "number", "description": "纸张高度（英寸，可选）" },
+                    "output_key": { "type": "string", "description": "将文件路径或 base64 存入此变量名" }
+                }
+            }),
+        ),
+        tool(
+            "cdp_intercept_request",
+            "拦截并修改网络请求（block=屏蔽, mock=模拟返回, modify=修改 headers）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "url_pattern": { "type": "string", "description": "URL 匹配模式，支持 * 通配符" },
+                    "action": { "type": "string", "enum": ["block", "mock", "modify"], "description": "拦截动作" },
+                    "headers": { "type": "object", "description": "要修改/添加的 headers（modify 模式）" },
+                    "body": { "type": "string", "description": "模拟返回的 body（mock 模式）" },
+                    "status": { "type": "integer", "description": "模拟返回的状态码（mock 模式，默认 200）" }
+                },
+                "required": ["url_pattern", "action"]
+            }),
+        ),
+        // ── 事件缓冲 (2) ──
+        tool(
+            "cdp_get_console_logs",
+            "获取浏览器控制台日志（最近 N 条）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "limit": { "type": "integer", "description": "返回条数上限（可选，默认 50）" },
+                    "level": { "type": "string", "enum": ["log", "warn", "error", "info"], "description": "按日志级别过滤（可选）" },
+                    "output_key": { "type": "string", "description": "将日志 JSON 数组存入此变量名" }
+                }
+            }),
+        ),
+        tool(
+            "cdp_get_network_requests",
+            "获取最近的网络请求记录",
+            json!({
+                "type": "object",
+                "properties": {
+                    "limit": { "type": "integer", "description": "返回条数上限（可选，默认 20）" },
+                    "url_pattern": { "type": "string", "description": "URL 过滤模式（可选）" },
+                    "output_key": { "type": "string", "description": "将请求记录 JSON 数组存入此变量名" }
                 }
             }),
         ),
@@ -986,6 +1299,72 @@ fn magic_tools() -> Vec<Value> {
                 }
             }),
         ),
+        // ── 窗口状态查询 (4) ──
+        tool(
+            "magic_get_maximized",
+            "查询窗口是否处于最大化状态",
+            json!({
+                "type": "object",
+                "properties": {
+                    "output_key": { "type": "string", "description": "将 true/false 存入此变量名" }
+                }
+            }),
+        ),
+        tool(
+            "magic_get_minimized",
+            "查询窗口是否处于最小化状态",
+            json!({
+                "type": "object",
+                "properties": {
+                    "output_key": { "type": "string", "description": "将 true/false 存入此变量名" }
+                }
+            }),
+        ),
+        tool(
+            "magic_get_fullscreen",
+            "查询窗口是否处于全屏状态",
+            json!({
+                "type": "object",
+                "properties": {
+                    "output_key": { "type": "string", "description": "将 true/false 存入此变量名" }
+                }
+            }),
+        ),
+        tool(
+            "magic_get_window_state",
+            "一次性获取窗口完整状态（bounds + maximized + minimized + fullscreen）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "output_key": { "type": "string", "description": "将完整窗口状态 JSON 存入此变量名" }
+                }
+            }),
+        ),
+        // ── Cookie 导入 (1) ──
+        tool(
+            "magic_import_cookies",
+            "从 JSON 数据批量导入 cookies 到浏览器",
+            json!({
+                "type": "object",
+                "properties": {
+                    "cookies": { "type": "array", "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": { "type": "string" },
+                            "value": { "type": "string" },
+                            "domain": { "type": "string" },
+                            "path": { "type": "string" },
+                            "expires": { "type": "number" },
+                            "httpOnly": { "type": "boolean" },
+                            "secure": { "type": "boolean" }
+                        },
+                        "required": ["name", "value"]
+                    }, "description": "Cookie 数组" },
+                    "output_key": { "type": "string", "description": "将导入数量存入此变量名" }
+                },
+                "required": ["cookies"]
+            }),
+        ),
     ]
 }
 
@@ -1216,6 +1595,21 @@ fn app_tools() -> Vec<Value> {
                 "properties": {}
             }),
         ),
+        // ── 自动化触发 (1) ──
+        tool(
+            "app_run_script",
+            "在指定环境中触发另一个自动化脚本运行（异步执行，返回 run_id）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "script_id": { "type": "string", "description": "要运行的脚本 ID" },
+                    "profile_id": { "type": "string", "description": "在此 profile 环境中运行（可选）" },
+                    "initial_vars": { "type": "object", "description": "初始变量（可选）" },
+                    "output_key": { "type": "string", "description": "将 run_id 存入此变量名" }
+                },
+                "required": ["script_id"]
+            }),
+        ),
     ]
 }
 
@@ -1387,6 +1781,279 @@ fn dialog_tools() -> Vec<Value> {
                 "properties": {
                     "title": { "type": "string", "description": "对话框标题（可选）" }
                 }
+            }),
+        ),
+        // ── 新增弹窗工具 ──────────────────────────────────────────────────────
+        tool(
+            "dialog_select",
+            "向用户展示选项选择弹窗，支持单选/多选。适用于让用户从预定义选项中做出选择",
+            json!({
+                "type": "object",
+                "properties": {
+                    "title": { "type": "string", "description": "弹窗标题（可选）" },
+                    "message": { "type": "string", "description": "提示信息（可选）" },
+                    "options": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "label": { "type": "string", "description": "显示文本" },
+                                "value": { "type": "string", "description": "返回值" },
+                                "description": { "type": "string", "description": "选项说明（可选）" }
+                            },
+                            "required": ["label", "value"]
+                        },
+                        "description": "选项列表（2-20个）"
+                    },
+                    "multi_select": { "type": "boolean", "description": "是否允许多选，默认 false" },
+                    "max_select": { "type": "integer", "description": "多选时最大选择数（可选）" }
+                },
+                "required": ["options"]
+            }),
+        ),
+        tool(
+            "dialog_form",
+            "向用户展示多字段表单弹窗，一次性收集多个输入。避免连续弹多个 dialog_input",
+            json!({
+                "type": "object",
+                "properties": {
+                    "title": { "type": "string", "description": "弹窗标题（可选）" },
+                    "message": { "type": "string", "description": "表单顶部说明文字（可选）" },
+                    "fields": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": { "type": "string", "description": "字段 key，用于返回值" },
+                                "label": { "type": "string", "description": "显示标签" },
+                                "type": { "type": "string", "enum": ["text", "number", "password", "textarea", "select", "checkbox", "date", "email", "url"], "description": "字段类型，默认 text" },
+                                "required": { "type": "boolean", "description": "是否必填" },
+                                "default_value": { "type": "string", "description": "默认值" },
+                                "placeholder": { "type": "string", "description": "占位符" },
+                                "options": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "label": { "type": "string" },
+                                            "value": { "type": "string" }
+                                        }
+                                    },
+                                    "description": "type=select 时的选项列表"
+                                },
+                                "validation": { "type": "string", "description": "正则校验表达式（可选）" },
+                                "hint": { "type": "string", "description": "字段下方提示文字（可选）" }
+                            },
+                            "required": ["name", "label"]
+                        },
+                        "description": "表单字段列表（1-15个）"
+                    },
+                    "submit_label": { "type": "string", "description": "提交按钮文字，默认'确定'" }
+                },
+                "required": ["fields"]
+            }),
+        ),
+        tool(
+            "dialog_table",
+            "向用户展示数据表格弹窗，可选择行。适用于展示抓取结果、对比数据等结构化信息",
+            json!({
+                "type": "object",
+                "properties": {
+                    "title": { "type": "string", "description": "弹窗标题（可选）" },
+                    "message": { "type": "string", "description": "表格上方说明文字（可选）" },
+                    "columns": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "key": { "type": "string", "description": "数据字段名" },
+                                "label": { "type": "string", "description": "列标题" },
+                                "width": { "type": "integer", "description": "列宽 px（可选）" },
+                                "align": { "type": "string", "enum": ["left", "center", "right"], "description": "对齐方式，默认 left" }
+                            },
+                            "required": ["key", "label"]
+                        }
+                    },
+                    "rows": {
+                        "type": "array",
+                        "items": { "type": "object" },
+                        "description": "行数据数组"
+                    },
+                    "selectable": { "type": "boolean", "description": "是否允许用户选择行，默认 false" },
+                    "multi_select": { "type": "boolean", "description": "是否允许多选行，默认 false" },
+                    "max_height": { "type": "integer", "description": "表格最大高度 px，默认 400" }
+                },
+                "required": ["columns", "rows"]
+            }),
+        ),
+        tool(
+            "dialog_image",
+            "向用户展示图片预览弹窗，可附带输入框（如验证码输入）和自定义操作按钮",
+            json!({
+                "type": "object",
+                "properties": {
+                    "title": { "type": "string", "description": "弹窗标题（可选）" },
+                    "message": { "type": "string", "description": "图片说明（可选）" },
+                    "image": { "type": "string", "description": "base64 编码图片数据或本地文件路径" },
+                    "image_format": { "type": "string", "enum": ["png", "jpeg", "webp", "gif"], "description": "图片格式，默认 png" },
+                    "input_label": { "type": "string", "description": "如提供，显示文本输入框（如验证码输入）" },
+                    "input_placeholder": { "type": "string", "description": "输入框占位符" },
+                    "actions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "label": { "type": "string", "description": "按钮文字" },
+                                "value": { "type": "string", "description": "返回值" }
+                            },
+                            "required": ["label", "value"]
+                        },
+                        "description": "自定义操作按钮（可选）"
+                    }
+                },
+                "required": ["image"]
+            }),
+        ),
+        tool(
+            "dialog_countdown",
+            "向用户展示倒计时确认弹窗，用于危险操作前给用户反悔时间",
+            json!({
+                "type": "object",
+                "properties": {
+                    "title": { "type": "string", "description": "弹窗标题（可选）" },
+                    "message": { "type": "string", "description": "操作说明" },
+                    "seconds": { "type": "integer", "description": "倒计时秒数（3-60）" },
+                    "level": { "type": "string", "enum": ["info", "warning", "danger"], "description": "级别，默认 warning" },
+                    "action_label": { "type": "string", "description": "倒计时结束后的操作按钮文字，默认'继续执行'" },
+                    "auto_proceed": { "type": "boolean", "description": "倒计时结束后是否自动执行，默认 false" }
+                },
+                "required": ["message", "seconds"]
+            }),
+        ),
+        tool(
+            "dialog_toast",
+            "显示通知提示（toast），可附带操作按钮。无按钮时不阻塞，有按钮时等待用户操作",
+            json!({
+                "type": "object",
+                "properties": {
+                    "title": { "type": "string", "description": "通知标题（可选）" },
+                    "message": { "type": "string", "description": "通知内容" },
+                    "level": { "type": "string", "enum": ["info", "success", "warning", "error"], "description": "级别，默认 info" },
+                    "duration_ms": { "type": "integer", "description": "自动消失时间（ms），0=不自动消失，默认 5000" },
+                    "actions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "label": { "type": "string", "description": "按钮文字" },
+                                "value": { "type": "string", "description": "返回值" }
+                            },
+                            "required": ["label", "value"]
+                        },
+                        "description": "操作按钮列表（最多 2 个）"
+                    },
+                    "persistent": { "type": "boolean", "description": "是否持久显示直到用户操作，默认 false" }
+                },
+                "required": ["message"]
+            }),
+        ),
+        tool(
+            "dialog_markdown",
+            "向用户展示 Markdown 格式的富文本弹窗，支持表格、代码块等。适用于展示报告、分析结果",
+            json!({
+                "type": "object",
+                "properties": {
+                    "title": { "type": "string", "description": "弹窗标题（可选）" },
+                    "content": { "type": "string", "description": "Markdown 格式内容" },
+                    "max_height": { "type": "integer", "description": "内容区最大高度 px，默认 500" },
+                    "width": { "type": "string", "enum": ["sm", "md", "lg", "xl"], "description": "弹窗宽度，默认 md" },
+                    "actions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "label": { "type": "string", "description": "按钮文字" },
+                                "value": { "type": "string", "description": "返回值" },
+                                "variant": { "type": "string", "enum": ["default", "destructive", "outline"], "description": "按钮样式，默认 default" }
+                            },
+                            "required": ["label", "value"]
+                        },
+                        "description": "自定义按钮（可选，默认只有关闭）"
+                    },
+                    "copyable": { "type": "boolean", "description": "是否显示复制按钮，默认 false" }
+                },
+                "required": ["content"]
+            }),
+        ),
+    ]
+}
+
+fn captcha_tools() -> Vec<Value> {
+    vec![
+        tool(
+            "captcha_detect",
+            "检测当前页面上的 CAPTCHA 类型和参数（sitekey 等），返回 JSON 包含 type / sitekey / params",
+            json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        ),
+        tool(
+            "captcha_solve",
+            "求解指定类型的 CAPTCHA 并返回 token。需要先配置求解服务。",
+            json!({
+                "type": "object",
+                "properties": {
+                    "captcha_type": {
+                        "type": "string",
+                        "enum": ["recaptcha_v2", "recaptcha_v3", "hcaptcha", "turnstile", "geetest", "funcaptcha", "image", "auto"],
+                        "description": "CAPTCHA 类型，auto 自动检测"
+                    },
+                    "sitekey": { "type": "string", "description": "站点密钥（从 captcha_detect 获取）" },
+                    "page_action": { "type": "string", "description": "reCAPTCHA v3 action 参数" },
+                    "image_base64": { "type": "string", "description": "图片验证码的 base64 数据" }
+                },
+                "required": ["captcha_type"]
+            }),
+        ),
+        tool(
+            "captcha_inject_token",
+            "将求解得到的 token 注入到页面对应的 CAPTCHA 表单字段中",
+            json!({
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": ["recaptcha", "hcaptcha", "turnstile"],
+                        "description": "CAPTCHA 类型"
+                    },
+                    "token": { "type": "string", "description": "求解服务返回的 token" }
+                },
+                "required": ["type", "token"]
+            }),
+        ),
+        tool(
+            "captcha_solve_and_inject",
+            "一键求解并注入：自动检测页面 CAPTCHA → 求解 → 注入 token → 返回结果",
+            json!({
+                "type": "object",
+                "properties": {
+                    "auto_submit": {
+                        "type": "boolean",
+                        "description": "注入后是否自动提交表单（默认 false）"
+                    }
+                },
+                "required": []
+            }),
+        ),
+        tool(
+            "captcha_get_balance",
+            "查询当前 CAPTCHA 求解服务的账户余额",
+            json!({
+                "type": "object",
+                "properties": {},
+                "required": []
             }),
         ),
     ]

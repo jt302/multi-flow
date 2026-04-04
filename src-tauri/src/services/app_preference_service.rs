@@ -23,6 +23,9 @@ struct AppPreferencesFile {
     /// Chromium 日志开关，默认 true（启用 --enable-logging=stderr --v=1）
     #[serde(default = "default_true")]
     chromium_logging_enabled: bool,
+    /// CAPTCHA 求解服务配置列表
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    captcha_solver_configs: Vec<crate::services::captcha_service::CaptchaSolverConfig>,
 }
 
 fn default_true() -> bool {
@@ -36,6 +39,7 @@ impl Default for AppPreferencesFile {
             ai_provider: None,
             ai_configs: Vec::new(),
             chromium_logging_enabled: true,
+            captcha_solver_configs: Vec::new(),
         }
     }
 }
@@ -56,6 +60,9 @@ pub struct AiProviderConfig {
     /// 默认模型
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
+    /// Agent prompt 语言: "zh" | "en"，默认 "zh"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub locale: Option<String>,
 }
 
 /// Named AI config entry (multi-model management)
@@ -73,6 +80,8 @@ pub struct AiConfigEntry {
     pub api_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub locale: Option<String>,
 }
 
 pub struct AppPreferenceService {
@@ -139,6 +148,7 @@ impl AppPreferenceService {
                         base_url: legacy.base_url,
                         api_key: legacy.api_key,
                         model: legacy.model,
+                        locale: legacy.locale,
                     };
                     preferences.ai_configs.push(entry);
                     self.write_preferences_file(&preferences)?;
@@ -186,6 +196,53 @@ impl AppPreferenceService {
     pub fn find_ai_config_by_id(&self, id: &str) -> AppResult<Option<AiConfigEntry>> {
         let preferences = self.read_preferences_file()?;
         Ok(preferences.ai_configs.into_iter().find(|e| e.id == id))
+    }
+
+    // ── CAPTCHA solver config CRUD ───────────────────────────────────
+
+    pub fn list_captcha_configs(&self) -> AppResult<Vec<crate::services::captcha_service::CaptchaSolverConfig>> {
+        let prefs = self.read_preferences_file()?;
+        Ok(prefs.captcha_solver_configs)
+    }
+
+    pub fn get_default_captcha_config(&self) -> Result<Option<crate::services::captcha_service::CaptchaSolverConfig>, String> {
+        let prefs = self.read_preferences_file().map_err(|e| e.to_string())?;
+        Ok(prefs.captcha_solver_configs.iter().find(|c| c.is_default).cloned()
+            .or_else(|| prefs.captcha_solver_configs.into_iter().next()))
+    }
+
+    pub fn create_captcha_config(&self, mut entry: crate::services::captcha_service::CaptchaSolverConfig) -> AppResult<crate::services::captcha_service::CaptchaSolverConfig> {
+        let mut prefs = self.read_preferences_file()?;
+        entry.id = uuid::Uuid::new_v4().to_string();
+        if prefs.captcha_solver_configs.is_empty() {
+            entry.is_default = true;
+        }
+        prefs.captcha_solver_configs.push(entry.clone());
+        self.write_preferences_file(&prefs)?;
+        Ok(entry)
+    }
+
+    pub fn update_captcha_config(&self, entry: crate::services::captcha_service::CaptchaSolverConfig) -> AppResult<()> {
+        let mut prefs = self.read_preferences_file()?;
+        if let Some(existing) = prefs.captcha_solver_configs.iter_mut().find(|c| c.id == entry.id) {
+            existing.provider = entry.provider;
+            existing.api_key = entry.api_key;
+            existing.base_url = entry.base_url;
+            existing.is_default = entry.is_default;
+        } else {
+            return Err(AppError::Validation(format!("Captcha config not found: {}", entry.id)));
+        }
+        self.write_preferences_file(&prefs)
+    }
+
+    pub fn delete_captcha_config(&self, id: &str) -> AppResult<()> {
+        let mut prefs = self.read_preferences_file()?;
+        let before_len = prefs.captcha_solver_configs.len();
+        prefs.captcha_solver_configs.retain(|c| c.id != id);
+        if prefs.captcha_solver_configs.len() == before_len {
+            return Err(AppError::Validation(format!("Captcha config not found: {id}")));
+        }
+        self.write_preferences_file(&prefs)
     }
 
     // ── Chromium logging toggle ──────────────────────────────────────

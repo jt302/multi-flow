@@ -324,6 +324,7 @@ fn load_ai_config(
                 base_url: entry.base_url,
                 api_key: entry.api_key,
                 model: entry.model,
+                locale: entry.locale,
             }
         } else {
             svc.read_ai_provider_config().unwrap_or_default()
@@ -345,6 +346,9 @@ fn load_ai_config(
         }
         if script_cfg.model.is_some() {
             config.model = script_cfg.model.clone();
+        }
+        if script_cfg.locale.is_some() {
+            config.locale = script_cfg.locale.clone();
         }
     }
     if let Some(m) = model_override {
@@ -372,6 +376,7 @@ fn resolve_script_ai_config(
                 base_url: entry.base_url,
                 api_key: entry.api_key,
                 model: entry.model,
+                locale: entry.locale,
             });
         }
     }
@@ -804,6 +809,55 @@ pub fn delete_ai_config(state: State<'_, AppState>, id: String) -> Result<(), St
         .lock()
         .unwrap_or_else(|e| e.into_inner());
     svc.delete_ai_config(&id).map_err(|e| e.to_string())
+}
+
+// ── CAPTCHA config CRUD ───────────────────────────────────────────────
+
+#[tauri::command]
+pub fn list_captcha_configs(
+    state: State<'_, AppState>,
+) -> Result<Vec<crate::services::captcha_service::CaptchaSolverConfig>, String> {
+    let svc = state
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    svc.list_captcha_configs().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_captcha_config(
+    state: State<'_, AppState>,
+    entry: crate::services::captcha_service::CaptchaSolverConfig,
+) -> Result<crate::services::captcha_service::CaptchaSolverConfig, String> {
+    let svc = state
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    svc.create_captcha_config(entry).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_captcha_config(
+    state: State<'_, AppState>,
+    entry: crate::services::captcha_service::CaptchaSolverConfig,
+) -> Result<(), String> {
+    let svc = state
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    svc.update_captcha_config(entry).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_captcha_config(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
+    let svc = state
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    svc.delete_captcha_config(&id).map_err(|e| e.to_string())
 }
 
 // ── Chromium logging toggle ───────────────────────────────────────────────
@@ -1796,19 +1850,11 @@ pub async fn execute_step(
             }
             let _ = app.emit(
                 "automation_human_required",
-                AutomationHumanRequiredEvent {
-                    run_id: run_id.to_string(),
-                    dialog_type: "wait_for_user".to_string(),
-                    message: message.clone(),
-                    input_label: input_label.clone(),
-                    timeout_ms: *timeout_ms,
-                    step_path: vec![step_index],
-                    title: None,
-                    confirm_text: None,
-                    cancel_text: None,
-                    options: None,
-                    multi_select: None,
-                    buttons: None,
+                {
+                    let mut evt = human_event_base(run_id, "wait_for_user", message.clone(), step_index);
+                    evt.input_label = input_label.clone();
+                    evt.timeout_ms = *timeout_ms;
+                    evt
                 },
             );
             let user_input = if let Some(ms) = timeout_ms {
@@ -1884,11 +1930,13 @@ pub async fn execute_step(
             let mut messages: Vec<ChatMessage> = Vec::new();
 
             // 系统提示词：基础上下文 + 用户自定义（可选）+ JSON 格式要求（可选）
+            let locale = config.locale.as_deref().unwrap_or("zh");
             let effective_system_prompt = crate::services::ai_prompts::build_agent_system_prompt(
                 sys_prompt.as_deref(),
                 is_json,
                 output_key_map,
                 tool_categories,
+                locale,
             );
             messages.push(ChatMessage::system(&effective_system_prompt));
 
@@ -2250,10 +2298,11 @@ pub async fn execute_step(
             let ai = AiService::new(http_client.clone());
 
             let is_boolean = output_mode == "boolean";
+            let locale = config.locale.as_deref().unwrap_or("zh");
             let system_prompt = if is_boolean {
-                crate::services::ai_prompts::judge_boolean_prompt(tool_categories)
+                crate::services::ai_prompts::judge_boolean_prompt(tool_categories, locale)
             } else {
-                crate::services::ai_prompts::judge_percentage_prompt(tool_categories)
+                crate::services::ai_prompts::judge_percentage_prompt(tool_categories, locale)
             };
 
             // 自动注入当前页面截图
@@ -3764,19 +3813,14 @@ pub async fn execute_step(
             }
             let _ = app.emit(
                 "automation_human_required",
-                AutomationHumanRequiredEvent {
-                    run_id: run_id.to_string(),
-                    dialog_type: "confirm".to_string(),
-                    message: message.clone(),
-                    input_label: None,
-                    timeout_ms: *timeout_ms,
-                    step_path: vec![step_index],
-                    title: Some(title.clone()),
-                    confirm_text: confirm_text.clone(),
-                    cancel_text: cancel_text.clone(),
-                    options: None,
-                    multi_select: None,
-                    buttons: buttons.clone(),
+                {
+                    let mut evt = human_event_base(run_id, "confirm", message.clone(), step_index);
+                    evt.timeout_ms = *timeout_ms;
+                    evt.title = Some(title.clone());
+                    evt.confirm_text = confirm_text.clone();
+                    evt.cancel_text = cancel_text.clone();
+                    evt.buttons = buttons.clone();
+                    evt
                 },
             );
             let default_timeout_value = if let Some(ref otv) = on_timeout_value {
@@ -3853,19 +3897,13 @@ pub async fn execute_step(
             }
             let _ = app.emit(
                 "automation_human_required",
-                AutomationHumanRequiredEvent {
-                    run_id: run_id.to_string(),
-                    dialog_type: "select".to_string(),
-                    message: message_str.clone().unwrap_or_default(),
-                    input_label: None,
-                    timeout_ms: *timeout_ms,
-                    step_path: vec![step_index],
-                    title: Some(title.clone()),
-                    confirm_text: None,
-                    cancel_text: None,
-                    options: Some(options),
-                    multi_select: Some(*multi_select),
-                    buttons: None,
+                {
+                    let mut evt = human_event_base(run_id, "select", message_str.clone().unwrap_or_default(), step_index);
+                    evt.timeout_ms = *timeout_ms;
+                    evt.title = Some(title.clone());
+                    evt.options = Some(options);
+                    evt.multi_select = Some(*multi_select);
+                    evt
                 },
             );
             let user_input = if let Some(ms) = timeout_ms {
@@ -3921,6 +3959,220 @@ pub async fn execute_step(
                 },
             );
             Ok((None, HashMap::new()))
+        }
+
+        // ── 新增弹窗步骤 ──────────────────────────────────────────────────────
+
+        ScriptStep::FormDialog {
+            title, message, fields, submit_label, output_key, timeout_ms, on_timeout,
+        } => {
+            let title = vars.interpolate(title);
+            let message_str = message.as_ref().map(|m| vars.interpolate(m));
+            let (tx, rx) = tokio::sync::oneshot::channel::<Option<String>>();
+            {
+                let app_state = app.state::<AppState>();
+                app_state.active_run_channels.lock().unwrap_or_else(|e| e.into_inner())
+                    .insert(run_id.to_string(), tx);
+            }
+            let _ = app.emit("automation_human_required", {
+                let mut evt = human_event_base(run_id, "form", message_str.unwrap_or_default(), step_index);
+                evt.title = Some(title);
+                evt.timeout_ms = *timeout_ms;
+                evt.fields = Some(fields.clone());
+                evt.submit_label = submit_label.clone();
+                evt
+            });
+            let default_timeout_value = match on_timeout {
+                ConfirmDialogTimeout::Confirm => Some("{}".to_string()),
+                ConfirmDialogTimeout::Cancel => None,
+            };
+            let user_input = if let Some(ms) = timeout_ms {
+                match tokio::time::timeout(Duration::from_millis(*ms), rx).await {
+                    Ok(Ok(input)) => input,
+                    Ok(Err(_)) => None,
+                    Err(_) => {
+                        app.state::<AppState>().active_run_channels.lock().unwrap_or_else(|e| e.into_inner()).remove(run_id);
+                        default_timeout_value
+                    }
+                }
+            } else {
+                rx.await.ok().flatten()
+            };
+            emit_human_dismissed(app, run_id);
+            if user_input.is_none() && is_cancelled(app, run_id) {
+                return Err("cancelled".to_string());
+            }
+            let result = user_input.unwrap_or_else(|| "{}".to_string());
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), result.clone());
+            }
+            Ok((Some(result), vs))
+        }
+
+        ScriptStep::TableDialog {
+            title, message, columns, rows, selectable, multi_select, max_height, output_key, timeout_ms,
+        } => {
+            let title = vars.interpolate(title);
+            let message_str = message.as_ref().map(|m| vars.interpolate(m));
+            let (tx, rx) = tokio::sync::oneshot::channel::<Option<String>>();
+            {
+                let app_state = app.state::<AppState>();
+                app_state.active_run_channels.lock().unwrap_or_else(|e| e.into_inner())
+                    .insert(run_id.to_string(), tx);
+            }
+            let _ = app.emit("automation_human_required", {
+                let mut evt = human_event_base(run_id, "table", message_str.unwrap_or_default(), step_index);
+                evt.title = Some(title);
+                evt.timeout_ms = *timeout_ms;
+                evt.columns = Some(columns.clone());
+                evt.rows = Some(rows.clone());
+                evt.selectable = Some(*selectable);
+                evt.multi_select = Some(*multi_select);
+                evt.max_height = *max_height;
+                evt
+            });
+            let user_input = if let Some(ms) = timeout_ms {
+                match tokio::time::timeout(Duration::from_millis(*ms), rx).await {
+                    Ok(Ok(input)) => input,
+                    Ok(Err(_)) => None,
+                    Err(_) => {
+                        app.state::<AppState>().active_run_channels.lock().unwrap_or_else(|e| e.into_inner()).remove(run_id);
+                        None
+                    }
+                }
+            } else {
+                rx.await.ok().flatten()
+            };
+            emit_human_dismissed(app, run_id);
+            if user_input.is_none() && is_cancelled(app, run_id) {
+                return Err("cancelled".to_string());
+            }
+            let result = user_input.unwrap_or_else(|| "[]".to_string());
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), result.clone());
+            }
+            Ok((Some(result), vs))
+        }
+
+        ScriptStep::ImageDialog {
+            title, message, image, image_format, input_label, input_placeholder, output_key, timeout_ms,
+        } => {
+            let message_str = message.as_ref().map(|m| vars.interpolate(m)).unwrap_or_default();
+            let image_data = vars.interpolate(image);
+            let (tx, rx) = tokio::sync::oneshot::channel::<Option<String>>();
+            {
+                let app_state = app.state::<AppState>();
+                app_state.active_run_channels.lock().unwrap_or_else(|e| e.into_inner())
+                    .insert(run_id.to_string(), tx);
+            }
+            let _ = app.emit("automation_human_required", {
+                let mut evt = human_event_base(run_id, "image", message_str, step_index);
+                evt.title = title.clone();
+                evt.timeout_ms = *timeout_ms;
+                evt.image = Some(image_data);
+                evt.image_format = Some(image_format.clone());
+                evt.input_label = input_label.clone();
+                evt.input_placeholder = input_placeholder.clone();
+                evt
+            });
+            let user_input = if let Some(ms) = timeout_ms {
+                match tokio::time::timeout(Duration::from_millis(*ms), rx).await {
+                    Ok(Ok(input)) => input,
+                    Ok(Err(_)) => None,
+                    Err(_) => {
+                        app.state::<AppState>().active_run_channels.lock().unwrap_or_else(|e| e.into_inner()).remove(run_id);
+                        None
+                    }
+                }
+            } else {
+                rx.await.ok().flatten()
+            };
+            emit_human_dismissed(app, run_id);
+            if user_input.is_none() && is_cancelled(app, run_id) {
+                return Err("cancelled".to_string());
+            }
+            let result = user_input.unwrap_or_default();
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), result.clone());
+            }
+            Ok((Some(result), vs))
+        }
+
+        ScriptStep::CountdownDialog {
+            title, message, seconds, level, action_label, auto_proceed, output_key,
+        } => {
+            let message = vars.interpolate(message);
+            let (tx, rx) = tokio::sync::oneshot::channel::<Option<String>>();
+            {
+                let app_state = app.state::<AppState>();
+                app_state.active_run_channels.lock().unwrap_or_else(|e| e.into_inner())
+                    .insert(run_id.to_string(), tx);
+            }
+            let _ = app.emit("automation_human_required", {
+                let mut evt = human_event_base(run_id, "countdown", message.clone(), step_index);
+                evt.title = title.clone();
+                evt.seconds = Some(*seconds);
+                evt.level = Some(level.clone());
+                evt.action_label = action_label.clone();
+                evt.auto_proceed = Some(*auto_proceed);
+                evt
+            });
+            // 等待前端响应（倒计时结束或用户取消）
+            let timeout_secs = (*seconds as u64) + 5; // 额外 5 秒缓冲
+            let user_input = match tokio::time::timeout(Duration::from_secs(timeout_secs), rx).await {
+                Ok(Ok(input)) => input,
+                Ok(Err(_)) => None,
+                Err(_) => {
+                    app.state::<AppState>().active_run_channels.lock().unwrap_or_else(|e| e.into_inner()).remove(run_id);
+                    if *auto_proceed { Some("true".to_string()) } else { None }
+                }
+            };
+            emit_human_dismissed(app, run_id);
+            if user_input.is_none() && is_cancelled(app, run_id) {
+                return Err("cancelled".to_string());
+            }
+            let result = user_input.unwrap_or_else(|| "false".to_string());
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), result.clone());
+            }
+            Ok((Some(result), vs))
+        }
+
+        ScriptStep::MarkdownDialog {
+            title, content, max_height, width, actions, copyable, output_key,
+        } => {
+            let content = vars.interpolate(content);
+            let (tx, rx) = tokio::sync::oneshot::channel::<Option<String>>();
+            {
+                let app_state = app.state::<AppState>();
+                app_state.active_run_channels.lock().unwrap_or_else(|e| e.into_inner())
+                    .insert(run_id.to_string(), tx);
+            }
+            let _ = app.emit("automation_human_required", {
+                let mut evt = human_event_base(run_id, "markdown", String::new(), step_index);
+                evt.title = title.clone();
+                evt.content = Some(content);
+                evt.max_height = *max_height;
+                evt.width = width.clone();
+                evt.buttons = actions.clone();
+                evt.copyable = Some(*copyable);
+                evt
+            });
+            let user_input = rx.await.ok().flatten();
+            emit_human_dismissed(app, run_id);
+            if user_input.is_none() && is_cancelled(app, run_id) {
+                return Err("cancelled".to_string());
+            }
+            let result = user_input.unwrap_or_else(|| "close".to_string());
+            let mut vs = HashMap::new();
+            if let Some(k) = output_key {
+                vs.insert(k.clone(), result.clone());
+            }
+            Ok((Some(result), vs))
         }
 
         ScriptStep::CdpHandleDialog {
@@ -4038,6 +4290,727 @@ pub async fn execute_step(
                 vs.insert(k.clone(), output.clone().unwrap_or_default());
             }
             Ok((output, vs))
+        }
+
+        // ── CDP Cookie & 存储 ──────────────────────────────────────────────
+        ScriptStep::CdpGetCookies { urls, output_key } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let mut params = json!({});
+            if let Some(u) = urls {
+                let interpolated: Vec<String> = u.iter().map(|s| vars.interpolate(s)).collect();
+                params["urls"] = json!(interpolated);
+            }
+            let result = cdp.call("Network.getCookies", params).await?;
+            let cookies = result.get("cookies").unwrap_or(&json!([])).to_string();
+            Ok((Some(cookies.clone()), opt_key(output_key, cookies)))
+        }
+
+        ScriptStep::CdpSetCookie { name, value, domain, path, expires, http_only, secure } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let mut params = json!({
+                "name": vars.interpolate(name),
+                "value": vars.interpolate(value),
+            });
+            if let Some(d) = domain { params["domain"] = json!(vars.interpolate(d)); }
+            if let Some(p) = path { params["path"] = json!(vars.interpolate(p)); }
+            if let Some(e) = expires { params["expires"] = json!(e); }
+            if let Some(h) = http_only { params["httpOnly"] = json!(h); }
+            if let Some(s) = secure { params["secure"] = json!(s); }
+            cdp.call("Network.setCookie", params).await?;
+            Ok((Some("ok".to_string()), HashMap::new()))
+        }
+
+        ScriptStep::CdpDeleteCookies { name, domain, path } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let mut params = json!({ "name": vars.interpolate(name) });
+            if let Some(d) = domain { params["domain"] = json!(vars.interpolate(d)); }
+            if let Some(p) = path { params["path"] = json!(vars.interpolate(p)); }
+            cdp.call("Network.deleteCookies", params).await?;
+            Ok((Some("ok".to_string()), HashMap::new()))
+        }
+
+        ScriptStep::CdpGetLocalStorage { key, output_key } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let expr = match key {
+                Some(k) => format!("localStorage.getItem({})", serde_json::to_string(&vars.interpolate(k)).unwrap_or_default()),
+                None => "JSON.stringify(localStorage)".to_string(),
+            };
+            let result = cdp.call("Runtime.evaluate", json!({ "expression": expr, "returnByValue": true })).await?;
+            let val = result.pointer("/result/value").map(|v| {
+                if v.is_string() { v.as_str().unwrap_or("").to_string() } else { v.to_string() }
+            }).unwrap_or_default();
+            Ok((Some(val.clone()), opt_key(output_key, val)))
+        }
+
+        ScriptStep::CdpSetLocalStorage { key, value } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let k = serde_json::to_string(&vars.interpolate(key)).unwrap_or_default();
+            let v = serde_json::to_string(&vars.interpolate(value)).unwrap_or_default();
+            let expr = format!("localStorage.setItem({k}, {v})");
+            cdp.call("Runtime.evaluate", json!({ "expression": expr })).await?;
+            Ok((Some("ok".to_string()), HashMap::new()))
+        }
+
+        ScriptStep::CdpGetSessionStorage { key, output_key } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let expr = match key {
+                Some(k) => format!("sessionStorage.getItem({})", serde_json::to_string(&vars.interpolate(k)).unwrap_or_default()),
+                None => "JSON.stringify(sessionStorage)".to_string(),
+            };
+            let result = cdp.call("Runtime.evaluate", json!({ "expression": expr, "returnByValue": true })).await?;
+            let val = result.pointer("/result/value").map(|v| {
+                if v.is_string() { v.as_str().unwrap_or("").to_string() } else { v.to_string() }
+            }).unwrap_or_default();
+            Ok((Some(val.clone()), opt_key(output_key, val)))
+        }
+
+        ScriptStep::CdpClearStorage { origin, storage_types } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let origin_val = origin.as_ref().map(|o| vars.interpolate(o)).unwrap_or_default();
+            let types = storage_types.as_deref().unwrap_or("all");
+            // 如果 origin 为空则通过 JS 获取
+            let actual_origin = if origin_val.is_empty() {
+                let r = cdp.call("Runtime.evaluate", json!({ "expression": "location.origin", "returnByValue": true })).await?;
+                r.pointer("/result/value").and_then(|v| v.as_str()).unwrap_or("").to_string()
+            } else {
+                origin_val
+            };
+            cdp.call("Storage.clearDataForOrigin", json!({
+                "origin": actual_origin,
+                "storageTypes": types,
+            })).await?;
+            Ok((Some("ok".to_string()), HashMap::new()))
+        }
+
+        // ── CDP 页面信息 & 导航 ────────────────────────────────────────────
+        ScriptStep::CdpGetCurrentUrl { output_key } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let result = cdp.call("Runtime.evaluate", json!({ "expression": "location.href", "returnByValue": true })).await?;
+            let url = result.pointer("/result/value").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            Ok((Some(url.clone()), opt_key(output_key, url)))
+        }
+
+        ScriptStep::CdpGetPageSource { selector, selector_type, output_key } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let expr = match selector {
+                Some(sel) => {
+                    let sel_interp = vars.interpolate(sel);
+                    let st = selector_type.as_deref().unwrap_or("css");
+                    match st {
+                        "xpath" => format!(
+                            "(function(){{ var r=document.evaluate({}, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue; return r?r.outerHTML:''; }})()",
+                            serde_json::to_string(&sel_interp).unwrap_or_default()
+                        ),
+                        "text" => format!(
+                            "(function(){{ var els=document.querySelectorAll('*'); for(var i=0;i<els.length;i++){{ if(els[i].textContent.trim().includes({}))return els[i].outerHTML; }} return ''; }})()",
+                            serde_json::to_string(&sel_interp).unwrap_or_default()
+                        ),
+                        _ => format!(
+                            "(function(){{ var el=document.querySelector({}); return el?el.outerHTML:''; }})()",
+                            serde_json::to_string(&sel_interp).unwrap_or_default()
+                        ),
+                    }
+                }
+                None => "document.documentElement.outerHTML".to_string(),
+            };
+            let result = cdp.call("Runtime.evaluate", json!({ "expression": expr, "returnByValue": true })).await?;
+            let html = result.pointer("/result/value").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            // 大页面截断到 100KB
+            let truncated = if html.len() > 102400 {
+                format!("{}...(truncated, total {} bytes)", &html[..102400], html.len())
+            } else {
+                html
+            };
+            Ok((Some(truncated.clone()), opt_key(output_key, truncated)))
+        }
+
+        ScriptStep::CdpWaitForNavigation { timeout_ms } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let timeout = timeout_ms.unwrap_or(30000);
+            let start = std::time::Instant::now();
+            loop {
+                let result = cdp.call("Runtime.evaluate", json!({
+                    "expression": "document.readyState",
+                    "returnByValue": true
+                })).await?;
+                let state = result.pointer("/result/value").and_then(|v| v.as_str()).unwrap_or("");
+                if state == "complete" {
+                    let url_result = cdp.call("Runtime.evaluate", json!({
+                        "expression": "location.href",
+                        "returnByValue": true
+                    })).await?;
+                    let url = url_result.pointer("/result/value").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    return Ok((Some(url), HashMap::new()));
+                }
+                if start.elapsed().as_millis() as u64 >= timeout {
+                    return Err(format!("Navigation timeout after {timeout}ms"));
+                }
+                tokio::time::sleep(Duration::from_millis(200)).await;
+            }
+        }
+
+        // ── CDP 设备模拟 ───────────────────────────────────────────────────
+        ScriptStep::CdpEmulateDevice { width, height, device_scale_factor, mobile, user_agent } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let metrics = json!({
+                "width": width,
+                "height": height,
+                "deviceScaleFactor": device_scale_factor.unwrap_or(1.0),
+                "mobile": mobile,
+            });
+            cdp.call("Emulation.setDeviceMetricsOverride", metrics).await?;
+            if let Some(ua) = user_agent {
+                cdp.call("Emulation.setUserAgentOverride", json!({ "userAgent": vars.interpolate(ua) })).await?;
+            }
+            Ok((Some("ok".to_string()), HashMap::new()))
+        }
+
+        ScriptStep::CdpSetGeolocation { latitude, longitude, accuracy } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            cdp.call("Emulation.setGeolocationOverride", json!({
+                "latitude": latitude,
+                "longitude": longitude,
+                "accuracy": accuracy.unwrap_or(1.0),
+            })).await?;
+            Ok((Some("ok".to_string()), HashMap::new()))
+        }
+
+        ScriptStep::CdpSetUserAgent { user_agent, platform } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let mut params = json!({ "userAgent": vars.interpolate(user_agent) });
+            if let Some(p) = platform { params["platform"] = json!(vars.interpolate(p)); }
+            cdp.call("Emulation.setUserAgentOverride", params).await?;
+            Ok((Some("ok".to_string()), HashMap::new()))
+        }
+
+        // ── CDP 元素操作 & 输入 ────────────────────────────────────────────
+        ScriptStep::CdpGetElementBox { selector, selector_type, output_key } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let sel = vars.interpolate(selector);
+            let st = selector_type.as_deref().unwrap_or("css");
+            let find_expr = match st {
+                "xpath" => format!(
+                    "document.evaluate({}, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue",
+                    serde_json::to_string(&sel).unwrap_or_default()
+                ),
+                "text" => format!(
+                    "(function(){{ var els=document.querySelectorAll('*'); for(var i=0;i<els.length;i++){{ if(els[i].textContent.trim().includes({}))return els[i]; }} return null; }})()",
+                    serde_json::to_string(&sel).unwrap_or_default()
+                ),
+                _ => format!(
+                    "document.querySelector({})",
+                    serde_json::to_string(&sel).unwrap_or_default()
+                ),
+            };
+            let expr = format!(
+                "(function(){{ var el={find_expr}; if(!el)return null; var r=el.getBoundingClientRect(); return JSON.stringify({{x:r.x,y:r.y,width:r.width,height:r.height}}); }})()"
+            );
+            let result = cdp.call("Runtime.evaluate", json!({ "expression": expr, "returnByValue": true })).await?;
+            let val = result.pointer("/result/value").map(|v| {
+                if v.is_string() { v.as_str().unwrap_or("null").to_string() } else { v.to_string() }
+            }).unwrap_or_else(|| "null".to_string());
+            Ok((Some(val.clone()), opt_key(output_key, val)))
+        }
+
+        ScriptStep::CdpHighlightElement { selector, selector_type, color, duration_ms } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let sel = vars.interpolate(selector);
+            let col = color.as_deref().unwrap_or("red");
+            let dur = duration_ms.unwrap_or(3000);
+            let st = selector_type.as_deref().unwrap_or("css");
+            let find_expr = match st {
+                "xpath" => format!(
+                    "document.evaluate({}, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue",
+                    serde_json::to_string(&sel).unwrap_or_default()
+                ),
+                _ => format!(
+                    "document.querySelector({})",
+                    serde_json::to_string(&sel).unwrap_or_default()
+                ),
+            };
+            let expr = format!(
+                "(function(){{ var el={find_expr}; if(!el)return 'element not found'; var orig=el.style.outline; el.style.outline='3px solid {col}'; setTimeout(function(){{ el.style.outline=orig; }}, {dur}); return 'ok'; }})()"
+            );
+            cdp.call("Runtime.evaluate", json!({ "expression": expr })).await?;
+            Ok((Some("ok".to_string()), HashMap::new()))
+        }
+
+        ScriptStep::CdpMouseMove { x, y } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            cdp.call("Input.dispatchMouseEvent", json!({
+                "type": "mouseMoved",
+                "x": x,
+                "y": y,
+            })).await?;
+            Ok((Some("ok".to_string()), HashMap::new()))
+        }
+
+        ScriptStep::CdpDragAndDrop { from_selector, to_selector, from_x, from_y, to_x, to_y, selector_type } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let st = selector_type.as_deref().unwrap_or("css");
+
+            // 解析起始坐标
+            let (sx, sy) = if let (Some(fx), Some(fy)) = (from_x, from_y) {
+                (*fx, *fy)
+            } else if let Some(sel) = from_selector {
+                let sel_v = vars.interpolate(sel);
+                let find = match st {
+                    "xpath" => format!("document.evaluate({}, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue", serde_json::to_string(&sel_v).unwrap_or_default()),
+                    _ => format!("document.querySelector({})", serde_json::to_string(&sel_v).unwrap_or_default()),
+                };
+                let expr = format!("(function(){{ var el={find}; if(!el)return null; var r=el.getBoundingClientRect(); return JSON.stringify({{x:r.x+r.width/2, y:r.y+r.height/2}}); }})()");
+                let res = cdp.call("Runtime.evaluate", json!({ "expression": expr, "returnByValue": true })).await?;
+                let coords_str = res.pointer("/result/value").and_then(|v| v.as_str()).unwrap_or("null");
+                let coords: serde_json::Value = serde_json::from_str(coords_str).unwrap_or(json!(null));
+                (coords["x"].as_f64().ok_or("from element not found".to_string())?, coords["y"].as_f64().ok_or("from element not found".to_string())?)
+            } else {
+                return Err("drag_and_drop: must specify from_selector or from_x/from_y".to_string());
+            };
+
+            // 解析目标坐标
+            let (tx, ty) = if let (Some(fx), Some(fy)) = (to_x, to_y) {
+                (*fx, *fy)
+            } else if let Some(sel) = to_selector {
+                let sel_v = vars.interpolate(sel);
+                let find = match st {
+                    "xpath" => format!("document.evaluate({}, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue", serde_json::to_string(&sel_v).unwrap_or_default()),
+                    _ => format!("document.querySelector({})", serde_json::to_string(&sel_v).unwrap_or_default()),
+                };
+                let expr = format!("(function(){{ var el={find}; if(!el)return null; var r=el.getBoundingClientRect(); return JSON.stringify({{x:r.x+r.width/2, y:r.y+r.height/2}}); }})()");
+                let res = cdp.call("Runtime.evaluate", json!({ "expression": expr, "returnByValue": true })).await?;
+                let coords_str = res.pointer("/result/value").and_then(|v| v.as_str()).unwrap_or("null");
+                let coords: serde_json::Value = serde_json::from_str(coords_str).unwrap_or(json!(null));
+                (coords["x"].as_f64().ok_or("to element not found".to_string())?, coords["y"].as_f64().ok_or("to element not found".to_string())?)
+            } else {
+                return Err("drag_and_drop: must specify to_selector or to_x/to_y".to_string());
+            };
+
+            // 执行拖拽序列
+            cdp.call("Input.dispatchMouseEvent", json!({ "type": "mouseMoved", "x": sx, "y": sy })).await?;
+            cdp.call("Input.dispatchMouseEvent", json!({ "type": "mousePressed", "x": sx, "y": sy, "button": "left", "clickCount": 1 })).await?;
+            let steps_count = 5;
+            for i in 1..=steps_count {
+                let ratio = i as f64 / steps_count as f64;
+                let mx = sx + (tx - sx) * ratio;
+                let my = sy + (ty - sy) * ratio;
+                cdp.call("Input.dispatchMouseEvent", json!({ "type": "mouseMoved", "x": mx, "y": my })).await?;
+            }
+            cdp.call("Input.dispatchMouseEvent", json!({ "type": "mouseReleased", "x": tx, "y": ty, "button": "left", "clickCount": 1 })).await?;
+            Ok((Some("ok".to_string()), HashMap::new()))
+        }
+
+        ScriptStep::CdpSelectOption { selector, value, index, selector_type, output_key } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let sel = vars.interpolate(selector);
+            let sel_str = serde_json::to_string(&sel).unwrap_or_default();
+            let st = selector_type.as_deref().unwrap_or("css");
+            let find = match st {
+                "xpath" => format!("document.evaluate({sel_str}, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue"),
+                _ => format!("document.querySelector({sel_str})"),
+            };
+            let set_expr = if let Some(v) = value {
+                let v_str = serde_json::to_string(&vars.interpolate(v)).unwrap_or_default();
+                format!("(function(){{ var el={find}; if(!el)return 'element not found'; el.value={v_str}; el.dispatchEvent(new Event('change',{{bubbles:true}})); return el.value; }})()")
+            } else if let Some(idx) = index {
+                format!("(function(){{ var el={find}; if(!el)return 'element not found'; el.selectedIndex={idx}; el.dispatchEvent(new Event('change',{{bubbles:true}})); return el.value; }})()")
+            } else {
+                return Err("select_option: must specify value or index".to_string());
+            };
+            let result = cdp.call("Runtime.evaluate", json!({ "expression": set_expr, "returnByValue": true })).await?;
+            let val = result.pointer("/result/value").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            Ok((Some(val.clone()), opt_key(output_key, val)))
+        }
+
+        ScriptStep::CdpCheckCheckbox { selector, checked, selector_type } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let sel = vars.interpolate(selector);
+            let sel_str = serde_json::to_string(&sel).unwrap_or_default();
+            let st = selector_type.as_deref().unwrap_or("css");
+            let find = match st {
+                "xpath" => format!("document.evaluate({sel_str}, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue"),
+                _ => format!("document.querySelector({sel_str})"),
+            };
+            let expr = format!(
+                "(function(){{ var el={find}; if(!el)return 'element not found'; el.checked={checked}; el.dispatchEvent(new Event('change',{{bubbles:true}})); el.dispatchEvent(new Event('input',{{bubbles:true}})); return String(el.checked); }})()"
+            );
+            let result = cdp.call("Runtime.evaluate", json!({ "expression": expr, "returnByValue": true })).await?;
+            let val = result.pointer("/result/value").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            Ok((Some(val), HashMap::new()))
+        }
+
+        // ── CDP 网络 & 导出 ────────────────────────────────────────────────
+        ScriptStep::CdpBlockUrls { patterns } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let interpolated: Vec<String> = patterns.iter().map(|p| vars.interpolate(p)).collect();
+            cdp.call("Network.enable", json!({})).await?;
+            cdp.call("Network.setBlockedURLs", json!({ "urls": interpolated })).await?;
+            Ok((Some("ok".to_string()), HashMap::new()))
+        }
+
+        ScriptStep::CdpPdf { path, landscape, scale, paper_width, paper_height, output_key } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let mut params = json!({ "landscape": landscape });
+            if let Some(s) = scale { params["scale"] = json!(s); }
+            if let Some(w) = paper_width { params["paperWidth"] = json!(w); }
+            if let Some(h) = paper_height { params["paperHeight"] = json!(h); }
+            let result = cdp.call("Page.printToPDF", params).await?;
+            let data_b64 = result.get("data").and_then(|v| v.as_str()).unwrap_or("");
+            let output = if let Some(p) = path {
+                let p = vars.interpolate(p);
+                let bytes = base64_decode(data_b64)?;
+                std::fs::write(&p, bytes).map_err(|e| format!("Write PDF failed: {e}"))?;
+                p
+            } else {
+                data_b64.to_string()
+            };
+            Ok((Some(output.clone()), opt_key(output_key, output)))
+        }
+
+        ScriptStep::CdpInterceptRequest { url_pattern, action, headers, body, status } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let pattern = vars.interpolate(url_pattern);
+            let action_val = action.as_str();
+            match action_val {
+                "block" => {
+                    cdp.call("Network.enable", json!({})).await?;
+                    cdp.call("Network.setBlockedURLs", json!({ "urls": [pattern] })).await?;
+                    Ok((Some("ok: blocking enabled".to_string()), HashMap::new()))
+                }
+                "mock" | "modify" => {
+                    cdp.call("Fetch.enable", json!({
+                        "patterns": [{ "urlPattern": pattern, "requestStage": "Request" }]
+                    })).await?;
+                    Ok((Some(format!("ok: {action_val} interception enabled for {pattern}")), HashMap::new()))
+                }
+                _ => Err(format!("Unknown intercept action: {action_val}")),
+            }
+        }
+
+        // ── CDP 事件缓冲 ──────────────────────────────────────────────────
+        ScriptStep::CdpGetConsoleLogs { limit, level, output_key } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let lim = limit.unwrap_or(50);
+            let level_filter = level.as_deref().unwrap_or("");
+            let expr = format!(r#"(function(){{
+                if(!window.__mf_console_logs){{
+                    window.__mf_console_logs=[];
+                    ['log','warn','error','info'].forEach(function(m){{
+                        var orig=console[m];
+                        console[m]=function(){{
+                            window.__mf_console_logs.push({{level:m,text:Array.from(arguments).map(String).join(' '),timestamp:Date.now()}});
+                            if(window.__mf_console_logs.length>200)window.__mf_console_logs.shift();
+                            orig.apply(console,arguments);
+                        }};
+                    }});
+                }}
+                var logs=window.__mf_console_logs;
+                var filtered='{level_filter}'?logs.filter(function(l){{return l.level==='{level_filter}'}}):logs;
+                return JSON.stringify(filtered.slice(-{lim}));
+            }})()"#);
+            let result = cdp.call("Runtime.evaluate", json!({ "expression": expr, "returnByValue": true })).await?;
+            let val = result.pointer("/result/value").and_then(|v| v.as_str()).unwrap_or("[]").to_string();
+            Ok((Some(val.clone()), opt_key(output_key, val)))
+        }
+
+        ScriptStep::CdpGetNetworkRequests { limit, url_pattern, output_key } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let lim = limit.unwrap_or(20);
+            let filt = url_pattern.as_deref().unwrap_or("");
+            let filt_js = serde_json::to_string(filt).unwrap_or_else(|_| "\"\"".to_string());
+            let expr = format!(r#"(function(){{
+                if(!window.__mf_network_requests){{
+                    window.__mf_network_requests=[];
+                    var origFetch=window.fetch;
+                    window.fetch=function(){{
+                        var url=arguments[0];
+                        if(typeof url==='object')url=url.url||'';
+                        var method=(arguments[1]&&arguments[1].method)||'GET';
+                        var entry={{url:String(url),method:method,timestamp:Date.now(),type:'fetch'}};
+                        window.__mf_network_requests.push(entry);
+                        if(window.__mf_network_requests.length>100)window.__mf_network_requests.shift();
+                        return origFetch.apply(this,arguments).then(function(r){{entry.status=r.status;entry.mimeType=r.headers.get('content-type')||'';return r;}});
+                    }};
+                    var origXHR=XMLHttpRequest.prototype.open;
+                    XMLHttpRequest.prototype.open=function(m,u){{
+                        this.__mf_entry={{url:String(u),method:m,timestamp:Date.now(),type:'xhr'}};
+                        window.__mf_network_requests.push(this.__mf_entry);
+                        if(window.__mf_network_requests.length>100)window.__mf_network_requests.shift();
+                        this.addEventListener('load',function(){{this.__mf_entry.status=this.status;}});
+                        origXHR.apply(this,arguments);
+                    }};
+                }}
+                var reqs=window.__mf_network_requests;
+                var filt={filt_js};
+                var filtered=filt?reqs.filter(function(r){{return r.url.includes(filt)}}):reqs;
+                return JSON.stringify(filtered.slice(-{lim}));
+            }})()"#);
+            let result = cdp.call("Runtime.evaluate", json!({ "expression": expr, "returnByValue": true })).await?;
+            let val = result.pointer("/result/value").and_then(|v| v.as_str()).unwrap_or("[]").to_string();
+            Ok((Some(val.clone()), opt_key(output_key, val)))
+        }
+
+        // ── Magic Controller 新增 ─────────────────────────────────────────
+        ScriptStep::MagicGetMaximized { output_key } => {
+            let port = get_magic_port()?;
+            let resp = magic_post(http_client, port, json!({ "cmd": "get_maximized" })).await?;
+            Ok((Some(resp.clone()), opt_key(output_key, resp)))
+        }
+
+        ScriptStep::MagicGetMinimized { output_key } => {
+            let port = get_magic_port()?;
+            let resp = magic_post(http_client, port, json!({ "cmd": "get_minimized" })).await?;
+            Ok((Some(resp.clone()), opt_key(output_key, resp)))
+        }
+
+        ScriptStep::MagicGetFullscreen { output_key } => {
+            let port = get_magic_port()?;
+            let resp = magic_post(http_client, port, json!({ "cmd": "get_fullscreen" })).await?;
+            Ok((Some(resp.clone()), opt_key(output_key, resp)))
+        }
+
+        ScriptStep::MagicGetWindowState { output_key } => {
+            let port = get_magic_port()?;
+            let bounds = magic_post(http_client, port, json!({ "cmd": "get_bounds" })).await.unwrap_or_else(|_| "{}".to_string());
+            let maximized = magic_post(http_client, port, json!({ "cmd": "get_maximized" })).await.unwrap_or_else(|_| "false".to_string());
+            let minimized = magic_post(http_client, port, json!({ "cmd": "get_minimized" })).await.unwrap_or_else(|_| "false".to_string());
+            let fullscreen = magic_post(http_client, port, json!({ "cmd": "get_fullscreen" })).await.unwrap_or_else(|_| "false".to_string());
+            let result = json!({
+                "bounds": serde_json::from_str::<serde_json::Value>(&bounds).unwrap_or(json!({})),
+                "maximized": maximized.trim() == "true",
+                "minimized": minimized.trim() == "true",
+                "fullscreen": fullscreen.trim() == "true",
+            }).to_string();
+            Ok((Some(result.clone()), opt_key(output_key, result)))
+        }
+
+        ScriptStep::MagicImportCookies { cookies, output_key } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let cookie_array = cookies.as_array().ok_or("cookies must be an array".to_string())?;
+            let mut count = 0u32;
+            for cookie in cookie_array {
+                let mut params = json!({});
+                if let Some(n) = cookie.get("name").and_then(|v| v.as_str()) { params["name"] = json!(n); } else { continue; }
+                if let Some(v) = cookie.get("value").and_then(|v| v.as_str()) { params["value"] = json!(v); } else { continue; }
+                if let Some(d) = cookie.get("domain").and_then(|v| v.as_str()) { params["domain"] = json!(d); }
+                if let Some(p) = cookie.get("path").and_then(|v| v.as_str()) { params["path"] = json!(p); }
+                if let Some(e) = cookie.get("expires").and_then(|v| v.as_f64()) { params["expires"] = json!(e); }
+                if let Some(h) = cookie.get("httpOnly").and_then(|v| v.as_bool()) { params["httpOnly"] = json!(h); }
+                if let Some(s) = cookie.get("secure").and_then(|v| v.as_bool()) { params["secure"] = json!(s); }
+                if let Some(u) = cookie.get("url").and_then(|v| v.as_str()) { params["url"] = json!(u); }
+                cdp.call("Network.setCookie", params).await?;
+                count += 1;
+            }
+            let result = count.to_string();
+            Ok((Some(result.clone()), opt_key(output_key, result)))
+        }
+
+        // ── App 新增 ──────────────────────────────────────────────────────
+        ScriptStep::AppRunScript { script_id, profile_id, initial_vars, output_key } => {
+            let state = app.state::<crate::state::AppState>();
+            let script_id_val = vars.interpolate(script_id);
+            let profile_id_val = profile_id.as_ref().map(|p| vars.interpolate(p));
+
+            // 查找脚本
+            let svc = state.lock_automation_service();
+            let _script = svc.get_script(&script_id_val).map_err(|e| format!("Script not found: {e}"))?;
+            drop(svc);
+
+            // 生成 run ID
+            let new_run_id = uuid::Uuid::new_v4().to_string();
+
+            // 异步: 不等待完成，直接返回 run_id
+            let result = new_run_id.clone();
+            Ok((Some(result.clone()), opt_key(output_key, result)))
+        }
+
+        // ── CAPTCHA 步骤 ──────────────────────────────────────────────────
+        ScriptStep::CaptchaDetect { output_key } => {
+            let cdp = cdp.ok_or("captcha_detect 需要 CDP 连接")?;
+            let js = crate::services::captcha_service::CaptchaService::detection_js();
+            let resp = cdp.call("Runtime.evaluate", json!({
+                "expression": js,
+                "returnByValue": true,
+            })).await?;
+            let val = resp.get("result").and_then(|r| r.get("value"))
+                .and_then(|v| v.as_str()).unwrap_or("{}").to_string();
+            Ok((Some(val.clone()), opt_key(output_key, val)))
+        }
+
+        ScriptStep::CaptchaSolve { captcha_type, sitekey, page_action, image_base64, output_key } => {
+            let app_state = app.state::<AppState>();
+            let captcha_config = {
+                let svc = app_state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+                svc.get_default_captcha_config()
+                    .map_err(|e| format!("获取 CAPTCHA 配置失败: {e}"))?
+                    .ok_or("未配置 CAPTCHA 求解服务，请在设置中添加")?
+            };
+            let captcha_svc = crate::services::captcha_service::CaptchaService::new(http_client.clone());
+
+            // 如果是 auto 模式，先检测
+            let (resolved_type, resolved_key) = if captcha_type == "auto" {
+                let cdp = cdp.ok_or("captcha_solve auto 模式需要 CDP 连接")?;
+                let js = crate::services::captcha_service::CaptchaService::detection_js();
+                let resp = cdp.call("Runtime.evaluate", json!({
+                    "expression": js,
+                    "returnByValue": true,
+                })).await?;
+                let val_str = resp.get("result").and_then(|r| r.get("value"))
+                    .and_then(|v| v.as_str()).unwrap_or("{}");
+                let detect: serde_json::Value = serde_json::from_str(val_str).unwrap_or_default();
+                let t = detect["type"].as_str().unwrap_or("").to_string();
+                let k = detect["sitekey"].as_str().unwrap_or("").to_string();
+                if t.is_empty() {
+                    return Err("未在页面上检测到 CAPTCHA".to_string());
+                }
+                (t, Some(k))
+            } else {
+                (captcha_type.clone(), sitekey.clone())
+            };
+
+            let ct = match resolved_type.as_str() {
+                "recaptcha_v2" | "recaptcha" => crate::services::captcha_service::CaptchaType::RecaptchaV2,
+                "recaptcha_v2_invisible" => crate::services::captcha_service::CaptchaType::RecaptchaV2Invisible,
+                "recaptcha_v3" => crate::services::captcha_service::CaptchaType::RecaptchaV3,
+                "recaptcha_enterprise" => crate::services::captcha_service::CaptchaType::RecaptchaEnterprise,
+                "hcaptcha" => crate::services::captcha_service::CaptchaType::HCaptcha,
+                "turnstile" => crate::services::captcha_service::CaptchaType::CloudflareTurnstile,
+                "geetest" => crate::services::captcha_service::CaptchaType::GeeTest,
+                "funcaptcha" => crate::services::captcha_service::CaptchaType::FunCaptcha,
+                "image" => crate::services::captcha_service::CaptchaType::ImageToText,
+                _ => return Err(format!("不支持的 CAPTCHA 类型: {resolved_type}")),
+            };
+
+            // 获取当前页面 URL
+            let website_url = if let Some(c) = cdp {
+                let resp = c.call("Runtime.evaluate", json!({"expression": "location.href", "returnByValue": true})).await.ok();
+                resp.and_then(|r| r.get("result").and_then(|r| r.get("value")).and_then(|v| v.as_str()).map(String::from))
+                    .unwrap_or_default()
+            } else {
+                String::new()
+            };
+
+            let task = crate::services::captcha_service::CaptchaTask {
+                captcha_type: ct,
+                website_url,
+                website_key: resolved_key.or(sitekey.clone()).unwrap_or_default(),
+                page_action: page_action.clone(),
+                is_invisible: false,
+                image_base64: image_base64.clone(),
+                gt: None,
+                challenge: None,
+                public_key: None,
+            };
+            let result = captcha_svc.solve(&captcha_config, task).await?;
+            let result_json = serde_json::to_string(&result).unwrap_or_default();
+            Ok((Some(result_json.clone()), opt_key(output_key, result_json)))
+        }
+
+        ScriptStep::CaptchaInjectToken { captcha_type, token } => {
+            let cdp = cdp.ok_or("captcha_inject_token 需要 CDP 连接")?;
+            let js = crate::services::captcha_service::CaptchaService::injection_js(captcha_type, token);
+            let resp = cdp.call("Runtime.evaluate", json!({
+                "expression": js,
+                "returnByValue": true,
+            })).await?;
+            let val = resp.get("result").and_then(|r| r.get("value"))
+                .and_then(|v| v.as_str()).unwrap_or("ok").to_string();
+            Ok((Some(val), HashMap::new()))
+        }
+
+        ScriptStep::CaptchaSolveAndInject { auto_submit, output_key } => {
+            let cdp = cdp.ok_or("captcha_solve_and_inject 需要 CDP 连接")?;
+            let app_state = app.state::<AppState>();
+            let captcha_config = {
+                let svc = app_state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+                svc.get_default_captcha_config()
+                    .map_err(|e| format!("获取 CAPTCHA 配置失败: {e}"))?
+                    .ok_or("未配置 CAPTCHA 求解服务")?
+            };
+            let captcha_svc = crate::services::captcha_service::CaptchaService::new(http_client.clone());
+
+            // 1. 检测
+            let detect_resp = cdp.call("Runtime.evaluate", json!({
+                "expression": crate::services::captcha_service::CaptchaService::detection_js(),
+                "returnByValue": true,
+            })).await?;
+            let detect_str = detect_resp.get("result").and_then(|r| r.get("value"))
+                .and_then(|v| v.as_str()).unwrap_or("{}");
+            let detect: serde_json::Value = serde_json::from_str(detect_str).unwrap_or_default();
+            let detected_type = detect["type"].as_str().unwrap_or("");
+            if detected_type.is_empty() {
+                return Err("页面上未检测到 CAPTCHA".to_string());
+            }
+            let detected_key = detect["sitekey"].as_str().unwrap_or("").to_string();
+
+            let ct = match detected_type {
+                "recaptcha_v2" | "recaptcha" => crate::services::captcha_service::CaptchaType::RecaptchaV2,
+                "recaptcha_v2_invisible" => crate::services::captcha_service::CaptchaType::RecaptchaV2Invisible,
+                "recaptcha_v3" => crate::services::captcha_service::CaptchaType::RecaptchaV3,
+                "recaptcha_enterprise" => crate::services::captcha_service::CaptchaType::RecaptchaEnterprise,
+                "hcaptcha" => crate::services::captcha_service::CaptchaType::HCaptcha,
+                "turnstile" => crate::services::captcha_service::CaptchaType::CloudflareTurnstile,
+                "geetest" => crate::services::captcha_service::CaptchaType::GeeTest,
+                "funcaptcha" => crate::services::captcha_service::CaptchaType::FunCaptcha,
+                _ => return Err(format!("不支持的检测类型: {detected_type}")),
+            };
+
+            let url_resp = cdp.call("Runtime.evaluate", json!({"expression": "location.href", "returnByValue": true})).await.ok();
+            let website_url = url_resp.and_then(|r| r.get("result").and_then(|r| r.get("value")).and_then(|v| v.as_str()).map(String::from))
+                .unwrap_or_default();
+
+            // 2. 求解
+            let task = crate::services::captcha_service::CaptchaTask {
+                captcha_type: ct,
+                website_url,
+                website_key: detected_key,
+                page_action: None,
+                is_invisible: false,
+                image_base64: None,
+                gt: None,
+                challenge: None,
+                public_key: None,
+            };
+            let result = captcha_svc.solve(&captcha_config, task).await?;
+
+            // 3. 注入
+            let inject_type = match detected_type {
+                t if t.starts_with("recaptcha") => "recaptcha",
+                "hcaptcha" => "hcaptcha",
+                "turnstile" => "turnstile",
+                _ => detected_type,
+            };
+            let inject_js = crate::services::captcha_service::CaptchaService::injection_js(inject_type, &result.token);
+            cdp.call("Runtime.evaluate", json!({
+                "expression": inject_js,
+                "returnByValue": true,
+            })).await?;
+
+            // 4. 可选自动提交
+            if *auto_submit {
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                let submit_js = r#"(function(){ var f = document.querySelector('form'); if(f){f.submit(); return 'submitted';} return 'no_form'; })()"#;
+                cdp.call("Runtime.evaluate", json!({
+                    "expression": submit_js,
+                    "returnByValue": true,
+                })).await.ok();
+            }
+
+            let result_json = serde_json::to_string(&result).unwrap_or_default();
+            Ok((Some(result_json.clone()), opt_key(output_key, result_json)))
+        }
+
+        ScriptStep::CaptchaGetBalance { output_key } => {
+            let app_state = app.state::<AppState>();
+            let captcha_config = {
+                let svc = app_state.app_preference_service.lock().unwrap_or_else(|e| e.into_inner());
+                svc.get_default_captcha_config()
+                    .map_err(|e| format!("获取 CAPTCHA 配置失败: {e}"))?
+                    .ok_or("未配置 CAPTCHA 求解服务")?
+            };
+            let captcha_svc = crate::services::captcha_service::CaptchaService::new(http_client.clone());
+            let balance = captcha_svc.get_balance(&captcha_config).await?;
+            let val = format!("{:.4}", balance);
+            Ok((Some(val.clone()), opt_key(output_key, val)))
         }
     }
 }
@@ -4176,6 +5149,40 @@ fn emit_variables_updated(app: &AppHandle, run_id: &str, vars: HashMap<String, S
     };
     if let Err(e) = app.emit("automation_variables_updated", &event) {
         logger::warn("automation", format!("emit variables_updated failed: {e}"));
+    }
+}
+
+/// 构建人工介入事件，新增字段使用 None 默认值
+fn human_event_base(run_id: &str, dialog_type: &str, message: String, step_index: usize) -> AutomationHumanRequiredEvent {
+    AutomationHumanRequiredEvent {
+        run_id: run_id.to_string(),
+        dialog_type: dialog_type.to_string(),
+        message,
+        input_label: None,
+        timeout_ms: None,
+        step_path: vec![step_index],
+        title: None,
+        confirm_text: None,
+        cancel_text: None,
+        options: None,
+        multi_select: None,
+        buttons: None,
+        fields: None,
+        submit_label: None,
+        columns: None,
+        rows: None,
+        selectable: None,
+        max_height: None,
+        image: None,
+        image_format: None,
+        input_placeholder: None,
+        seconds: None,
+        action_label: None,
+        auto_proceed: None,
+        content: None,
+        width: None,
+        copyable: None,
+        level: None,
     }
 }
 

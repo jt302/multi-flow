@@ -993,6 +993,14 @@ fn default_one_u32() -> u32 {
     1
 }
 
+fn default_true() -> bool {
+    true
+}
+
+fn default_captcha_type() -> String {
+    "auto".to_string()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ScriptStep {
@@ -1587,6 +1595,91 @@ pub enum ScriptStep {
         #[serde(skip_serializing_if = "Option::is_none")]
         duration_ms: Option<u64>,
     },
+
+    /// 表单对话框：多字段输入，阻塞执行
+    FormDialog {
+        title: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        message: Option<String>,
+        fields: Vec<serde_json::Value>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        submit_label: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        timeout_ms: Option<u64>,
+        #[serde(default = "default_confirm_dialog_timeout")]
+        on_timeout: ConfirmDialogTimeout,
+    },
+    /// 数据表格对话框：展示结构化数据，可选择行，阻塞执行
+    TableDialog {
+        title: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        message: Option<String>,
+        columns: Vec<serde_json::Value>,
+        rows: Vec<serde_json::Value>,
+        #[serde(default)]
+        selectable: bool,
+        #[serde(default)]
+        multi_select: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        max_height: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        timeout_ms: Option<u64>,
+    },
+    /// 图片预览对话框：展示图片，可附带输入框，阻塞执行
+    ImageDialog {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        message: Option<String>,
+        /// base64 图片数据或文件路径
+        image: String,
+        #[serde(default = "default_image_format")]
+        image_format: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        input_label: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        input_placeholder: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        timeout_ms: Option<u64>,
+    },
+    /// 倒计时确认对话框：危险操作前的缓冲时间，阻塞执行
+    CountdownDialog {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        message: String,
+        seconds: u32,
+        #[serde(default = "default_countdown_level")]
+        level: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        action_label: Option<String>,
+        #[serde(default)]
+        auto_proceed: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// Markdown 富文本对话框：展示格式化内容，阻塞执行
+    MarkdownDialog {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        content: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        max_height: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        width: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        actions: Option<Vec<DialogButton>>,
+        #[serde(default)]
+        copyable: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+
     /// 处理浏览器 JavaScript 对话框（alert/confirm/prompt）
     CdpHandleDialog {
         /// "accept" 或 "dismiss"
@@ -1633,6 +1726,306 @@ pub enum ScriptStep {
     CdpGetFullAxTree {
         #[serde(skip_serializing_if = "Option::is_none")]
         depth: Option<i32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+
+    // ── CDP Cookie & 存储步骤 ─────────────────────────────────────────────────
+    /// 获取当前页面或指定 URL 的 cookies (Network.getCookies)
+    CdpGetCookies {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        urls: Option<Vec<String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 设置单个 cookie (Network.setCookie)
+    CdpSetCookie {
+        name: String,
+        value: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        domain: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        path: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        expires: Option<f64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        http_only: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        secure: Option<bool>,
+    },
+    /// 删除匹配的 cookies (Network.deleteCookies)
+    CdpDeleteCookies {
+        name: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        domain: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        path: Option<String>,
+    },
+    /// 读取 localStorage (Runtime.evaluate)
+    CdpGetLocalStorage {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        key: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 写入 localStorage (Runtime.evaluate)
+    CdpSetLocalStorage {
+        key: String,
+        value: String,
+    },
+    /// 读取 sessionStorage (Runtime.evaluate)
+    CdpGetSessionStorage {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        key: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 清除指定来源的存储数据 (Storage.clearDataForOrigin)
+    CdpClearStorage {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        origin: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        storage_types: Option<String>,
+    },
+
+    // ── CDP 页面 & 导航步骤 ───────────────────────────────────────────────────
+    /// 获取当前页面 URL (Runtime.evaluate)
+    CdpGetCurrentUrl {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 获取页面 HTML 源码 (Runtime.evaluate)
+    CdpGetPageSource {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        selector: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        selector_type: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 等待页面导航完成 (轮询 document.readyState)
+    CdpWaitForNavigation {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        timeout_ms: Option<u64>,
+    },
+
+    // ── CDP 模拟步骤 ─────────────────────────────────────────────────────────
+    /// 模拟移动设备 (Emulation.setDeviceMetricsOverride + setUserAgentOverride)
+    CdpEmulateDevice {
+        width: u32,
+        height: u32,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        device_scale_factor: Option<f64>,
+        #[serde(default)]
+        mobile: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        user_agent: Option<String>,
+    },
+    /// 模拟地理位置 (Emulation.setGeolocationOverride)
+    CdpSetGeolocation {
+        latitude: f64,
+        longitude: f64,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        accuracy: Option<f64>,
+    },
+    /// 运行时修改 User-Agent (Emulation.setUserAgentOverride)
+    CdpSetUserAgent {
+        user_agent: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        platform: Option<String>,
+    },
+
+    // ── CDP 元素 & 输入步骤 ───────────────────────────────────────────────────
+    /// 获取元素包围盒坐标 (getBoundingClientRect)
+    CdpGetElementBox {
+        selector: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        selector_type: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 高亮显示页面元素 (注入临时 CSS)
+    CdpHighlightElement {
+        selector: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        selector_type: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        color: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        duration_ms: Option<u64>,
+    },
+    /// 移动鼠标到指定坐标 (Input.dispatchMouseEvent mouseMoved)
+    CdpMouseMove {
+        x: f64,
+        y: f64,
+    },
+    /// 拖拽元素 (dispatchMouseEvent 序列)
+    CdpDragAndDrop {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        from_selector: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        to_selector: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        from_x: Option<f64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        from_y: Option<f64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        to_x: Option<f64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        to_y: Option<f64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        selector_type: Option<String>,
+    },
+    /// 选择下拉框选项 (Runtime.evaluate)
+    CdpSelectOption {
+        selector: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        value: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        index: Option<i32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        selector_type: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 勾选/取消勾选 checkbox 或 radio (Runtime.evaluate)
+    CdpCheckCheckbox {
+        selector: String,
+        #[serde(default = "default_true")]
+        checked: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        selector_type: Option<String>,
+    },
+
+    // ── CDP 网络 & 导出步骤 ───────────────────────────────────────────────────
+    /// 屏蔽匹配模式的 URL (Network.setBlockedURLs)
+    CdpBlockUrls {
+        patterns: Vec<String>,
+    },
+    /// 将当前页面导出为 PDF (Page.printToPDF)
+    CdpPdf {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        path: Option<String>,
+        #[serde(default)]
+        landscape: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        scale: Option<f64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        paper_width: Option<f64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        paper_height: Option<f64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 拦截并修改网络请求 (Fetch.enable + Fetch.requestPaused)
+    CdpInterceptRequest {
+        url_pattern: String,
+        /// "block" | "mock" | "modify"
+        action: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        headers: Option<serde_json::Value>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        body: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        status: Option<u16>,
+    },
+
+    // ── CDP 事件缓冲步骤 ─────────────────────────────────────────────────────
+    /// 获取浏览器控制台日志 (通过 JS 注入收集)
+    CdpGetConsoleLogs {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        limit: Option<usize>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        level: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 获取最近的网络请求记录 (通过 JS 注入收集)
+    CdpGetNetworkRequests {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        limit: Option<usize>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        url_pattern: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+
+    // ── Magic Controller 新增步骤 ─────────────────────────────────────────────
+    /// 查询窗口是否最大化
+    MagicGetMaximized {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 查询窗口是否最小化
+    MagicGetMinimized {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 查询窗口是否全屏
+    MagicGetFullscreen {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 一次性获取窗口完整状态
+    MagicGetWindowState {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 批量导入 cookies 到浏览器 (循环 Network.setCookie)
+    MagicImportCookies {
+        cookies: serde_json::Value,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+
+    // ── App 新增步骤 ─────────────────────────────────────────────────────────
+    /// 在指定环境中触发另一个自动化脚本运行
+    AppRunScript {
+        script_id: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        profile_id: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        initial_vars: Option<serde_json::Value>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+
+    // ── CAPTCHA 步骤 ──────────────────────────────────────────────────────
+    /// 检测页面上的 CAPTCHA 类型和参数
+    CaptchaDetect {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 求解 CAPTCHA 并返回 token
+    CaptchaSolve {
+        /// "recaptcha_v2" | "recaptcha_v3" | "hcaptcha" | "turnstile" | "geetest" | "funcaptcha" | "image" | "auto"
+        #[serde(default = "default_captcha_type")]
+        captcha_type: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        sitekey: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        page_action: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        image_base64: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 将 token 注入页面表单
+    CaptchaInjectToken {
+        /// "recaptcha" | "hcaptcha" | "turnstile"
+        #[serde(rename = "type")]
+        captcha_type: String,
+        token: String,
+    },
+    /// 一键：检测 → 求解 → 注入
+    CaptchaSolveAndInject {
+        #[serde(default)]
+        auto_submit: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 查询求解服务余额
+    CaptchaGetBalance {
         #[serde(skip_serializing_if = "Option::is_none")]
         output_key: Option<String>,
     },
@@ -1830,6 +2223,14 @@ fn default_notification_level() -> String {
     "info".to_string()
 }
 
+fn default_image_format() -> String {
+    "png".to_string()
+}
+
+fn default_countdown_level() -> String {
+    "warning".to_string()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AutomationVariablesUpdatedEvent {
@@ -1862,6 +2263,56 @@ pub struct AutomationHumanRequiredEvent {
     pub multi_select: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub buttons: Option<Vec<DialogButton>>,
+
+    // ── 扩展字段（form/table/image/countdown/markdown 使用）──
+    /// form 弹窗字段定义
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fields: Option<Vec<serde_json::Value>>,
+    /// 提交按钮文字
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub submit_label: Option<String>,
+    /// table 弹窗列定义
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub columns: Option<Vec<serde_json::Value>>,
+    /// table 弹窗行数据
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rows: Option<Vec<serde_json::Value>>,
+    /// 是否可选行
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selectable: Option<bool>,
+    /// 表格/内容最大高度
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_height: Option<u32>,
+    /// 图片数据
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image: Option<String>,
+    /// 图片格式
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image_format: Option<String>,
+    /// 输入框占位符
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input_placeholder: Option<String>,
+    /// 倒计时秒数
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seconds: Option<u32>,
+    /// 操作按钮文字
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action_label: Option<String>,
+    /// 是否自动执行
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_proceed: Option<bool>,
+    /// markdown 内容
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    /// 弹窗宽度
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub width: Option<String>,
+    /// 是否可复制
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub copyable: Option<bool>,
+    /// 消息级别
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub level: Option<String>,
 }
 
 /// 人工介入已解除（用户点击继续或超时）
