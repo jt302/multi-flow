@@ -14,7 +14,7 @@ import {
 	GROUP_ACCENT_COLORS,
 	GROUP_COLORS,
 	KIND_GROUPS,
-	KIND_LABELS,
+	getKindLabel,
 	getStepSummaryText,
 } from '@/entities/automation/model/step-registry';
 
@@ -77,7 +77,7 @@ export function StepNodeComponent({
 }) {
 	const { step, stepStatus } = data;
 	const kind = step.kind;
-	const label = KIND_LABELS[kind] ?? kind;
+	const label = getKindLabel(kind);
 	const group = KIND_GROUPS[kind] ?? '通用';
 	const colorClass = GROUP_COLORS[group] ?? GROUP_COLORS['通用'];
 	const accentClass = GROUP_ACCENT_COLORS[group] ?? 'border-l-slate-400';
