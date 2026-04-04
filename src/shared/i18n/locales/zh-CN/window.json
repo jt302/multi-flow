@@ -34,7 +34,9 @@
 		"cascade": "重叠平铺",
 		"windowGap": "窗口间距",
 		"arrangeNow": "一键排列",
-		"primaryMonitor": "主显示器"
+		"primaryMonitor": "主显示器",
+		"builtinDisplay": "内置屏幕",
+		"monitorFallback": "显示器"
 	},
 	"textBroadcast": {
 		"title": "文本输入广播",
