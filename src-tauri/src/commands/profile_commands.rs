@@ -2676,6 +2676,7 @@ mod tests {
         AppState {
             active_run_channels: Mutex::new(std::collections::HashMap::new()),
             cancel_tokens: Mutex::new(std::collections::HashMap::new()),
+            ai_dialog_channels: Mutex::new(std::collections::HashMap::new()),
             automation_service: Mutex::new(AutomationService::from_db(db.clone())),
             profile_group_service: Mutex::new(profile_group_service),
             profile_service: Mutex::new(profile_service),

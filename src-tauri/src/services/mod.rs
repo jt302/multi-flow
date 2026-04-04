@@ -8,6 +8,7 @@ pub mod automation_service;
 pub mod captcha_service;
 pub mod chromium_magic_adapter_service;
 pub mod device_preset_service;
+pub mod display_monitor_service;
 pub mod engine_session_service;
 pub mod plugin_package_service;
 pub mod profile_group_service;

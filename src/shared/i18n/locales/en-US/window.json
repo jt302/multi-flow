@@ -34,7 +34,9 @@
 		"cascade": "Cascade",
 		"windowGap": "Window Gap",
 		"arrangeNow": "Arrange Now",
-		"primaryMonitor": "Primary Monitor"
+		"primaryMonitor": "Primary Monitor",
+		"builtinDisplay": "Built-in Display",
+		"monitorFallback": "Monitor"
 	},
 	"textBroadcast": {
 		"title": "Text Broadcast",
