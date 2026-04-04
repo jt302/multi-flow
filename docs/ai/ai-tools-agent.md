@@ -2,7 +2,7 @@
 
 > 最后更新日期: 2026-04-03
 >
-> 本文档面向 AI Agent（LLM）在执行自动化任务时参考，包含全部 114 个工具的使用指南。
+> 本文档面向 AI Agent（LLM）在执行自动化任务时参考，包含全部 121 个工具的使用指南。
 
 ---
 
@@ -24,7 +24,7 @@
 | `magic_`  | Magic   | 通过 Magic Controller 控制浏览器窗口和原生功能    | 48   |
 | `app_`    | App     | 读写 Multi-Flow 应用数据（Profile、分组、代理等） | 20   |
 | `file_`   | File    | 文件系统读写                                      | 6    |
-| `dialog_` | Dialog  | 向用户展示 UI 弹窗获取反馈                        | 6    |
+| `dialog_` | Dialog  | 向用户展示 UI 弹窗获取反馈                        | 13   |
 | 无前缀    | Utility | 基础工具（等待、日志、提交结果）                  | 3    |
 
 ---
@@ -105,6 +105,13 @@
 ├─ 显示消息 → dialog_message
 ├─ 是/否确认 → dialog_confirm
 ├─ 文本输入 → dialog_input
+├─ 单/多选选项 → dialog_select
+├─ 多字段表单 → dialog_form
+├─ 展示表格数据 → dialog_table
+├─ 展示图片/验证码 → dialog_image
+├─ 危险操作倒计时 → dialog_countdown
+├─ 轻量通知（Toast）→ dialog_toast
+├─ 富文本展示 → dialog_markdown
 ├─ 选择文件 → dialog_open_file
 ├─ 保存文件 → dialog_save_file
 └─ 选择文件夹 → dialog_select_folder
@@ -500,14 +507,21 @@ file_read(path="/tmp/data.txt")
 
 **常用工具**：
 
-| 工具                   | 用途           | 必需参数  | 行为                       |
-| ---------------------- | -------------- | --------- | -------------------------- |
-| `dialog_message`       | 显示消息       | `message` | 非阻塞，显示后继续执行     |
-| `dialog_confirm`       | 让用户确认     | `message` | 阻塞，返回 `true`/`false`  |
-| `dialog_input`         | 让用户输入文本 | `message` | 阻塞，返回用户输入的字符串 |
-| `dialog_open_file`     | 选择文件       | 无        | 阻塞，返回文件路径         |
-| `dialog_save_file`     | 选择保存位置   | 无        | 阻塞，返回保存路径         |
-| `dialog_select_folder` | 选择文件夹     | 无        | 阻塞，返回目录路径         |
+| 工具                   | 用途                 | 必需参数              | 行为                                          |
+| ---------------------- | -------------------- | --------------------- | --------------------------------------------- |
+| `dialog_message`       | 显示消息             | `message`             | 非阻塞，显示后继续执行                        |
+| `dialog_confirm`       | 让用户确认           | `message`             | 阻塞，返回 `true`/`false`                     |
+| `dialog_input`         | 让用户输入文本       | `message`             | 阻塞，返回用户输入的字符串                    |
+| `dialog_select`        | 让用户选择选项       | `options`             | 阻塞，返回 `{cancelled, selected}`            |
+| `dialog_form`          | 让用户填写多字段表单 | `fields`              | 阻塞，返回 `{cancelled, values}`              |
+| `dialog_table`         | 展示表格（可选行）   | `columns`, `rows`     | 阻塞，返回 `{confirmed, selected_indices}`    |
+| `dialog_image`         | 展示图片（可附输入） | `image`               | 阻塞，返回 `{cancelled, value, action}`       |
+| `dialog_countdown`     | 危险操作倒计时确认   | `message`, `seconds`  | 阻塞，返回 `{cancelled}`                      |
+| `dialog_toast`         | 轻量通知（Toast）    | `message`             | 无按钮不阻塞；有按钮阻塞，返回 `{dismissed, action}` |
+| `dialog_markdown`      | 展示 Markdown 富文本 | `content`             | 阻塞，返回 `{action}`                         |
+| `dialog_open_file`     | 选择文件             | 无                    | 阻塞，返回文件路径                            |
+| `dialog_save_file`     | 选择保存位置         | 无                    | 阻塞，返回保存路径                            |
+| `dialog_select_folder` | 选择文件夹           | 无                    | 阻塞，返回目录路径                            |
 
 **典型组合**：
 
@@ -857,13 +871,20 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 5   | `file_exists`   | 检查文件/目录是否存在     |
 | 6   | `file_mkdir`    | 递归创建目录              |
 
-### Dialog — 用户交互（6 个）
+### Dialog — 用户交互（13 个）
 
-| #   | 工具名                 | 说明                              |
-| --- | ---------------------- | --------------------------------- |
-| 1   | `dialog_message`       | 显示消息弹窗（非阻塞）            |
-| 2   | `dialog_confirm`       | 确认弹窗（阻塞，返回 true/false） |
-| 3   | `dialog_input`         | 输入弹窗（阻塞，返回用户输入）    |
-| 4   | `dialog_open_file`     | 文件选择对话框                    |
-| 5   | `dialog_save_file`     | 文件保存对话框                    |
-| 6   | `dialog_select_folder` | 文件夹选择对话框                  |
+| #   | 工具名                 | 说明                                             |
+| --- | ---------------------- | ------------------------------------------------ |
+| 1   | `dialog_message`       | 显示消息弹窗（非阻塞）                           |
+| 2   | `dialog_confirm`       | 确认弹窗（阻塞，返回 true/false）                |
+| 3   | `dialog_input`         | 输入弹窗（阻塞，返回用户输入）                   |
+| 4   | `dialog_select`        | 单/多选选项弹窗（阻塞，返回选中值）              |
+| 5   | `dialog_form`          | 多字段表单弹窗（阻塞，返回字段值对象）           |
+| 6   | `dialog_table`         | 数据表格弹窗，支持选行（阻塞，返回选中行索引）   |
+| 7   | `dialog_image`         | 图片预览弹窗，支持输入框和自定义按钮             |
+| 8   | `dialog_countdown`     | 倒计时确认弹窗，用于危险操作前给用户反悔时间     |
+| 9   | `dialog_toast`         | 轻量通知（Toast），可附带操作按钮                |
+| 10  | `dialog_markdown`      | Markdown 富文本展示弹窗，支持表格、代码块等      |
+| 11  | `dialog_open_file`     | 文件选择对话框                                   |
+| 12  | `dialog_save_file`     | 文件保存对话框                                   |
+| 13  | `dialog_select_folder` | 文件夹选择对话框                                 |
