@@ -11,6 +11,7 @@ use crate::models::{
     ProfileWindowState, SyncTargetItem, WindowArrangeMode, WindowBounds,
 };
 use crate::runtime_guard;
+use crate::services::display_monitor_service;
 use crate::state::AppState;
 
 #[tauri::command]
@@ -53,12 +54,11 @@ pub fn list_sync_targets(state: State<'_, AppState>) -> Result<ListSyncTargetsRe
                 .ok()
                 .and_then(|handle| handle.magic_port);
             let adapter_port = magic_socket_server_port.and_then(|port| {
-                Some(state.lock_chromium_magic_adapter_service())
-                    .and_then(|mut service| {
-                        service
-                            .ensure_adapter(&state_item.profile_id, "127.0.0.1", port)
-                            .ok()
-                    })
+                Some(state.lock_chromium_magic_adapter_service()).and_then(|mut service| {
+                    service
+                        .ensure_adapter(&state_item.profile_id, "127.0.0.1", port)
+                        .ok()
+                })
             });
             SyncTargetItem {
                 profile_id: state_item.profile_id,
@@ -101,7 +101,7 @@ pub fn broadcast_sync_text(
 
 #[tauri::command]
 pub fn list_display_monitors(app: AppHandle) -> Result<Vec<DisplayMonitorItem>, String> {
-    collect_display_monitors(&app).map_err(error_to_string)
+    display_monitor_service::collect_display_monitors(&app).map_err(error_to_string)
 }
 
 #[tauri::command]
@@ -144,7 +144,7 @@ pub fn arrange_profile_windows(
     if payload.gap < 0 {
         return Err("窗口间距不能小于 0".to_string());
     }
-    let monitors = collect_display_monitors(&app).map_err(error_to_string)?;
+    let monitors = display_monitor_service::collect_display_monitors(&app).map_err(error_to_string)?;
     let monitor = monitors
         .into_iter()
         .find(|item| item.id == payload.monitor_id)
@@ -255,55 +255,6 @@ fn collect_window_states(state: &AppState) -> Result<Vec<ProfileWindowState>, St
     }
     states.sort_by(|a, b| a.profile_id.cmp(&b.profile_id));
     Ok(states)
-}
-
-fn collect_display_monitors(app: &AppHandle) -> AppResult<Vec<DisplayMonitorItem>> {
-    let primary_key = app
-        .primary_monitor()
-        .map_err(|err| AppError::Validation(format!("read primary monitor failed: {err}")))?
-        .map(|monitor| monitor_key(&monitor))
-        .unwrap_or_default();
-    let monitors = app
-        .available_monitors()
-        .map_err(|err| AppError::Validation(format!("list monitors failed: {err}")))?;
-    Ok(monitors
-        .into_iter()
-        .enumerate()
-        .map(|(index, monitor)| {
-            let key = monitor_key(&monitor);
-            let name = monitor
-                .name()
-                .cloned()
-                .unwrap_or_else(|| format!("显示器 {}", index + 1));
-            let work_area = monitor.work_area();
-            DisplayMonitorItem {
-                id: key.clone(),
-                name,
-                is_primary: key == primary_key,
-                scale_factor: monitor.scale_factor(),
-                position_x: monitor.position().x,
-                position_y: monitor.position().y,
-                width: monitor.size().width,
-                height: monitor.size().height,
-                work_area: WindowBounds {
-                    x: work_area.position.x,
-                    y: work_area.position.y,
-                    width: i32::try_from(work_area.size.width).unwrap_or(i32::MAX),
-                    height: i32::try_from(work_area.size.height).unwrap_or(i32::MAX),
-                },
-            }
-        })
-        .collect())
-}
-
-fn monitor_key(monitor: &tauri::Monitor) -> String {
-    format!(
-        "{}:{}:{}:{}",
-        monitor.name().cloned().unwrap_or_default(),
-        monitor.position().x,
-        monitor.position().y,
-        monitor.scale_factor()
-    )
 }
 
 fn build_arranged_bounds(
@@ -424,11 +375,11 @@ mod tests {
     use crate::db;
     use crate::engine_manager::EngineManager;
     use crate::local_api_server::LocalApiServer;
+    use crate::services::app_preference_service::AppPreferenceService;
     use crate::services::automation_service::AutomationService;
     use crate::services::chromium_magic_adapter_service::ChromiumMagicAdapterService;
     use crate::services::device_preset_service::DevicePresetService;
     use crate::services::engine_session_service::EngineSessionService;
-    use crate::services::app_preference_service::AppPreferenceService;
     use crate::services::plugin_package_service::PluginPackageService;
     use crate::services::profile_group_service::ProfileGroupService;
     use crate::services::profile_service::ProfileService;
@@ -510,6 +461,7 @@ mod tests {
         AppState {
             active_run_channels: Mutex::new(std::collections::HashMap::new()),
             cancel_tokens: Mutex::new(std::collections::HashMap::new()),
+            ai_dialog_channels: Mutex::new(std::collections::HashMap::new()),
             automation_service: Mutex::new(AutomationService::from_db(db.clone())),
             profile_group_service: Mutex::new(profile_group_service),
             profile_service: Mutex::new(profile_service),
