@@ -8,29 +8,29 @@
 
 ### 1.1 主流人机验证系统
 
-| 系统 | 提供商 | 机制 | 难度 |
-|------|--------|------|------|
-| reCAPTCHA v2 | Google | 复选框 + 图片挑战 | 中 |
-| reCAPTCHA v3 | Google | 纯行为评分 (0-1.0) | 低（无 UI） |
-| reCAPTCHA Enterprise | Google | v2/v3 增强版 | 高 |
-| hCaptcha | Intuition Machines | HSW proof-of-work + 图片 | 中 |
-| Cloudflare Turnstile | Cloudflare | PoW + 指纹 + 行为启发 | 高 |
-| AWS WAF Bot Control | Amazon | JS 挑战 + 遥测 + CAPTCHA | 高 |
-| Akamai Bot Manager | Akamai | 行为分析 + ML + JA4 指纹 | 极高 |
-| HUMAN (PerimeterX) | HUMAN Security | 行为网络 + px_captcha | 高 |
-| DataDome | DataDome | 意图检测 + Slider CAPTCHA | 高 |
-| GeeTest 极验 | 极验 | 滑块 / 点选 / 无感 | 中 |
-| 网易易盾 | 网易 | 行为验证 + 风控引擎 | 中 |
-| 腾讯天御 | 腾讯 | 一键验证 + 生态行为 | 中 |
+| 系统                 | 提供商             | 机制                      | 难度        |
+| -------------------- | ------------------ | ------------------------- | ----------- |
+| reCAPTCHA v2         | Google             | 复选框 + 图片挑战         | 中          |
+| reCAPTCHA v3         | Google             | 纯行为评分 (0-1.0)        | 低（无 UI） |
+| reCAPTCHA Enterprise | Google             | v2/v3 增强版              | 高          |
+| hCaptcha             | Intuition Machines | HSW proof-of-work + 图片  | 中          |
+| Cloudflare Turnstile | Cloudflare         | PoW + 指纹 + 行为启发     | 高          |
+| AWS WAF Bot Control  | Amazon             | JS 挑战 + 遥测 + CAPTCHA  | 高          |
+| Akamai Bot Manager   | Akamai             | 行为分析 + ML + JA4 指纹  | 极高        |
+| HUMAN (PerimeterX)   | HUMAN Security     | 行为网络 + px_captcha     | 高          |
+| DataDome             | DataDome           | 意图检测 + Slider CAPTCHA | 高          |
+| GeeTest 极验         | 极验               | 滑块 / 点选 / 无感        | 中          |
+| 网易易盾             | 网易               | 行为验证 + 风控引擎       | 中          |
+| 腾讯天御             | 腾讯               | 一键验证 + 生态行为       | 中          |
 
 ### 1.2 主流求解服务
 
-| 服务 | 类型 | reCAPTCHA v2 价格/千次 | Turnstile 价格/千次 | 特色 |
-|------|------|----------------------|-------------------|------|
-| **2Captcha** | 人工+AI | $1-$2.99 | $1.45 | 38+ 类型，最全面 |
-| **Anti-Captcha** | 人工+AI | $0.95-$2 | $2.00 | 成熟稳定 |
-| **CapSolver** | 纯 AI | $0.80 | $1.20 | 速度最快 |
-| **CapMonster Cloud** | 纯 AI | $0.60 | $1.30 | 成本最低 |
+| 服务                 | 类型    | reCAPTCHA v2 价格/千次 | Turnstile 价格/千次 | 特色             |
+| -------------------- | ------- | ---------------------- | ------------------- | ---------------- |
+| **2Captcha**         | 人工+AI | $1-$2.99               | $1.45               | 38+ 类型，最全面 |
+| **Anti-Captcha**     | 人工+AI | $0.95-$2               | $2.00               | 成熟稳定         |
+| **CapSolver**        | 纯 AI   | $0.80                  | $1.20               | 速度最快         |
+| **CapMonster Cloud** | 纯 AI   | $0.60                  | $1.30               | 成本最低         |
 
 所有服务共享统一 API 模式：`createTask` → 轮询 `getTaskResult`
 
@@ -59,13 +59,13 @@
 
 ### 2.2 核心模块
 
-| 模块 | 职责 | 位置 |
-|------|------|------|
-| **CaptchaDetector** | 检测页面上的 CAPTCHA 类型和参数 | Rust service |
-| **CaptchaSolver** | 统一求解接口，适配多家服务 | Rust service |
-| **CaptchaConfig** | 求解服务配置管理（API Key、偏好） | Settings + DB |
-| **AI Tools** | 暴露给 AI Agent 的工具 | ai_tools |
-| **自动化步骤** | 脚本编排中的 CAPTCHA 处理步骤 | ScriptStep |
+| 模块                | 职责                              | 位置          |
+| ------------------- | --------------------------------- | ------------- |
+| **CaptchaDetector** | 检测页面上的 CAPTCHA 类型和参数   | Rust service  |
+| **CaptchaSolver**   | 统一求解接口，适配多家服务        | Rust service  |
+| **CaptchaConfig**   | 求解服务配置管理（API Key、偏好） | Settings + DB |
+| **AI Tools**        | 暴露给 AI Agent 的工具            | ai_tools      |
+| **自动化步骤**      | 脚本编排中的 CAPTCHA 处理步骤     | ScriptStep    |
 
 ### 2.3 求解服务适配层
 
@@ -227,50 +227,63 @@ pub struct CapMonsterProvider { /* 同上模式 */ }
 ```javascript
 // CAPTCHA 类型自动检测
 (function detectCaptcha() {
-    const result = { type: null, sitekey: null, params: {} };
+	const result = { type: null, sitekey: null, params: {} };
 
-    // reCAPTCHA v2/v3
-    const recaptcha = document.querySelector('.g-recaptcha, [data-sitekey]');
-    if (recaptcha) {
-        result.type = 'recaptcha';
-        result.sitekey = recaptcha.getAttribute('data-sitekey');
-        result.params.size = recaptcha.getAttribute('data-size'); // invisible?
-        result.params.callback = recaptcha.getAttribute('data-callback');
-    }
-    if (typeof grecaptcha !== 'undefined' && grecaptcha.enterprise) {
-        result.type = 'recaptcha_enterprise';
-    }
+	// reCAPTCHA v2/v3
+	const recaptcha = document.querySelector('.g-recaptcha, [data-sitekey]');
+	if (recaptcha) {
+		result.type = 'recaptcha';
+		result.sitekey = recaptcha.getAttribute('data-sitekey');
+		result.params.size = recaptcha.getAttribute('data-size'); // invisible?
+		result.params.callback = recaptcha.getAttribute('data-callback');
+	}
+	if (typeof grecaptcha !== 'undefined' && grecaptcha.enterprise) {
+		result.type = 'recaptcha_enterprise';
+	}
 
-    // hCaptcha
-    const hcaptcha = document.querySelector('.h-captcha, [data-hcaptcha-widget-id]');
-    if (hcaptcha) {
-        result.type = 'hcaptcha';
-        result.sitekey = hcaptcha.getAttribute('data-sitekey');
-    }
+	// hCaptcha
+	const hcaptcha = document.querySelector(
+		'.h-captcha, [data-hcaptcha-widget-id]',
+	);
+	if (hcaptcha) {
+		result.type = 'hcaptcha';
+		result.sitekey = hcaptcha.getAttribute('data-sitekey');
+	}
 
-    // Cloudflare Turnstile
-    const turnstile = document.querySelector('.cf-turnstile, [data-turnstile-widget-id]');
-    if (turnstile) {
-        result.type = 'turnstile';
-        result.sitekey = turnstile.getAttribute('data-sitekey');
-    }
+	// Cloudflare Turnstile
+	const turnstile = document.querySelector(
+		'.cf-turnstile, [data-turnstile-widget-id]',
+	);
+	if (turnstile) {
+		result.type = 'turnstile';
+		result.sitekey = turnstile.getAttribute('data-sitekey');
+	}
 
-    // GeeTest
-    if (document.querySelector('.geetest_widget') || typeof initGeetest !== 'undefined') {
-        result.type = 'geetest';
-    }
+	// GeeTest
+	if (
+		document.querySelector('.geetest_widget') ||
+		typeof initGeetest !== 'undefined'
+	) {
+		result.type = 'geetest';
+	}
 
-    // FunCaptcha / Arkose Labs
-    if (document.querySelector('#FunCaptcha') || typeof ArkoseEnforcement !== 'undefined') {
-        result.type = 'funcaptcha';
-    }
+	// FunCaptcha / Arkose Labs
+	if (
+		document.querySelector('#FunCaptcha') ||
+		typeof ArkoseEnforcement !== 'undefined'
+	) {
+		result.type = 'funcaptcha';
+	}
 
-    // Cloudflare JS Challenge (非 Turnstile)
-    if (document.title === 'Just a moment...' || document.querySelector('#challenge-form')) {
-        result.type = 'cloudflare_challenge';
-    }
+	// Cloudflare JS Challenge (非 Turnstile)
+	if (
+		document.title === 'Just a moment...' ||
+		document.querySelector('#challenge-form')
+	) {
+		result.type = 'cloudflare_challenge';
+	}
 
-    return JSON.stringify(result);
+	return JSON.stringify(result);
 })();
 ```
 
@@ -279,43 +292,43 @@ pub struct CapMonsterProvider { /* 同上模式 */ }
 ```javascript
 // reCAPTCHA v2/v3 Token 注入
 function injectRecaptchaToken(token) {
-    // 方式 1: 设置隐藏字段
-    const field = document.getElementById('g-recaptcha-response');
-    if (field) {
-        field.value = token;
-        field.style.display = 'block'; // 有些站点检查 display
-    }
-    // 方式 2: 调用回调
-    if (window.___grecaptcha_cfg) {
-        const clients = window.___grecaptcha_cfg.clients;
-        for (const id in clients) {
-            const client = clients[id];
-            // 遍历找到 callback 函数
-            for (const key in client) {
-                if (typeof client[key]?.callback === 'function') {
-                    client[key].callback(token);
-                    return true;
-                }
-            }
-        }
-    }
-    return false;
+	// 方式 1: 设置隐藏字段
+	const field = document.getElementById('g-recaptcha-response');
+	if (field) {
+		field.value = token;
+		field.style.display = 'block'; // 有些站点检查 display
+	}
+	// 方式 2: 调用回调
+	if (window.___grecaptcha_cfg) {
+		const clients = window.___grecaptcha_cfg.clients;
+		for (const id in clients) {
+			const client = clients[id];
+			// 遍历找到 callback 函数
+			for (const key in client) {
+				if (typeof client[key]?.callback === 'function') {
+					client[key].callback(token);
+					return true;
+				}
+			}
+		}
+	}
+	return false;
 }
 
 // hCaptcha Token 注入
 function injectHcaptchaToken(token) {
-    const fields = ['h-captcha-response', 'g-recaptcha-response'];
-    for (const name of fields) {
-        const el = document.querySelector(`[name="${name}"]`);
-        if (el) el.value = token;
-    }
+	const fields = ['h-captcha-response', 'g-recaptcha-response'];
+	for (const name of fields) {
+		const el = document.querySelector(`[name="${name}"]`);
+		if (el) el.value = token;
+	}
 }
 
 // Turnstile Token 注入
 function injectTurnstileToken(token) {
-    const input = document.querySelector('[name="cf-turnstile-response"]');
-    if (input) input.value = token;
-    // 或通过 turnstile.getResponse() 回调
+	const input = document.querySelector('[name="cf-turnstile-response"]');
+	if (input) input.value = token;
+	// 或通过 turnstile.getResponse() 回调
 }
 ```
 
@@ -525,26 +538,28 @@ CREATE TABLE captcha_solver_config (
 
 ## 九、2025-2026 趋势与应对
 
-| 趋势 | 影响 | Multi-Flow 应对 |
-|------|------|-----------------|
-| 行为分析优先于图像挑战 | 自动化更难隐藏 | 依赖自研 Chromium 的真实指纹环境 |
-| CDP 检测信号 | 使用 CDP 即暴露 | 自研 Chromium 可修改检测点 |
-| JA4 指纹检测 | TLS 层面检测 | 指纹浏览器配置 + 代理 IP |
-| Web Unlocker 全托管化 | 独立求解 → 一体化 | 预留 Web Unlocker 接口 |
-| AWS Web Bot Auth | 合法 AI 免 CAPTCHA | 关注标准化进展，适时接入 |
-| LLM 爬虫激增 | 更严格的反爬 | 结合多环境隔离 + 行为模拟 |
+| 趋势                   | 影响               | Multi-Flow 应对                  |
+| ---------------------- | ------------------ | -------------------------------- |
+| 行为分析优先于图像挑战 | 自动化更难隐藏     | 依赖自研 Chromium 的真实指纹环境 |
+| CDP 检测信号           | 使用 CDP 即暴露    | 自研 Chromium 可修改检测点       |
+| JA4 指纹检测           | TLS 层面检测       | 指纹浏览器配置 + 代理 IP         |
+| Web Unlocker 全托管化  | 独立求解 → 一体化  | 预留 Web Unlocker 接口           |
+| AWS Web Bot Auth       | 合法 AI 免 CAPTCHA | 关注标准化进展，适时接入         |
+| LLM 爬虫激增           | 更严格的反爬       | 结合多环境隔离 + 行为模拟        |
 
 ---
 
 ## 十、参考资源
 
 ### 求解服务 API 文档
+
 - [2Captcha API](https://2captcha.com/api-docs)
 - [CapSolver API](https://docs.capsolver.com/)
 - [Anti-Captcha API](https://anti-captcha.com/apidoc)
 - [CapMonster Cloud API](https://docs.capmonster.cloud/)
 
 ### 反机器人系统文档
+
 - [reCAPTCHA Enterprise](https://cloud.google.com/recaptcha-enterprise/docs)
 - [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/)
 - [GeeTest 极验文档](https://docs.geetest.com/)

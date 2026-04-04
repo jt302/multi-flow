@@ -1602,7 +1602,7 @@ pub struct ToolResult {
 
 ---
 
-### 3.6 Dialog 工具（6 个）
+### 3.6 Dialog 工具（13 个）
 
 通过 Tauri 事件与前端 UI 弹窗交互。工作流程：后端 `app.emit("ai-dialog-request")` → 前端展示弹窗 → 前端调用 `submit_ai_dialog_response` → 后端 oneshot 通道接收结果。
 
@@ -1687,6 +1687,124 @@ pub struct ToolResult {
 | `title` | string | ❌   | 对话框标题 |
 
 **返回值**: 选中目录路径
+
+---
+
+##### `dialog_select`
+
+向用户展示选项选择弹窗，支持单选/多选。
+
+| 参数           | 类型          | 必需 | 描述                                                                              |
+| -------------- | ------------- | ---- | --------------------------------------------------------------------------------- |
+| `title`        | string        | ❌   | 弹窗标题                                                                          |
+| `message`      | string        | ❌   | 提示信息                                                                          |
+| `options`      | array[object] | ✅   | 选项列表（2-20 项），每项含 `label`(string)、`value`(string)、`description`(string, 可选) |
+| `multi_select` | boolean       | ❌   | 是否允许多选，默认 `false`                                                        |
+| `max_select`   | integer       | ❌   | 多选时最大选择数量                                                                |
+
+**返回值**: `{cancelled: boolean, selected: string | string[] | null}`（多选时 `selected` 为数组）
+
+---
+
+##### `dialog_form`
+
+向用户展示多字段表单弹窗，一次性收集多个输入。避免连续弹多个 `dialog_input`。
+
+| 参数           | 类型          | 必需 | 描述                                                                                                                         |
+| -------------- | ------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `title`        | string        | ❌   | 弹窗标题                                                                                                                     |
+| `message`      | string        | ❌   | 表单顶部说明文字                                                                                                             |
+| `fields`       | array[object] | ✅   | 字段列表（1-15 项），每项含 `name`(必需)、`label`(必需)、`type`(text/number/password/textarea/select/checkbox/date/email/url)、`required`(boolean)、`default_value`、`placeholder`、`options`(select 类型用)、`validation`(正则)、`hint` |
+| `submit_label` | string        | ❌   | 提交按钮文字，默认"确定"                                                                                                     |
+
+**返回值**: `{cancelled: boolean, values: {[fieldName]: value} | null}`
+
+---
+
+##### `dialog_table`
+
+向用户展示数据表格弹窗，可选择行。适用于展示抓取结果、对比数据等结构化信息。
+
+| 参数           | 类型          | 必需 | 描述                                                                              |
+| -------------- | ------------- | ---- | --------------------------------------------------------------------------------- |
+| `title`        | string        | ❌   | 弹窗标题                                                                          |
+| `message`      | string        | ❌   | 表格顶部说明文字                                                                  |
+| `columns`      | array[object] | ✅   | 列定义，每项含 `key`(必需)、`label`(必需)、`width`(integer, px)、`align`(left/center/right) |
+| `rows`         | array[object] | ✅   | 行数据，每项为以列 key 为键的对象                                                 |
+| `selectable`   | boolean       | ❌   | 是否允许选行，默认 `false`                                                        |
+| `multi_select` | boolean       | ❌   | 是否允许多选行，默认 `false`                                                      |
+| `max_height`   | integer       | ❌   | 表格最大高度（px），默认 400                                                      |
+
+**返回值**: `{confirmed: boolean, selected_indices: number[] | null}`（`selected_indices` 为选中行的索引数组）
+
+---
+
+##### `dialog_image`
+
+向用户展示图片预览弹窗，可附带输入框（如验证码输入）和自定义操作按钮。
+
+| 参数                | 类型          | 必需 | 描述                                         |
+| ------------------- | ------------- | ---- | -------------------------------------------- |
+| `title`             | string        | ❌   | 弹窗标题                                     |
+| `message`           | string        | ❌   | 图片上方说明文字                             |
+| `image`             | string        | ✅   | base64 编码图片数据或本地文件路径            |
+| `image_format`      | string        | ❌   | 图片格式，默认 `png`。可选: `png` / `jpeg` / `webp` / `gif` |
+| `input_label`       | string        | ❌   | 输入框标签（若提供则显示输入框）             |
+| `input_placeholder` | string        | ❌   | 输入框占位符                                 |
+| `actions`           | array[object] | ❌   | 自定义操作按钮，每项含 `label`(string)、`value`(string) |
+
+**返回值**: `{cancelled: boolean, value: string | null, action: string | null}`
+
+---
+
+##### `dialog_countdown`
+
+向用户展示倒计时确认弹窗，用于危险操作前给用户反悔时间。
+
+| 参数           | 类型    | 必需 | 描述                                                    |
+| -------------- | ------- | ---- | ------------------------------------------------------- |
+| `title`        | string  | ❌   | 弹窗标题                                                |
+| `message`      | string  | ✅   | 操作说明                                                |
+| `seconds`      | integer | ✅   | 倒计时秒数（3-60）                                      |
+| `level`        | string  | ❌   | 级别，默认 `warning`。可选: `info` / `warning` / `danger` |
+| `action_label` | string  | ❌   | 倒计时结束后的操作按钮文字，默认"继续执行"              |
+| `auto_proceed` | boolean | ❌   | 倒计时结束后是否自动继续，默认 `false`                  |
+
+**返回值**: `{cancelled: boolean}`
+
+---
+
+##### `dialog_toast`
+
+显示通知提示（Toast），可附带操作按钮。无按钮时不阻塞，有按钮时等待用户操作。
+
+| 参数          | 类型          | 必需 | 描述                                                    |
+| ------------- | ------------- | ---- | ------------------------------------------------------- |
+| `title`       | string        | ❌   | 通知标题                                                |
+| `message`     | string        | ✅   | 通知内容                                                |
+| `level`       | string        | ❌   | 级别，默认 `info`。可选: `info` / `success` / `warning` / `error` |
+| `duration_ms` | integer       | ❌   | 自动消失时间（ms），默认 5000，0 表示不自动消失         |
+| `actions`     | array[object] | ❌   | 操作按钮（最多 2 个），每项含 `label`(string)、`value`(string) |
+| `persistent`  | boolean       | ❌   | 是否持续显示直到用户操作，默认 `false`                  |
+
+**返回值**: `{dismissed: boolean, action: string | null}`（`action` 为用户点击的按钮 value）
+
+---
+
+##### `dialog_markdown`
+
+向用户展示 Markdown 格式的富文本弹窗，支持表格、代码块等。适用于展示报告、分析结果。
+
+| 参数         | 类型          | 必需 | 描述                                                                         |
+| ------------ | ------------- | ---- | ---------------------------------------------------------------------------- |
+| `title`      | string        | ❌   | 弹窗标题                                                                     |
+| `content`    | string        | ✅   | Markdown 格式内容                                                            |
+| `max_height` | integer       | ❌   | 内容区最大高度（px），默认 500                                               |
+| `width`      | string        | ❌   | 弹窗宽度，默认 `md`。可选: `sm` / `md` / `lg` / `xl`                        |
+| `actions`    | array[object] | ❌   | 操作按钮，每项含 `label`(string)、`value`(string)、`variant`(default/destructive/outline) |
+| `copyable`   | boolean       | ❌   | 是否显示复制按钮，默认 `false`                                               |
+
+**返回值**: `{action: string}`（用户点击的按钮 value，默认为 `"close"`）
 
 ---
 
