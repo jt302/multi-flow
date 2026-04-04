@@ -25,7 +25,7 @@ pub fn open_log_panel_window(app: AppHandle) -> Result<(), String> {
         LOG_PANEL_LABEL,
         WebviewUrl::App("/?standalone=logs".into()),
     )
-    .title("multi-flow 日志面板")
+    .title("Multi-Flow Log Panel")
     .inner_size(1120.0, 760.0)
     .min_inner_size(860.0, 600.0)
     .resizable(true)
