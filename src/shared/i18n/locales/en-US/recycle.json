@@ -1,0 +1,19 @@
+{
+	"title": "Recycle Bin",
+	"desc": "Restore or permanently delete archived data",
+	"stats": "Stats",
+	"archivedItems": "Archived Items",
+	"profiles": "Profiles",
+	"proxies": "Proxies",
+	"groups": "Groups",
+	"restore": "Restore",
+	"permanentDelete": "Delete Permanently",
+	"confirmDelete": "Confirm Permanent Delete",
+	"confirmDeleteDesc": "{{name}} will be permanently deleted and cannot be recovered. Please confirm this is not a mistake.",
+	"deletedAt": "Deleted at {{time}}",
+	"operationFailed": "Recycle bin operation failed",
+	"emptyBin": "Recycle bin is currently empty",
+	"name": "Name",
+	"detail": "Detail",
+	"action": "Action"
+}

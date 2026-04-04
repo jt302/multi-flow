@@ -1,0 +1,30 @@
+{
+	"toolbar": {
+		"title": "后端日志面板",
+		"backToConsole": "返回控制台",
+		"openWindow": "打开独立窗口",
+		"autoScroll": "自动滚动",
+		"clearView": "清空视图",
+		"groupByProfile": "按 Profile 分组",
+		"exportFiltered": "导出过滤结果",
+		"componentFilter": "按 component 过滤，例如 engine_manager",
+		"profileFilter": "按 profile_id 过滤，例如 pf_000001",
+		"searchContent": "搜索日志内容",
+		"total": "总计 {{count}}",
+		"filtered": "过滤后 {{count}}",
+		"level": "级别 {{level}}",
+		"groupView": "分组视图",
+		"loadingHistory": "加载历史日志中..."
+	},
+	"list": {
+		"noMatch": "暂无匹配日志",
+		"unassigned": "未绑定 Profile"
+	},
+	"errors": {
+		"readFailed": "读取后端日志失败",
+		"subscribeFailed": "订阅日志事件失败",
+		"openWindowFailed": "打开独立日志窗口失败",
+		"exportFailed": "导出日志失败"
+	},
+	"exported": "已导出 {{count}} 条日志"
+}

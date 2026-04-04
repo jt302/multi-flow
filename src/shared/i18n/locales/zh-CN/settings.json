@@ -1,0 +1,114 @@
+{
+	"tabs": {
+		"general": "通用",
+		"appearance": "外观",
+		"resources": "资源",
+		"ai": "AI 配置",
+		"recycleBin": "回收站",
+		"language": "语言"
+	},
+	"general": {
+		"title": "通用设置",
+		"chromiumLogging": "Chromium 日志输出",
+		"chromiumLoggingDesc": "启用后 Chromium 进程将输出 stderr 日志，关闭可减少资源占用。修改后对新启动的环境生效。"
+	},
+	"theme": {
+		"title": "主题定制",
+		"dualMode": "亮/暗双态",
+		"customPrimaryColor": "自定义主色",
+		"useCustomColor": "使用自定义主色",
+		"switchToCustomColor": "切换到自定义主色"
+	},
+	"ai": {
+		"custom": "自定义",
+		"title": "AI 模型配置",
+		"empty": "暂无 AI 配置，点击「添加」创建第一个",
+		"added": "已添加 AI 配置",
+		"addFailed": "添加失败: {{error}}",
+		"updated": "已更新 AI 配置",
+		"updateFailed": "更新失败: {{error}}",
+		"deleted": "已删除 AI 配置",
+		"deleteFailed": "删除失败: {{error}}",
+		"unnamed": "未命名配置"
+	},
+	"captcha": {
+		"title": "CAPTCHA 求解服务",
+		"empty": "暂无求解服务配置，点击「添加」创建",
+		"added": "已添加验证码求解配置",
+		"addFailed": "添加失败: {{error}}",
+		"updated": "已更新配置",
+		"updateFailed": "更新失败: {{error}}",
+		"deleted": "已删除配置",
+		"deleteFailed": "删除失败: {{error}}",
+		"editTitle": "编辑求解配置",
+		"createTitle": "添加求解配置",
+		"deleteTitle": "删除求解配置",
+		"deleteDesc": "确定要删除此求解配置吗？此操作无法撤销。",
+		"provider": "服务商",
+		"apiKey": "API Key",
+		"baseUrl": "Base URL",
+		"baseUrlHint": "（留空使用默认值）",
+		"baseUrlPlaceholder": "留空使用默认"
+	},
+	"resource": {
+		"chromiumVersions": "Chromium 版本",
+		"resourceDesc": "资源下载、安装和激活仍然集中在设置页处理。",
+		"noResources": "未发现可用 Chromium 资源",
+		"downloadAndActivate": "下载并激活",
+		"downloading": "下载中",
+		"installing": "安装中",
+		"done": "已完成",
+		"error": "失败",
+		"processing": "处理中",
+		"geoDbTitle": "GEO 数据库 {{name}}",
+		"notDownloadedLocal": "未下载到本地",
+		"downloaded": "已下载",
+		"installed": "已安装",
+		"notInstalled": "未安装",
+		"geoDbDesc": "用于代理出口画像、自动语言/时区建议和环境地理位置联动。",
+		"redownload": "重新下载",
+		"downloadGeoDb": "下载 GEO 库"
+	},
+	"language": {
+		"title": "界面语言",
+		"desc": "切换应用界面的显示语言",
+		"zhCN": "中文（简体）",
+		"enUS": "English"
+	},
+	"maintenance": {
+		"title": "高级维护",
+		"recycleBin": "回收站",
+		"recycleBinDesc": "恢复或彻底删除已归档的数据",
+		"openRecycleBin": "打开回收站"
+	},
+	"aiDialog": {
+		"editTitle": "编辑 AI 配置",
+		"createTitle": "添加 AI 配置",
+		"configName": "配置名称",
+		"configNamePlaceholder": "例如：GPT-4o",
+		"provider": "提供商",
+		"model": "模型",
+		"modelPlaceholder": "选择或输入模型名称",
+		"modelInputLabel": "输入模型名称",
+		"agentLanguage": "Agent 语言",
+		"chinese": "中文",
+		"agentLanguageHint": "AI Agent 系统提示词的语言",
+		"advancedOptions": "高级选项",
+		"baseUrlHint": "（留空使用默认值）",
+		"saving": "保存中...",
+		"save": "保存",
+		"deleteTitle": "删除 AI 配置",
+		"deleteDesc": "确定要删除「{{name}}」吗？此操作无法撤销。",
+		"cancel": "取消",
+		"delete": "删除"
+	},
+	"variables": {
+		"title": "脚本变量",
+		"desc": "定义脚本预期的变量名和默认值，运行时会自动预填到初始变量栏。在步骤中使用 {{variable}} 引用。",
+		"variableName": "变量名",
+		"defaultValue": "默认值（可选）",
+		"addVariable": "添加变量",
+		"cancel": "取消",
+		"save": "保存"
+	}
+}

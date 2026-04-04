@@ -1,0 +1,114 @@
+{
+	"tabs": {
+		"general": "General",
+		"appearance": "Appearance",
+		"resources": "Resources",
+		"ai": "AI Config",
+		"recycleBin": "Recycle Bin",
+		"language": "Language"
+	},
+	"general": {
+		"title": "General Settings",
+		"chromiumLogging": "Chromium Logging",
+		"chromiumLoggingDesc": "Enable Chromium stderr logging. Disable to reduce resource usage. Takes effect for newly launched environments."
+	},
+	"theme": {
+		"title": "Theme Customization",
+		"dualMode": "Light/Dark Dual Mode",
+		"customPrimaryColor": "Custom Primary Color",
+		"useCustomColor": "Use Custom Primary Color",
+		"switchToCustomColor": "Switch to Custom Color"
+	},
+	"ai": {
+		"custom": "Custom",
+		"title": "AI Model Configuration",
+		"empty": "No AI configs. Click 'Add' to create first.",
+		"added": "AI config added",
+		"addFailed": "Add failed: {{error}}",
+		"updated": "AI config updated",
+		"updateFailed": "Update failed: {{error}}",
+		"deleted": "AI config deleted",
+		"deleteFailed": "Delete failed: {{error}}",
+		"unnamed": "Unnamed Config"
+	},
+	"captcha": {
+		"title": "CAPTCHA Solver Service",
+		"empty": "No solver configs. Click 'Add' to create.",
+		"added": "CAPTCHA solver config added",
+		"addFailed": "Add failed: {{error}}",
+		"updated": "Config updated",
+		"updateFailed": "Update failed: {{error}}",
+		"deleted": "Config deleted",
+		"deleteFailed": "Delete failed: {{error}}",
+		"editTitle": "Edit Solver Config",
+		"createTitle": "Add Solver Config",
+		"deleteTitle": "Delete Solver Config",
+		"deleteDesc": "Are you sure you want to delete this solver config? This action cannot be undone.",
+		"provider": "Provider",
+		"apiKey": "API Key",
+		"baseUrl": "Base URL",
+		"baseUrlHint": "(Leave empty for default)",
+		"baseUrlPlaceholder": "Leave empty for default"
+	},
+	"resource": {
+		"chromiumVersions": "Chromium Versions",
+		"resourceDesc": "Resource download, installation, and activation are handled in Settings page.",
+		"noResources": "No available Chromium resources found",
+		"downloadAndActivate": "Download & Activate",
+		"downloading": "Downloading",
+		"installing": "Installing",
+		"done": "Done",
+		"error": "Error",
+		"processing": "Processing",
+		"geoDbTitle": "GEO Database {{name}}",
+		"notDownloadedLocal": "Not downloaded locally",
+		"downloaded": "Downloaded",
+		"geoDbDesc": "Used for proxy exit profiling, auto language/timezone suggestions, and environment geolocation linkage.",
+		"redownload": "Re-download",
+		"downloadGeoDb": "Download GEO DB",
+		"installed": "Installed",
+		"notInstalled": "Not Installed"
+	},
+	"language": {
+		"title": "Interface Language",
+		"desc": "Switch application display language",
+		"zhCN": "中文（简体）",
+		"enUS": "English"
+	},
+	"maintenance": {
+		"title": "Advanced Maintenance",
+		"recycleBin": "Recycle Bin",
+		"recycleBinDesc": "Restore or permanently delete archived data",
+		"openRecycleBin": "Open Recycle Bin"
+	},
+	"aiDialog": {
+		"editTitle": "Edit AI Config",
+		"createTitle": "Add AI Config",
+		"configName": "Config Name",
+		"configNamePlaceholder": "e.g., GPT-4o",
+		"provider": "Provider",
+		"model": "Model",
+		"modelPlaceholder": "Select or enter model name",
+		"modelInputLabel": "Enter model name",
+		"agentLanguage": "Agent Language",
+		"chinese": "Chinese",
+		"agentLanguageHint": "AI Agent system prompt language",
+		"advancedOptions": "Advanced Options",
+		"baseUrlHint": "(Leave empty for default)",
+		"saving": "Saving...",
+		"save": "Save",
+		"deleteTitle": "Delete AI Config",
+		"deleteDesc": "Delete '{{name}}'? This action cannot be undone.",
+		"cancel": "Cancel",
+		"delete": "Delete"
+	},
+	"variables": {
+		"title": "Script Variables",
+		"desc": "Define expected variable names and default values. Pre-filled to initial variables at runtime. Use {{variable}} syntax in steps.",
+		"variableName": "Variable Name",
+		"defaultValue": "Default Value (optional)",
+		"addVariable": "Add Variable",
+		"cancel": "Cancel",
+		"save": "Save"
+	}
+}

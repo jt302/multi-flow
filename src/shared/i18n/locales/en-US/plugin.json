@@ -1,0 +1,63 @@
+{
+	"title": "Plugins",
+	"label": "Plugins",
+	"downloadCrx": {
+		"title": "Download CRX via Extension ID",
+		"placeholder": "Enter Chrome Web Store extension ID",
+		"proxyNone": "Download Proxy: None",
+		"proxySelected": "Download Proxy: {{name}}",
+		"downloading": "Downloading...",
+		"download": "Download Plugin",
+		"proxyHint": "Downloading requires access to Chrome Web Store; optionally select a configured proxy for downloading, checking updates, and updating plugins."
+	},
+	"library": {
+		"title": "Plugin Library",
+		"loading": "Loading plugin library...",
+		"noDescription": "No description available",
+		"crxPath": "CRX: {{path}}",
+		"updateStatus": "Update Status: {{status}} / Latest Version {{version}}",
+		"openInStore": "Open in Store",
+		"checkUpdate": "Check Update",
+		"updatePlugin": "Update Plugin",
+		"installToProfiles": "Install to Profiles",
+		"installToAll": "Install to All Profiles",
+		"uninstall": "Uninstall",
+		"empty": "No downloaded plugins yet.",
+		"iconAlt": "{{name}} icon",
+		"updateStatusRefreshed": "Plugin update status refreshed",
+		"pluginUpdated": "Plugin updated",
+		"pluginUninstalled": "Plugin uninstalled"
+	},
+	"install": {
+		"title": "Start Installation",
+		"desc": "Filter target profiles first, then multi-select profiles to install plugins. Running profiles will have config written first and take effect after restart.",
+		"searchPlaceholder": "Search name/group/notes",
+		"allGroups": "All Groups",
+		"allStatus": "All Status",
+		"onlyRunning": "Running Only",
+		"onlyStopped": "Stopped Only",
+		"availableProfiles": "Available Profiles",
+		"archived": "Archived",
+		"allLifecycle": "All Lifecycle",
+		"filterSummary": "Currently filtering {{filtered}} available profiles, {{selected}} selected",
+		"selectFiltered": "Select Filtered Results",
+		"running": "Running",
+		"notRunning": "Not Running",
+		"emptyFilter": "No installable profiles match current filter.",
+		"confirmInstall": "Confirm Install"
+	},
+	"toast": {
+		"enterExtensionId": "Please enter extension ID",
+		"downloaded": "Plugin downloaded: {{name}}",
+		"downloadFailed": "Failed to download plugin",
+		"operationFailed": "Plugin operation failed",
+		"noStoreUrl": "Current plugin missing store URL",
+		"openStoreFailed": "Failed to open store page",
+		"selectAtLeastOne": "Please select at least one profile",
+		"installed": "Plugin written to {{count}} profiles",
+		"restartNotice": "Running profiles need restart for plugin changes to take effect",
+		"installFailed": "Failed to install plugin",
+		"readProxyPrefFailed": "Failed to read plugin download proxy preference",
+		"saveProxyPrefFailed": "Failed to save plugin download proxy preference"
+	}
+}

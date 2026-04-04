@@ -1,0 +1,30 @@
+{
+	"toolbar": {
+		"title": "Backend Log Panel",
+		"backToConsole": "Back to Console",
+		"openWindow": "Open in Separate Window",
+		"autoScroll": "Auto Scroll",
+		"clearView": "Clear View",
+		"groupByProfile": "Group by Profile",
+		"exportFiltered": "Export Filtered Results",
+		"componentFilter": "Filter by component, e.g., engine_manager",
+		"profileFilter": "Filter by profile_id, e.g., pf_000001",
+		"searchContent": "Search log content",
+		"total": "Total {{count}}",
+		"filtered": "Filtered {{count}}",
+		"level": "Level {{level}}",
+		"groupView": "Group View",
+		"loadingHistory": "Loading historical logs..."
+	},
+	"list": {
+		"noMatch": "No matching logs",
+		"unassigned": "Unassigned Profile"
+	},
+	"errors": {
+		"readFailed": "Failed to read backend logs",
+		"subscribeFailed": "Failed to subscribe to log events",
+		"openWindowFailed": "Failed to open separate log window",
+		"exportFailed": "Failed to export logs"
+	},
+	"exported": "Exported {{count}} logs"
+}

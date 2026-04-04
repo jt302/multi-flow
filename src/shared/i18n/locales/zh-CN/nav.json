@@ -1,0 +1,104 @@
+{
+	"dashboard": "总览",
+	"profiles": "环境",
+	"plugins": "插件",
+	"groups": "分组",
+	"proxy": "代理池",
+	"windows": "窗口同步",
+	"browserControl": "浏览器控制",
+	"automation": "自动化",
+	"settings": "设置",
+
+	"dashboardSection": {
+		"title": "全局运行总览",
+		"desc": "聚合展示环境状态、代理健康与窗口同步概况。",
+		"tableTitle": "最近活跃会话"
+	},
+	"profilesSection": {
+		"title": "环境工作台",
+		"desc": "按分组管理 Profile，执行批量启动、停用和状态巡检。",
+		"tableTitle": "环境会话"
+	},
+	"pluginsSection": {
+		"title": "插件库管理",
+		"desc": "集中下载、更新、卸载插件，并按筛选条件批量安装到环境。",
+		"tableTitle": "插件安装样例"
+	},
+	"groupsSection": {
+		"title": "分组管理",
+		"desc": "统一管理业务分组、备注与归档策略，创建环境时可直接关联。",
+		"tableTitle": "分组成员样例"
+	},
+	"proxySection": {
+		"title": "代理池监控",
+		"desc": "追踪代理可用率、地区分布与最近失败记录。",
+		"tableTitle": "代理关联会话"
+	},
+	"windowsSection": {
+		"title": "窗口同步控制台",
+		"desc": "管理主从同步、窗口排列、标签页批量动作与文本广播输入。",
+		"tableTitle": "运行窗口概览"
+	},
+	"browserControlSection": {
+		"title": "浏览器控制",
+		"desc": "窗口管理、标签页批量操作与文本广播输入。"
+	},
+	"automationSection": {
+		"title": "自动化",
+		"desc": "创建并运行 RPA 自动化脚本，通过 CDP 和 Magic Controller 操控浏览器环境。",
+		"tableTitle": "最近运行记录"
+	},
+	"settingsSection": {
+		"title": "系统设置",
+		"desc": "管理主题、资源版本策略和运行参数的默认行为。",
+		"tableTitle": "系统关键状态"
+	},
+
+	"sampleStatus": {
+		"running": "运行中",
+		"standby": "待机",
+		"alert": "告警"
+	},
+	"sampleRows": {
+		"brandAccount": "品牌号",
+		"residential": "住宅代理",
+		"datacenter": "机房代理",
+		"tools": "工具类",
+		"wallet": "钱包类",
+		"debug": "调试类",
+		"downloaded": "已下载",
+		"pendingDownload": "待下载",
+		"checkUpdate": "可检查更新",
+		"needRestart": "需重启生效",
+		"notInstalled": "未安装",
+		"importById": "通过扩展 ID 导入",
+		"windowTab": "{{windows}} 窗口 / {{tabs}} 标签",
+		"offline": "离线",
+		"resourceVersion": "资源版本",
+		"geoDb": "地理库",
+		"optionalEnable": "可选启用",
+		"automate": "自动化",
+		"notStarted": "未启动",
+		"profileCount": "{{count}} 个环境"
+	},
+
+	"searchCommand": "搜索命令",
+	"logPanel": "日志面板",
+	"openLogPanel": "打开日志面板",
+	"globalCommand": "全局命令",
+	"globalCommandDesc": "搜索页面和操作",
+	"commandPlaceholder": "输入命令或搜索...",
+	"pageJump": "页面跳转",
+	"actions": "操作",
+
+	"sidebar": {
+		"navigation": "导航",
+		"devicePresets": "机型映射",
+		"runtimeStatus": "运行状态",
+		"executionEngine": "执行引擎",
+		"active": "活跃",
+		"paused": "暂停",
+		"pauseEngine": "暂停执行引擎",
+		"resumeEngine": "恢复执行引擎"
+	}
+}

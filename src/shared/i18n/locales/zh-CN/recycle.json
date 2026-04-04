@@ -1,0 +1,19 @@
+{
+	"title": "回收站",
+	"desc": "统一恢复或彻底删除已归档数据",
+	"stats": "统计",
+	"archivedItems": "已归档项目",
+	"profiles": "环境",
+	"proxies": "代理",
+	"groups": "分组",
+	"restore": "恢复",
+	"permanentDelete": "彻底删除",
+	"confirmDelete": "确认彻底删除",
+	"confirmDeleteDesc": "{{name}} 将被彻底删除且不能恢复，请确认这不是误操作。",
+	"deletedAt": "删除于 {{time}}",
+	"operationFailed": "回收站操作失败",
+	"emptyBin": "当前回收站为空",
+	"name": "名称",
+	"detail": "详情",
+	"action": "操作"
+}
