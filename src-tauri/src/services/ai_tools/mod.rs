@@ -96,6 +96,7 @@ fn tool_category(name: &str) -> &str {
     if name.starts_with("app_") { return "app"; }
     if name.starts_with("file_") { return "file"; }
     if name.starts_with("dialog_") { return "dialog"; }
+    if name.starts_with("captcha_") { return "captcha"; }
     "utility"
 }
 
@@ -133,7 +134,7 @@ impl ToolRegistry {
         let category = tool_category(name);
 
         match category {
-            "cdp" | "magic" | "utility" => {
+            "cdp" | "magic" | "utility" | "captcha" => {
                 Self::execute_via_script_step(name, args, ctx).await
             }
             "app" => {
