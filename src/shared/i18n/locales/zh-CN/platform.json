@@ -1,0 +1,10 @@
+{
+	"desktopApple": "桌面 Apple",
+	"desktopMicrosoft": "桌面 Microsoft",
+	"desktopLinux": "桌面 Linux",
+	"mobileTouch": "移动触屏",
+	"mobileApple": "iPhone / iPad",
+	"currentSystem": "当前系统",
+	"hostPlatform": "宿主平台",
+	"unknown": "未知"
+}

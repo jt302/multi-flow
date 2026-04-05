@@ -69,7 +69,7 @@ export const PLATFORM_OPTIONS: PlatformVisualMeta[] = [
 		iconSvg: IPhoneIcon,
 		fallbackIcon: TerminalSquare,
 		code: 'iOS',
-		hint: 'iPhone / iPad',
+		hint: i18next.t('platform:mobileApple'),
 		badgeClass: 'bg-slate-500/15 text-slate-700 dark:text-slate-300',
 		iconClass: 'text-slate-600 dark:text-slate-300',
 	},

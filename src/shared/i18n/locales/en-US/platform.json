@@ -1,0 +1,10 @@
+{
+	"desktopApple": "Desktop Apple",
+	"desktopMicrosoft": "Desktop Microsoft",
+	"desktopLinux": "Desktop Linux",
+	"mobileTouch": "Mobile Touch",
+	"mobileApple": "iPhone / iPad",
+	"currentSystem": "Current System",
+	"hostPlatform": "Host Platform",
+	"unknown": "Unknown"
+}

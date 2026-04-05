@@ -14,6 +14,7 @@
 	"disabled": "关闭",
 	"none": "无",
 	"unknown": "未知",
+	"notSet": "未设置",
 	"running": "运行中",
 	"standby": "待机",
 	"alert": "告警",

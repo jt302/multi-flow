@@ -17,6 +17,7 @@ import zhLog from './locales/zh-CN/log.json';
 import zhPlugin from './locales/zh-CN/plugin.json';
 import zhCanvas from './locales/zh-CN/canvas.json';
 import zhChat from './locales/zh-CN/chat.json';
+import zhPlatform from './locales/zh-CN/platform.json';
 
 import enCommon from './locales/en-US/common.json';
 import enNav from './locales/en-US/nav.json';
@@ -33,6 +34,7 @@ import enLog from './locales/en-US/log.json';
 import enPlugin from './locales/en-US/plugin.json';
 import enCanvas from './locales/en-US/canvas.json';
 import enChat from './locales/en-US/chat.json';
+import enPlatform from './locales/en-US/platform.json';
 
 export const defaultNS = 'common';
 export const resources = {
@@ -52,6 +54,7 @@ export const resources = {
 		plugin: zhPlugin,
 		canvas: zhCanvas,
 		chat: zhChat,
+		platform: zhPlatform,
 	},
 	'en-US': {
 		common: enCommon,
@@ -69,6 +72,7 @@ export const resources = {
 		plugin: enPlugin,
 		canvas: enCanvas,
 		chat: enChat,
+		platform: enPlatform,
 	},
 } as const;
 
