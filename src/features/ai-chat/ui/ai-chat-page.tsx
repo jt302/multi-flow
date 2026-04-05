@@ -85,7 +85,7 @@ export function AiChatPage() {
 
 	return (
 		<ResizablePanelGroup direction="horizontal" className="h-full">
-			<ResizablePanel defaultSize={16} minSize={14} maxSize={35}>
+			<ResizablePanel defaultSize={14} minSize={12} maxSize={35}>
 				<ChatSessionList
 					sessions={sessions}
 					activeId={activeSessionId}
@@ -99,7 +99,7 @@ export function AiChatPage() {
 				/>
 			</ResizablePanel>
 			<ResizableHandle />
-			<ResizablePanel defaultSize={78}>
+			<ResizablePanel defaultSize={86}>
 				<div className="flex h-full flex-col overflow-hidden">
 					{activeSessionId && activeSession ? (
 						<>
