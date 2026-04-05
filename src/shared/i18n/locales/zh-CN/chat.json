@@ -15,11 +15,12 @@
 	"setActiveCdp": "设为活跃 CDP 连接",
 	"noProfile": "未选择",
 	"selectAiConfig": "选择 AI 配置",
-	"noAiConfig": "默认配置",
-	"defaultModel": "默认模型",
-	"systemPrompt": "系统提示词",
-	"systemPromptPlaceholder": "为本次聊天设置自定义系统提示词...",
+	"noAiConfig": "使用全局配置",
+	"globalConfig": "全局配置",
+	"systemPrompt": "任务提示词",
+	"systemPromptPlaceholder": "为本次聊天设置自定义任务提示词...",
 	"expandPrompt": "展开提示词",
 	"collapsePrompt": "收起提示词",
-	"regenerate": "重新生成"
+	"regenerate": "重新生成",
+	"noProfileWarning": "请先在顶部选择一个运行环境，否则浏览器工具将无法使用。"
 }

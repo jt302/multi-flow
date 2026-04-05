@@ -73,7 +73,7 @@ export function ProfileMultiSelect({
 			<PopoverTrigger asChild>
 				<button
 					type="button"
-					className="flex h-7 w-52 items-center gap-1 rounded-md border border-input bg-background px-2 text-xs cursor-pointer hover:bg-accent transition-colors"
+					className="flex h-8 w-52 items-center gap-1 rounded-md border border-input bg-background px-2 text-xs cursor-pointer hover:bg-accent transition-colors"
 				>
 					<span className="flex-1 truncate text-left">
 						{selectedProfiles.length === 0 ? (

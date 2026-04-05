@@ -15,11 +15,12 @@
 	"setActiveCdp": "Set as active CDP connection",
 	"noProfile": "None",
 	"selectAiConfig": "Select AI Config",
-	"noAiConfig": "Default Config",
-	"defaultModel": "Default",
-	"systemPrompt": "System Prompt",
-	"systemPromptPlaceholder": "Set a custom system prompt for this chat...",
+	"noAiConfig": "Use Global Config",
+	"globalConfig": "Global",
+	"systemPrompt": "Task Prompt",
+	"systemPromptPlaceholder": "Set a custom task prompt for this chat...",
 	"expandPrompt": "Expand Prompt",
 	"collapsePrompt": "Collapse Prompt",
-	"regenerate": "Regenerate"
+	"regenerate": "Regenerate",
+	"noProfileWarning": "Please select a browser profile first. Without one, browser tools will be unavailable."
 }

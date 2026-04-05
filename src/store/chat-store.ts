@@ -16,6 +16,8 @@ type ChatStoreState = {
 	elapsedMs: number;
 	promptTokens: number;
 	completionTokens: number;
+	contextUsed: number;
+	contextLimit: number;
 	generationStartTime: number | null;
 	liveMessages: ChatMessageRecord[];
 };
@@ -35,10 +37,12 @@ const INITIAL_STATE: ChatStoreState = {
 	generationPhase: 'idle',
 	currentToolName: null,
 	currentRound: 0,
-	maxRounds: 30,
+	maxRounds: 0,
 	elapsedMs: 0,
 	promptTokens: 0,
 	completionTokens: 0,
+	contextUsed: 0,
+	contextLimit: 0,
 	generationStartTime: null,
 	liveMessages: [],
 };
@@ -72,22 +76,26 @@ export function createChatStore(initial?: Partial<ChatStoreState>) {
 		appendMessage: (msg) =>
 			set((s) => ({ liveMessages: upsertLiveMessage(s.liveMessages, msg) })),
 
-		updatePhase: (event) => {
-			const shared = {
-				currentRound: event.round ?? 0,
-				maxRounds: event.maxRounds ?? 30,
-				elapsedMs: event.elapsedMs ?? 0,
-				promptTokens: event.promptTokens ?? 0,
-				completionTokens: event.completionTokens ?? 0,
-			};
-			if (event.phase === 'done' || event.phase === 'error') {
-				set({ isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null, ...shared });
-			} else if (event.phase === 'thinking') {
-				set({ generationPhase: 'thinking', currentToolName: null, ...shared });
-			} else if (event.phase === 'tool_calling') {
-				set({ generationPhase: 'tool_calling', currentToolName: event.toolName ?? null, ...shared });
-			}
-		},
+		updatePhase: (event) =>
+			set((s) => {
+				const shared = {
+					currentRound: event.round ?? 0,
+					maxRounds: event.maxRounds ?? 0,
+					elapsedMs: event.elapsedMs ?? 0,
+					promptTokens: event.promptTokens ?? 0,
+					completionTokens: event.completionTokens ?? 0,
+					contextUsed: event.contextUsed ?? s.contextUsed,
+					contextLimit: event.contextLimit ?? s.contextLimit,
+				};
+				if (event.phase === 'done' || event.phase === 'error') {
+					return { isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null, ...shared };
+				} else if (event.phase === 'thinking') {
+					return { generationPhase: 'thinking', currentToolName: null, ...shared };
+				} else if (event.phase === 'tool_calling') {
+					return { generationPhase: 'tool_calling', currentToolName: event.toolName ?? null, ...shared };
+				}
+				return shared;
+			}),
 
 		reset: () => set(INITIAL_STATE),
 	}));
@@ -95,7 +103,7 @@ export function createChatStore(initial?: Partial<ChatStoreState>) {
 
 export const chatStore = createStore<ChatStoreState & ChatStoreActions>()(
 	persist(
-		(set) => ({
+		(set, get) => ({
 			...INITIAL_STATE,
 
 			setActiveSession: (id) =>
@@ -115,6 +123,9 @@ export const chatStore = createStore<ChatStoreState & ChatStoreActions>()(
 					elapsedMs: event.elapsedMs ?? 0,
 					promptTokens: event.promptTokens ?? 0,
 					completionTokens: event.completionTokens ?? 0,
+					// 保留上一次已知的 context 值，避免未携带该字段的事件把它清零
+					contextUsed: event.contextUsed ?? get().contextUsed,
+					contextLimit: event.contextLimit ?? get().contextLimit,
 				};
 				if (event.phase === 'done' || event.phase === 'error') {
 					set({ isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null, ...shared });
