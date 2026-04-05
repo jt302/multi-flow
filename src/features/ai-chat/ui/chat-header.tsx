@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, ChevronUp, Pencil } from 'lucide-react';
+import { Pencil, ScrollText } from 'lucide-react';
 
 import {
+	Button,
+	Dialog,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
 	Input,
 	Select,
 	SelectContent,
@@ -44,9 +50,13 @@ export function ChatHeader({ session }: Props) {
 
 	const defaultConfigQuery = useDefaultAiConfigQuery();
 	const defaultConfigId = defaultConfigQuery.data ?? null;
-	// 当前会话未指定 AI 配置时，在显示层回退到默认配置名称
-	const defaultConfigName = defaultConfigId
-		? aiConfigs.find((c) => c.id === defaultConfigId)?.name
+	// 当前会话未指定 AI 配置时，在显示层回退到默认配置
+	const defaultConfig = defaultConfigId
+		? (aiConfigs.find((c) => c.id === defaultConfigId) ?? null)
+		: null;
+	// 当前会话明确选择的配置（用于 SelectValue 显示）
+	const selectedConfig = session.aiConfigId
+		? aiConfigs.find((c) => c.id === session.aiConfigId)
 		: null;
 
 	// sync prompt draft when session changes
@@ -74,16 +84,17 @@ export function ChatHeader({ session }: Props) {
 		}
 	};
 
-	const handlePromptBlur = () => {
+	const handlePromptSave = () => {
 		const trimmed = promptDraft.trim();
 		const current = session.systemPrompt ?? '';
 		if (trimmed !== current) {
 			doUpdate({ systemPrompt: trimmed || null });
 		}
+		setPromptOpen(false);
 	};
 
 	return (
-		<div className="shrink-0 border-b px-4 py-2 space-y-2">
+		<div className="shrink-0 border-b px-4 py-2">
 			{/* Row 1: Title + Profile + AI Config */}
 			<div className="flex items-center gap-3 min-h-[32px]">
 				{/* Editable title */}
@@ -131,19 +142,18 @@ export function ChatHeader({ session }: Props) {
 						doUpdate({ aiConfigId: v === '__none__' ? null : v })
 					}
 				>
-					<SelectTrigger className="h-7 w-48 text-xs">
+					<SelectTrigger size="sm" className="w-48 text-xs">
 						<SelectValue placeholder={t('selectAiConfig')}>
-							{session.aiConfigId
-								? aiConfigs.find((c) => c.id === session.aiConfigId)?.name ?? t('selectAiConfig')
-								: defaultConfigName
-									? `${t('defaultModel')} - ${defaultConfigName}`
-									: t('noAiConfig')}
+							{selectedConfig?.name
+								?? (defaultConfig
+									? `${t('globalConfig')}(${defaultConfig.name})`
+									: t('noAiConfig'))}
 						</SelectValue>
 					</SelectTrigger>
 					<SelectContent>
 						<SelectItem value="__none__">
-							{defaultConfigName
-								? `${t('defaultModel')} - ${defaultConfigName}`
+							{defaultConfig
+								? `${t('globalConfig')}(${defaultConfig.name})`
 								: t('noAiConfig')}
 						</SelectItem>
 						{aiConfigs.map((c) => (
@@ -157,29 +167,43 @@ export function ChatHeader({ session }: Props) {
 				{/* Toggle system prompt */}
 				<button
 					type="button"
-					onClick={() => setPromptOpen((v) => !v)}
-					className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0"
+					onClick={() => setPromptOpen(true)}
+					className={`inline-flex items-center gap-1 h-8 px-2 rounded-md border text-xs transition-colors cursor-pointer shrink-0 ${session.systemPrompt ? 'border-primary/50 text-primary bg-primary/5 hover:bg-primary/10' : 'border-input bg-background text-muted-foreground hover:text-foreground hover:bg-accent'}`}
 				>
-					{promptOpen ? t('collapsePrompt') : t('expandPrompt')}
-					{promptOpen ? (
-						<ChevronUp className="size-3" />
-					) : (
-						<ChevronDown className="size-3" />
-					)}
+					<ScrollText className="size-3" />
+					{t('systemPrompt')}
 				</button>
 			</div>
 
-			{/* Row 2: System prompt (collapsible) */}
-			{promptOpen && (
-				<Textarea
-					value={promptDraft}
-					onChange={(e) => setPromptDraft(e.target.value)}
-					onBlur={handlePromptBlur}
-					placeholder={t('systemPromptPlaceholder')}
-					className="min-h-[60px] max-h-32 resize-none text-xs"
-					rows={2}
-				/>
-			)}
+			{/* System prompt dialog */}
+			<Dialog open={promptOpen} onOpenChange={(open) => {
+				if (!open) handlePromptSave();
+			}}>
+				<DialogContent className="sm:max-w-lg">
+					<DialogHeader>
+						<DialogTitle>{t('systemPrompt')}</DialogTitle>
+					</DialogHeader>
+					<Textarea
+						value={promptDraft}
+						onChange={(e) => setPromptDraft(e.target.value)}
+						placeholder={t('systemPromptPlaceholder')}
+						className="min-h-[200px] resize-none text-sm"
+						rows={8}
+						autoFocus
+					/>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => {
+							setPromptDraft(session.systemPrompt ?? '');
+							setPromptOpen(false);
+						}} className="cursor-pointer">
+							{t('cancel', '取消')}
+						</Button>
+						<Button onClick={handlePromptSave} className="cursor-pointer">
+							{t('save', '保存')}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

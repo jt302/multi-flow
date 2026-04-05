@@ -26,8 +26,8 @@ export const deleteChatSession = (sessionId: string) =>
 export const listChatMessages = (sessionId: string) =>
 	tauriInvoke<ChatMessageRecord[]>('list_chat_messages', { sessionId });
 
-export const sendChatMessage = (sessionId: string, text: string) =>
-	tauriInvoke<void>('send_chat_message', { sessionId, text });
+export const sendChatMessage = (sessionId: string, text: string, imageBase64?: string | null) =>
+	tauriInvoke<void>('send_chat_message', { sessionId, text, imageBase64: imageBase64 ?? null });
 
 export const stopChatGeneration = (sessionId: string) =>
 	tauriInvoke<void>('stop_chat_generation', { sessionId });

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -30,6 +31,7 @@ import { ChatInputBar } from './chat-input-bar';
 export function AiChatPage() {
 	const { t } = useTranslation('chat');
 	const [input, setInput] = useState('');
+	const [pastedImage, setPastedImage] = useState<string | null>(null);
 	const qc = useQueryClient();
 
 	const sessionsQuery = useChatSessionsQuery();
@@ -39,6 +41,7 @@ export function AiChatPage() {
 	const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
 	const isGenerating = useChatStore((s) => s.isGenerating);
 	const liveMessages = useChatStore((s) => s.liveMessages);
+	const contextUsed = useChatStore((s) => s.contextUsed);
 
 	const messagesQuery = useChatMessagesQuery(activeSessionId);
 	const dbMessages: ChatMessageRecord[] = messagesQuery.data ?? [];
@@ -58,10 +61,25 @@ export function AiChatPage() {
 		chatStore.getState().setActiveSession(session.id);
 	};
 
+	// 当前会话是否关联了环境
+	const hasProfile = (activeSession?.profileIds?.length ?? 0) > 0
+		|| !!activeSession?.profileId;
+
 	const handleSend = async () => {
-		if (!input.trim() || !activeSessionId || isGenerating) return;
+		if (!activeSessionId || isGenerating) return;
+
+		// 未关联任何环境时提醒并阻止发送（无论输入是否为空都给提示）
+		if (!hasProfile) {
+			toast.warning(t('noProfileWarning', '请先在顶部选择一个运行环境，否则浏览器工具将无法使用。'));
+			return;
+		}
+
+		if (!input.trim() && !pastedImage) return;
+
 		const text = input.trim();
+		const img = pastedImage;
 		setInput('');
+		setPastedImage(null);
 		chatStore.getState().startGeneration();
 
 		// auto-generate title from the first user message
@@ -73,7 +91,7 @@ export function AiChatPage() {
 		}
 
 		try {
-			await sendChatMessage(activeSessionId, text);
+			await sendChatMessage(activeSessionId, text, img);
 		} catch {
 			chatStore.getState().finishGeneration();
 		}
@@ -115,6 +133,10 @@ export function AiChatPage() {
 								onSend={handleSend}
 								onStop={handleStop}
 								isGenerating={isGenerating}
+								sendDisabled={hasProfile ? ((!input.trim() && !pastedImage) || undefined) : false}
+								contextUsed={contextUsed}
+								imageBase64={pastedImage}
+								onImageChange={setPastedImage}
 							/>
 						</>
 					) : (

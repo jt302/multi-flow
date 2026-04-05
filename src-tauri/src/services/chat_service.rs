@@ -1,7 +1,20 @@
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, Set,
 };
-use serde::{Deserialize, Serialize};
+use sea_orm::sea_query::Expr;
+use serde::{Deserialize, Deserializer, Serialize};
+
+/// 正确反序列化"可选可清空"字段：
+/// - JSON 字段缺失 → None（不更新）
+/// - JSON 字段为 null → Some(None)（清空）
+/// - JSON 字段有值 → Some(Some(value))（设置）
+fn double_option<'de, D, T>(d: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(d).map(Some)
+}
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
@@ -74,11 +87,17 @@ pub struct CreateChatSessionRequest {
 #[serde(rename_all = "camelCase")]
 pub struct UpdateChatSessionRequest {
     pub title: Option<String>,
+    #[serde(default, deserialize_with = "double_option")]
     pub profile_id: Option<Option<String>>,
+    #[serde(default, deserialize_with = "double_option")]
     pub ai_config_id: Option<Option<String>>,
+    #[serde(default, deserialize_with = "double_option")]
     pub system_prompt: Option<Option<String>>,
+    #[serde(default, deserialize_with = "double_option")]
     pub tool_categories: Option<Option<Vec<String>>>,
+    #[serde(default, deserialize_with = "double_option")]
     pub profile_ids: Option<Option<Vec<String>>>,
+    #[serde(default, deserialize_with = "double_option")]
     pub active_profile_id: Option<Option<String>>,
 }
 
@@ -113,11 +132,7 @@ impl ChatService {
     pub async fn create_session(&self, req: CreateChatSessionRequest) -> AppResult<ChatSession> {
         let now = now_ts();
         let id = Uuid::new_v4().to_string();
-        let normalized = normalize_chat_profile_binding(
-            req.profile_id,
-            req.profile_ids,
-            None,
-        );
+        let normalized = normalize_chat_profile_binding(req.profile_id, req.profile_ids, None);
         let model = chat_session::ActiveModel {
             id: Set(id),
             title: Set(req.title.and_then(empty_to_none)),
@@ -129,7 +144,10 @@ impl ChatService {
                 .as_ref()
                 .filter(|v| !v.is_empty())
                 .and_then(|v| serde_json::to_string(v).ok())),
-            profile_ids: Set(normalized.profile_ids.as_ref().and_then(|v| serde_json::to_string(v).ok())),
+            profile_ids: Set(normalized
+                .profile_ids
+                .as_ref()
+                .and_then(|v| serde_json::to_string(v).ok())),
             active_profile_id: Set(normalized.active_profile_id),
             created_at: Set(now),
             updated_at: Set(now),
@@ -189,12 +207,10 @@ impl ChatService {
             next_active_profile_id,
         );
         model.profile_id = Set(normalized.profile_id);
-        model.profile_ids = Set(
-            normalized
-                .profile_ids
-                .as_ref()
-                .and_then(|v| serde_json::to_string(v).ok()),
-        );
+        model.profile_ids = Set(normalized
+            .profile_ids
+            .as_ref()
+            .and_then(|v| serde_json::to_string(v).ok()));
         model.active_profile_id = Set(normalized.active_profile_id);
 
         let updated = model.update(&self.db).await.map_err(AppError::from)?;
@@ -348,6 +364,60 @@ impl ChatService {
         Ok(model.map(|m| m.sort_order))
     }
 
+    /// 持久化上下文压缩结果：
+    /// 将较旧的 user/assistant/tool 消息标记为 is_active=0，
+    /// 并在原位插入 AI 生成的摘要 system 消息。
+    pub async fn persist_compression(
+        &self,
+        session_id: &str,
+        keep_recent: usize,
+        summary_text: &str,
+    ) -> AppResult<()> {
+        // 获取所有活跃消息（不含已有的摘要 system 消息）
+        let all = self.list_messages(session_id).await?;
+        let ai_relevant: Vec<&ChatMessageRecord> = all
+            .iter()
+            .filter(|r| matches!(r.role.as_str(), "user" | "assistant" | "tool"))
+            .collect();
+
+        if ai_relevant.len() <= keep_recent {
+            return Ok(());
+        }
+        let compress_end = ai_relevant.len() - keep_recent;
+
+        // 批量将被压缩的消息设为 is_active=0
+        let ids_to_deactivate: Vec<String> =
+            ai_relevant[..compress_end].iter().map(|r| r.id.clone()).collect();
+        chat_message::Entity::update_many()
+            .col_expr(chat_message::Column::IsActive, Expr::value(0i32))
+            .filter(chat_message::Column::Id.is_in(ids_to_deactivate))
+            .exec(&self.db)
+            .await
+            .map_err(AppError::from)?;
+
+        // 插入摘要消息，sort_order 取第一条被压缩消息的值（保持时间线顺序）
+        let summary_sort = ai_relevant[0].sort_order;
+        let meta = serde_json::json!({
+            "type": "summary",
+            "compressed_count": compress_end,
+        })
+        .to_string();
+        let model = chat_message::ActiveModel {
+            id: Set(Uuid::new_v4().to_string()),
+            session_id: Set(session_id.to_string()),
+            role: Set("system".to_string()),
+            content_text: Set(Some(format!("[Conversation Summary]\n{summary_text}"))),
+            compression_meta: Set(Some(meta)),
+            sort_order: Set(summary_sort),
+            is_active: Set(1),
+            created_at: Set(crate::models::now_ts()),
+            ..Default::default()
+        };
+        model.insert(&self.db).await.map_err(AppError::from)?;
+
+        Ok(())
+    }
+
     /// 构建用于 AI 调用的消息历史（转换为 ai_service::ChatMessage 格式）
     pub async fn build_ai_messages(&self, session_id: &str) -> AppResult<Vec<AiChatMessage>> {
         let records = self.list_messages(session_id).await?;
@@ -398,7 +468,15 @@ impl ChatService {
                     let id = r.tool_call_id.clone().unwrap_or_default();
                     messages.push(AiChatMessage::tool_result(&id, &result));
                 }
-                _ => {} // skip system notifications
+                "system" => {
+                    // 仅加载压缩摘要消息（以 [Conversation Summary] 开头），跳过普通 system 通知
+                    if let Some(ref text) = r.content_text {
+                        if text.starts_with("[Conversation Summary]") {
+                            messages.push(AiChatMessage::system(text));
+                        }
+                    }
+                }
+                _ => {} // skip other system notifications
             }
         }
 
@@ -533,9 +611,15 @@ fn normalize_chat_profile_binding(
         });
 
     if normalized_ids.is_empty() {
-        if let Some(active) = active_profile_id.as_ref().and_then(|id| non_empty_str(id.as_str())) {
+        if let Some(active) = active_profile_id
+            .as_ref()
+            .and_then(|id| non_empty_str(id.as_str()))
+        {
             normalized_ids.push(active.to_string());
-        } else if let Some(current) = profile_id.as_ref().and_then(|id| non_empty_str(id.as_str())) {
+        } else if let Some(current) = profile_id
+            .as_ref()
+            .and_then(|id| non_empty_str(id.as_str()))
+        {
             normalized_ids.push(current.to_string());
         }
     }
@@ -566,9 +650,7 @@ fn normalize_chat_profile_binding(
 }
 
 fn non_empty_str(input: &str) -> Option<&str> {
-    Some(input)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
+    Some(input).map(str::trim).filter(|value| !value.is_empty())
 }
 
 fn non_empty_owned(input: String) -> Option<String> {
@@ -603,7 +685,10 @@ mod tests {
                 .await
                 .expect("create session");
 
-            assert_eq!(session.profile_ids, Some(vec!["pf_a".to_string(), "pf_b".to_string()]));
+            assert_eq!(
+                session.profile_ids,
+                Some(vec!["pf_a".to_string(), "pf_b".to_string()])
+            );
             assert_eq!(session.active_profile_id.as_deref(), Some("pf_a"));
             assert_eq!(session.profile_id.as_deref(), Some("pf_a"));
         });
@@ -643,7 +728,10 @@ mod tests {
                 .await
                 .expect("update session");
 
-            assert_eq!(updated.profile_ids, Some(vec!["pf_a".to_string(), "pf_b".to_string()]));
+            assert_eq!(
+                updated.profile_ids,
+                Some(vec!["pf_a".to_string(), "pf_b".to_string()])
+            );
             assert_eq!(updated.active_profile_id.as_deref(), Some("pf_b"));
             assert_eq!(updated.profile_id.as_deref(), Some("pf_b"));
         });

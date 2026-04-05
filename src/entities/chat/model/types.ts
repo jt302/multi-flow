@@ -68,6 +68,8 @@ export type ChatPhaseEvent = {
 	elapsedMs: number;
 	promptTokens?: number;
 	completionTokens?: number;
+	contextUsed?: number;
+	contextLimit?: number;
 };
 
 export type ChatSessionEvent = {
