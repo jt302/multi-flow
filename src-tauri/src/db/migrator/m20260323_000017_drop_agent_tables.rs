@@ -7,7 +7,12 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().if_exists().table(AgentHandoffs::Table).to_owned())
+            .drop_table(
+                Table::drop()
+                    .if_exists()
+                    .table(AgentHandoffs::Table)
+                    .to_owned(),
+            )
             .await?;
         manager
             .drop_table(
@@ -18,7 +23,12 @@ impl MigrationTrait for Migration {
             )
             .await?;
         manager
-            .drop_table(Table::drop().if_exists().table(AgentSessions::Table).to_owned())
+            .drop_table(
+                Table::drop()
+                    .if_exists()
+                    .table(AgentSessions::Table)
+                    .to_owned(),
+            )
             .await?;
         manager
             .drop_table(

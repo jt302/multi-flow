@@ -79,7 +79,11 @@ pub fn create_profile(
             .map_err(error_to_string)?;
     }
     sync_profile_cookie_state_from_settings_quietly(&state, &created.id, created.settings.as_ref());
-    sync_profile_extension_state_from_settings_quietly(&state, &created.id, created.settings.as_ref());
+    sync_profile_extension_state_from_settings_quietly(
+        &state,
+        &created.id,
+        created.settings.as_ref(),
+    );
 
     logger::info(
         "profile_cmd",
@@ -93,17 +97,26 @@ pub fn duplicate_profile(
     state: State<'_, AppState>,
     profile_id: String,
 ) -> Result<Profile, String> {
-    logger::info("profile_cmd", format!("duplicate_profile request profile_id={profile_id}"));
+    logger::info(
+        "profile_cmd",
+        format!("duplicate_profile request profile_id={profile_id}"),
+    );
 
     // 1. 获取源 profile
     let (source, proxy_id) = {
-        let ps = state.profile_service.lock().map_err(|_| "profile service lock poisoned".to_string())?;
+        let ps = state
+            .profile_service
+            .lock()
+            .map_err(|_| "profile service lock poisoned".to_string())?;
         let source = ps.get_profile(&profile_id).map_err(error_to_string)?;
         drop(ps);
 
         // 获取源 profile 的代理绑定
         let proxy_id = {
-            let px = state.proxy_service.lock().map_err(|_| "proxy service lock poisoned".to_string())?;
+            let px = state
+                .proxy_service
+                .lock()
+                .map_err(|_| "proxy service lock poisoned".to_string())?;
             px.get_profile_proxy(&profile_id)
                 .ok()
                 .flatten()
@@ -114,11 +127,20 @@ pub fn duplicate_profile(
 
     // 2. 生成不重复的副本名称
     let copy_name = {
-        let ps = state.profile_service.lock().map_err(|_| "profile service lock poisoned".to_string())?;
-        let all = ps.list_profiles(ListProfilesQuery {
-            include_deleted: false, page: 1, page_size: 100000,
-            keyword: None, group: None, running: None,
-        }).map_err(error_to_string)?;
+        let ps = state
+            .profile_service
+            .lock()
+            .map_err(|_| "profile service lock poisoned".to_string())?;
+        let all = ps
+            .list_profiles(ListProfilesQuery {
+                include_deleted: false,
+                page: 1,
+                page_size: 100000,
+                keyword: None,
+                group: None,
+                running: None,
+            })
+            .map_err(error_to_string)?;
         let existing_names: std::collections::HashSet<String> =
             all.items.iter().map(|p| p.name.clone()).collect();
 
@@ -143,7 +165,10 @@ pub fn duplicate_profile(
     };
     let created = create_profile(state, payload)?;
 
-    logger::info("profile_cmd", format!("duplicate_profile success new_id={}", created.id));
+    logger::info(
+        "profile_cmd",
+        format!("duplicate_profile success new_id={}", created.id),
+    );
     Ok(created)
 }
 
@@ -282,7 +307,11 @@ pub fn update_profile(
         unbind_profile_proxy_if_exists(&proxy_service, &profile_id)?;
     }
     sync_profile_cookie_state_from_settings_quietly(&state, &updated.id, updated.settings.as_ref());
-    sync_profile_extension_state_from_settings_quietly(&state, &updated.id, updated.settings.as_ref());
+    sync_profile_extension_state_from_settings_quietly(
+        &state,
+        &updated.id,
+        updated.settings.as_ref(),
+    );
     Ok(updated)
 }
 
@@ -1487,9 +1516,7 @@ pub(crate) fn do_open_profile(
         // command — it would block the IPC thread for minutes and hang the UI entirely.
         // Users must download Chromium from Settings → Resources first.
         if state.require_real_engine && !chromium_executable.is_file() {
-            return Err(
-                "Chromium 未安装，请前往「设置 → 资源」页面下载后再启动环境".to_string(),
-            );
+            return Err("Chromium 未安装，请前往「设置 → 资源」页面下载后再启动环境".to_string());
         }
         (String::new(), resolved_browser_version, chromium_executable)
     };
@@ -1615,7 +1642,9 @@ pub(crate) fn do_open_profile(
         .save_session(profile_id, &session)
     {
         let _ = state.lock_engine_manager().close_profile(profile_id);
-        let _ = state.lock_profile_service().mark_profile_running(profile_id, false);
+        let _ = state
+            .lock_profile_service()
+            .mark_profile_running(profile_id, false);
         stop_profile_proxy_runtime_quietly(state, profile_id);
         return Err(error_to_string(err));
     }
@@ -2698,6 +2727,7 @@ mod tests {
         ProfileAdvancedSettings, ProfilePluginSelection, ProfileSettings, Proxy, ProxyLifecycle,
         SavePluginPackageInput, WebRtcMode,
     };
+    use crate::services::app_preference_service::AppPreferenceService;
     use crate::services::automation_service::AutomationService;
     use crate::services::chromium_magic_adapter_service::ChromiumMagicAdapterService;
     use crate::services::device_preset_service::DevicePresetService;
@@ -2706,7 +2736,6 @@ mod tests {
     use crate::services::profile_group_service::ProfileGroupService;
     use crate::services::profile_service::ProfileService;
     use crate::services::proxy_service::ProxyService;
-    use crate::services::app_preference_service::AppPreferenceService;
     use crate::services::resource_service::ResourceService;
     use crate::services::sync_manager_service::SyncManagerService;
 
@@ -2737,7 +2766,9 @@ mod tests {
             cancel_tokens: Mutex::new(std::collections::HashMap::new()),
             ai_dialog_channels: Mutex::new(std::collections::HashMap::new()),
             tool_confirmation_channels: Mutex::new(std::collections::HashMap::new()),
-            chat_service: Mutex::new(crate::services::chat_service::ChatService::from_db(db.clone())),
+            chat_service: Mutex::new(crate::services::chat_service::ChatService::from_db(
+                db.clone(),
+            )),
             chat_cancel_tokens: Mutex::new(std::collections::HashMap::new()),
             automation_service: Mutex::new(AutomationService::from_db(db.clone())),
             profile_group_service: Mutex::new(profile_group_service),

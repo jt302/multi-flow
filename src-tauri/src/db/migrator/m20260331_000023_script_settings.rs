@@ -9,9 +9,7 @@ impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
         let _ = db
-            .execute_unprepared(
-                "ALTER TABLE automation_scripts ADD COLUMN settings_json TEXT",
-            )
+            .execute_unprepared("ALTER TABLE automation_scripts ADD COLUMN settings_json TEXT")
             .await;
         Ok(())
     }

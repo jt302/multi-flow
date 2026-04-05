@@ -16,6 +16,7 @@ use crate::runtime_guard;
 use crate::services::ai_tools::dialog_tools::AiDialogResponse;
 use crate::services::app_preference_service::AppPreferenceService;
 use crate::services::automation_service::AutomationService;
+use crate::services::chat_service::ChatService;
 use crate::services::chromium_magic_adapter_service::ChromiumMagicAdapterService;
 use crate::services::device_preset_service::DevicePresetService;
 use crate::services::engine_session_service::EngineSessionService;
@@ -24,7 +25,6 @@ use crate::services::profile_group_service::ProfileGroupService;
 use crate::services::profile_service::ProfileService;
 use crate::services::proxy_service::ProxyService;
 use crate::services::resource_service::ResourceService;
-use crate::services::chat_service::ChatService;
 use crate::services::sync_manager_service::SyncManagerService;
 
 pub struct AppState {

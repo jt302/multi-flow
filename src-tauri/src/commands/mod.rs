@@ -1,6 +1,6 @@
 pub mod automation_canvas_commands;
-pub mod chat_commands;
 pub mod automation_commands;
+pub mod chat_commands;
 pub mod group_commands;
 pub mod log_commands;
 pub mod plugin_commands;

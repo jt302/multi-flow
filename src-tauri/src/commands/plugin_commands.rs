@@ -3,8 +3,8 @@ use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use reqwest::header::CONTENT_TYPE;
 use reqwest::blocking::Client;
+use reqwest::header::CONTENT_TYPE;
 use reqwest::{Proxy as ReqwestProxy, Url};
 use serde_json::Value;
 use tauri::{AppHandle, Manager, State};
@@ -14,9 +14,8 @@ use crate::error::AppError;
 use crate::logger;
 use crate::models::{
     BatchProfileActionItem, BatchProfileActionResponse, CreateProfileRequest,
-    DownloadPluginByExtensionIdRequest, InstallPluginToProfilesRequest, PluginPackage,
-    PluginDownloadPreference, ProfileAdvancedSettings, ProfilePluginSelection,
-    UpdateProfilePluginsRequest,
+    DownloadPluginByExtensionIdRequest, InstallPluginToProfilesRequest, PluginDownloadPreference,
+    PluginPackage, ProfileAdvancedSettings, ProfilePluginSelection, UpdateProfilePluginsRequest,
 };
 use crate::state::AppState;
 
@@ -171,7 +170,10 @@ fn download_plugin_by_extension_id_inner(
         "plugin_cmd",
         format!(
             "download_plugin_by_extension_id start extension_id={extension_id} proxy_id={}",
-            proxy.as_ref().map(|item| item.proxy_id.as_str()).unwrap_or("direct")
+            proxy
+                .as_ref()
+                .map(|item| item.proxy_id.as_str())
+                .unwrap_or("direct")
         ),
     );
     let downloaded =
@@ -323,7 +325,9 @@ fn uninstall_plugin_package_inner(
             .plugin_package_service
             .lock()
             .map_err(|_| "plugin package service lock poisoned".to_string())?;
-        service.delete_package(&package_id).map_err(error_to_string)?
+        service
+            .delete_package(&package_id)
+            .map_err(error_to_string)?
     };
     remove_package_from_all_profiles(&state, &removed.package_id)?;
     let package_dir = PathBuf::from(&removed.crx_path)
@@ -331,8 +335,7 @@ fn uninstall_plugin_package_inner(
         .map(Path::to_path_buf)
         .ok_or_else(|| "解析插件目录失败".to_string())?;
     if package_dir.exists() {
-        fs::remove_dir_all(&package_dir)
-            .map_err(|err| format!("删除插件目录失败: {err}"))?;
+        fs::remove_dir_all(&package_dir).map_err(|err| format!("删除插件目录失败: {err}"))?;
     }
     Ok(removed)
 }
@@ -455,7 +458,9 @@ fn update_profile_plugins_inner(
             .get_profile(&profile_id)
             .map_err(error_to_string)?;
         let mut settings = existing.settings.unwrap_or_default();
-        let advanced = settings.advanced.get_or_insert_with(ProfileAdvancedSettings::default);
+        let advanced = settings
+            .advanced
+            .get_or_insert_with(ProfileAdvancedSettings::default);
         advanced.plugin_selections = Some(dedup_plugin_selections(payload.selections));
         profile_service
             .update_profile(
@@ -514,13 +519,17 @@ fn download_and_store_plugin_package(
 
     let manifest_pretty = serde_json::to_string_pretty(&parsed.manifest)
         .map_err(|err| format!("serialize plugin manifest failed: {err}"))?;
-    fs::write(package_dir.join("manifest.json"), format!("{manifest_pretty}\n"))
-        .map_err(|err| format!("write plugin manifest failed: {err}"))?;
+    fs::write(
+        package_dir.join("manifest.json"),
+        format!("{manifest_pretty}\n"),
+    )
+    .map_err(|err| format!("write plugin manifest failed: {err}"))?;
 
-    let manifest_icon_path = if let Some(relative_icon_path) = parsed.icon_relative_path.as_deref() {
+    let manifest_icon_path = if let Some(relative_icon_path) = parsed.icon_relative_path.as_deref()
+    {
         let zip_bytes = extract_zip_payload(&bytes)?;
-        let mut archive =
-            ZipArchive::new(Cursor::new(zip_bytes)).map_err(|err| format!("open crx zip failed: {err}"))?;
+        let mut archive = ZipArchive::new(Cursor::new(zip_bytes))
+            .map_err(|err| format!("open crx zip failed: {err}"))?;
         let mut icon_file = archive
             .by_name(relative_icon_path)
             .map_err(|err| format!("read plugin icon failed: {err}"))?;
@@ -570,7 +579,10 @@ fn download_and_store_plugin_package(
                 crx_path: crx_path.to_string_lossy().to_string(),
                 source_type: SOURCE_TYPE_CRX.to_string(),
                 store_url: Some(resolve_plugin_store_url(extension_id)),
-                update_url: Some(resolve_plugin_update_manifest_url(extension_id, "updatecheck")?),
+                update_url: Some(resolve_plugin_update_manifest_url(
+                    extension_id,
+                    "updatecheck",
+                )?),
                 latest_version: Some(
                     update
                         .version
@@ -578,7 +590,9 @@ fn download_and_store_plugin_package(
                         .unwrap_or_else(|| parsed.version.clone()),
                 ),
                 update_status: Some(match update.version.as_deref() {
-                    Some(version) if version == parsed.version => UPDATE_STATUS_UP_TO_DATE.to_string(),
+                    Some(version) if version == parsed.version => {
+                        UPDATE_STATUS_UP_TO_DATE.to_string()
+                    }
                     Some(_) => UPDATE_STATUS_AVAILABLE.to_string(),
                     None => UPDATE_STATUS_UNKNOWN.to_string(),
                 }),
@@ -616,7 +630,10 @@ fn fetch_plugin_update_check(
         "plugin_cmd",
         format!(
             "fetch_plugin_update_check extension_id={extension_id} proxy_id={} url={url}",
-            proxy.as_ref().map(|item| item.proxy_id.as_str()).unwrap_or("direct")
+            proxy
+                .as_ref()
+                .map(|item| item.proxy_id.as_str())
+                .unwrap_or("direct")
         ),
     );
     let body = http_client(proxy)?
@@ -629,7 +646,10 @@ fn fetch_plugin_update_check(
     Ok(parse_update_manifest(&body))
 }
 
-fn resolve_plugin_update_manifest_url(extension_id: &str, response: &str) -> Result<String, String> {
+fn resolve_plugin_update_manifest_url(
+    extension_id: &str,
+    response: &str,
+) -> Result<String, String> {
     let mut url = Url::parse(CHROME_WEB_STORE_UPDATE_URL)
         .map_err(|err| format!("parse chrome web store update url failed: {err}"))?;
     url.query_pairs_mut()
@@ -657,7 +677,10 @@ fn fetch_store_listing_metadata(
         "plugin_cmd",
         format!(
             "fetch_store_listing_metadata extension_id={extension_id} proxy_id={} url={store_url}",
-            proxy.as_ref().map(|item| item.proxy_id.as_str()).unwrap_or("direct")
+            proxy
+                .as_ref()
+                .map(|item| item.proxy_id.as_str())
+                .unwrap_or("direct")
         ),
     );
     let html = http_client(proxy)?
@@ -719,7 +742,10 @@ fn download_binary(url: &str, proxy: Option<&PluginProxyConfig>) -> Result<Vec<u
         "plugin_cmd",
         format!(
             "download_plugin_binary proxy_id={} url={url}",
-            proxy.as_ref().map(|item| item.proxy_id.as_str()).unwrap_or("direct")
+            proxy
+                .as_ref()
+                .map(|item| item.proxy_id.as_str())
+                .unwrap_or("direct")
         ),
     );
     let mut response = http_client(proxy)?
@@ -756,7 +782,8 @@ fn download_store_icon(
     let extension = file_extension_from_icon_url_or_content_type(icon_url, content_type.as_deref())
         .unwrap_or("png");
     let icon_target = package_dir.join(format!("store-icon.{extension}"));
-    fs::write(&icon_target, bytes).map_err(|err| format!("write plugin store icon failed: {err}"))?;
+    fs::write(&icon_target, bytes)
+        .map_err(|err| format!("write plugin store icon failed: {err}"))?;
     Ok(icon_target.to_string_lossy().to_string())
 }
 
@@ -765,14 +792,10 @@ fn map_plugin_http_error(action: &str, err: reqwest::Error) -> String {
         return format!("{action}失败，下载源返回 HTTP {}", status.as_u16());
     }
     if err.is_timeout() {
-        return format!(
-            "{action}超时，当前无法连接 Chrome Web Store，请检查网络或代理后重试"
-        );
+        return format!("{action}超时，当前无法连接 Chrome Web Store，请检查网络或代理后重试");
     }
     if err.is_connect() {
-        return format!(
-            "{action}失败，当前无法连接 Chrome Web Store，请检查网络或代理后重试"
-        );
+        return format!("{action}失败，当前无法连接 Chrome Web Store，请检查网络或代理后重试");
     }
     format!("{action}失败: {err}")
 }
@@ -975,10 +998,13 @@ fn resolve_plugin_package_dir(app: &AppHandle, package_id: &str) -> Result<PathB
     Ok(data_dir.join("plugins").join("packages").join(package_id))
 }
 
-fn parse_downloaded_plugin(extension_id: &str, crx_bytes: &[u8]) -> Result<ParsedPluginBundle, String> {
+fn parse_downloaded_plugin(
+    extension_id: &str,
+    crx_bytes: &[u8],
+) -> Result<ParsedPluginBundle, String> {
     let zip_bytes = extract_zip_payload(crx_bytes)?;
-    let mut archive =
-        ZipArchive::new(Cursor::new(zip_bytes)).map_err(|err| format!("open crx zip failed: {err}"))?;
+    let mut archive = ZipArchive::new(Cursor::new(zip_bytes))
+        .map_err(|err| format!("open crx zip failed: {err}"))?;
     let manifest: Value = {
         let mut file = archive
             .by_name("manifest.json")
@@ -992,8 +1018,12 @@ fn parse_downloaded_plugin(extension_id: &str, crx_bytes: &[u8]) -> Result<Parse
         .map(|value| value.to_string());
     let name = resolve_manifest_string(&manifest, "name", default_locale.as_deref(), &mut archive)
         .unwrap_or_else(|| extension_id.to_string());
-    let description =
-        resolve_manifest_string(&manifest, "description", default_locale.as_deref(), &mut archive);
+    let description = resolve_manifest_string(
+        &manifest,
+        "description",
+        default_locale.as_deref(),
+        &mut archive,
+    );
     let version = manifest
         .get("version")
         .and_then(Value::as_str)
@@ -1145,7 +1175,9 @@ fn validate_plugin_selections_exist(
     Ok(())
 }
 
-fn dedup_plugin_selections(mut selections: Vec<ProfilePluginSelection>) -> Vec<ProfilePluginSelection> {
+fn dedup_plugin_selections(
+    mut selections: Vec<ProfilePluginSelection>,
+) -> Vec<ProfilePluginSelection> {
     selections.retain(|item| !item.package_id.trim().is_empty());
     let mut deduped = Vec::with_capacity(selections.len());
     for selection in selections {
@@ -1175,7 +1207,9 @@ fn upsert_plugin_selection_for_profile(
         service.get_profile(profile_id).map_err(error_to_string)?
     };
     let mut settings = profile.settings.unwrap_or_default();
-    let advanced = settings.advanced.get_or_insert_with(ProfileAdvancedSettings::default);
+    let advanced = settings
+        .advanced
+        .get_or_insert_with(ProfileAdvancedSettings::default);
     let mut selections = advanced.plugin_selections.clone().unwrap_or_default();
     if let Some(existing) = selections
         .iter_mut()
@@ -1362,16 +1396,17 @@ mod tests {
 </gupdate>"#,
         );
         assert_eq!(parsed.version.as_deref(), Some("2.4.6"));
-        assert_eq!(parsed.codebase.as_deref(), Some("https://example.com/demo.crx"));
+        assert_eq!(
+            parsed.codebase.as_deref(),
+            Some("https://example.com/demo.crx")
+        );
     }
 
     #[test]
     fn resolve_plugin_update_manifest_url_includes_required_webstore_params() {
-        let url = resolve_plugin_update_manifest_url(
-            "bpoadfkcbjbfhfodiogcnhhhpibjhbnh",
-            "updatecheck",
-        )
-        .expect("resolve update manifest url");
+        let url =
+            resolve_plugin_update_manifest_url("bpoadfkcbjbfhfodiogcnhhhpibjhbnh", "updatecheck")
+                .expect("resolve update manifest url");
         assert!(url.contains("response=updatecheck"));
         assert!(url.contains("prod=chromecrx"));
         assert!(url.contains("prodversion=999.0.0.0"));
@@ -1434,7 +1469,10 @@ mod tests {
             parsed.title.as_deref(),
             Some("Immersive Translate - Translate Web & PDF")
         );
-        assert_eq!(parsed.description.as_deref(), Some("Free Translate Website"));
+        assert_eq!(
+            parsed.description.as_deref(),
+            Some("Free Translate Website")
+        );
         assert_eq!(
             parsed.icon_url.as_deref(),
             Some("https://lh3.googleusercontent.com/demo=s128")
