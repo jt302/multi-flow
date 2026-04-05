@@ -10,11 +10,13 @@ import type { ChatMessageRecord } from '@/entities/chat/model/types';
 
 type Props = { message: ChatMessageRecord };
 
-export function ToolCallCard({ message }: Props) {
+const SCREENSHOT_TOOLS = new Set(['cdp_screenshot', 'magic_capture_app_shell']);
+
+export function ToolCallCard({ message, onImageClick }: Props & { onImageClick?: (src: string) => void }) {
 	const { t } = useTranslation('chat');
-	const [open, setOpen] = useState(false);
-	const args = message.toolArgsJson ? tryParseJson(message.toolArgsJson) : null;
 	const isError = message.toolStatus === 'failed';
+	const [open, setOpen] = useState(isError);
+	const args = message.toolArgsJson ? tryParseJson(message.toolArgsJson) : null;
 	const imageSrc = message.imageRef
 		? convertFileSrc(message.imageRef)
 		: message.imageBase64
@@ -22,13 +24,14 @@ export function ToolCallCard({ message }: Props) {
 				? message.imageBase64
 				: `data:image/png;base64,${message.imageBase64}`)
 			: null;
+	const isScreenshot = message.toolName ? SCREENSHOT_TOOLS.has(message.toolName) : false;
 
 	return (
 		<div
 			className={cn(
 				'rounded-lg border text-xs',
 				isError
-					? 'border-destructive/40 bg-destructive/5'
+					? 'border-destructive bg-destructive/10'
 					: 'border-border bg-muted/30',
 			)}
 		>
@@ -52,6 +55,18 @@ export function ToolCallCard({ message }: Props) {
 						<Clock className="size-2.5" />
 						{message.toolDurationMs}ms
 					</span>
+				)}
+				{/* 截图工具在折叠状态下显示缩略图 */}
+				{isScreenshot && imageSrc && !open && (
+					<img
+						src={imageSrc}
+						alt="screenshot thumbnail"
+						className="h-12 w-auto rounded border object-cover shrink-0 cursor-zoom-in"
+						onClick={(e) => {
+							e.stopPropagation();
+							onImageClick?.(imageSrc);
+						}}
+					/>
 				)}
 				{open ? (
 					<ChevronDown className="size-3 shrink-0" />
