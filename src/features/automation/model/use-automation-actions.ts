@@ -9,9 +9,7 @@ import {
 	cancelAutomationRun,
 	createAutomationScript,
 	deleteAutomationScript,
-	listenAutomationProgress,
 	listenAutomationRunCancelled,
-	listenAutomationVariablesUpdated,
 	runAutomationScript,
 	runAutomationScriptDebug,
 	updateAutomationScript,
@@ -25,36 +23,18 @@ async function registerRunListeners(
 	activeScriptId: string | null,
 	queryClient: ReturnType<typeof useQueryClient>,
 ): Promise<Array<() => void>> {
-	const [unlistenProgress, unlistenVars, unlistenCancelled] = await Promise.all([
-		listenAutomationProgress(runId, (event) => {
-			automationStore.getState().onProgress(event);
-			if (
-				event.runStatus === 'success' ||
-				event.runStatus === 'failed' ||
-				event.runStatus === 'cancelled'
-			) {
-				if (activeScriptId) {
-					queryClient.invalidateQueries({
-						queryKey: queryKeys.automationRuns(activeScriptId),
-					});
-				}
+	// progress / variables_updated 事件已移至全局监听 (AutomationProgressListener)
+	const unlistenCancelled = await listenAutomationRunCancelled((event) => {
+		if (event.runId === runId) {
+			automationStore.setState({ liveRunStatus: 'cancelled' });
+			if (activeScriptId) {
+				queryClient.invalidateQueries({
+					queryKey: queryKeys.automationRuns(activeScriptId),
+				});
 			}
-		}),
-		listenAutomationVariablesUpdated(runId, (event) => {
-			automationStore.getState().onVariablesUpdated(event);
-		}),
-		listenAutomationRunCancelled((event) => {
-			if (event.runId === runId) {
-				automationStore.setState({ liveRunStatus: 'cancelled' });
-				if (activeScriptId) {
-					queryClient.invalidateQueries({
-						queryKey: queryKeys.automationRuns(activeScriptId),
-					});
-				}
-			}
-		}),
-	]);
-	return [unlistenProgress, unlistenVars, unlistenCancelled];
+		}
+	});
+	return [unlistenCancelled];
 }
 
 export function useAutomationActions(activeScriptId: string | null) {

@@ -21,36 +21,6 @@ type ListGroupsResponse = {
 	total: number;
 };
 
-const DEFAULT_GROUPS: GroupItem[] = [
-	{
-		id: 'g_airdrop',
-		name: 'AirDrop',
-		note: i18next.t('group:mock.airdropNote'),
-		profileCount: 12,
-		updatedAt: i18next.t('common:justNow'),
-		lifecycle: 'active',
-		deletedAt: null,
-	},
-	{
-		id: 'g_farm',
-		name: 'Farm',
-		note: i18next.t('group:mock.farmNote'),
-		profileCount: 8,
-		updatedAt: i18next.t('common:minutesAgo', { count: 8 }),
-		lifecycle: 'active',
-		deletedAt: null,
-	},
-	{
-		id: 'g_brand',
-		name: 'Brand',
-		note: i18next.t('group:mock.brandNote'),
-		profileCount: 5,
-		updatedAt: i18next.t('common:minutesAgo', { count: 20 }),
-		lifecycle: 'active',
-		deletedAt: null,
-	},
-];
-
 function formatTimeAgo(unixTs: number): string {
 	const now = Math.floor(Date.now() / 1000);
 	const diff = Math.max(0, now - unixTs);
@@ -86,7 +56,7 @@ export async function listGroups(includeDeleted = false): Promise<GroupItem[]> {
 		});
 		return result.items.map(mapBackendGroup);
 	} catch {
-		return includeDeleted ? DEFAULT_GROUPS : DEFAULT_GROUPS.filter((item) => item.lifecycle === 'active');
+		return [];
 	}
 }
 

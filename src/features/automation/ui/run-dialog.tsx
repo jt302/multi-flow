@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ProfileGroupSelector } from '@/components/common/profile-group-selector';
 
 type VarEntry = { key: string; value: string };
 
@@ -45,8 +45,8 @@ type Props = {
 export function RunDialog({
 	open,
 	onOpenChange,
-	activeProfiles,
-	allProfiles = [],
+	activeProfiles: _activeProfiles,
+	allProfiles: _allProfiles = [],
 	associatedProfileIds = [],
 	isRunning,
 	disabled,
@@ -81,23 +81,6 @@ export function RunDialog({
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- 只在 open 变化时触发
 	}, [open]);
-
-	const runningIds = new Set(activeProfiles.map((p) => p.id));
-	const displayProfiles = associatedProfileIds
-		.map((profileId) => allProfiles.find((profile) => profile.id === profileId))
-		.filter((profile): profile is ProfileItem => profile !== undefined);
-	const allSelected =
-		displayProfiles.length > 0 && selectedIds.length === displayProfiles.length;
-
-	function toggleAll() {
-		setSelectedIds(allSelected ? [] : displayProfiles.map((p) => p.id));
-	}
-
-	function toggleProfile(id: string) {
-		setSelectedIds((prev) =>
-			prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-		);
-	}
 
 	function addVar() {
 		setVarEntries((prev) => [...prev, { key: '', value: '' }]);
@@ -139,17 +122,14 @@ export function RunDialog({
 	}
 
 	function handleDebugRun() {
-		const profileId = selectedIds[0] ?? displayProfiles[0]?.id;
+		const profileId = selectedIds[0];
 		if (!profileId) return;
 		onDebugRun(profileId, buildVars());
 		onOpenChange(false);
 	}
 
 	const canRun = selectedIds.length > 0 && !isRunning && !disabled;
-	const canDebug =
-		(selectedIds.length > 0 || displayProfiles.length > 0) &&
-		!isRunning &&
-		!disabled;
+	const canDebug = selectedIds.length > 0 && !isRunning && !disabled;
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -159,53 +139,13 @@ export function RunDialog({
 				</DialogHeader>
 
 				<div className="space-y-4 py-1">
-					{/* 环境选择 */}
+					{/* 环境选择（含分组） */}
 					<div className="space-y-2">
-						<div className="flex items-center justify-between">
-							<Label className="text-sm font-medium">{t('runDialog.selectEnv')}</Label>
-							{displayProfiles.length > 1 && (
-								<button
-									type="button"
-									onClick={toggleAll}
-									className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-								>
-									{allSelected ? t('runDialog.toggleAllOff') : t('runDialog.toggleAllOn')}
-								</button>
-								)}
-						</div>
-						{displayProfiles.length === 0 ? (
-							<p className="text-sm text-muted-foreground py-2">
-								{t('runDialog.noBoundProfiles')}
-							</p>
-						) : (
-							<ScrollArea className="max-h-48">
-								<div className="space-y-1 pr-1">
-									{displayProfiles.map((p) => {
-										const isOffline = !runningIds.has(p.id);
-										return (
-											<label
-												key={p.id}
-												className="flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer"
-											>
-												<Checkbox
-													checked={selectedIds.includes(p.id)}
-													onCheckedChange={() => toggleProfile(p.id)}
-													className="cursor-pointer"
-												/>
-												<span className="text-sm truncate flex-1">
-													{p.name}
-												</span>
-												{isOffline && (
-													<span className="text-[10px] text-amber-500 bg-amber-500/10 border border-amber-500/30 px-1 rounded shrink-0">
-														{t('runDialog.autoStart')}
-													</span>
-												)}
-											</label>
-										);
-										})}
-									</div>
-								</ScrollArea>
-							)}
+						<Label className="text-sm font-medium">{t('runDialog.selectEnv')}</Label>
+						<ProfileGroupSelector
+							selectedIds={selectedIds}
+							onChange={setSelectedIds}
+						/>
 						</div>
 
 						<div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
