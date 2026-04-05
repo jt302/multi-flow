@@ -2,6 +2,11 @@
 
 > Multi-Flow 自动化引擎的 CAPTCHA 求解与反机器人绕过功能设计文档
 
+> 2026-04-05 语义更新：
+> - `captcha_inject_token` / `captcha_solve_and_inject` 只有在页面真实离开验证码或风控拦截状态时才算成功
+> - “拿到 token / 写入隐藏字段 / 调用回调”只算中间过程，不再等同于验证通过
+> - 当前实现会尽量提取 `callback`、`pageAction`、`enterprisePayload`、页面真实 `userAgent` 等上下文，并在注入后执行页面级回验
+
 ---
 
 ## 一、市场现状概述
