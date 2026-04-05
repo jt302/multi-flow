@@ -1,7 +1,7 @@
 # Multi-Flow AI 工具开发者参考文档
 
 > **最后更新日期**: 2026-04-05
-> **工具总数**: 146 个（新增 Auto 类 19 个 + cdp_handle_dialog 1 个）
+> **工具总数**: 147 个（新增 `app_set_chat_active_profile` 1 个）
 > **分类**: 8 个（Utility / CDP / Magic Controller / App Data / Auto / File I/O / Dialog / Captcha）
 
 ---
@@ -14,19 +14,20 @@
   - [3.1 Utility 工具（3 个）](#31-utility-工具3-个)
   - [3.2 CDP 工具（31 个）](#32-cdp-工具31-个)
   - [3.3 Magic Controller 工具（48 个）](#33-magic-controller-工具48-个)
-  - [3.4 App Data 工具（20 个）](#34-app-data-工具20-个)
+  - [3.4 App Data 工具（21 个）](#34-app-data-工具21-个)
   - [3.5 Auto 工具（19 个）](#35-auto-工具19-个)
   - [3.6 File I/O 工具（6 个）](#36-file-io-工具6-个)
   - [3.7 Dialog 工具（13 个）](#37-dialog-工具13-个)
   - [3.8 Captcha 工具（5 个）](#38-captcha-工具5-个)
-- [4. 新增工具流程](#4-新增工具流程)
-- [5. 维护指引](#5-维护指引)
+- [4. 工具权限管理](#4-工具权限管理)
+- [5. 新增工具流程](#5-新增工具流程)
+- [6. 维护指引](#6-维护指引)
 
 ---
 
 ## 1. 概述
 
-Multi-Flow 的自动化系统为 AI Agent 提供了 **142 个工具**，覆盖浏览器控制、应用数据管理、自动化管理、文件操作、用户交互等完整能力。
+Multi-Flow 的自动化系统为 AI Agent 提供了 **147 个工具**，覆盖浏览器控制、应用数据管理、自动化管理、文件操作、用户交互等完整能力。
 
 ### 工具系统架构
 
@@ -86,7 +87,7 @@ ToolRegistry（注册表）
 | Utility          | `wait` / `print` / `submit_result` | 3    | 基础控制工具                                |
 | CDP              | `cdp_` / `cdp`                     | 31   | Chrome DevTools Protocol 浏览器操控         |
 | Magic Controller | `magic_`                           | 48   | 自研 Chromium Magic Controller API          |
-| App Data         | `app_`                             | 20   | 应用数据 CRUD（Profile/Group/Proxy/Plugin） |
+| App Data         | `app_`                             | 21   | 应用数据 CRUD（Profile/Group/Proxy/Plugin/Chat） |
 | File I/O         | `file_`                            | 6    | 文件系统操作                                |
 | Dialog           | `dialog_`                          | 6    | 用户交互弹窗                                |
 
@@ -140,6 +141,7 @@ pub struct ToolContext<'a> {
     pub cdp: Option<&'a CdpClient>,       // CDP 连接
     pub http_client: &'a reqwest::Client, // HTTP 客户端
     pub magic_port: Option<u16>,          // Magic Controller 端口
+    pub current_profile_id: Option<&'a str>, // 当前工具目标环境
     pub app: &'a AppHandle,               // Tauri 应用句柄
     pub run_id: &'a str,                  // 运行 ID
     pub step_index: usize,                // 步骤索引
@@ -1261,11 +1263,11 @@ pub struct ToolResult {
 
 ---
 
-### 3.4 App Data 工具（20 个）
+### 3.4 App Data 工具（21 个）
 
 通过 `AppState` 中的 Service 操作应用数据。所有返回值均为序列化后的 JSON 字符串。
 
-#### Profile 操作（9 个）
+#### Profile 操作（10 个）
 
 ##### `app_list_profiles`
 
@@ -1370,9 +1372,21 @@ pub struct ToolResult {
 
 ---
 
+##### `app_set_chat_active_profile`
+
+仅 AI Chat 使用：切换当前聊天会话的工具目标环境。切换成功后，后续 `cdp_*` / `magic_*` 工具都会作用到该环境。
+
+| 参数         | 类型   | 必需 | 描述                                        |
+| ------------ | ------ | ---- | ------------------------------------------- |
+| `profile_id` | string | ✅   | 目标 Profile ID，且必须已关联到当前聊天会话 |
+
+**返回值**: 更新后的 ChatSession JSON
+
+---
+
 ##### `app_get_current_profile`
 
-获取当前自动化正在操作的 profile 信息。
+获取当前工具目标环境的 profile 信息。AI Chat 中返回当前聊天会话绑定的工具目标环境；自动化脚本中返回当前运行环境。
 
 | 参数       | 类型 | 必需 | 描述 |
 | ---------- | ---- | ---- | ---- |
@@ -1860,7 +1874,86 @@ pub struct ToolResult {
 
 ---
 
-## 4. 新增工具流程
+## 4. 工具权限管理（危险工具确认机制）
+
+### 4.1 概述
+
+为防止 AI Agent 误操作导致数据丢失，Multi-Flow 对**危险工具**实施了执行前确认机制。危险工具指可能永久删除数据或导致不可逆状态变更的操作。
+
+### 4.2 危险工具列表
+
+| 工具名 | 显示名称 | 描述 |
+| ------ | -------- | ---- |
+| `app_delete_profile` | 删除环境 | 永久删除指定的浏览器环境配置 |
+| `app_delete_proxy` | 删除代理 | 永久删除指定的代理配置 |
+| `app_delete_group` | 删除分组 | 永久删除指定的环境分组 |
+| `app_stop_profile` | 停止环境 | 强制停止正在运行的浏览器环境 |
+| `app_stop_all_profiles` | 停止全部环境 | 强制停止所有正在运行的浏览器环境 |
+| `app_purge_profile` | 清空环境回收站 | 彻底删除回收站中的环境，无法恢复 |
+| `app_purge_proxy` | 清空代理回收站 | 彻底删除回收站中的代理配置 |
+| `app_purge_group` | 清空分组回收站 | 彻底删除回收站中的分组配置 |
+| `magic_set_closed` | 关闭 Magic | 关闭 Magic 控制通道，停止浏览器扩展通信 |
+| `magic_safe_quit` | 安全退出 Magic | 优雅关闭 Magic 控制器，保存当前状态 |
+| `file_write` | 写入文件 | 创建或覆盖文件内容 |
+| `file_delete` | 删除文件 | 永久删除指定文件 |
+| `file_append` | 追加文件内容 | 向文件末尾追加内容 |
+| `cdp_clear_cookies` | 清除 Cookies | 清除浏览器的所有 Cookie 数据 |
+| `cdp_clear_local_storage` | 清除 Local Storage | 清除浏览器的本地存储数据 |
+| `cdp_clear_session_storage` | 清除 Session Storage | 清除浏览器的会话存储数据 |
+| `auto_delete_script` | 删除脚本 | 永久删除指定的自动化脚本 |
+
+### 4.3 确认机制实现
+
+```rust
+// src-tauri/src/services/ai_tools/mod.rs
+pub fn tool_risk_level(tool_name: &str) -> ToolRiskLevel {
+    match tool_name {
+        // 危险工具 —— 破坏性操作
+        "app_delete_profile" | "app_delete_proxy" | ... => ToolRiskLevel::Dangerous,
+        // 安全工具 —— 只读操作
+        name if name.starts_with("app_list_") || ... => ToolRiskLevel::Safe,
+        // 其余为中等风险
+        _ => ToolRiskLevel::Moderate,
+    }
+}
+```
+
+执行流程：
+1. `ToolRegistry::execute()` 检测到危险工具
+2. 查询用户偏好设置是否需要确认（默认需要）
+3. 通过 Tauri 事件发送确认请求到前端
+4. 前端显示确认弹窗等待用户响应（60 秒超时）
+5. 用户确认后继续执行，否则返回取消消息
+
+### 4.4 权限管理 UI
+
+用户可在**设置 → AI 配置 → 工具权限**页面管理危险工具的确认要求：
+
+- 单独开关每个工具的确认要求
+- 批量设置为全部需要确认或全部免确认
+- 显示功能名称、工具标识和描述便于识别
+
+相关文件：
+- 后端：`src-tauri/src/commands/chat_commands.rs` (`get_tool_permissions`, `set_tool_permission`, `set_all_tool_permissions`)
+- 前端：`src/features/settings/ui/tool-permissions-card.tsx`
+- 工具元数据：`src-tauri/src/commands/chat_commands.rs` (`get_tool_metadata`)
+
+### 4.5 新增危险工具流程
+
+如需新增危险工具，请同步更新：
+
+1. `src-tauri/src/services/ai_tools/mod.rs`:
+   - 在 `tool_risk_level()` 中添加工具到 Dangerous 分支
+   - 在 `all_dangerous_tool_names()` 中添加工具名
+
+2. `src-tauri/src/commands/chat_commands.rs`:
+   - 在 `get_tool_metadata()` 中添加显示名称和描述
+
+3. 确认设置页 UI 会自动展示新工具
+
+---
+
+## 6. 新增工具流程
 
 添加新工具需要修改以下文件：
 
@@ -1894,7 +1987,7 @@ tool(
 
 ---
 
-## 5. 维护指引
+## 7. 维护指引
 
 ### 文档更新规则
 
@@ -1924,4 +2017,4 @@ grep -c 'tool(' src-tauri/src/services/ai_tools/tool_defs.rs
 | File I/O         | 6       | `file_tools()`                 |
 | Dialog           | 13      | `dialog_tools()`               |
 | Captcha          | 5       | `captcha_tools()`              |
-| **总计**         | **146** | `all_tool_definitions().len()` |
+| **总计**         | **147** | `all_tool_definitions().len()` |
