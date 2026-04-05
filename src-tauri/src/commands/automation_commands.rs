@@ -1116,17 +1116,18 @@ async fn execute_script(
     match final_status {
         "success" => logger::info(
             "automation",
-            format!("run={} completed status=success", run_id),
+            format!("run={} completed status=success steps={}", run_id, step_total),
         ),
         "cancelled" => logger::info(
             "automation",
-            format!("run={} completed status=cancelled", run_id),
+            format!("run={} completed status=cancelled steps={}", run_id, step_total),
         ),
         _ => logger::warn(
             "automation",
             format!(
-                "run={} completed status=failed error={}",
+                "run={} completed status=failed steps={} error={}",
                 run_id,
+                step_total,
                 error_msg.as_deref().unwrap_or("unknown")
             ),
         ),
@@ -1663,6 +1664,7 @@ fn execute_steps<'a>(
                             error_message: err.clone(),
                         },
                     );
+                    logger::warn("automation", format!("Step error pause: run={} step={} err={}", run_id, top_index, err));
                     match rx.await {
                         Ok(Some(ref s)) if s == "continue" => {
                             // 用户选择继续，跳过此步骤，继续下一步
@@ -2030,7 +2032,7 @@ pub async fn execute_step(
                 );
 
                 match ai.chat_with_tools(&config, &messages, &tools).await? {
-                    AiChatResult::Text(text) => {
+                    AiChatResult::Text(text, _usage) => {
                         logs.push(log_entry(
                             "info",
                             "ai",
@@ -2052,6 +2054,7 @@ pub async fn execute_step(
                     AiChatResult::ToolCalls {
                         text: assistant_text,
                         calls,
+                        usage: _usage,
                     } => {
                         logs.push(log_entry(
                             "info",
@@ -2145,6 +2148,7 @@ pub async fn execute_step(
                                 cdp,
                                 http_client,
                                 magic_port,
+                                current_profile_id: merged_vars.get("__profile_id__"),
                                 app,
                                 run_id,
                                 step_index,
@@ -2395,7 +2399,7 @@ pub async fn execute_step(
                 );
 
                 match ai.chat_with_tools(&config, &messages, &tools).await? {
-                    AiChatResult::Text(text) => {
+                    AiChatResult::Text(text, _usage) => {
                         logs.push(log_entry(
                             "info",
                             "ai",
@@ -2408,6 +2412,7 @@ pub async fn execute_step(
                     AiChatResult::ToolCalls {
                         text: assistant_text,
                         calls,
+                        usage: _usage,
                     } => {
                         logs.push(log_entry(
                             "info",
@@ -2443,6 +2448,7 @@ pub async fn execute_step(
                                 cdp,
                                 http_client,
                                 magic_port,
+                                current_profile_id: vars.get("__profile_id__"),
                                 app,
                                 run_id,
                                 step_index,

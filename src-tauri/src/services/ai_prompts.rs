@@ -40,6 +40,12 @@ const BASE_SAFETY_ZH: &str = "\
 - 慎用删除和关闭操作（app_delete_profile、magic_set_closed、file_write 覆盖等）
 - 未经明确指示不要关闭或删除浏览器配置文件";
 
+const BASE_MULTI_PROFILE_ZH: &str = "\
+【多环境会话】
+- `cdp_*` / `magic_*` 始终作用于当前工具目标环境
+- 当会话关联多个环境时，先调用 `app_set_chat_active_profile(profile_id)` 切换目标环境，再执行浏览器工具
+- `app_start_profile` 只负责启动环境，不会自动切换当前工具目标环境";
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // English (en) system prompts
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -81,6 +87,12 @@ const BASE_SAFETY_EN: &str = "\
 [Safety Notes]
 - Use delete and close operations with caution (app_delete_profile, magic_set_closed, file_write overwrite, etc.)
 - Do not close or delete browser profiles without explicit instructions";
+
+const BASE_MULTI_PROFILE_EN: &str = "\
+[Multi-Profile Chats]
+- `cdp_*` / `magic_*` always operate on the current tool target profile
+- When multiple profiles are attached to the chat, call `app_set_chat_active_profile(profile_id)` before using browser tools
+- `app_start_profile` only starts a profile and does not switch the current tool target automatically";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Helper functions
@@ -163,6 +175,12 @@ fn build_base_context(categories: &[String], locale: &str) -> String {
     });
     ctx.push_str("\n\n");
     ctx.push_str(if en { BASE_SAFETY_EN } else { BASE_SAFETY_ZH });
+    ctx.push_str("\n\n");
+    ctx.push_str(if en {
+        BASE_MULTI_PROFILE_EN
+    } else {
+        BASE_MULTI_PROFILE_ZH
+    });
     ctx
 }
 
@@ -229,6 +247,138 @@ fn build_json_instruction(output_key_map: &[AiOutputKeyMapping], locale: &str) -
         }
     }
     s
+}
+
+/// 构建 AI Chat 模式系统提示词（6 层分层架构）
+///
+/// 层级顺序：
+/// - L0 Identity:     基础身份定义
+/// - L1 Tools:        工具分类描述 + 截图说明 + 安全提醒
+/// - L2 Environment:  Profile 环境上下文（指纹/代理/地理位置）
+/// - L3 Global:       全局用户提示词
+/// - L4 Per-chat:     每聊天提示词
+/// - L5 Response:     回复模式说明
+/// - L6 Summary:      对话摘要（压缩后的历史上下文）
+pub fn build_chat_system_prompt(
+    global_prompt: Option<&str>,
+    per_chat_prompt: Option<&str>,
+    tool_categories: &[String],
+    locale: &str,
+    environment_context: Option<&str>,
+    conversation_summary: Option<&str>,
+) -> String {
+    let en = is_en(locale);
+    let mut result = String::new();
+
+    // L0 + L1: 基础上下文（身份 + 工具描述 + 截图 + 安全）
+    let base = build_chat_base_context(tool_categories, locale);
+    result.push_str(&base);
+
+    // L2: 环境上下文
+    if let Some(env) = environment_context {
+        let env = env.trim();
+        if !env.is_empty() {
+            result.push_str("\n\n");
+            result.push_str(env);
+        }
+    }
+
+    // L3: 全局提示词
+    if let Some(gp) = global_prompt {
+        let gp = gp.trim();
+        if !gp.is_empty() {
+            result.push_str("\n\n");
+            result.push_str(gp);
+        }
+    }
+
+    // L4: 每聊天提示词
+    if let Some(pp) = per_chat_prompt {
+        let pp = pp.trim();
+        if !pp.is_empty() {
+            result.push_str("\n\n");
+            result.push_str(pp);
+        }
+    }
+
+    // L5: 对话式回复模式
+    result.push_str("\n\n");
+    if en {
+        result.push_str(
+            "[Response Mode]\n\
+            You are in interactive chat mode. After completing tool calls, reply naturally in conversational language.\n\
+            - Do not call submit_result — just reply with your findings or actions taken\n\
+            - Be concise and direct\n\
+            - For data results, format them clearly (tables, lists, etc.)",
+        );
+    } else {
+        result.push_str(
+            "【回复模式】\n\
+            你处于交互聊天模式。完成工具调用后，用自然语言直接回复。\n\
+            - 不要调用 submit_result，直接回复你的发现或已完成的操作\n\
+            - 回复简洁直接\n\
+            - 数据结果请清晰格式化（表格、列表等）",
+        );
+    }
+
+    // L6: 对话摘要（压缩后的历史上下文）
+    if let Some(summary) = conversation_summary {
+        let summary = summary.trim();
+        if !summary.is_empty() {
+            result.push_str("\n\n");
+            if en {
+                result.push_str("[Previous Conversation Summary]\n");
+            } else {
+                result.push_str("【之前对话摘要】\n");
+            }
+            result.push_str(summary);
+        }
+    }
+
+    result
+}
+
+/// 构建聊天模式基础上下文（去掉 AiAgent 的 submit_result 执行机制说明）
+fn build_chat_base_context(categories: &[String], locale: &str) -> String {
+    let en = is_en(locale);
+    let mut ctx = if en { BASE_CORE_EN } else { BASE_CORE_ZH }.to_string();
+    ctx.push_str(if en {
+        "\n\n[Tool Categories]\n"
+    } else {
+        "\n\n【工具分类】\n"
+    });
+
+    let all = categories.is_empty();
+    if all || categories.iter().any(|c| c == "cdp") {
+        ctx.push('\n');
+        ctx.push_str(if en { TOOL_DESC_CDP_EN } else { TOOL_DESC_CDP_ZH });
+    }
+    if all || categories.iter().any(|c| c == "magic") {
+        ctx.push('\n');
+        ctx.push_str(if en { TOOL_DESC_MAGIC_EN } else { TOOL_DESC_MAGIC_ZH });
+    }
+    if all || categories.iter().any(|c| c == "app") {
+        ctx.push('\n');
+        ctx.push_str(if en { TOOL_DESC_APP_EN } else { TOOL_DESC_APP_ZH });
+    }
+    if all || categories.iter().any(|c| c == "file") {
+        ctx.push('\n');
+        ctx.push_str(if en { TOOL_DESC_FILE_EN } else { TOOL_DESC_FILE_ZH });
+    }
+    if all || categories.iter().any(|c| c == "dialog") {
+        ctx.push('\n');
+        ctx.push_str(if en { TOOL_DESC_DIALOG_EN } else { TOOL_DESC_DIALOG_ZH });
+    }
+    if all || categories.iter().any(|c| c == "utility") {
+        ctx.push('\n');
+        ctx.push_str(if en { TOOL_DESC_UTILITY_EN } else { TOOL_DESC_UTILITY_ZH });
+    }
+
+    ctx.push_str("\n\n");
+    ctx.push_str(if en { BASE_SCREENSHOTS_EN } else { BASE_SCREENSHOTS_ZH });
+    ctx.push_str("\n\n");
+    ctx.push_str(if en { BASE_SAFETY_EN } else { BASE_SAFETY_ZH });
+    ctx
 }
 
 /// AiJudge boolean 模式系统提示词

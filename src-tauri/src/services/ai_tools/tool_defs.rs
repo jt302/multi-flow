@@ -1390,12 +1390,12 @@ fn magic_tools() -> Vec<Value> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// App Data 工具（20 个）
+// App Data 工具（21 个）
 // ═══════════════════════════════════════════════════════════════════════════
 
 fn app_tools() -> Vec<Value> {
     vec![
-        // ── Profile 操作 (9) ──
+        // ── Profile 操作 (10) ──
         tool(
             "app_list_profiles",
             "列出 profile 列表，支持分组和关键字过滤",
@@ -1488,8 +1488,19 @@ fn app_tools() -> Vec<Value> {
             }),
         ),
         tool(
+            "app_set_chat_active_profile",
+            "仅 AI Chat 使用：将当前聊天会话的工具目标环境切换到指定 profile。必须先切换，再对该环境执行 cdp_* / magic_* 工具。",
+            json!({
+                "type": "object",
+                "properties": {
+                    "profile_id": { "type": "string", "description": "目标 Profile ID，必须已关联到当前聊天会话" }
+                },
+                "required": ["profile_id"]
+            }),
+        ),
+        tool(
             "app_get_current_profile",
-            "获取当前自动化正在操作的 profile 信息",
+            "获取当前工具目标环境的 profile 信息。AI Chat 中返回当前聊天会话绑定的工具目标环境；自动化脚本中返回当前运行环境。",
             json!({
                 "type": "object",
                 "properties": {}
