@@ -84,11 +84,11 @@ export function CanvasHelpDialog({ open, onOpenChange }: Props) {
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-lg max-h-[80vh] flex flex-col p-0">
+			<DialogContent className="max-w-lg max-h-[80vh] flex flex-col p-0 overflow-hidden">
 				<DialogHeader className="px-5 pt-5 pb-3 border-b shrink-0">
 					<DialogTitle className="text-sm font-semibold">{t('help.title')}</DialogTitle>
 				</DialogHeader>
-				<ScrollArea className="flex-1 min-h-0">
+				<ScrollArea className="flex-1 overflow-y-auto">
 					<div className="px-5 py-4 space-y-5">
 						{sections.map((section) => (
 							<div key={section.title}>

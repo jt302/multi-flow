@@ -223,6 +223,18 @@ export async function deleteAiConfig(id: string): Promise<void> {
 	return tauriInvoke<void>('delete_ai_config', { id });
 }
 
+// ── 默认 AI 模型 ────────────────────────────────────────────────────
+
+const DEFAULT_AI_CONFIG_KEY = 'default_ai_config_id';
+
+export async function getDefaultAiConfigId(): Promise<string | null> {
+	return tauriInvoke<string | null>('read_app_preference', { key: DEFAULT_AI_CONFIG_KEY });
+}
+
+export async function setDefaultAiConfigId(configId: string | null): Promise<void> {
+	return tauriInvoke<void>('write_app_preference', { key: DEFAULT_AI_CONFIG_KEY, value: configId ?? '' });
+}
+
 // ── AI Dialog（后端弹窗交互） ────────────────────────────────
 
 export async function listenAiDialogRequest(

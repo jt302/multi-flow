@@ -1,5 +1,6 @@
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
+import { persist } from 'zustand/middleware';
 
 import type {
 	AiDialogFormField,
@@ -78,7 +79,9 @@ const INITIAL_STATE: AutomationStoreState = {
 	humanIntervention: null,
 };
 
-export const automationStore = createStore<AutomationStore>()((set) => ({
+export const automationStore = createStore<AutomationStore>()(
+	persist(
+		(set) => ({
 	...INITIAL_STATE,
 	startRun: (activeRunId, activeScriptId, stepTotal) =>
 		set({
@@ -167,7 +170,13 @@ export const automationStore = createStore<AutomationStore>()((set) => ({
 			return { humanIntervention: null };
 		}),
 	reset: () => set({ ...INITIAL_STATE }),
-}));
+		}),
+		{
+			name: 'mf-automation-store',
+			partialize: (state) => ({ activeRunId: state.activeRunId, activeScriptId: state.activeScriptId }),
+		},
+	),
+);
 
 export function useAutomationStore<T>(selector: (state: AutomationStore) => T) {
 	return useStore(automationStore, selector);
