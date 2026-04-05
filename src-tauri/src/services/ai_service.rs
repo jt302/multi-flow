@@ -182,7 +182,10 @@ fn retry_delay(attempt: u32) -> std::time::Duration {
 /// 格式化重试消息（用于日志和返回给上层）
 pub fn format_retry_message(attempt: u32, max: u32, error: &str) -> String {
     let delay = 1u64 << attempt;
-    format!("AI request failed (attempt {}/{max}), retrying in {delay}s: {error}", attempt + 1)
+    format!(
+        "AI request failed (attempt {}/{max}), retrying in {delay}s: {error}",
+        attempt + 1
+    )
 }
 
 pub struct AiService {
@@ -379,21 +382,29 @@ impl AiService {
                 Err(e) => {
                     last_err = format!("AI request failed: {e}");
                     if attempt < MAX_AI_RETRIES - 1 {
-                        eprintln!("{}", format_retry_message(attempt, MAX_AI_RETRIES, &last_err));
+                        eprintln!(
+                            "{}",
+                            format_retry_message(attempt, MAX_AI_RETRIES, &last_err)
+                        );
                         tokio::time::sleep(retry_delay(attempt)).await;
                         continue;
                     }
                 }
                 Ok(resp) => {
                     let status = resp.status();
-                    let text = resp.text().await
+                    let text = resp
+                        .text()
+                        .await
                         .map_err(|e| format!("AI read body failed: {e}"))?;
                     if status.is_success() {
                         return Ok(text);
                     }
                     last_err = format!("AI API error {status}: {text}");
                     if attempt < MAX_AI_RETRIES - 1 && is_retryable_status(status.as_u16()) {
-                        eprintln!("{}", format_retry_message(attempt, MAX_AI_RETRIES, &last_err));
+                        eprintln!(
+                            "{}",
+                            format_retry_message(attempt, MAX_AI_RETRIES, &last_err)
+                        );
                         tokio::time::sleep(retry_delay(attempt)).await;
                         continue;
                     }
@@ -472,7 +483,8 @@ impl AiService {
             let mut last_err = String::new();
             let mut result_text: Option<String> = None;
             for attempt in 0..MAX_AI_RETRIES {
-                match self.http
+                match self
+                    .http
                     .post(format!("{base_url}/v1/messages"))
                     .header("Content-Type", "application/json")
                     .header("x-api-key", api_key)
@@ -484,14 +496,19 @@ impl AiService {
                     Err(e) => {
                         last_err = format!("Anthropic request failed: {e}");
                         if attempt < MAX_AI_RETRIES - 1 {
-                            eprintln!("{}", format_retry_message(attempt, MAX_AI_RETRIES, &last_err));
+                            eprintln!(
+                                "{}",
+                                format_retry_message(attempt, MAX_AI_RETRIES, &last_err)
+                            );
                             tokio::time::sleep(retry_delay(attempt)).await;
                             continue;
                         }
                     }
                     Ok(resp) => {
                         let status = resp.status();
-                        let body_text = resp.text().await
+                        let body_text = resp
+                            .text()
+                            .await
                             .map_err(|e| format!("Anthropic read body failed: {e}"))?;
                         if status.is_success() {
                             result_text = Some(body_text);
@@ -499,7 +516,10 @@ impl AiService {
                         }
                         last_err = format!("Anthropic API error {status}: {body_text}");
                         if attempt < MAX_AI_RETRIES - 1 && is_retryable_status(status.as_u16()) {
-                            eprintln!("{}", format_retry_message(attempt, MAX_AI_RETRIES, &last_err));
+                            eprintln!(
+                                "{}",
+                                format_retry_message(attempt, MAX_AI_RETRIES, &last_err)
+                            );
                             tokio::time::sleep(retry_delay(attempt)).await;
                             continue;
                         }
@@ -591,7 +611,8 @@ impl AiService {
             let mut last_err = String::new();
             let mut result_text: Option<String> = None;
             for attempt in 0..MAX_AI_RETRIES {
-                match self.http
+                match self
+                    .http
                     .post(format!("{base_url}/v1/messages"))
                     .header("Content-Type", "application/json")
                     .header("x-api-key", api_key)
@@ -603,14 +624,19 @@ impl AiService {
                     Err(e) => {
                         last_err = format!("Anthropic request failed: {e}");
                         if attempt < MAX_AI_RETRIES - 1 {
-                            eprintln!("{}", format_retry_message(attempt, MAX_AI_RETRIES, &last_err));
+                            eprintln!(
+                                "{}",
+                                format_retry_message(attempt, MAX_AI_RETRIES, &last_err)
+                            );
                             tokio::time::sleep(retry_delay(attempt)).await;
                             continue;
                         }
                     }
                     Ok(resp) => {
                         let status = resp.status();
-                        let body_text = resp.text().await
+                        let body_text = resp
+                            .text()
+                            .await
                             .map_err(|e| format!("Anthropic read body failed: {e}"))?;
                         if status.is_success() {
                             result_text = Some(body_text);
@@ -618,7 +644,10 @@ impl AiService {
                         }
                         last_err = format!("Anthropic API error {status}: {body_text}");
                         if attempt < MAX_AI_RETRIES - 1 && is_retryable_status(status.as_u16()) {
-                            eprintln!("{}", format_retry_message(attempt, MAX_AI_RETRIES, &last_err));
+                            eprintln!(
+                                "{}",
+                                format_retry_message(attempt, MAX_AI_RETRIES, &last_err)
+                            );
                             tokio::time::sleep(retry_delay(attempt)).await;
                             continue;
                         }
@@ -758,7 +787,8 @@ impl AiService {
             let mut last_err = String::new();
             let mut result_text: Option<String> = None;
             for attempt in 0..MAX_AI_RETRIES {
-                match self.http
+                match self
+                    .http
                     .post(&url)
                     .header("Content-Type", "application/json")
                     .json(&body)
@@ -768,14 +798,19 @@ impl AiService {
                     Err(e) => {
                         last_err = format!("Gemini request failed: {e}");
                         if attempt < MAX_AI_RETRIES - 1 {
-                            eprintln!("{}", format_retry_message(attempt, MAX_AI_RETRIES, &last_err));
+                            eprintln!(
+                                "{}",
+                                format_retry_message(attempt, MAX_AI_RETRIES, &last_err)
+                            );
                             tokio::time::sleep(retry_delay(attempt)).await;
                             continue;
                         }
                     }
                     Ok(resp) => {
                         let status = resp.status();
-                        let body_text = resp.text().await
+                        let body_text = resp
+                            .text()
+                            .await
                             .map_err(|e| format!("Gemini read body failed: {e}"))?;
                         if status.is_success() {
                             result_text = Some(body_text);
@@ -783,7 +818,10 @@ impl AiService {
                         }
                         last_err = format!("Gemini API error {status}: {body_text}");
                         if attempt < MAX_AI_RETRIES - 1 && is_retryable_status(status.as_u16()) {
-                            eprintln!("{}", format_retry_message(attempt, MAX_AI_RETRIES, &last_err));
+                            eprintln!(
+                                "{}",
+                                format_retry_message(attempt, MAX_AI_RETRIES, &last_err)
+                            );
                             tokio::time::sleep(retry_delay(attempt)).await;
                             continue;
                         }
@@ -883,7 +921,11 @@ pub fn extract_deepseek_thinking(text: &str) -> (Option<String>, String) {
             let thinking = text[start + 7..end].trim().to_string();
             let response = text[end + 8..].trim().to_string();
             return (
-                if thinking.is_empty() { None } else { Some(thinking) },
+                if thinking.is_empty() {
+                    None
+                } else {
+                    Some(thinking)
+                },
                 response,
             );
         }

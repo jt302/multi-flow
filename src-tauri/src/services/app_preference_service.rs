@@ -33,6 +33,9 @@ struct AppPreferencesFile {
     /// 工具确认覆盖设置：tool_name → require_confirmation
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     tool_confirmation_overrides: HashMap<String, bool>,
+    /// 全局默认 AI 配置 ID
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    default_ai_config_id: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -49,6 +52,7 @@ impl Default for AppPreferencesFile {
             captcha_solver_configs: Vec::new(),
             ai_chat_global_prompt: None,
             tool_confirmation_overrides: HashMap::new(),
+            default_ai_config_id: None,
         }
     }
 }
@@ -207,20 +211,41 @@ impl AppPreferenceService {
         Ok(preferences.ai_configs.into_iter().find(|e| e.id == id))
     }
 
+    pub fn get_default_ai_config_id(&self) -> AppResult<Option<String>> {
+        Ok(self.read_preferences_file()?.default_ai_config_id)
+    }
+
+    pub fn set_default_ai_config_id(&self, config_id: Option<String>) -> AppResult<()> {
+        let mut preferences = self.read_preferences_file()?;
+        preferences.default_ai_config_id = config_id;
+        self.write_preferences_file(&preferences)
+    }
+
     // ── CAPTCHA solver config CRUD ───────────────────────────────────
 
-    pub fn list_captcha_configs(&self) -> AppResult<Vec<crate::services::captcha_service::CaptchaSolverConfig>> {
+    pub fn list_captcha_configs(
+        &self,
+    ) -> AppResult<Vec<crate::services::captcha_service::CaptchaSolverConfig>> {
         let prefs = self.read_preferences_file()?;
         Ok(prefs.captcha_solver_configs)
     }
 
-    pub fn get_default_captcha_config(&self) -> Result<Option<crate::services::captcha_service::CaptchaSolverConfig>, String> {
+    pub fn get_default_captcha_config(
+        &self,
+    ) -> Result<Option<crate::services::captcha_service::CaptchaSolverConfig>, String> {
         let prefs = self.read_preferences_file().map_err(|e| e.to_string())?;
-        Ok(prefs.captcha_solver_configs.iter().find(|c| c.is_default).cloned()
+        Ok(prefs
+            .captcha_solver_configs
+            .iter()
+            .find(|c| c.is_default)
+            .cloned()
             .or_else(|| prefs.captcha_solver_configs.into_iter().next()))
     }
 
-    pub fn create_captcha_config(&self, mut entry: crate::services::captcha_service::CaptchaSolverConfig) -> AppResult<crate::services::captcha_service::CaptchaSolverConfig> {
+    pub fn create_captcha_config(
+        &self,
+        mut entry: crate::services::captcha_service::CaptchaSolverConfig,
+    ) -> AppResult<crate::services::captcha_service::CaptchaSolverConfig> {
         let mut prefs = self.read_preferences_file()?;
         entry.id = uuid::Uuid::new_v4().to_string();
         if prefs.captcha_solver_configs.is_empty() {
@@ -231,15 +256,25 @@ impl AppPreferenceService {
         Ok(entry)
     }
 
-    pub fn update_captcha_config(&self, entry: crate::services::captcha_service::CaptchaSolverConfig) -> AppResult<()> {
+    pub fn update_captcha_config(
+        &self,
+        entry: crate::services::captcha_service::CaptchaSolverConfig,
+    ) -> AppResult<()> {
         let mut prefs = self.read_preferences_file()?;
-        if let Some(existing) = prefs.captcha_solver_configs.iter_mut().find(|c| c.id == entry.id) {
+        if let Some(existing) = prefs
+            .captcha_solver_configs
+            .iter_mut()
+            .find(|c| c.id == entry.id)
+        {
             existing.provider = entry.provider;
             existing.api_key = entry.api_key;
             existing.base_url = entry.base_url;
             existing.is_default = entry.is_default;
         } else {
-            return Err(AppError::Validation(format!("Captcha config not found: {}", entry.id)));
+            return Err(AppError::Validation(format!(
+                "Captcha config not found: {}",
+                entry.id
+            )));
         }
         self.write_preferences_file(&prefs)
     }
@@ -249,7 +284,9 @@ impl AppPreferenceService {
         let before_len = prefs.captcha_solver_configs.len();
         prefs.captcha_solver_configs.retain(|c| c.id != id);
         if prefs.captcha_solver_configs.len() == before_len {
-            return Err(AppError::Validation(format!("Captcha config not found: {id}")));
+            return Err(AppError::Validation(format!(
+                "Captcha config not found: {id}"
+            )));
         }
         self.write_preferences_file(&prefs)
     }
@@ -288,9 +325,15 @@ impl AppPreferenceService {
     }
 
     /// 设置单个工具的确认覆盖
-    pub fn set_tool_confirmation_override(&self, tool_name: &str, require_confirmation: bool) -> AppResult<()> {
+    pub fn set_tool_confirmation_override(
+        &self,
+        tool_name: &str,
+        require_confirmation: bool,
+    ) -> AppResult<()> {
         let mut preferences = self.read_preferences_file()?;
-        preferences.tool_confirmation_overrides.insert(tool_name.to_string(), require_confirmation);
+        preferences
+            .tool_confirmation_overrides
+            .insert(tool_name.to_string(), require_confirmation);
         self.write_preferences_file(&preferences)
     }
 
@@ -298,7 +341,9 @@ impl AppPreferenceService {
     pub fn set_all_tool_confirmation_overrides(&self, require_confirmation: bool) -> AppResult<()> {
         let mut preferences = self.read_preferences_file()?;
         for tool_name in crate::services::ai_tools::all_dangerous_tool_names() {
-            preferences.tool_confirmation_overrides.insert(tool_name.to_string(), require_confirmation);
+            preferences
+                .tool_confirmation_overrides
+                .insert(tool_name.to_string(), require_confirmation);
         }
         self.write_preferences_file(&preferences)
     }

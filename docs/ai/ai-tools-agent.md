@@ -15,6 +15,7 @@
 3. **分步执行**：复杂操作分步进行，每步后用截图或 `cdp_get_text` 验证状态。
 4. **使用变量传递数据**：通过 `output_key` 参数将中间结果存入变量，后续步骤通过 `{{变量名}}` 引用。
 5. **选择器类型**：支持 `css`（默认）、`xpath`、`text`（按可见文本匹配）三种选择器。
+6. **验证码必须严格回验**：`captcha_inject_token` / `captcha_solve_and_inject` 只有在页面真实离开验证码或风控阻塞状态时才算成功；拿到 token、写入隐藏字段或触发回调都不等于“验证通过”。如果验证码仍失败，必须明确说明阻塞，且不要未经用户同意擅自切换到 DuckDuckGo 等替代站点。
 
 工具分为 8 大类：
 
@@ -28,6 +29,15 @@
 | `dialog_`  | Dialog  | 向用户展示 UI 弹窗获取反馈                            | 13   |
 | `captcha_` | Captcha | CAPTCHA 检测与自动求解                                | 5    |
 | 无前缀     | Utility | 基础工具（等待、日志、提交结果）                      | 3    |
+
+### CAPTCHA 严格语义
+
+- `captcha_detect` 会尽量返回 `type / sitekey / callback / pageAction / enterprisePayload / userAgent / params` 等上下文，便于后续求解与注入。
+- `captcha_solve` 只表示求解服务拿到了 token；它**不代表页面已经通过验证**。
+- `captcha_inject_token` 与 `captcha_solve_and_inject` 会执行页面级回验：
+  - 页面真实通过验证 → 成功
+  - 仅注入成功但页面仍被 challenge/风控拦截 → 失败
+  - 失败结果会包含可读诊断信息，帮助判断是回调缺失、仅注入未提交，还是页面仍停留在 challenge
 
 ---
 

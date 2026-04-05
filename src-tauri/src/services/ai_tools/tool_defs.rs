@@ -2051,7 +2051,7 @@ fn captcha_tools() -> Vec<Value> {
         ),
         tool(
             "captcha_inject_token",
-            "将求解得到的 token 注入到页面对应的 CAPTCHA 表单字段中",
+            "将求解得到的 token 注入到页面对应的 CAPTCHA 表单字段中，并严格检查页面是否真正通过验证；仅注入成功但页面仍被拦截会返回失败",
             json!({
                 "type": "object",
                 "properties": {
@@ -2067,7 +2067,7 @@ fn captcha_tools() -> Vec<Value> {
         ),
         tool(
             "captcha_solve_and_inject",
-            "一键求解并注入：自动检测页面 CAPTCHA → 求解 → 注入 token → 返回结果",
+            "一键求解并注入：自动检测页面 CAPTCHA → 求解 → 注入 token → 严格验证页面是否真正通过；如果页面仍被验证码/风控拦截则返回失败",
             json!({
                 "type": "object",
                 "properties": {

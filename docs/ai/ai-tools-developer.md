@@ -1874,6 +1874,35 @@ pub struct ToolResult {
 
 ---
 
+### 3.8 Captcha 工具（5 个）
+
+#### 工具列表
+
+| 工具名 | 必填参数 | 说明 |
+|--------|----------|------|
+| `captcha_detect` | — | 检测当前页面上的 CAPTCHA 类型与参数，返回 `type / sitekey / callback / pageAction / enterprisePayload / userAgent / params` 等信息 |
+| `captcha_solve` | `captcha_type` | 调用求解服务获取 token；当 `captcha_type=auto` 时会先读取当前页面的检测结果并透传页面 UA、enterprise 参数等上下文 |
+| `captcha_inject_token` | `type`, `token` | 将 token 注入页面，并严格校验页面是否真正脱离验证码/风控阻塞；仅写入字段成功但页面仍阻塞会返回失败 |
+| `captcha_solve_and_inject` | — | 自动执行检测 → 求解 → 注入 → 页面级回验；只有页面真实通过验证才返回成功 |
+| `captcha_get_balance` | — | 查询当前 CAPTCHA 求解服务余额 |
+
+#### 严格状态语义
+
+- `tool_status=completed` 仅表示**页面实际通过验证码/风控拦截**，不再等同于“拿到 token”或“注入字段成功”。
+- `captcha_inject_token` 与 `captcha_solve_and_inject` 失败时，`tool_result` 会包含结构化诊断信息，至少覆盖：
+  - 检测到的 CAPTCHA 类型
+  - 是否找到并调用回调
+  - 是否仅完成字段注入
+  - 页面是否仍停留在 challenge 状态
+  - 求解器返回 UA 与页面真实 UA 是否不一致
+
+#### 实现备注
+
+- 后端检测逻辑会尽量提取 `callback`、`pageAction`、`data-s / enterprisePayload`、页面真实 `userAgent` 等上下文，并在求解时按服务商支持情况透传。
+- 聊天系统提示词要求：验证码未通过时必须明确说明阻塞，不能把“注入成功”表述成“验证通过”，也不能未经用户同意擅自切换到 DuckDuckGo 等替代站点。
+
+---
+
 ## 4. 工具权限管理（危险工具确认机制）
 
 ### 4.1 概述
@@ -1950,8 +1979,6 @@ pub fn tool_risk_level(tool_name: &str) -> ToolRiskLevel {
    - 在 `get_tool_metadata()` 中添加显示名称和描述
 
 3. 确认设置页 UI 会自动展示新工具
-
----
 
 ## 6. 新增工具流程
 

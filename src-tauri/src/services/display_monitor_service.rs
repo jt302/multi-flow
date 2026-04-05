@@ -104,9 +104,9 @@ fn find_unique_metadata<'a>(
     monitor: &BaseMonitorSnapshot,
     metadata: &'a [DisplayMetadata],
 ) -> Option<&'a DisplayMetadata> {
-    let mut matches = metadata.iter().filter(|item| {
-        monitor_matches_metadata(monitor, item)
-    });
+    let mut matches = metadata
+        .iter()
+        .filter(|item| monitor_matches_metadata(monitor, item));
 
     let first = matches.next()?;
     if matches.next().is_some() {
@@ -132,10 +132,7 @@ fn monitor_matches_metadata(monitor: &BaseMonitorSnapshot, metadata: &DisplayMet
     matches_monitor_geometry(monitor, raw) || matches_monitor_geometry(monitor, scaled)
 }
 
-fn matches_monitor_geometry(
-    monitor: &BaseMonitorSnapshot,
-    geometry: (i32, i32, u32, u32),
-) -> bool {
+fn matches_monitor_geometry(monitor: &BaseMonitorSnapshot, geometry: (i32, i32, u32, u32)) -> bool {
     let (position_x, position_y, width, height) = geometry;
     position_x == monitor.position_x
         && position_y == monitor.position_y
@@ -359,10 +356,7 @@ fn resolve_host_device_name() -> Option<String> {
     }
 
     let response: ComputerSystemResponse = serde_json::from_slice(&output.stdout).ok()?;
-    join_display_identity(
-        response.manufacturer.as_deref(),
-        response.model.as_deref(),
-    )
+    join_display_identity(response.manufacturer.as_deref(), response.model.as_deref())
 }
 
 #[cfg(all(target_family = "unix", not(target_os = "macos")))]
@@ -401,7 +395,7 @@ fn monitor_key(monitor: &tauri::Monitor) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        BaseMonitorSnapshot, DisplayMetadata, build_display_monitor_item, find_unique_metadata,
+        build_display_monitor_item, find_unique_metadata, BaseMonitorSnapshot, DisplayMetadata,
     };
     use crate::models::WindowBounds;
 
@@ -463,11 +457,18 @@ mod tests {
         builtin.manufacturer = None;
         builtin.model = None;
 
-        let item =
-            build_display_monitor_item(base_monitor(Some("Color LCD")), Some(&builtin), Some("MacBook Pro"), 0);
+        let item = build_display_monitor_item(
+            base_monitor(Some("Color LCD")),
+            Some(&builtin),
+            Some("MacBook Pro"),
+            0,
+        );
 
         assert_eq!(item.host_device_name.as_deref(), Some("MacBook Pro"));
-        assert_eq!(item.friendly_name.as_deref(), Some("Built-in Retina Display"));
+        assert_eq!(
+            item.friendly_name.as_deref(),
+            Some("Built-in Retina Display")
+        );
         assert!(item.is_builtin);
     }
 
