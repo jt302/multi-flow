@@ -1,4 +1,5 @@
 import { emit, listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
 
@@ -107,7 +108,7 @@ export async function listenAutomationVariablesUpdated(
 export async function listenAutomationHumanRequired(
 	onEvent: (event: AutomationHumanRequiredEvent) => void,
 ): Promise<() => void> {
-	return listen<AutomationHumanRequiredEvent>('automation_human_required', (event) => {
+	return getCurrentWindow().listen<AutomationHumanRequiredEvent>('automation_human_required', (event) => {
 		onEvent(event.payload);
 	});
 }
@@ -115,7 +116,7 @@ export async function listenAutomationHumanRequired(
 export async function listenAutomationHumanDismissed(
 	onEvent: (event: AutomationHumanDismissedEvent) => void,
 ): Promise<() => void> {
-	return listen<AutomationHumanDismissedEvent>('automation_human_dismissed', (event) => {
+	return getCurrentWindow().listen<AutomationHumanDismissedEvent>('automation_human_dismissed', (event) => {
 		onEvent(event.payload);
 	});
 }
@@ -123,7 +124,7 @@ export async function listenAutomationHumanDismissed(
 export async function listenAutomationStepErrorPause(
 	onEvent: (event: AutomationStepErrorPauseEvent) => void,
 ): Promise<() => void> {
-	return listen<AutomationStepErrorPauseEvent>('automation_step_error_pause', (event) => {
+	return getCurrentWindow().listen<AutomationStepErrorPauseEvent>('automation_step_error_pause', (event) => {
 		onEvent(event.payload);
 	});
 }
@@ -131,7 +132,7 @@ export async function listenAutomationStepErrorPause(
 export async function listenAutomationRunCancelled(
 	onEvent: (event: AutomationRunCancelledEvent) => void,
 ): Promise<() => void> {
-	return listen<AutomationRunCancelledEvent>('automation_run_cancelled', (event) => {
+	return getCurrentWindow().listen<AutomationRunCancelledEvent>('automation_run_cancelled', (event) => {
 		onEvent(event.payload);
 	});
 }
@@ -225,14 +226,12 @@ export async function deleteAiConfig(id: string): Promise<void> {
 
 // ── 默认 AI 模型 ────────────────────────────────────────────────────
 
-const DEFAULT_AI_CONFIG_KEY = 'default_ai_config_id';
-
 export async function getDefaultAiConfigId(): Promise<string | null> {
-	return tauriInvoke<string | null>('read_app_preference', { key: DEFAULT_AI_CONFIG_KEY });
+	return tauriInvoke<string | null>('get_default_ai_config_id');
 }
 
 export async function setDefaultAiConfigId(configId: string | null): Promise<void> {
-	return tauriInvoke<void>('write_app_preference', { key: DEFAULT_AI_CONFIG_KEY, value: configId ?? '' });
+	return tauriInvoke<void>('set_default_ai_config_id', { configId });
 }
 
 // ── AI Dialog（后端弹窗交互） ────────────────────────────────
@@ -240,7 +239,7 @@ export async function setDefaultAiConfigId(configId: string | null): Promise<voi
 export async function listenAiDialogRequest(
 	onEvent: (request: AiDialogRequest) => void,
 ): Promise<() => void> {
-	return listen<AiDialogRequest>('ai-dialog-request', (event) => {
+	return getCurrentWindow().listen<AiDialogRequest>('ai-dialog-request', (event) => {
 		onEvent(event.payload);
 	});
 }

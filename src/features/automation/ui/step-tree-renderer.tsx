@@ -15,6 +15,64 @@ import { useAutomationStore } from '@/store/automation-store';
 import { StepStatusIcon } from '@/entities/automation/ui/step-status-icon';
 import { StepSummary } from '@/entities/automation/ui/step-summary';
 
+// ─── 步骤类型可读名称映射 ──────────────────────────────────────────────────────
+
+const STEP_KIND_LABELS: Record<string, string> = {
+	// 对话类
+	confirm_dialog: '确认对话框',
+	select_dialog: '选择对话框',
+	form_dialog: '表单对话框',
+	table_dialog: '表格对话框',
+	image_dialog: '图片对话框',
+	countdown_dialog: '倒计时对话框',
+	markdown_dialog: 'Markdown 对话框',
+	rich_text_dialog: '富文本对话框',
+	notification: '通知',
+	// 流程控制
+	condition: '条件判断',
+	loop: '循环',
+	continue: '继续',
+	end: '结束',
+	wait: '等待',
+	// AI
+	ai_agent: 'AI Agent',
+	ai_judge: 'AI 判断',
+	// 验证码
+	captcha_detect: '验证码检测',
+	captcha_solve: '验证码识别',
+	captcha_inject_token: '注入Token',
+	captcha_solve_and_inject: '识别并注入',
+	captcha_get_balance: '查询余额',
+	// 应用/脚本
+	app_run_script: '运行脚本',
+	// Magic
+	magic_get_managed_extensions: '获取托管扩展',
+	magic_trigger_extension_action: '触发扩展操作',
+	magic_capture_app_shell: '截图',
+	// CDP
+	cdp_navigate: '导航',
+	cdp_click: '点击',
+	cdp_input: '输入',
+	cdp_screenshot: '截图',
+	cdp_execute_js: '执行JS',
+	cdp_get_html: '获取HTML',
+	cdp_get_text: '获取文本',
+	cdp_wait_for: '等待元素',
+	cdp_scroll: '滚动',
+	cdp_select: '选择',
+	cdp_hover: '悬停',
+	// 文件
+	file_read: '读取文件',
+	file_write: '写入文件',
+	file_exists: '检查文件',
+	file_delete: '删除文件',
+	file_list: '列出文件',
+};
+
+function getStepKindLabel(kind: string): string {
+	return STEP_KIND_LABELS[kind] ?? kind;
+}
+
 // ─── 颜色配置 ─────────────────────────────────────────────────────────────────
 
 const BRANCH_BORDER: Record<string, string> = {
@@ -165,8 +223,8 @@ function StepRow({ step, result }: StepRowProps) {
 			<div className="flex items-start gap-2">
 				<StepStatusIcon status={result?.status ?? 'pending'} />
 				<div className="flex-1 min-w-0">
-					<span className="font-mono text-xs bg-muted px-1 py-0.5 rounded mr-2">
-						{step.kind}
+					<span className="text-xs bg-muted px-1 py-0.5 rounded mr-2">
+						{getStepKindLabel(step.kind)}
 					</span>
 					<StepSummary step={step} />
 					{result?.output && (
