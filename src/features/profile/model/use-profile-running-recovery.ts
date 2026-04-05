@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import type { ProfileActionState, ProfileItem } from '@/entities/profile/model/types';
@@ -18,6 +19,7 @@ export function useProfileRunningRecovery({
 	setActionState,
 }: UseProfileRunningRecoveryOptions) {
 	const previousProfilesRef = useRef<ProfileItem[]>([]);
+	const { t } = useTranslation('profile');
 
 	useEffect(() => {
 		const previousProfileMap = new Map(previousProfilesRef.current.map((item) => [item.id, item]));
@@ -32,10 +34,10 @@ export function useProfileRunningRecovery({
 				profile.lifecycle === 'active'
 			) {
 				setActionState(profile.id, 'recovering');
-				toast.info(`环境 ${profile.name} 已退出，状态已自动回收`);
+				toast.info(t('toast.recovered', { name: profile.name }));
 				window.setTimeout(() => setActionState(profile.id, null), 1800);
 			}
 		}
 		previousProfilesRef.current = profiles;
-	}, [profileActionLocksRef, profileActionStatesRef, profiles, setActionState]);
+	}, [profileActionLocksRef, profileActionStatesRef, profiles, setActionState, t]);
 }

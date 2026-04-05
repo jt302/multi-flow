@@ -72,7 +72,7 @@ export function ToolPermissionsCard() {
 			queryClient.invalidateQueries({ queryKey: QUERY_KEY });
 		},
 		onError: (e) => {
-			toast.error(String(e));
+			toast.error(t('common:errors.generic', { message: String(e) }));
 		},
 	});
 
@@ -82,7 +82,7 @@ export function ToolPermissionsCard() {
 			queryClient.invalidateQueries({ queryKey: QUERY_KEY });
 		},
 		onError: (e) => {
-			toast.error(String(e));
+			toast.error(t('common:errors.generic', { message: String(e) }));
 		},
 	});
 

@@ -232,7 +232,7 @@ export function HumanInterventionModal() {
 					<DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
 					{message && <p className="text-sm text-foreground whitespace-pre-wrap">{message}</p>}
 					<ScrollArea className="max-h-[60vh]">
-						<div className="space-y-3 py-2 pr-3">
+						<div className="space-y-3 py-2 pl-1 pr-3">
 							{fields.map((field) => (
 								<HumanFormField key={field.name} field={field} value={formValues[field.name] ?? ''} error={formErrors[field.name]} disabled={submitting} onChange={(v) => setFormValues((prev) => ({ ...prev, [field.name]: v }))} />
 							))}

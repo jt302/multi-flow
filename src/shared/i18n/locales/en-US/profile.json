@@ -312,5 +312,8 @@
 	"duplicateProfileFailed": "Failed to duplicate profile",
 	"clearGroupConfirm": "Confirm Clear Group",
 	"clearGroupDesc": "Clear group info for {{count}} profiles?",
-	"actionImmediate": "This action takes effect immediately."
+	"actionImmediate": "This action takes effect immediately.",
+	"toast": {
+		"recovered": "Profile {{name}} has exited, status auto-recovered"
+	}
 }
