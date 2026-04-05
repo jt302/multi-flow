@@ -248,6 +248,7 @@ impl ChatService {
         tool_status: Option<String>,
         tool_duration_ms: Option<i64>,
         image_base64: Option<String>,
+        image_ref: Option<String>,
     ) -> AppResult<ChatMessageRecord> {
         let sort_order = self.next_sort_order(session_id).await?;
         let now = now_ts();
@@ -266,13 +267,13 @@ impl ChatService {
             tool_status: Set(tool_status),
             tool_duration_ms: Set(tool_duration_ms),
             image_base64: Set(image_base64),
+            image_ref: Set(image_ref),
             parent_id: Set(None),
             is_active: Set(1),
             created_at: Set(now),
             sort_order: Set(sort_order),
             thinking_text: Set(None),
             thinking_tokens: Set(None),
-            image_ref: Set(None),
             prompt_tokens: Set(None),
             completion_tokens: Set(None),
             compression_meta: Set(None),
@@ -324,6 +325,15 @@ impl ChatService {
             .await
             .map_err(AppError::from)?;
         Ok(())
+    }
+
+    pub async fn get_message(&self, id: &str) -> AppResult<ChatMessageRecord> {
+        let model = chat_message::Entity::find_by_id(id)
+            .one(&self.db)
+            .await
+            .map_err(AppError::from)?
+            .ok_or_else(|| AppError::NotFound(format!("chat message not found: {id}")))?;
+        Ok(to_api_message(model))
     }
 
     /// 获取会话最后一条用户消息的 sort_order
@@ -386,11 +396,7 @@ impl ChatService {
                 "tool" => {
                     let result = r.tool_result.clone().unwrap_or_default();
                     let id = r.tool_call_id.clone().unwrap_or_default();
-                    if let Some(ref img) = r.image_base64 {
-                        messages.push(AiChatMessage::tool_result_with_image(&id, &result, img));
-                    } else {
-                        messages.push(AiChatMessage::tool_result(&id, &result));
-                    }
+                    messages.push(AiChatMessage::tool_result(&id, &result));
                 }
                 _ => {} // skip system notifications
             }
@@ -669,5 +675,55 @@ mod tests {
             ),
             Some("pf_a".to_string()),
         );
+    }
+
+    #[test]
+    fn build_ai_messages_does_not_reinject_historical_tool_screenshot_images() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ChatService::from_db(db);
+
+        tauri::async_runtime::block_on(async {
+            let session = service
+                .create_session(CreateChatSessionRequest {
+                    title: Some("chat".to_string()),
+                    profile_id: Some("pf_a".to_string()),
+                    ai_config_id: None,
+                    system_prompt: None,
+                    tool_categories: None,
+                    profile_ids: None,
+                })
+                .await
+                .expect("create session");
+
+            service
+                .add_message(
+                    &session.id,
+                    "tool",
+                    None,
+                    None,
+                    Some("tool_call_1".to_string()),
+                    Some("cdp_screenshot".to_string()),
+                    None,
+                    Some("/tmp/chat-shot.png".to_string()),
+                    Some("completed".to_string()),
+                    Some(12),
+                    Some("ZmFrZS1iYXNlNjQ=".to_string()),
+                    None,
+                )
+                .await
+                .expect("add tool message");
+
+            let messages = service
+                .build_ai_messages(&session.id)
+                .await
+                .expect("build ai messages");
+
+            assert_eq!(messages.len(), 1);
+            assert!(matches!(
+                &messages[0].content,
+                crate::services::ai_service::ChatContent::Text(text)
+                    if text == "/tmp/chat-shot.png"
+            ));
+        });
     }
 }

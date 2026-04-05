@@ -1,6 +1,8 @@
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::services::chat_execution_service::ChatExecutionService;
+use crate::services::chat_execution_service::{
+    ChatExecutionService, ChatMessageEvent, ChatPhaseEvent,
+};
 use crate::services::chat_service::{
     ChatMessageRecord, ChatSession, CreateChatSessionRequest, UpdateChatSessionRequest,
 };
@@ -126,20 +128,34 @@ pub async fn send_chat_message(
         active_profile_id.as_deref(),
     );
 
-    ChatExecutionService::send_message(
-        &app,
-        &session_id,
-        &text,
-        tool_target_profile_id.as_deref(),
-        &ai_config,
-        system_prompt.as_deref(),
-        global_prompt.as_deref(),
-        &tool_filter,
-        &state.chat_cancel_tokens,
-        profile_ids.as_deref(),
-        active_profile_id.as_deref(),
-    )
-    .await
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let app_state = app_handle.state::<AppState>();
+        let result = ChatExecutionService::send_message(
+            &app_handle,
+            &session_id,
+            &text,
+            tool_target_profile_id.as_deref(),
+            &ai_config,
+            system_prompt.as_deref(),
+            global_prompt.as_deref(),
+            &tool_filter,
+            &app_state.chat_cancel_tokens,
+            profile_ids.as_deref(),
+            active_profile_id.as_deref(),
+        )
+        .await;
+
+        if let Err(err) = result {
+            crate::logger::error(
+                "ai-chat",
+                format!("Background chat generation failed: {} (session={})", err, session_id),
+            );
+            emit_background_chat_failure(&app_handle, &session_id, &err).await;
+        }
+    });
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -373,4 +389,54 @@ pub fn submit_tool_confirmation(
     } else {
         Err(format!("No pending confirmation for request_id: {}", request_id))
     }
+}
+
+async fn emit_background_chat_failure(app: &AppHandle, session_id: &str, err: &str) {
+    let chat_service = app
+        .state::<AppState>()
+        .chat_service
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .clone();
+
+    if let Ok(message) = chat_service
+        .add_message(
+            session_id,
+            "system",
+            Some(format!("⚠ 聊天执行失败：{err}")),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .await
+    {
+        let _ = app.emit(
+            "ai_chat://message",
+            ChatMessageEvent {
+                session_id: session_id.to_string(),
+                message,
+            },
+        );
+    }
+
+    let _ = app.emit(
+        "ai_chat://phase",
+        ChatPhaseEvent {
+            session_id: session_id.to_string(),
+            phase: "error".to_string(),
+            round: 0,
+            max_rounds: 30,
+            tool_name: None,
+            error: Some(err.to_string()),
+            elapsed_ms: 0,
+            prompt_tokens: None,
+            completion_tokens: None,
+        },
+    );
 }

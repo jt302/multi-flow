@@ -28,7 +28,6 @@ export function ChatEventsListener() {
 			const state = chatStore.getState();
 			if (event.payload.sessionId === state.activeSessionId) {
 				state.appendMessage(event.payload.message);
-				qc.invalidateQueries({ queryKey: queryKeys.chatMessages(event.payload.sessionId) });
 				qc.invalidateQueries({ queryKey: queryKeys.chatSessions });
 			}
 		}).then((unlisten) => {
@@ -40,6 +39,10 @@ export function ChatEventsListener() {
 			const state = chatStore.getState();
 			if (event.payload.sessionId === state.activeSessionId) {
 				state.updatePhase(event.payload);
+				if (event.payload.phase === 'done' || event.payload.phase === 'error') {
+					qc.invalidateQueries({ queryKey: queryKeys.chatMessages(event.payload.sessionId) });
+					qc.invalidateQueries({ queryKey: queryKeys.chatSessions });
+				}
 			}
 		}).then((unlisten) => {
 			unlistenPhaseRef.current = unlisten;
