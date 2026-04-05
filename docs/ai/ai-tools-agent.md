@@ -2,7 +2,7 @@
 
 > 最后更新日期: 2026-04-05
 >
-> 本文档面向 AI Agent（LLM）在执行自动化任务时参考，包含全部 146 个工具的使用指南。
+> 本文档面向 AI Agent（LLM）在执行自动化任务时参考，包含全部 147 个工具的使用指南。
 
 ---
 
@@ -22,7 +22,7 @@
 | ---------- | ------- | ----------------------------------------------------- | ---- |
 | `cdp_`     | CDP     | 通过 Chrome DevTools Protocol 操作页面内容            | 32   |
 | `magic_`   | Magic   | 通过 Magic Controller 控制浏览器窗口和原生功能        | 48   |
-| `app_`     | App     | 读写 Multi-Flow 应用数据（Profile、分组、代理等）     | 20   |
+| `app_`     | App     | 读写 Multi-Flow 应用数据（Profile、分组、代理、聊天会话等） | 21   |
 | `auto_`    | Auto    | 自动化管理（脚本/运行/AI配置/CAPTCHA配置 CRUD）       | 19   |
 | `file_`    | File    | 文件系统读写                                          | 6    |
 | `dialog_`  | Dialog  | 向用户展示 UI 弹窗获取反馈                            | 13   |
@@ -90,6 +90,7 @@
 需要读写应用数据？
 ├─ Profile → app_list_profiles / app_get_profile / app_create_profile / app_update_profile / app_delete_profile
 ├─ Profile 生命周期 → app_start_profile / app_stop_profile / app_get_running_profiles / app_get_current_profile
+├─ 聊天目标环境 → app_set_chat_active_profile
 ├─ 分组 → app_list_groups / app_get_group / app_create_group / app_update_group / app_delete_group / app_get_profiles_in_group
 ├─ 代理 → app_list_proxies / app_get_proxy
 ├─ 插件 → app_list_plugins / app_get_plugin
@@ -406,7 +407,8 @@ magic_set_bounds(x=0, y=0, width=1200, height=800)
 | `app_start_profile`        | 启动 profile 的浏览器        | `profile_id`                                        |
 | `app_stop_profile`         | 停止 profile 的浏览器        | `profile_id`                                        |
 | `app_get_running_profiles` | 获取所有运行中的 profile     | 无                                                  |
-| `app_get_current_profile`  | 获取当前自动化操作的 profile | 无                                                  |
+| `app_set_chat_active_profile` | 切换当前聊天会话的工具目标环境 | `profile_id`                                     |
+| `app_get_current_profile`  | 获取当前工具目标环境的 profile | 无                                                  |
 
 **分组操作**：
 
@@ -457,7 +459,8 @@ app_list_groups()
 
 - ⚠️ `app_delete_profile` 和 `app_delete_group` 是危险操作，会永久删除数据。执行前确认是否有必要。
 - `app_start_profile` 启动浏览器需要几秒钟，建议配合 `wait` 或 `cdp_wait_for_page_load` 使用。
-- `app_get_current_profile` 返回当前自动化会话关联的 profile，适合在脚本中获取上下文。
+- 在多环境聊天会话中，先调用 `app_set_chat_active_profile(profile_id)`，再执行 `cdp_*` / `magic_*`。
+- `app_get_current_profile` 返回当前工具目标环境，适合在脚本或聊天中确认当前上下文。
 - `app_list_proxies` 的 `protocol` 可选值：`http`、`https`、`socks5`。
 - `app_create_group` 的 `color` 参数为十六进制颜色值，如 `#FF5733`。
 
@@ -838,7 +841,7 @@ cdp_get_text(selector=".title", output_key="page_title")
 | --- | ------------------------- | ---------------------------- |
 | 48  | `magic_capture_app_shell` | 带壳截图（含工具栏和标签页） |
 
-### App — 应用数据（20 个）
+### App — 应用数据（21 个）
 
 | #   | 工具名                      | 说明                                |
 | --- | --------------------------- | ----------------------------------- |
@@ -850,18 +853,19 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 6   | `app_start_profile`         | 启动 profile 的浏览器               |
 | 7   | `app_stop_profile`          | 停止 profile 的浏览器               |
 | 8   | `app_get_running_profiles`  | 获取运行中的 profile 列表           |
-| 9   | `app_get_current_profile`   | 获取当前自动化操作的 profile        |
-| 10  | `app_list_groups`           | 列出所有分组                        |
-| 11  | `app_get_group`             | 获取分组详情                        |
-| 12  | `app_create_group`          | 创建分组                            |
-| 13  | `app_update_group`          | 更新分组                            |
-| 14  | `app_delete_group`          | ⚠️ 删除分组                         |
-| 15  | `app_get_profiles_in_group` | 获取分组内的 profile                |
-| 16  | `app_list_proxies`          | 列出代理                            |
-| 17  | `app_get_proxy`             | 获取代理详情                        |
-| 18  | `app_list_plugins`          | 列出插件包                          |
-| 19  | `app_get_plugin`            | 获取插件详情                        |
-| 20  | `app_get_engine_sessions`   | 获取引擎会话列表                    |
+| 9   | `app_set_chat_active_profile` | 切换当前聊天会话的工具目标环境    |
+| 10  | `app_get_current_profile`   | 获取当前工具目标环境的 profile      |
+| 11  | `app_list_groups`           | 列出所有分组                        |
+| 12  | `app_get_group`             | 获取分组详情                        |
+| 13  | `app_create_group`          | 创建分组                            |
+| 14  | `app_update_group`          | 更新分组                            |
+| 15  | `app_delete_group`          | ⚠️ 删除分组                         |
+| 16  | `app_get_profiles_in_group` | 获取分组内的 profile                |
+| 17  | `app_list_proxies`          | 列出代理                            |
+| 18  | `app_get_proxy`             | 获取代理详情                        |
+| 19  | `app_list_plugins`          | 列出插件包                          |
+| 20  | `app_get_plugin`            | 获取插件详情                        |
+| 21  | `app_get_engine_sessions`   | 获取引擎会话列表                    |
 
 ### Auto — 自动化管理（19 个）
 
