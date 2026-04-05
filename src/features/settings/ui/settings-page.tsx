@@ -12,7 +12,10 @@ import {
 } from './settings-tab-constants';
 import { ThemeCustomizerCard } from './theme-customizer-card';
 import { AiProviderConfigCard } from './ai-provider-config-card';
+import { AiChatGlobalPromptCard } from './ai-chat-global-prompt-card';
+import { AiChatSettingsCard } from './ai-chat-settings-card';
 import { CaptchaSolverConfigCard } from './captcha-solver-config-card';
+import { ToolPermissionsCard } from './tool-permissions-card';
 import { ResourceManagementCard } from './resource-management-card';
 import { GeneralSettingsPlaceholder } from './general-settings-placeholder';
 import { RecycleBinRoutePage } from '@/pages/recycle-bin';
@@ -138,7 +141,10 @@ export function SettingsPage({
 						{activeTab === 'ai' && (
 							<div className="space-y-4">
 								<AiProviderConfigCard />
+								<AiChatSettingsCard />
+								<AiChatGlobalPromptCard />
 								<CaptchaSolverConfigCard />
+								<ToolPermissionsCard />
 							</div>
 						)}
 

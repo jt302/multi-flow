@@ -49,6 +49,8 @@ type ProviderMeta = {
 	defaultBaseUrl: string;
 	models: string[];
 	requiresApiKey: boolean;
+	/** 强制使用手动输入模型名（不显示下拉） */
+	freeInput?: boolean;
 };
 
 const PROVIDER_CONFIG: Record<AiProviderType, ProviderMeta> = {
@@ -98,12 +100,8 @@ const PROVIDER_CONFIG: Record<AiProviderType, ProviderMeta> = {
 	openrouter: {
 		label: 'OpenRouter',
 		defaultBaseUrl: 'https://openrouter.ai/api/v1',
-		models: [
-			'openai/gpt-4o',
-			'anthropic/claude-sonnet-4',
-			'google/gemini-2.5-flash',
-			'deepseek/deepseek-chat-v3',
-		],
+		models: [],
+		freeInput: true,
 		requiresApiKey: true,
 	},
 	groq: {
@@ -391,7 +389,7 @@ export function AiProviderConfigCard() {
 						)}
 						<div className="space-y-1.5">
 						<Label className="text-xs">{t('settings:aiDialog.model')}</Label>
-						{providerMeta.models.length > 0 ? (
+						{providerMeta.models.length > 0 && !providerMeta.freeInput ? (
 							<Select
 								value={watch('model')}
 								onValueChange={(v) => setValue('model', v)}
