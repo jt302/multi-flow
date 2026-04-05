@@ -409,5 +409,37 @@
 		"copyable": "Copyable",
 		"width": "Dialog Width",
 		"placeholder": "Placeholder"
+	},
+	"palette": {
+		"addSteps": "Add Steps",
+		"searchSteps": "Search steps...",
+		"noMatch": "No matching steps",
+		"favorites": "Favorites",
+		"expandPanel": "Expand step panel",
+		"collapsePanel": "Collapse panel"
+	},
+	"stepTooltip": {
+		"inputs": "Inputs",
+		"outputs": "Outputs",
+		"whenToUse": "When to Use",
+		"example": "Example",
+		"required": "Required",
+		"optional": "Optional"
+	},
+	"toolbar": {
+		"back": "Back",
+		"stepCount": "{{count}} steps",
+		"variables": "Variables",
+		"variablesCount": "Variables ({{count}})",
+		"stepDelay": "Step Delay",
+		"ms": "ms",
+		"save": "Save (Cmd+S)",
+		"saving": "Saving",
+		"saved": "Saved",
+		"run": "Run",
+		"cancel": "Cancel",
+		"running": "Running",
+		"completed": "Completed",
+		"help": "Help"
 	}
 }

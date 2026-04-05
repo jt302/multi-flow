@@ -8,17 +8,127 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Search } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, HelpCircle, Search } from 'lucide-react';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
 
 import {
 	GROUP_COLORS,
-	KIND_DESCRIPTIONS,
 	PALETTE_DOT_COLORS,
+	GROUP_ACCENT_COLORS,
+	KIND_GROUPS,
 	getKindLabel,
+	getGroupLabel,
 	PALETTE_GROUPS,
+	STEP_TOOL_INFO,
 } from '@/entities/automation/model/step-registry';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
+
+function StepToolPopover({ kind }: { kind: string }) {
+	const { t } = useTranslation(['automation', 'common']);
+	const info = STEP_TOOL_INFO[kind];
+	if (!info) return null;
+
+	const groupKey = KIND_GROUPS[kind] ?? 'general';
+	const accentColor = GROUP_ACCENT_COLORS[groupKey] ?? 'border-l-slate-400';
+	const groupLabel = getGroupLabel(groupKey);
+
+	return (
+		<div className={`w-80 border-l-4 ${accentColor} bg-popover rounded-lg shadow-lg`}>
+			{/* Header */}
+			<div className="px-4 py-3 border-b">
+				<div className="flex items-center gap-2 mb-1">
+					<span className={`inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded ${GROUP_COLORS[groupKey] ?? GROUP_COLORS['通用']}`}>
+						{groupLabel}
+					</span>
+				</div>
+				<h4 className="font-semibold text-sm">{getKindLabel(kind)}</h4>
+			</div>
+
+			<div className="p-4 space-y-4">
+				{/* Description */}
+				<p className="text-sm text-muted-foreground leading-relaxed">{info.description}</p>
+
+				{/* Inputs */}
+				{info.inputs.length > 0 && (
+					<div>
+						<h5 className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5">
+							<span className="w-1 h-1 rounded-full bg-primary" />
+							{t('automation:stepTooltip.inputs', '输入参数')}
+						</h5>
+						<div className="space-y-2">
+							{info.inputs.map((input) => (
+								<div key={input.name} className="flex items-start gap-2 text-xs">
+									<code className="font-mono text-primary bg-primary/5 px-1.5 py-0.5 rounded shrink-0">
+										{input.name}
+									</code>
+									{input.required ? (
+										<Badge variant="secondary" className="text-[10px] h-4 px-1 shrink-0">
+											{t('automation:stepTooltip.required', '必需')}
+										</Badge>
+									) : (
+										<Badge variant="outline" className="text-[10px] h-4 px-1 shrink-0">
+											{t('automation:stepTooltip.optional', '可选')}
+										</Badge>
+									)}
+									<span className="text-muted-foreground leading-relaxed">{input.desc}</span>
+								</div>
+								))}
+							</div>
+						</div>
+					)}
+
+				{/* Outputs */}
+				{info.outputs.length > 0 && (
+					<div>
+						<h5 className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5">
+							<span className="w-1 h-1 rounded-full bg-emerald-500" />
+							{t('automation:stepTooltip.outputs', '输出')}
+						</h5>
+						<div className="space-y-1.5">
+							{info.outputs.map((output) => (
+								<div key={output.name} className="flex items-start gap-2 text-xs">
+									<code className="font-mono text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded shrink-0">
+										{output.name}
+									</code>
+									<span className="text-muted-foreground">{output.desc}</span>
+								</div>
+								))}
+							</div>
+						</div>
+					)}
+
+				{/* When to Use */}
+				<div>
+					<h5 className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
+						<span className="w-1 h-1 rounded-full bg-amber-500" />
+						{t('automation:stepTooltip.whenToUse', '使用时机')}
+					</h5>
+					<p className="text-xs text-muted-foreground leading-relaxed">{info.whenToUse}</p>
+				</div>
+
+				{/* Example */}
+				{info.example && (
+					<div>
+						<h5 className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5">
+							<span className="w-1 h-1 rounded-full bg-purple-500" />
+							{t('automation:stepTooltip.example', '示例')}
+						</h5>
+						<pre className="text-xs font-mono text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-900 p-2.5 rounded-md overflow-x-auto whitespace-pre-wrap break-all border border-slate-200 dark:border-slate-700">
+							{info.example}
+						</pre>
+					</div>
+				)}
+			</div>
+		</div>
+	);
+}
 
 type Props = {
 	/** 点击步骤按钮时的回调，参数为步骤种类字符串（kind） */
@@ -70,6 +180,8 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 		const favoriteSet = new Set(FAVORITE_KINDS);
 		const otherGroups = PALETTE_GROUPS.map((group) => ({
 			...group,
+			// 使用翻译后的标签显示
+			displayLabel: getGroupLabel(group.label),
 			kinds: group.kinds.filter((kind) => {
 				if (favoriteSet.has(kind)) return false;
 				if (!isSearching) return true;
@@ -80,7 +192,7 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 
 		const result = favoriteGroup.kinds.length > 0 ? [favoriteGroup, ...otherGroups] : otherGroups;
 		return result;
-	}, [search]);
+	}, [search, favoritesLabel]);
 
 	if (collapsed) {
 		return (
@@ -134,6 +246,8 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 					{filteredGroups.map((group) => {
 						const isSearching = !!search.trim();
 						const isExpanded = isSearching || expandedGroups.has(group.label);
+						// 显示翻译后的分组名称，回退到原始 label
+						const displayLabel = 'displayLabel' in group ? (group as { displayLabel: string }).displayLabel : group.label;
 						return (
 							<div key={group.label}>
 								{/* 分组标签（可点击折叠/展开） */}
@@ -148,11 +262,11 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 										<ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
 									)}
 									<span
-										className={`inline-flex items-center text-[9px] font-semibold px-1.5 py-0.5 rounded ${GROUP_COLORS[group.label] ?? GROUP_COLORS['通用']}`}
+										className={`inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded ${GROUP_COLORS[group.label] ?? GROUP_COLORS['通用']}`}
 									>
-										{group.label}
+										{displayLabel}
 									</span>
-									<span className="text-[9px] text-muted-foreground/50 ml-auto">
+									<span className="text-[11px] text-muted-foreground/50 ml-auto">
 										{group.kinds.length}
 									</span>
 								</button>
@@ -160,18 +274,33 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 								{/* 该分组下的步骤按钮（折叠时隐藏） */}
 								{isExpanded &&
 									group.kinds.map((kind) => (
-										<button
-											key={kind}
-											type="button"
-											className="w-full text-left text-xs px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer flex items-center gap-2 mb-0.5 group/item"
-											onClick={() => onAddStep(kind)}
-											title={KIND_DESCRIPTIONS[kind] ?? kind}
-										>
-											<span
-												className={`w-1 h-3.5 rounded-full flex-shrink-0 opacity-30 group-hover/item:opacity-60 transition-opacity ${PALETTE_DOT_COLORS[group.label] ?? 'bg-muted-foreground/50'}`}
-											/>
-											<span className="truncate">{getKindLabel(kind)}</span>
-										</button>
+										<div key={kind} className="flex items-center gap-1 group/item">
+											<button
+												type="button"
+												className="flex-1 text-left text-xs px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer flex items-center gap-2"
+												onClick={() => onAddStep(kind)}
+											>
+												<span
+													className={`w-1 h-3.5 rounded-full flex-shrink-0 opacity-30 group-hover/item:opacity-60 transition-opacity ${PALETTE_DOT_COLORS[group.label] ?? 'bg-muted-foreground/50'}`}
+												/>
+												<span className="truncate">{getKindLabel(kind)}</span>
+											</button>
+										<TooltipProvider delayDuration={200}>
+											<Tooltip>
+												<TooltipTrigger asChild>
+													<button
+														type="button"
+														className="p-1 rounded hover:bg-accent text-muted-foreground opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
+													>
+														<HelpCircle className="h-3 w-3" />
+													</button>
+												</TooltipTrigger>
+												<TooltipContent side="right" className="p-0 w-auto border-none bg-transparent shadow-none">
+													<StepToolPopover kind={kind} />
+												</TooltipContent>
+											</Tooltip>
+										</TooltipProvider>
+										</div>
 									))}
 							</div>
 						);

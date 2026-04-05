@@ -409,5 +409,37 @@
 		"copyable": "可复制",
 		"width": "弹窗宽度",
 		"placeholder": "占位符"
+	},
+	"palette": {
+		"addSteps": "添加步骤",
+		"searchSteps": "搜索步骤...",
+		"noMatch": "无匹配步骤",
+		"favorites": "常用",
+		"expandPanel": "展开步骤面板",
+		"collapsePanel": "折叠面板"
+	},
+	"stepTooltip": {
+		"inputs": "输入参数",
+		"outputs": "输出",
+		"whenToUse": "使用时机",
+		"example": "示例",
+		"required": "必需",
+		"optional": "可选"
+	},
+	"toolbar": {
+		"back": "返回",
+		"stepCount": "{{count}} 个步骤",
+		"variables": "变量",
+		"variablesCount": "变量 ({{count}})",
+		"stepDelay": "步骤延迟",
+		"ms": "ms",
+		"save": "保存 (Cmd+S)",
+		"saving": "保存中",
+		"saved": "已保存",
+		"run": "运行",
+		"cancel": "取消",
+		"running": "运行中",
+		"completed": "已完成",
+		"help": "操作指南"
 	}
 }
