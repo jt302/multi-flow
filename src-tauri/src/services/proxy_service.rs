@@ -471,6 +471,8 @@ impl ProxyService {
             )));
         }
 
+        logger::info("proxy", format!("Checking proxy: id={} {}://{}:{}", proxy_id, stored.protocol, stored.host, stored.port));
+
         let snapshot = match checker(&stored) {
             Ok(snapshot) => snapshot,
             Err(err) => ProxyCheckSnapshot {
@@ -488,6 +490,7 @@ impl ProxyService {
                 suggested_timezone: None,
             },
         };
+        logger::info("proxy", format!("Proxy check done: id={} status={} exit_ip={}", proxy_id, snapshot.check_status, snapshot.exit_ip.as_deref().unwrap_or("N/A")));
         let updated = self.persist_proxy_check_snapshot(stored, snapshot)?;
         Ok(to_api_proxy(updated))
     }
