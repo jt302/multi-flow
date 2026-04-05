@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
+
+import { getPlatformMeta } from '@/entities/profile/lib/platform-meta';
+import { PlatformGlyph } from '@/entities/profile/ui/platform-mark';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -128,7 +131,13 @@ export function DevicePresetsPage({
 									key={preset.id}
 									className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
 								>
-									<div className="min-w-0 flex-1">
+									<div className="min-w-0 flex-1 flex items-center gap-3">
+										<PlatformGlyph
+											meta={getPlatformMeta(preset.platform)}
+											size="lg"
+											className="!h-6 !w-6"
+										/>
+										<div className="min-w-0 flex-1">
 										<div className="flex items-center gap-2">
 											<p className="text-sm font-medium truncate">
 												{preset.label}
@@ -154,6 +163,7 @@ export function DevicePresetsPage({
 											{preset.viewportHeight} · DPR {preset.deviceScaleFactor} ·{' '}
 											{preset.arch} {preset.bitness}-bit
 										</p>
+									</div>
 									</div>
 
 									<DropdownMenu>
