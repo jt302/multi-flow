@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import {
 	AlertCircle,
@@ -540,7 +541,7 @@ export function AiDialogModal() {
 						)}
 					</DialogHeader>
 					<ScrollArea className="max-h-[60vh]">
-						<div className="space-y-3 py-2 pr-3">
+						<div className="space-y-3 py-2 pl-1 pr-3">
 							{fields.map((field) => (
 								<FormFieldRenderer
 									key={field.name}
@@ -686,7 +687,7 @@ export function AiDialogModal() {
 		const imageSrc = request.image?.startsWith('data:')
 			? request.image
 			: request.image?.startsWith('/')
-				? `data:image/${request.imageFormat ?? 'png'};base64,${request.image}`
+				? convertFileSrc(request.image)
 				: `data:image/${request.imageFormat ?? 'png'};base64,${request.image}`;
 		const hasInput = !!request.label;
 		const actions = request.actions;

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Pencil, Plus, Star, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -32,6 +32,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui';
+import { useDefaultAiConfigQuery, useSetDefaultAiConfigMutation } from '@/entities/ai/model/use-default-ai-config-query';
 import {
 	createAiConfig,
 	deleteAiConfig,
@@ -168,6 +169,10 @@ export function AiProviderConfigCard() {
 		queryKey: queryKeys.aiConfigs,
 		queryFn: listAiConfigs,
 	});
+
+	const defaultConfigQuery = useDefaultAiConfigQuery();
+	const setDefaultMutation = useSetDefaultAiConfigMutation();
+	const defaultConfigId = defaultConfigQuery.data ?? null;
 
 	const { register, handleSubmit, reset, setValue, watch } =
 		useForm<FormValues>({
@@ -306,6 +311,21 @@ export function AiProviderConfigCard() {
 										</div>
 									</div>
 									<div className="flex items-center gap-1 ml-2 shrink-0">
+										<Button
+											variant="ghost"
+											size="icon"
+											className={`h-7 w-7 cursor-pointer ${entry.id === defaultConfigId ? 'text-yellow-500 hover:text-yellow-600' : 'text-muted-foreground hover:text-foreground'}`}
+											title={entry.id === defaultConfigId
+												? t('settings:ai.removeDefault', '取消默认')
+												: t('settings:ai.setDefault', '设为默认')}
+											onClick={() =>
+												setDefaultMutation.mutate(
+													entry.id === defaultConfigId ? null : entry.id,
+												)
+											}
+										>
+											<Star className={`h-3.5 w-3.5 ${entry.id === defaultConfigId ? 'fill-current' : ''}`} />
+										</Button>
 										<Button
 											variant="ghost"
 											size="icon"

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -36,7 +36,7 @@ export function ToolConfirmationModal() {
 	useEffect(() => {
 		let mounted = true;
 
-		listen<ToolConfirmationRequest>('tool-confirmation-request', (event) => {
+		getCurrentWindow().listen<ToolConfirmationRequest>('tool-confirmation-request', (event) => {
 			if (!mounted) return;
 			setRequest(event.payload);
 		}).then((unlisten) => {

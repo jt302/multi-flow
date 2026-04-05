@@ -312,5 +312,8 @@
 	"duplicateProfileFailed": "复制环境失败",
 	"clearGroupConfirm": "确认清空分组",
 	"clearGroupDesc": "确认清空 {{count}} 个环境的分组信息？",
-	"actionImmediate": "此操作立即生效。"
+	"actionImmediate": "此操作立即生效。",
+	"toast": {
+		"recovered": "环境 {{name}} 已退出，状态已自动回收"
+	}
 }
