@@ -46,6 +46,13 @@ const BASE_MULTI_PROFILE_ZH: &str = "\
 - 当会话关联多个环境时，先调用 `app_set_chat_active_profile(profile_id)` 切换目标环境，再执行浏览器工具
 - `app_start_profile` 只负责启动环境，不会自动切换当前工具目标环境";
 
+const BASE_CAPTCHA_CHAT_ZH: &str = "\
+【验证码处理】
+- `captcha_*` 工具只有在页面实际离开验证码/风控阻塞状态时，才算处理成功
+- 拿到 token、写入隐藏字段或触发回调，不等于页面已经通过验证
+- 如果验证码仍未通过，必须明确说明当前被验证码阻塞，不能表述成“已完成”
+- 未经用户明确同意，不要因为验证码失败就擅自切换到 DuckDuckGo 或其他替代站点";
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // English (en) system prompts
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -93,6 +100,33 @@ const BASE_MULTI_PROFILE_EN: &str = "\
 - `cdp_*` / `magic_*` always operate on the current tool target profile
 - When multiple profiles are attached to the chat, call `app_set_chat_active_profile(profile_id)` before using browser tools
 - `app_start_profile` only starts a profile and does not switch the current tool target automatically";
+
+const BASE_CAPTCHA_CHAT_EN: &str = "\
+[Captcha Handling]
+- `captcha_*` tools are successful only when the page has actually exited the captcha or anti-bot blocking state
+- Receiving a token, filling a hidden field, or invoking a callback does not by itself mean the captcha passed
+- If verification is still blocked, explicitly report the blockage instead of claiming completion
+- Do not switch to DuckDuckGo or any other alternative site without the user's explicit permission just because captcha handling failed
+- Identify the captcha type accurately before calling captcha_solve (slider ≠ reCAPTCHA ≠ hCaptcha)
+- If captcha fails 3 consecutive times, stop automation and report the blockage to the user; do not keep retrying";
+
+const BASE_ANTI_LOOP_ZH: &str = "\
+【防循环与自我评估】
+- 同一操作（相同工具+相同参数）失败或无效 2 次后，必须切换到完全不同的方法
+- 每执行 5 轮工具调用，简要回顾当前进展，确认是否朝目标前进
+- 如果发现页面截图或内容与上次完全相同，说明操作没有效果，立即换策略
+- 遇到搜索框有残留/乱码内容时，用 cdp_execute_js 清空后再重新输入，或直接通过 URL 访问目标页面
+- 区分导航链接与筛选控件：电商网站的筛选通常是复选框或标签按钮，点击后要截图确认筛选状态是否生效
+- 同一目标已尝试 3 种不同方法均失败时，向用户说明具体遇到的阻碍并等待指示，不要继续猜测";
+
+const BASE_ANTI_LOOP_EN: &str = "\
+[Anti-Loop & Self-Assessment]
+- If the same action (same tool + same arguments) fails or has no effect twice in a row, switch to a completely different approach
+- Every 5 tool-calling rounds, briefly review current progress and verify you are moving toward the goal
+- If page screenshots or content are identical to the previous step, the action had no effect — change strategy immediately
+- When a search box contains residual or garbled text, clear it via cdp_execute_js before typing, or navigate directly via URL
+- Distinguish navigation links from filter controls: e-commerce filters are usually checkboxes or tag buttons; take a screenshot after clicking to confirm the filter was applied
+- If 3 different approaches to the same goal have all failed, report the specific blocker to the user and wait for guidance instead of continuing to guess";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Helper functions
@@ -351,33 +385,73 @@ fn build_chat_base_context(categories: &[String], locale: &str) -> String {
     let all = categories.is_empty();
     if all || categories.iter().any(|c| c == "cdp") {
         ctx.push('\n');
-        ctx.push_str(if en { TOOL_DESC_CDP_EN } else { TOOL_DESC_CDP_ZH });
+        ctx.push_str(if en {
+            TOOL_DESC_CDP_EN
+        } else {
+            TOOL_DESC_CDP_ZH
+        });
     }
     if all || categories.iter().any(|c| c == "magic") {
         ctx.push('\n');
-        ctx.push_str(if en { TOOL_DESC_MAGIC_EN } else { TOOL_DESC_MAGIC_ZH });
+        ctx.push_str(if en {
+            TOOL_DESC_MAGIC_EN
+        } else {
+            TOOL_DESC_MAGIC_ZH
+        });
     }
     if all || categories.iter().any(|c| c == "app") {
         ctx.push('\n');
-        ctx.push_str(if en { TOOL_DESC_APP_EN } else { TOOL_DESC_APP_ZH });
+        ctx.push_str(if en {
+            TOOL_DESC_APP_EN
+        } else {
+            TOOL_DESC_APP_ZH
+        });
     }
     if all || categories.iter().any(|c| c == "file") {
         ctx.push('\n');
-        ctx.push_str(if en { TOOL_DESC_FILE_EN } else { TOOL_DESC_FILE_ZH });
+        ctx.push_str(if en {
+            TOOL_DESC_FILE_EN
+        } else {
+            TOOL_DESC_FILE_ZH
+        });
     }
     if all || categories.iter().any(|c| c == "dialog") {
         ctx.push('\n');
-        ctx.push_str(if en { TOOL_DESC_DIALOG_EN } else { TOOL_DESC_DIALOG_ZH });
+        ctx.push_str(if en {
+            TOOL_DESC_DIALOG_EN
+        } else {
+            TOOL_DESC_DIALOG_ZH
+        });
     }
     if all || categories.iter().any(|c| c == "utility") {
         ctx.push('\n');
-        ctx.push_str(if en { TOOL_DESC_UTILITY_EN } else { TOOL_DESC_UTILITY_ZH });
+        ctx.push_str(if en {
+            TOOL_DESC_UTILITY_EN
+        } else {
+            TOOL_DESC_UTILITY_ZH
+        });
     }
 
     ctx.push_str("\n\n");
-    ctx.push_str(if en { BASE_SCREENSHOTS_EN } else { BASE_SCREENSHOTS_ZH });
+    ctx.push_str(if en {
+        BASE_SCREENSHOTS_EN
+    } else {
+        BASE_SCREENSHOTS_ZH
+    });
     ctx.push_str("\n\n");
     ctx.push_str(if en { BASE_SAFETY_EN } else { BASE_SAFETY_ZH });
+    ctx.push_str("\n\n");
+    ctx.push_str(if en {
+        BASE_CAPTCHA_CHAT_EN
+    } else {
+        BASE_CAPTCHA_CHAT_ZH
+    });
+    ctx.push_str("\n\n");
+    ctx.push_str(if en {
+        BASE_ANTI_LOOP_EN
+    } else {
+        BASE_ANTI_LOOP_ZH
+    });
     ctx
 }
 
@@ -446,5 +520,19 @@ pub fn judge_percentage_prompt(tool_categories: &[String], locale: &str) -> Stri
             - 不要输出百分号、解释或其他文字",
             build_base_context(tool_categories, locale)
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn chat_prompt_includes_strict_captcha_guidance() {
+        let prompt = build_chat_system_prompt(None, None, &[], "zh", None, None);
+
+        assert!(prompt.contains("captcha_*"));
+        assert!(prompt.contains("不等于页面已经通过验证"));
+        assert!(prompt.contains("DuckDuckGo"));
     }
 }

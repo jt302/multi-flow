@@ -7,20 +7,18 @@
 //! - 每条消息/工具调用结果实时保存到 DB
 //! - 通过 Tauri events 推送实时进度
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::logger;
+use crate::models::RunLogEntry;
 use crate::services::ai_service::{AiService, ChatMessage};
 use crate::services::ai_tools::{ToolContext, ToolFilter, ToolRegistry};
 use crate::services::app_preference_service::{AiConfigEntry, AiProviderConfig};
 use crate::services::automation_cdp_client::CdpClient;
 use crate::services::automation_interpolation::RunVariables;
-use crate::models::RunLogEntry;
-
-const MAX_CHAT_ROUNDS: u32 = 30;
 
 // ─── Tauri 事件类型 ──────────────────────────────────────────────────────
 
@@ -35,7 +33,7 @@ pub struct ChatMessageEvent {
 #[serde(rename_all = "camelCase")]
 pub struct ChatPhaseEvent {
     pub session_id: String,
-    pub phase: String,  // "thinking" | "tool_calling" | "done" | "error"
+    pub phase: String, // "thinking" | "tool_calling" | "done" | "error"
     pub round: u32,
     pub max_rounds: u32,
     pub tool_name: Option<String>,
@@ -43,6 +41,8 @@ pub struct ChatPhaseEvent {
     pub elapsed_ms: u64,
     pub prompt_tokens: Option<i32>,
     pub completion_tokens: Option<i32>,
+    pub context_used: Option<u64>,
+    pub context_limit: Option<u64>,
 }
 
 // ─── ChatExecutionService ─────────────────────────────────────────────────
@@ -65,6 +65,7 @@ impl ChatExecutionService {
         app: &AppHandle,
         session_id: &str,
         user_text: &str,
+        image_base64: Option<&str>,
         profile_id: Option<&str>,
         ai_config: &AiProviderConfig,
         system_prompt: Option<&str>,
@@ -83,7 +84,20 @@ impl ChatExecutionService {
 
         // 1. 保存用户消息
         let user_msg = chat_service
-            .add_message(session_id, "user", Some(user_text.to_string()), None, None, None, None, None, None, None, None, None)
+            .add_message(
+                session_id,
+                "user",
+                Some(user_text.to_string()),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                image_base64.map(|s| s.to_string()),
+                None,
+            )
             .await
             .map_err(|e| e.to_string())?;
         emit_message(app, session_id, &user_msg);
@@ -109,8 +123,14 @@ impl ChatExecutionService {
         let env_text = if let Some(pids) = profile_ids {
             if !pids.is_empty() {
                 let state = app.state::<crate::state::AppState>();
-                let ps = state.profile_service.lock().unwrap_or_else(|p| p.into_inner());
-                let px = state.proxy_service.lock().unwrap_or_else(|p| p.into_inner());
+                let ps = state
+                    .profile_service
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner());
+                let px = state
+                    .proxy_service
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner());
                 let contexts = crate::services::profile_context_service::extract_contexts(
                     pids,
                     active_profile_id,
@@ -120,7 +140,9 @@ impl ChatExecutionService {
                 if contexts.is_empty() {
                     None
                 } else {
-                    Some(crate::services::profile_context_service::format_for_prompt(&contexts, locale))
+                    Some(crate::services::profile_context_service::format_for_prompt(
+                        &contexts, locale,
+                    ))
                 }
             } else {
                 None
@@ -160,26 +182,46 @@ impl ChatExecutionService {
         let empty_vars = RunVariables::new();
         let mut logs: Vec<RunLogEntry> = Vec::new();
 
-        // 6. Tool calling 循环
+        // 6. Tool calling 循环（默认最多 50 轮，用户可随时取消）
+        const MAX_ROUNDS: u32 = 50;
         let generation_start = std::time::Instant::now();
-        let generation_timeout = std::time::Duration::from_secs(300);
         let mut cumulative_prompt_tokens: i32 = 0;
         let mut cumulative_completion_tokens: i32 = 0;
+        let mut last_ctx_used: u64 = 0;
+        let mut last_ctx_limit: u64 = 0;
         let mut cancelled = false;
         let mut completed = false;
         let mut next_tool_step_index: usize = 0;
-        for round in 0..MAX_CHAT_ROUNDS {
-            // 检查整体超时
-            if generation_start.elapsed() > generation_timeout {
-                let _ = chat_service.add_message(
-                    session_id, "system",
-                    Some("⚠ Generation timed out (300s limit reached).".to_string()),
-                    None, None, None, None, None, None, None, None, None,
-                ).await;
-                emit_phase(app, session_id, "error", round + 1, None,
-                    Some("Generation timeout".to_string()),
+        let mut round: u32 = 0;
+        // 重复操作检测：记录最近 10 次 (tool_name, args_json)
+        let mut recent_tool_calls: VecDeque<(String, String)> = VecDeque::with_capacity(10);
+        loop {
+            round += 1;
+
+            // 安全限制：超过最大轮次时停止
+            if round > MAX_ROUNDS {
+                let limit_msg = format!(
+                    "⚠ 已达到最大执行轮次（{}），停止执行。请调整策略后重新发送消息继续。",
+                    MAX_ROUNDS
+                );
+                let _ = chat_service
+                    .add_message(
+                        session_id,
+                        "system",
+                        Some(limit_msg),
+                        None, None, None, None, None, None, None, None, None,
+                    )
+                    .await;
+                emit_phase(
+                    app, session_id, "done", round, None, None,
                     generation_start.elapsed().as_millis() as u64,
-                    Some(cumulative_prompt_tokens), Some(cumulative_completion_tokens));
+                    Some(cumulative_prompt_tokens),
+                    Some(cumulative_completion_tokens),
+                    Some(last_ctx_used),
+                    Some(last_ctx_limit),
+                    MAX_ROUNDS,
+                );
+                completed = true;
                 break;
             }
 
@@ -192,7 +234,20 @@ impl ChatExecutionService {
                 }
             }
 
-            emit_phase(app, session_id, "thinking", round + 1, None, None, generation_start.elapsed().as_millis() as u64, Some(cumulative_prompt_tokens), Some(cumulative_completion_tokens));
+            emit_phase(
+                app,
+                session_id,
+                "thinking",
+                round,
+                None,
+                None,
+                generation_start.elapsed().as_millis() as u64,
+                Some(cumulative_prompt_tokens),
+                Some(cumulative_completion_tokens),
+                Some(last_ctx_used),
+                Some(last_ctx_limit),
+                MAX_ROUNDS,
+            );
 
             // 仅给模型保留最近一张工具截图，其余历史截图降级为纯文本结果，避免请求体持续膨胀。
             retain_recent_tool_images(&mut messages, 1);
@@ -203,9 +258,12 @@ impl ChatExecutionService {
                 ai_config.model.as_deref().unwrap_or(""),
             );
             let tool_tokens = crate::services::token_counter::TokenCounter::count_tools(&tools);
-            let msg_tokens = crate::services::token_counter::TokenCounter::count_messages(&messages);
+            let msg_tokens =
+                crate::services::token_counter::TokenCounter::count_messages(&messages);
             let total = tool_tokens + msg_tokens;
             let threshold = ctx_limit * 3 / 4;
+            last_ctx_used = total as u64;
+            last_ctx_limit = ctx_limit as u64;
 
             if total > threshold && messages.len() > 3 {
                 // 保留 system prompt (messages[0]) 和最近 4 条消息
@@ -218,12 +276,16 @@ impl ChatExecutionService {
                         let role = &msg.role;
                         let text = match &msg.content {
                             crate::services::ai_service::ChatContent::Text(t) => t.clone(),
-                            crate::services::ai_service::ChatContent::Parts(parts) => {
-                                parts.iter().filter_map(|p| match p {
-                                    crate::services::ai_service::ContentPart::Text { text } => Some(text.as_str()),
+                            crate::services::ai_service::ChatContent::Parts(parts) => parts
+                                .iter()
+                                .filter_map(|p| match p {
+                                    crate::services::ai_service::ContentPart::Text { text } => {
+                                        Some(text.as_str())
+                                    }
                                     _ => None,
-                                }).collect::<Vec<_>>().join(" ")
-                            }
+                                })
+                                .collect::<Vec<_>>()
+                                .join(" "),
                         };
                         if !text.is_empty() {
                             summary_input.push_str(&format!("[{role}]: {text}\n"));
@@ -237,25 +299,36 @@ impl ChatExecutionService {
                          Output ONLY the summary, no meta-commentary.\n\n{summary_input}"
                     );
                     let summary_msgs = vec![ChatMessage::user(&summary_prompt)];
-                    let summary_result = ai
-                        .chat_with_tools(ai_config, &summary_msgs, &[])
-                        .await;
+                    let summary_result = ai.chat_with_tools(ai_config, &summary_msgs, &[]).await;
 
-                    if let Ok(crate::services::ai_service::AiChatResult::Text(summary, _)) = summary_result {
-                        // 替换压缩区域为摘要
+                    if let Ok(crate::services::ai_service::AiChatResult::Text(summary, _)) =
+                        summary_result
+                    {
+                        // 持久化压缩：将被压缩的消息标记为 is_active=0，插入摘要 system 消息到 DB
+                        let _ = chat_service
+                            .persist_compression(session_id, keep_recent, &summary)
+                            .await;
+
+                        // 替换压缩区域为摘要（内存中）
                         let system_msg = messages.remove(0);
                         let recent: Vec<ChatMessage> = messages.split_off(compress_end - 1);
                         messages.clear();
                         messages.push(system_msg);
-                        messages.push(ChatMessage::system(&format!("[Conversation Summary]\n{summary}")));
+                        messages.push(ChatMessage::system(&format!(
+                            "[Conversation Summary]\n{summary}"
+                        )));
                         messages.extend(recent);
+
+                        // 更新上下文用量（压缩后 token 数变小）
+                        last_ctx_used = (crate::services::token_counter::TokenCounter::count_messages(&messages)
+                            + tool_tokens) as u64;
 
                         eprintln!(
                             "Chat {}: compressed {} messages (est. {} tokens → {})",
                             session_id,
                             compress_end - 1,
                             total,
-                            crate::services::token_counter::TokenCounter::count_messages(&messages) + tool_tokens,
+                            last_ctx_used,
                         );
                     }
                 }
@@ -275,65 +348,133 @@ impl ChatExecutionService {
             match result {
                 Err(e) => {
                     let err_msg = e.to_string();
-                    logger::error("ai-chat", format!("Generation error: {} (session={})", err_msg, session_id));
+                    logger::error(
+                        "ai-chat",
+                        format!("Generation error: {} (session={})", err_msg, session_id),
+                    );
                     // 保存错误消息（已经过最多 5 次自动重试仍失败）
                     let user_msg = format!("⚠ AI 请求失败（已自动重试 5 次）: {err_msg}");
-                    let _ = chat_service.add_message(
+                    let _ = chat_service
+                        .add_message(
+                            session_id,
+                            "system",
+                            Some(user_msg),
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                        )
+                        .await;
+                    emit_phase(
+                        app,
                         session_id,
-                        "system",
-                        Some(user_msg),
-                        None, None, None, None, None, None, None, None, None,
-                    ).await;
-                    emit_phase(app, session_id, "error", round + 1, None, Some(err_msg.clone()), generation_start.elapsed().as_millis() as u64, Some(cumulative_prompt_tokens), Some(cumulative_completion_tokens));
+                        "error",
+                        round,
+                        None,
+                        Some(err_msg.clone()),
+                        generation_start.elapsed().as_millis() as u64,
+                        Some(cumulative_prompt_tokens),
+                        Some(cumulative_completion_tokens),
+                        Some(last_ctx_used),
+                        Some(last_ctx_limit),
+                        MAX_ROUNDS,
+                    );
                     completed = true;
                     break;
                 }
                 Ok(crate::services::ai_service::AiChatResult::Text(text, usage)) => {
                     // 提取思考过程（DeepSeek R1 <think> 标签）
                     let model = ai_config.model.as_deref().unwrap_or("");
-                    let (thinking_text, final_text) = if model.contains("deepseek") || model.contains("r1") {
-                        crate::services::ai_service::extract_deepseek_thinking(&text)
-                    } else {
-                        (None, text)
-                    };
+                    let (thinking_text, final_text) =
+                        if model.contains("deepseek") || model.contains("r1") {
+                            crate::services::ai_service::extract_deepseek_thinking(&text)
+                        } else {
+                            (None, text)
+                        };
                     let thinking_tokens = thinking_text.as_ref().map(|t| {
                         crate::services::token_counter::TokenCounter::count_text(t) as i32
                     });
 
                     // AI 直接返回文本，保存并结束
                     let msg = chat_service
-                        .add_message(session_id, "assistant", Some(final_text), None, None, None, None, None, None, None, None, None)
+                        .add_message(
+                            session_id,
+                            "assistant",
+                            Some(final_text),
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                        )
                         .await
                         .map_err(|e| e.to_string())?;
                     // 保存 token 用量和思考内容
-                    let _ = chat_service.update_message_usage(
-                        &msg.id,
-                        usage.prompt_tokens,
-                        usage.completion_tokens,
-                    ).await;
+                    let _ = chat_service
+                        .update_message_usage(&msg.id, usage.prompt_tokens, usage.completion_tokens)
+                        .await;
                     if thinking_text.is_some() {
-                        let _ = chat_service.update_message_thinking(
-                            &msg.id,
-                            thinking_text,
-                            thinking_tokens,
-                        ).await;
+                        let _ = chat_service
+                            .update_message_thinking(&msg.id, thinking_text, thinking_tokens)
+                            .await;
                     }
                     cumulative_prompt_tokens += usage.prompt_tokens.unwrap_or(0);
                     cumulative_completion_tokens += usage.completion_tokens.unwrap_or(0);
-                    let refreshed_msg = chat_service
-                        .get_message(&msg.id)
-                        .await
-                        .unwrap_or(msg);
+                    let refreshed_msg = chat_service.get_message(&msg.id).await.unwrap_or(msg);
                     emit_message(app, session_id, &refreshed_msg);
-                    logger::info("ai-chat", format!("Generation done: rounds={} tokens={}/{} (session={})", round + 1, cumulative_prompt_tokens, cumulative_completion_tokens, session_id));
-                    emit_phase(app, session_id, "done", round + 1, None, None, generation_start.elapsed().as_millis() as u64, Some(cumulative_prompt_tokens), Some(cumulative_completion_tokens));
+                    logger::info(
+                        "ai-chat",
+                        format!(
+                            "Generation done: rounds={} tokens={}/{} (session={})",
+                            round + 1,
+                            cumulative_prompt_tokens,
+                            cumulative_completion_tokens,
+                            session_id
+                        ),
+                    );
+                    emit_phase(
+                        app,
+                        session_id,
+                        "done",
+                        round,
+                        None,
+                        None,
+                        generation_start.elapsed().as_millis() as u64,
+                        Some(cumulative_prompt_tokens),
+                        Some(cumulative_completion_tokens),
+                        Some(last_ctx_used),
+                        Some(last_ctx_limit),
+                        MAX_ROUNDS,
+                    );
                     completed = true;
                     break;
                 }
                 Ok(crate::services::ai_service::AiChatResult::ToolCalls { text, calls, usage }) => {
                     cumulative_prompt_tokens += usage.prompt_tokens.unwrap_or(0);
                     cumulative_completion_tokens += usage.completion_tokens.unwrap_or(0);
-                    emit_phase(app, session_id, "tool_calling", round + 1, None, None, generation_start.elapsed().as_millis() as u64, Some(cumulative_prompt_tokens), Some(cumulative_completion_tokens));
+                    emit_phase(
+                        app,
+                        session_id,
+                        "tool_calling",
+                        round,
+                        None,
+                        None,
+                        generation_start.elapsed().as_millis() as u64,
+                        Some(cumulative_prompt_tokens),
+                        Some(cumulative_completion_tokens),
+                        Some(last_ctx_used),
+                        Some(last_ctx_limit),
+                        MAX_ROUNDS,
+                    );
 
                     // 保存 assistant 消息（含 tool_calls）
                     let raw_tool_calls: Vec<serde_json::Value> =
@@ -343,18 +484,31 @@ impl ChatExecutionService {
                         .add_message(
                             session_id,
                             "assistant",
-                            if text.is_empty() { None } else { Some(text.clone()) },
+                            if text.is_empty() {
+                                None
+                            } else {
+                                Some(text.clone())
+                            },
                             tool_calls_str,
-                            None, None, None, None, None, None, None, None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
                         )
                         .await
                         .map_err(|e| e.to_string())?;
                     // 保存 token 用量
-                    let _ = chat_service.update_message_usage(
-                        &asst_msg.id,
-                        usage.prompt_tokens,
-                        usage.completion_tokens,
-                    ).await;
+                    let _ = chat_service
+                        .update_message_usage(
+                            &asst_msg.id,
+                            usage.prompt_tokens,
+                            usage.completion_tokens,
+                        )
+                        .await;
                     let refreshed_asst_msg = chat_service
                         .get_message(&asst_msg.id)
                         .await
@@ -381,10 +535,27 @@ impl ChatExecutionService {
                             }
                         }
 
-                        emit_phase(app, session_id, "tool_calling", round + 1, Some(tool_call.name.clone()), None, generation_start.elapsed().as_millis() as u64, Some(cumulative_prompt_tokens), Some(cumulative_completion_tokens));
-                        logger::info("ai-chat", format!("Tool call: {} (session={})", tool_call.name, session_id));
+                        emit_phase(
+                            app,
+                            session_id,
+                            "tool_calling",
+                            round,
+                            Some(tool_call.name.clone()),
+                            None,
+                            generation_start.elapsed().as_millis() as u64,
+                            Some(cumulative_prompt_tokens),
+                            Some(cumulative_completion_tokens),
+                            Some(last_ctx_used),
+                            Some(last_ctx_limit),
+                            MAX_ROUNDS,
+                        );
+                        logger::info(
+                            "ai-chat",
+                            format!("Tool call: {} (session={})", tool_call.name, session_id),
+                        );
 
-                        let tool_category = crate::services::ai_tools::tool_category(&tool_call.name);
+                        let tool_category =
+                            crate::services::ai_tools::tool_category(&tool_call.name);
                         if matches!(tool_category, "cdp" | "magic") {
                             let (next_cdp, next_magic_port) = Self::refresh_runtime_binding(
                                 app,
@@ -426,22 +597,43 @@ impl ChatExecutionService {
                             {
                                 Ok(Ok(r)) => {
                                     let txt = r.text.unwrap_or_else(|| "ok".to_string());
-                                    // 根据工具类别截断过长结果，防止上下文溢出
-                                    let category = crate::services::ai_tools::tool_category(&tool_call.name);
-                                    let txt = crate::services::token_counter::truncate_tool_result(&txt, category);
+                                    // 对 HTML 类工具使用智能截断（先去 script/style，再限长）
+                                    // 其余工具按类别截断
+                                    let txt = if tool_call.name == "cdp_get_page_source"
+                                        || tool_call.name == "cdp_get_full_ax_tree"
+                                    {
+                                        crate::services::token_counter::truncate_html_result(
+                                            &txt, 3_000,
+                                        )
+                                    } else {
+                                        let category = crate::services::ai_tools::tool_category(
+                                            &tool_call.name,
+                                        );
+                                        crate::services::token_counter::truncate_tool_result(
+                                            &txt, category,
+                                        )
+                                    };
                                     (txt, r.image_base64, "completed".to_string())
                                 }
                                 Ok(Err(e)) => {
                                     (format!("tool error: {e}"), None, "failed".to_string())
                                 }
-                                Err(_) => {
-                                    (format!("Tool timed out after {}s", tool_timeout.as_secs()), None, "failed".to_string())
-                                }
+                                Err(_) => (
+                                    format!("Tool timed out after {}s", tool_timeout.as_secs()),
+                                    None,
+                                    "failed".to_string(),
+                                ),
                             }
                         };
 
                         let duration_ms = tool_start.elapsed().as_millis() as i64;
-                        logger::info("ai-chat", format!("Tool result: {} status={} ({}ms) (session={})", tool_call.name, tool_status, duration_ms, session_id));
+                        logger::info(
+                            "ai-chat",
+                            format!(
+                                "Tool result: {} status={} ({}ms) (session={})",
+                                tool_call.name, tool_status, duration_ms, session_id
+                            ),
+                        );
                         let image_ref = externalized_chat_tool_image_ref(
                             &tool_call.name,
                             &tool_status,
@@ -455,7 +647,9 @@ impl ChatExecutionService {
                         };
 
                         // app_set_chat_active_profile 成功后切换当前工具目标环境并刷新运行态绑定
-                        if tool_call.name == "app_set_chat_active_profile" && tool_status == "completed" {
+                        if tool_call.name == "app_set_chat_active_profile"
+                            && tool_status == "completed"
+                        {
                             tool_target_profile_id = tool_call
                                 .arguments
                                 .get("profile_id")
@@ -529,6 +723,33 @@ impl ChatExecutionService {
                         } else {
                             messages.push(ChatMessage::tool_result(&tool_call.id, &result_text));
                         }
+
+                        // 重复操作检测：如果最近 6 次中同一 (tool, args) 出现 >= 3 次，注入警告
+                        let args_key = serde_json::to_string(&tool_call.arguments)
+                            .unwrap_or_default();
+                        let call_key = (tool_call.name.clone(), args_key);
+                        if recent_tool_calls.len() >= 10 {
+                            recent_tool_calls.pop_front();
+                        }
+                        recent_tool_calls.push_back(call_key.clone());
+                        if recent_tool_calls.len() >= 6 {
+                            let window: Vec<_> = recent_tool_calls.iter().rev().take(6).collect();
+                            let repeat_count = window.iter().filter(|k| **k == &call_key).count();
+                            if repeat_count >= 3 {
+                                let warning = format!(
+                                    "⚠ 系统警告：你已连续多次（{}次）用相同参数调用 `{}`，但页面可能没有变化。\n\
+                                    请停下来重新评估策略：\n\
+                                    1. 调用 cdp_screenshot 确认页面是否真的在变化\n\
+                                    2. 尝试完全不同的方法（如直接 URL 访问、用 cdp_execute_js 操作、或换关键词搜索）\n\
+                                    3. 如果无法继续，向用户说明当前遇到的具体阻碍",
+                                    repeat_count,
+                                    tool_call.name
+                                );
+                                messages.push(ChatMessage::system(&warning));
+                                // 清空检测窗口，避免重复触发
+                                recent_tool_calls.clear();
+                            }
+                        }
                     }
 
                     // 内层工具循环取消后，也需要退出外层轮次循环
@@ -540,16 +761,21 @@ impl ChatExecutionService {
         }
 
         // 取消时发送终止事件，确保前端退出"生成中"状态
-        if cancelled {
-            emit_phase(app, session_id, "done", 0, None, None, generation_start.elapsed().as_millis() as u64, Some(cumulative_prompt_tokens), Some(cumulative_completion_tokens));
-        } else if !completed {
-            // 30 轮耗尽但未正常完成，发送终止事件防止前端永远卡在"思考中"
-            let _ = chat_service.add_message(
-                session_id, "system",
-                Some("⚠ 已达到最大轮次上限（30 轮），对话自动终止。".to_string()),
-                None, None, None, None, None, None, None, None, None,
-            ).await;
-            emit_phase(app, session_id, "done", MAX_CHAT_ROUNDS, None, None, generation_start.elapsed().as_millis() as u64, Some(cumulative_prompt_tokens), Some(cumulative_completion_tokens));
+        if cancelled || !completed {
+            emit_phase(
+                app,
+                session_id,
+                "done",
+                round,
+                None,
+                None,
+                generation_start.elapsed().as_millis() as u64,
+                Some(cumulative_prompt_tokens),
+                Some(cumulative_completion_tokens),
+                Some(last_ctx_used),
+                Some(last_ctx_limit),
+                MAX_ROUNDS,
+            );
         }
 
         // 清除取消标志
@@ -594,7 +820,10 @@ impl ChatExecutionService {
         if cdp.is_none() {
             let is_db_running = {
                 let state = app.state::<crate::state::AppState>();
-                let ps = state.profile_service.lock().unwrap_or_else(|p| p.into_inner());
+                let ps = state
+                    .profile_service
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner());
                 ps.ensure_profile_openable(profile_id).is_err()
             };
             if is_db_running {
@@ -682,7 +911,11 @@ pub fn ai_config_entry_to_provider_config(entry: &AiConfigEntry) -> AiProviderCo
 
 // ─── Tauri event 发送工具函数 ─────────────────────────────────────────────
 
-fn emit_message(app: &AppHandle, session_id: &str, msg: &crate::services::chat_service::ChatMessageRecord) {
+fn emit_message(
+    app: &AppHandle,
+    session_id: &str,
+    msg: &crate::services::chat_service::ChatMessageRecord,
+) {
     let _ = app.emit(
         "ai_chat://message",
         ChatMessageEvent {
@@ -702,6 +935,9 @@ fn emit_phase(
     elapsed_ms: u64,
     prompt_tokens: Option<i32>,
     completion_tokens: Option<i32>,
+    context_used: Option<u64>,
+    context_limit: Option<u64>,
+    max_rounds: u32,
 ) {
     let _ = app.emit(
         "ai_chat://phase",
@@ -709,12 +945,14 @@ fn emit_phase(
             session_id: session_id.to_string(),
             phase: phase.to_string(),
             round,
-            max_rounds: MAX_CHAT_ROUNDS,
+            max_rounds,
             tool_name,
             error,
             elapsed_ms,
             prompt_tokens,
             completion_tokens,
+            context_used,
+            context_limit,
         },
     );
 }
