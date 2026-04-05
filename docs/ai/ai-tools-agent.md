@@ -1,8 +1,8 @@
 # Multi-Flow AI Agent 工具参考
 
-> 最后更新日期: 2026-04-03
+> 最后更新日期: 2026-04-05
 >
-> 本文档面向 AI Agent（LLM）在执行自动化任务时参考，包含全部 121 个工具的使用指南。
+> 本文档面向 AI Agent（LLM）在执行自动化任务时参考，包含全部 146 个工具的使用指南。
 
 ---
 
@@ -16,16 +16,18 @@
 4. **使用变量传递数据**：通过 `output_key` 参数将中间结果存入变量，后续步骤通过 `{{变量名}}` 引用。
 5. **选择器类型**：支持 `css`（默认）、`xpath`、`text`（按可见文本匹配）三种选择器。
 
-工具分为 6 大类：
+工具分为 8 大类：
 
-| 前缀      | 类别    | 用途                                              | 数量 |
-| --------- | ------- | ------------------------------------------------- | ---- |
-| `cdp_`    | CDP     | 通过 Chrome DevTools Protocol 操作页面内容        | 31   |
-| `magic_`  | Magic   | 通过 Magic Controller 控制浏览器窗口和原生功能    | 48   |
-| `app_`    | App     | 读写 Multi-Flow 应用数据（Profile、分组、代理等） | 20   |
-| `file_`   | File    | 文件系统读写                                      | 6    |
-| `dialog_` | Dialog  | 向用户展示 UI 弹窗获取反馈                        | 13   |
-| 无前缀    | Utility | 基础工具（等待、日志、提交结果）                  | 3    |
+| 前缀       | 类别    | 用途                                                  | 数量 |
+| ---------- | ------- | ----------------------------------------------------- | ---- |
+| `cdp_`     | CDP     | 通过 Chrome DevTools Protocol 操作页面内容            | 32   |
+| `magic_`   | Magic   | 通过 Magic Controller 控制浏览器窗口和原生功能        | 48   |
+| `app_`     | App     | 读写 Multi-Flow 应用数据（Profile、分组、代理等）     | 20   |
+| `auto_`    | Auto    | 自动化管理（脚本/运行/AI配置/CAPTCHA配置 CRUD）       | 19   |
+| `file_`    | File    | 文件系统读写                                          | 6    |
+| `dialog_`  | Dialog  | 向用户展示 UI 弹窗获取反馈                            | 13   |
+| `captcha_` | Captcha | CAPTCHA 检测与自动求解                                | 5    |
+| 无前缀     | Utility | 基础工具（等待、日志、提交结果）                      | 3    |
 
 ---
 
@@ -709,7 +711,7 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 2   | `print`         | 输出日志信息（支持 info/warn/error/debug 级别） |
 | 3   | `submit_result` | 提交最终结果并结束执行                          |
 
-### CDP — 页面操作（31 个）
+### CDP — 页面操作（32 个）
 
 | #   | 工具名                         | 说明                                          |
 | --- | ------------------------------ | --------------------------------------------- |
@@ -744,6 +746,7 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 29  | `cdp_get_layout_metrics`       | 获取页面布局指标                              |
 | 30  | `cdp_get_document`             | 获取 DOM 树（可控深度和 Shadow DOM 穿透）     |
 | 31  | `cdp_get_full_ax_tree`         | 获取无障碍树（页面语义结构）                  |
+| 32  | `cdp_handle_dialog`            | 处理浏览器 JS 对话框（alert/confirm/prompt）  |
 
 ### Magic — 浏览器控制（48 个）
 
@@ -859,6 +862,49 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 18  | `app_list_plugins`          | 列出插件包                          |
 | 19  | `app_get_plugin`            | 获取插件详情                        |
 | 20  | `app_get_engine_sessions`   | 获取引擎会话列表                    |
+
+### Auto — 自动化管理（19 个）
+
+**脚本管理（6 个）**
+
+| #   | 工具名                  | 说明                                          |
+| --- | ----------------------- | --------------------------------------------- |
+| 1   | `auto_list_scripts`     | 列出所有脚本摘要（id、name、step_count 等）   |
+| 2   | `auto_get_script`       | 获取脚本完整详情（含步骤、变量 schema）       |
+| 3   | `auto_create_script`    | 创建新脚本                                    |
+| 4   | `auto_update_script`    | 更新脚本（未传字段保持原值）                  |
+| 5   | `auto_delete_script`    | ⚠️ 永久删除脚本                              |
+| 6   | `auto_export_script`    | 导出脚本为 JSON 字符串                        |
+
+**运行管理（5 个）**
+
+| #   | 工具名                    | 说明                                              |
+| --- | ------------------------- | ------------------------------------------------- |
+| 7   | `auto_run_script`         | 异步执行脚本，返回 run_id（含递归防护）           |
+| 8   | `auto_list_runs`          | 列出脚本运行历史                                  |
+| 9   | `auto_list_active_runs`   | 列出当前所有活跃 run_id                           |
+| 10  | `auto_get_run`            | 获取运行详情（状态、步骤结果、日志）              |
+| 11  | `auto_cancel_run`         | 取消正在执行的运行                                |
+
+**AI Provider 配置（4 个）**
+
+| #   | 工具名                    | 说明                                  |
+| --- | ------------------------- | ------------------------------------- |
+| 12  | `auto_list_ai_configs`    | 列出 AI 配置（API Key 脱敏）          |
+| 13  | `auto_create_ai_config`   | 创建 AI Provider 配置                 |
+| 14  | `auto_update_ai_config`   | 更新 AI Provider 配置                 |
+| 15  | `auto_delete_ai_config`   | ⚠️ 删除 AI Provider 配置             |
+
+**CAPTCHA Provider 配置（4 个）**
+
+| #   | 工具名                         | 说明                              |
+| --- | ------------------------------ | --------------------------------- |
+| 16  | `auto_list_captcha_configs`    | 列出 CAPTCHA 配置（API Key 脱敏） |
+| 17  | `auto_create_captcha_config`   | 创建 CAPTCHA 求解服务配置         |
+| 18  | `auto_update_captcha_config`   | 更新 CAPTCHA 求解服务配置         |
+| 19  | `auto_delete_captcha_config`   | ⚠️ 删除 CAPTCHA 求解服务配置     |
+
+> **安全提示**：标 ⚠️ 的操作不可撤销；`auto_run_script` 禁止运行当前正在执行的脚本（防止死循环）。
 
 ### File — 文件操作（6 个）
 

@@ -468,18 +468,18 @@ pub fn clear_automation_runs(state: State<'_, AppState>, script_id: String) -> R
         .map_err(error_to_string)
 }
 
-#[tauri::command]
-pub async fn run_automation_script(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    script_id: String,
+/// 运行脚本的核心逻辑（供 Tauri command 和 auto_tools AI 工具共享）
+pub async fn do_run_script(
+    app: &AppHandle,
+    state: &AppState,
+    script_id: &str,
     profile_id: Option<String>,
     initial_vars: Option<HashMap<String, String>>,
     delay_config: Option<crate::models::RunDelayConfig>,
 ) -> Result<String, String> {
     let (steps, steps_json, script_ai_config, associated_profile_ids, step_delay_ms) = {
         let svc = state.lock_automation_service();
-        let script = svc.get_script(&script_id).map_err(error_to_string)?;
+        let script = svc.get_script(script_id).map_err(error_to_string)?;
         let steps_json = serde_json::to_string(&script.steps)
             .map_err(|e| format!("serialize steps failed: {e}"))?;
         let step_delay_ms = script
@@ -488,7 +488,7 @@ pub async fn run_automation_script(
             .and_then(|s| s.step_delay_ms)
             .unwrap_or(0);
         let ai_config =
-            resolve_script_ai_config(&app, script.ai_config_id.as_ref(), script.ai_config);
+            resolve_script_ai_config(app, script.ai_config_id.as_ref(), script.ai_config);
         (
             script.steps,
             steps_json,
@@ -529,7 +529,7 @@ pub async fn run_automation_script(
                     "automation",
                     format!("auto-starting profile profile_id={}", resolved_profile_id),
                 );
-                do_open_profile(&state, Some(&app), None, &resolved_profile_id, None)
+                do_open_profile(state, Some(app), None, &resolved_profile_id, None)
                     .map_err(|e| format!("自动启动环境失败: {e}"))?;
                 logger::info(
                     "automation",
@@ -544,7 +544,7 @@ pub async fn run_automation_script(
     };
     let run_id = {
         let svc = state.lock_automation_service();
-        svc.create_run(&script_id, &resolved_profile_id, &steps_json)
+        svc.create_run(script_id, &resolved_profile_id, &steps_json)
             .map_err(error_to_string)?
     };
     logger::info(
@@ -558,9 +558,9 @@ pub async fn run_automation_script(
         ),
     );
     tauri::async_runtime::spawn(execute_script(
-        app,
+        app.clone(),
         run_id.clone(),
-        script_id.clone(),
+        script_id.to_string(),
         resolved_profile_id.clone(),
         debug_port,
         magic_port,
@@ -571,6 +571,18 @@ pub async fn run_automation_script(
         delay_config,
     ));
     Ok(run_id)
+}
+
+#[tauri::command]
+pub async fn run_automation_script(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    script_id: String,
+    profile_id: Option<String>,
+    initial_vars: Option<HashMap<String, String>>,
+    delay_config: Option<crate::models::RunDelayConfig>,
+) -> Result<String, String> {
+    do_run_script(&app, &state, &script_id, profile_id, initial_vars, delay_config).await
 }
 
 /// 调试模式：每步执行后插入 WaitForUser 暂停，让用户逐步检查
