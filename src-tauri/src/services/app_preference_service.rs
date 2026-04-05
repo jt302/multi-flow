@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
@@ -26,6 +27,12 @@ struct AppPreferencesFile {
     /// CAPTCHA 求解服务配置列表
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     captcha_solver_configs: Vec<crate::services::captcha_service::CaptchaSolverConfig>,
+    /// AI 聊天全局提示词（在所有聊天中生效）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ai_chat_global_prompt: Option<String>,
+    /// 工具确认覆盖设置：tool_name → require_confirmation
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    tool_confirmation_overrides: HashMap<String, bool>,
 }
 
 fn default_true() -> bool {
@@ -40,6 +47,8 @@ impl Default for AppPreferencesFile {
             ai_configs: Vec::new(),
             chromium_logging_enabled: true,
             captcha_solver_configs: Vec::new(),
+            ai_chat_global_prompt: None,
+            tool_confirmation_overrides: HashMap::new(),
         }
     }
 }
@@ -245,6 +254,18 @@ impl AppPreferenceService {
         self.write_preferences_file(&prefs)
     }
 
+    // ── AI Chat global prompt ────────────────────────────────────────
+
+    pub fn read_ai_chat_global_prompt(&self) -> AppResult<Option<String>> {
+        Ok(self.read_preferences_file()?.ai_chat_global_prompt)
+    }
+
+    pub fn save_ai_chat_global_prompt(&self, prompt: Option<String>) -> AppResult<()> {
+        let mut preferences = self.read_preferences_file()?;
+        preferences.ai_chat_global_prompt = trim_to_option(prompt);
+        self.write_preferences_file(&preferences)
+    }
+
     // ── Chromium logging toggle ──────────────────────────────────────
 
     pub fn read_chromium_logging_enabled(&self) -> AppResult<bool> {
@@ -254,6 +275,31 @@ impl AppPreferenceService {
     pub fn save_chromium_logging_enabled(&self, enabled: bool) -> AppResult<()> {
         let mut preferences = self.read_preferences_file()?;
         preferences.chromium_logging_enabled = enabled;
+        self.write_preferences_file(&preferences)
+    }
+
+    // ── 工具确认覆盖设置 ────────────────────────────────────────────
+
+    /// 获取工具确认覆盖设置（tool_name → require_confirmation）
+    pub fn get_tool_confirmation_overrides(&self) -> HashMap<String, bool> {
+        self.read_preferences_file()
+            .map(|p| p.tool_confirmation_overrides)
+            .unwrap_or_default()
+    }
+
+    /// 设置单个工具的确认覆盖
+    pub fn set_tool_confirmation_override(&self, tool_name: &str, require_confirmation: bool) -> AppResult<()> {
+        let mut preferences = self.read_preferences_file()?;
+        preferences.tool_confirmation_overrides.insert(tool_name.to_string(), require_confirmation);
+        self.write_preferences_file(&preferences)
+    }
+
+    /// 批量设置所有危险工具的确认状态
+    pub fn set_all_tool_confirmation_overrides(&self, require_confirmation: bool) -> AppResult<()> {
+        let mut preferences = self.read_preferences_file()?;
+        for tool_name in crate::services::ai_tools::all_dangerous_tool_names() {
+            preferences.tool_confirmation_overrides.insert(tool_name.to_string(), require_confirmation);
+        }
         self.write_preferences_file(&preferences)
     }
 

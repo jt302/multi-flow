@@ -144,7 +144,8 @@ pub fn arrange_profile_windows(
     if payload.gap < 0 {
         return Err("窗口间距不能小于 0".to_string());
     }
-    let monitors = display_monitor_service::collect_display_monitors(&app).map_err(error_to_string)?;
+    let monitors =
+        display_monitor_service::collect_display_monitors(&app).map_err(error_to_string)?;
     let monitor = monitors
         .into_iter()
         .find(|item| item.id == payload.monitor_id)
@@ -462,6 +463,11 @@ mod tests {
             active_run_channels: Mutex::new(std::collections::HashMap::new()),
             cancel_tokens: Mutex::new(std::collections::HashMap::new()),
             ai_dialog_channels: Mutex::new(std::collections::HashMap::new()),
+            tool_confirmation_channels: Mutex::new(std::collections::HashMap::new()),
+            chat_service: Mutex::new(crate::services::chat_service::ChatService::from_db(
+                db.clone(),
+            )),
+            chat_cancel_tokens: Mutex::new(std::collections::HashMap::new()),
             automation_service: Mutex::new(AutomationService::from_db(db.clone())),
             profile_group_service: Mutex::new(profile_group_service),
             profile_service: Mutex::new(profile_service),

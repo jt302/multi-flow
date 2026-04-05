@@ -1622,7 +1622,7 @@ struct MagicHttpResponse {
 fn send_magic_http_request(port: u16, path: &str, payload: &Value) -> AppResult<MagicHttpResponse> {
     let url = format!("http://127.0.0.1:{port}{path}");
     let request_payload = payload.clone();
-    tauri::async_runtime::block_on(async move {
+    crate::runtime_compat::block_on_compat(async move {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(MAGIC_HTTP_REQUEST_TIMEOUT_SECS))
             .build()?;

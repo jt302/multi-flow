@@ -14,6 +14,11 @@ impl CdpClient {
         }
     }
 
+    /// 获取 debug 端口号
+    pub fn debug_port(&self) -> u16 {
+        self.debug_port
+    }
+
     pub async fn get_page_ws_url(&self) -> Result<String, String> {
         let url = format!("http://127.0.0.1:{}/json/list", self.debug_port);
         let resp = self
