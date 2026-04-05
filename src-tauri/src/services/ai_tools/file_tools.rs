@@ -14,13 +14,17 @@ use super::{ToolContext, ToolResult};
 const MAX_READ_SIZE: u64 = 10 * 1024 * 1024;
 
 /// 执行 file_* 类工具
-pub async fn execute(name: &str, args: Value, _ctx: &mut ToolContext<'_>) -> Result<ToolResult, String> {
+pub async fn execute(
+    name: &str,
+    args: Value,
+    _ctx: &mut ToolContext<'_>,
+) -> Result<ToolResult, String> {
     match name {
         "file_read" => {
             let path = require_str(&args, "path")?;
             validate_path(&path)?;
-            let metadata = fs::metadata(&path)
-                .map_err(|e| format!("Cannot read file '{}': {}", path, e))?;
+            let metadata =
+                fs::metadata(&path).map_err(|e| format!("Cannot read file '{}': {}", path, e))?;
             if metadata.len() > MAX_READ_SIZE {
                 return Err(format!(
                     "File '{}' is too large ({} bytes, max {})",
@@ -43,9 +47,12 @@ pub async fn execute(name: &str, args: Value, _ctx: &mut ToolContext<'_>) -> Res
                 fs::create_dir_all(parent)
                     .map_err(|e| format!("Failed to create parent dir: {}", e))?;
             }
-            fs::write(&path, &content)
-                .map_err(|e| format!("Failed to write '{}': {}", path, e))?;
-            Ok(ToolResult::text(format!("Written {} bytes to '{}'", content.len(), path)))
+            fs::write(&path, &content).map_err(|e| format!("Failed to write '{}': {}", path, e))?;
+            Ok(ToolResult::text(format!(
+                "Written {} bytes to '{}'",
+                content.len(),
+                path
+            )))
         }
 
         "file_append" => {
@@ -60,7 +67,11 @@ pub async fn execute(name: &str, args: Value, _ctx: &mut ToolContext<'_>) -> Res
                 .map_err(|e| format!("Failed to open '{}' for append: {}", path, e))?;
             file.write_all(content.as_bytes())
                 .map_err(|e| format!("Failed to append to '{}': {}", path, e))?;
-            Ok(ToolResult::text(format!("Appended {} bytes to '{}'", content.len(), path)))
+            Ok(ToolResult::text(format!(
+                "Appended {} bytes to '{}'",
+                content.len(),
+                path
+            )))
         }
 
         "file_list_dir" => {
@@ -71,14 +82,18 @@ pub async fn execute(name: &str, args: Value, _ctx: &mut ToolContext<'_>) -> Res
             let mut items = Vec::new();
             for entry in entries {
                 let entry = entry.map_err(|e| format!("Dir entry error: {}", e))?;
-                let file_type = entry.file_type().map_err(|e| format!("File type error: {}", e))?;
+                let file_type = entry
+                    .file_type()
+                    .map_err(|e| format!("File type error: {}", e))?;
                 items.push(json!({
                     "name": entry.file_name().to_string_lossy(),
                     "is_dir": file_type.is_dir(),
                     "is_file": file_type.is_file(),
                 }));
             }
-            Ok(ToolResult::text(serde_json::to_string(&items).unwrap_or_default()))
+            Ok(ToolResult::text(
+                serde_json::to_string(&items).unwrap_or_default(),
+            ))
         }
 
         "file_exists" => {
@@ -86,11 +101,14 @@ pub async fn execute(name: &str, args: Value, _ctx: &mut ToolContext<'_>) -> Res
             validate_path(&path)?;
             let exists = Path::new(&path).exists();
             let is_dir = Path::new(&path).is_dir();
-            Ok(ToolResult::text(json!({
-                "exists": exists,
-                "is_dir": is_dir,
-                "is_file": exists && !is_dir,
-            }).to_string()))
+            Ok(ToolResult::text(
+                json!({
+                    "exists": exists,
+                    "is_dir": is_dir,
+                    "is_file": exists && !is_dir,
+                })
+                .to_string(),
+            ))
         }
 
         "file_mkdir" => {

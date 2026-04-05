@@ -62,15 +62,15 @@ fn build_context(
         .and_then(|f| f.fingerprint_snapshot.as_ref());
     let adv = settings.and_then(|s| s.advanced.as_ref());
 
-    let viewport = fp.and_then(|f| {
-        match (f.window_width, f.window_height) {
-            (Some(w), Some(h)) => Some(format!("{w}x{h}")),
-            _ => None,
-        }
+    let viewport = fp.and_then(|f| match (f.window_width, f.window_height) {
+        (Some(w), Some(h)) => Some(format!("{w}x{h}")),
+        _ => None,
     });
 
     let geolocation = adv.and_then(|a| {
-        a.geolocation.as_ref().map(|g| format!("{},{}", g.latitude, g.longitude))
+        a.geolocation
+            .as_ref()
+            .map(|g| format!("{},{}", g.latitude, g.longitude))
     });
 
     // 代理信息（脱敏）
@@ -81,7 +81,11 @@ fn build_context(
             .iter()
             .filter_map(|x| *x)
             .collect();
-        if parts.is_empty() { None } else { Some(parts.join(", ")) }
+        if parts.is_empty() {
+            None
+        } else {
+            Some(parts.join(", "))
+        }
     });
     let proxy_exit_ip = proxy.as_ref().and_then(|p| p.exit_ip.clone());
 
@@ -121,49 +125,100 @@ pub fn format_for_prompt(contexts: &[ProfileEnvironmentContext], locale: &str) -
 
     for ctx in contexts {
         let active_marker = if ctx.is_active {
-            if zh { " [当前工具目标环境]" } else { " [Current Tool Target]" }
+            if zh {
+                " [当前工具目标环境]"
+            } else {
+                " [Current Tool Target]"
+            }
         } else {
             ""
         };
         let running_label = if ctx.running {
-            if zh { "运行中" } else { "Running" }
+            if zh {
+                "运行中"
+            } else {
+                "Running"
+            }
         } else {
-            if zh { "未运行" } else { "Stopped" }
+            if zh {
+                "未运行"
+            } else {
+                "Stopped"
+            }
         };
 
         out.push_str(&format!("### {}{}\n", ctx.profile_name, active_marker));
-        out.push_str(&format!("- {}: {}\n",
-            if zh { "状态" } else { "Status" }, running_label));
+        out.push_str(&format!(
+            "- {}: {}\n",
+            if zh { "状态" } else { "Status" },
+            running_label
+        ));
 
         if let Some(ref p) = ctx.platform {
-            out.push_str(&format!("- {}: {}\n", if zh { "平台" } else { "Platform" }, p));
+            out.push_str(&format!(
+                "- {}: {}\n",
+                if zh { "平台" } else { "Platform" },
+                p
+            ));
         }
         if let Some(ref v) = ctx.browser_version {
-            out.push_str(&format!("- {}: {}\n", if zh { "浏览器版本" } else { "Browser" }, v));
+            out.push_str(&format!(
+                "- {}: {}\n",
+                if zh { "浏览器版本" } else { "Browser" },
+                v
+            ));
         }
         if let Some(ref ua) = ctx.user_agent {
             out.push_str(&format!("- User-Agent: {}\n", ua));
         }
         if let Some(ref lang) = ctx.language {
-            out.push_str(&format!("- {}: {}\n", if zh { "语言" } else { "Language" }, lang));
+            out.push_str(&format!(
+                "- {}: {}\n",
+                if zh { "语言" } else { "Language" },
+                lang
+            ));
         }
         if let Some(ref tz) = ctx.timezone {
-            out.push_str(&format!("- {}: {}\n", if zh { "时区" } else { "Timezone" }, tz));
+            out.push_str(&format!(
+                "- {}: {}\n",
+                if zh { "时区" } else { "Timezone" },
+                tz
+            ));
         }
         if let Some(ref vp) = ctx.viewport {
-            out.push_str(&format!("- {}: {}\n", if zh { "视口" } else { "Viewport" }, vp));
+            out.push_str(&format!(
+                "- {}: {}\n",
+                if zh { "视口" } else { "Viewport" },
+                vp
+            ));
         }
         if let Some(ref proto) = ctx.proxy_protocol {
-            out.push_str(&format!("- {}: {}\n", if zh { "代理协议" } else { "Proxy" }, proto));
+            out.push_str(&format!(
+                "- {}: {}\n",
+                if zh { "代理协议" } else { "Proxy" },
+                proto
+            ));
         }
         if let Some(ref loc) = ctx.proxy_location {
-            out.push_str(&format!("- {}: {}\n", if zh { "代理位置" } else { "Proxy Location" }, loc));
+            out.push_str(&format!(
+                "- {}: {}\n",
+                if zh { "代理位置" } else { "Proxy Location" },
+                loc
+            ));
         }
         if let Some(ref ip) = ctx.proxy_exit_ip {
-            out.push_str(&format!("- {}: {}\n", if zh { "出口IP" } else { "Exit IP" }, ip));
+            out.push_str(&format!(
+                "- {}: {}\n",
+                if zh { "出口IP" } else { "Exit IP" },
+                ip
+            ));
         }
         if let Some(ref geo) = ctx.geolocation {
-            out.push_str(&format!("- {}: {}\n", if zh { "地理位置" } else { "Geolocation" }, geo));
+            out.push_str(&format!(
+                "- {}: {}\n",
+                if zh { "地理位置" } else { "Geolocation" },
+                geo
+            ));
         }
         out.push('\n');
     }
@@ -178,5 +233,10 @@ pub fn get_profile_environment_contexts(
     profile_service: &ProfileService,
     proxy_service: &ProxyService,
 ) -> AppResult<Vec<ProfileEnvironmentContext>> {
-    Ok(extract_contexts(profile_ids, active_profile_id, profile_service, proxy_service))
+    Ok(extract_contexts(
+        profile_ids,
+        active_profile_id,
+        profile_service,
+        proxy_service,
+    ))
 }

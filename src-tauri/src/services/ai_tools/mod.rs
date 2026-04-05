@@ -4,21 +4,21 @@
 //! 所有工具按类别拆分（CDP / Magic / App / Auto / File / Dialog / Utility），
 //! 通过 `ToolRegistry` 统一注册、按前缀路由分发执行。
 
-pub mod tool_defs;
 pub mod app_tools;
 pub mod auto_tools;
-pub mod file_tools;
 pub mod dialog_tools;
+pub mod file_tools;
+pub mod tool_defs;
 
+use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::LazyLock;
-use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager};
 
+use crate::models::RunLogEntry;
 use crate::models::ScriptStep;
 use crate::services::automation_cdp_client::CdpClient;
 use crate::services::automation_interpolation::RunVariables;
-use crate::models::RunLogEntry;
 
 // ─── 核心类型 ─────────────────────────────────────────────────────────────
 
@@ -49,19 +49,39 @@ pub struct ToolResult {
 
 impl ToolResult {
     pub fn empty() -> Self {
-        Self { text: None, image_base64: None, vars: HashMap::new() }
+        Self {
+            text: None,
+            image_base64: None,
+            vars: HashMap::new(),
+        }
     }
 
     pub fn text(s: impl Into<String>) -> Self {
-        Self { text: Some(s.into()), image_base64: None, vars: HashMap::new() }
+        Self {
+            text: Some(s.into()),
+            image_base64: None,
+            vars: HashMap::new(),
+        }
     }
 
     pub fn with_vars(text: Option<String>, vars: HashMap<String, String>) -> Self {
-        Self { text, image_base64: None, vars }
+        Self {
+            text,
+            image_base64: None,
+            vars,
+        }
     }
 
-    pub fn with_image(text: Option<String>, image_base64: String, vars: HashMap<String, String>) -> Self {
-        Self { text, image_base64: Some(image_base64), vars }
+    pub fn with_image(
+        text: Option<String>,
+        image_base64: String,
+        vars: HashMap<String, String>,
+    ) -> Self {
+        Self {
+            text,
+            image_base64: Some(image_base64),
+            vars,
+        }
     }
 }
 
@@ -78,11 +98,17 @@ pub struct ToolFilter {
 
 impl ToolFilter {
     pub fn all() -> Self {
-        Self { categories: vec![], excluded_categories: vec![] }
+        Self {
+            categories: vec![],
+            excluded_categories: vec![],
+        }
     }
 
     pub fn with_categories(categories: Vec<String>) -> Self {
-        Self { categories, excluded_categories: vec![] }
+        Self {
+            categories,
+            excluded_categories: vec![],
+        }
     }
 
     /// 排除指定类别的工具（链式调用）
@@ -105,13 +131,27 @@ impl ToolFilter {
 
 /// 根据工具名前缀返回类别
 pub fn tool_category(name: &str) -> &str {
-    if name.starts_with("cdp_") || name == "cdp" { return "cdp"; }
-    if name.starts_with("magic_") { return "magic"; }
-    if name.starts_with("auto_") { return "auto"; }
-    if name.starts_with("app_") { return "app"; }
-    if name.starts_with("file_") { return "file"; }
-    if name.starts_with("dialog_") { return "dialog"; }
-    if name.starts_with("captcha_") { return "captcha"; }
+    if name.starts_with("cdp_") || name == "cdp" {
+        return "cdp";
+    }
+    if name.starts_with("magic_") {
+        return "magic";
+    }
+    if name.starts_with("auto_") {
+        return "auto";
+    }
+    if name.starts_with("app_") {
+        return "app";
+    }
+    if name.starts_with("file_") {
+        return "file";
+    }
+    if name.starts_with("dialog_") {
+        return "dialog";
+    }
+    if name.starts_with("captcha_") {
+        return "captcha";
+    }
     "utility"
 }
 
@@ -130,21 +170,42 @@ pub enum ToolRiskLevel {
 pub fn tool_risk_level(tool_name: &str) -> ToolRiskLevel {
     match tool_name {
         // 危险工具 —— 破坏性操作
-        "app_delete_profile" | "app_delete_proxy" | "app_delete_group"
-        | "app_stop_profile" | "app_stop_all_profiles"
-        | "app_purge_profile" | "app_purge_proxy" | "app_purge_group"
-        | "magic_set_closed" | "magic_safe_quit"
-        | "file_write" | "file_delete" | "file_append"
-        | "cdp_clear_cookies" | "cdp_clear_local_storage" | "cdp_clear_session_storage"
+        "app_delete_profile"
+        | "app_delete_proxy"
+        | "app_delete_group"
+        | "app_stop_profile"
+        | "app_stop_all_profiles"
+        | "app_purge_profile"
+        | "app_purge_proxy"
+        | "app_purge_group"
+        | "magic_set_closed"
+        | "magic_safe_quit"
+        | "file_write"
+        | "file_delete"
+        | "file_append"
+        | "cdp_clear_cookies"
+        | "cdp_clear_local_storage"
+        | "cdp_clear_session_storage"
         | "auto_delete_script" => ToolRiskLevel::Dangerous,
 
         // 安全工具 —— 只读操作
-        name if name.starts_with("app_list_") || name.starts_with("app_get_")
-            || name.starts_with("magic_get_") || name.starts_with("cdp_get_")
-            || name == "cdp_screenshot" || name == "cdp_get_document" || name == "cdp_get_full_ax_tree"
-            || name.starts_with("file_read") || name == "file_exists" || name == "file_list_dir"
-            || name.starts_with("auto_list_") || name.starts_with("auto_get_")
-            || name == "print" || name == "submit_result" => ToolRiskLevel::Safe,
+        name if name.starts_with("app_list_")
+            || name.starts_with("app_get_")
+            || name.starts_with("magic_get_")
+            || name.starts_with("cdp_get_")
+            || name == "cdp_screenshot"
+            || name == "cdp_get_document"
+            || name == "cdp_get_full_ax_tree"
+            || name.starts_with("file_read")
+            || name == "file_exists"
+            || name == "file_list_dir"
+            || name.starts_with("auto_list_")
+            || name.starts_with("auto_get_")
+            || name == "print"
+            || name == "submit_result" =>
+        {
+            ToolRiskLevel::Safe
+        }
 
         // 其余为中等风险
         _ => ToolRiskLevel::Moderate,
@@ -159,12 +220,22 @@ fn is_dangerous_tool(name: &str) -> bool {
 /// 返回所有危险工具名称列表
 pub fn all_dangerous_tool_names() -> Vec<&'static str> {
     vec![
-        "app_delete_profile", "app_delete_proxy", "app_delete_group",
-        "app_stop_profile", "app_stop_all_profiles",
-        "app_purge_profile", "app_purge_proxy", "app_purge_group",
-        "magic_set_closed", "magic_safe_quit",
-        "file_write", "file_delete", "file_append",
-        "cdp_clear_cookies", "cdp_clear_local_storage", "cdp_clear_session_storage",
+        "app_delete_profile",
+        "app_delete_proxy",
+        "app_delete_group",
+        "app_stop_profile",
+        "app_stop_all_profiles",
+        "app_purge_profile",
+        "app_purge_proxy",
+        "app_purge_group",
+        "magic_set_closed",
+        "magic_safe_quit",
+        "file_write",
+        "file_delete",
+        "file_append",
+        "cdp_clear_cookies",
+        "cdp_clear_local_storage",
+        "cdp_clear_session_storage",
         "auto_delete_script",
     ]
 }
@@ -209,13 +280,22 @@ impl ToolRegistry {
         // 对高风险工具记录警告日志 + 确认拦截
         if is_dangerous_tool(name) {
             let args_summary = serde_json::to_string(&args).unwrap_or_default();
-            let args_short = if args_summary.len() > 200 { &args_summary[..200] } else { &args_summary };
-            crate::logger::warn("ai-tools", format!("Executing dangerous tool: {} args={}", name, args_short));
+            let args_short = if args_summary.len() > 200 {
+                &args_summary[..200]
+            } else {
+                &args_summary
+            };
+            crate::logger::warn(
+                "ai-tools",
+                format!("Executing dangerous tool: {} args={}", name, args_short),
+            );
 
             // 检查是否需要用户确认
             let need_confirm = {
                 let app_state = ctx.app.state::<crate::state::AppState>();
-                let pref_svc = app_state.app_preference_service.lock()
+                let pref_svc = app_state
+                    .app_preference_service
+                    .lock()
                     .map_err(|_| "app_preference_service lock poisoned".to_string())?;
                 let overrides = pref_svc.get_tool_confirmation_overrides();
                 // 默认危险工具需要确认，除非用户明确关闭
@@ -230,7 +310,9 @@ impl ToolRegistry {
                 // 注册 oneshot 通道到 AppState
                 {
                     let state = ctx.app.state::<crate::state::AppState>();
-                    let mut channels = state.tool_confirmation_channels.lock()
+                    let mut channels = state
+                        .tool_confirmation_channels
+                        .lock()
                         .map_err(|_| "tool_confirmation_channels lock poisoned".to_string())?;
                     channels.insert(request_id.clone(), tx);
                 }
@@ -242,24 +324,22 @@ impl ToolRegistry {
                     "args": args,
                     "riskLevel": "dangerous",
                 });
-                ctx.app.emit("tool-confirmation-request", &payload)
+                ctx.app
+                    .emit_to("main", "tool-confirmation-request", &payload)
                     .map_err(|e| format!("Failed to emit tool-confirmation-request: {e}"))?;
 
                 // 等待前端响应（60 秒超时）
-                let confirmed = tokio::time::timeout(
-                    std::time::Duration::from_secs(60),
-                    rx,
-                )
-                .await
-                .map_err(|_| {
-                    // 超时，清理已注册的通道
-                    let state = ctx.app.state::<crate::state::AppState>();
-                    if let Ok(mut channels) = state.tool_confirmation_channels.lock() {
-                        let _ = channels.remove(&request_id);
-                    }
-                    "Tool confirmation timed out (60s)".to_string()
-                })?
-                .map_err(|_| "Tool confirmation channel closed unexpectedly".to_string())?;
+                let confirmed = tokio::time::timeout(std::time::Duration::from_secs(60), rx)
+                    .await
+                    .map_err(|_| {
+                        // 超时，清理已注册的通道
+                        let state = ctx.app.state::<crate::state::AppState>();
+                        if let Ok(mut channels) = state.tool_confirmation_channels.lock() {
+                            let _ = channels.remove(&request_id);
+                        }
+                        "Tool confirmation timed out (60s)".to_string()
+                    })?
+                    .map_err(|_| "Tool confirmation channel closed unexpectedly".to_string())?;
 
                 if !confirmed {
                     return Ok(ToolResult::text("Operation cancelled by user"));
@@ -271,18 +351,10 @@ impl ToolRegistry {
             "cdp" | "magic" | "utility" | "captcha" => {
                 Self::execute_via_script_step(name, args, ctx).await
             }
-            "app" => {
-                app_tools::execute(name, args, ctx).await
-            }
-            "auto" => {
-                auto_tools::execute(name, args, ctx).await
-            }
-            "file" => {
-                file_tools::execute(name, args, ctx).await
-            }
-            "dialog" => {
-                dialog_tools::execute(name, args, ctx).await
-            }
+            "app" => app_tools::execute(name, args, ctx).await,
+            "auto" => auto_tools::execute(name, args, ctx).await,
+            "file" => file_tools::execute(name, args, ctx).await,
+            "dialog" => dialog_tools::execute(name, args, ctx).await,
             _ => Err(format!("Unknown tool category for '{name}'")),
         }
     }
@@ -321,7 +393,10 @@ impl ToolRegistry {
         // 注入 kind 字段，构造完整的 ScriptStep JSON
         let mut step_json = args;
         if let Some(obj) = step_json.as_object_mut() {
-            obj.insert("kind".to_string(), serde_json::Value::String(name.to_string()));
+            obj.insert(
+                "kind".to_string(),
+                serde_json::Value::String(name.to_string()),
+            );
         }
 
         let inner_step: ScriptStep = serde_json::from_value(step_json)

@@ -48,7 +48,6 @@ pub struct AiDialogRequest {
     pub content: Option<String>,
 
     // ── 扩展字段（新增弹窗类型使用） ─────────────────────────────────────
-
     /// select 弹窗选项列表
     #[serde(skip_serializing_if = "Option::is_none")]
     pub options: Option<Vec<DialogSelectOption>>,
@@ -139,7 +138,9 @@ pub struct DialogFormField {
     pub hint: Option<String>,
 }
 
-fn default_field_type() -> String { "text".to_string() }
+fn default_field_type() -> String {
+    "text".to_string()
+}
 
 /// table 弹窗列定义
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -182,7 +183,11 @@ pub struct AiDialogResponse {
 // ─── 执行器 ──────────────────────────────────────────────────────────
 
 /// 执行 dialog_* 类工具
-pub async fn execute(name: &str, args: Value, ctx: &mut ToolContext<'_>) -> Result<ToolResult, String> {
+pub async fn execute(
+    name: &str,
+    args: Value,
+    ctx: &mut ToolContext<'_>,
+) -> Result<ToolResult, String> {
     let dialog_type = name.strip_prefix("dialog_").unwrap_or(name);
     let request_id = format!("ai-dialog-{}-{}", ctx.run_id, uuid_v4_short());
 
@@ -195,25 +200,46 @@ pub async fn execute(name: &str, args: Value, ctx: &mut ToolContext<'_>) -> Resu
         label: opt_str(&args, "label"),
         default_value: opt_str(&args, "default_value"),
         placeholder: opt_str(&args, "placeholder"),
-        multiple: args.get("multiple").and_then(|v| v.as_bool())
+        multiple: args
+            .get("multiple")
+            .and_then(|v| v.as_bool())
             .or_else(|| args.get("multi_select").and_then(|v| v.as_bool())),
-        filters: args.get("filters").and_then(|v| serde_json::from_value(v.clone()).ok()),
+        filters: args
+            .get("filters")
+            .and_then(|v| serde_json::from_value(v.clone()).ok()),
         default_name: opt_str(&args, "default_name"),
         content: opt_str(&args, "content"),
         // 扩展字段
-        options: args.get("options").and_then(|v| serde_json::from_value(v.clone()).ok()),
-        max_select: args.get("max_select").and_then(|v| v.as_u64()).map(|v| v as u32),
-        fields: args.get("fields").and_then(|v| serde_json::from_value(v.clone()).ok()),
+        options: args
+            .get("options")
+            .and_then(|v| serde_json::from_value(v.clone()).ok()),
+        max_select: args
+            .get("max_select")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u32),
+        fields: args
+            .get("fields")
+            .and_then(|v| serde_json::from_value(v.clone()).ok()),
         submit_label: opt_str(&args, "submit_label"),
-        columns: args.get("columns").and_then(|v| serde_json::from_value(v.clone()).ok()),
+        columns: args
+            .get("columns")
+            .and_then(|v| serde_json::from_value(v.clone()).ok()),
         rows: args.get("rows").and_then(|v| v.as_array().cloned()),
         selectable: args.get("selectable").and_then(|v| v.as_bool()),
-        max_height: args.get("max_height").and_then(|v| v.as_u64()).map(|v| v as u32),
+        max_height: args
+            .get("max_height")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u32),
         image: opt_str(&args, "image"),
         image_format: opt_str(&args, "image_format"),
         input_placeholder: opt_str(&args, "input_placeholder"),
-        actions: args.get("actions").and_then(|v| serde_json::from_value(v.clone()).ok()),
-        seconds: args.get("seconds").and_then(|v| v.as_u64()).map(|v| v as u32),
+        actions: args
+            .get("actions")
+            .and_then(|v| serde_json::from_value(v.clone()).ok()),
+        seconds: args
+            .get("seconds")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u32),
         action_label: opt_str(&args, "action_label"),
         auto_proceed: args.get("auto_proceed").and_then(|v| v.as_bool()),
         duration_ms: args.get("duration_ms").and_then(|v| v.as_u64()),
@@ -228,13 +254,16 @@ pub async fn execute(name: &str, args: Value, ctx: &mut ToolContext<'_>) -> Resu
     // 注册到 AppState
     {
         let state = ctx.app.state::<AppState>();
-        let mut channels = state.ai_dialog_channels.lock()
+        let mut channels = state
+            .ai_dialog_channels
+            .lock()
             .map_err(|_| "ai_dialog_channels lock poisoned".to_string())?;
         channels.insert(request_id.clone(), tx);
     }
 
     // 发射事件到前端
-    ctx.app.emit("ai-dialog-request", &request)
+    ctx.app
+        .emit_to("main", "ai-dialog-request", &request)
         .map_err(|e| format!("Failed to emit dialog event: {}", e))?;
 
     // 等待前端响应（带超时）
@@ -248,121 +277,170 @@ pub async fn execute(name: &str, args: Value, ctx: &mut ToolContext<'_>) -> Resu
 
     // 根据弹窗类型构造结果
     match dialog_type {
-        "message" => {
-            Ok(ToolResult::text("Message shown to user"))
-        }
-        "confirm" | "countdown" => {
-            Ok(ToolResult::text(json!({
+        "message" => Ok(ToolResult::text("Message shown to user")),
+        "confirm" | "countdown" => Ok(ToolResult::text(
+            json!({
                 "cancelled": !response.confirmed,
-            }).to_string()))
-        }
+            })
+            .to_string(),
+        )),
         "input" => {
             if !response.confirmed {
-                Ok(ToolResult::text(json!({
-                    "cancelled": true,
-                    "value": null
-                }).to_string()))
+                Ok(ToolResult::text(
+                    json!({
+                        "cancelled": true,
+                        "value": null
+                    })
+                    .to_string(),
+                ))
             } else {
-                Ok(ToolResult::text(json!({
-                    "cancelled": false,
-                    "value": response.value
-                }).to_string()))
+                Ok(ToolResult::text(
+                    json!({
+                        "cancelled": false,
+                        "value": response.value
+                    })
+                    .to_string(),
+                ))
             }
         }
         "select" => {
             if !response.confirmed {
-                Ok(ToolResult::text(json!({
-                    "cancelled": true,
-                    "selected": null
-                }).to_string()))
+                Ok(ToolResult::text(
+                    json!({
+                        "cancelled": true,
+                        "selected": null
+                    })
+                    .to_string(),
+                ))
             } else {
                 // value 可能是 JSON 数组（多选）或单个字符串
-                let selected = response.value.as_deref()
+                let selected = response
+                    .value
+                    .as_deref()
                     .and_then(|v| serde_json::from_str::<Value>(v).ok())
                     .unwrap_or_else(|| json!(response.value));
-                Ok(ToolResult::text(json!({
-                    "cancelled": false,
-                    "selected": selected
-                }).to_string()))
+                Ok(ToolResult::text(
+                    json!({
+                        "cancelled": false,
+                        "selected": selected
+                    })
+                    .to_string(),
+                ))
             }
         }
         "form" => {
             if !response.confirmed {
-                Ok(ToolResult::text(json!({
-                    "cancelled": true,
-                    "values": null
-                }).to_string()))
+                Ok(ToolResult::text(
+                    json!({
+                        "cancelled": true,
+                        "values": null
+                    })
+                    .to_string(),
+                ))
             } else {
                 // value 是 JSON 对象字符串
-                let values = response.value.as_deref()
+                let values = response
+                    .value
+                    .as_deref()
                     .and_then(|v| serde_json::from_str::<Value>(v).ok())
                     .unwrap_or(json!({}));
-                Ok(ToolResult::text(json!({
-                    "cancelled": false,
-                    "values": values
-                }).to_string()))
+                Ok(ToolResult::text(
+                    json!({
+                        "cancelled": false,
+                        "values": values
+                    })
+                    .to_string(),
+                ))
             }
         }
         "table" => {
             if !response.confirmed {
-                Ok(ToolResult::text(json!({
-                    "confirmed": false,
-                    "selected_indices": null
-                }).to_string()))
+                Ok(ToolResult::text(
+                    json!({
+                        "confirmed": false,
+                        "selected_indices": null
+                    })
+                    .to_string(),
+                ))
             } else {
-                let indices = response.value.as_deref()
+                let indices = response
+                    .value
+                    .as_deref()
                     .and_then(|v| serde_json::from_str::<Value>(v).ok());
-                Ok(ToolResult::text(json!({
-                    "confirmed": true,
-                    "selected_indices": indices
-                }).to_string()))
+                Ok(ToolResult::text(
+                    json!({
+                        "confirmed": true,
+                        "selected_indices": indices
+                    })
+                    .to_string(),
+                ))
             }
         }
         "image" => {
             if !response.confirmed {
-                Ok(ToolResult::text(json!({
-                    "cancelled": true,
-                    "value": null,
-                    "action": null
-                }).to_string()))
+                Ok(ToolResult::text(
+                    json!({
+                        "cancelled": true,
+                        "value": null,
+                        "action": null
+                    })
+                    .to_string(),
+                ))
             } else {
                 // value 格式: JSON { "value": "...", "action": "..." }
-                let parsed = response.value.as_deref()
+                let parsed = response
+                    .value
+                    .as_deref()
                     .and_then(|v| serde_json::from_str::<Value>(v).ok())
                     .unwrap_or(json!({}));
-                Ok(ToolResult::text(json!({
-                    "cancelled": false,
-                    "value": parsed.get("value").and_then(|v| v.as_str()),
-                    "action": parsed.get("action").and_then(|v| v.as_str()).unwrap_or("confirm")
-                }).to_string()))
+                Ok(ToolResult::text(
+                    json!({
+                        "cancelled": false,
+                        "value": parsed.get("value").and_then(|v| v.as_str()),
+                        "action": parsed.get("action").and_then(|v| v.as_str()).unwrap_or("confirm")
+                    })
+                    .to_string(),
+                ))
             }
         }
         "toast" => {
             // toast 无 actions 时不阻塞，但实际上仍走 oneshot channel
             if !response.confirmed {
-                Ok(ToolResult::text(json!({
-                    "dismissed": true,
-                    "action": null
-                }).to_string()))
+                Ok(ToolResult::text(
+                    json!({
+                        "dismissed": true,
+                        "action": null
+                    })
+                    .to_string(),
+                ))
             } else {
-                Ok(ToolResult::text(json!({
-                    "dismissed": false,
-                    "action": response.value
-                }).to_string()))
+                Ok(ToolResult::text(
+                    json!({
+                        "dismissed": false,
+                        "action": response.value
+                    })
+                    .to_string(),
+                ))
             }
         }
         "markdown" => {
             let action = response.value.unwrap_or_else(|| "close".to_string());
-            Ok(ToolResult::text(json!({
-                "action": action
-            }).to_string()))
+            Ok(ToolResult::text(
+                json!({
+                    "action": action
+                })
+                .to_string(),
+            ))
         }
         "save_file" => {
             if !response.confirmed || response.value.is_none() {
-                Ok(ToolResult::text(json!({
-                    "cancelled": true,
-                    "path": null
-                }).to_string()))
+                Ok(ToolResult::text(
+                    json!({
+                        "cancelled": true,
+                        "path": null
+                    })
+                    .to_string(),
+                ))
             } else {
                 let path = response.value.unwrap();
                 // 如果提供了 content，自动写入
@@ -370,23 +448,32 @@ pub async fn execute(name: &str, args: Value, ctx: &mut ToolContext<'_>) -> Resu
                     std::fs::write(&path, &content)
                         .map_err(|e| format!("Failed to write file: {}", e))?;
                 }
-                Ok(ToolResult::text(json!({
-                    "cancelled": false,
-                    "path": path
-                }).to_string()))
+                Ok(ToolResult::text(
+                    json!({
+                        "cancelled": false,
+                        "path": path
+                    })
+                    .to_string(),
+                ))
             }
         }
         "open_file" | "select_folder" => {
             if !response.confirmed || response.value.is_none() {
-                Ok(ToolResult::text(json!({
-                    "cancelled": true,
-                    "path": null
-                }).to_string()))
+                Ok(ToolResult::text(
+                    json!({
+                        "cancelled": true,
+                        "path": null
+                    })
+                    .to_string(),
+                ))
             } else {
-                Ok(ToolResult::text(json!({
-                    "cancelled": false,
-                    "path": response.value
-                }).to_string()))
+                Ok(ToolResult::text(
+                    json!({
+                        "cancelled": false,
+                        "path": response.value
+                    })
+                    .to_string(),
+                ))
             }
         }
         _ => Err(format!("Unknown dialog type: '{dialog_type}'")),
