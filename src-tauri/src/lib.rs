@@ -183,6 +183,8 @@ pub fn run() {
             commands::automation_commands::create_ai_config,
             commands::automation_commands::update_ai_config,
             commands::automation_commands::delete_ai_config,
+            commands::automation_commands::get_default_ai_config_id,
+            commands::automation_commands::set_default_ai_config_id,
             commands::automation_commands::list_captcha_configs,
             commands::automation_commands::create_captcha_config,
             commands::automation_commands::update_captcha_config,

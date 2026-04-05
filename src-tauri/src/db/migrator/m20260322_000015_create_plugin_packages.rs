@@ -27,7 +27,11 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(PluginPackages::Description).text())
                     .col(ColumnDef::new(PluginPackages::IconPath).string())
                     .col(ColumnDef::new(PluginPackages::CrxPath).string().not_null())
-                    .col(ColumnDef::new(PluginPackages::SourceType).string().not_null())
+                    .col(
+                        ColumnDef::new(PluginPackages::SourceType)
+                            .string()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(PluginPackages::StoreUrl).string())
                     .col(ColumnDef::new(PluginPackages::UpdateUrl).string())
                     .col(ColumnDef::new(PluginPackages::LatestVersion).string())

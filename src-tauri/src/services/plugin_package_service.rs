@@ -31,7 +31,10 @@ impl PluginPackageService {
         Ok(to_api_plugin_package(model))
     }
 
-    pub fn get_package_by_extension_id(&self, extension_id: &str) -> AppResult<Option<PluginPackage>> {
+    pub fn get_package_by_extension_id(
+        &self,
+        extension_id: &str,
+    ) -> AppResult<Option<PluginPackage>> {
         let extension_id = extension_id.trim();
         if extension_id.is_empty() {
             return Ok(None);
@@ -63,12 +66,11 @@ impl PluginPackageService {
                     .to_string(),
             ));
         }
-        let existing = self
-            .db_query(
-                plugin_package::Entity::find()
-                    .filter(plugin_package::Column::Id.eq(package_id))
-                    .one(&self.db),
-            )?;
+        let existing = self.db_query(
+            plugin_package::Entity::find()
+                .filter(plugin_package::Column::Id.eq(package_id))
+                .one(&self.db),
+        )?;
         let now = now_ts();
         let model = if let Some(existing) = existing {
             let mut active_model: plugin_package::ActiveModel = existing.into();

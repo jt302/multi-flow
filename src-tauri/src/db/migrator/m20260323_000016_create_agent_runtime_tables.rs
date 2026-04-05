@@ -17,15 +17,27 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(AgentProviderProfiles::Name).string().not_null())
+                    .col(
+                        ColumnDef::new(AgentProviderProfiles::Name)
+                            .string()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(AgentProviderProfiles::ProviderKind)
                             .string()
                             .not_null(),
                     )
                     .col(ColumnDef::new(AgentProviderProfiles::BaseUrl).string())
-                    .col(ColumnDef::new(AgentProviderProfiles::Model).string().not_null())
-                    .col(ColumnDef::new(AgentProviderProfiles::Enabled).boolean().not_null())
+                    .col(
+                        ColumnDef::new(AgentProviderProfiles::Model)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(AgentProviderProfiles::Enabled)
+                            .boolean()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(AgentProviderProfiles::IsDefault)
                             .boolean()
@@ -67,8 +79,16 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(AgentSessions::RunState).string().not_null())
                     .col(ColumnDef::new(AgentSessions::LatestMessageExcerpt).text())
                     .col(ColumnDef::new(AgentSessions::LastRunId).string())
-                    .col(ColumnDef::new(AgentSessions::CreatedAt).big_integer().not_null())
-                    .col(ColumnDef::new(AgentSessions::UpdatedAt).big_integer().not_null())
+                    .col(
+                        ColumnDef::new(AgentSessions::CreatedAt)
+                            .big_integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(AgentSessions::UpdatedAt)
+                            .big_integer()
+                            .not_null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_agent_sessions_provider_profile")
@@ -90,9 +110,17 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(AgentSessionEvents::SessionId).string().not_null())
+                    .col(
+                        ColumnDef::new(AgentSessionEvents::SessionId)
+                            .string()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(AgentSessionEvents::RunId).string())
-                    .col(ColumnDef::new(AgentSessionEvents::EventType).string().not_null())
+                    .col(
+                        ColumnDef::new(AgentSessionEvents::EventType)
+                            .string()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(AgentSessionEvents::Role).string())
                     .col(ColumnDef::new(AgentSessionEvents::Title).string())
                     .col(ColumnDef::new(AgentSessionEvents::Summary).text())
@@ -132,7 +160,11 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(AgentHandoffs::Status).string().not_null())
                     .col(ColumnDef::new(AgentHandoffs::PayloadJson).text())
                     .col(ColumnDef::new(AgentHandoffs::ResolutionNote).text())
-                    .col(ColumnDef::new(AgentHandoffs::CreatedAt).big_integer().not_null())
+                    .col(
+                        ColumnDef::new(AgentHandoffs::CreatedAt)
+                            .big_integer()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(AgentHandoffs::ResolvedAt).big_integer())
                     .foreign_key(
                         ForeignKey::create()
@@ -192,7 +224,12 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().if_exists().table(AgentHandoffs::Table).to_owned())
+            .drop_table(
+                Table::drop()
+                    .if_exists()
+                    .table(AgentHandoffs::Table)
+                    .to_owned(),
+            )
             .await?;
         manager
             .drop_table(
@@ -203,7 +240,12 @@ impl MigrationTrait for Migration {
             )
             .await?;
         manager
-            .drop_table(Table::drop().if_exists().table(AgentSessions::Table).to_owned())
+            .drop_table(
+                Table::drop()
+                    .if_exists()
+                    .table(AgentSessions::Table)
+                    .to_owned(),
+            )
             .await?;
         manager
             .drop_table(

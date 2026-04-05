@@ -56,11 +56,7 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(AutomationRuns::Status).string().not_null())
-                    .col(
-                        ColumnDef::new(AutomationRuns::StepsJson)
-                            .text()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(AutomationRuns::StepsJson).text().not_null())
                     .col(ColumnDef::new(AutomationRuns::ResultsJson).text())
                     .col(
                         ColumnDef::new(AutomationRuns::StartedAt)

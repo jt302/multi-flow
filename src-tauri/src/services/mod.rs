@@ -1,13 +1,13 @@
 pub mod ai_prompts;
 pub mod ai_service;
 pub mod ai_tools;
-pub mod chat_execution_service;
-pub mod chat_service;
 pub mod app_preference_service;
 pub mod automation_cdp_client;
 pub mod automation_interpolation;
 pub mod automation_service;
 pub mod captcha_service;
+pub mod chat_execution_service;
+pub mod chat_service;
 pub mod chromium_magic_adapter_service;
 pub mod device_preset_service;
 pub mod display_monitor_service;

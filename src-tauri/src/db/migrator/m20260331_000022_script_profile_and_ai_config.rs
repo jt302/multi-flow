@@ -14,9 +14,7 @@ impl MigrationTrait for Migration {
             )
             .await;
         let _ = db
-            .execute_unprepared(
-                "ALTER TABLE automation_scripts ADD COLUMN ai_config_json TEXT",
-            )
+            .execute_unprepared("ALTER TABLE automation_scripts ADD COLUMN ai_config_json TEXT")
             .await;
         Ok(())
     }

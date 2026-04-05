@@ -45,25 +45,57 @@ pub async fn download_resource(
         .lock()
         .map_err(|_| "resource service lock poisoned".to_string())?
         .clone();
-    emit_progress(&app, &task_id, &resource_id, "start", 0, None, "开始下载资源");
+    emit_progress(
+        &app,
+        &task_id,
+        &resource_id,
+        "start",
+        0,
+        None,
+        "开始下载资源",
+    );
     let app_c = app.clone();
     let task_id_c = task_id.clone();
     let resource_id_c = resource_id.clone();
     let force = force.unwrap_or(false);
     let result = tauri::async_runtime::spawn_blocking(move || {
         service.download_resource_with_progress(&resource_id_c, force, |downloaded, total| {
-            emit_progress(&app_c, &task_id_c, &resource_id_c, "download", downloaded, total, "下载中");
+            emit_progress(
+                &app_c,
+                &task_id_c,
+                &resource_id_c,
+                "download",
+                downloaded,
+                total,
+                "下载中",
+            );
         })
     })
     .await
     .map_err(|e| format!("task join error: {e}"))?;
     match result {
         Ok(response) => {
-            emit_progress(&app, &task_id, &resource_id, "done", response.bytes, Some(response.bytes), "已完成");
+            emit_progress(
+                &app,
+                &task_id,
+                &resource_id,
+                "done",
+                response.bytes,
+                Some(response.bytes),
+                "已完成",
+            );
             Ok(response)
         }
         Err(err) => {
-            emit_progress(&app, &task_id, &resource_id, "error", 0, None, &format!("失败: {}", err));
+            emit_progress(
+                &app,
+                &task_id,
+                &resource_id,
+                "error",
+                0,
+                None,
+                &format!("失败: {}", err),
+            );
             Err(error_to_string(err))
         }
     }
@@ -85,7 +117,15 @@ pub async fn install_chromium_resource(
         .lock()
         .map_err(|_| "resource service lock poisoned".to_string())?
         .clone();
-    emit_progress(&app, &task_id, &resource_id, "start", 0, None, "开始下载资源");
+    emit_progress(
+        &app,
+        &task_id,
+        &resource_id,
+        "start",
+        0,
+        None,
+        "开始下载资源",
+    );
     let app_c = app.clone();
     let task_id_c = task_id.clone();
     let resource_id_c = resource_id.clone();
@@ -121,7 +161,15 @@ pub async fn install_chromium_resource(
     match result {
         Ok(response) => Ok(response),
         Err(err) => {
-            emit_progress(&app, &task_id, &resource_id, "error", 0, None, &format!("失败: {}", err));
+            emit_progress(
+                &app,
+                &task_id,
+                &resource_id,
+                "error",
+                0,
+                None,
+                &format!("失败: {}", err),
+            );
             Err(error_to_string(err))
         }
     }

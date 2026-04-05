@@ -47,11 +47,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(
-                        ColumnDef::new(ChatMessages::SessionId)
-                            .string()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(ChatMessages::SessionId).string().not_null())
                     .col(ColumnDef::new(ChatMessages::Role).string().not_null())
                     .col(ColumnDef::new(ChatMessages::ContentText).text())
                     .col(ColumnDef::new(ChatMessages::ContentJson).text())
@@ -101,10 +97,20 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().if_exists().table(ChatMessages::Table).to_owned())
+            .drop_table(
+                Table::drop()
+                    .if_exists()
+                    .table(ChatMessages::Table)
+                    .to_owned(),
+            )
             .await?;
         manager
-            .drop_table(Table::drop().if_exists().table(ChatSessions::Table).to_owned())
+            .drop_table(
+                Table::drop()
+                    .if_exists()
+                    .table(ChatSessions::Table)
+                    .to_owned(),
+            )
             .await
     }
 }
