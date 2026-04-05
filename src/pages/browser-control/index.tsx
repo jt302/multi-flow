@@ -1,15 +1,16 @@
 /**
- * 浏览器控制页面 — 窗口管理、标签页管理、文本输入
+ * 浏览器控制页面 — 窗口管理、标签页管理、文本输入、运行环境窗口详情
  * 从窗口同步页面拆分而来，独立为主导航入口
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod/v3';
 import { AppWindow, LayoutList, Monitor, Send, Type } from 'lucide-react';
+import { useOutletContext } from 'react-router-dom';
 
 import { getWorkspaceSections } from '@/app/model/workspace-sections';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
@@ -17,10 +18,12 @@ import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
 import { formatDisplayMonitorOptionLabel } from '@/entities/window-session/model/display-monitor-label';
 import { useDisplayMonitorsQuery } from '@/entities/window-session/model/use-display-monitors-query';
 import { useSyncTargetsQuery } from '@/entities/window-session/model/use-sync-targets-query';
+import { buildSyncTargetItems } from '@/entities/window-session/model/build-sync-target-items';
 import { useWindowActions } from '@/features/window-session/model/use-window-actions';
 import { useWindowSyncActions } from '@/features/window-session/model/use-window-sync-actions';
 import { useWorkspaceRefresh } from '@/app/model/use-workspace-refresh';
 import { WindowBatchActionsCard } from '@/features/window-session/ui/window-batch-actions-card';
+import { WindowStatesCard } from '@/features/window-session/ui/window-states-card';
 import { useWindowSyncStore, windowSyncStore } from '@/store/window-sync-store';
 import { useSyncManagerStore } from '@/store/sync-manager-store';
 import {
@@ -28,6 +31,8 @@ import {
 	syncTextFormSchema,
 	windowBoundsBatchFormSchema,
 } from '@/features/window-session/model/window-sync-forms';
+import type { WorkspaceOutletContext } from '@/app/model/workspace-types';
+import { NAV_PATHS } from '@/app/workspace-routes';
 import {
 	Button,
 	Card,
@@ -78,6 +83,7 @@ type ArrangeWindowsFormValues = z.infer<typeof arrangeWindowsFormSchema>;
 
 export function BrowserControlRoutePage() {
 	const { t } = useTranslation(['window', 'common']);
+	const { navigation } = useOutletContext<WorkspaceOutletContext>();
 	const profilesQuery = useProfilesQuery();
 	const localTargetsQuery = useSyncTargetsQuery();
 	const displayMonitorsQuery = useDisplayMonitorsQuery();
@@ -88,6 +94,7 @@ export function BrowserControlRoutePage() {
 		useWorkspaceRefresh();
 	const sessionPayload = useSyncManagerStore((s) => s.sessionPayload);
 	const syncLocalTargets = useSyncManagerStore((s) => s.syncLocalTargets);
+	const syncInstances = useSyncManagerStore((s) => s.instances);
 	const selectedProfileIds = useWindowSyncStore((s) => s.selectedProfileIds);
 	const arrangeMode = useWindowSyncStore((s) => s.arrangeMode);
 	const arrangeGap = useWindowSyncStore((s) => s.arrangeGap);
@@ -165,6 +172,9 @@ export function BrowserControlRoutePage() {
 	}, [allSelected, runningProfiles]);
 
 	const [error, setError] = useState<string | null>(null);
+	const [pendingProfileIds, setPendingProfileIds] = useState<Set<string>>(
+		new Set(),
+	);
 
 	const runAction = useCallback(async (action: () => Promise<void>) => {
 		setError(null);
@@ -174,6 +184,20 @@ export function BrowserControlRoutePage() {
 			setError(e instanceof Error ? e.message : String(e));
 		}
 	}, []);
+
+	const runProfileAction = useCallback(
+		async (profileId: string, action: () => Promise<void>) => {
+			if (pendingProfileIds.has(profileId)) return;
+			setPendingProfileIds((prev) => new Set(prev).add(profileId));
+			await runAction(action);
+			setPendingProfileIds((prev) => {
+				const next = new Set(prev);
+				next.delete(profileId);
+				return next;
+			});
+		},
+		[pendingProfileIds, runAction],
+	);
 
 	// Forms
 	const {
@@ -204,6 +228,16 @@ export function BrowserControlRoutePage() {
 		defaultValues: { text: '' },
 	});
 
+	// 当 displayMonitors 加载完成后设置默认显示器
+	useEffect(() => {
+		if (displayMonitors.length === 0) return;
+		const current = arrangeForm.getValues('monitorId');
+		if (current) return;
+		const preferred =
+			displayMonitors.find((m) => m.isPrimary) ?? displayMonitors[0];
+		arrangeForm.setValue('monitorId', preferred.id);
+	}, [arrangeForm, displayMonitors]);
+
 	const resolveValidatedActionUrl = useCallback(async () => {
 		const ok = await trigger('targetUrl');
 		if (!ok) throw new Error(i18next.t('window:validation.invalidUrl'));
@@ -216,6 +250,20 @@ export function BrowserControlRoutePage() {
 		await syncLocalTargets(localTargets);
 	}, [localTargets, refreshWindows, syncLocalTargets]);
 
+	// 构建 windowStates（包含 syncRole, instanceStatus 等富状态）
+	const windowStates = useMemo(
+		() => buildSyncTargetItems(localTargets, syncInstances, sessionPayload),
+		[localTargets, syncInstances, sessionPayload],
+	);
+
+	const handleViewProfile = useCallback(
+		(profileId: string) => {
+			navigation.onSetProfileNavigationIntent({ profileId, view: 'detail' });
+			navigation.onNavigate(NAV_PATHS.profiles);
+		},
+		[navigation],
+	);
+
 	return (
 		<div className="flex h-full min-h-0 w-full flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
 			<ActiveSectionCard
@@ -225,7 +273,7 @@ export function BrowserControlRoutePage() {
 			/>
 
 			{/* 运行环境选择器 */}
-			<Card className="border border-border/60 shadow-none">
+			<Card className="border border-border/60 shadow-none shrink-0">
 				<CardContent className="py-3">
 					<div className="flex items-center gap-3 flex-wrap">
 						<Label className="text-sm shrink-0">{t('page.selectEnv')}</Label>
@@ -273,12 +321,12 @@ export function BrowserControlRoutePage() {
 			</Card>
 
 			{error && (
-				<div className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">
+				<div className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive shrink-0">
 					{error}
 				</div>
 			)}
 
-			<Tabs defaultValue="window" className="flex-1 min-h-0">
+			<Tabs defaultValue="window" className="shrink-0">
 				<TabsList className="h-9 bg-muted/40">
 					<TabsTrigger
 						value="window"
@@ -556,6 +604,30 @@ export function BrowserControlRoutePage() {
 					</Card>
 				</TabsContent>
 			</Tabs>
+
+			{/* 运行环境窗口详情 */}
+			<WindowStatesCard
+				profiles={profilesQuery.data ?? []}
+				windowStates={windowStates}
+				selectedProfileIds={selectedProfileIds}
+				pendingProfileIds={pendingProfileIds}
+				error={error}
+				onSelectProfile={(profileId, checked) =>
+					windowSyncStore.getState().toggleProfile(profileId, checked)
+				}
+				onViewProfile={handleViewProfile}
+				onRunProfileAction={runProfileAction}
+				onResolveValidatedActionUrl={resolveValidatedActionUrl}
+				onOpenTab={windowActions.openTab}
+				onCloseTab={windowActions.closeTab}
+				onCloseInactiveTabs={windowActions.closeInactiveTabs}
+				onActivateTab={windowActions.activateTab}
+				onActivateTabByIndex={windowActions.activateTabByIndex}
+				onOpenWindow={windowActions.openWindow}
+				onCloseWindow={windowActions.closeWindow}
+				onFocusWindow={windowActions.focusWindow}
+				onSetWindowBounds={windowActions.setWindowBounds}
+			/>
 		</div>
 	);
 }

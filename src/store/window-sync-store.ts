@@ -1,5 +1,6 @@
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
+import { persist } from 'zustand/middleware';
 
 import type { WindowArrangeMode } from '@/entities/window-session/model/types';
 
@@ -81,7 +82,51 @@ export function createWindowSyncStore(initialState?: Partial<WindowSyncStoreStat
 	}));
 }
 
-export const windowSyncStore = createWindowSyncStore();
+export const windowSyncStore = createStore<WindowSyncStore>()(
+	persist(
+		(set) => ({
+			...WINDOW_SYNC_INITIAL_STATE,
+			reset: () => set({ ...WINDOW_SYNC_INITIAL_STATE }),
+			toggleProfile: (profileId, checked) =>
+				set((state) => {
+					const selectedProfileIds = checked
+						? state.selectedProfileIds.includes(profileId)
+							? state.selectedProfileIds
+							: [...state.selectedProfileIds, profileId]
+						: state.selectedProfileIds.filter((id) => id !== profileId);
+					return {
+						selectedProfileIds,
+						masterProfileId: resolveMasterProfileId(
+							selectedProfileIds,
+							state.masterProfileId,
+						),
+					};
+				}),
+			setSelectedProfileIds: (selectedProfileIds) =>
+				set((state) => ({
+					selectedProfileIds,
+					masterProfileId: resolveMasterProfileId(
+						selectedProfileIds,
+						state.masterProfileId,
+					),
+				})),
+			setMasterProfileId: (masterProfileId) =>
+				set((state) => ({
+					masterProfileId:
+						masterProfileId && state.selectedProfileIds.includes(masterProfileId)
+							? masterProfileId
+							: null,
+				})),
+			setActiveConfigTab: (activeConfigTab) => set({ activeConfigTab }),
+			setArrangeMode: (arrangeMode) => set({ arrangeMode }),
+			setGap: (arrangeGap) => set({ arrangeGap }),
+		}),
+		{
+			name: 'mf-window-sync-store',
+			partialize: (state) => ({ selectedProfileIds: state.selectedProfileIds, masterProfileId: state.masterProfileId }),
+		},
+	),
+);
 
 export function useWindowSyncStore<T>(selector: (state: WindowSyncStore) => T) {
 	return useStore(windowSyncStore, selector);
