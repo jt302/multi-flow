@@ -23,12 +23,16 @@ export function ScriptListItem({ script, isSelected, onClick }: Props) {
 				if (e.key === 'Enter' || e.key === ' ') onClick();
 			}}
 			className={cn(
-				'w-full text-left px-3 py-2 rounded-md text-sm transition-colors cursor-pointer',
-				isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-muted',
+				'group w-full min-w-0 overflow-hidden text-left rounded-lg px-3 py-2 text-sm transition-colors cursor-pointer',
+				isSelected
+					? 'bg-primary/10 text-primary'
+					: 'hover:bg-muted',
 			)}
 		>
-			<div className="font-medium truncate">{script.name}</div>
-			<div className="text-xs text-muted-foreground mt-0.5">
+			<div className="flex items-start justify-between gap-2 min-w-0">
+				<span className="truncate font-medium leading-5 min-w-0">{script.name}</span>
+			</div>
+			<div className="mt-0.5 text-[11px] text-muted-foreground">
 				{t('detail.stepsShort', { count: script.steps.length })}
 				{!flowEntryState.entryConnected && ` · ${t('detail.entryNotConnected')}`}
 				{flowEntryState.orphanedStepCount > 0 &&

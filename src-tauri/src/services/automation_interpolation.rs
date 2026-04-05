@@ -10,7 +10,9 @@ pub struct RunVariables {
 
 impl RunVariables {
     pub fn new() -> Self {
-        Self { vars: HashMap::new() }
+        Self {
+            vars: HashMap::new(),
+        }
     }
 
     pub fn set(&mut self, key: &str, value: String) {
@@ -38,7 +40,9 @@ impl RunVariables {
     pub fn interpolate_value(&self, value: &Value) -> Value {
         match value {
             Value::String(s) => Value::String(self.interpolate(s)),
-            Value::Array(arr) => Value::Array(arr.iter().map(|v| self.interpolate_value(v)).collect()),
+            Value::Array(arr) => {
+                Value::Array(arr.iter().map(|v| self.interpolate_value(v)).collect())
+            }
             Value::Object(map) => {
                 let new_map = map
                     .iter()

@@ -18,7 +18,8 @@ import type {
 	ScriptStep,
 	ScriptVarDef,
 } from '@/entities/automation/model/types';
-import { KIND_LABELS } from '@/entities/automation/model/step-registry';
+import { getKindLabel } from '@/entities/automation/model/step-registry';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -282,43 +283,50 @@ export function StepPropertiesPanel({
 						placeholder={t("automation:properties.newOrSelect")}
 						className="h-8 text-xs flex-1"
 					/>
-					{availableVars.length > 0 && (
-						<Popover>
-							<PopoverTrigger asChild>
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon"
-									className="h-8 w-8 flex-shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-									title={t("automation:properties.selectExisting")}
-								>
-									<ChevronDown className="h-3.5 w-3.5" />
-								</Button>
-							</PopoverTrigger>
-							<PopoverContent className="w-52 p-1" align="end">
-								<div className="text-xs text-muted-foreground px-2 py-1 font-medium">
-									{t("automation:properties.selectExisting")}
+					<Popover>
+						<PopoverTrigger asChild>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								className="h-8 w-8 flex-shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+								title={t("automation:properties.selectExisting")}
+								disabled={availableVars.length === 0}
+							>
+								<ChevronDown className="h-3.5 w-3.5" />
+							</Button>
+						</PopoverTrigger>
+						<PopoverContent className="w-52 p-1" align="end">
+							{availableVars.length > 0 ? (
+								<>
+									<div className="text-xs text-muted-foreground px-2 py-1 font-medium">
+										{t("automation:properties.selectExisting")}
+									</div>
+									{availableVars.map((v) => (
+										<button
+											key={`${v.name}-${v.source}`}
+											type="button"
+											className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent cursor-pointer flex items-center justify-between gap-2"
+											onClick={() =>
+												onUpdate({ ...step, [key]: v.name } as ScriptStep)
+											}
+										>
+											<span className="font-mono text-blue-500 truncate">
+												{v.name}
+											</span>
+											<span className="text-muted-foreground flex-shrink-0 text-[10px]">
+												{v.source}
+											</span>
+										</button>
+									))}
+								</>
+							) : (
+								<div className="text-xs text-muted-foreground px-2 py-2 text-center">
+									{t("automation:properties.noVarsAvailable")}
 								</div>
-								{availableVars.map((v) => (
-									<button
-										key={`${v.name}-${v.source}`}
-										type="button"
-										className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent cursor-pointer flex items-center justify-between gap-2"
-										onClick={() =>
-											onUpdate({ ...step, [key]: v.name } as ScriptStep)
-										}
-									>
-										<span className="font-mono text-blue-500 truncate">
-											{v.name}
-										</span>
-										<span className="text-muted-foreground flex-shrink-0 text-[10px]">
-											{v.source}
-										</span>
-									</button>
-								))}
-							</PopoverContent>
-						</Popover>
-					)}
+							)}
+						</PopoverContent>
+					</Popover>
 				</div>
 			</div>
 		);
@@ -382,8 +390,9 @@ export function StepPropertiesPanel({
 	const fields: React.ReactNode[] = [];
 
 	if (kind === 'navigate' || kind === 'cdp_navigate') {
-		fields.push(tf('url', 'URL'));
+		fields.push(tf('url', t('automation:properties.url')));
 		fields.push(okf());
+
 	} else if (kind === 'wait') {
 		fields.push(nf('ms', t('automation:fields.waitMs')));
 	} else if (kind === 'click' || kind === 'cdp_click') {
@@ -444,8 +453,9 @@ export function StepPropertiesPanel({
 			</div>,
 		);
 	} else if (kind === 'cdp_open_new_tab') {
-		fields.push(tf('url', 'URL'));
+		fields.push(tf('url', t('automation:properties.url')));
 		fields.push(okf());
+
 	} else if (kind === 'cdp_get_all_tabs') {
 		fields.push(okf());
 	} else if (kind === 'cdp_switch_tab') {
@@ -675,9 +685,10 @@ export function StepPropertiesPanel({
 								onChange={() => toggleMod(mod)}
 								className="h-3.5 w-3.5 cursor-pointer"
 							/>
-							{mod === 'meta'
-								? 'Cmd/Meta'
-								: mod.charAt(0).toUpperCase() + mod.slice(1)}
+					{mod === 'meta'
+						? t('automation:properties.modKeyMeta')
+						: t(`automation:properties.modKey${mod.charAt(0).toUpperCase() + mod.slice(1)}`)}
+
 						</label>
 					))}
 				</div>
@@ -707,11 +718,13 @@ export function StepPropertiesPanel({
 			</div>,
 		);
 	} else if (kind === 'wait_for_user') {
-		fields.push(tf('message', t('automation:fields.message'), true));
-		fields.push(tf('input_label', t('automation:fields.inputLabel')));
+		fields.push(tf('message', t('automation:properties.message'), true));
+		fields.push(tf('input_label', t('automation:properties.inputLabel')));
+
 		fields.push(okf());
-		fields.push(nf('timeout_ms', t('automation:fields.timeoutMsZero')));
+		fields.push(nf('timeout_ms', t('automation:properties.timeoutMsZero')));
 		const onTimeout = String(s['on_timeout'] ?? 'continue');
+
 		fields.push(
 			<div key="on_timeout" className="space-y-1">
 				<Label className="text-xs">{t('automation:fields.timeoutAction')}</Label>
@@ -853,22 +866,24 @@ export function StepPropertiesPanel({
 				</Select>
 				<p className="text-[10px] text-muted-foreground">
 					{outputMode === 'boolean'
-						? 'AI 将输出 true 或 false，可用于条件分支判断'
-						: 'AI 将输出 0-100 的整数百分比，可用于阈值判断'}
+						? t('automation:properties.booleanHint')
+						: t('automation:properties.percentageHint')}
 				</p>
+
 			</div>,
 		);
 		fields.push(nf('max_steps', t('automation:fields.maxRounds')));
 		fields.push(okf());
 		fields.push(toolCategoriesField());
 	} else if (kind === 'magic_open_new_tab') {
-		fields.push(tf('url', 'URL'));
+		fields.push(tf('url', t('automation:properties.url')));
 		fields.push(okf());
 	} else if (kind === 'magic_set_bounds') {
-		fields.push(nf('x', 'X'));
-		fields.push(nf('y', 'Y'));
-		fields.push(nf('width', t('automation:fields.width')));
-		fields.push(nf('height', t('automation:fields.height')));
+		fields.push(nf('x', t('automation:properties.positionX')));
+		fields.push(nf('y', t('automation:properties.positionY')));
+		fields.push(nf('width', t('automation:properties.width')));
+		fields.push(nf('height', t('automation:properties.height')));
+
 	} else if (kind === 'magic_capture_app_shell') {
 		fields.push(outputKeyField('output_key_file_path', t('automation:fields.filePathVar')));
 		const appShellPathValue = String(s['output_path'] ?? '');
@@ -920,15 +935,16 @@ export function StepPropertiesPanel({
 		fields.push(tf('extension_id', t('automation:fields.extensionId')));
 	} else if (kind === 'confirm_dialog') {
 		fields.push(tf('title', t('common:title')));
-		fields.push(tf('message', t('automation:fields.message'), true));
+		fields.push(tf('message', t('automation:properties.message'), true));
 		// 动态按钮列表编辑器
+
 		const buttons = (s['buttons'] as DialogButton[] | undefined) ?? [
 			{ text: t('common:confirm'), value: 'confirm', variant: 'default' },
 			{ text: t('common:cancel'), value: 'cancel', variant: 'outline' },
 		];
 		fields.push(
 			<div key="buttons" className="space-y-1">
-				<Label className="text-xs">{t('automation:fields.buttonList')}</Label>
+				<Label className="text-xs">{t('automation:properties.buttonList')}</Label>
 				<div className="space-y-1.5">
 					{buttons.map((btn: DialogButton, i: number) => (
 						<div key={i} className="flex gap-1 items-center">
@@ -1011,23 +1027,23 @@ export function StepPropertiesPanel({
 								} as ScriptStep)
 							}
 						>
-							{`+ ${t("automation:fields.addButton")}`}
+							{`+ ${t("automation:properties.addButton")}`}
 						</Button>
 					)}
 				</div>
 			</div>,
 		);
-		fields.push(nf('timeout_ms', t('automation:fields.timeoutMsZero')));
-		fields.push(tf('on_timeout_value', t('automation:fields.timeoutDefaultValue')));
+		fields.push(nf('timeout_ms', t('automation:properties.timeoutMsZero')));
+		fields.push(tf('on_timeout_value', t('automation:properties.timeoutDefaultValue')));
 		fields.push(okf());
 	} else if (kind === 'select_dialog') {
 		fields.push(tf('title', t('common:title')));
-		fields.push(tf('message', t('automation:fields.descriptionOptional'), true));
+		fields.push(tf('message', t('automation:properties.description'), true));
 		// 动态选项列表编辑器
 		const options = (s['options'] as string[] | undefined) ?? [];
 		fields.push(
 			<div key="options" className="space-y-1">
-				<Label className="text-xs">{t('automation:fields.optionList')}</Label>
+				<Label className="text-xs">{t('automation:properties.optionList')}</Label>
 				<div className="space-y-1.5">
 					{options.map((opt: string, i: number) => (
 						<div key={i} className="flex gap-1">
@@ -1066,7 +1082,7 @@ export function StepPropertiesPanel({
 							onUpdate({ ...step, options: [...options, ''] } as ScriptStep)
 						}
 					>
-						{`+ ${t("automation:fields.addOption")}`}
+						{`+ ${t("automation:properties.addOption")}`}
 					</Button>
 				</div>
 			</div>,
@@ -1081,10 +1097,10 @@ export function StepPropertiesPanel({
 					}
 					className="h-3.5 w-3.5 cursor-pointer"
 				/>
-				<Label className="text-xs">{t('automation:fields.allowMultiSelect')}</Label>
+				<Label className="text-xs">{t('automation:properties.allowMultiSelect')}</Label>
 			</div>,
 		);
-		fields.push(nf('timeout_ms', t('automation:fields.timeoutMsZero')));
+		fields.push(nf('timeout_ms', t('automation:properties.timeoutMsZero')));
 		fields.push(okf());
 	} else if (kind === 'notification') {
 		fields.push(tf('title', t('common:title')));
@@ -1117,7 +1133,7 @@ export function StepPropertiesPanel({
 				</Select>
 			</div>,
 		);
-		fields.push(nf('duration_ms', t('automation:fields.durationMs')));
+		fields.push(nf('duration_ms', t('automation:properties.durationMs')));
 	} else if (kind === 'cdp_handle_dialog') {
 		const action = String(s['action'] ?? 'accept');
 		fields.push(
@@ -1179,9 +1195,10 @@ export function StepPropertiesPanel({
 			{/* 标题栏 + 删除按钮 */}
 			<div className="flex items-center justify-between px-3 py-2 border-b flex-shrink-0 bg-muted/30">
 				<div className="flex items-center gap-1.5 min-w-0">
-					<span className="text-xs font-bold truncate">
-						{KIND_LABELS[kind] ?? kind}
-					</span>
+				<span className="text-xs font-bold truncate">
+					{getKindLabel(kind)}
+				</span>
+
 					<span className="text-[9px] text-muted-foreground">{t("automation:properties.title")}</span>
 				</div>
 				<Button

@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import type { AutomationScript } from '@/entities/automation/model/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useScriptListFilter } from '../model/use-script-list-filter';
 import { ScriptListItem } from './script-list-item';
 
@@ -29,7 +28,7 @@ export function ScriptListSidebar({
     useScriptListFilter(scripts);
 
   return (
-    <div className="w-64 shrink-0 border-r flex flex-col">
+    <div className="h-full border-r flex flex-col min-w-0">
       {/* 顶部标题行 */}
       <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
         <span className="text-sm font-medium">{t('sidebar.title')}</span>
@@ -71,7 +70,7 @@ export function ScriptListSidebar({
       )}
 
       {/* 脚本列表 */}
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {filtered.length === 0 ? (
           <div className="px-4 py-8 text-center text-sm text-muted-foreground">
             {scripts.length === 0 ? (
@@ -84,7 +83,7 @@ export function ScriptListSidebar({
             )}
           </div>
         ) : (
-          <div className="p-2 space-y-1">
+          <div className="p-2 space-y-1 w-full">
             {filtered.map((script) => (
               <ScriptListItem
                 key={script.id}
@@ -95,7 +94,7 @@ export function ScriptListSidebar({
             ))}
           </div>
         )}
-      </ScrollArea>
+      </div>
 
     </div>
   );

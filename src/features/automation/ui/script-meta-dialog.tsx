@@ -39,6 +39,7 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useDefaultAiConfigQuery } from '@/entities/ai/model/use-default-ai-config-query';
 
 type Props = {
 	open: boolean;
@@ -75,6 +76,12 @@ export function ScriptMetaDialog({
 	const [aiConfigId, setAiConfigId] = useState<string | null>(null);
 	const [profilePickerOpen, setProfilePickerOpen] = useState(false);
 	const { t } = useTranslation(['automation', 'common']);
+
+	const defaultConfigQuery = useDefaultAiConfigQuery();
+	const defaultConfigId = defaultConfigQuery.data ?? null;
+	const defaultConfig = defaultConfigId
+		? (aiConfigs.find((c) => c.id === defaultConfigId) ?? null)
+		: null;
 
 	// 每次对话框打开时同步脚本数据
 	useEffect(() => {
@@ -134,7 +141,7 @@ export function ScriptMetaDialog({
 					</DialogTitle>
 				</DialogHeader>
 
-				<div className="space-y-3 overflow-y-auto flex-1 min-h-0 px-0.5">
+				<div className="space-y-3 overflow-y-auto flex-1 min-h-0 p-1">
 					{/* 脚本名称 */}
 					<div className="space-y-1.5">
 						<Label>{t('meta.scriptName')}</Label>
@@ -261,11 +268,19 @@ export function ScriptMetaDialog({
 											? t('meta.useGlobalConfig')
 											: t('meta.addAiConfigFirst')
 									}
-								/>
+								>
+									{aiConfigId
+										? (aiConfigs.find((c) => c.id === aiConfigId)?.name ?? aiConfigId)
+										: (defaultConfig
+											? `${t('meta.globalConfig', '全局配置')}(${defaultConfig.name})`
+											: t('meta.useGlobalConfig'))}
+								</SelectValue>
 							</SelectTrigger>
 							<SelectContent>
 								<SelectItem value="__none__" className="cursor-pointer">
-									{t('meta.useGlobalConfig')}
+									{defaultConfig
+										? `${t('meta.globalConfig', '全局配置')}(${defaultConfig.name})`
+										: t('meta.useGlobalConfig')}
 								</SelectItem>
 								{aiConfigs.map((c) => (
 									<SelectItem
@@ -274,7 +289,6 @@ export function ScriptMetaDialog({
 										className="cursor-pointer"
 									>
 										{c.name}
-										{c.model ? ` (${c.model})` : ''}
 									</SelectItem>
 								))}
 							</SelectContent>

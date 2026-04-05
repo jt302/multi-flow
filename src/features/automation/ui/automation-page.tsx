@@ -22,6 +22,11 @@ import { queryKeys } from '@/shared/config/query-keys';
 import { useAutomationActions } from '@/features/automation/model/use-automation-actions';
 import { useAutomationStore } from '@/store/automation-store';
 import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
+import {
+	ResizableHandle,
+	ResizablePanel,
+	ResizablePanelGroup,
+} from '@/components/ui/resizable';
 import { ScriptDetailPanel } from './script-detail-panel';
 import { ScriptListSidebar } from './script-list-sidebar';
 import { ScriptMetaDialog } from './script-meta-dialog';
@@ -263,8 +268,10 @@ export function AutomationPage() {
 	}
 
 	return (
-		<div className="flex h-full">
+		<>
+		<ResizablePanelGroup direction="horizontal" className="h-full">
 			{/* 左侧脚本列表侧边栏 */}
+			<ResizablePanel defaultSize={20} minSize={14} maxSize={40}>
 			<ScriptListSidebar
 				scripts={scripts}
 				selectedScriptId={selectedScriptId}
@@ -272,9 +279,12 @@ export function AutomationPage() {
 				onNew={handleNewScript}
 				onImport={handleImportClick}
 			/>
+			</ResizablePanel>
+			<ResizableHandle />
 
 			{/* 右侧：详情面板 or 仪表盘 */}
-			<div className="flex-1 flex flex-col overflow-hidden">
+			<ResizablePanel defaultSize={80}>
+			<div className="flex flex-col h-full overflow-hidden">
 				{selectedScript ? (
 					<ScriptDetailPanel
 						script={selectedScript}
@@ -324,28 +334,30 @@ export function AutomationPage() {
 					</div>
 				)}
 			</div>
+			</ResizablePanel>
+		</ResizablePanelGroup>
 
-			{/* 新建/编辑元数据对话框 */}
-			<ScriptMetaDialog
-				open={metaDialogOpen}
-				onOpenChange={setMetaDialogOpen}
-				script={metaDialogScript}
-				allProfiles={allProfiles}
-				aiConfigs={aiConfigs}
-				existingNames={scripts.map((s) => s.name)}
-				onSave={handleMetaSave}
-				isSaving={isSaving}
-			/>
+		{/* 新建/编辑元数据对话框 */}
+		<ScriptMetaDialog
+			open={metaDialogOpen}
+			onOpenChange={setMetaDialogOpen}
+			script={metaDialogScript}
+			allProfiles={allProfiles}
+			aiConfigs={aiConfigs}
+			existingNames={scripts.map((s) => s.name)}
+			onSave={handleMetaSave}
+			isSaving={isSaving}
+		/>
 
-			{/* 隐藏文件输入（由 ScriptListSidebar 内部 ref 控制，但 onChange 在这里） */}
-			<input
-				ref={importInputRef}
-				type="file"
-				accept=".json"
-				className="hidden"
-				onChange={handleImportFile}
-			/>
-		</div>
+		{/* 隐藏文件输入 */}
+		<input
+			ref={importInputRef}
+			type="file"
+			accept=".json"
+			className="hidden"
+			onChange={handleImportFile}
+		/>
+		</>
 	);
 }
 

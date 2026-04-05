@@ -137,9 +137,8 @@ impl AutomationService {
                 .as_ref()
                 .and_then(|c| serde_json::to_string(c).ok()));
         }
-        if req.ai_config_id.is_some() {
-            active.ai_config_id = Set(req.ai_config_id);
-        }
+        // 始终更新 ai_config_id，支持设置为 null（回退到全局配置）
+        active.ai_config_id = Set(req.ai_config_id);
         if let Some(ref s) = req.settings {
             active.settings_json = Set(serde_json::to_string(s).ok());
         }

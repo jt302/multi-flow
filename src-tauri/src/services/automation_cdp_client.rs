@@ -96,7 +96,10 @@ impl CdpClient {
                 if let Some(error) = parsed.get("error") {
                     return Err(format!("CDP error: {error}"));
                 }
-                return Ok(parsed.get("result").cloned().unwrap_or(serde_json::Value::Null));
+                return Ok(parsed
+                    .get("result")
+                    .cloned()
+                    .unwrap_or(serde_json::Value::Null));
             }
         }
         Err("CDP connection closed without response".to_string())
@@ -147,13 +150,16 @@ impl CdpClient {
                     }
                     _ => continue,
                 };
-                let parsed: serde_json::Value = serde_json::from_str(&text)
-                    .map_err(|e| format!("CDP parse failed: {e}"))?;
+                let parsed: serde_json::Value =
+                    serde_json::from_str(&text).map_err(|e| format!("CDP parse failed: {e}"))?;
                 if parsed.get("id").and_then(|v| v.as_u64()) == Some(req_id) {
                     if let Some(error) = parsed.get("error") {
                         return Err(format!("CDP error: {error}"));
                     }
-                    break parsed.get("result").cloned().unwrap_or(serde_json::Value::Null);
+                    break parsed
+                        .get("result")
+                        .cloned()
+                        .unwrap_or(serde_json::Value::Null);
                 }
             };
             results.push(result);
