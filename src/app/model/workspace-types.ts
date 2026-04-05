@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 
 import type { PresetKey, ThemeMode } from '@/entities/theme/model/types';
 
-export type NavId = 'dashboard' | 'profiles' | 'plugins' | 'groups' | 'proxy' | 'windows' | 'browser-control' | 'automation' | 'settings';
+export type NavId = 'dashboard' | 'profiles' | 'plugins' | 'groups' | 'proxy' | 'windows' | 'browser-control' | 'automation' | 'ai-chat' | 'settings';
 
 export type NavItem = {
 	id: NavId;
@@ -25,21 +25,10 @@ export type NavSection = {
 	rows: SessionRow[];
 };
 
-export type MetricsGridProps = {
-	resolvedMode: string;
-	useCustomColor: boolean;
-	preset: PresetKey;
-};
-
 export type ActiveSectionCardProps = {
 	label: string;
 	title: string;
 	description: string;
-};
-
-export type SessionTableCardProps = {
-	title: string;
-	rows: SessionRow[];
 };
 
 export type ProfileNavigationIntent = {

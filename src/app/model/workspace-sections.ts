@@ -8,12 +8,8 @@ export function getWorkspaceSections(): Record<NavItem['id'], NavSection> {
 		dashboard: {
 			title: t('nav:dashboardSection.title'),
 			desc: t('nav:dashboardSection.desc'),
-			tableTitle: t('nav:dashboardSection.tableTitle'),
-			rows: [
-				{ name: 'AirDrop-001', group: 'AirDrop', status: t('nav:sampleStatus.running'), geo: 'US / New York', last: t('common:justNow') },
-				{ name: 'AirDrop-002', group: 'AirDrop', status: t('nav:sampleStatus.standby'), geo: 'DE / Frankfurt', last: t('common:minutesAgo', { count: 12 }) },
-				{ name: 'Brand-TikTok-01', group: t('nav:sampleRows.brandAccount'), status: t('nav:sampleStatus.alert'), geo: 'GB / London', last: t('common:minutesAgo', { count: 3 }) },
-			],
+			tableTitle: '',
+			rows: [],
 		},
 		profiles: {
 			title: t('nav:profilesSection.title'),
@@ -75,6 +71,12 @@ export function getWorkspaceSections(): Record<NavItem['id'], NavSection> {
 			title: t('nav:automationSection.title'),
 			desc: t('nav:automationSection.desc'),
 			tableTitle: t('nav:automationSection.tableTitle'),
+			rows: [],
+		},
+		'ai-chat': {
+			title: t('nav:aiChatSection.title'),
+			desc: t('nav:aiChatSection.desc'),
+			tableTitle: '',
 			rows: [],
 		},
 		settings: {

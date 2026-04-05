@@ -5,6 +5,7 @@ import {
 	Folders,
 	Globe2,
 	LayoutDashboard,
+	MessageSquare,
 	PanelsTopLeft,
 	Puzzle,
 	Settings2,
@@ -24,6 +25,7 @@ export function getWorkspaceNavItems(): NavItem[] {
 		{ id: 'windows', label: t('nav:windows'), icon: PanelsTopLeft },
 		{ id: 'browser-control', label: t('nav:browserControl'), icon: AppWindow },
 		{ id: 'automation', label: t('nav:automation'), icon: Bot },
+		{ id: 'ai-chat', label: t('nav:aiChat'), icon: MessageSquare },
 		{ id: 'settings', label: t('nav:settings'), icon: Settings2 },
 	];
 }

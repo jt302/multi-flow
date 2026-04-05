@@ -9,6 +9,7 @@ export const NAV_PATHS: Record<NavId, string> = {
 	windows: '/windows',
 	'browser-control': '/browser-control',
 	automation: '/automation',
+	'ai-chat': '/ai-chat',
 	settings: '/settings',
 };
 
