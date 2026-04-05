@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 
 import { ChevronDown, ChevronRight, Clock, Wrench } from 'lucide-react';
@@ -14,6 +15,13 @@ export function ToolCallCard({ message }: Props) {
 	const [open, setOpen] = useState(false);
 	const args = message.toolArgsJson ? tryParseJson(message.toolArgsJson) : null;
 	const isError = message.toolStatus === 'failed';
+	const imageSrc = message.imageRef
+		? convertFileSrc(message.imageRef)
+		: message.imageBase64
+			? (message.imageBase64.startsWith('data:')
+				? message.imageBase64
+				: `data:image/png;base64,${message.imageBase64}`)
+			: null;
 
 	return (
 		<div
@@ -63,14 +71,14 @@ export function ToolCallCard({ message }: Props) {
 							</pre>
 						</div>
 					)}
-					{message.imageBase64 && (
+					{imageSrc && (
 						<img
-							src={`data:image/png;base64,${message.imageBase64}`}
+							src={imageSrc}
 							alt="tool result screenshot"
 							className="max-w-full rounded border"
 						/>
 					)}
-					{message.toolResult && !message.imageBase64 && (
+					{message.toolResult && !imageSrc && (
 						<div>
 							<p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
 								{t('toolResult')}

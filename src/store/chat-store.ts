@@ -43,6 +43,20 @@ const INITIAL_STATE: ChatStoreState = {
 	liveMessages: [],
 };
 
+function upsertLiveMessage(
+	liveMessages: ChatMessageRecord[],
+	message: ChatMessageRecord,
+): ChatMessageRecord[] {
+	const index = liveMessages.findIndex((item) => item.id === message.id);
+	if (index === -1) {
+		return [...liveMessages, message];
+	}
+
+	const next = liveMessages.slice();
+	next[index] = message;
+	return next;
+}
+
 export function createChatStore(initial?: Partial<ChatStoreState>) {
 	return createStore<ChatStoreState & ChatStoreActions>((set) => ({
 		...INITIAL_STATE,
@@ -56,7 +70,7 @@ export function createChatStore(initial?: Partial<ChatStoreState>) {
 		finishGeneration: () => set({ isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null }),
 
 		appendMessage: (msg) =>
-			set((s) => ({ liveMessages: [...s.liveMessages, msg] })),
+			set((s) => ({ liveMessages: upsertLiveMessage(s.liveMessages, msg) })),
 
 		updatePhase: (event) => {
 			const shared = {
@@ -92,7 +106,7 @@ export const chatStore = createStore<ChatStoreState & ChatStoreActions>()(
 			finishGeneration: () => set({ isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null }),
 
 			appendMessage: (msg) =>
-				set((s) => ({ liveMessages: [...s.liveMessages, msg] })),
+				set((s) => ({ liveMessages: upsertLiveMessage(s.liveMessages, msg) })),
 
 			updatePhase: (event) => {
 				const shared = {
