@@ -21,7 +21,7 @@ import { useWindowActions } from '@/features/window-session/model/use-window-act
 import { useWindowSyncActions } from '@/features/window-session/model/use-window-sync-actions';
 import { useWorkspaceRefresh } from '@/app/model/use-workspace-refresh';
 import { WindowBatchActionsCard } from '@/features/window-session/ui/window-batch-actions-card';
-import { useWindowSyncStore } from '@/store/window-sync-store';
+import { useWindowSyncStore, windowSyncStore } from '@/store/window-sync-store';
 import { useSyncManagerStore } from '@/store/sync-manager-store';
 import {
 	arrangeWindowsFormSchema,
@@ -130,6 +130,40 @@ export function BrowserControlRoutePage() {
 		return selectedProfileIds.filter((id) => runningSet.has(id));
 	}, [runningProfileIds, selectedProfileIds]);
 
+	const runningProfiles = useMemo(() => {
+		const profilesData = profilesQuery.data ?? [];
+		return profilesData.filter(
+			(p) => p.lifecycle === 'active' && p.running,
+		);
+	}, [profilesQuery.data]);
+
+	const allSelected =
+		runningProfiles.length > 0 &&
+		runningProfiles.every((p) => selectedProfileIds.includes(p.id));
+
+	const toggleProfile = useCallback(
+		(id: string) => {
+			const current = windowSyncStore.getState().selectedProfileIds;
+			const isChecked = !current.includes(id);
+			windowSyncStore.getState().toggleProfile(id, isChecked);
+		},
+		[],
+	);
+
+	const toggleAll = useCallback(() => {
+		const state = windowSyncStore.getState();
+		const current = state.selectedProfileIds;
+		if (allSelected) {
+			runningProfiles.forEach((p) => state.toggleProfile(p.id, false));
+		} else {
+			runningProfiles.forEach((p) => {
+				if (!current.includes(p.id)) {
+					state.toggleProfile(p.id, true);
+				}
+			});
+		}
+	}, [allSelected, runningProfiles]);
+
 	const [error, setError] = useState<string | null>(null);
 
 	const runAction = useCallback(async (action: () => Promise<void>) => {
@@ -190,6 +224,54 @@ export function BrowserControlRoutePage() {
 				description={section.desc}
 			/>
 
+			{/* 运行环境选择器 */}
+			<Card className="border border-border/60 shadow-none">
+				<CardContent className="py-3">
+					<div className="flex items-center gap-3 flex-wrap">
+						<Label className="text-sm shrink-0">{t('page.selectEnv')}</Label>
+						<div className="flex flex-wrap gap-2 flex-1 min-w-0">
+							{runningProfiles.length === 0 ? (
+								<span className="text-xs text-muted-foreground">
+									{t('page.noRunningEnv')}
+								</span>
+							) : (
+								runningProfiles.map((p) => {
+									const isSelected = selectedProfileIds.includes(p.id);
+									return (
+										<button
+											key={p.id}
+											type="button"
+											onClick={() => toggleProfile(p.id)}
+											className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer border ${
+												isSelected
+													? 'bg-primary text-primary-foreground border-primary'
+													: 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+											}`}
+										>
+											{p.name}
+											{isSelected && (
+												<span className="text-[10px] opacity-70">✓</span>
+											)}
+										</button>
+									);
+								})
+							)}
+						</div>
+						{runningProfiles.length > 1 && (
+							<button
+								type="button"
+								onClick={toggleAll}
+								className="text-xs text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
+							>
+								{allSelected
+									? t('page.deselectAll')
+									: t('page.selectAll')}
+							</button>
+						)}
+					</div>
+				</CardContent>
+			</Card>
+
 			{error && (
 				<div className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">
 					{error}
@@ -203,21 +285,21 @@ export function BrowserControlRoutePage() {
 						className="text-xs h-7 px-3 cursor-pointer gap-1.5"
 					>
 						<AppWindow className="h-3 w-3" />
-						{t('window:management')}
+						{t('page.windowManagement')}
 					</TabsTrigger>
 					<TabsTrigger
 						value="tab"
 						className="text-xs h-7 px-3 cursor-pointer gap-1.5"
 					>
 						<LayoutList className="h-3 w-3" />
-						{t('window:tabManagement')}
+						{t('page.tabManagement')}
 					</TabsTrigger>
 					<TabsTrigger
 						value="text"
 						className="text-xs h-7 px-3 cursor-pointer gap-1.5"
 					>
 						<Type className="h-3 w-3" />
-						{t('window:textInput')}
+						{t('page.textInput')}
 					</TabsTrigger>
 				</TabsList>
 
