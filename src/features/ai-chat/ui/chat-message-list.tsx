@@ -31,7 +31,7 @@ export function ChatMessageList({ messages, isGenerating }: Props) {
 
 	return (
 		<ScrollArea className="flex-1 min-h-0">
-			<div className="px-4 py-4 space-y-4 max-w-3xl mx-auto w-full">
+			<div className="px-4 py-4 space-y-4 max-w-5xl mx-auto w-full">
 				{messages.map((msg) => (
 					<MessageItem key={msg.id} message={msg} />
 				))}
