@@ -34,7 +34,7 @@ export function ScriptStepsViewer({
   const varEntries = Object.entries(liveVariables);
 
   return (
-    <ScrollArea className="h-full">
+    <ScrollArea className="flex-1 min-h-0">
       <div className="px-5 py-4">
         {!entryConnected && steps.length > 0 && (
           <div className="mb-3 rounded-md border border-amber-300/80 bg-amber-50/90 px-3 py-2 text-xs text-amber-800">

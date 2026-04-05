@@ -55,8 +55,22 @@ export function AutomationCanvasRoutePage() {
 			isRunning={isRunning}
 			activeRunId={belongsToThisScript ? activeRunId : null}
 			liveStepResults={belongsToThisScript ? liveStepResults : []}
-			onRun={(profileIds, initialVars) =>
-				void Promise.all(
+			onRun={(profileIds, initialVars, delayConfig) => {
+				const normalizedDelay =
+					delayConfig && delayConfig.enabled
+						? {
+								enabled: true,
+								minSeconds: Math.max(
+									0,
+									Math.min(delayConfig.minSeconds, delayConfig.maxSeconds),
+								),
+								maxSeconds: Math.max(
+									delayConfig.minSeconds,
+									delayConfig.maxSeconds,
+								),
+							}
+						: null;
+				return void Promise.all(
 					profileIds.map((profileId) =>
 						runScript.mutateAsync({
 							scriptId: script.id,
@@ -64,10 +78,11 @@ export function AutomationCanvasRoutePage() {
 							stepTotal: script.steps.length,
 							initialVars:
 								Object.keys(initialVars).length > 0 ? initialVars : undefined,
+							delayConfig: normalizedDelay,
 						}),
 					),
-				)
-			}
+				);
+			}}
 			onDebugRun={(profileId, initialVars) =>
 				void debugRun.mutateAsync({
 					scriptId: script.id,
