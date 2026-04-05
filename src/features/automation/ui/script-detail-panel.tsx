@@ -205,7 +205,7 @@ export function ScriptDetailPanel({
 			</div>
 
 			{/* 上方：步骤列表（flex-1，随容器自适应） */}
-			<div className="flex-1 min-h-0 overflow-hidden">
+			<div className="flex-1 min-h-0 flex flex-col overflow-hidden">
 				<div className="flex items-center px-5 pt-3 pb-1 shrink-0">
 					<div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
 						<span>

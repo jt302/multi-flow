@@ -18,7 +18,11 @@
 		"recentSyncErrors": "Recent Sync Errors",
 		"noSyncErrors": "No sync errors",
 		"recentProbeErrors": "Recent Probe Errors",
-		"noProbeErrors": "No probe errors"
+		"noProbeErrors": "No probe errors",
+		"selectEnv": "Running Environments",
+		"noRunningEnv": "No running environments",
+		"selectAll": "Select All",
+		"deselectAll": "Deselect All"
 	},
 	"arrange": {
 		"uniformSize": "Uniform Size / Show Windows",
