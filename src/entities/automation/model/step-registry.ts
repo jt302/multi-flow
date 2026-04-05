@@ -596,6 +596,1243 @@ export function defaultStep(kind: string): ScriptStep {
 	}
 }
 
+// ─── 步骤详细技术信息（用于 Tooltip 展示）─────────────────────────────────────
+
+export interface StepToolInfo {
+	/** 功能描述 */
+	description: string;
+	/** 输入参数列表 */
+	inputs: { name: string; desc: string; required?: boolean }[];
+	/** 输出参数 */
+	outputs: { name: string; desc: string }[];
+	/** 使用时机/场景 */
+	whenToUse: string;
+	/** 典型示例 */
+	example?: string;
+}
+
+export const STEP_TOOL_INFO: Record<string, StepToolInfo> = {
+	// 基础步骤
+	cdp_navigate: {
+		description: '跳转到指定 URL，支持变量插值如 {{var}}',
+		inputs: [
+			{ name: 'url', desc: '目标网址（支持变量插值）', required: true },
+		],
+		outputs: [{ name: 'output_key', desc: '返回的 target_id（可选）' }],
+		whenToUse: '需要打开新页面或跳转到其他网址时使用。注意：不会自动等待加载完成，需配合 cdp_wait_for_page_load',
+		example: 'url: "https://example.com/login"',
+	},
+	cdp_click: {
+		description: '点击页面元素，支持 CSS/XPath/Text 选择器',
+		inputs: [
+			{ name: 'selector', desc: '元素选择器（CSS/XPath/Text）', required: true },
+			{ name: 'selector_type', desc: '选择器类型：css/xpath/text', required: false },
+		],
+		outputs: [],
+		whenToUse: '点击按钮、链接、复选框等可交互元素。会自动滚动到元素可见位置',
+		example: 'selector: "#submit-btn"',
+	},
+	cdp_type: {
+		description: '聚焦元素并模拟键盘输入文本',
+		inputs: [
+			{ name: 'selector', desc: '目标输入框选择器', required: true },
+			{ name: 'text', desc: '输入的文本内容（支持变量）', required: true },
+		],
+		outputs: [],
+		whenToUse: '在输入框中输入文本。触发 focus、input 事件，但不触发 keydown/keyup。React/Vue 受控组件建议用 cdp_set_input_value',
+		example: 'selector: "#username", text: "{{user}}"',
+	},
+	cdp_set_input_value: {
+		description: '直接设置 input 的 value 值并触发 input/change 事件',
+		inputs: [
+			{ name: 'selector', desc: '目标输入框选择器', required: true },
+			{ name: 'value', desc: '设置的值（支持变量）', required: true },
+		],
+		outputs: [],
+		whenToUse: 'React/Vue 等现代框架的受控组件输入，兼容性更好',
+		example: 'selector: "input[name=email]", value: "test@example.com"',
+	},
+	cdp_get_text: {
+		description: '获取元素的文本内容',
+		inputs: [
+			{ name: 'selector', desc: '目标元素选择器', required: true },
+		],
+		outputs: [{ name: 'output_key', desc: '文本内容' }],
+		whenToUse: '提取页面上的价格、标题、状态等文本数据，保存到变量供后续使用',
+		example: 'selector: ".price", output_key: "price"',
+	},
+	cdp_get_attribute: {
+		description: '获取元素的 HTML 属性值',
+		inputs: [
+			{ name: 'selector', desc: '目标元素选择器', required: true },
+			{ name: 'attribute', desc: '属性名（如 href、src、data-id）', required: true },
+		],
+		outputs: [{ name: 'output_key', desc: '属性值' }],
+		whenToUse: '获取链接 URL、图片地址、自定义数据属性等',
+		example: 'selector: "a.link", attribute: "href"',
+	},
+	cdp_screenshot: {
+		description: '截取页面截图，支持保存到文件或 base64',
+		inputs: [
+			{ name: 'output_path', desc: '保存路径（可选，默认存变量）', required: false },
+		],
+		outputs: [
+			{ name: 'output_key', desc: 'base64 图片数据' },
+			{ name: 'output_key_file_path', desc: '保存的文件路径' },
+		],
+		whenToUse: '页面状态检查、结果验证、生成报告。AI 执行时第一步通常先截图观察',
+		example: 'output_path: "/tmp/screenshot.png"',
+	},
+	cdp_wait_for_page_load: {
+		description: '等待页面完全加载（readyState=complete）',
+		inputs: [
+			{ name: 'timeout_ms', desc: '超时毫秒数（默认 30000）', required: false },
+		],
+		outputs: [],
+		whenToUse: '导航后等待页面加载完成，再执行后续操作',
+		example: 'timeout_ms: 15000',
+	},
+	cdp_wait_for_selector: {
+		description: '等待元素出现在 DOM 中',
+		inputs: [
+			{ name: 'selector', desc: '等待的元素选择器', required: true },
+			{ name: 'timeout_ms', desc: '超时毫秒数（默认 10000）', required: false },
+		],
+		outputs: [],
+		whenToUse: 'SPA 应用页面切换、异步加载内容后，等待特定元素出现再操作',
+		example: 'selector: ".loading-complete", timeout_ms: 20000',
+	},
+	cdp_scroll_to: {
+		description: '滚动到元素或指定坐标',
+		inputs: [
+			{ name: 'selector', desc: '滚动到的元素（与 x/y 二选一）', required: false },
+			{ name: 'x', desc: 'X 坐标', required: false },
+			{ name: 'y', desc: 'Y 坐标', required: false },
+		],
+		outputs: [],
+		whenToUse: '长页面中滚动到特定区域，或确保元素在视口中可见',
+		example: 'selector: "#footer" 或 x: 0, y: 500',
+	},
+	cdp_press_key: {
+		description: '模拟单个按键',
+		inputs: [
+			{ name: 'key', desc: '按键名（Enter、Tab、Escape、ArrowDown 等）', required: true },
+		],
+		outputs: [],
+		whenToUse: '提交表单（Enter）、切换焦点（Tab）、关闭弹窗（Escape）',
+		example: 'key: "Enter"',
+	},
+	cdp_shortcut: {
+		description: '模拟键盘快捷键组合',
+		inputs: [
+			{ name: 'modifiers', desc: '修饰键数组 [ctrl, alt, shift, meta]', required: true },
+			{ name: 'key', desc: '主键', required: true },
+		],
+		outputs: [],
+		whenToUse: '复制粘贴（Ctrl+C/V）、全选（Ctrl+A）、保存（Ctrl+S）',
+		example: 'modifiers: ["ctrl"], key: "c"',
+	},
+	cdp_execute_js: {
+		description: '执行任意 JavaScript 并返回结果',
+		inputs: [
+			{ name: 'expression', desc: 'JS 表达式（多行用分号分隔）', required: false },
+			{ name: 'file_path', desc: 'JS 文件路径（与 expression 二选一）', required: false },
+		],
+		outputs: [{ name: 'output_key', desc: 'JS 返回值' }],
+		whenToUse: '复杂 DOM 操作、计算、聚合数据，或调用页面全局函数',
+		example: 'expression: "document.querySelectorAll(\".item\").length"',
+	},
+	wait: {
+		description: '简单等待指定毫秒数',
+		inputs: [
+			{ name: 'ms', desc: '等待毫秒数', required: true },
+		],
+		outputs: [],
+		whenToUse: '简单延时等待，适用于已知固定时间的场景',
+		example: 'ms: 2000',
+	},
+	ai_agent: {
+		description: 'AI Agent 自主调用工具完成复杂任务',
+		inputs: [
+			{ name: 'prompt', desc: '任务描述（支持变量）', required: true },
+			{ name: 'max_steps', desc: '最大执行步数（默认 10）', required: false },
+			{ name: 'system_prompt', desc: '系统提示词（可选）', required: false },
+		],
+		outputs: [{ name: 'output_key', desc: 'AI 返回的结果' }],
+		whenToUse: '复杂多步任务（如"查找商品并加入购物车"）、需要智能判断的场景',
+		example: 'prompt: "在搜索框输入 {{keyword}}，点击搜索，截图查看结果"',
+	},
+	ai_judge: {
+		description: 'AI 判断条件并返回 true/false 或 0-100 分数',
+		inputs: [
+			{ name: 'prompt', desc: '判断条件描述', required: true },
+			{ name: 'output_mode', desc: '输出模式：boolean/percentage', required: false },
+			{ name: 'max_steps', desc: '最大步数（默认 5）', required: false },
+		],
+		outputs: [{ name: 'output_key', desc: 'boolean 或 percentage 值' }],
+		whenToUse: '条件分支前判断（如"页面是否包含错误提示"、"评分是否大于 80"）',
+		example: 'prompt: "当前页面是否显示登录成功？", output_mode: "boolean"',
+	},
+	condition: {
+		description: '条件分支（if/else）',
+		inputs: [
+			{ name: 'condition_expr', desc: '条件表达式（支持 {{变量}}）', required: true },
+			{ name: 'then_steps', desc: '条件为真时执行的步骤', required: true },
+			{ name: 'else_steps', desc: '条件为假时执行的步骤', required: false },
+		],
+		outputs: [],
+		whenToUse: '根据变量值或表达式结果执行不同分支逻辑',
+		example: 'condition_expr: "{{price}} < 100"',
+	},
+	loop: {
+		description: '循环执行子步骤',
+		inputs: [
+			{ name: 'mode', desc: '循环模式：count/condition/list', required: true },
+			{ name: 'count', desc: '循环次数（mode=count）', required: false },
+			{ name: 'condition_expr', desc: '循环条件（mode=condition）', required: false },
+			{ name: 'body_steps', desc: '循环体步骤', required: true },
+		],
+		outputs: [],
+		whenToUse: '重复操作、遍历列表、条件循环（如 while）',
+		example: 'mode: "count", count: 3',
+	},
+	print: {
+		description: '输出日志信息到执行记录',
+		inputs: [
+			{ name: 'text', desc: '日志内容（支持变量）', required: true },
+			{ name: 'level', desc: '日志级别：info/warn/error/debug', required: false },
+		],
+		outputs: [],
+		whenToUse: '调试输出、记录关键变量值、标记执行进度',
+		example: 'text: "当前价格: {{price}}", level: "info"',
+	},
+	confirm_dialog: {
+		description: '显示确认弹窗，用户选择后进入不同分支',
+		inputs: [
+			{ name: 'title', desc: '弹窗标题', required: false },
+			{ name: 'message', desc: '提示消息', required: true },
+			{ name: 'buttons', desc: '按钮定义数组（text、value、variant）', required: true },
+		],
+		outputs: [{ name: 'output_key', desc: '用户点击的按钮值' }],
+		whenToUse: '人工介入决策点（如"是否继续？"、"选择处理方式"）',
+		example: 'message: "检测到验证码，是否继续？", buttons: [{text:"继续", value:"yes"}, {text:"停止", value:"no"}]',
+	},
+	// 扩展步骤
+	cdp_reload: {
+		description: '刷新当前页面',
+		inputs: [
+			{ name: 'ignore_cache', desc: '是否忽略缓存（强制刷新）', required: false },
+		],
+		outputs: [],
+		whenToUse: '需要刷新页面获取最新内容，或清除页面状态',
+		example: 'ignore_cache: true',
+	},
+	cdp_go_back: {
+		description: '浏览器后退导航',
+		inputs: [
+			{ name: 'steps', desc: '后退步数（默认 1）', required: false },
+		],
+		outputs: [],
+		whenToUse: '返回上一页或多页浏览历史',
+		example: 'steps: 1',
+	},
+	cdp_go_forward: {
+		description: '浏览器前进导航',
+		inputs: [
+			{ name: 'steps', desc: '前进步数（默认 1）', required: false },
+		],
+		outputs: [],
+		whenToUse: '前进到浏览历史中的下一页',
+		example: 'steps: 1',
+	},
+	cdp_open_new_tab: {
+		description: '在新标签页打开 URL',
+		inputs: [
+			{ name: 'url', desc: '目标网址（支持变量插值）', required: true },
+		],
+		outputs: [{ name: 'output_key', desc: '新标签页 target_id' }],
+		whenToUse: '需要在新标签页打开链接，保持当前页面状态',
+		example: 'url: "https://example.com/page"',
+	},
+	cdp_get_all_tabs: {
+		description: '获取所有标签页列表',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '标签页信息数组' }],
+		whenToUse: '需要获取当前窗口所有标签页信息，用于切换或管理',
+		example: '',
+	},
+	cdp_switch_tab: {
+		description: '切换到指定标签页',
+		inputs: [
+			{ name: 'target_id', desc: '目标标签页 ID', required: true },
+		],
+		outputs: [],
+		whenToUse: '在多标签页场景中切换到特定标签页',
+		example: 'target_id: "ABC123"',
+	},
+	cdp_close_tab: {
+		description: '关闭指定标签页',
+		inputs: [
+			{ name: 'target_id', desc: '要关闭的标签页 ID', required: true },
+		],
+		outputs: [],
+		whenToUse: '关闭不再需要的标签页，释放资源',
+		example: 'target_id: "ABC123"',
+	},
+	cdp_upload_file: {
+		description: '向文件输入元素上传文件',
+		inputs: [
+			{ name: 'selector', desc: '文件输入元素选择器', required: true },
+			{ name: 'files', desc: '文件路径数组', required: true },
+		],
+		outputs: [],
+		whenToUse: '需要上传文件到网页表单',
+		example: 'selector: "input[type=file]", files: ["/path/to/file.pdf"]',
+	},
+	cdp_download_file: {
+		description: '配置浏览器下载目录',
+		inputs: [
+			{ name: 'download_path', desc: '下载保存目录', required: false },
+		],
+		outputs: [],
+		whenToUse: '设置文件下载保存位置',
+		example: 'download_path: "/Users/xxx/Downloads"',
+	},
+	cdp_clipboard: {
+		description: '剪贴板操作（复制/粘贴/全选）',
+		inputs: [
+			{ name: 'action', desc: '操作类型：copy/paste/selectAll', required: true },
+		],
+		outputs: [],
+		whenToUse: '执行剪贴板相关操作',
+		example: 'action: "copy"',
+	},
+	cdp_input_text: {
+		description: '多来源文本输入（直接/文件/变量）',
+		inputs: [
+			{ name: 'selector', desc: '目标输入框选择器', required: true },
+			{ name: 'text_source', desc: '文本来源：inline/file/variable', required: true },
+			{ name: 'text', desc: '直接输入的文本', required: false },
+			{ name: 'file_path', desc: '文本文件路径', required: false },
+		],
+		outputs: [],
+		whenToUse: '需要从不同来源（文件、变量）输入文本',
+		example: 'selector: "#input", text_source: "inline", text: "hello"',
+	},
+	cdp_handle_dialog: {
+		description: '处理浏览器原生弹窗（alert/confirm/prompt）',
+		inputs: [
+			{ name: 'action', desc: '操作：accept/dismiss', required: true },
+			{ name: 'prompt_text', desc: 'prompt 输入的文本（可选）', required: false },
+		],
+		outputs: [],
+		whenToUse: '自动处理页面弹出的 alert、confirm、prompt 对话框',
+		example: 'action: "accept"',
+	},
+	cdp_get_cookies: {
+		description: '获取页面 Cookie',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: 'Cookie 数组' }],
+		whenToUse: '需要获取当前页面 Cookie 信息',
+		example: '',
+	},
+	cdp_set_cookie: {
+		description: '设置页面 Cookie',
+		inputs: [
+			{ name: 'name', desc: 'Cookie 名称', required: true },
+			{ name: 'value', desc: 'Cookie 值', required: true },
+			{ name: 'domain', desc: 'Cookie 域（可选）', required: false },
+		],
+		outputs: [],
+		whenToUse: '需要设置特定 Cookie 值',
+		example: 'name: "session", value: "abc123"',
+	},
+	cdp_delete_cookies: {
+		description: '删除指定 Cookie',
+		inputs: [
+			{ name: 'name', desc: '要删除的 Cookie 名称', required: true },
+		],
+		outputs: [],
+		whenToUse: '需要清除特定 Cookie',
+		example: 'name: "session"',
+	},
+	cdp_get_current_url: {
+		description: '获取当前页面 URL',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '当前 URL 字符串' }],
+		whenToUse: '需要获取当前页面地址',
+		example: '',
+	},
+	cdp_get_page_source: {
+		description: '获取页面 HTML 源码',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: 'HTML 源码字符串' }],
+		whenToUse: '需要获取页面完整 HTML 内容',
+		example: '',
+	},
+	cdp_emulate_device: {
+		description: '模拟移动设备',
+		inputs: [
+			{ name: 'width', desc: '视口宽度', required: true },
+			{ name: 'height', desc: '视口高度', required: true },
+			{ name: 'user_agent', desc: 'User-Agent（可选）', required: false },
+		],
+		outputs: [],
+		whenToUse: '模拟手机/平板设备访问页面',
+		example: 'width: 375, height: 812',
+	},
+	cdp_set_geolocation: {
+		description: '设置地理位置',
+		inputs: [
+			{ name: 'latitude', desc: '纬度', required: true },
+			{ name: 'longitude', desc: '经度', required: true },
+		],
+		outputs: [],
+		whenToUse: '模拟特定地理位置',
+		example: 'latitude: 39.9042, longitude: 116.4074',
+	},
+	cdp_block_urls: {
+		description: '屏蔽指定 URL 请求',
+		inputs: [
+			{ name: 'patterns', desc: 'URL 匹配模式数组', required: true },
+		],
+		outputs: [],
+		whenToUse: '屏蔽广告、追踪脚本等资源加载',
+		example: 'patterns: ["*://*.google-analytics.com/*"]',
+	},
+	cdp_pdf: {
+		description: '导出页面为 PDF',
+		inputs: [
+			{ name: 'path', desc: '保存路径（可选）', required: false },
+		],
+		outputs: [{ name: 'output_key', desc: 'PDF 数据或路径' }],
+		whenToUse: '将当前页面保存为 PDF 文件',
+		example: 'path: "/tmp/page.pdf"',
+	},
+	cdp_get_console_logs: {
+		description: '获取浏览器控制台日志',
+		inputs: [
+			{ name: 'level', desc: '日志级别过滤（可选）', required: false },
+		],
+		outputs: [{ name: 'output_key', desc: '日志条目数组' }],
+		whenToUse: '获取页面 console 输出，用于调试',
+		example: 'level: "error"',
+	},
+	cdp_get_network_requests: {
+		description: '获取网络请求记录',
+		inputs: [
+			{ name: 'url_pattern', desc: 'URL 过滤模式（可选）', required: false },
+		],
+		outputs: [{ name: 'output_key', desc: '网络请求数组' }],
+		whenToUse: '分析页面网络请求',
+		example: '',
+	},
+	// Magic 步骤
+	magic_open_new_tab: {
+		description: '通过 Magic Controller 打开新标签页',
+		inputs: [
+			{ name: 'url', desc: '目标网址', required: true },
+		],
+		outputs: [],
+		whenToUse: '使用 Magic 方式打开新标签页',
+		example: 'url: "https://example.com"',
+	},
+	magic_close_tab: {
+		description: '通过 Magic Controller 关闭标签页',
+		inputs: [
+			{ name: 'tab_id', desc: '标签页 ID', required: true },
+		],
+		outputs: [],
+		whenToUse: '关闭指定标签页',
+		example: 'tab_id: 123',
+	},
+	magic_activate_tab: {
+		description: '通过 Magic Controller 激活标签页',
+		inputs: [
+			{ name: 'tab_id', desc: '标签页 ID', required: true },
+		],
+		outputs: [],
+		whenToUse: '切换到指定标签页',
+		example: 'tab_id: 123',
+	},
+	magic_get_browsers: {
+		description: '获取所有浏览器实例',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '浏览器信息数组' }],
+		whenToUse: '获取所有打开的浏览器窗口信息',
+		example: '',
+	},
+	magic_get_tabs: {
+		description: '获取指定浏览器的标签页列表',
+		inputs: [
+			{ name: 'browser_id', desc: '浏览器 ID', required: true },
+		],
+		outputs: [{ name: 'output_key', desc: '标签页信息数组' }],
+		whenToUse: '获取特定浏览器的所有标签页',
+		example: 'browser_id: 1',
+	},
+	magic_set_bounds: {
+		description: '设置浏览器窗口位置和大小',
+		inputs: [
+			{ name: 'x', desc: 'X 坐标', required: true },
+			{ name: 'y', desc: 'Y 坐标', required: true },
+			{ name: 'width', desc: '宽度', required: true },
+			{ name: 'height', desc: '高度', required: true },
+		],
+		outputs: [],
+		whenToUse: '调整浏览器窗口位置和尺寸',
+		example: 'x: 0, y: 0, width: 1280, height: 800',
+	},
+	magic_get_bounds: {
+		description: '获取浏览器窗口位置和大小',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '窗口边界信息' }],
+		whenToUse: '获取当前窗口位置和尺寸',
+		example: '',
+	},
+	magic_set_maximized: {
+		description: '最大化浏览器窗口',
+		inputs: [],
+		outputs: [],
+		whenToUse: '将窗口最大化',
+		example: '',
+	},
+	magic_set_minimized: {
+		description: '最小化浏览器窗口',
+		inputs: [],
+		outputs: [],
+		whenToUse: '将窗口最小化到任务栏',
+		example: '',
+	},
+	magic_set_fullscreen: {
+		description: '设置浏览器全屏',
+		inputs: [],
+		outputs: [],
+		whenToUse: '切换到全屏模式',
+		example: '',
+	},
+	magic_safe_quit: {
+		description: '安全退出浏览器',
+		inputs: [],
+		outputs: [],
+		whenToUse: '安全关闭浏览器，清理资源',
+		example: '',
+	},
+	magic_capture_app_shell: {
+		description: '截取完整浏览器窗口（含工具栏）',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '截图数据' }],
+		whenToUse: '截取包含浏览器 UI 的完整窗口',
+		example: '',
+	},
+	magic_type_string: {
+		description: '通过 Magic Controller 输入文本',
+		inputs: [
+			{ name: 'text', desc: '要输入的文本', required: true },
+		],
+		outputs: [],
+		whenToUse: '使用 Magic 方式输入文本',
+		example: 'text: "Hello World"',
+	},
+	magic_get_managed_extensions: {
+		description: '获取浏览器扩展列表',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '扩展信息数组' }],
+		whenToUse: '获取已安装的浏览器扩展',
+		example: '',
+	},
+	magic_trigger_extension_action: {
+		description: '触发扩展动作',
+		inputs: [
+			{ name: 'extension_id', desc: '扩展 ID', required: true },
+		],
+		outputs: [],
+		whenToUse: '点击扩展图标触发动作',
+		example: 'extension_id: "abc123"',
+	},
+	magic_enable_extension: {
+		description: '启用浏览器扩展',
+		inputs: [
+			{ name: 'extension_id', desc: '扩展 ID', required: true },
+		],
+		outputs: [],
+		whenToUse: '启用已安装的扩展',
+		example: 'extension_id: "abc123"',
+	},
+	magic_disable_extension: {
+		description: '禁用浏览器扩展',
+		inputs: [
+			{ name: 'extension_id', desc: '扩展 ID', required: true },
+		],
+		outputs: [],
+		whenToUse: '禁用指定扩展',
+		example: 'extension_id: "abc123"',
+	},
+	magic_get_bookmarks: {
+		description: '获取浏览器书签',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '书签树' }],
+		whenToUse: '获取浏览器书签数据',
+		example: '',
+	},
+	magic_get_managed_cookies: {
+		description: '获取托管 Cookie',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: 'Cookie 列表' }],
+		whenToUse: '获取浏览器托管 Cookie',
+		example: '',
+	},
+	magic_export_cookie_state: {
+		description: '导出 Cookie 状态',
+		inputs: [
+			{ name: 'mode', desc: '导出模式：all/current', required: false },
+		],
+		outputs: [{ name: 'output_key', desc: 'Cookie 状态数据' }],
+		whenToUse: '导出 Cookie 供后续使用',
+		example: 'mode: "all"',
+	},
+	magic_toggle_sync_mode: {
+		description: '切换同步模式',
+		inputs: [
+			{ name: 'role', desc: '角色：master/slave/off', required: true },
+		],
+		outputs: [],
+		whenToUse: '切换窗口同步模式',
+		example: 'role: "master"',
+	},
+	magic_get_sync_status: {
+		description: '获取同步状态',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '同步状态信息' }],
+		whenToUse: '获取当前同步模式状态',
+		example: '',
+	},
+	// 其他常用步骤
+	select_dialog: {
+		description: '显示选择弹窗，用户从选项中选择',
+		inputs: [
+			{ name: 'title', desc: '弹窗标题', required: false },
+			{ name: 'options', desc: '选项数组', required: true },
+		],
+		outputs: [{ name: 'output_key', desc: '用户选择的值' }],
+		whenToUse: '让用户从预定义选项中选择',
+		example: 'options: ["选项1", "选项2", "选项3"]',
+	},
+	form_dialog: {
+		description: '显示表单弹窗，收集多字段输入',
+		inputs: [
+			{ name: 'title', desc: '弹窗标题', required: false },
+			{ name: 'fields', desc: '字段定义数组', required: true },
+		],
+		outputs: [{ name: 'output_key', desc: '表单数据对象' }],
+		whenToUse: '需要收集多个字段的用户输入',
+		example: 'fields: [{name: "email", label: "邮箱", type: "email"}]',
+	},
+	notification: {
+		description: '发送桌面通知',
+		inputs: [
+			{ name: 'title', desc: '通知标题', required: true },
+			{ name: 'body', desc: '通知内容', required: true },
+		],
+		outputs: [],
+		whenToUse: '向用户发送桌面通知提醒',
+		example: 'title: "完成", body: "任务执行成功"',
+	},
+	wait_for_user: {
+		description: '暂停执行等待用户确认',
+		inputs: [
+			{ name: 'message', desc: '提示消息', required: false },
+		],
+		outputs: [],
+		whenToUse: '需要用户手动确认后再继续',
+		example: 'message: "请完成人工操作后点击继续"',
+	},
+	break: {
+		description: '跳出当前循环',
+		inputs: [],
+		outputs: [],
+		whenToUse: '在循环中满足条件时提前退出',
+		example: '',
+	},
+	continue: {
+		description: '跳过当前循环迭代',
+		inputs: [],
+		outputs: [],
+		whenToUse: '跳过当前循环剩余步骤，进入下一次迭代',
+		example: '',
+	},
+	end: {
+		description: '结束脚本执行',
+		inputs: [
+			{ name: 'message', desc: '结束消息（可选）', required: false },
+		],
+		outputs: [],
+		whenToUse: '提前终止脚本执行',
+		example: 'message: "任务完成"',
+	},
+	// 基础步骤别名
+	navigate: {
+		description: '跳转到指定 URL（cdp_navigate 别名）',
+		inputs: [{ name: 'url', desc: '目标网址', required: true }],
+		outputs: [],
+		whenToUse: '简化版的页面导航',
+		example: 'url: "https://example.com"',
+	},
+	click: {
+		description: '点击页面元素（cdp_click 别名）',
+		inputs: [{ name: 'selector', desc: '元素选择器', required: true }],
+		outputs: [],
+		whenToUse: '简化版的元素点击',
+		example: 'selector: "#btn"',
+	},
+	type: {
+		description: '输入文本（cdp_type 别名）',
+		inputs: [
+			{ name: 'selector', desc: '输入框选择器', required: true },
+			{ name: 'text', desc: '输入文本', required: true },
+		],
+		outputs: [],
+		whenToUse: '简化版的文本输入',
+		example: 'selector: "#input", text: "hello"',
+	},
+	screenshot: {
+		description: '截取页面截图（cdp_screenshot 别名）',
+		inputs: [{ name: 'output_path', desc: '保存路径', required: false }],
+		outputs: [{ name: 'output_key', desc: '截图数据' }],
+		whenToUse: '简化版的截图操作',
+		example: 'output_path: "/tmp/screenshot.png"',
+	},
+	magic: {
+		description: '执行 Magic 控制器原始命令',
+		inputs: [
+			{ name: 'command', desc: '命令名称', required: true },
+			{ name: 'params', desc: '命令参数对象', required: false },
+		],
+		outputs: [{ name: 'output_key', desc: '命令返回结果' }],
+		whenToUse: '执行未封装为专用步骤的 Magic 命令',
+		example: 'command: "getTabs", params: {}',
+	},
+	cdp: {
+		description: '执行原始 CDP 协议命令',
+		inputs: [
+			{ name: 'method', desc: 'CDP 方法名', required: true },
+			{ name: 'params', desc: '方法参数', required: false },
+		],
+		outputs: [{ name: 'output_key', desc: 'CDP 返回结果' }],
+		whenToUse: '直接调用 Chrome DevTools Protocol 方法',
+		example: 'method: "Page.captureScreenshot"',
+	},
+	// 高级 CDP 步骤
+	cdp_get_browser_version: {
+		description: '获取浏览器版本信息',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '版本信息对象' }],
+		whenToUse: '获取浏览器版本、用户代理等信息',
+		example: '',
+	},
+	cdp_get_document: {
+		description: '获取页面 DOM 结构',
+		inputs: [{ name: 'depth', desc: '递归深度（默认1）', required: false }],
+		outputs: [{ name: 'output_key', desc: 'DOM 树结构' }],
+		whenToUse: '获取页面 DOM 树用于分析',
+		example: 'depth: 2',
+	},
+	cdp_drag_and_drop: {
+		description: '拖拽元素到目标位置',
+		inputs: [
+			{ name: 'source', desc: '源元素选择器', required: true },
+			{ name: 'target', desc: '目标元素选择器', required: true },
+		],
+		outputs: [],
+		whenToUse: '执行拖拽操作，如排序、上传等',
+		example: 'source: "#item1", target: "#dropzone"',
+	},
+	// 弹窗类
+	table_dialog: {
+		description: '显示数据表格弹窗',
+		inputs: [
+			{ name: 'title', desc: '弹窗标题', required: false },
+			{ name: 'columns', desc: '列定义数组', required: true },
+			{ name: 'rows', desc: '数据行数组', required: true },
+		],
+		outputs: [{ name: 'output_key', desc: '选中的行数据' }],
+		whenToUse: '向用户展示结构化数据表格',
+		example: 'columns: [{key: "name", label: "名称"}], rows: [{name: "Item1"}]',
+	},
+	image_dialog: {
+		description: '显示图片预览弹窗',
+		inputs: [
+			{ name: 'title', desc: '弹窗标题', required: false },
+			{ name: 'image', desc: '图片数据（URL或base64）', required: true },
+		],
+		outputs: [],
+		whenToUse: '向用户展示图片，如验证码截图',
+		example: 'image: "data:image/png;base64,xxx"',
+	},
+	countdown_dialog: {
+		description: '显示倒计时确认弹窗',
+		inputs: [
+			{ name: 'title', desc: '弹窗标题', required: false },
+			{ name: 'message', desc: '提示消息', required: true },
+			{ name: 'seconds', desc: '倒计时秒数', required: false },
+		],
+		outputs: [{ name: 'output_key', desc: '用户是否确认' }],
+		whenToUse: '危险操作前给用户确认时间',
+		example: 'message: "确认删除？", seconds: 5',
+	},
+	markdown_dialog: {
+		description: '显示 Markdown 内容弹窗',
+		inputs: [
+			{ name: 'title', desc: '弹窗标题', required: false },
+			{ name: 'content', desc: 'Markdown 内容', required: true },
+		],
+		outputs: [],
+		whenToUse: '展示格式化文本内容',
+		example: 'content: "# 标题\\n\\n内容"',
+	},
+	// Magic 窗口控制
+	magic_set_restored: {
+		description: '恢复窗口正常状态',
+		inputs: [],
+		outputs: [],
+		whenToUse: '从最大化/最小化状态恢复窗口',
+		example: '',
+	},
+	magic_set_closed: {
+		description: '关闭浏览器窗口',
+		inputs: [],
+		outputs: [],
+		whenToUse: '关闭当前浏览器窗口',
+		example: '',
+	},
+	magic_set_bg_color: {
+		description: '设置窗口背景色',
+		inputs: [
+			{ name: 'r', desc: '红色值(0-255)', required: true },
+			{ name: 'g', desc: '绿色值(0-255)', required: true },
+			{ name: 'b', desc: '蓝色值(0-255)', required: true },
+		],
+		outputs: [],
+		whenToUse: '自定义浏览器窗口背景颜色',
+		example: 'r: 255, g: 255, b: 255',
+	},
+	// CAPTCHA
+	captcha_detect: {
+		description: '检测页面验证码',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '验证码类型信息' }],
+		whenToUse: '自动检测页面上的验证码类型',
+		example: '',
+	},
+	captcha_solve: {
+		description: '求解验证码',
+		inputs: [
+			{ name: 'captcha_type', desc: '验证码类型', required: false },
+		],
+		outputs: [{ name: 'output_key', desc: '验证码答案' }],
+		whenToUse: '调用求解服务破解验证码',
+		example: 'captcha_type: "recaptcha"',
+	},
+	app_run_script: {
+		description: '运行其他自动化脚本',
+		inputs: [
+			{ name: 'script_id', desc: '脚本ID', required: true },
+		],
+		outputs: [],
+		whenToUse: '在当前脚本中调用其他脚本',
+		example: 'script_id: "script_123"',
+	},
+	// CAPTCHA 完整步骤
+	captcha_inject_token: {
+		description: '将验证码 token 注入页面',
+		inputs: [
+			{ name: 'type', desc: '验证码类型：recaptcha/hcaptcha/turnstile', required: true },
+			{ name: 'token', desc: '求解服务返回的 token', required: true },
+		],
+		outputs: [],
+		whenToUse: '将求解得到的 token 注入到页面对应表单字段',
+		example: 'type: "recaptcha", token: "03AGdBq24..."',
+	},
+	captcha_solve_and_inject: {
+		description: '一键检测→求解→注入验证码',
+		inputs: [
+			{ name: 'auto_submit', desc: '注入后是否自动提交表单', required: false },
+		],
+		outputs: [{ name: 'output_key', desc: '求解结果' }],
+		whenToUse: '全自动处理页面验证码，无需手动分步操作',
+		example: 'auto_submit: false',
+	},
+	captcha_get_balance: {
+		description: '查询验证码求解服务余额',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '账户余额' }],
+		whenToUse: '检查求解服务账户余额是否充足',
+		example: '',
+	},
+	// CDP 存储相关
+	cdp_get_local_storage: {
+		description: '获取 LocalStorage 数据',
+		inputs: [{ name: 'key', desc: '键名（空则获取全部）', required: false }],
+		outputs: [{ name: 'output_key', desc: 'LocalStorage 数据' }],
+		whenToUse: '读取页面本地存储数据',
+		example: 'key: "user_prefs"',
+	},
+	cdp_set_local_storage: {
+		description: '设置 LocalStorage 数据',
+		inputs: [
+			{ name: 'key', desc: '键名', required: true },
+			{ name: 'value', desc: '值', required: true },
+		],
+		outputs: [],
+		whenToUse: '写入页面本地存储',
+		example: 'key: "session", value: "abc123"',
+	},
+	cdp_get_session_storage: {
+		description: '获取 SessionStorage 数据',
+		inputs: [{ name: 'key', desc: '键名（空则获取全部）', required: false }],
+		outputs: [{ name: 'output_key', desc: 'SessionStorage 数据' }],
+		whenToUse: '读取页面会话存储数据',
+		example: 'key: "temp_data"',
+	},
+	cdp_clear_storage: {
+		description: '清除所有存储数据',
+		inputs: [
+			{ name: 'local_storage', desc: '是否清除 LocalStorage', required: false },
+			{ name: 'session_storage', desc: '是否清除 SessionStorage', required: false },
+			{ name: 'cookies', desc: '是否清除 Cookies', required: false },
+		],
+		outputs: [],
+		whenToUse: '清理页面存储，重置状态',
+		example: 'local_storage: true, cookies: true',
+	},
+	// CDP 浏览器信息
+	cdp_get_browser_command_line: {
+		description: '获取浏览器启动参数',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '命令行参数数组' }],
+		whenToUse: '获取浏览器启动时的命令行参数',
+		example: '',
+	},
+	cdp_get_window_for_target: {
+		description: '获取目标窗口信息',
+		inputs: [{ name: 'target_id', desc: '目标 ID', required: false }],
+		outputs: [{ name: 'output_key', desc: '窗口信息' }],
+		whenToUse: '获取特定目标的窗口信息',
+		example: '',
+	},
+	cdp_get_layout_metrics: {
+		description: '获取页面布局指标',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '布局信息（可视区域、内容大小等）' }],
+		whenToUse: '获取页面可视区域和内容尺寸信息',
+		example: '',
+	},
+	// CDP DOM/无障碍
+	cdp_get_full_ax_tree: {
+		description: '获取页面无障碍树（完整语义结构）',
+		inputs: [{ name: 'depth', desc: '递归深度', required: false }],
+		outputs: [{ name: 'output_key', desc: '无障碍树结构' }],
+		whenToUse: '获取页面完整语义结构，用于辅助功能分析',
+		example: 'depth: -1',
+	},
+	// CDP 元素操作
+	cdp_get_element_box: {
+		description: '获取元素位置和尺寸',
+		inputs: [{ name: 'selector', desc: '元素选择器', required: true }],
+		outputs: [{ name: 'output_key', desc: '元素边界框信息' }],
+		whenToUse: '获取元素在页面中的位置和大小',
+		example: 'selector: "#header"',
+	},
+	cdp_highlight_element: {
+		description: '高亮显示元素',
+		inputs: [
+			{ name: 'selector', desc: '元素选择器', required: true },
+			{ name: 'duration', desc: '高亮持续时间(ms)', required: false },
+		],
+		outputs: [],
+		whenToUse: '调试时临时高亮元素位置',
+		example: 'selector: ".button", duration: 2000',
+	},
+	cdp_mouse_move: {
+		description: '移动鼠标到指定坐标',
+		inputs: [
+			{ name: 'x', desc: 'X 坐标', required: true },
+			{ name: 'y', desc: 'Y 坐标', required: true },
+		],
+		outputs: [],
+		whenToUse: '模拟鼠标移动到页面指定位置',
+		example: 'x: 100, y: 200',
+	},
+	cdp_select_option: {
+		description: '选择下拉框选项',
+		inputs: [
+			{ name: 'selector', desc: '下拉框选择器', required: true },
+			{ name: 'value', desc: '选项值', required: true },
+		],
+		outputs: [],
+		whenToUse: '选择 select 元素的特定选项',
+		example: 'selector: "#country", value: "CN"',
+	},
+	cdp_check_checkbox: {
+		description: '勾选或取消复选框',
+		inputs: [
+			{ name: 'selector', desc: '复选框选择器', required: true },
+			{ name: 'checked', desc: '是否勾选（默认 true）', required: false },
+		],
+		outputs: [],
+		whenToUse: '操作复选框的选中状态',
+		example: 'selector: "#agree", checked: true',
+	},
+	// CDP 网络
+	cdp_intercept_request: {
+		description: '拦截/修改网络请求',
+		inputs: [
+			{ name: 'url_pattern', desc: 'URL 匹配模式', required: true },
+			{ name: 'action', desc: '操作：block/redirect/modify', required: true },
+		],
+		outputs: [],
+		whenToUse: '拦截特定请求进行阻止、重定向或修改',
+		example: 'url_pattern: "*.analytics.com/*", action: "block"',
+	},
+	// CDP 导航
+	cdp_wait_for_navigation: {
+		description: '等待页面导航完成',
+		inputs: [{ name: 'timeout_ms', desc: '超时毫秒数', required: false }],
+		outputs: [],
+		whenToUse: '等待页面 URL 变化或导航完成',
+		example: 'timeout_ms: 10000',
+	},
+	cdp_set_user_agent: {
+		description: '设置 User-Agent',
+		inputs: [{ name: 'user_agent', desc: 'User-Agent 字符串', required: true }],
+		outputs: [],
+		whenToUse: '修改浏览器 User-Agent 标识',
+		example: 'user_agent: "Mozilla/5.0 (iPhone...)"',
+	},
+	// Magic 标签页管理
+	magic_activate_tab_by_index: {
+		description: '通过索引激活标签页',
+		inputs: [{ name: 'index', desc: '标签页索引（从0开始）', required: true }],
+		outputs: [],
+		whenToUse: '按位置序号切换到特定标签页',
+		example: 'index: 2',
+	},
+	magic_close_inactive_tabs: {
+		description: '关闭非活跃标签页',
+		inputs: [],
+		outputs: [],
+		whenToUse: '只保留当前标签页，关闭其他所有标签',
+		example: '',
+	},
+	magic_open_new_window: {
+		description: '打开新浏览器窗口',
+		inputs: [{ name: 'url', desc: '初始 URL', required: false }],
+		outputs: [],
+		whenToUse: '创建新的浏览器窗口',
+		example: 'url: "https://example.com"',
+	},
+	// Magic 浏览器信息
+	magic_get_active_browser: {
+		description: '获取当前活跃浏览器',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '活跃浏览器信息' }],
+		whenToUse: '获取当前焦点所在的浏览器窗口',
+		example: '',
+	},
+	magic_get_active_tabs: {
+		description: '获取所有活跃标签页',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '活跃标签页列表' }],
+		whenToUse: '获取所有浏览器中的活跃标签页',
+		example: '',
+	},
+	magic_get_switches: {
+		description: '获取浏览器开关状态',
+		inputs: [{ name: 'key', desc: '开关键名', required: false }],
+		outputs: [{ name: 'output_key', desc: '开关值' }],
+		whenToUse: '查询浏览器功能开关状态',
+		example: 'key: "enable_feature_x"',
+	},
+	magic_get_host_name: {
+		description: '获取主机名',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '主机名' }],
+		whenToUse: '获取当前设备主机名',
+		example: '',
+	},
+	magic_get_mac_address: {
+		description: '获取 MAC 地址',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: 'MAC 地址列表' }],
+		whenToUse: '获取设备网络接口 MAC 地址',
+		example: '',
+	},
+	// Magic 窗口状态
+	magic_get_maximized: {
+		description: '检查窗口是否最大化',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '是否最大化' }],
+		whenToUse: '获取当前窗口最大化状态',
+		example: '',
+	},
+	magic_get_minimized: {
+		description: '检查窗口是否最小化',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '是否最小化' }],
+		whenToUse: '获取当前窗口最小化状态',
+		example: '',
+	},
+	magic_get_fullscreen: {
+		description: '检查窗口是否全屏',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '是否全屏' }],
+		whenToUse: '获取当前窗口全屏状态',
+		example: '',
+	},
+	magic_get_window_state: {
+		description: '获取窗口完整状态',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '窗口状态信息' }],
+		whenToUse: '获取窗口位置、大小、状态等完整信息',
+		example: '',
+	},
+	// Magic 同步模式
+	magic_get_sync_mode: {
+		description: '获取同步模式',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '当前同步模式' }],
+		whenToUse: '查询窗口同步模式设置',
+		example: '',
+	},
+	magic_get_is_master: {
+		description: '检查是否为主控窗口',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '是否主控' }],
+		whenToUse: '检查当前窗口是否为同步主控',
+		example: '',
+	},
+	// Magic 窗口设置
+	magic_set_app_top_most: {
+		description: '设置窗口置顶',
+		inputs: [{ name: 'topmost', desc: '是否置顶', required: false }],
+		outputs: [],
+		whenToUse: '将浏览器窗口置顶显示',
+		example: 'topmost: true',
+	},
+	magic_set_master_indicator_visible: {
+		description: '设置主控指示器可见性',
+		inputs: [{ name: 'visible', desc: '是否可见', required: false }],
+		outputs: [],
+		whenToUse: '显示/隐藏主控窗口指示器',
+		example: 'visible: true',
+	},
+	magic_set_toolbar_text: {
+		description: '设置工具栏文本',
+		inputs: [{ name: 'text', desc: '显示文本', required: true }],
+		outputs: [],
+		whenToUse: '在浏览器工具栏显示自定义文本',
+		example: 'text: "Running..."',
+	},
+	// Magic 书签管理
+	magic_bookmark_current_tab: {
+		description: '收藏当前标签页',
+		inputs: [
+			{ name: 'title', desc: '书签标题（默认页面标题）', required: false },
+			{ name: 'parent_id', desc: '父文件夹ID', required: false },
+		],
+		outputs: [{ name: 'output_key', desc: '新书签ID' }],
+		whenToUse: '将当前页面添加为书签',
+		example: 'title: "My Page"',
+	},
+	magic_unbookmark_current_tab: {
+		description: '取消收藏当前标签页',
+		inputs: [],
+		outputs: [],
+		whenToUse: '移除当前页面的书签',
+		example: '',
+	},
+	magic_is_current_tab_bookmarked: {
+		description: '检查当前页是否已收藏',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '是否已收藏' }],
+		whenToUse: '查询当前页面是否为书签',
+		example: '',
+	},
+	magic_create_bookmark: {
+		description: '创建新书签',
+		inputs: [
+			{ name: 'title', desc: '书签标题', required: true },
+			{ name: 'url', desc: '书签URL', required: true },
+			{ name: 'parent_id', desc: '父文件夹ID', required: false },
+		],
+		outputs: [{ name: 'output_key', desc: '新书签ID' }],
+		whenToUse: '创建指定URL的书签',
+		example: 'title: "Example", url: "https://example.com"',
+	},
+	magic_create_bookmark_folder: {
+		description: '创建书签文件夹',
+		inputs: [
+			{ name: 'title', desc: '文件夹名称', required: true },
+			{ name: 'parent_id', desc: '父文件夹ID', required: false },
+		],
+		outputs: [{ name: 'output_key', desc: '新文件夹ID' }],
+		whenToUse: '创建书签文件夹用于整理书签',
+		example: 'title: "Work"',
+	},
+	magic_update_bookmark: {
+		description: '更新书签信息',
+		inputs: [
+			{ name: 'node_id', desc: '书签节点ID', required: true },
+			{ name: 'title', desc: '新标题', required: false },
+			{ name: 'url', desc: '新URL', required: false },
+		],
+		outputs: [],
+		whenToUse: '修改书签的标题或URL',
+		example: 'node_id: "123", title: "New Title"',
+	},
+	magic_move_bookmark: {
+		description: '移动书签',
+		inputs: [
+			{ name: 'node_id', desc: '要移动的书签ID', required: true },
+			{ name: 'new_parent_id', desc: '目标文件夹ID', required: true },
+			{ name: 'index', desc: '目标位置索引', required: false },
+		],
+		outputs: [],
+		whenToUse: '将书签移动到另一个文件夹',
+		example: 'node_id: "123", new_parent_id: "456"',
+	},
+	magic_remove_bookmark: {
+		description: '删除书签',
+		inputs: [{ name: 'node_id', desc: '书签节点ID', required: true }],
+		outputs: [],
+		whenToUse: '删除指定书签或文件夹',
+		example: 'node_id: "123"',
+	},
+	magic_export_bookmark_state: {
+		description: '导出书签状态',
+		inputs: [],
+		outputs: [{ name: 'output_key', desc: '完整书签树数据' }],
+		whenToUse: '导出所有书签数据供备份或迁移',
+		example: '',
+	},
+	// Magic Cookie
+	magic_import_cookies: {
+		description: '导入 Cookie',
+		inputs: [{ name: 'cookies', desc: 'Cookie 数据数组', required: true }],
+		outputs: [],
+		whenToUse: '导入之前导出的 Cookie 数据',
+		example: 'cookies: [{name:"session", value:"abc"}]',
+	},
+	// Magic 扩展管理
+	magic_close_extension_popup: {
+		description: '关闭扩展弹窗',
+		inputs: [],
+		outputs: [],
+		whenToUse: '关闭当前打开的扩展弹出窗口',
+		example: '',
+	},
+};
+
 // ─── step 摘要文本（供 canvas 节点使用）─────────────────────────────────────────
 
 export function getStepSummaryText(step: ScriptStep): string {
