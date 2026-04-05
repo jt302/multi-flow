@@ -22,6 +22,7 @@ import {
 
 import type {
 	AutomationScript,
+	RunDelayConfig,
 	ScriptStep,
 	StepResult,
 } from '@/entities/automation/model/types';
@@ -47,7 +48,11 @@ type InnerProps = {
 	isRunning: boolean;
 	activeRunId: string | null;
 	liveStatuses: Record<number, string>;
-	onRun: (profileIds: string[], initialVars: Record<string, string>) => void;
+	onRun: (
+		profileIds: string[],
+		initialVars: Record<string, string>,
+		delayConfig?: RunDelayConfig | null,
+	) => void;
 	onDebugRun: (profileId: string, initialVars: Record<string, string>) => void;
 	onCancel: () => void;
 };
@@ -278,6 +283,7 @@ function InnerCanvas({
 					key: v.name,
 					value: v.defaultValue,
 				}))}
+				scriptSettings={script.settings}
 				onRun={onRun}
 				onDebugRun={onDebugRun}
 			/>
@@ -406,7 +412,11 @@ type Props = {
 	isRunning: boolean;
 	activeRunId: string | null;
 	liveStepResults: StepResult[];
-	onRun: (profileIds: string[], initialVars: Record<string, string>) => void;
+	onRun: (
+		profileIds: string[],
+		initialVars: Record<string, string>,
+		delayConfig?: RunDelayConfig | null,
+	) => void;
 	onDebugRun: (profileId: string, initialVars: Record<string, string>) => void;
 	onCancel: () => void;
 };

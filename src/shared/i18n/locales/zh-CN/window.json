@@ -18,7 +18,11 @@
 		"recentSyncErrors": "最近同步错误",
 		"noSyncErrors": "暂无同步错误",
 		"recentProbeErrors": "最近 probe 错误",
-		"noProbeErrors": "暂无 probe 错误"
+		"noProbeErrors": "暂无 probe 错误",
+		"selectEnv": "运行环境",
+		"noRunningEnv": "暂无运行中的环境",
+		"selectAll": "全选",
+		"deselectAll": "取消全选"
 	},
 	"arrange": {
 		"uniformSize": "统一大小 / 显示窗口",
