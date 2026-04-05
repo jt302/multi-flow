@@ -7,6 +7,7 @@
 	"windows": "窗口同步",
 	"browserControl": "浏览器控制",
 	"automation": "自动化",
+	"aiChat": "AI 助手",
 	"settings": "设置",
 
 	"dashboardSection": {
@@ -47,6 +48,10 @@
 		"title": "自动化",
 		"desc": "创建并运行 RPA 自动化脚本，通过 CDP 和 Magic Controller 操控浏览器环境。",
 		"tableTitle": "最近运行记录"
+	},
+	"aiChatSection": {
+		"title": "AI 助手",
+		"desc": "通过自然语言与 AI Agent 对话，调用浏览器工具执行自动化操作。"
 	},
 	"settingsSection": {
 		"title": "系统设置",

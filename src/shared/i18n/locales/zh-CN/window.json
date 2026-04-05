@@ -159,6 +159,9 @@
 		"restartSync": "重启同步",
 		"refreshSyncStatus": "刷新同步状态"
 	},
+	"applyBounds": "应用尺寸",
+	"create": "创建窗口",
+	"list": "窗口列表",
 	"syncDiag": {
 		"master": "主控",
 		"masterPrefix": "主控 {{name}}",

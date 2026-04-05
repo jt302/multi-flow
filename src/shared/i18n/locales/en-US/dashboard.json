@@ -3,26 +3,31 @@
 	"quickView": "Quick View",
 	"overview": {
 		"title": "Overview",
-		"desc": "Profile, proxy and task status updated within 1 minute."
+		"profilesByGroup": "{{groups}} groups, {{profiles}} profiles"
 	},
 	"proxyHealth": {
 		"title": "Proxy Health",
-		"desc": "Today's failed nodes mainly concentrated on DE nodes, consider switching to backup routes."
+		"summary": "{{total}} proxies · {{error}} errors · {{unchecked}} unchecked"
 	},
 	"windowSync": {
 		"title": "Window Sync",
-		"desc": "Current master-slave sync sessions running stably.",
-		"activeSessions": "{{count}} active sessions"
+		"desc": "Current sync sessions: ",
+		"activeSessions": "{{count}} active"
 	},
 	"metrics": {
 		"runningProfiles": "Running Profiles",
-		"newToday": "+{{count}} new today",
+		"totalProfiles": "{{count}} total profiles",
 		"proxyAvailability": "Proxy Availability",
-		"lastHour": "Last 1 hour",
-		"paused": "Paused",
-		"needManual": "Need Manual",
-		"currentTheme": "Current Theme",
-		"customColor": "Custom Color",
-		"preset": "Preset: {{preset}}"
+		"proxyOkCount": "{{ok}} / {{total}} OK",
+		"syncSessions": "Sync Sessions",
+		"runningWindows": "Running windows",
+		"automationScripts": "Automation Scripts",
+		"totalScripts": "Total scripts created"
+	},
+	"sessionsTable": {
+		"title": "Running Profiles",
+		"empty": "No running profiles",
+		"windows": "{{count}} windows",
+		"tabs": "{{count}} tabs"
 	}
 }

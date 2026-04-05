@@ -247,6 +247,10 @@
 	"fullscreen": "Fullscreen",
 	"exitFullscreen": "Exit fullscreen",
 	"window": "Window",
+	"x": "X",
+	"y": "Y",
+	"width": "Width",
+	"height": "Height",
 	"noWindow": "No windows",
 	"noTab": "No tabs",
 	"noProfile": "No profiles",
@@ -310,20 +314,35 @@
 	"select": "Select",
 	"selected": "Selected",
 	"unselected": "Unselected",
+	"profileList": "Profile List",
+	"searchProfile": "Search Profile",
+	"allGroups": "All Groups",
+	"allRunningStates": "All Running States",
+	"onlyRunning": "Only Running",
+	"onlyStopped": "Only Stopped",
+	"availableProfiles": "Available Profiles",
+	"allLifecycles": "All Lifecycles",
+	"archived": "Archived",
+	"selectedCountOfFiltered": "Selected {{selected}} / Total {{total}}",
+	"batchSetGroup": "Batch Set Group",
+	"clearGroup": "Clear Group",
+	"batchOpen": "Batch Open",
+	"batchClose": "Batch Close",
+	"stopAllRunning": "Stop All Running",
 	"placeholder": {
 		"search": "Search...",
 		"searchScript": "Search scripts...",
-		"searchProfile": "Search profiles...",
-		"searchGroup": "Search groups or notes...",
-		"selectProfile": "Select environment",
+		"searchProfile": "Search profile name...",
+		"searchGroup": "Search group name or note...",
+		"selectProfile": "Select profile",
 		"selectProxy": "Select proxy",
 		"inputName": "Enter name",
 		"inputDescription": "Enter description",
 		"inputNote": "Enter note",
 		"leaveEmpty": "Leave empty to clear",
 		"proxyNameExample": "e.g. Proxy-US-01",
-		"hostIp": "Host / IP",
-		"port": "Port"
+		"hostIp": "host / ip",
+		"port": "port"
 	},
 	"action": {
 		"run": "Run",
@@ -395,5 +414,24 @@
 			"memoryMin": "Memory must be greater than 0",
 			"memoryMax": "Memory max is 8 GB"
 		}
+	},
+	"profileGroupSelector": {
+		"profiles": "Profiles",
+		"groups": "Groups",
+		"search": "Search profiles or groups...",
+		"selected": "{{count}} profiles selected",
+		"selectAll": "Select All",
+		"deselectAll": "Deselect All",
+		"noProfiles": "No profiles",
+		"noGroups": "No groups"
+	},
+	"toolConfirmation": {
+		"title": "AI Tool Confirmation",
+		"message": "AI is requesting to execute a dangerous operation:",
+		"toolName": "Tool",
+		"args": "Arguments",
+		"confirm": "Confirm",
+		"cancel": "Cancel",
+		"cancelled": "Operation cancelled by user"
 	}
 }

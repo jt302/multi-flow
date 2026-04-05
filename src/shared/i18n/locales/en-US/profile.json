@@ -168,7 +168,8 @@
 		"justNow": "Just now",
 		"minutesAgo": "{{count}} min ago",
 		"hoursAgo": "{{count}} hr ago",
-		"daysAgo": "{{count}} days ago"
+		"daysAgo": "{{count}} days ago",
+		"recent": "Recent"
 	},
 	"list": {
 		"title": "Profile List",
@@ -303,7 +304,13 @@
 		"exportAll": "Export Entire Profile",
 		"exportBySite": "Export by Site",
 		"delete": "Delete Profile",
+		"duplicate": "Duplicate Profile",
 		"recovering": "Restoring",
 		"recover": "Restore"
-	}
+	},
+	"profileDuplicated": "Profile duplicated successfully",
+	"duplicateProfileFailed": "Failed to duplicate profile",
+	"clearGroupConfirm": "Confirm Clear Group",
+	"clearGroupDesc": "Clear group info for {{count}} profiles?",
+	"actionImmediate": "This action takes effect immediately."
 }

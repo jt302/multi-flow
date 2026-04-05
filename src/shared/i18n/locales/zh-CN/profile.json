@@ -168,7 +168,8 @@
 		"justNow": "刚刚",
 		"minutesAgo": "{{count}} 分钟前",
 		"hoursAgo": "{{count}} 小时前",
-		"daysAgo": "{{count}} 天前"
+		"daysAgo": "{{count}} 天前",
+		"recent": "最近"
 	},
 	"errors": {
 		"operationFailed": "环境操作失败",
@@ -303,7 +304,13 @@
 		"exportAll": "导出整个 profile",
 		"exportBySite": "按站点导出",
 		"delete": "删除环境",
+		"duplicate": "复制环境",
 		"recovering": "恢复中",
 		"recover": "恢复"
-	}
+	},
+	"profileDuplicated": "环境复制成功",
+	"duplicateProfileFailed": "复制环境失败",
+	"clearGroupConfirm": "确认清空分组",
+	"clearGroupDesc": "确认清空 {{count}} 个环境的分组信息？",
+	"actionImmediate": "此操作立即生效。"
 }

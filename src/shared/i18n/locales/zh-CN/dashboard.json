@@ -3,26 +3,31 @@
 	"quickView": "运行速览",
 	"overview": {
 		"title": "运行概况",
-		"desc": "环境、代理和任务状态都在 1 分钟内更新。"
+		"profilesByGroup": "{{groups}} 个分组，{{profiles}} 个环境"
 	},
 	"proxyHealth": {
 		"title": "代理健康",
-		"desc": "今日失败节点主要集中在 DE 节点，建议切备用线路。"
+		"summary": "共 {{total}} 个代理 · {{error}} 个异常 · {{unchecked}} 个未检测"
 	},
 	"windowSync": {
 		"title": "窗口同步",
-		"desc": "当前主从同步会话稳定运行，",
-		"activeSessions": "{{count}} 组会话活跃"
+		"desc": "当前同步会话：",
+		"activeSessions": "{{count}} 组活跃"
 	},
 	"metrics": {
 		"runningProfiles": "运行环境",
-		"newToday": "+{{count}} 今日新增",
+		"totalProfiles": "共 {{count}} 个环境",
 		"proxyAvailability": "代理可用率",
-		"lastHour": "最近 1 小时",
-		"paused": "异常暂停",
-		"needManual": "需人工处理",
-		"currentTheme": "当前主题",
-		"customColor": "自定义主色",
-		"preset": "预设: {{preset}}"
+		"proxyOkCount": "{{ok}} / {{total}} 正常",
+		"syncSessions": "同步会话",
+		"runningWindows": "运行中窗口",
+		"automationScripts": "自动化脚本",
+		"totalScripts": "已创建脚本数"
+	},
+	"sessionsTable": {
+		"title": "运行中环境",
+		"empty": "暂无运行中的环境",
+		"windows": "{{count}} 窗口",
+		"tabs": "{{count}} 标签"
 	}
 }

@@ -31,6 +31,13 @@
 		"deleteFailed": "Delete failed: {{error}}",
 		"unnamed": "Unnamed Config"
 	},
+	"aiChatGlobalPrompt": {
+		"title": "AI Chat Global Prompt",
+		"desc": "This system prompt is prepended to all AI Chat conversations.",
+		"placeholder": "Enter a global system prompt for all AI chats...",
+		"saved": "Global prompt saved",
+		"save": "Save"
+	},
 	"captcha": {
 		"title": "CAPTCHA Solver Service",
 		"empty": "No solver configs. Click 'Add' to create.",
@@ -81,6 +88,12 @@
 		"recycleBinDesc": "Restore or permanently delete archived data",
 		"openRecycleBin": "Open Recycle Bin"
 	},
+	"aiChatSettings": {
+		"setDefault": "Set as Default",
+		"removeDefault": "Remove Default",
+		"isDefault": "(Default)",
+		"usingDefault": "Using default: {{name}}"
+	},
 	"aiDialog": {
 		"editTitle": "Edit AI Config",
 		"createTitle": "Add AI Config",
@@ -110,5 +123,12 @@
 		"addVariable": "Add Variable",
 		"cancel": "Cancel",
 		"save": "Save"
+	},
+	"toolPermissions": {
+		"title": "AI Tool Permissions",
+		"desc": "Manage confirmation requirements for dangerous operations",
+		"requireConfirmation": "Require Confirmation",
+		"allConfirm": "All Require Confirmation",
+		"allSkip": "Skip All Confirmations"
 	}
 }
