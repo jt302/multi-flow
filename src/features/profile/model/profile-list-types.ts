@@ -32,6 +32,7 @@ export type ProfileListPageProps = {
 	onBatchOpenProfiles: (profileIds: string[]) => Promise<BatchProfileActionResponse>;
 	onBatchCloseProfiles: (profileIds: string[]) => Promise<BatchProfileActionResponse>;
 	onBatchSetProfileGroup: (profileIds: string[], groupName?: string) => Promise<BatchProfileActionResponse>;
+	onDuplicateProfile: (profileId: string) => Promise<void>;
 	onDeleteProfile: (profileId: string) => Promise<void>;
 	onRestoreProfile: (profileId: string) => Promise<void>;
 	onReadProfileCookies: (profileId: string) => Promise<ReadProfileCookiesResponse>;

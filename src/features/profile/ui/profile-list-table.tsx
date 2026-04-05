@@ -52,6 +52,7 @@ type ProfileListTableProps = {
 	onCloseProfile: (profileId: string) => Promise<void>;
 	onSetProfileGroup: (profileId: string, groupName?: string) => Promise<void>;
 	onFocusProfileWindow: (profileId: string) => Promise<void>;
+	onDuplicateProfile: (profileId: string) => Promise<void>;
 	onDeleteProfile: (profileId: string) => Promise<void>;
 	onRestoreProfile: (profileId: string) => Promise<void>;
 	onReadProfileCookies: (profileId: string) => Promise<ReadProfileCookiesResponse>;
@@ -87,6 +88,7 @@ export function ProfileListTable({
 	onCloseProfile,
 	onSetProfileGroup,
 	onFocusProfileWindow,
+	onDuplicateProfile,
 	onDeleteProfile,
 	onRestoreProfile,
 	onReadProfileCookies,
@@ -100,7 +102,7 @@ export function ProfileListTable({
 		<div className="overflow-hidden rounded-xl border border-border/70">
 			{profiles.length === 0 ? (
 				<div className="px-4 py-10 text-center text-sm text-muted-foreground">
-					{t('list:emptyNoMatch')}
+					{t('list.emptyNoMatch')}
 				</div>
 			) : (
 				<Table>
@@ -126,12 +128,12 @@ export function ProfileListTable({
 									<span aria-hidden="true" className="h-9 w-9" />
 								</div>
 							</TableHead>
-							<TableHead>{t('list:profile')}</TableHead>
-							<TableHead>{t('list:noteVersion')}</TableHead>
-							<TableHead>{t('list:device')}</TableHead>
-							<TableHead>{t('list:proxy')}</TableHead>
-							<TableHead className="w-[140px]">{t('list:status')}</TableHead>
-							<TableHead className="w-[130px] text-right">{t('list:action')}</TableHead>
+						<TableHead>{t('list.profile')}</TableHead>
+						<TableHead>{t('list.noteVersion')}</TableHead>
+						<TableHead>{t('list.device')}</TableHead>
+						<TableHead>{t('list.proxy')}</TableHead>
+						<TableHead className="w-[140px]">{t('list.status')}</TableHead>
+						<TableHead className="w-[130px] text-right">{t('list.action')}</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -167,7 +169,8 @@ export function ProfileListTable({
 									onCloseProfile={onCloseProfile}
 									onSetProfileGroup={onSetProfileGroup}
 									onFocusProfileWindow={onFocusProfileWindow}
-									onDeleteProfile={onDeleteProfile}
+									onDuplicateProfile={onDuplicateProfile}
+								onDeleteProfile={onDeleteProfile}
 									onRestoreProfile={onRestoreProfile}
 									onReadProfileCookies={onReadProfileCookies}
 									onExportProfileCookies={onExportProfileCookies}

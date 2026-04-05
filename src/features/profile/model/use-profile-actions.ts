@@ -9,6 +9,7 @@ import {
 	createProfileDevicePreset as createProfileDevicePresetApi,
 	deleteProfileDevicePreset as deleteProfileDevicePresetApi,
 	deleteProfile as deleteProfileApi,
+	duplicateProfile as duplicateProfileApi,
 	exportProfileCookies as exportProfileCookiesApi,
 	openProfile as openProfileApi,
 	purgeProfile as purgeProfileApi,
@@ -223,6 +224,17 @@ export function useProfileActions({
 		});
 	};
 
+	const duplicateProfile = async (profileId: string) => {
+		try {
+			await duplicateProfileApi(profileId);
+			await Promise.all([refreshProfilesAndBindings(), refreshGroups()]);
+			toast.success(i18n.t('profile:profileDuplicated'));
+		} catch (error) {
+			toast.error(i18n.t('profile:duplicateProfileFailed'));
+			throw error;
+		}
+	};
+
 	const deleteProfile = async (profileId: string) => {
 		setActionState(profileId, 'deleting');
 		try {
@@ -414,6 +426,7 @@ export function useProfileActions({
 		deleteDevicePreset,
 		updateProfile,
 		updateProfileVisual,
+		duplicateProfile,
 		openProfile,
 		closeProfile,
 		deleteProfile,

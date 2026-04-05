@@ -35,6 +35,7 @@ export function ProfileListPage({
 	onBatchOpenProfiles,
 	onBatchCloseProfiles,
 	onBatchSetProfileGroup,
+	onDuplicateProfile,
 	onDeleteProfile,
 	onRestoreProfile,
 	onReadProfileCookies,
@@ -87,6 +88,8 @@ export function ProfileListPage({
 	const setBatchOpenResult = useProfileListStore(
 		(state) => state.setBatchOpenResult,
 	);
+
+	const onErrorReset = () => setError(null);
 
 	useEffect(() => {
 		reset();
@@ -182,15 +185,15 @@ export function ProfileListPage({
 		try {
 			await action();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t('errors.operationFailed'));
+			setError(
+				err instanceof Error ? err.message : t('errors.operationFailed'),
+			);
 		}
 	};
 
 	const isEmpty = filteredProfiles.length === 0;
 	const emptyText =
-		profiles.length === 0
-			? t('list.emptyNoProfiles')
-			: t('list.emptyNoMatch');
+		profiles.length === 0 ? t('list.emptyNoProfiles') : t('list.emptyNoMatch');
 
 	return (
 		<div className="flex flex-col gap-3 h-full min-h-0">
@@ -259,7 +262,11 @@ export function ProfileListPage({
 							try {
 								await onRefreshProfiles();
 							} catch (err) {
-								setError(err instanceof Error ? err.message : t('errors.refreshFailed'));
+								setError(
+									err instanceof Error
+										? err.message
+										: t('errors.refreshFailed'),
+								);
 							}
 						})();
 					}}
@@ -296,8 +303,12 @@ export function ProfileListPage({
 				<ConfirmActionDialog
 					open={stopAllRunningDialogOpen}
 					title={t('list.stopAllConfirmTitle')}
-					description={t('list.stopAllConfirmDesc', { count: filteredRunningIds.length })}
-					confirmText={stopAllRunningPending ? t('list.stopping') : t('list.confirmStop')}
+					description={t('list.stopAllConfirmDesc', {
+						count: filteredRunningIds.length,
+					})}
+					confirmText={
+						stopAllRunningPending ? t('list.stopping') : t('list.confirmStop')
+					}
 					pending={stopAllRunningPending}
 					onOpenChange={setStopAllRunningDialogOpen}
 					onConfirm={() => {
@@ -342,13 +353,14 @@ export function ProfileListPage({
 						onCloseProfile={onCloseProfile}
 						onSetProfileGroup={onSetProfileGroup}
 						onFocusProfileWindow={onFocusProfileWindow}
+						onDuplicateProfile={onDuplicateProfile}
 						onDeleteProfile={onDeleteProfile}
 						onRestoreProfile={onRestoreProfile}
 						onReadProfileCookies={onReadProfileCookies}
 						onExportProfileCookies={onExportProfileCookies}
 						onRefreshProfiles={onRefreshProfiles}
 						onRunAction={runAction}
-						onErrorReset={() => setError(null)}
+						onErrorReset={onErrorReset}
 					/>
 				)}
 				{error ? (
