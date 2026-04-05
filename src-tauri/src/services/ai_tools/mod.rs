@@ -11,8 +11,9 @@ pub mod file_tools;
 pub mod dialog_tools;
 
 use std::collections::HashMap;
+use std::sync::LazyLock;
 use serde_json::Value;
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::models::ScriptStep;
 use crate::services::automation_cdp_client::CdpClient;
@@ -26,6 +27,7 @@ pub struct ToolContext<'a> {
     pub cdp: Option<&'a CdpClient>,
     pub http_client: &'a reqwest::Client,
     pub magic_port: Option<u16>,
+    pub current_profile_id: Option<&'a str>,
     pub app: &'a AppHandle,
     pub run_id: &'a str,
     pub step_index: usize,
@@ -70,28 +72,39 @@ impl ToolResult {
 pub struct ToolFilter {
     /// 启用的工具类别（空 = 全部启用）
     pub categories: Vec<String>,
+    /// 排除的工具类别（优先于 categories）
+    pub excluded_categories: Vec<String>,
 }
 
 impl ToolFilter {
     pub fn all() -> Self {
-        Self { categories: vec![] }
+        Self { categories: vec![], excluded_categories: vec![] }
     }
 
     pub fn with_categories(categories: Vec<String>) -> Self {
-        Self { categories }
+        Self { categories, excluded_categories: vec![] }
+    }
+
+    /// 排除指定类别的工具（链式调用）
+    pub fn exclude(mut self, categories: Vec<String>) -> Self {
+        self.excluded_categories = categories;
+        self
     }
 
     fn is_allowed(&self, tool_name: &str) -> bool {
+        let category = tool_category(tool_name);
+        if self.excluded_categories.iter().any(|c| c == category) {
+            return false;
+        }
         if self.categories.is_empty() {
             return true;
         }
-        let category = tool_category(tool_name);
         self.categories.iter().any(|c| c == category)
     }
 }
 
 /// 根据工具名前缀返回类别
-fn tool_category(name: &str) -> &str {
+pub fn tool_category(name: &str) -> &str {
     if name.starts_with("cdp_") || name == "cdp" { return "cdp"; }
     if name.starts_with("magic_") { return "magic"; }
     if name.starts_with("auto_") { return "auto"; }
@@ -102,14 +115,71 @@ fn tool_category(name: &str) -> &str {
     "utility"
 }
 
+/// 工具风险等级
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ToolRiskLevel {
+    /// 只读操作：get_text, screenshot, get_tabs 等
+    Safe,
+    /// 交互操作：click, type, navigate 等
+    Moderate,
+    /// 破坏性操作：delete, close, write 等
+    Dangerous,
+}
+
+/// 根据工具名返回风险等级
+pub fn tool_risk_level(tool_name: &str) -> ToolRiskLevel {
+    match tool_name {
+        // 危险工具 —— 破坏性操作
+        "app_delete_profile" | "app_delete_proxy" | "app_delete_group"
+        | "app_stop_profile" | "app_stop_all_profiles"
+        | "app_purge_profile" | "app_purge_proxy" | "app_purge_group"
+        | "magic_set_closed" | "magic_safe_quit"
+        | "file_write" | "file_delete" | "file_append"
+        | "cdp_clear_cookies" | "cdp_clear_local_storage" | "cdp_clear_session_storage"
+        | "auto_delete_script" => ToolRiskLevel::Dangerous,
+
+        // 安全工具 —— 只读操作
+        name if name.starts_with("app_list_") || name.starts_with("app_get_")
+            || name.starts_with("magic_get_") || name.starts_with("cdp_get_")
+            || name == "cdp_screenshot" || name == "cdp_get_document" || name == "cdp_get_full_ax_tree"
+            || name.starts_with("file_read") || name == "file_exists" || name == "file_list_dir"
+            || name.starts_with("auto_list_") || name.starts_with("auto_get_")
+            || name == "print" || name == "submit_result" => ToolRiskLevel::Safe,
+
+        // 其余为中等风险
+        _ => ToolRiskLevel::Moderate,
+    }
+}
+
+/// 判断工具是否属于高风险/破坏性操作
+fn is_dangerous_tool(name: &str) -> bool {
+    tool_risk_level(name) == ToolRiskLevel::Dangerous
+}
+
+/// 返回所有危险工具名称列表
+pub fn all_dangerous_tool_names() -> Vec<&'static str> {
+    vec![
+        "app_delete_profile", "app_delete_proxy", "app_delete_group",
+        "app_stop_profile", "app_stop_all_profiles",
+        "app_purge_profile", "app_purge_proxy", "app_purge_group",
+        "magic_set_closed", "magic_safe_quit",
+        "file_write", "file_delete", "file_append",
+        "cdp_clear_cookies", "cdp_clear_local_storage", "cdp_clear_session_storage",
+        "auto_delete_script",
+    ]
+}
+
+/// 缓存的完整工具定义列表（LazyLock，只构建一次）
+static ALL_TOOL_DEFS: LazyLock<Vec<Value>> = LazyLock::new(tool_defs::all_tool_definitions);
+
 /// AI 工具注册表
 pub struct ToolRegistry;
 
 impl ToolRegistry {
     /// 获取所有工具的 OpenAI function schema（JSON），可按类别筛选
     pub fn definitions(filter: &ToolFilter) -> Vec<Value> {
-        tool_defs::all_tool_definitions()
-            .into_iter()
+        ALL_TOOL_DEFS
+            .iter()
             .filter(|def| {
                 let name = def
                     .get("function")
@@ -118,6 +188,7 @@ impl ToolRegistry {
                     .unwrap_or("");
                 filter.is_allowed(name)
             })
+            .cloned()
             .collect()
     }
 
@@ -134,6 +205,67 @@ impl ToolRegistry {
         ctx: &mut ToolContext<'_>,
     ) -> Result<ToolResult, String> {
         let category = tool_category(name);
+
+        // 对高风险工具记录警告日志 + 确认拦截
+        if is_dangerous_tool(name) {
+            let args_summary = serde_json::to_string(&args).unwrap_or_default();
+            let args_short = if args_summary.len() > 200 { &args_summary[..200] } else { &args_summary };
+            crate::logger::warn("ai-tools", format!("Executing dangerous tool: {} args={}", name, args_short));
+
+            // 检查是否需要用户确认
+            let need_confirm = {
+                let app_state = ctx.app.state::<crate::state::AppState>();
+                let pref_svc = app_state.app_preference_service.lock()
+                    .map_err(|_| "app_preference_service lock poisoned".to_string())?;
+                let overrides = pref_svc.get_tool_confirmation_overrides();
+                // 默认危险工具需要确认，除非用户明确关闭
+                overrides.get(name).copied().unwrap_or(true)
+            };
+
+            if need_confirm {
+                // 通过 Tauri 事件 + oneshot 通道请求用户确认
+                let request_id = format!("tool-confirm-{}", uuid::Uuid::new_v4());
+                let (tx, rx) = tokio::sync::oneshot::channel::<bool>();
+
+                // 注册 oneshot 通道到 AppState
+                {
+                    let state = ctx.app.state::<crate::state::AppState>();
+                    let mut channels = state.tool_confirmation_channels.lock()
+                        .map_err(|_| "tool_confirmation_channels lock poisoned".to_string())?;
+                    channels.insert(request_id.clone(), tx);
+                }
+
+                // 发射确认请求事件到前端
+                let payload = serde_json::json!({
+                    "requestId": request_id,
+                    "toolName": name,
+                    "args": args,
+                    "riskLevel": "dangerous",
+                });
+                ctx.app.emit("tool-confirmation-request", &payload)
+                    .map_err(|e| format!("Failed to emit tool-confirmation-request: {e}"))?;
+
+                // 等待前端响应（60 秒超时）
+                let confirmed = tokio::time::timeout(
+                    std::time::Duration::from_secs(60),
+                    rx,
+                )
+                .await
+                .map_err(|_| {
+                    // 超时，清理已注册的通道
+                    let state = ctx.app.state::<crate::state::AppState>();
+                    if let Ok(mut channels) = state.tool_confirmation_channels.lock() {
+                        let _ = channels.remove(&request_id);
+                    }
+                    "Tool confirmation timed out (60s)".to_string()
+                })?
+                .map_err(|_| "Tool confirmation channel closed unexpectedly".to_string())?;
+
+                if !confirmed {
+                    return Ok(ToolResult::text("Operation cancelled by user"));
+                }
+            }
+        }
 
         match category {
             "cdp" | "magic" | "utility" | "captcha" => {
@@ -162,6 +294,30 @@ impl ToolRegistry {
         args: Value,
         ctx: &mut ToolContext<'_>,
     ) -> Result<ToolResult, String> {
+        let category = tool_category(name);
+        if category == "cdp" {
+            let profile_id = ctx.current_profile_id.ok_or_else(|| {
+                "当前会话未绑定工具目标环境，请先调用 app_set_chat_active_profile 或在聊天头部选择环境".to_string()
+            })?;
+            if ctx.cdp.is_none() {
+                return Err(format!(
+                    "当前工具目标环境 '{}' 的 CDP 不可用，请先启动该环境或切换到其他已运行环境",
+                    profile_id
+                ));
+            }
+        }
+        if category == "magic" {
+            let profile_id = ctx.current_profile_id.ok_or_else(|| {
+                "当前会话未绑定工具目标环境，请先调用 app_set_chat_active_profile 或在聊天头部选择环境".to_string()
+            })?;
+            if ctx.magic_port.is_none() {
+                return Err(format!(
+                    "当前工具目标环境 '{}' 的 Magic Controller 不可用，请先启动该环境或切换到其他已运行环境",
+                    profile_id
+                ));
+            }
+        }
+
         // 注入 kind 字段，构造完整的 ScriptStep JSON
         let mut step_json = args;
         if let Some(obj) = step_json.as_object_mut() {

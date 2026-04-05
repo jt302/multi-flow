@@ -10,6 +10,7 @@ use crate::models::{
     ListProxiesQuery, UpdateProfileGroupRequest,
 };
 use crate::state::AppState;
+use crate::services::chat_service::UpdateChatSessionRequest;
 
 use super::{ToolContext, ToolResult};
 
@@ -96,17 +97,27 @@ pub async fn execute(name: &str, args: Value, ctx: &mut ToolContext<'_>) -> Resu
 
         "app_start_profile" => {
             let profile_id = require_str(&args, "profile_id")?;
-            // 需要 EngineManager 来启动 profile
-            let mut em = state.lock_engine_manager();
-            let session = em.open_profile(&profile_id).map_err(|e| e.to_string())?;
-            Ok(ToolResult::text(serde_json::to_string(&session).unwrap_or_default()))
+            // 复用 UI 的完整启动流程：指纹解析、代理设置、Cookie/扩展状态加载、
+            // mark_profile_running(true)、save_session 等
+            let resp = crate::commands::profile_commands::do_open_profile(
+                state.inner(),
+                Some(ctx.app),
+                None, // task_id
+                &profile_id,
+                None, // user_options（使用 profile 已配置参数）
+            )?;
+            Ok(ToolResult::text(serde_json::to_string(&resp.session).unwrap_or_default()))
         }
 
         "app_stop_profile" => {
             let profile_id = require_str(&args, "profile_id")?;
-            let mut em = state.lock_engine_manager();
-            let session = em.close_profile(&profile_id).map_err(|e| e.to_string())?;
-            Ok(ToolResult::text(serde_json::to_string(&session).unwrap_or_default()))
+            // 复用 UI 的完整关闭流程：Cookie 快照、mark_profile_running(false)、
+            // delete_session、proxy runtime 清理
+            let profile = crate::commands::profile_commands::do_close_profile(
+                state.inner(),
+                &profile_id,
+            )?;
+            Ok(ToolResult::text(serde_json::to_string(&profile).unwrap_or_default()))
         }
 
         "app_get_running_profiles" => {
@@ -115,16 +126,61 @@ pub async fn execute(name: &str, args: Value, ctx: &mut ToolContext<'_>) -> Resu
             Ok(ToolResult::text(serde_json::to_string(&states).unwrap_or_default()))
         }
 
+        "app_set_chat_active_profile" => {
+            let profile_id = require_str(&args, "profile_id")?;
+            let chat_svc = state.chat_service.lock().unwrap_or_else(|p| p.into_inner()).clone();
+            let session = chat_svc
+                .get_session(ctx.run_id)
+                .await
+                .map_err(|_| "app_set_chat_active_profile 仅支持 AI 聊天会话".to_string())?;
+            let allowed_profile_ids = session
+                .profile_ids
+                .clone()
+                .or_else(|| session.profile_id.clone().map(|id| vec![id]))
+                .unwrap_or_default();
+            if allowed_profile_ids.is_empty() {
+                return Err("当前聊天会话未关联任何可操作环境".to_string());
+            }
+            if !allowed_profile_ids.iter().any(|id| id == &profile_id) {
+                return Err(format!(
+                    "环境 '{}' 不在当前聊天会话的可操作范围内，请先把它加入当前会话",
+                    profile_id
+                ));
+            }
+
+            let updated = chat_svc
+                .update_session(
+                    &session.id,
+                    UpdateChatSessionRequest {
+                        title: None,
+                        profile_id: None,
+                        ai_config_id: None,
+                        system_prompt: None,
+                        tool_categories: None,
+                        profile_ids: None,
+                        active_profile_id: Some(Some(profile_id)),
+                    },
+                )
+                .await
+                .map_err(|e| e.to_string())?;
+            crate::services::chat_service::emit_chat_session_updated(ctx.app, &updated);
+            Ok(ToolResult::text(
+                serde_json::to_string(&updated).unwrap_or_default(),
+            ))
+        }
+
         "app_get_current_profile" => {
-            // 返回当前 run 绑定的 profile 信息（从 run_id 中提取 profile_id）
-            // run_id 格式通常为 "{profile_id}:{timestamp}" 或纯 profile_id
-            let run_id = ctx.run_id;
-            let profile_id = run_id.split(':').next().unwrap_or(run_id);
+            let Some(profile_id) = ctx.current_profile_id else {
+                return Ok(ToolResult::text(json!({
+                    "currentProfileId": null,
+                    "message": "当前未绑定工具目标环境，请先调用 app_set_chat_active_profile 或在聊天头部选择环境"
+                }).to_string()));
+            };
             let svc = state.lock_profile_service();
             match svc.get_profile(profile_id) {
                 Ok(profile) => Ok(ToolResult::text(serde_json::to_string(&profile).unwrap_or_default())),
                 Err(e) => Ok(ToolResult::text(json!({
-                    "run_id": run_id,
+                    "currentProfileId": profile_id,
                     "error": e.to_string()
                 }).to_string())),
             }
