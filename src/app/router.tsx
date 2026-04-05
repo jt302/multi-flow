@@ -51,6 +51,11 @@ const AutomationRoutePage = lazy(() =>
 		default: module.AutomationRoutePage,
 	})),
 );
+const AiChatRoutePage = lazy(() =>
+	import('@/pages/ai-chat').then((module) => ({
+		default: module.AiChatRoutePage,
+	})),
+);
 const AutomationCanvasRoutePage = lazy(() =>
 	import('@/pages/automation-canvas').then((module) => ({
 		default: module.AutomationCanvasRoutePage,
@@ -84,6 +89,7 @@ export function AppRouter() {
 				<Route path="/windows" element={<WindowsRoutePage />} />
 				<Route path="/browser-control" element={<BrowserControlRoutePage />} />
 				<Route path="/automation" element={<AutomationRoutePage />} />
+				<Route path="/ai-chat" element={<AiChatRoutePage />} />
 				<Route path="/settings" element={<SettingsRoutePage />} />
 			</Route>
 		</Routes>

@@ -12,4 +12,7 @@ export const queryKeys = {
 	automationScripts: ['automation-scripts'] as const,
 	automationRuns: (scriptId: string) => ['automation-runs', scriptId] as const,
 	aiConfigs: ['ai-configs'] as const,
+	defaultAiConfig: ['default-ai-config'] as const,
+	chatSessions: ['chat-sessions'] as const,
+	chatMessages: (sessionId: string) => ['chat-messages', sessionId] as const,
 };

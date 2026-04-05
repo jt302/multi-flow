@@ -1,0 +1,136 @@
+import { useEffect, useRef, useState } from 'react';
+import { listen } from '@tauri-apps/api/event';
+import { AlertTriangle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+
+import { tauriInvoke } from '@/shared/api/tauri-invoke';
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+// ── 类型定义 ─────────────────────────────────────────────────────────
+
+interface ToolConfirmationRequest {
+	requestId: string;
+	toolName: string;
+	args: Record<string, unknown>;
+	riskLevel: string;
+}
+
+// ── 组件 ─────────────────────────────────────────────────────────────
+
+export function ToolConfirmationModal() {
+	const { t } = useTranslation('common');
+	const [request, setRequest] = useState<ToolConfirmationRequest | null>(null);
+	const [submitting, setSubmitting] = useState(false);
+	const unlistenRef = useRef<(() => void) | null>(null);
+
+	useEffect(() => {
+		let mounted = true;
+
+		listen<ToolConfirmationRequest>('tool-confirmation-request', (event) => {
+			if (!mounted) return;
+			setRequest(event.payload);
+		}).then((unlisten) => {
+			if (mounted) {
+				unlistenRef.current = unlisten;
+			} else {
+				unlisten();
+			}
+		});
+
+		return () => {
+			mounted = false;
+			unlistenRef.current?.();
+		};
+	}, []);
+
+	const handleResponse = async (confirmed: boolean) => {
+		if (!request || submitting) return;
+		setSubmitting(true);
+		try {
+			await tauriInvoke<void>('submit_tool_confirmation', {
+				requestId: request.requestId,
+				confirmed,
+			});
+		} finally {
+			setSubmitting(false);
+			setRequest(null);
+		}
+	};
+
+	// 格式化参数为可读文本
+	const formatArgs = (args: Record<string, unknown>): string => {
+		try {
+			const str = JSON.stringify(args, null, 2);
+			return str.length > 500 ? str.slice(0, 500) + '...' : str;
+		} catch {
+			return String(args);
+		}
+	};
+
+	return (
+		<AlertDialog open={!!request}>
+			<AlertDialogContent className="max-w-md">
+				<AlertDialogHeader>
+					<AlertDialogTitle className="flex items-center gap-2">
+						<AlertTriangle className="h-5 w-5 text-destructive" />
+						{t('toolConfirmation.title')}
+					</AlertDialogTitle>
+					<AlertDialogDescription asChild>
+						<div className="space-y-3 text-sm">
+							<p>{t('toolConfirmation.message')}</p>
+							<div className="rounded-md border bg-muted/50 p-3 space-y-2">
+								<div className="flex items-center gap-2">
+									<span className="text-muted-foreground">
+										{t('toolConfirmation.toolName')}:
+									</span>
+									<code className="rounded bg-destructive/10 px-1.5 py-0.5 text-xs font-mono text-destructive">
+										{request?.toolName}
+									</code>
+								</div>
+								{request?.args &&
+									Object.keys(request.args).length > 0 && (
+										<div>
+											<span className="text-muted-foreground">
+												{t('toolConfirmation.args')}:
+											</span>
+											<ScrollArea className="mt-1 max-h-40">
+												<pre className="rounded bg-background p-2 text-xs font-mono whitespace-pre-wrap break-all">
+													{formatArgs(request.args)}
+												</pre>
+											</ScrollArea>
+										</div>
+									)}
+							</div>
+						</div>
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter className="gap-2">
+					<AlertDialogCancel
+						onClick={() => void handleResponse(false)}
+						disabled={submitting}
+						className="cursor-pointer h-9 px-4"
+					>
+						{t('toolConfirmation.cancel')}
+					</AlertDialogCancel>
+					<AlertDialogAction
+						onClick={() => void handleResponse(true)}
+						disabled={submitting}
+						className="bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-pointer h-9 px-4"
+					>
+						{t('toolConfirmation.confirm')}
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	);
+}

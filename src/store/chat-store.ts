@@ -1,0 +1,125 @@
+import { useStore } from 'zustand';
+import { createStore } from 'zustand/vanilla';
+import { persist } from 'zustand/middleware';
+
+import type { ChatMessageRecord, ChatPhaseEvent } from '@/entities/chat/model/types';
+
+type GenerationPhase = 'idle' | 'thinking' | 'tool_calling' | 'done';
+
+type ChatStoreState = {
+	activeSessionId: string | null;
+	isGenerating: boolean;
+	generationPhase: GenerationPhase;
+	currentToolName: string | null;
+	currentRound: number;
+	maxRounds: number;
+	elapsedMs: number;
+	promptTokens: number;
+	completionTokens: number;
+	generationStartTime: number | null;
+	liveMessages: ChatMessageRecord[];
+};
+
+type ChatStoreActions = {
+	setActiveSession: (id: string | null) => void;
+	startGeneration: () => void;
+	finishGeneration: () => void;
+	appendMessage: (msg: ChatMessageRecord) => void;
+	updatePhase: (event: ChatPhaseEvent) => void;
+	reset: () => void;
+};
+
+const INITIAL_STATE: ChatStoreState = {
+	activeSessionId: null,
+	isGenerating: false,
+	generationPhase: 'idle',
+	currentToolName: null,
+	currentRound: 0,
+	maxRounds: 30,
+	elapsedMs: 0,
+	promptTokens: 0,
+	completionTokens: 0,
+	generationStartTime: null,
+	liveMessages: [],
+};
+
+export function createChatStore(initial?: Partial<ChatStoreState>) {
+	return createStore<ChatStoreState & ChatStoreActions>((set) => ({
+		...INITIAL_STATE,
+		...initial,
+
+		setActiveSession: (id) =>
+			set({ activeSessionId: id, liveMessages: [], isGenerating: false, generationPhase: 'idle' }),
+
+		startGeneration: () => set({ isGenerating: true, generationPhase: 'thinking', generationStartTime: Date.now(), currentRound: 0, promptTokens: 0, completionTokens: 0, elapsedMs: 0 }),
+
+		finishGeneration: () => set({ isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null }),
+
+		appendMessage: (msg) =>
+			set((s) => ({ liveMessages: [...s.liveMessages, msg] })),
+
+		updatePhase: (event) => {
+			const shared = {
+				currentRound: event.round ?? 0,
+				maxRounds: event.maxRounds ?? 30,
+				elapsedMs: event.elapsedMs ?? 0,
+				promptTokens: event.promptTokens ?? 0,
+				completionTokens: event.completionTokens ?? 0,
+			};
+			if (event.phase === 'done' || event.phase === 'error') {
+				set({ isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null, ...shared });
+			} else if (event.phase === 'thinking') {
+				set({ generationPhase: 'thinking', currentToolName: null, ...shared });
+			} else if (event.phase === 'tool_calling') {
+				set({ generationPhase: 'tool_calling', currentToolName: event.toolName ?? null, ...shared });
+			}
+		},
+
+		reset: () => set(INITIAL_STATE),
+	}));
+}
+
+export const chatStore = createStore<ChatStoreState & ChatStoreActions>()(
+	persist(
+		(set) => ({
+			...INITIAL_STATE,
+
+			setActiveSession: (id) =>
+				set({ activeSessionId: id, liveMessages: [], isGenerating: false, generationPhase: 'idle' }),
+
+			startGeneration: () => set({ isGenerating: true, generationPhase: 'thinking', generationStartTime: Date.now(), currentRound: 0, promptTokens: 0, completionTokens: 0, elapsedMs: 0 }),
+
+			finishGeneration: () => set({ isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null }),
+
+			appendMessage: (msg) =>
+				set((s) => ({ liveMessages: [...s.liveMessages, msg] })),
+
+			updatePhase: (event) => {
+				const shared = {
+					currentRound: event.round ?? 0,
+					maxRounds: event.maxRounds ?? 30,
+					elapsedMs: event.elapsedMs ?? 0,
+					promptTokens: event.promptTokens ?? 0,
+					completionTokens: event.completionTokens ?? 0,
+				};
+				if (event.phase === 'done' || event.phase === 'error') {
+					set({ isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null, ...shared });
+				} else if (event.phase === 'thinking') {
+					set({ generationPhase: 'thinking', currentToolName: null, ...shared });
+				} else if (event.phase === 'tool_calling') {
+					set({ generationPhase: 'tool_calling', currentToolName: event.toolName ?? null, ...shared });
+				}
+			},
+
+			reset: () => set(INITIAL_STATE),
+		}),
+		{
+			name: 'mf-chat-store',
+			partialize: (state) => ({ activeSessionId: state.activeSessionId }),
+		},
+	),
+);
+
+export function useChatStore<T>(selector: (s: ChatStoreState & ChatStoreActions) => T): T {
+	return useStore(chatStore, selector);
+}
