@@ -48,9 +48,6 @@
 		"permanentDeleteFailed": "彻底删除分组失败"
 	},
 	"mock": {
-		"airdropNote": "空投批量任务",
-		"farmNote": "收益农场矩阵",
-		"brandNote": "品牌账号运营",
 		"noNote": "未填写备注"
 	}
 }

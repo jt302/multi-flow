@@ -16,6 +16,7 @@ import zhDashboard from './locales/zh-CN/dashboard.json';
 import zhLog from './locales/zh-CN/log.json';
 import zhPlugin from './locales/zh-CN/plugin.json';
 import zhCanvas from './locales/zh-CN/canvas.json';
+import zhChat from './locales/zh-CN/chat.json';
 
 import enCommon from './locales/en-US/common.json';
 import enNav from './locales/en-US/nav.json';
@@ -31,6 +32,7 @@ import enDashboard from './locales/en-US/dashboard.json';
 import enLog from './locales/en-US/log.json';
 import enPlugin from './locales/en-US/plugin.json';
 import enCanvas from './locales/en-US/canvas.json';
+import enChat from './locales/en-US/chat.json';
 
 export const defaultNS = 'common';
 export const resources = {
@@ -49,6 +51,7 @@ export const resources = {
 		log: zhLog,
 		plugin: zhPlugin,
 		canvas: zhCanvas,
+		chat: zhChat,
 	},
 	'en-US': {
 		common: enCommon,
@@ -65,6 +68,7 @@ export const resources = {
 		log: enLog,
 		plugin: enPlugin,
 		canvas: enCanvas,
+		chat: enChat,
 	},
 } as const;
 
@@ -78,6 +82,8 @@ i18n
 		interpolation: {
 			escapeValue: false,
 		},
+		nsSeparator: ':',
+		keySeparator: '.',
 		detection: {
 			order: ['localStorage', 'navigator'],
 			lookupLocalStorage: 'i18nextLng',

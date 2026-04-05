@@ -48,9 +48,6 @@
 		"permanentDeleteFailed": "Failed to permanently delete group"
 	},
 	"mock": {
-		"airdropNote": "Airdrop batch tasks",
-		"farmNote": "Yield farming matrix",
-		"brandNote": "Brand account operations",
 		"noNote": "No note provided"
 	}
 }

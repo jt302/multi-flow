@@ -31,6 +31,13 @@
 		"deleteFailed": "删除失败: {{error}}",
 		"unnamed": "未命名配置"
 	},
+	"aiChatGlobalPrompt": {
+		"title": "AI 聊天全局提示词",
+		"desc": "该提示词会自动添加到所有 AI Chat 对话的系统提示词中。",
+		"placeholder": "输入全局系统提示词...",
+		"saved": "全局提示词已保存",
+		"save": "保存"
+	},
 	"captcha": {
 		"title": "CAPTCHA 求解服务",
 		"empty": "暂无求解服务配置，点击「添加」创建",
@@ -81,6 +88,12 @@
 		"recycleBinDesc": "恢复或彻底删除已归档的数据",
 		"openRecycleBin": "打开回收站"
 	},
+	"aiChatSettings": {
+		"setDefault": "设为默认",
+		"removeDefault": "取消默认",
+		"isDefault": "（默认）",
+		"usingDefault": "使用默认: {{name}}"
+	},
 	"aiDialog": {
 		"editTitle": "编辑 AI 配置",
 		"createTitle": "添加 AI 配置",
@@ -110,5 +123,12 @@
 		"addVariable": "添加变量",
 		"cancel": "取消",
 		"save": "保存"
+	},
+	"toolPermissions": {
+		"title": "AI 工具权限",
+		"desc": "管理危险操作的确认要求",
+		"requireConfirmation": "需要确认",
+		"allConfirm": "全部需要确认",
+		"allSkip": "全部免确认"
 	}
 }

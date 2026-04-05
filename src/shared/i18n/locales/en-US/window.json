@@ -159,6 +159,9 @@
 		"restartSync": "Restart Sync",
 		"refreshSyncStatus": "Refresh Sync Status"
 	},
+	"applyBounds": "Apply Bounds",
+	"create": "Create Window",
+	"list": "Window List",
 	"syncDiag": {
 		"master": "Master",
 		"masterPrefix": "Master {{name}}",

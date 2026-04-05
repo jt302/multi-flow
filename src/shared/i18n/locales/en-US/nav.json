@@ -7,6 +7,7 @@
 	"windows": "Window Sync",
 	"browserControl": "Browser Control",
 	"automation": "Automation",
+	"aiChat": "AI Chat",
 	"settings": "Settings",
 
 	"dashboardSection": {
@@ -47,6 +48,10 @@
 		"title": "Automation",
 		"desc": "Create and run RPA automation scripts. Control browser environments via CDP and Magic Controller.",
 		"tableTitle": "Recent Run Records"
+	},
+	"aiChatSection": {
+		"title": "AI Chat",
+		"desc": "Chat with AI Agent using natural language to invoke browser tools and perform automation tasks."
 	},
 	"settingsSection": {
 		"title": "System Settings",
