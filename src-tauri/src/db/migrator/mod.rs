@@ -1,3 +1,5 @@
+mod m20260405_000027_create_chat_tables;
+mod m20260406_000028_enhance_chat_system;
 mod m20260307_000001_create_profiles;
 mod m20260307_000002_create_proxies_and_bindings;
 mod m20260307_000003_create_profile_groups;
@@ -63,6 +65,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260401_000024_script_ai_config_id::Migration),
             Box::new(m20260401_000025_automation_run_logs::Migration),
             Box::new(m20260402_000026_clean_legacy_ai_steps::Migration),
+            Box::new(m20260405_000027_create_chat_tables::Migration),
+            Box::new(m20260406_000028_enhance_chat_system::Migration),
         ]
     }
 }
