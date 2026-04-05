@@ -24,6 +24,7 @@ use crate::services::profile_group_service::ProfileGroupService;
 use crate::services::profile_service::ProfileService;
 use crate::services::proxy_service::ProxyService;
 use crate::services::resource_service::ResourceService;
+use crate::services::chat_service::ChatService;
 use crate::services::sync_manager_service::SyncManagerService;
 
 pub struct AppState {
@@ -34,6 +35,11 @@ pub struct AppState {
     pub cancel_tokens: Mutex<HashMap<String, bool>>,
     /// AI Dialog oneshot senders: request_id → sender(AiDialogResponse)
     pub ai_dialog_channels: Mutex<HashMap<String, tokio::sync::oneshot::Sender<AiDialogResponse>>>,
+    /// Tool confirmation oneshot senders: request_id → sender(bool)
+    pub tool_confirmation_channels: Mutex<HashMap<String, tokio::sync::oneshot::Sender<bool>>>,
+    pub chat_service: Mutex<ChatService>,
+    /// 聊天生成取消标志: session_id → true
+    pub chat_cancel_tokens: Mutex<HashMap<String, bool>>,
     pub automation_service: Mutex<AutomationService>,
     pub profile_group_service: Mutex<ProfileGroupService>,
     pub profile_service: Mutex<ProfileService>,
@@ -125,6 +131,7 @@ fn recover_lock<'a, T>(
 
 pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
     let db = db::init_database(app)?;
+    let chat_service = ChatService::from_db(db.clone());
     let automation_service = AutomationService::from_db(db.clone());
     let profile_group_service = ProfileGroupService::from_db(db.clone());
     let profile_service = ProfileService::from_db(db.clone());
@@ -144,6 +151,9 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
         active_run_channels: Mutex::new(HashMap::new()),
         cancel_tokens: Mutex::new(HashMap::new()),
         ai_dialog_channels: Mutex::new(HashMap::new()),
+        tool_confirmation_channels: Mutex::new(HashMap::new()),
+        chat_service: Mutex::new(chat_service),
+        chat_cancel_tokens: Mutex::new(HashMap::new()),
         automation_service: Mutex::new(automation_service),
         profile_group_service: Mutex::new(profile_group_service),
         profile_service: Mutex::new(profile_service),

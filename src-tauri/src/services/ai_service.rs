@@ -101,14 +101,22 @@ impl ChatMessage {
     }
 }
 
+/// Token 使用量统计
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct TokenUsage {
+    pub prompt_tokens: Option<i32>,
+    pub completion_tokens: Option<i32>,
+}
+
 /// AI 工具调用结果
 pub enum AiChatResult {
     /// 模型返回文本（无 tool_calls）
-    Text(String),
+    Text(String, TokenUsage),
     /// 模型请求调用工具（text 为伴随工具调用的回复文本，部分模型会返回思考/解释内容）
     ToolCalls {
         text: String,
         calls: Vec<AiToolCall>,
+        usage: TokenUsage,
     },
 }
 
@@ -159,12 +167,39 @@ pub struct ImageUrl {
     pub url: String,
 }
 
+const MAX_AI_RETRIES: u32 = 5;
+
+/// 判断 HTTP 状态码是否可重试（速率限制、服务端错误）
+fn is_retryable_status(status: u16) -> bool {
+    matches!(status, 429 | 500 | 502 | 503 | 529)
+}
+
+/// 指数退避延迟（1s, 2s, 4s, 8s, 16s）
+fn retry_delay(attempt: u32) -> std::time::Duration {
+    std::time::Duration::from_secs(1u64 << attempt)
+}
+
+/// 格式化重试消息（用于日志和返回给上层）
+pub fn format_retry_message(attempt: u32, max: u32, error: &str) -> String {
+    let delay = 1u64 << attempt;
+    format!("AI request failed (attempt {}/{max}), retrying in {delay}s: {error}", attempt + 1)
+}
+
 pub struct AiService {
     http: reqwest::Client,
 }
 
 impl AiService {
     pub fn new(http: reqwest::Client) -> Self {
+        Self { http }
+    }
+
+    pub fn with_timeout(timeout_secs: u64) -> Self {
+        let http = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(timeout_secs))
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .build()
+            .expect("Failed to build HTTP client");
         Self { http }
     }
 
@@ -244,7 +279,7 @@ impl AiService {
             // Gemini 暂不支持 tool_calls，退回文本
             let model = config.model.as_deref().unwrap_or("gemini-2.0-flash");
             let text = self.chat_gemini(base_url, api_key, model, messages).await?;
-            return Ok(AiChatResult::Text(text));
+            return Ok(AiChatResult::Text(text, TokenUsage::default()));
         }
 
         let model = config.model.as_deref().unwrap_or("gpt-4o");
@@ -259,6 +294,9 @@ impl AiService {
         let resp_text = self.post_chat(base_url, api_key, &body).await?;
         let parsed: Value = serde_json::from_str(&resp_text)
             .map_err(|e| format!("AI response parse failed: {e}"))?;
+
+        // 提取 usage
+        let usage = extract_usage(&parsed);
 
         let choice = parsed
             .get("choices")
@@ -309,6 +347,7 @@ impl AiService {
             Ok(AiChatResult::ToolCalls {
                 text: assistant_text,
                 calls,
+                usage: usage.clone(),
             })
         } else {
             let content = message
@@ -316,7 +355,7 @@ impl AiService {
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
-            Ok(AiChatResult::Text(content))
+            Ok(AiChatResult::Text(content, usage))
         }
     }
 
@@ -326,27 +365,43 @@ impl AiService {
         api_key: &str,
         body: &Value,
     ) -> Result<String, String> {
-        let mut req = self
-            .http
-            .post(format!("{base_url}/chat/completions"))
-            .header("Content-Type", "application/json")
-            .json(body);
-        if !api_key.is_empty() {
-            req = req.bearer_auth(api_key);
+        let mut last_err = String::new();
+        for attempt in 0..MAX_AI_RETRIES {
+            let mut req = self
+                .http
+                .post(format!("{base_url}/chat/completions"))
+                .header("Content-Type", "application/json")
+                .json(body);
+            if !api_key.is_empty() {
+                req = req.bearer_auth(api_key);
+            }
+            match req.send().await {
+                Err(e) => {
+                    last_err = format!("AI request failed: {e}");
+                    if attempt < MAX_AI_RETRIES - 1 {
+                        eprintln!("{}", format_retry_message(attempt, MAX_AI_RETRIES, &last_err));
+                        tokio::time::sleep(retry_delay(attempt)).await;
+                        continue;
+                    }
+                }
+                Ok(resp) => {
+                    let status = resp.status();
+                    let text = resp.text().await
+                        .map_err(|e| format!("AI read body failed: {e}"))?;
+                    if status.is_success() {
+                        return Ok(text);
+                    }
+                    last_err = format!("AI API error {status}: {text}");
+                    if attempt < MAX_AI_RETRIES - 1 && is_retryable_status(status.as_u16()) {
+                        eprintln!("{}", format_retry_message(attempt, MAX_AI_RETRIES, &last_err));
+                        tokio::time::sleep(retry_delay(attempt)).await;
+                        continue;
+                    }
+                    return Err(last_err);
+                }
+            }
         }
-        let resp = req
-            .send()
-            .await
-            .map_err(|e| format!("AI request failed: {e}"))?;
-        let status = resp.status();
-        let text = resp
-            .text()
-            .await
-            .map_err(|e| format!("AI read body failed: {e}"))?;
-        if !status.is_success() {
-            return Err(format!("AI API error {status}: {text}"));
-        }
-        Ok(text)
+        Err(last_err)
     }
 
     /// Anthropic Messages API 适配器（text only）
@@ -413,25 +468,47 @@ impl AiService {
             body["system"] = json!(system_text);
         }
 
-        let resp = self
-            .http
-            .post(format!("{base_url}/v1/messages"))
-            .header("Content-Type", "application/json")
-            .header("x-api-key", api_key)
-            .header("anthropic-version", "2023-10-01")
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| format!("Anthropic request failed: {e}"))?;
-
-        let status = resp.status();
-        let text = resp
-            .text()
-            .await
-            .map_err(|e| format!("Anthropic read body failed: {e}"))?;
-        if !status.is_success() {
-            return Err(format!("Anthropic API error {status}: {text}"));
-        }
+        let text = {
+            let mut last_err = String::new();
+            let mut result_text: Option<String> = None;
+            for attempt in 0..MAX_AI_RETRIES {
+                match self.http
+                    .post(format!("{base_url}/v1/messages"))
+                    .header("Content-Type", "application/json")
+                    .header("x-api-key", api_key)
+                    .header("anthropic-version", "2023-10-01")
+                    .json(&body)
+                    .send()
+                    .await
+                {
+                    Err(e) => {
+                        last_err = format!("Anthropic request failed: {e}");
+                        if attempt < MAX_AI_RETRIES - 1 {
+                            eprintln!("{}", format_retry_message(attempt, MAX_AI_RETRIES, &last_err));
+                            tokio::time::sleep(retry_delay(attempt)).await;
+                            continue;
+                        }
+                    }
+                    Ok(resp) => {
+                        let status = resp.status();
+                        let body_text = resp.text().await
+                            .map_err(|e| format!("Anthropic read body failed: {e}"))?;
+                        if status.is_success() {
+                            result_text = Some(body_text);
+                            break;
+                        }
+                        last_err = format!("Anthropic API error {status}: {body_text}");
+                        if attempt < MAX_AI_RETRIES - 1 && is_retryable_status(status.as_u16()) {
+                            eprintln!("{}", format_retry_message(attempt, MAX_AI_RETRIES, &last_err));
+                            tokio::time::sleep(retry_delay(attempt)).await;
+                            continue;
+                        }
+                        return Err(last_err);
+                    }
+                }
+            }
+            result_text.ok_or(last_err)?
+        };
 
         let parsed: Value = serde_json::from_str(&text)
             .map_err(|e| format!("Anthropic response parse failed: {e}"))?;
@@ -510,28 +587,52 @@ impl AiService {
             body["system"] = json!(system_text);
         }
 
-        let resp = self
-            .http
-            .post(format!("{base_url}/v1/messages"))
-            .header("Content-Type", "application/json")
-            .header("x-api-key", api_key)
-            .header("anthropic-version", "2023-10-01")
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| format!("Anthropic request failed: {e}"))?;
-
-        let status = resp.status();
-        let text = resp
-            .text()
-            .await
-            .map_err(|e| format!("Anthropic read body failed: {e}"))?;
-        if !status.is_success() {
-            return Err(format!("Anthropic API error {status}: {text}"));
-        }
+        let text = {
+            let mut last_err = String::new();
+            let mut result_text: Option<String> = None;
+            for attempt in 0..MAX_AI_RETRIES {
+                match self.http
+                    .post(format!("{base_url}/v1/messages"))
+                    .header("Content-Type", "application/json")
+                    .header("x-api-key", api_key)
+                    .header("anthropic-version", "2023-10-01")
+                    .json(&body)
+                    .send()
+                    .await
+                {
+                    Err(e) => {
+                        last_err = format!("Anthropic request failed: {e}");
+                        if attempt < MAX_AI_RETRIES - 1 {
+                            eprintln!("{}", format_retry_message(attempt, MAX_AI_RETRIES, &last_err));
+                            tokio::time::sleep(retry_delay(attempt)).await;
+                            continue;
+                        }
+                    }
+                    Ok(resp) => {
+                        let status = resp.status();
+                        let body_text = resp.text().await
+                            .map_err(|e| format!("Anthropic read body failed: {e}"))?;
+                        if status.is_success() {
+                            result_text = Some(body_text);
+                            break;
+                        }
+                        last_err = format!("Anthropic API error {status}: {body_text}");
+                        if attempt < MAX_AI_RETRIES - 1 && is_retryable_status(status.as_u16()) {
+                            eprintln!("{}", format_retry_message(attempt, MAX_AI_RETRIES, &last_err));
+                            tokio::time::sleep(retry_delay(attempt)).await;
+                            continue;
+                        }
+                        return Err(last_err);
+                    }
+                }
+            }
+            result_text.ok_or(last_err)?
+        };
 
         let parsed: Value = serde_json::from_str(&text)
             .map_err(|e| format!("Anthropic response parse failed: {e}"))?;
+
+        let usage = extract_usage(&parsed);
 
         let stop_reason = parsed
             .get("stop_reason")
@@ -581,6 +682,7 @@ impl AiService {
             Ok(AiChatResult::ToolCalls {
                 text: assistant_text,
                 calls,
+                usage: usage.clone(),
             })
         } else {
             let text_out = parsed
@@ -594,7 +696,7 @@ impl AiService {
                 .and_then(|t| t.as_str())
                 .unwrap_or("")
                 .to_string();
-            Ok(AiChatResult::Text(text_out))
+            Ok(AiChatResult::Text(text_out, usage))
         }
     }
 
@@ -652,23 +754,45 @@ impl AiService {
         );
         let body = json!({"contents": contents});
 
-        let resp = self
-            .http
-            .post(&url)
-            .header("Content-Type", "application/json")
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| format!("Gemini request failed: {e}"))?;
-
-        let status = resp.status();
-        let text = resp
-            .text()
-            .await
-            .map_err(|e| format!("Gemini read body failed: {e}"))?;
-        if !status.is_success() {
-            return Err(format!("Gemini API error {status}: {text}"));
-        }
+        let text = {
+            let mut last_err = String::new();
+            let mut result_text: Option<String> = None;
+            for attempt in 0..MAX_AI_RETRIES {
+                match self.http
+                    .post(&url)
+                    .header("Content-Type", "application/json")
+                    .json(&body)
+                    .send()
+                    .await
+                {
+                    Err(e) => {
+                        last_err = format!("Gemini request failed: {e}");
+                        if attempt < MAX_AI_RETRIES - 1 {
+                            eprintln!("{}", format_retry_message(attempt, MAX_AI_RETRIES, &last_err));
+                            tokio::time::sleep(retry_delay(attempt)).await;
+                            continue;
+                        }
+                    }
+                    Ok(resp) => {
+                        let status = resp.status();
+                        let body_text = resp.text().await
+                            .map_err(|e| format!("Gemini read body failed: {e}"))?;
+                        if status.is_success() {
+                            result_text = Some(body_text);
+                            break;
+                        }
+                        last_err = format!("Gemini API error {status}: {body_text}");
+                        if attempt < MAX_AI_RETRIES - 1 && is_retryable_status(status.as_u16()) {
+                            eprintln!("{}", format_retry_message(attempt, MAX_AI_RETRIES, &last_err));
+                            tokio::time::sleep(retry_delay(attempt)).await;
+                            continue;
+                        }
+                        return Err(last_err);
+                    }
+                }
+            }
+            result_text.ok_or(last_err)?
+        };
 
         let parsed: Value = serde_json::from_str(&text)
             .map_err(|e| format!("Gemini response parse failed: {e}"))?;
@@ -725,4 +849,57 @@ pub fn extract_json_path(value: &Value, path: &str) -> Option<String> {
         Value::String(s) => s.clone(),
         other => other.to_string(),
     })
+}
+
+/// 从 API 响应 JSON 中提取 token 使用量
+/// 支持 OpenAI 格式 (`usage.prompt_tokens`) 和 Anthropic 格式 (`usage.input_tokens`)
+fn extract_usage(parsed: &Value) -> TokenUsage {
+    let usage = match parsed.get("usage") {
+        Some(u) => u,
+        None => return TokenUsage::default(),
+    };
+    // OpenAI: prompt_tokens / completion_tokens
+    // Anthropic: input_tokens / output_tokens
+    let prompt = usage
+        .get("prompt_tokens")
+        .or_else(|| usage.get("input_tokens"))
+        .and_then(|v| v.as_i64())
+        .map(|v| v as i32);
+    let completion = usage
+        .get("completion_tokens")
+        .or_else(|| usage.get("output_tokens"))
+        .and_then(|v| v.as_i64())
+        .map(|v| v as i32);
+    TokenUsage {
+        prompt_tokens: prompt,
+        completion_tokens: completion,
+    }
+}
+
+/// 从 DeepSeek R1 响应中提取 `<think>...</think>` 思考过程
+pub fn extract_deepseek_thinking(text: &str) -> (Option<String>, String) {
+    if let (Some(start), Some(end)) = (text.find("<think>"), text.find("</think>")) {
+        if end > start + 7 {
+            let thinking = text[start + 7..end].trim().to_string();
+            let response = text[end + 8..].trim().to_string();
+            return (
+                if thinking.is_empty() { None } else { Some(thinking) },
+                response,
+            );
+        }
+    }
+    (None, text.to_string())
+}
+
+/// 从 Anthropic 响应中提取 thinking block
+pub fn extract_anthropic_thinking(parsed: &Value) -> Option<String> {
+    parsed
+        .get("content")
+        .and_then(|c| c.as_array())
+        .and_then(|arr| {
+            arr.iter()
+                .find(|block| block.get("type").and_then(|t| t.as_str()) == Some("thinking"))
+                .and_then(|block| block.get("thinking").and_then(|t| t.as_str()))
+                .map(|s| s.to_string())
+        })
 }
