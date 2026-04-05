@@ -19,16 +19,16 @@ export function ProfileListStats({
 		<div className="grid gap-3 md:grid-cols-3">
 			<Card className="p-3">
 				<CardHeader className="px-1 pb-1">
-					<CardTitle className="text-xs text-muted-foreground">{t('stats:totalProfiles')}</CardTitle>
+					<CardTitle className="text-xs text-muted-foreground">{t('stats.totalProfiles')}</CardTitle>
 				</CardHeader>
 				<CardContent className="px-1 pt-0">
 					<p className="text-2xl font-semibold">{filteredCount}</p>
-					<p className="text-xs text-muted-foreground">{t('stats:total', { count: totalCount })}</p>
+					<p className="text-xs text-muted-foreground">{t('stats.total', { count: totalCount })}</p>
 				</CardContent>
 			</Card>
 			<Card className="p-3">
 				<CardHeader className="px-1 pb-1">
-					<CardTitle className="text-xs text-muted-foreground">{t('stats:activeProfiles')}</CardTitle>
+					<CardTitle className="text-xs text-muted-foreground">{t('stats.activeProfiles')}</CardTitle>
 				</CardHeader>
 				<CardContent className="px-1 pt-0">
 					<p className="text-2xl font-semibold">{activeCount}</p>
@@ -36,7 +36,7 @@ export function ProfileListStats({
 			</Card>
 			<Card className="p-3">
 				<CardHeader className="px-1 pb-1">
-					<CardTitle className="text-xs text-muted-foreground">{t('stats:running')}</CardTitle>
+					<CardTitle className="text-xs text-muted-foreground">{t('stats.running')}</CardTitle>
 				</CardHeader>
 				<CardContent className="px-1 pt-0">
 					<p className="text-2xl font-semibold">{runningCount}</p>

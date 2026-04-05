@@ -89,6 +89,65 @@ pub fn create_profile(
 }
 
 #[tauri::command]
+pub fn duplicate_profile(
+    state: State<'_, AppState>,
+    profile_id: String,
+) -> Result<Profile, String> {
+    logger::info("profile_cmd", format!("duplicate_profile request profile_id={profile_id}"));
+
+    // 1. 获取源 profile
+    let (source, proxy_id) = {
+        let ps = state.profile_service.lock().map_err(|_| "profile service lock poisoned".to_string())?;
+        let source = ps.get_profile(&profile_id).map_err(error_to_string)?;
+        drop(ps);
+
+        // 获取源 profile 的代理绑定
+        let proxy_id = {
+            let px = state.proxy_service.lock().map_err(|_| "proxy service lock poisoned".to_string())?;
+            px.get_profile_proxy(&profile_id)
+                .ok()
+                .flatten()
+                .map(|p| p.id.clone())
+        };
+        (source, proxy_id)
+    };
+
+    // 2. 生成不重复的副本名称
+    let copy_name = {
+        let ps = state.profile_service.lock().map_err(|_| "profile service lock poisoned".to_string())?;
+        let all = ps.list_profiles(ListProfilesQuery {
+            include_deleted: false, page: 1, page_size: 100000,
+            keyword: None, group: None, running: None,
+        }).map_err(error_to_string)?;
+        let existing_names: std::collections::HashSet<String> =
+            all.items.iter().map(|p| p.name.clone()).collect();
+
+        let base = source.name.clone();
+        let mut idx = 1u32;
+        loop {
+            let candidate = format!("{base} - 副本{idx}");
+            if !existing_names.contains(&candidate) {
+                break candidate;
+            }
+            idx += 1;
+        }
+    };
+
+    // 3. 复用 create_profile 完整流程
+    let payload = CreateProfileRequest {
+        name: copy_name,
+        group: source.group.clone(),
+        note: source.note.clone(),
+        proxy_id,
+        settings: source.settings.clone(),
+    };
+    let created = create_profile(state, payload)?;
+
+    logger::info("profile_cmd", format!("duplicate_profile success new_id={}", created.id));
+    Ok(created)
+}
+
+#[tauri::command]
 pub fn list_profiles(
     state: State<'_, AppState>,
     include_deleted: Option<bool>,
@@ -2677,6 +2736,9 @@ mod tests {
             active_run_channels: Mutex::new(std::collections::HashMap::new()),
             cancel_tokens: Mutex::new(std::collections::HashMap::new()),
             ai_dialog_channels: Mutex::new(std::collections::HashMap::new()),
+            tool_confirmation_channels: Mutex::new(std::collections::HashMap::new()),
+            chat_service: Mutex::new(crate::services::chat_service::ChatService::from_db(db.clone())),
+            chat_cancel_tokens: Mutex::new(std::collections::HashMap::new()),
             automation_service: Mutex::new(AutomationService::from_db(db.clone())),
             profile_group_service: Mutex::new(profile_group_service),
             profile_service: Mutex::new(profile_service),

@@ -84,6 +84,10 @@ export async function createProfile(payload: CreateProfilePayload): Promise<void
 	});
 }
 
+export async function duplicateProfile(profileId: string): Promise<void> {
+	await tauriInvoke('duplicate_profile', { profileId });
+}
+
 export async function updateProfile(profileId: string, payload: CreateProfilePayload): Promise<void> {
 	await tauriInvoke('update_profile', {
 		profileId,

@@ -145,6 +145,7 @@ export function ProfilesRoutePage() {
 			onBatchOpenProfiles={profileActions.batchOpenProfiles}
 			onBatchCloseProfiles={profileActions.batchCloseProfiles}
 			onBatchSetProfileGroup={profileActions.batchSetProfileGroup}
+			onDuplicateProfile={profileActions.duplicateProfile}
 			onDeleteProfile={profileActions.deleteProfile}
 			onRestoreProfile={profileActions.restoreProfile}
 			onReadProfileCookies={profileActions.readProfileCookies}

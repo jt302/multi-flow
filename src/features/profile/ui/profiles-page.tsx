@@ -22,6 +22,7 @@ export function ProfilesPage({
 	onBatchOpenProfiles,
 	onBatchCloseProfiles,
 	onBatchSetProfileGroup,
+	onDuplicateProfile,
 	onDeleteProfile,
 	onRestoreProfile,
 	onReadProfileCookies,
@@ -80,6 +81,7 @@ export function ProfilesPage({
 			onBatchOpenProfiles={onBatchOpenProfiles}
 			onBatchCloseProfiles={onBatchCloseProfiles}
 			onBatchSetProfileGroup={onBatchSetProfileGroup}
+			onDuplicateProfile={onDuplicateProfile}
 			onDeleteProfile={onDeleteProfile}
 			onRestoreProfile={onRestoreProfile}
 			onReadProfileCookies={onReadProfileCookies}

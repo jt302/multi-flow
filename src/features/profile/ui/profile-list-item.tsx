@@ -1,4 +1,5 @@
 import {
+	Copy,
 	Eye,
 	FileDown,
 	Globe,
@@ -96,6 +97,7 @@ type ProfileListItemProps = {
 	onCloseProfile: (profileId: string) => Promise<void>;
 	onSetProfileGroup: (profileId: string, groupName?: string) => Promise<void>;
 	onFocusProfileWindow: (profileId: string) => Promise<void>;
+	onDuplicateProfile: (profileId: string) => Promise<void>;
 	onDeleteProfile: (profileId: string) => Promise<void>;
 	onRestoreProfile: (profileId: string) => Promise<void>;
 	onReadProfileCookies: (profileId: string) => Promise<ReadProfileCookiesResponse>;
@@ -220,6 +222,7 @@ export function ProfileListItem({
 	onCloseProfile,
 	onSetProfileGroup,
 	onFocusProfileWindow,
+	onDuplicateProfile,
 	onDeleteProfile,
 	onRestoreProfile,
 	onReadProfileCookies,
@@ -572,6 +575,16 @@ export function ProfileListItem({
 										>
 											<Icon icon={Puzzle} size={13} />
 											{t('profile:actions.pluginManage')}
+										</DropdownMenuItem>
+										<DropdownMenuItem
+											className="cursor-pointer"
+											disabled={actionPending}
+											onClick={() => {
+												void onRunAction(() => onDuplicateProfile(item.id));
+											}}
+										>
+											<Icon icon={Copy} size={13} />
+											{t('profile:actions.duplicate')}
 										</DropdownMenuItem>
 										{!item.running ? (
 											<DropdownMenuSub>
