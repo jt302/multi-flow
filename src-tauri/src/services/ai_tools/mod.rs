@@ -1,11 +1,12 @@
 //! AI 工具注册表 —— 类 MCP 的可插拔工具系统
 //!
 //! 为 AI Agent 提供统一的工具发现与执行接口。
-//! 所有工具按类别拆分（CDP / Magic / App / File / Dialog / Utility），
+//! 所有工具按类别拆分（CDP / Magic / App / Auto / File / Dialog / Utility），
 //! 通过 `ToolRegistry` 统一注册、按前缀路由分发执行。
 
 pub mod tool_defs;
 pub mod app_tools;
+pub mod auto_tools;
 pub mod file_tools;
 pub mod dialog_tools;
 
@@ -93,6 +94,7 @@ impl ToolFilter {
 fn tool_category(name: &str) -> &str {
     if name.starts_with("cdp_") || name == "cdp" { return "cdp"; }
     if name.starts_with("magic_") { return "magic"; }
+    if name.starts_with("auto_") { return "auto"; }
     if name.starts_with("app_") { return "app"; }
     if name.starts_with("file_") { return "file"; }
     if name.starts_with("dialog_") { return "dialog"; }
@@ -139,6 +141,9 @@ impl ToolRegistry {
             }
             "app" => {
                 app_tools::execute(name, args, ctx).await
+            }
+            "auto" => {
+                auto_tools::execute(name, args, ctx).await
             }
             "file" => {
                 file_tools::execute(name, args, ctx).await

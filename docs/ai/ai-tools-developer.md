@@ -1,8 +1,8 @@
 # Multi-Flow AI 工具开发者参考文档
 
-> **最后更新日期**: 2026-04-03
-> **工具总数**: 114 个
-> **分类**: 6 个（Utility / CDP / Magic Controller / App Data / File I/O / Dialog）
+> **最后更新日期**: 2026-04-05
+> **工具总数**: 146 个（新增 Auto 类 19 个 + cdp_handle_dialog 1 个）
+> **分类**: 8 个（Utility / CDP / Magic Controller / App Data / Auto / File I/O / Dialog / Captcha）
 
 ---
 
@@ -15,8 +15,10 @@
   - [3.2 CDP 工具（31 个）](#32-cdp-工具31-个)
   - [3.3 Magic Controller 工具（48 个）](#33-magic-controller-工具48-个)
   - [3.4 App Data 工具（20 个）](#34-app-data-工具20-个)
-  - [3.5 File I/O 工具（6 个）](#35-file-io-工具6-个)
-  - [3.6 Dialog 工具（6 个）](#36-dialog-工具6-个)
+  - [3.5 Auto 工具（19 个）](#35-auto-工具19-个)
+  - [3.6 File I/O 工具（6 个）](#36-file-io-工具6-个)
+  - [3.7 Dialog 工具（13 个）](#37-dialog-工具13-个)
+  - [3.8 Captcha 工具（5 个）](#38-captcha-工具5-个)
 - [4. 新增工具流程](#4-新增工具流程)
 - [5. 维护指引](#5-维护指引)
 
@@ -24,7 +26,7 @@
 
 ## 1. 概述
 
-Multi-Flow 的自动化系统为 AI Agent 提供了 **114 个工具**，覆盖浏览器控制、应用数据管理、文件操作、用户交互等完整能力。
+Multi-Flow 的自动化系统为 AI Agent 提供了 **142 个工具**，覆盖浏览器控制、应用数据管理、自动化管理、文件操作、用户交互等完整能力。
 
 ### 工具系统架构
 
@@ -1524,7 +1526,57 @@ pub struct ToolResult {
 
 ---
 
-### 3.5 File I/O 工具（6 个）
+### 3.5 Auto 工具（19 个）
+
+自动化管理工具，供 AI Agent 管理脚本、运行、AI Provider 和 CAPTCHA Provider 配置。
+
+**执行器**: `src-tauri/src/services/ai_tools/auto_tools.rs`
+**前缀**: `auto_`，路由类别 `"auto"`
+
+#### 脚本管理（6 个）
+
+| 工具名 | 必填参数 | 说明 |
+|--------|----------|------|
+| `auto_list_scripts` | — | 列出所有脚本摘要（id、name、step_count 等） |
+| `auto_get_script` | `script_id` | 获取脚本完整详情（含步骤、变量 schema） |
+| `auto_create_script` | `name` | 创建脚本（可选 description、steps、associated_profile_ids、ai_config_id） |
+| `auto_update_script` | `script_id` | 更新脚本（未传字段保持原值） |
+| `auto_delete_script` | `script_id` | 永久删除脚本（不可撤销） |
+| `auto_export_script` | `script_id` | 导出脚本为格式化 JSON 字符串 |
+
+#### 运行管理（5 个）
+
+| 工具名 | 必填参数 | 说明 |
+|--------|----------|------|
+| `auto_run_script` | `script_id` | 异步执行脚本，返回 `{ run_id }`（含递归防护） |
+| `auto_list_runs` | `script_id` | 列出脚本运行历史 |
+| `auto_list_active_runs` | — | 列出当前所有活跃 run_id |
+| `auto_get_run` | `run_id` | 获取运行详情（状态、步骤结果、日志） |
+| `auto_cancel_run` | `run_id` | 取消正在执行的运行 |
+
+> **注意**: `auto_run_script` 包含递归防护——若目标 `script_id` 与当前运行脚本相同，执行将被拒绝。
+
+#### AI Provider 配置管理（4 个）
+
+| 工具名 | 必填参数 | 说明 |
+|--------|----------|------|
+| `auto_list_ai_configs` | — | 列出所有 AI 配置（API Key 脱敏，仅显示末 4 位） |
+| `auto_create_ai_config` | `name` | 创建 AI 配置（可选 provider、base_url、api_key、model、locale） |
+| `auto_update_ai_config` | `id`, `name` | 更新 AI 配置 |
+| `auto_delete_ai_config` | `id` | 删除 AI 配置（不可撤销） |
+
+#### CAPTCHA Provider 配置管理（4 个）
+
+| 工具名 | 必填参数 | 说明 |
+|--------|----------|------|
+| `auto_list_captcha_configs` | — | 列出所有 CAPTCHA 配置（API Key 脱敏） |
+| `auto_create_captcha_config` | `provider`, `api_key` | 创建 CAPTCHA 配置（provider: 2captcha \| capsolver \| anticaptcha \| capmonster） |
+| `auto_update_captcha_config` | `id`, `provider`, `api_key` | 更新 CAPTCHA 配置 |
+| `auto_delete_captcha_config` | `id` | 删除 CAPTCHA 配置（不可撤销） |
+
+---
+
+### 3.6 File I/O 工具（6 个）
 
 安全的文件系统操作，带有大小限制（10MB）和路径遍历保护。
 
@@ -1865,9 +1917,11 @@ grep -c 'tool(' src-tauri/src/services/ai_tools/tool_defs.rs
 | 类别             | 数量    | 校验方式                       |
 | ---------------- | ------- | ------------------------------ |
 | Utility          | 3       | `utility_tools()`              |
-| CDP              | 31      | `cdp_tools()`                  |
+| CDP              | 32      | `cdp_tools()`（含 cdp_handle_dialog）|
 | Magic Controller | 48      | `magic_tools()`                |
 | App Data         | 20      | `app_tools()`                  |
+| Auto             | 19      | `auto_tools()`                 |
 | File I/O         | 6       | `file_tools()`                 |
-| Dialog           | 6       | `dialog_tools()`               |
-| **总计**         | **114** | `all_tool_definitions().len()` |
+| Dialog           | 13      | `dialog_tools()`               |
+| Captcha          | 5       | `captcha_tools()`              |
+| **总计**         | **146** | `all_tool_definitions().len()` |

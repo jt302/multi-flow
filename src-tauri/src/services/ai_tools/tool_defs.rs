@@ -25,11 +25,12 @@ fn tool(name: &str, description: &str, parameters: Value) -> Value {
 
 /// 返回所有工具定义
 pub fn all_tool_definitions() -> Vec<Value> {
-    let mut defs = Vec::with_capacity(150);
+    let mut defs = Vec::with_capacity(175);
     defs.extend(utility_tools());
     defs.extend(cdp_tools());
     defs.extend(magic_tools());
     defs.extend(app_tools());
+    defs.extend(auto_tools());
     defs.extend(file_tools());
     defs.extend(dialog_tools());
     defs.extend(captcha_tools());
@@ -766,6 +767,26 @@ fn cdp_tools() -> Vec<Value> {
                     "url_pattern": { "type": "string", "description": "URL 过滤模式（可选）" },
                     "output_key": { "type": "string", "description": "将请求记录 JSON 数组存入此变量名" }
                 }
+            }),
+        ),
+        tool(
+            "cdp_handle_dialog",
+            "处理浏览器 JavaScript 对话框（alert / confirm / prompt）。accept 接受，dismiss 取消。对于 prompt 类型可通过 prompt_text 设置输入文本",
+            json!({
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["accept", "dismiss"],
+                        "description": "accept=接受/确认, dismiss=取消/关闭"
+                    },
+                    "prompt_text": {
+                        "type": "string",
+                        "description": "prompt 对话框的输入文本（仅 action=accept 时有效）"
+                    },
+                    "output_key": { "type": "string", "description": "将对话框消息文本存入此变量名" }
+                },
+                "required": ["action"]
             }),
         ),
     ]
@@ -2054,6 +2075,281 @@ fn captcha_tools() -> Vec<Value> {
                 "type": "object",
                 "properties": {},
                 "required": []
+            }),
+        ),
+    ]
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Auto 工具（19 个）—— 自动化管理：脚本/运行/AI配置/CAPTCHA配置
+// ═══════════════════════════════════════════════════════════════════════════
+
+fn auto_tools() -> Vec<Value> {
+    vec![
+        // ── 脚本管理（6）──
+        tool(
+            "auto_list_scripts",
+            "列出所有自动化脚本（返回 id、name、description、step_count、关联环境 ID 等摘要信息）",
+            json!({
+                "type": "object",
+                "properties": {}
+            }),
+        ),
+        tool(
+            "auto_get_script",
+            "获取自动化脚本完整详情，包含步骤定义、变量 schema、关联环境等",
+            json!({
+                "type": "object",
+                "properties": {
+                    "script_id": { "type": "string", "description": "脚本 ID" }
+                },
+                "required": ["script_id"]
+            }),
+        ),
+        tool(
+            "auto_create_script",
+            "创建新的自动化脚本",
+            json!({
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string", "description": "脚本名称" },
+                    "description": { "type": "string", "description": "脚本描述（可选）" },
+                    "steps": {
+                        "type": "array",
+                        "description": "步骤列表（可选，通常通过可视化编辑器配置）",
+                        "items": { "type": "object" }
+                    },
+                    "associated_profile_ids": {
+                        "type": "array",
+                        "description": "关联的环境 ID 列表（可选）",
+                        "items": { "type": "string" }
+                    },
+                    "ai_config_id": { "type": "string", "description": "使用的 AI 配置 ID（可选）" }
+                },
+                "required": ["name"]
+            }),
+        ),
+        tool(
+            "auto_update_script",
+            "更新已有自动化脚本的名称、描述、关联环境等信息（未传入的字段保持原值）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "script_id": { "type": "string", "description": "要更新的脚本 ID" },
+                    "name": { "type": "string", "description": "新名称（可选）" },
+                    "description": { "type": "string", "description": "新描述（可选）" },
+                    "steps": {
+                        "type": "array",
+                        "description": "新步骤列表（可选）",
+                        "items": { "type": "object" }
+                    },
+                    "associated_profile_ids": {
+                        "type": "array",
+                        "description": "新的关联环境 ID 列表（可选）",
+                        "items": { "type": "string" }
+                    },
+                    "ai_config_id": { "type": "string", "description": "使用的 AI 配置 ID（可选）" }
+                },
+                "required": ["script_id"]
+            }),
+        ),
+        tool(
+            "auto_delete_script",
+            "永久删除自动化脚本（不可撤销）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "script_id": { "type": "string", "description": "要删除的脚本 ID" }
+                },
+                "required": ["script_id"]
+            }),
+        ),
+        tool(
+            "auto_export_script",
+            "将自动化脚本导出为 JSON 字符串（可用于备份或迁移）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "script_id": { "type": "string", "description": "脚本 ID" }
+                },
+                "required": ["script_id"]
+            }),
+        ),
+
+        // ── 运行管理（5）──
+        tool(
+            "auto_run_script",
+            "在指定环境中异步执行自动化脚本，立即返回 run_id。注意：不能运行当前正在执行的脚本（防止递归）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "script_id": { "type": "string", "description": "要执行的脚本 ID" },
+                    "profile_id": {
+                        "type": "string",
+                        "description": "在此环境中运行（可选，不传则使用脚本关联的首个环境）"
+                    },
+                    "initial_vars": {
+                        "type": "object",
+                        "description": "初始变量键值对（可选）"
+                    }
+                },
+                "required": ["script_id"]
+            }),
+        ),
+        tool(
+            "auto_list_runs",
+            "列出指定脚本的运行历史（包含状态、时间、错误信息等）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "script_id": { "type": "string", "description": "脚本 ID" }
+                },
+                "required": ["script_id"]
+            }),
+        ),
+        tool(
+            "auto_list_active_runs",
+            "列出当前所有正在运行的 run_id",
+            json!({
+                "type": "object",
+                "properties": {}
+            }),
+        ),
+        tool(
+            "auto_get_run",
+            "获取单次脚本运行的详细信息（状态、步骤结果、日志等）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "run_id": { "type": "string", "description": "运行 ID" }
+                },
+                "required": ["run_id"]
+            }),
+        ),
+        tool(
+            "auto_cancel_run",
+            "取消正在执行的自动化运行",
+            json!({
+                "type": "object",
+                "properties": {
+                    "run_id": { "type": "string", "description": "要取消的运行 ID" }
+                },
+                "required": ["run_id"]
+            }),
+        ),
+
+        // ── AI Provider 配置（4）──
+        tool(
+            "auto_list_ai_configs",
+            "列出所有 AI Provider 配置（API Key 已脱敏，仅显示末 4 位）",
+            json!({
+                "type": "object",
+                "properties": {}
+            }),
+        ),
+        tool(
+            "auto_create_ai_config",
+            "创建新的 AI Provider 配置",
+            json!({
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string", "description": "配置名称" },
+                    "provider": {
+                        "type": "string",
+                        "description": "Provider 类型: openai | anthropic | deepseek | groq | together | ollama | gemini | openrouter | custom"
+                    },
+                    "base_url": { "type": "string", "description": "API Base URL（覆盖 provider 默认值）" },
+                    "api_key": { "type": "string", "description": "API Key" },
+                    "model": { "type": "string", "description": "默认模型名称" },
+                    "locale": { "type": "string", "description": "Agent prompt 语言: zh | en（默认 zh）" }
+                },
+                "required": ["name"]
+            }),
+        ),
+        tool(
+            "auto_update_ai_config",
+            "更新已有 AI Provider 配置",
+            json!({
+                "type": "object",
+                "properties": {
+                    "id": { "type": "string", "description": "配置 ID" },
+                    "name": { "type": "string", "description": "配置名称" },
+                    "provider": { "type": "string", "description": "Provider 类型" },
+                    "base_url": { "type": "string", "description": "API Base URL" },
+                    "api_key": { "type": "string", "description": "API Key（传入完整值）" },
+                    "model": { "type": "string", "description": "默认模型名称" },
+                    "locale": { "type": "string", "description": "Agent prompt 语言: zh | en" }
+                },
+                "required": ["id", "name"]
+            }),
+        ),
+        tool(
+            "auto_delete_ai_config",
+            "删除 AI Provider 配置（不可撤销）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "id": { "type": "string", "description": "要删除的配置 ID" }
+                },
+                "required": ["id"]
+            }),
+        ),
+
+        // ── CAPTCHA Provider 配置（4）──
+        tool(
+            "auto_list_captcha_configs",
+            "列出所有 CAPTCHA 求解服务配置（API Key 已脱敏）",
+            json!({
+                "type": "object",
+                "properties": {}
+            }),
+        ),
+        tool(
+            "auto_create_captcha_config",
+            "创建新的 CAPTCHA 求解服务配置",
+            json!({
+                "type": "object",
+                "properties": {
+                    "provider": {
+                        "type": "string",
+                        "enum": ["2captcha", "capsolver", "anticaptcha", "capmonster"],
+                        "description": "服务商名称"
+                    },
+                    "api_key": { "type": "string", "description": "API Key" },
+                    "base_url": { "type": "string", "description": "自定义 API Base URL（可选）" },
+                    "is_default": { "type": "boolean", "description": "是否设为默认配置" }
+                },
+                "required": ["provider", "api_key"]
+            }),
+        ),
+        tool(
+            "auto_update_captcha_config",
+            "更新已有 CAPTCHA 求解服务配置",
+            json!({
+                "type": "object",
+                "properties": {
+                    "id": { "type": "string", "description": "配置 ID" },
+                    "provider": {
+                        "type": "string",
+                        "enum": ["2captcha", "capsolver", "anticaptcha", "capmonster"],
+                        "description": "服务商名称"
+                    },
+                    "api_key": { "type": "string", "description": "API Key（传入完整值）" },
+                    "base_url": { "type": "string", "description": "自定义 API Base URL（可选）" },
+                    "is_default": { "type": "boolean", "description": "是否设为默认配置" }
+                },
+                "required": ["id", "provider", "api_key"]
+            }),
+        ),
+        tool(
+            "auto_delete_captcha_config",
+            "删除 CAPTCHA 求解服务配置（不可撤销）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "id": { "type": "string", "description": "要删除的配置 ID" }
+                },
+                "required": ["id"]
             }),
         ),
     ]
