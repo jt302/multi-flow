@@ -391,27 +391,29 @@ export function AiProviderConfigCard() {
 						)}
 						<div className="space-y-1.5">
 						<Label className="text-xs">{t('settings:aiDialog.model')}</Label>
-						<Input
-							{...register('model')}
-							placeholder={
-								providerMeta.models.length > 0
-									? t('settings:aiDialog.modelPlaceholder')
-									: t('settings:aiDialog.modelInputLabel')
-							}
-								className="h-8 text-xs"
-								list={
-									providerMeta.models.length > 0
-										? `model-suggestions-${watch('provider')}`
-										: undefined
-								}
-							/>
-							{providerMeta.models.length > 0 && (
-								<datalist id={`model-suggestions-${watch('provider')}`}>
+						{providerMeta.models.length > 0 ? (
+							<Select
+								value={watch('model')}
+								onValueChange={(v) => setValue('model', v)}
+							>
+								<SelectTrigger className="h-8 text-xs cursor-pointer">
+									<SelectValue placeholder={t('settings:aiDialog.modelPlaceholder')} />
+								</SelectTrigger>
+								<SelectContent>
 									{providerMeta.models.map((m) => (
-										<option key={m} value={m} />
+										<SelectItem key={m} value={m} className="text-xs cursor-pointer">
+											{m}
+										</SelectItem>
 									))}
-								</datalist>
-							)}
+								</SelectContent>
+							</Select>
+						) : (
+							<Input
+								{...register('model')}
+								placeholder={t('settings:aiDialog.modelInputLabel')}
+								className="h-8 text-xs"
+							/>
+						)}
 						</div>
 					<div className="space-y-1.5">
 						<Label className="text-xs">{t('settings:aiDialog.agentLanguage')}</Label>
