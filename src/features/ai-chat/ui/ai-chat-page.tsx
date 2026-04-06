@@ -10,7 +10,7 @@ import {
 	updateChatSession,
 } from '@/entities/chat/api/chat-api';
 import type { ChatMessageRecord } from '@/entities/chat/model/types';
-import { useDefaultLayout } from 'react-resizable-panels';
+import { usePersistentLayout } from '@/shared/hooks/use-persistent-layout';
 import {
 	ResizableHandle,
 	ResizablePanel,
@@ -34,7 +34,10 @@ export function AiChatPage() {
 	const [input, setInput] = useState('');
 	const [pastedImage, setPastedImage] = useState<string | null>(null);
 	const qc = useQueryClient();
-	const { defaultLayout: chatLayout, onLayoutChanged: onChatLayoutChanged } = useDefaultLayout({ id: 'ai-chat-layout' });
+	const { defaultLayout: chatLayout, onLayoutChanged: onChatLayoutChanged } = usePersistentLayout({
+		id: 'ai-chat-layout',
+		defaultSizes: [14, 86],
+	});
 
 	const sessionsQuery = useChatSessionsQuery();
 	const sessions = sessionsQuery.data ?? [];
@@ -213,14 +216,11 @@ export function AiChatPage() {
 							</>
 					) : isRestoringSession ? (
 						<div className="flex flex-1 flex-col justify-center gap-4 px-6 text-muted-foreground">
-							<div className="space-y-2">
-								<p className="text-sm font-medium text-foreground">
-									{t('restoringChat')}
-								</p>
-								<p className="text-xs text-muted-foreground">
-									{t('restoringChatHint')}
-								</p>
-							</div>
+						<div className="space-y-2">
+							<p className="text-sm font-medium text-foreground">
+								{t('restoringChat')}
+							</p>
+						</div>
 							<div className="space-y-3">
 								<div className="h-4 w-40 animate-pulse rounded bg-muted" />
 								<div className="h-20 w-full animate-pulse rounded-2xl bg-muted/80" />
