@@ -9,3 +9,11 @@ test('tool call card prefers local image refs for screenshots and keeps base64 o
 	assert.equal(source.includes('message.imageRef'), true);
 	assert.equal(source.includes('message.imageBase64'), true);
 });
+
+test('tool call card loads screenshots lazily and no longer renders folded thumbnails', () => {
+	const source = readFileSync(new URL('./tool-call-card.tsx', import.meta.url), 'utf8');
+
+	assert.equal(source.includes('alt="screenshot thumbnail"'), false);
+	assert.equal(source.includes('loading="lazy"'), true);
+	assert.equal(source.includes('decoding="async"'), true);
+});

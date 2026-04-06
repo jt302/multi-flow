@@ -1,0 +1,18 @@
+.ai-chat-lightbox .yarl__toolbar {
+	gap: 8px;
+}
+
+.ai-chat-lightbox .yarl__button {
+	backdrop-filter: blur(12px);
+	border-radius: 9999px;
+	transition: transform 150ms ease, background-color 150ms ease, color 150ms ease;
+}
+
+.ai-chat-lightbox .yarl__button:hover {
+	transform: translateY(-1px);
+}
+
+.ai-chat-lightbox .yarl__slide_image {
+	border-radius: 18px;
+	box-shadow: 0 28px 72px rgba(15, 23, 42, 0.22);
+}

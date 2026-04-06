@@ -13,6 +13,7 @@ import {
 	TabsTrigger,
 } from '@/components/ui/tabs';
 import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
+import type { ProfileItem } from '@/entities/profile/model/types';
 import { useGroupsQuery } from '@/entities/group/model/use-groups-query';
 import { cn } from '@/lib/utils';
 
@@ -23,6 +24,7 @@ export type ProfileGroupSelectorProps = {
 	className?: string;
 	disabled?: boolean;
 	filterRunning?: boolean;
+	profiles?: ProfileItem[];
 };
 
 export function ProfileGroupSelector({
@@ -32,6 +34,7 @@ export function ProfileGroupSelector({
 	className,
 	disabled = false,
 	filterRunning = false,
+	profiles,
 }: ProfileGroupSelectorProps) {
 	const { t } = useTranslation('common');
 	const [search, setSearch] = useState('');
@@ -39,14 +42,14 @@ export function ProfileGroupSelector({
 		'profiles',
 	);
 
-	const profilesQuery = useProfilesQuery();
+	const profilesQuery = useProfilesQuery({ enabled: profiles == null });
 	const groupsQuery = useGroupsQuery();
 
 	const allProfiles = useMemo(() => {
-		const list = profilesQuery.data ?? [];
+		const list = profiles ?? profilesQuery.data ?? [];
 		if (filterRunning) return list.filter((p) => p.running);
 		return list;
-	}, [profilesQuery.data, filterRunning]);
+	}, [profiles, profilesQuery.data, filterRunning]);
 
 	const allGroups = useMemo(() => {
 		return (groupsQuery.data ?? []).filter((g) => g.lifecycle === 'active');

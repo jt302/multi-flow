@@ -22,5 +22,13 @@
 	"expandPrompt": "Expand Prompt",
 	"collapsePrompt": "Collapse Prompt",
 	"regenerate": "Regenerate",
-	"noProfileWarning": "Please select a browser profile first. Without one, browser tools will be unavailable."
+	"noProfileWarning": "Please select a browser profile first. Without one, browser tools will be unavailable.",
+	"restoringChat": "Restoring your last chat...",
+	"restoringChatHint": "The session list appears first, then the message pane hydrates when the UI is idle.",
+	"selectedProfilesCount": "{{count}} profile(s) selected",
+	"expandToViewScreenshot": "Expand to view screenshot",
+	"closePreview": "Close preview",
+	"imagePreview": "Image preview",
+	"zoomInPreview": "Zoom in image",
+	"zoomOutPreview": "Zoom out image"
 }
