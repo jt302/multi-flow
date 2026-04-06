@@ -44,7 +44,7 @@ export function BackgroundQuickEditForm({
 	onSubmit,
 	onReset,
 }: BackgroundQuickEditFormProps) {
-	const { t } = useTranslation('profile');
+	const { t } = useTranslation(['profile', 'common']);
 	const {
 		register,
 		handleSubmit,
@@ -123,7 +123,7 @@ export function ToolbarQuickEditForm({
 	onCancel,
 	onSubmit,
 }: ToolbarQuickEditFormProps) {
-	const { t } = useTranslation('profile');
+	const { t } = useTranslation(['profile', 'common']);
 	const {
 		register,
 		handleSubmit,
