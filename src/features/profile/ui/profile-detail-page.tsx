@@ -48,6 +48,7 @@ type ProfileDetailPageProps = {
 	resources: ResourceItem[];
 	boundProxy?: ProxyItem;
 	onBack: () => void;
+	backLabel?: string;
 	onEditProfile: (profileId: string) => void;
 };
 
@@ -87,6 +88,7 @@ export function ProfileDetailPage({
 	resources,
 	boundProxy,
 	onBack,
+	backLabel,
 	onEditProfile,
 }: ProfileDetailPageProps) {
 	const { t } = useTranslation(['profile', 'common']);
@@ -167,7 +169,7 @@ export function ProfileDetailPage({
 						onClick={onBack}
 					>
 						<Icon icon={ArrowLeft} size={14} />
-						{t('detail.backToList')}
+						{backLabel ?? t('detail.backToList')}
 					</Button>
 					<Button
 						type="button"
