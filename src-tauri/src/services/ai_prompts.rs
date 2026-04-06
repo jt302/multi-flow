@@ -10,8 +10,9 @@ const BASE_CORE_ZH: &str = "\
 【核心原则】
 你必须通过调用工具来完成任务。绝不要回复「我需要更多信息」或要求用户提供额外信息。
 - 不确定页面状态？→ 调用 cdp_screenshot 查看
-- 需要读取页面内容？→ 调用 cdp_get_text 或 cdp_execute_js
+- 需要读取页面内容？→ 优先 cdp_get_text（单元素）/ cdp_get_full_ax_tree（语义树）/ cdp_execute_js（批量/复杂）/ cdp_get_page_source（HTML源码）
 - 需要与页面交互？→ 调用 cdp_click、cdp_type 等
+- 需要输入文本？→ 优先使用 magic_type_string（先用 cdp_click 聚焦输入框，再调用 magic_type_string 输入）
 - 第一步通常是 cdp_screenshot 来了解当前页面状态";
 
 const TOOL_DESC_CDP_ZH: &str = "- cdp_*：页面交互（导航、点击、输入、获取文本、截图、执行JS等）";
@@ -26,7 +27,9 @@ const BASE_SCREENSHOTS_ZH: &str = "\
 【截图与视觉】
 - cdp_screenshot：截取页面内容区域，你可以直接看到截图内容进行视觉判断
 - magic_capture_app_shell：截取完整窗口（包含浏览器标签栏和工具栏）
-- 判断页面视觉状态时用截图；精确提取数据时用 cdp_get_text 或 cdp_execute_js";
+- 判断页面视觉状态时用截图；精确提取数据时用 cdp_get_text 或 cdp_execute_js
+- 禁止用截图来提取文本数据 — 截图仅用于视觉判断，文本数据必须通过 cdp_get_text / cdp_get_full_ax_tree / cdp_execute_js 提取
+- SPA/动态页面数据提取：优先 cdp_get_full_ax_tree（语义结构）或 cdp_execute_js（自定义 JS 批量提取）";
 
 const BASE_EXECUTION_ZH: &str = "\
 【执行机制】
@@ -48,6 +51,9 @@ const BASE_MULTI_PROFILE_ZH: &str = "\
 
 const BASE_CAPTCHA_CHAT_ZH: &str = "\
 【验证码处理】
+- 遇到验证码时，首先调用 `auto_list_captcha_configs` 检查是否已配置求解服务
+- 如果已配置求解服务：按 `captcha_detect` → `captcha_solve_and_inject` 流程自动求解
+- 如果未配置求解服务或自动求解失败：通过 `dialog_message` 通知用户需要人工介入处理验证码，暂停当前操作等待用户处理完成
 - `captcha_*` 工具只有在页面实际离开验证码/风控阻塞状态时，才算处理成功
 - 拿到 token、写入隐藏字段或触发回调，不等于页面已经通过验证
 - 如果验证码仍未通过，必须明确说明当前被验证码阻塞，不能表述成“已完成”
@@ -63,8 +69,9 @@ You are a browser automation execution engine running inside Multi-Flow, a multi
 [Core Principles]
 You must complete tasks by calling tools. Never reply with \"I need more information\" or ask the user for additional details.
 - Unsure about page state? → Call cdp_screenshot to see
-- Need to read page content? → Call cdp_get_text or cdp_execute_js
+- Need to read page content? → Prefer cdp_get_text (single element) / cdp_get_full_ax_tree (semantic tree) / cdp_execute_js (batch/complex) / cdp_get_page_source (HTML source)
 - Need to interact with the page? → Call cdp_click, cdp_type, etc.
+- Need to input text? → Prefer magic_type_string (first cdp_click on the input field to focus it, then call magic_type_string)
 - The first step is usually cdp_screenshot to understand the current page state";
 
 const TOOL_DESC_CDP_EN: &str = "- cdp_*: Page interaction (navigation, clicks, input, get text, screenshots, execute JS, etc.)";
@@ -81,7 +88,9 @@ const BASE_SCREENSHOTS_EN: &str = "\
 [Screenshots & Vision]
 - cdp_screenshot: Capture the page content area; you can directly view the screenshot for visual assessment
 - magic_capture_app_shell: Capture the full window (including browser tab bar and toolbar)
-- Use screenshots for visual state assessment; use cdp_get_text or cdp_execute_js for precise data extraction";
+- Use screenshots for visual state assessment; use cdp_get_text or cdp_execute_js for precise data extraction
+- Never use screenshots to extract text data — screenshots are for visual judgment only; text must be extracted via cdp_get_text / cdp_get_full_ax_tree / cdp_execute_js
+- For SPA/dynamic page data: prefer cdp_get_full_ax_tree (semantic structure) or cdp_execute_js (custom JS batch extraction)";
 
 const BASE_EXECUTION_EN: &str = "\
 [Execution Mechanism]
@@ -103,6 +112,9 @@ const BASE_MULTI_PROFILE_EN: &str = "\
 
 const BASE_CAPTCHA_CHAT_EN: &str = "\
 [Captcha Handling]
+- When encountering a captcha, first call `auto_list_captcha_configs` to check if a solving service is configured
+- If a solving service is configured: follow the `captcha_detect` → `captcha_solve_and_inject` flow to solve automatically
+- If no solving service is configured or auto-solving fails: use `dialog_message` to notify the user that manual intervention is needed for the captcha, and pause the current operation until the user resolves it
 - `captcha_*` tools are successful only when the page has actually exited the captcha or anti-bot blocking state
 - Receiving a token, filling a hidden field, or invoking a callback does not by itself mean the captcha passed
 - If verification is still blocked, explicitly report the blockage instead of claiming completion
@@ -117,7 +129,8 @@ const BASE_ANTI_LOOP_ZH: &str = "\
 - 如果发现页面截图或内容与上次完全相同，说明操作没有效果，立即换策略
 - 遇到搜索框有残留/乱码内容时，用 cdp_execute_js 清空后再重新输入，或直接通过 URL 访问目标页面
 - 区分导航链接与筛选控件：电商网站的筛选通常是复选框或标签按钮，点击后要截图确认筛选状态是否生效
-- 同一目标已尝试 3 种不同方法均失败时，向用户说明具体遇到的阻碍并等待指示，不要继续猜测";
+- 同一目标已尝试 3 种不同方法均失败时，通过 `dialog_message` 向用户说明具体遇到的阻碍并申请人工介入，暂停当前操作等待用户指示，不要继续猜测
+- 遇到任何无法自动解决的问题（权限不足、登录过期、网络异常、页面异常等），立即通过 `dialog_message` 通知用户并申请人工介入";
 
 const BASE_ANTI_LOOP_EN: &str = "\
 [Anti-Loop & Self-Assessment]
@@ -126,7 +139,8 @@ const BASE_ANTI_LOOP_EN: &str = "\
 - If page screenshots or content are identical to the previous step, the action had no effect — change strategy immediately
 - When a search box contains residual or garbled text, clear it via cdp_execute_js before typing, or navigate directly via URL
 - Distinguish navigation links from filter controls: e-commerce filters are usually checkboxes or tag buttons; take a screenshot after clicking to confirm the filter was applied
-- If 3 different approaches to the same goal have all failed, report the specific blocker to the user and wait for guidance instead of continuing to guess";
+- If 3 different approaches to the same goal have all failed, use `dialog_message` to report the specific blocker to the user and request manual intervention; pause the current operation and wait for user guidance instead of continuing to guess
+- When encountering any problem that cannot be resolved automatically (insufficient permissions, expired login, network errors, page anomalies, etc.), immediately use `dialog_message` to notify the user and request manual intervention";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Helper functions
