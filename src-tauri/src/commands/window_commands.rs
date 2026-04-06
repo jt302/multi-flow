@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
 use crate::error::AppError;
 use crate::logger;
@@ -454,4 +454,29 @@ fn format_window_state(
         window_state.total_windows,
         window_state.total_tabs
     )
+}
+
+/// 闪屏 JS listener 注册完毕后调用，通知 Rust 可以开始 emit 进度事件
+#[tauri::command]
+pub fn splashscreen_ready() {
+    crate::SPLASH_READY.store(true, std::sync::atomic::Ordering::Release);
+}
+
+/// React 就绪且 init 完成后调用：关闭 splash，显示主窗口
+/// 两步原子完成，消除 splash 关闭到主窗口出现之间的空档
+#[tauri::command]
+pub fn show_main_window(app: AppHandle) {
+    if let Some(splash) = app.get_webview_window("splashscreen") {
+        let _ = splash.close();
+    }
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
+/// React 挂载时查询 init 是否已完成（处理 React 比 init 慢的竞态情况）
+#[tauri::command]
+pub fn is_init_complete() -> bool {
+    crate::INIT_COMPLETE.load(std::sync::atomic::Ordering::Acquire)
 }
