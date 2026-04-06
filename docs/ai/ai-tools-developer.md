@@ -1,7 +1,7 @@
 # Multi-Flow AI 工具开发者参考文档
 
-> **最后更新日期**: 2026-04-05
-> **工具总数**: 147 个（新增 `app_set_chat_active_profile` 1 个）
+> **最后更新日期**: 2026-04-06
+> **工具总数**: 176 个
 > **分类**: 8 个（Utility / CDP / Magic Controller / App Data / Auto / File I/O / Dialog / Captcha）
 
 ---
@@ -12,8 +12,8 @@
 - [2. 架构说明](#2-架构说明)
 - [3. 工具分类详细参考](#3-工具分类详细参考)
   - [3.1 Utility 工具（3 个）](#31-utility-工具3-个)
-  - [3.2 CDP 工具（31 个）](#32-cdp-工具31-个)
-  - [3.3 Magic Controller 工具（48 个）](#33-magic-controller-工具48-个)
+  - [3.2 CDP 工具（56 个）](#32-cdp-工具56-个)
+  - [3.3 Magic Controller 工具（53 个）](#33-magic-controller-工具53-个)
   - [3.4 App Data 工具（21 个）](#34-app-data-工具21-个)
   - [3.5 Auto 工具（19 个）](#35-auto-工具19-个)
   - [3.6 File I/O 工具（6 个）](#36-file-io-工具6-个)
@@ -27,7 +27,7 @@
 
 ## 1. 概述
 
-Multi-Flow 的自动化系统为 AI Agent 提供了 **147 个工具**，覆盖浏览器控制、应用数据管理、自动化管理、文件操作、用户交互等完整能力。
+Multi-Flow 的自动化系统为 AI Agent 提供了 **176 个工具**，覆盖浏览器控制、应用数据管理、自动化管理、文件操作、用户交互等完整能力。
 
 ### 工具系统架构
 
@@ -84,12 +84,15 @@ ToolRegistry（注册表）
 
 | 类别             | 前缀                               | 数量 | 说明                                        |
 | ---------------- | ---------------------------------- | ---- | ------------------------------------------- |
-| Utility          | `wait` / `print` / `submit_result` | 3    | 基础控制工具                                |
-| CDP              | `cdp_` / `cdp`                     | 31   | Chrome DevTools Protocol 浏览器操控         |
-| Magic Controller | `magic_`                           | 48   | 自研 Chromium Magic Controller API          |
-| App Data         | `app_`                             | 21   | 应用数据 CRUD（Profile/Group/Proxy/Plugin/Chat） |
-| File I/O         | `file_`                            | 6    | 文件系统操作                                |
-| Dialog           | `dialog_`                          | 6    | 用户交互弹窗                                |
+| Utility          | `wait` / `print` / `submit_result` | 3    | 等待、日志、提交结果                        |
+| CDP              | `cdp_` / `cdp`                     | 56   | 页面交互（导航、点击、输入、提取、截图、JS执行等） |
+| Magic Controller | `magic_`                           | 53   | 通过 Magic Controller 控制浏览器窗口和原生功能 |
+| App Data         | `app_`                             | 21   | 读写 Multi-Flow 应用数据（Profile、分组、代理等） |
+| Auto             | `auto_`                            | 19   | 自动化管理（脚本/运行/AI配置/CAPTCHA配置 CRUD） |
+| File I/O         | `file_`                            | 6    | 文件系统读写                                |
+| Dialog           | `dialog_`                          | 13   | 向用户展示 UI 弹窗获取反馈                  |
+| Captcha          | `captcha_`                         | 5    | CAPTCHA 检测与自动求解                      |
+| **合计**         |                                    | **176** |                                          |
 
 ---
 
@@ -203,7 +206,7 @@ pub struct ToolResult {
 
 ---
 
-### 3.2 CDP 工具（31 个）
+### 3.2 CDP 工具（56 个）
 
 通过 Chrome DevTools Protocol 操控浏览器页面。所有带 `selector` 参数的工具均支持 `selector_type` 可选参数（`css` / `xpath` / `text`，默认 `css`）。
 
@@ -633,7 +636,371 @@ pub struct ToolResult {
 
 ---
 
-### 3.3 Magic Controller 工具（48 个）
+#### Storage / Cookie
+
+##### `cdp_get_cookies`
+
+获取当前页面或指定 URL 的 Cookie。
+
+| 参数         | 类型          | 必需 | 描述                                         |
+| ------------ | ------------- | ---- | -------------------------------------------- |
+| `urls`       | array[string] | ❌   | 指定 URL 列表，不传则返回当前页面 Cookie     |
+| `output_key` | string        | ❌   | 将 Cookie JSON 数组存入此变量名              |
+
+**返回值**: Cookie 数组 JSON
+
+---
+
+##### `cdp_set_cookie`
+
+设置单个 Cookie。
+
+| 参数        | 类型    | 必需 | 描述                     |
+| ----------- | ------- | ---- | ------------------------ |
+| `name`      | string  | ✅   | Cookie 名称              |
+| `value`     | string  | ✅   | Cookie 值                |
+| `domain`    | string  | ❌   | Cookie 域名              |
+| `path`      | string  | ❌   | Cookie 路径              |
+| `expires`   | number  | ❌   | 过期时间戳（Unix 秒）    |
+| `http_only` | boolean | ❌   | 是否 HttpOnly            |
+| `secure`    | boolean | ❌   | 是否仅 HTTPS             |
+
+**返回值**: 无
+
+---
+
+##### `cdp_delete_cookies`
+
+删除匹配的 Cookie。
+
+| 参数     | 类型   | 必需 | 描述           |
+| -------- | ------ | ---- | -------------- |
+| `name`   | string | ✅   | Cookie 名称    |
+| `domain` | string | ❌   | Cookie 域名    |
+| `path`   | string | ❌   | Cookie 路径    |
+
+**返回值**: 无
+
+---
+
+##### `cdp_get_local_storage`
+
+读取当前页面 localStorage 的指定 key 或全部。
+
+| 参数         | 类型   | 必需 | 描述                             |
+| ------------ | ------ | ---- | -------------------------------- |
+| `key`        | string | ❌   | 要读取的 key（不传返回全部）     |
+| `output_key` | string | ❌   | 将结果存入此变量名               |
+
+**返回值**: 值字符串或 `{key: value}` 对象
+
+---
+
+##### `cdp_set_local_storage`
+
+写入当前页面 localStorage。
+
+| 参数    | 类型   | 必需 | 描述             |
+| ------- | ------ | ---- | ---------------- |
+| `key`   | string | ✅   | localStorage key |
+| `value` | string | ✅   | 要写入的值       |
+
+**返回值**: 无
+
+---
+
+##### `cdp_get_session_storage`
+
+读取当前页面 sessionStorage 的指定 key 或全部。
+
+| 参数         | 类型   | 必需 | 描述                             |
+| ------------ | ------ | ---- | -------------------------------- |
+| `key`        | string | ❌   | 要读取的 key（不传返回全部）     |
+| `output_key` | string | ❌   | 将结果存入此变量名               |
+
+**返回值**: 值字符串或 `{key: value}` 对象
+
+---
+
+##### `cdp_clear_storage` ⚠️
+
+清除指定来源的存储数据（cookies / localStorage / sessionStorage / cache 等）。
+
+| 参数            | 类型   | 必需 | 描述                                                                    |
+| --------------- | ------ | ---- | ----------------------------------------------------------------------- |
+| `origin`        | string | ❌   | 来源 URL（不传则默认当前页面）                                          |
+| `storage_types` | string | ❌   | 要清除的存储类型，逗号分隔，如 `cookies,local_storage,session_storage`  |
+
+**返回值**: 无
+
+---
+
+#### 页面信息（Page Info）
+
+##### `cdp_get_current_url`
+
+获取当前页面 URL。
+
+| 参数         | 类型   | 必需 | 描述                   |
+| ------------ | ------ | ---- | ---------------------- |
+| `output_key` | string | ❌   | 将当前 URL 存入此变量名 |
+
+**返回值**: URL 字符串
+
+---
+
+##### `cdp_get_page_source`
+
+获取页面或指定元素的 HTML 源码。
+
+| 参数            | 类型   | 必需 | 描述                                               |
+| --------------- | ------ | ---- | -------------------------------------------------- |
+| `selector`      | string | ❌   | CSS 选择器（不传则返回完整 document HTML）         |
+| `selector_type` | string | ❌   | 选择器类型，默认 `css`                             |
+| `output_key`    | string | ❌   | 将 HTML 源码存入此变量名                           |
+
+**返回值**: HTML 字符串
+
+---
+
+##### `cdp_wait_for_navigation`
+
+等待页面导航完成（适用于点击后的 SPA 跳转或表单提交）。
+
+| 参数         | 类型    | 必需 | 描述                   |
+| ------------ | ------- | ---- | ---------------------- |
+| `timeout_ms` | integer | ❌   | 超时时间（毫秒），默认 30000 |
+
+**返回值**: 无
+
+---
+
+#### 设备模拟（Device Emulation）
+
+##### `cdp_emulate_device`
+
+模拟移动设备视口和 User-Agent。
+
+| 参数                  | 类型    | 必需 | 描述                         |
+| --------------------- | ------- | ---- | ---------------------------- |
+| `width`               | integer | ✅   | 视口宽度                     |
+| `height`              | integer | ✅   | 视口高度                     |
+| `device_scale_factor` | number  | ❌   | 设备缩放因子（默认 1）       |
+| `mobile`              | boolean | ❌   | 是否为移动设备（默认 false） |
+| `user_agent`          | string  | ❌   | 自定义 User-Agent            |
+
+**返回值**: 无
+
+---
+
+##### `cdp_set_geolocation`
+
+模拟地理位置。
+
+| 参数        | 类型   | 必需 | 描述                       |
+| ----------- | ------ | ---- | -------------------------- |
+| `latitude`  | number | ✅   | 纬度                       |
+| `longitude` | number | ✅   | 经度                       |
+| `accuracy`  | number | ❌   | 精度（米），默认 1         |
+
+**返回值**: 无
+
+---
+
+##### `cdp_set_user_agent`
+
+运行时修改 User-Agent。
+
+| 参数         | 类型   | 必需 | 描述                                    |
+| ------------ | ------ | ---- | --------------------------------------- |
+| `user_agent` | string | ✅   | 新的 User-Agent 字符串                  |
+| `platform`   | string | ❌   | 平台标识（如 `Win32`、`MacIntel`）      |
+
+**返回值**: 无
+
+---
+
+#### 高级交互（Advanced Interaction）
+
+##### `cdp_get_element_box`
+
+获取元素的包围盒坐标（用于精确定位和截图裁剪）。
+
+| 参数            | 类型   | 必需 | 描述                                        |
+| --------------- | ------ | ---- | ------------------------------------------- |
+| `selector`      | string | ✅   | 目标元素选择器                              |
+| `selector_type` | string | ❌   | 选择器类型，默认 `css`                      |
+| `output_key`    | string | ❌   | 将 `{x, y, width, height}` JSON 存入此变量名 |
+
+**返回值**: `{x, y, width, height}`
+
+---
+
+##### `cdp_highlight_element`
+
+高亮显示页面元素（调试辅助，截图时标记目标）。
+
+| 参数            | 类型    | 必需 | 描述                                    |
+| --------------- | ------- | ---- | --------------------------------------- |
+| `selector`      | string  | ✅   | 目标元素选择器                          |
+| `selector_type` | string  | ❌   | 选择器类型，默认 `css`                  |
+| `color`         | string  | ❌   | 高亮颜色（默认 red，支持 CSS 颜色值）   |
+| `duration_ms`   | integer | ❌   | 高亮持续时间（毫秒，默认 3000）         |
+
+**返回值**: 无
+
+---
+
+##### `cdp_mouse_move`
+
+移动鼠标到指定坐标（用于 hover 效果、拖拽前置）。
+
+| 参数 | 类型   | 必需 | 描述       |
+| ---- | ------ | ---- | ---------- |
+| `x`  | number | ✅   | 目标 X 坐标 |
+| `y`  | number | ✅   | 目标 Y 坐标 |
+
+**返回值**: 无
+
+---
+
+##### `cdp_drag_and_drop`
+
+拖拽元素从 A 到 B（支持选择器或坐标）。
+
+| 参数            | 类型   | 必需 | 描述                                  |
+| --------------- | ------ | ---- | ------------------------------------- |
+| `from_selector` | string | ❌   | 源元素选择器（与 `from_x/from_y` 二选一） |
+| `to_selector`   | string | ❌   | 目标元素选择器（与 `to_x/to_y` 二选一）  |
+| `from_x`        | number | ❌   | 起始 X 坐标                           |
+| `from_y`        | number | ❌   | 起始 Y 坐标                           |
+| `to_x`          | number | ❌   | 目标 X 坐标                           |
+| `to_y`          | number | ❌   | 目标 Y 坐标                           |
+| `selector_type` | string | ❌   | 选择器类型，默认 `css`                |
+
+**返回值**: 无
+
+---
+
+##### `cdp_select_option`
+
+选择 `<select>` 下拉框的选项。
+
+| 参数            | 类型    | 必需 | 描述                               |
+| --------------- | ------- | ---- | ---------------------------------- |
+| `selector`      | string  | ✅   | select 元素选择器                  |
+| `value`         | string  | ❌   | 要选中的 value（与 `index` 二选一）|
+| `index`         | integer | ❌   | 要选中的选项索引，0-based          |
+| `selector_type` | string  | ❌   | 选择器类型，默认 `css`             |
+| `output_key`    | string  | ❌   | 将选中值存入此变量名               |
+
+**返回值**: 无
+
+---
+
+##### `cdp_check_checkbox`
+
+勾选/取消勾选 checkbox 或 radio。
+
+| 参数            | 类型    | 必需 | 描述                                |
+| --------------- | ------- | ---- | ----------------------------------- |
+| `selector`      | string  | ✅   | checkbox/radio 元素选择器           |
+| `checked`       | boolean | ❌   | 目标状态：true=勾选，false=取消，默认 true |
+| `selector_type` | string  | ❌   | 选择器类型，默认 `css`              |
+
+**返回值**: 无
+
+---
+
+#### 网络与调试（Network / Debug）
+
+##### `cdp_block_urls`
+
+屏蔽匹配模式的 URL（如广告、追踪器），支持 `*` 通配符。
+
+| 参数       | 类型          | 必需 | 描述                            |
+| ---------- | ------------- | ---- | ------------------------------- |
+| `patterns` | array[string] | ✅   | URL 模式列表，支持 `*` 通配符  |
+
+**返回值**: 无
+
+---
+
+##### `cdp_intercept_request`
+
+拦截并修改网络请求（block=屏蔽, mock=模拟返回, modify=修改 headers）。
+
+| 参数          | 类型   | 必需 | 描述                                |
+| ------------- | ------ | ---- | ----------------------------------- |
+| `url_pattern` | string | ✅   | URL 匹配模式，支持 `*` 通配符      |
+| `action`      | string | ✅   | 拦截动作: `block` / `mock` / `modify` |
+| `headers`     | object | ❌   | 要修改/添加的 headers（modify 模式）|
+| `body`        | string | ❌   | 模拟返回的 body（mock 模式）        |
+| `status`      | integer| ❌   | 模拟返回的状态码（mock 模式，默认 200）|
+
+**返回值**: 无
+
+---
+
+##### `cdp_get_console_logs`
+
+获取浏览器控制台日志（最近 N 条）。
+
+| 参数         | 类型    | 必需 | 描述                                              |
+| ------------ | ------- | ---- | ------------------------------------------------- |
+| `limit`      | integer | ❌   | 返回条数上限（默认 50）                           |
+| `level`      | string  | ❌   | 按级别过滤: `log` / `warn` / `error` / `info`     |
+| `output_key` | string  | ❌   | 将日志 JSON 数组存入此变量名                      |
+
+**返回值**: 日志条目数组 JSON
+
+---
+
+##### `cdp_get_network_requests`
+
+获取最近的网络请求记录（通过 JS 注入实现，不捕获响应体）。
+
+| 参数           | 类型    | 必需 | 描述                         |
+| -------------- | ------- | ---- | ---------------------------- |
+| `limit`        | integer | ❌   | 返回条数上限（默认 20）      |
+| `url_pattern`  | string  | ❌   | URL 过滤模式                 |
+| `output_key`   | string  | ❌   | 将请求记录 JSON 数组存入此变量名 |
+
+**返回值**: 请求记录数组（含 URL、方法、状态码、MIME 类型）
+
+---
+
+##### `cdp_pdf`
+
+将当前页面导出为 PDF。
+
+| 参数             | 类型    | 必需 | 描述                               |
+| ---------------- | ------- | ---- | ---------------------------------- |
+| `path`           | string  | ❌   | 保存路径（不传则返回 base64）      |
+| `landscape`      | boolean | ❌   | 横向打印，默认 false               |
+| `scale`          | number  | ❌   | 缩放比例（默认 1）                 |
+| `paper_width`    | number  | ❌   | 纸张宽度（英寸）                   |
+| `paper_height`   | number  | ❌   | 纸张高度（英寸）                   |
+| `output_key`     | string  | ❌   | 将文件路径或 base64 存入此变量名   |
+
+**返回值**: 文件路径或 base64 字符串
+
+---
+
+##### `cdp_handle_dialog`
+
+处理浏览器 JavaScript 对话框（alert / confirm / prompt）。
+
+| 参数          | 类型   | 必需 | 描述                                          |
+| ------------- | ------ | ---- | --------------------------------------------- |
+| `action`      | string | ✅   | `accept`=接受/确认，`dismiss`=取消/关闭       |
+| `prompt_text` | string | ❌   | prompt 对话框的输入文本（仅 `action=accept` 时有效） |
+
+**返回值**: 无
+
+---
+
+### 3.3 Magic Controller 工具（53 个）
 
 通过自研 Chromium 的 Magic Controller HTTP API 控制浏览器。这些工具通过 `magic_port` 与 Chromium 实例通信。
 
@@ -869,7 +1236,9 @@ pub struct ToolResult {
 
 ##### `magic_type_string`
 
-通过 Magic Controller 输入文本（模拟键盘输入）。
+通过 Magic Controller 输入文本（模拟键盘输入）。这是文本输入的**首选工具**，相比 `cdp_type` 更接近真实键盘输入行为。
+
+**前置条件**: 目标输入区域必须已处于焦点状态。调用前需先通过 `cdp_click` 点击输入框使其获得焦点。
 
 | 参数     | 类型    | 必需 | 描述          |
 | -------- | ------- | ---- | ------------- |
@@ -1260,6 +1629,71 @@ pub struct ToolResult {
 | `output_key_file_path` | string  | ❌   | 将文件路径存入此变量名               |
 
 **返回值**: 截图文件路径；图片 base64 注入 AI 对话历史供视觉分析
+
+---
+
+#### 窗口状态查询（4 个）
+
+##### `magic_get_maximized`
+
+查询窗口是否处于最大化状态。
+
+| 参数         | 类型   | 必需 | 描述                    |
+| ------------ | ------ | ---- | ----------------------- |
+| `output_key` | string | ❌   | 将 true/false 存入此变量名 |
+
+**返回值**: `true` / `false`
+
+---
+
+##### `magic_get_minimized`
+
+查询窗口是否处于最小化状态。
+
+| 参数         | 类型   | 必需 | 描述                    |
+| ------------ | ------ | ---- | ----------------------- |
+| `output_key` | string | ❌   | 将 true/false 存入此变量名 |
+
+**返回值**: `true` / `false`
+
+---
+
+##### `magic_get_fullscreen`
+
+查询窗口是否处于全屏状态。
+
+| 参数         | 类型   | 必需 | 描述                    |
+| ------------ | ------ | ---- | ----------------------- |
+| `output_key` | string | ❌   | 将 true/false 存入此变量名 |
+
+**返回值**: `true` / `false`
+
+---
+
+##### `magic_get_window_state`
+
+一次性获取窗口完整状态（bounds + maximized + minimized + fullscreen）。
+
+| 参数         | 类型   | 必需 | 描述                       |
+| ------------ | ------ | ---- | -------------------------- |
+| `output_key` | string | ❌   | 将完整窗口状态 JSON 存入此变量名 |
+
+**返回值**: 窗口状态 JSON（含 bounds、maximized、minimized、fullscreen 字段）
+
+---
+
+#### Cookie 导入（1 个）
+
+##### `magic_import_cookies`
+
+从 JSON 数据批量导入 Cookie 到浏览器。
+
+| 参数         | 类型          | 必需 | 描述                                                          |
+| ------------ | ------------- | ---- | ------------------------------------------------------------- |
+| `cookies`    | array[object] | ✅   | Cookie 数组，每项含 `name`(必需)、`value`(必需)、`domain`、`path`、`expires`、`httpOnly`、`secure` |
+| `output_key` | string        | ❌   | 将导入数量存入此变量名                                        |
+
+**返回值**: 导入数量
 
 ---
 
@@ -1668,7 +2102,7 @@ pub struct ToolResult {
 
 ---
 
-### 3.6 Dialog 工具（13 个）
+### 3.7 Dialog 工具（13 个）
 
 通过 Tauri 事件与前端 UI 弹窗交互。工作流程：后端 `app.emit("ai-dialog-request")` → 前端展示弹窗 → 前端调用 `submit_ai_dialog_response` → 后端 oneshot 通道接收结果。
 
@@ -1917,18 +2351,12 @@ pub struct ToolResult {
 | `app_delete_proxy` | 删除代理 | 永久删除指定的代理配置 |
 | `app_delete_group` | 删除分组 | 永久删除指定的环境分组 |
 | `app_stop_profile` | 停止环境 | 强制停止正在运行的浏览器环境 |
-| `app_stop_all_profiles` | 停止全部环境 | 强制停止所有正在运行的浏览器环境 |
-| `app_purge_profile` | 清空环境回收站 | 彻底删除回收站中的环境，无法恢复 |
-| `app_purge_proxy` | 清空代理回收站 | 彻底删除回收站中的代理配置 |
-| `app_purge_group` | 清空分组回收站 | 彻底删除回收站中的分组配置 |
-| `magic_set_closed` | 关闭 Magic | 关闭 Magic 控制通道，停止浏览器扩展通信 |
-| `magic_safe_quit` | 安全退出 Magic | 优雅关闭 Magic 控制器，保存当前状态 |
+| `magic_set_closed` | 关闭浏览器窗口 | 关闭当前浏览器窗口 |
+| `magic_safe_quit` | 安全退出浏览器 | 安全退出整个浏览器应用（关闭所有窗口和标签页） |
 | `file_write` | 写入文件 | 创建或覆盖文件内容 |
-| `file_delete` | 删除文件 | 永久删除指定文件 |
 | `file_append` | 追加文件内容 | 向文件末尾追加内容 |
-| `cdp_clear_cookies` | 清除 Cookies | 清除浏览器的所有 Cookie 数据 |
-| `cdp_clear_local_storage` | 清除 Local Storage | 清除浏览器的本地存储数据 |
-| `cdp_clear_session_storage` | 清除 Session Storage | 清除浏览器的会话存储数据 |
+| `cdp_delete_cookies` | 删除 Cookie | 删除匹配的浏览器 Cookie |
+| `cdp_clear_storage` | 清除存储 | 清除 Cookie/localStorage/sessionStorage/cache 等存储数据 |
 | `auto_delete_script` | 删除脚本 | 永久删除指定的自动化脚本 |
 
 ### 4.3 确认机制实现
@@ -1980,7 +2408,7 @@ pub fn tool_risk_level(tool_name: &str) -> ToolRiskLevel {
 
 3. 确认设置页 UI 会自动展示新工具
 
-## 6. 新增工具流程
+## 5. 新增工具流程
 
 添加新工具需要修改以下文件：
 
@@ -2014,7 +2442,7 @@ tool(
 
 ---
 
-## 7. 维护指引
+## 6. 维护指引
 
 ### 文档更新规则
 
@@ -2037,11 +2465,11 @@ grep -c 'tool(' src-tauri/src/services/ai_tools/tool_defs.rs
 | 类别             | 数量    | 校验方式                       |
 | ---------------- | ------- | ------------------------------ |
 | Utility          | 3       | `utility_tools()`              |
-| CDP              | 32      | `cdp_tools()`（含 cdp_handle_dialog）|
-| Magic Controller | 48      | `magic_tools()`                |
-| App Data         | 20      | `app_tools()`                  |
+| CDP              | 56      | `cdp_tools()`                  |
+| Magic Controller | 53      | `magic_tools()`                |
+| App Data         | 21      | `app_tools()`                  |
 | Auto             | 19      | `auto_tools()`                 |
 | File I/O         | 6       | `file_tools()`                 |
 | Dialog           | 13      | `dialog_tools()`               |
 | Captcha          | 5       | `captcha_tools()`              |
-| **总计**         | **147** | `all_tool_definitions().len()` |
+| **总计**         | **176** | `all_tool_definitions().len()` |
