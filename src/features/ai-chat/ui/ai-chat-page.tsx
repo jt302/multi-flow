@@ -10,6 +10,7 @@ import {
 	updateChatSession,
 } from '@/entities/chat/api/chat-api';
 import type { ChatMessageRecord } from '@/entities/chat/model/types';
+import { useDefaultLayout } from 'react-resizable-panels';
 import {
 	ResizableHandle,
 	ResizablePanel,
@@ -33,6 +34,7 @@ export function AiChatPage() {
 	const [input, setInput] = useState('');
 	const [pastedImage, setPastedImage] = useState<string | null>(null);
 	const qc = useQueryClient();
+	const { defaultLayout: chatLayout, onLayoutChanged: onChatLayoutChanged } = useDefaultLayout({ id: 'ai-chat-layout' });
 
 	const sessionsQuery = useChatSessionsQuery();
 	const sessions = sessionsQuery.data ?? [];
@@ -171,7 +173,7 @@ export function AiChatPage() {
 	};
 
 	return (
-		<ResizablePanelGroup direction="horizontal" className="h-full">
+		<ResizablePanelGroup direction="horizontal" className="h-full" defaultLayout={chatLayout} onLayoutChanged={onChatLayoutChanged}>
 				<ResizablePanel defaultSize={14} minSize={12} maxSize={35}>
 					<ChatSessionList
 						sessions={sessions}

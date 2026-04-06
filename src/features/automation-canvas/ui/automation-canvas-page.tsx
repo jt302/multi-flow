@@ -73,7 +73,10 @@ function InnerCanvas({
 	// 对话框 UI 状态（非业务逻辑，不放入 hook）
 	const [runDialogOpen, setRunDialogOpen] = useState(false);
 	const [varsDialogOpen, setVarsDialogOpen] = useState(false);
-	const [panelWidth, setPanelWidth] = useState(320);
+	const [panelWidth, setPanelWidth] = useState(() => {
+		const saved = localStorage.getItem('mf_canvas_panel_width');
+		return saved ? Math.max(256, Math.min(600, Number(saved))) : 320;
+	});
 	const [paletteCollapsed, setPaletteCollapsed] = useState(false);
 	const [helpDialogOpen, setHelpDialogOpen] = useState(false);
 
@@ -371,13 +374,16 @@ function InnerCanvas({
 								e.preventDefault();
 								const startX = e.clientX;
 								const startW = panelWidth;
+								let latestW = startW;
 								const onMove = (ev: MouseEvent) => {
 									const delta = startX - ev.clientX;
-									setPanelWidth(Math.max(256, Math.min(600, startW + delta)));
+									latestW = Math.max(256, Math.min(600, startW + delta));
+									setPanelWidth(latestW);
 								};
 								const onUp = () => {
 									window.removeEventListener('mousemove', onMove);
 									window.removeEventListener('mouseup', onUp);
+									localStorage.setItem('mf_canvas_panel_width', String(latestW));
 								};
 								window.addEventListener('mousemove', onMove);
 								window.addEventListener('mouseup', onUp);
