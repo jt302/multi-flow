@@ -320,6 +320,7 @@
 	"select": "选择",
 	"selected": "已选择",
 	"unselected": "未选择",
+	"profile": "环境",
 	"profileList": "环境列表",
 	"searchProfile": "搜索环境",
 	"allGroups": "全部分组",

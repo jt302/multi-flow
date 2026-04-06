@@ -314,6 +314,7 @@
 	"select": "Select",
 	"selected": "Selected",
 	"unselected": "Unselected",
+	"profile": "Profile",
 	"profileList": "Profile List",
 	"searchProfile": "Search Profile",
 	"allGroups": "All Groups",
