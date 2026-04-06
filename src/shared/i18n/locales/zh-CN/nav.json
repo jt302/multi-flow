@@ -104,6 +104,27 @@
 		"active": "活跃",
 		"paused": "暂停",
 		"pauseEngine": "暂停执行引擎",
-		"resumeEngine": "恢复执行引擎"
+		"resumeEngine": "恢复执行引擎",
+		"status": {
+			"title": "系统状态",
+			"browser": "浏览器",
+			"proxy": "代理",
+			"sync": "同步",
+			"automation": "自动化",
+			"browserRunning": "{{count}} 运行中",
+			"browserIdle": "无运行",
+			"proxyNone": "无代理",
+			"proxyAllOk": "全部正常",
+			"proxyAllFail": "全部异常",
+			"proxySome": "{{ok}}/{{total}} 正常",
+			"syncConnected": "已连接",
+			"syncStarting": "启动中",
+			"syncOffline": "离线",
+			"syncNotStarted": "未启动",
+			"automationIdle": "空闲",
+			"automationWaiting": "等待操作",
+			"automationRunning": "运行中",
+			"rowTitle": "{{label}}: {{status}}"
+		}
 	}
 }

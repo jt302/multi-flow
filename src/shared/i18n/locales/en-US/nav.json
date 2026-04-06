@@ -104,6 +104,27 @@
 		"active": "Active",
 		"paused": "Paused",
 		"pauseEngine": "Pause Engine",
-		"resumeEngine": "Resume Engine"
+		"resumeEngine": "Resume Engine",
+		"status": {
+			"title": "System Status",
+			"browser": "Browser",
+			"proxy": "Proxy",
+			"sync": "Sync",
+			"automation": "Automation",
+			"browserRunning": "{{count}} running",
+			"browserIdle": "Idle",
+			"proxyNone": "No proxies",
+			"proxyAllOk": "All healthy",
+			"proxyAllFail": "All failed",
+			"proxySome": "{{ok}}/{{total}} healthy",
+			"syncConnected": "Connected",
+			"syncStarting": "Starting",
+			"syncOffline": "Offline",
+			"syncNotStarted": "Not started",
+			"automationIdle": "Idle",
+			"automationWaiting": "Waiting",
+			"automationRunning": "Running",
+			"rowTitle": "{{label}}: {{status}}"
+		}
 	}
 }
