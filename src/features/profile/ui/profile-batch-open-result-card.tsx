@@ -15,7 +15,7 @@ export function ProfileBatchOpenResultCard({
 	onRetryFailed,
 	onClose,
 }: ProfileBatchOpenResultCardProps) {
-	const { t } = useTranslation('profile');
+	const { t } = useTranslation(['profile', 'common']);
 	const failedItems = result.items.filter((item) => !item.ok);
 
 	if (failedItems.length === 0) {

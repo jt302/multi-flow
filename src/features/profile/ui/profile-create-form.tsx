@@ -68,18 +68,18 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 						profiles / create
 					</p>
 					<h2 className="text-base font-semibold">
-						{mode === 'edit' ? t('create:editTitle') : t('create:pageTitle')}
+						{mode === 'edit' ? t('create.editTitle') : t('create.pageTitle')}
 					</h2>
 				</div>
 				<Button type="button" variant="outline" className="cursor-pointer" onClick={props.onBack}>
 					<Icon icon={ArrowLeft} size={14} />
-					{t('detail:backToList')}
+					{t('detail.backToList')}
 				</Button>
 			</div>
 
 			<Card className="p-4">
 				<CardHeader className="p-0 pb-2">
-					<CardTitle className="text-sm">{t('create:fullConfigTitle')}</CardTitle>
+					<CardTitle className="text-sm">{t('create.fullConfigTitle')}</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-4 p-0">
 					<form onSubmit={onFormSubmit} className="space-y-4">
@@ -124,7 +124,7 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 									)}
 								onRegenerateFonts={() => {
 									void regenerateFontList().catch((error) => {
-										const message = error instanceof Error ? error.message : t('create:fontListRegenerateFailed');
+											const message = error instanceof Error ? error.message : t('create.fontListRegenerateFailed');
 										form.setError('customFontListText', { message });
 									});
 								}}
@@ -171,16 +171,16 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 
 								<FormErrorList errors={errors} submitError={submitError} />
 								<div className="flex items-center gap-2">
-									<Button type="button" variant="outline" className="flex-1 cursor-pointer" onClick={props.onBack}>
-										{t('create:cancel')}
-									</Button>
+					<Button type="button" variant="outline" className="flex-1 cursor-pointer" onClick={props.onBack}>
+						{t('create.cancel')}
+					</Button>
 									<Button
 										type="submit"
 										className="flex-1 cursor-pointer"
 										disabled={!values.name.trim() || isSubmitting || !mergedPreviewSnapshot}
 									>
 										<Icon icon={Plus} size={14} />
-										{isSubmitting ? (mode === 'edit' ? t('create:saving') : t('create:creating')) : mode === 'edit' ? t('create:saveChanges') : t('create:createProfile')}
+										{isSubmitting ? (mode === 'edit' ? t('create.saving') : t('create.creating')) : mode === 'edit' ? t('create.saveChanges') : t('create.createProfile')}
 									</Button>
 								</div>
 							</div>

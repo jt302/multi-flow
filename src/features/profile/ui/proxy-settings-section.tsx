@@ -23,16 +23,16 @@ export function ProxySettingsSection({
 
 	return (
 		<div className="rounded-xl border border-border/70 p-3">
-			<SectionTitle title={t('proxySettings:title')} description={t('proxySettings:desc')} />
+			<SectionTitle title={t('proxySettings.title')} description={t('proxySettings.desc')} />
 			<Select
 				value={proxyId || '__none__'}
 				onValueChange={(value) => setValue('proxyId', value, { shouldDirty: true })}
 			>
 				<SelectTrigger>
-					<SelectValue placeholder={t('proxySettings:noProxy')} />
+					<SelectValue placeholder={t('proxySettings.noProxy')} />
 				</SelectTrigger>
 				<SelectContent>
-					<SelectItem value="__none__">{t('proxySettings:noProxy')}</SelectItem>
+					<SelectItem value="__none__">{t('proxySettings.noProxy')}</SelectItem>
 					{availableProxies.map((item) => (
 						<SelectItem key={item.id} value={item.id}>
 							{item.name} · {item.protocol.toUpperCase()}://{item.host}:{item.port}
@@ -42,7 +42,7 @@ export function ProxySettingsSection({
 			</Select>
 			{proxyId && proxyId !== '__none__' ? (
 				<p className="mt-2 text-xs text-muted-foreground">
-					{t('proxySettings:proxyHint')}
+					{t('proxySettings.proxyHint')}
 				</p>
 			) : null}
 		</div>

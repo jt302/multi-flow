@@ -35,7 +35,7 @@ export function ProfileBatchGroupDialog({
 	onValueChange,
 	onConfirm,
 }: ProfileBatchGroupDialogProps) {
-	const { t } = useTranslation('profile');
+	const { t } = useTranslation(['profile', 'common']);
 	useEffect(() => {
 		if (!open || value || groupOptions.length === 0) {
 			return;

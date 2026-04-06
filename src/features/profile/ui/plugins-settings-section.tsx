@@ -43,16 +43,16 @@ export function PluginsSettingsSection({
 	return (
 		<div className="rounded-xl border border-border/70 p-3">
 			<SectionTitle
-				title={t('plugins:title')}
-				description={t('plugins:desc')}
+			title={t('plugins.title')}
+			description={t('plugins.desc')}
 			/>
 			{loading ? (
-				<p className="text-xs text-muted-foreground">{t('plugins:loading')}</p>
+				<p className="text-xs text-muted-foreground">{t('plugins.loading')}</p>
 			) : null}
 			{error ? <p className="text-xs text-destructive">{error}</p> : null}
 			{!loading && packages.length === 0 ? (
 				<div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-3 py-4 text-sm text-muted-foreground">
-					{t('plugins:noPlugins')}
+					{t('plugins.noPlugins')}
 				</div>
 			) : null}
 			<div className="space-y-2">
@@ -92,7 +92,7 @@ export function PluginsSettingsSection({
 											<Badge variant="secondary">{pkg.extensionId}</Badge>
 										</div>
 									<p className="mt-1 text-xs text-muted-foreground">
-										{pkg.description?.trim() || t('plugins:noDescription')}
+										{pkg.description?.trim() || t('plugins.noDescription')}
 									</p>
 									</div>
 								</label>
@@ -112,7 +112,7 @@ export function PluginsSettingsSection({
 										);
 									}}
 									/>
-									{t('plugins:enabled')}
+									{t('plugins.enabled')}
 								</label>
 								<Button
 									type="button"
@@ -129,13 +129,13 @@ export function PluginsSettingsSection({
 									disabled={!selected}
 								>
 									<Icon icon={Puzzle} size={12} />
-									{t('plugins:remove')}
+									{t('plugins.remove')}
 								</Button>
 								</div>
 							</div>
 							{pkg.updateStatus === 'update_available' ? (
 								<p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
-									{t('plugins:version', { version: pkg.latestVersion ?? '?' })}
+									{t('plugins.version', { version: pkg.latestVersion ?? '?' })}
 								</p>
 							) : null}
 						</div>
