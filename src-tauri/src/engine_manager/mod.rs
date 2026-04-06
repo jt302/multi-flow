@@ -55,6 +55,11 @@ enum EngineProcess {
         debug_port: u16,
         magic_port: u16,
     },
+    /// 应用重启后从 DB 恢复的孤儿进程：有端口信息但无子进程句柄。
+    Orphan {
+        debug_port: u16,
+        magic_port: u16,
+    },
 }
 
 #[derive(Debug, Clone, Default)]
@@ -183,13 +188,22 @@ impl EngineManager {
         let (process, launch_args) = process;
         let pid = match &process {
             EngineProcess::Chromium { child, .. } => Some(child.id()),
-            EngineProcess::Mock => None,
+            EngineProcess::Mock | EngineProcess::Orphan { .. } => None,
+        };
+        let (debug_port, magic_port) = match &process {
+            EngineProcess::Chromium { debug_port, magic_port, .. }
+            | EngineProcess::Orphan { debug_port, magic_port } => {
+                (Some(*debug_port), Some(*magic_port))
+            }
+            EngineProcess::Mock => (None, None),
         };
         let session = EngineSession {
             profile_id: profile_id.to_string(),
             session_id,
             pid,
             started_at: now_ts(),
+            debug_port,
+            magic_port,
         };
         self.sessions.insert(
             profile_id.to_string(),
@@ -215,6 +229,38 @@ impl EngineManager {
         Ok(session)
     }
 
+    /// 从持久化数据恢复一个已有浏览器进程的 session（应用重启后调用，不创建新进程）。
+    /// 仅当 debug_port 和 magic_port 均存在时才能完整恢复 CDP/Magic 能力。
+    pub fn restore_session(&mut self, session: EngineSession, profile_name: String) {
+        if self.sessions.contains_key(&session.profile_id) {
+            return;
+        }
+        let process = match (session.debug_port, session.magic_port) {
+            (Some(debug_port), Some(magic_port)) => EngineProcess::Orphan { debug_port, magic_port },
+            _ => EngineProcess::Mock,
+        };
+        logger::info(
+            "engine_manager",
+            format!(
+                "restore_session profile_id={} pid={:?} debug_port={:?} magic_port={:?}",
+                session.profile_id, session.pid, session.debug_port, session.magic_port
+            ),
+        );
+        self.sessions.insert(
+            session.profile_id.clone(),
+            SessionRecord {
+                profile_name,
+                process,
+                session,
+                launch_args: vec![],
+                extra_args: vec![],
+                windows: vec![],
+                next_window_id: 1,
+                next_tab_id: 1,
+            },
+        );
+    }
+
     pub fn close_profile(&mut self, profile_id: &str) -> AppResult<EngineSession> {
         logger::info(
             "engine_manager",
@@ -225,13 +271,17 @@ impl EngineManager {
         })?;
         let profile_name = record.profile_name.clone();
 
-        if let EngineProcess::Chromium {
-            child,
-            debug_port,
-            magic_port,
-        } = &mut record.process
-        {
-            shutdown_chromium_process(profile_id, &profile_name, child, *debug_port, *magic_port);
+        match &mut record.process {
+            EngineProcess::Chromium { child, debug_port, magic_port } => {
+                shutdown_chromium_process(profile_id, &profile_name, child, *debug_port, *magic_port);
+            }
+            EngineProcess::Orphan { .. } => {
+                // 孤儿进程：没有子进程句柄，直接用 PID 发送终止信号
+                if let Some(pid) = record.session.pid {
+                    crate::runtime_guard::terminate_process(pid);
+                }
+            }
+            EngineProcess::Mock => {}
         }
         logger::info(
             "engine_manager",
@@ -258,7 +308,8 @@ impl EngineManager {
         })?;
         let (debug_port, magic_port) = match &record.process {
             EngineProcess::Mock => (None, None),
-            EngineProcess::Chromium {
+            EngineProcess::Orphan { debug_port, magic_port }
+            | EngineProcess::Chromium {
                 debug_port,
                 magic_port,
                 ..
@@ -279,7 +330,7 @@ impl EngineManager {
         };
         match record.process {
             EngineProcess::Chromium { .. } => Ok(Some(record.launch_args.clone())),
-            EngineProcess::Mock => Ok(None),
+            EngineProcess::Mock | EngineProcess::Orphan { .. } => Ok(None),
         }
     }
 
@@ -289,7 +340,7 @@ impl EngineManager {
         };
         match record.process {
             EngineProcess::Chromium { .. } => Ok(Some(record.extra_args.clone())),
-            EngineProcess::Mock => Ok(None),
+            EngineProcess::Mock | EngineProcess::Orphan { .. } => Ok(None),
         }
     }
 
@@ -1105,6 +1156,24 @@ impl EngineManager {
         for (profile_id, record) in self.sessions.iter_mut() {
             let should_prune = match &mut record.process {
                 EngineProcess::Mock => false,
+                EngineProcess::Orphan { magic_port, .. } => {
+                    // 孤儿进程：通过 PID 存活检查来判断是否需要清理
+                    let alive = record.session.pid
+                        .map(crate::runtime_guard::is_process_alive)
+                        .unwrap_or(false);
+                    if !alive && !is_magic_server_alive(*magic_port) {
+                        logger::info(
+                            "engine_manager",
+                            format!(
+                                "orphan process exited profile_id={profile_id} pid={:?}",
+                                record.session.pid
+                            ),
+                        );
+                        true
+                    } else {
+                        false
+                    }
+                }
                 EngineProcess::Chromium {
                     child, magic_port, ..
                 } => match child.try_wait() {
@@ -1168,7 +1237,8 @@ impl EngineManager {
         })?;
         match &record.process {
             EngineProcess::Mock => Ok(None),
-            EngineProcess::Chromium { magic_port, .. } => Ok(Some(*magic_port)),
+            EngineProcess::Chromium { magic_port, .. }
+            | EngineProcess::Orphan { magic_port, .. } => Ok(Some(*magic_port)),
         }
     }
 
@@ -2163,6 +2233,8 @@ mod tests {
             session_id: 1,
             pid: Some(child.id()),
             started_at: now_ts(),
+            debug_port: Some(19222),
+            magic_port: Some(magic_port),
         };
         manager.sessions.insert(
             profile_id.to_string(),

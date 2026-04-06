@@ -28,6 +28,7 @@ mod m20260401_000025_automation_run_logs;
 mod m20260402_000026_clean_legacy_ai_steps;
 mod m20260405_000027_create_chat_tables;
 mod m20260406_000028_enhance_chat_system;
+mod m20260406_000029_add_engine_session_ports;
 
 use sea_orm_migration::prelude::*;
 
@@ -67,6 +68,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260402_000026_clean_legacy_ai_steps::Migration),
             Box::new(m20260405_000027_create_chat_tables::Migration),
             Box::new(m20260406_000028_enhance_chat_system::Migration),
+            Box::new(m20260406_000029_add_engine_session_ports::Migration),
         ]
     }
 }
