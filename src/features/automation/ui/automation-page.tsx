@@ -22,6 +22,7 @@ import { queryKeys } from '@/shared/config/query-keys';
 import { useAutomationActions } from '@/features/automation/model/use-automation-actions';
 import { useAutomationStore } from '@/store/automation-store';
 import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
+import { useDefaultLayout } from 'react-resizable-panels';
 import {
 	ResizableHandle,
 	ResizablePanel,
@@ -36,6 +37,7 @@ export function AutomationPage() {
 	const scriptsQuery = useAutomationScriptsQuery();
 	const scripts = scriptsQuery.data ?? [];
 	const queryClient = useQueryClient();
+	const { defaultLayout: autoLayout, onLayoutChanged: onAutoLayoutChanged } = useDefaultLayout({ id: 'automation-layout' });
 	const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null);
 
 	const selectedScript = scripts.find((s) => s.id === selectedScriptId) ?? null;
@@ -269,7 +271,7 @@ export function AutomationPage() {
 
 	return (
 		<>
-		<ResizablePanelGroup direction="horizontal" className="h-full">
+		<ResizablePanelGroup direction="horizontal" className="h-full" defaultLayout={autoLayout} onLayoutChanged={onAutoLayoutChanged}>
 			{/* 左侧脚本列表侧边栏 */}
 			<ResizablePanel defaultSize={20} minSize={14} maxSize={40}>
 			<ScriptListSidebar
