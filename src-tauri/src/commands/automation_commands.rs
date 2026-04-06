@@ -2893,6 +2893,58 @@ pub async fn execute_step(
             }
             Ok((None, HashMap::new()))
         }
+        ScriptStep::CdpQueryAll {
+            selector,
+            selector_type,
+            extract,
+            output_key,
+        } => {
+            let selector = vars.interpolate(selector);
+            let extract = extract.as_deref().unwrap_or("text");
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let sel_json = serde_json::to_string(&selector).unwrap_or_default();
+            let ext_json = serde_json::to_string(extract).unwrap_or_default();
+            let expr = match selector_type {
+                SelectorType::Css => format!(
+                    r#"(function(){{
+                        var els=Array.from(document.querySelectorAll({sel_json}));
+                        var ext={ext_json};
+                        return JSON.stringify(els.map(function(el){{
+                            if(ext==='text')return el.innerText!==undefined?el.innerText:(el.textContent||'');
+                            if(ext==='html')return el.outerHTML||'';
+                            var v=el.getAttribute(ext);return v!==null?v:'';
+                        }}));
+                    }})()"#
+                ),
+                _ => format!(
+                    r#"(function(){{
+                        var xp={sel_json};
+                        var isText={};
+                        if(isText)xp='//*[contains(text(),'+xp+')]';
+                        var res=document.evaluate(xp,document,null,XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,null);
+                        var ext={ext_json};
+                        var items=[];
+                        for(var i=0;i<res.snapshotLength;i++){{
+                            var el=res.snapshotItem(i);
+                            if(ext==='text')items.push(el.innerText!==undefined?el.innerText:(el.textContent||''));
+                            else if(ext==='html')items.push(el.outerHTML||'');
+                            else{{var v=el.getAttribute(ext);items.push(v!==null?v:'');}}
+                        }}
+                        return JSON.stringify(items);
+                    }})()"#,
+                    matches!(selector_type, SelectorType::Text)
+                ),
+            };
+            let result = cdp
+                .call("Runtime.evaluate", json!({ "expression": expr, "returnByValue": true }))
+                .await?;
+            let val = result
+                .pointer("/result/value")
+                .and_then(|v| v.as_str())
+                .unwrap_or("[]")
+                .to_string();
+            Ok((Some(val.clone()), opt_key(output_key, val)))
+        }
         ScriptStep::CdpGetText {
             selector,
             selector_type,
@@ -5295,6 +5347,75 @@ pub async fn execute_step(
                     "Runtime.evaluate",
                     json!({ "expression": expr, "returnByValue": true }),
                 )
+                .await?;
+            let val = result
+                .pointer("/result/value")
+                .and_then(|v| v.as_str())
+                .unwrap_or("[]")
+                .to_string();
+            Ok((Some(val.clone()), opt_key(output_key, val)))
+        }
+
+        ScriptStep::CdpGetResponseBody {
+            url_filter,
+            limit,
+            output_key,
+        } => {
+            let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
+            let lim = limit.unwrap_or(10);
+            let filt = url_filter.as_deref().unwrap_or("");
+            let filt_js = serde_json::to_string(filt).unwrap_or_else(|_| "\"\"".to_string());
+            let expr = format!(
+                r#"(function(){{
+                if(!window.__mf_response_bodies){{
+                    window.__mf_response_bodies=[];
+                    var origFetch=window.fetch;
+                    window.fetch=function(){{
+                        var url=arguments[0];
+                        if(typeof url==='object')url=url.url||'';
+                        url=String(url);
+                        var method=(arguments[1]&&arguments[1].method)||'GET';
+                        var entry={{url:url,method:method,timestamp:Date.now(),type:'fetch',status:null,contentType:'',body:null}};
+                        return origFetch.apply(this,arguments).then(function(r){{
+                            entry.status=r.status;
+                            entry.contentType=r.headers.get('content-type')||'';
+                            var rc=r.clone();
+                            rc.text().then(function(t){{
+                                entry.body=t;
+                                window.__mf_response_bodies.push(entry);
+                                if(window.__mf_response_bodies.length>50)window.__mf_response_bodies.shift();
+                            }}).catch(function(){{
+                                entry.body='[unreadable]';
+                                window.__mf_response_bodies.push(entry);
+                                if(window.__mf_response_bodies.length>50)window.__mf_response_bodies.shift();
+                            }});
+                            return r;
+                        }});
+                    }};
+                    var origOpen=XMLHttpRequest.prototype.open;
+                    XMLHttpRequest.prototype.open=function(m,u){{
+                        this.__mf_rb={{url:String(u),method:m,timestamp:Date.now(),type:'xhr',status:null,contentType:'',body:null}};
+                        this.addEventListener('load',function(){{
+                            var e=this.__mf_rb;
+                            if(e){{
+                                e.status=this.status;
+                                e.contentType=this.getResponseHeader('content-type')||'';
+                                e.body=this.responseText||'';
+                                window.__mf_response_bodies.push(e);
+                                if(window.__mf_response_bodies.length>50)window.__mf_response_bodies.shift();
+                            }}
+                        }});
+                        origOpen.apply(this,arguments);
+                    }};
+                }}
+                var data=window.__mf_response_bodies;
+                var filt={filt_js};
+                var filtered=filt?data.filter(function(e){{return e.url.includes(filt);}}):data;
+                return JSON.stringify(filtered.slice(-{lim}));
+            }})()"#
+            );
+            let result = cdp
+                .call("Runtime.evaluate", json!({ "expression": expr, "returnByValue": true }))
                 .await?;
             let val = result
                 .pointer("/result/value")

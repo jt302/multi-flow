@@ -81,7 +81,7 @@ fn utility_tools() -> Vec<Value> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CDP 工具（25 个）
+// CDP 工具（58 个）
 // ═══════════════════════════════════════════════════════════════════════════
 
 fn cdp_tools() -> Vec<Value> {
@@ -170,6 +170,23 @@ fn cdp_tools() -> Vec<Value> {
                     "value": { "type": "string", "description": "要设置的值" }
                 },
                 "required": ["selector", "value"]
+            }),
+        ),
+        tool(
+            "cdp_query_all",
+            "批量提取所有匹配元素的文本或属性，返回 JSON 数组。比多次调用 cdp_get_text 更高效，适合提取列表、表格等重复元素",
+            json!({
+                "type": "object",
+                "properties": {
+                    "selector": { "type": "string", "description": "元素选择器" },
+                    "selector_type": selector_type_prop,
+                    "extract": {
+                        "type": "string",
+                        "description": "提取内容：text（默认，innerText）/ html（outerHTML）/ 属性名（如 href、src、data-id）"
+                    },
+                    "output_key": { "type": "string", "description": "将结果 JSON 数组存入此变量名" }
+                },
+                "required": ["selector"]
             }),
         ),
         tool(
@@ -770,6 +787,18 @@ fn cdp_tools() -> Vec<Value> {
             }),
         ),
         tool(
+            "cdp_get_response_body",
+            "获取网络请求的响应体（JSON/文本内容）。通过 JS 拦截 fetch/XHR 实现，需在页面发起请求后调用。适合提取 SPA 应用的 API 返回数据，比截图更高效",
+            json!({
+                "type": "object",
+                "properties": {
+                    "url_filter": { "type": "string", "description": "URL 关键词过滤（包含匹配），不传则返回所有已捕获响应" },
+                    "limit": { "type": "integer", "description": "最多返回条数，默认 10" },
+                    "output_key": { "type": "string", "description": "将结果 JSON 数组存入此变量名" }
+                }
+            }),
+        ),
+        tool(
             "cdp_handle_dialog",
             "处理浏览器 JavaScript 对话框（alert / confirm / prompt）。accept 接受，dismiss 取消。对于 prompt 类型可通过 prompt_text 设置输入文本",
             json!({
@@ -793,7 +822,7 @@ fn cdp_tools() -> Vec<Value> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Magic Controller 工具（47 个）
+// Magic Controller 工具（53 个）
 // ═══════════════════════════════════════════════════════════════════════════
 
 fn magic_tools() -> Vec<Value> {
@@ -981,7 +1010,7 @@ fn magic_tools() -> Vec<Value> {
         ),
         tool(
             "magic_type_string",
-            "通过 Magic Controller 输入文本（模拟键盘输入）",
+            "通过 Magic Controller 输入文本（模拟键盘输入）。前置条件：目标输入区域必须已处于焦点状态（先用 cdp_click 点击输入框聚焦）",
             json!({
                 "type": "object",
                 "properties": {
@@ -1390,7 +1419,7 @@ fn magic_tools() -> Vec<Value> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// App Data 工具（21 个）
+// App Data 工具（21 个）— 不含 app_run_script（由 auto_run_script 覆盖）
 // ═══════════════════════════════════════════════════════════════════════════
 
 fn app_tools() -> Vec<Value> {
@@ -1627,21 +1656,6 @@ fn app_tools() -> Vec<Value> {
                 "properties": {}
             }),
         ),
-        // ── 自动化触发 (1) ──
-        tool(
-            "app_run_script",
-            "在指定环境中触发另一个自动化脚本运行（异步执行，返回 run_id）",
-            json!({
-                "type": "object",
-                "properties": {
-                    "script_id": { "type": "string", "description": "要运行的脚本 ID" },
-                    "profile_id": { "type": "string", "description": "在此 profile 环境中运行（可选）" },
-                    "initial_vars": { "type": "object", "description": "初始变量（可选）" },
-                    "output_key": { "type": "string", "description": "将 run_id 存入此变量名" }
-                },
-                "required": ["script_id"]
-            }),
-        ),
     ]
 }
 
@@ -1723,7 +1737,7 @@ fn file_tools() -> Vec<Value> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Dialog 工具（6 个）—— 通过前端 UI 弹窗实现
+// Dialog 工具（13 个）—— 通过前端 UI 弹窗实现
 // ═══════════════════════════════════════════════════════════════════════════
 
 fn dialog_tools() -> Vec<Value> {
