@@ -316,7 +316,7 @@ export function ProxyListCard({
 																	{item.checkMessage}
 																</p>
 															</TooltipTrigger>
-															<TooltipContent>
+															<TooltipContent className="max-w-64 break-words">
 																<p>{item.checkMessage}</p>
 															</TooltipContent>
 														</Tooltip>
