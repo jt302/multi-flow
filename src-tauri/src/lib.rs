@@ -31,6 +31,8 @@ static PANIC_HOOK_ONCE: Once = Once::new();
 static INIT_COMPLETE: AtomicBool = AtomicBool::new(false);
 /// 闪屏 JS listener 已注册完毕，run_app_init 可以开始 emit 进度事件
 static SPLASH_READY: AtomicBool = AtomicBool::new(false);
+/// 主窗口已经执行过“关 splash + 显窗口”，避免前端 ready 与后端 fallback 重复触发
+static MAIN_WINDOW_SHOWN: AtomicBool = AtomicBool::new(false);
 
 mod commands;
 mod db;
@@ -759,6 +761,22 @@ fn apply_saved_main_window_state_with_monitors(
     config
 }
 
+pub(crate) fn show_main_window_if_needed(app: &AppHandle, source: &str) {
+    if MAIN_WINDOW_SHOWN.swap(true, Ordering::AcqRel) {
+        return;
+    }
+
+    if let Some(splash) = app.get_webview_window("splashscreen") {
+        let _ = splash.close();
+    }
+    if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+
+    logger::info("main_window", format!("show main window via {source}"));
+}
+
 fn save_main_window_state<T: MainWindowStateSource>(window: &T, reason: &str, log_success: bool) {
     match capture_main_window_state(window).and_then(|state| {
         let path = main_window_state_path(&window.app_handle_owned())?;
@@ -1176,6 +1194,14 @@ fn run_app_init(handle: AppHandle) -> Result<(), Box<dyn std::error::Error + Sen
     if let Some(main) = handle.get_webview_window(MAIN_WINDOW_LABEL) {
         let _ = main.emit("splashscreen://init-complete", ());
     }
+
+    let fallback_handle = handle.clone();
+    let _ = thread::Builder::new()
+        .name("multi-flow-main-window-init-fallback".to_string())
+        .spawn(move || {
+            thread::sleep(Duration::from_secs(3));
+            show_main_window_if_needed(&fallback_handle, "init-fallback");
+        });
 
     logger::info("app", "tauri setup completed");
     Ok(())

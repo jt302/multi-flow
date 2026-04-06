@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use crate::error::{AppError, AppResult};
 use crate::logger;
@@ -31,7 +31,16 @@ fn ensure_sync_sidecar_started_inner(
 }
 
 #[tauri::command]
-pub fn list_sync_targets(state: State<'_, AppState>) -> Result<ListSyncTargetsResponse, String> {
+pub async fn list_sync_targets(app: AppHandle) -> Result<ListSyncTargetsResponse, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        list_sync_targets_inner(&state)
+    })
+    .await
+    .map_err(|err| format!("list sync targets task join failed: {err}"))?
+}
+
+fn list_sync_targets_inner(state: &AppState) -> Result<ListSyncTargetsResponse, String> {
     if let Err(err) = runtime_guard::reconcile_runtime_state(&state) {
         logger::warn(
             "sync_cmd",

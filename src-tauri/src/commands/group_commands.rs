@@ -1,4 +1,4 @@
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
 use crate::error::AppError;
 use crate::models::{
@@ -19,8 +19,20 @@ pub fn create_profile_group(
 }
 
 #[tauri::command]
-pub fn list_profile_groups(
-    state: State<'_, AppState>,
+pub async fn list_profile_groups(
+    app: AppHandle,
+    include_deleted: Option<bool>,
+) -> Result<ListProfileGroupsResponse, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        list_profile_groups_inner(&state, include_deleted)
+    })
+    .await
+    .map_err(|err| format!("list profile groups task join failed: {err}"))?
+}
+
+fn list_profile_groups_inner(
+    state: &AppState,
     include_deleted: Option<bool>,
 ) -> Result<ListProfileGroupsResponse, String> {
     let service = state

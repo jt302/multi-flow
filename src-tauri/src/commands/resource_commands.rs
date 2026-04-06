@@ -1,5 +1,5 @@
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::error::AppError;
 use crate::models::{
@@ -23,12 +23,14 @@ struct ResourceDownloadProgressEvent {
 }
 
 #[tauri::command]
-pub fn list_resources(state: State<'_, AppState>) -> Result<ResourceCatalogResponse, String> {
-    let resource_service = state
-        .resource_service
-        .lock()
-        .map_err(|_| "resource service lock poisoned".to_string())?;
-    resource_service.list_resources().map_err(error_to_string)
+pub async fn list_resources(app: AppHandle) -> Result<ResourceCatalogResponse, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let resource_service = state.lock_resource_service();
+        resource_service.list_resources().map_err(error_to_string)
+    })
+    .await
+    .map_err(|err| format!("list resources task join failed: {err}"))?
 }
 
 #[tauri::command]

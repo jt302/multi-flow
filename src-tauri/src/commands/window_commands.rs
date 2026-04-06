@@ -8,19 +8,21 @@ use crate::models::{
     BatchProfileActionItem, BatchProfileActionResponse, BatchWindowActionRequest,
     BatchWindowOpenRequest, ProfileWindowState, WindowBounds,
 };
-use crate::runtime_guard;
 use crate::state::AppState;
 
 #[tauri::command]
-pub fn list_open_profile_windows(
-    state: State<'_, AppState>,
+pub async fn list_open_profile_windows(
+    app: AppHandle,
 ) -> Result<Vec<ProfileWindowState>, String> {
-    if let Err(err) = runtime_guard::reconcile_runtime_state(&state) {
-        logger::warn(
-            "window_cmd",
-            format!("list_open_profile_windows reconcile failed: {err}"),
-        );
-    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        list_open_profile_windows_inner(&state)
+    })
+    .await
+    .map_err(|err| format!("list open profile windows task join failed: {err}"))?
+}
+
+fn list_open_profile_windows_inner(state: &AppState) -> Result<Vec<ProfileWindowState>, String> {
     let mut engine_manager = state.lock_engine_manager();
     let mut states = engine_manager.list_window_states();
     drop(engine_manager);
@@ -466,13 +468,7 @@ pub fn splashscreen_ready() {
 /// 两步原子完成，消除 splash 关闭到主窗口出现之间的空档
 #[tauri::command]
 pub fn show_main_window(app: AppHandle) {
-    if let Some(splash) = app.get_webview_window("splashscreen") {
-        let _ = splash.close();
-    }
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
+    crate::show_main_window_if_needed(&app, "frontend-ready");
 }
 
 /// React 挂载时查询 init 是否已完成（处理 React 比 init 慢的竞态情况）
