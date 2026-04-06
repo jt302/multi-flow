@@ -39,7 +39,7 @@ export function AiChatPage() {
 		defaultSizes: [14, 86],
 	});
 
-	const sessionsQuery = useChatSessionsQuery();
+const sessionsQuery = useChatSessionsQuery();
 	const sessions = sessionsQuery.data ?? [];
 
 	const persistedSessionId = useChatStore((s) => s.activeSessionId);
@@ -177,7 +177,7 @@ export function AiChatPage() {
 
 	return (
 		<ResizablePanelGroup direction="horizontal" className="h-full" defaultLayout={chatLayout} onLayoutChanged={onChatLayoutChanged}>
-				<ResizablePanel defaultSize={14} minSize={12} maxSize={35}>
+				<ResizablePanel id="ai-chat-sidebar" defaultSize={14} minSize={12} maxSize={35}>
 					<ChatSessionList
 						sessions={sessions}
 						activeId={listActiveSessionId}
@@ -192,7 +192,7 @@ export function AiChatPage() {
 					/>
 				</ResizablePanel>
 			<ResizableHandle />
-			<ResizablePanel defaultSize={86}>
+			<ResizablePanel id="ai-chat-main" defaultSize={86}>
 				<div className="flex h-full flex-col overflow-hidden">
 					{hydratedSessionId && hydratedSession ? (
 						<>
