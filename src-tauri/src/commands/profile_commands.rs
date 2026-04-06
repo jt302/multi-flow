@@ -173,8 +173,8 @@ pub fn duplicate_profile(
 }
 
 #[tauri::command]
-pub fn list_profiles(
-    state: State<'_, AppState>,
+pub async fn list_profiles(
+    app: AppHandle,
     include_deleted: Option<bool>,
     page: Option<u64>,
     page_size: Option<u64>,
@@ -182,13 +182,6 @@ pub fn list_profiles(
     group: Option<String>,
     running: Option<bool>,
 ) -> Result<ListProfilesResponse, String> {
-    runtime_guard::reconcile_runtime_state(&state).map_err(error_to_string)?;
-
-    let profile_service = state
-        .profile_service
-        .lock()
-        .map_err(|_| "profile service lock poisoned".to_string())?;
-
     let query = ListProfilesQuery {
         include_deleted: include_deleted.unwrap_or(false),
         page: page.unwrap_or(1),
@@ -198,9 +191,13 @@ pub fn list_profiles(
         running,
     };
 
-    profile_service
-        .list_profiles(query)
-        .map_err(error_to_string)
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let profile_service = state.lock_profile_service();
+        profile_service.list_profiles(query).map_err(error_to_string)
+    })
+    .await
+    .map_err(|err| format!("list profiles task join failed: {err}"))?
 }
 
 #[tauri::command]

@@ -63,6 +63,9 @@
   - `services/resource_service`（统一资源清单、下载、Chromium 安装与版本激活）
   - `engine_manager`（支持 active Chromium 可执行文件探测、启动参数注入与 mock 回退）
   - `runtime_guard`（后台巡检运行态，自动回收崩溃进程与纠正 running 状态）
+  - 启动阶段会先执行一次 reconcile，随后后台线程按固定间隔巡检
+  - `list_profiles`、`list_open_profile_windows` 这类首屏/高频轮询命令不要内联同步执行 `reconcile_runtime_state`，避免在 macOS WebView 原生 `Reload` 期间阻塞主线程
+  - 首屏列表型 command（如 profiles / groups / windows / proxies / resources / plugins / automation 配置）优先使用 `async command + spawn_blocking`，不要让同步存储查询直接跑在原生 invoke 主线程上
   - `local_api_server`
   - `db`（SQLite 连接 + migrator + profile/group/proxy/binding/engine_session entities）
 - 当前持久化：`app_local_data_dir/multi-flow.sqlite3`

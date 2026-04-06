@@ -28,3 +28,18 @@ test('tauri main window is manually created from config with dedicated state per
 	assert.equal(libFile.includes('scale_factor'), true);
 	assert.equal(tauriConfigFile.includes('"create": false'), true);
 });
+
+test('main window startup keeps a backend fallback for missed frontend ready handshakes', () => {
+	const libFile = readFileSync(
+		new URL('../../src-tauri/src/lib.rs', import.meta.url),
+		'utf8',
+	);
+	const windowCommandsFile = readFileSync(
+		new URL('../../src-tauri/src/commands/window_commands.rs', import.meta.url),
+		'utf8',
+	);
+
+	assert.equal(libFile.includes('MAIN_WINDOW_SHOWN'), true);
+	assert.equal(libFile.includes('init-fallback'), true);
+	assert.equal(windowCommandsFile.includes('show_main_window_if_needed'), true);
+});

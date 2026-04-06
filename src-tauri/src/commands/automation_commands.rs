@@ -512,13 +512,19 @@ fn resolve_script_ai_config(
 // ─── Tauri 命令 ───────────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub fn list_automation_scripts(
-    state: State<'_, AppState>,
+pub async fn list_automation_scripts(
+    app: AppHandle,
 ) -> Result<Vec<AutomationScript>, String> {
-    state
-        .lock_automation_service()
-        .list_scripts()
-        .map_err(error_to_string)
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let result = state
+            .lock_automation_service()
+            .list_scripts()
+            .map_err(error_to_string);
+        result
+    })
+    .await
+    .map_err(|err| format!("list automation scripts task join failed: {err}"))?
 }
 
 #[tauri::command]
@@ -568,14 +574,20 @@ pub fn delete_automation_script(
 }
 
 #[tauri::command]
-pub fn list_automation_runs(
-    state: State<'_, AppState>,
+pub async fn list_automation_runs(
+    app: AppHandle,
     script_id: String,
 ) -> Result<Vec<AutomationRun>, String> {
-    state
-        .lock_automation_service()
-        .list_runs(&script_id)
-        .map_err(error_to_string)
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let result = state
+            .lock_automation_service()
+            .list_runs(&script_id)
+            .map_err(error_to_string);
+        result
+    })
+    .await
+    .map_err(|err| format!("list automation runs task join failed: {err}"))?
 }
 
 #[tauri::command]
@@ -914,14 +926,19 @@ pub fn update_ai_provider_config(
 // ── Multi-model AI config commands ────────────────────────────────────────────
 
 #[tauri::command]
-pub fn list_ai_configs(
-    state: State<'_, AppState>,
+pub async fn list_ai_configs(
+    app: AppHandle,
 ) -> Result<Vec<crate::services::app_preference_service::AiConfigEntry>, String> {
-    let svc = state
-        .app_preference_service
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-    svc.list_ai_configs().map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let svc = state
+            .app_preference_service
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        svc.list_ai_configs().map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|err| format!("list ai configs task join failed: {err}"))?
 }
 
 #[tauri::command]
@@ -982,14 +999,19 @@ pub fn set_default_ai_config_id(
 // ── CAPTCHA config CRUD ───────────────────────────────────────────────
 
 #[tauri::command]
-pub fn list_captcha_configs(
-    state: State<'_, AppState>,
+pub async fn list_captcha_configs(
+    app: AppHandle,
 ) -> Result<Vec<crate::services::captcha_service::CaptchaSolverConfig>, String> {
-    let svc = state
-        .app_preference_service
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-    svc.list_captcha_configs().map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let svc = state
+            .app_preference_service
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        svc.list_captcha_configs().map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|err| format!("list captcha configs task join failed: {err}"))?
 }
 
 #[tauri::command]

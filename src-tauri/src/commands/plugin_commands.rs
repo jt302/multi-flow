@@ -7,7 +7,7 @@ use reqwest::blocking::Client;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::{Proxy as ReqwestProxy, Url};
 use serde_json::Value;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Manager};
 use zip::ZipArchive;
 
 use crate::error::AppError;
@@ -70,12 +70,17 @@ struct StoreListingMetadata {
 }
 
 #[tauri::command]
-pub fn list_plugin_packages(state: State<'_, AppState>) -> Result<Vec<PluginPackage>, String> {
-    let service = state
-        .plugin_package_service
-        .lock()
-        .map_err(|_| "plugin package service lock poisoned".to_string())?;
-    service.list_packages().map_err(error_to_string)
+pub async fn list_plugin_packages(app: AppHandle) -> Result<Vec<PluginPackage>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let service = state
+            .plugin_package_service
+            .lock()
+            .map_err(|_| "plugin package service lock poisoned".to_string())?;
+        service.list_packages().map_err(error_to_string)
+    })
+    .await
+    .map_err(|err| format!("list plugin packages task join failed: {err}"))?
 }
 
 #[tauri::command]
