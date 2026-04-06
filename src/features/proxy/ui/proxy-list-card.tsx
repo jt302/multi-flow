@@ -20,6 +20,10 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
 } from '@/components/ui';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 
@@ -304,12 +308,24 @@ export function ProxyListCard({
 											<div className="flex flex-col gap-1">
 												<Badge variant={item.lifecycle === 'active' ? 'outline' : 'secondary'}>{item.lifecycle === 'active' ? t('common:active') : t('common:archived')}</Badge>
 												{statusLabel ? <p className="text-[11px] text-muted-foreground">{statusLabel}</p> : null}
-												<p
-													className={`truncate text-[11px] font-medium ${latencyTone}`}
-													title={latencyMs === null && item.checkStatus !== "ok" && item.checkMessage ? item.checkMessage : undefined}
-												>
-													{latencyMs !== null ? t('common:latencyMs', { ms: latencyMs }) : item.checkStatus === 'ok' ? t('common:latencyPending') : item.checkMessage || `${t('common:expired')} ${formatExpiry(item.expiresAt, t, locale)}`}
-												</p>
+												{latencyMs === null && item.checkStatus !== 'ok' && item.checkMessage ? (
+													<TooltipProvider>
+														<Tooltip>
+															<TooltipTrigger asChild>
+																<p className={`truncate text-[11px] font-medium ${latencyTone}`}>
+																	{item.checkMessage}
+																</p>
+															</TooltipTrigger>
+															<TooltipContent>
+																<p>{item.checkMessage}</p>
+															</TooltipContent>
+														</Tooltip>
+													</TooltipProvider>
+												) : (
+													<p className={`truncate text-[11px] font-medium ${latencyTone}`}>
+														{latencyMs !== null ? t('common:latencyMs', { ms: latencyMs }) : item.checkStatus === 'ok' ? t('common:latencyPending') : item.checkMessage || `${t('common:expired')} ${formatExpiry(item.expiresAt, t, locale)}`}
+													</p>
+												)}
 											</div>
 										</TableCell>
 										<TableCell className="w-[92px] align-top text-right">
