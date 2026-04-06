@@ -1,12 +1,7 @@
-import { Cpu, Play, RefreshCcw, Smartphone } from 'lucide-react';
+import { Cpu, Smartphone } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import {
-	Badge,
-	Button,
-	Card,
-	CardContent,
-	CardHeader,
 	SidebarContent,
 	SidebarFooter,
 	SidebarGroup,
@@ -25,14 +20,13 @@ import { cn } from '@/lib/utils';
 import { getWorkspaceNavItems } from '@/app/model/workspace-nav-items';
 import type { NavId } from '@/app/model/workspace-types';
 import { PROFILES_DEVICE_PRESETS_PATH } from '@/app/workspace-routes';
+import { SidebarFooterStatus } from './sidebar-footer-status';
 
 type WorkspaceSidebarProps = {
 	activeNav: NavId;
 	activePath: string;
 	onNavChange: (nav: NavId) => void;
 	onNavigate: (path: string) => void;
-	isRunning: boolean;
-	onToggleRunning: () => void;
 };
 
 export function WorkspaceSidebar({
@@ -40,8 +34,6 @@ export function WorkspaceSidebar({
 	activePath,
 	onNavChange,
 	onNavigate,
-	isRunning,
-	onToggleRunning,
 }: WorkspaceSidebarProps) {
 	const { state } = useSidebar();
 	const collapsed = state === 'collapsed';
@@ -75,9 +67,9 @@ export function WorkspaceSidebar({
 
 			<SidebarContent className="px-2 pb-2">
 				<SidebarGroup className="p-1">
-				<SidebarGroupLabel className="px-2 text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/60">
-					{t('sidebar.navigation')}
-				</SidebarGroupLabel>
+					<SidebarGroupLabel className="px-2 text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/60">
+						{t('sidebar.navigation')}
+					</SidebarGroupLabel>
 					<SidebarGroupContent>
 						<SidebarMenu className="gap-1.5">
 							{getWorkspaceNavItems().map((item) => {
@@ -121,19 +113,15 @@ export function WorkspaceSidebar({
 										{isProfilesItem && !collapsed && (
 											<SidebarMenuSub>
 												<SidebarMenuSubItem>
-												<SidebarMenuSubButton
-													type="button"
-													isActive={
-														activePath === PROFILES_DEVICE_PRESETS_PATH
-													}
-													onClick={() =>
-														onNavigate(PROFILES_DEVICE_PRESETS_PATH)
-													}
-													className="cursor-pointer"
-												>
-													<Smartphone className="size-3.5" />
-													{t('sidebar.devicePresets')}
-												</SidebarMenuSubButton>
+													<SidebarMenuSubButton
+														type="button"
+														isActive={activePath === PROFILES_DEVICE_PRESETS_PATH}
+														onClick={() => onNavigate(PROFILES_DEVICE_PRESETS_PATH)}
+														className="cursor-pointer"
+													>
+														<Smartphone className="size-3.5" />
+														{t('sidebar.devicePresets')}
+													</SidebarMenuSubButton>
 												</SidebarMenuSubItem>
 											</SidebarMenuSub>
 										)}
@@ -146,49 +134,7 @@ export function WorkspaceSidebar({
 			</SidebarContent>
 
 			<SidebarFooter className={cn('p-3 pt-1', collapsed && 'p-2 pt-1')}>
-				{collapsed ? (
-					<div className="flex justify-center">
-					<Button
-						type="button"
-						variant={isRunning ? 'default' : 'secondary'}
-						size="icon-sm"
-						aria-label={isRunning ? t('sidebar.pauseEngine') : t('sidebar.resumeEngine')}
-						title={isRunning ? t('sidebar.pauseEngine') : t('sidebar.resumeEngine')}
-						onClick={onToggleRunning}
-					>
-							{isRunning ? <RefreshCcw /> : <Play />}
-						</Button>
-					</div>
-				) : (
-				<Card className="border-sidebar-border/40 bg-sidebar-accent/30 shadow-sm transition-all duration-300">
-					<CardHeader className="p-3 pb-1.5">
-						<p className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/65">
-							{t('sidebar.runtimeStatus')}
-						</p>
-					</CardHeader>
-					<CardContent className="flex flex-col gap-2 p-3 pt-0">
-						<div className="flex items-center justify-between text-xs">
-							<span>{t('sidebar.executionEngine')}</span>
-							<Badge variant={isRunning ? 'default' : 'secondary'}>
-								{isRunning ? t('sidebar.active') : t('sidebar.paused')}
-							</Badge>
-						</div>
-						<Button
-							type="button"
-							variant="secondary"
-							size="sm"
-							onClick={onToggleRunning}
-						>
-							{isRunning ? (
-								<RefreshCcw data-icon="inline-start" />
-							) : (
-								<Play data-icon="inline-start" />
-							)}
-							{isRunning ? t('sidebar.pauseEngine') : t('sidebar.resumeEngine')}
-						</Button>
-					</CardContent>
-				</Card>
-				)}
+				<SidebarFooterStatus />
 			</SidebarFooter>
 		</>
 	);

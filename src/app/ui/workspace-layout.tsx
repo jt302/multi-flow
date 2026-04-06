@@ -32,7 +32,6 @@ export function WorkspaceLayout() {
 	const location = useLocation();
 	const activeNav = resolveActiveNav(location.pathname);
 	const themeState = useThemeSettings();
-	const [isRunning, setIsRunning] = useState(true);
 	const [sidebarOpen, setSidebarOpen] = useState(() =>
 		resolveInitialSidebarOpen({
 			cookieText: typeof document === 'undefined' ? '' : document.cookie,
@@ -129,8 +128,6 @@ export function WorkspaceLayout() {
 							activePath={location.pathname}
 							onNavChange={(nav) => navigate(resolvePathFromNav(nav))}
 							onNavigate={(path) => navigate(path)}
-							isRunning={isRunning}
-							onToggleRunning={() => setIsRunning((prev) => !prev)}
 						/>
 					</Sidebar>
 
