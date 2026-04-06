@@ -276,7 +276,7 @@ export function AutomationPage() {
 		<>
 		<ResizablePanelGroup direction="horizontal" className="h-full" defaultLayout={autoLayout} onLayoutChanged={onAutoLayoutChanged}>
 			{/* 左侧脚本列表侧边栏 */}
-			<ResizablePanel defaultSize={20} minSize={14} maxSize={40}>
+			<ResizablePanel id="automation-sidebar" defaultSize={20} minSize={14} maxSize={40}>
 			<ScriptListSidebar
 				scripts={scripts}
 				selectedScriptId={selectedScriptId}
@@ -288,7 +288,7 @@ export function AutomationPage() {
 			<ResizableHandle />
 
 			{/* 右侧：详情面板 or 仪表盘 */}
-			<ResizablePanel defaultSize={80}>
+			<ResizablePanel id="automation-main" defaultSize={80}>
 			<div className="flex flex-col h-full overflow-hidden">
 				{selectedScript ? (
 					<ScriptDetailPanel
