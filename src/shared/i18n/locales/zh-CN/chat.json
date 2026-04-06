@@ -24,7 +24,6 @@
 	"regenerate": "重新生成",
 	"noProfileWarning": "请先在顶部选择一个运行环境，否则浏览器工具将无法使用。",
 	"restoringChat": "正在恢复上次会话...",
-	"restoringChatHint": "会话列表会先显示，消息区会在空闲时补载。",
 	"selectedProfilesCount": "已选择 {{count}} 个环境",
 	"expandToViewScreenshot": "展开查看截图",
 	"closePreview": "关闭预览",
