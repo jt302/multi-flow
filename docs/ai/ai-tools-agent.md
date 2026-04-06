@@ -2,7 +2,7 @@
 
 > 最后更新日期: 2026-04-05
 >
-> 本文档面向 AI Agent（LLM）在执行自动化任务时参考，包含全部 147 个工具的使用指南。
+> 本文档面向 AI Agent（LLM）在执行自动化任务时参考，包含全部 176 个工具的使用指南。
 
 ---
 
@@ -15,22 +15,31 @@
 3. **分步执行**：复杂操作分步进行，每步后用截图或 `cdp_get_text` 验证状态。
 4. **使用变量传递数据**：通过 `output_key` 参数将中间结果存入变量，后续步骤通过 `{{变量名}}` 引用。
 5. **选择器类型**：支持 `css`（默认）、`xpath`、`text`（按可见文本匹配）三种选择器。
-6. **验证码必须严格回验**：`captcha_inject_token` / `captcha_solve_and_inject` 只有在页面真实离开验证码或风控阻塞状态时才算成功；拿到 token、写入隐藏字段或触发回调都不等于“验证通过”。如果验证码仍失败，必须明确说明阻塞，且不要未经用户同意擅自切换到 DuckDuckGo 等替代站点。
+6. **验证码处理流程**：遇到验证码时，先调用 `auto_list_captcha_configs` 检查是否已配置求解服务。已配置则按 `captcha_detect` → `captcha_solve_and_inject` 流程自动求解；未配置或求解失败则通过 `dialog_message` 通知用户申请人工介入。`captcha_inject_token` / `captcha_solve_and_inject` 只有在页面真实离开验证码或风控阻塞状态时才算成功；拿到 token、写入隐藏字段或触发回调都不等于”验证通过”。
+7. **无法解决时申请人工介入**：当遇到无法自动解决的问题（权限不足、登录过期、网络异常、页面异常、验证码求解失败等），立即通过 `dialog_message` 通知用户并申请人工介入，暂停操作等待用户指示，不要继续猜测。
 
 工具分为 8 大类：
 
-| 前缀       | 类别    | 用途                                                  | 数量 |
-| ---------- | ------- | ----------------------------------------------------- | ---- |
-| `cdp_`     | CDP     | 通过 Chrome DevTools Protocol 操作页面内容            | 32   |
-| `magic_`   | Magic   | 通过 Magic Controller 控制浏览器窗口和原生功能        | 48   |
+| 前缀       | 类别    | 用途                                                        | 数量 |
+| ---------- | ------- | ----------------------------------------------------------- | ---- |
+| `cdp_`     | CDP     | 通过 Chrome DevTools Protocol 操作页面内容                  | 56   |
+| `magic_`   | Magic   | 通过 Magic Controller 控制浏览器窗口和原生功能              | 53   |
 | `app_`     | App     | 读写 Multi-Flow 应用数据（Profile、分组、代理、聊天会话等） | 21   |
-| `auto_`    | Auto    | 自动化管理（脚本/运行/AI配置/CAPTCHA配置 CRUD）       | 19   |
-| `file_`    | File    | 文件系统读写                                          | 6    |
-| `dialog_`  | Dialog  | 向用户展示 UI 弹窗获取反馈                            | 13   |
-| `captcha_` | Captcha | CAPTCHA 检测与自动求解                                | 5    |
-| 无前缀     | Utility | 基础工具（等待、日志、提交结果）                      | 3    |
+| `auto_`    | Auto    | 自动化管理（脚本/运行/AI配置/CAPTCHA配置 CRUD）             | 19   |
+| `file_`    | File    | 文件系统读写                                                | 6    |
+| `dialog_`  | Dialog  | 向用户展示 UI 弹窗获取反馈                                  | 13   |
+| `captcha_` | Captcha | CAPTCHA 检测与自动求解                                      | 5    |
+| 无前缀     | Utility | 基础工具（等待、日志、提交结果）                            | 3    |
 
-### CAPTCHA 严格语义
+### CAPTCHA 处理流程与严格语义
+
+**处理流程**：
+
+1. 遇到验证码 → 调用 `auto_list_captcha_configs` 检查是否已配置求解服务
+2. 已配置 → `captcha_detect` → `captcha_solve_and_inject`（或 `captcha_solve` → `captcha_inject_token`）
+3. 未配置或求解失败 → 通过 `dialog_message` 通知用户申请人工介入，暂停等待
+
+**严格语义**：
 
 - `captcha_detect` 会尽量返回 `type / sitekey / callback / pageAction / enterprisePayload / userAgent / params` 等上下文，便于后续求解与注入。
 - `captcha_solve` 只表示求解服务拿到了 token；它**不代表页面已经通过验证**。
@@ -234,23 +243,24 @@ cdp_set_input_value(selector="input[name=q]", value="搜索词")
   → cdp_wait_for_selector(selector=".search-results")
 ```
 
-**`cdp_type` vs `cdp_set_input_value` 选择指南**：
+**文本输入工具选择指南**：
 
-| 场景               | 推荐工具              | 原因                                         |
-| ------------------ | --------------------- | -------------------------------------------- |
-| 普通 HTML input    | `cdp_type`            | 模拟真实输入，触发全部键盘事件               |
-| React/Vue 受控组件 | `cdp_set_input_value` | 直接设值并触发 input/change 事件，兼容性更好 |
-| 需要触发自动补全   | `cdp_type`            | 逐字符输入触发 keydown/keyup                 |
-| 大段文本粘贴       | `cdp_input_text`      | 支持从文件/变量读取文本                      |
+| 场景                        | 推荐工具              | 原因                                                                       |
+| --------------------------- | --------------------- | -------------------------------------------------------------------------- |
+| **通用文本输入（首选）**    | `magic_type_string`   | 模拟真实键盘输入，兼容性最好。**前置条件：先用 cdp_click 聚焦目标输入框** |
+| 普通 HTML input             | `cdp_type`            | 通过 CDP insertText 输入，速度快但不触发 keydown/keyup                     |
+| React/Vue 受控组件          | `cdp_set_input_value` | 直接设值并触发 input/change 事件，兼容性更好                               |
+| 需要触发自动补全            | `cdp_type`            | 逐字符输入触发 keydown/keyup                                               |
+| 大段文本粘贴                | `cdp_input_text`      | 支持从文件/变量读取文本                                                    |
 
 **注意事项**：
 
+- `magic_type_string` 是文本输入的**首选工具**，通过 Magic Controller 模拟键盘输入。**前置条件：目标输入区域必须已处于焦点状态，使用前先调用 `cdp_click` 点击输入框聚焦**。适用于页面内容区域和浏览器 UI 区域（如地址栏）。
 - `cdp_click` 会先滚动到元素使其可见再点击。如果元素被遮挡可能点击失败，先用 `cdp_scroll_to` 确保可见。
 - `cdp_type` 通过 CDP `Input.insertText` 实现，不是逐键模拟，输入速度快但不触发 keydown/keyup 事件。
 - `cdp_press_key` 的 key 值遵循 [KeyboardEvent.key](https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key/Key_Values) 标准，如 `Enter`、`Tab`、`Escape`、`ArrowDown`、`Backspace` 等。
 - `cdp_shortcut` 的 modifiers 可选值：`alt`、`ctrl`、`meta`（Mac Command）、`shift`。
 - `cdp_upload_file` 的 `files` 参数是绝对路径数组，仅支持 CSS 选择器。
-- `magic_type_string` 是通过 Magic Controller 的键盘输入，在某些特殊场景（如浏览器 UI 区域输入）下有用。
 
 ---
 
@@ -293,15 +303,24 @@ cdp_get_document(depth=3)                 ← 先看 DOM 概览
   → cdp_execute_js(expression="document.querySelectorAll('.item').length")
 ```
 
-**`cdp_screenshot` vs 文本提取工具选择指南**：
+**数据获取方式选择指南（从高效到低效）**：
 
-| 需求                           | 推荐工具               | 原因                   |
-| ------------------------------ | ---------------------- | ---------------------- |
-| 判断页面整体布局、弹窗是否出现 | `cdp_screenshot`       | 视觉信息更直观         |
-| 获取精确文本值用于逻辑判断     | `cdp_get_text`         | 返回准确字符串         |
-| 获取 URL、class 等属性         | `cdp_get_attribute`    | 精准获取属性           |
-| 计算、聚合、遍历 DOM           | `cdp_execute_js`       | JS 最灵活              |
-| 了解页面语义结构               | `cdp_get_full_ax_tree` | 无障碍树含角色/名称/值 |
+> **优先使用结构化文本提取（`cdp_get_text`、`cdp_get_full_ax_tree`、`cdp_execute_js`），避免依赖截图进行数据提取 — 截图应仅用于视觉状态判断，不适合提取结构化数据。**
+
+| 场景                   | 推荐工具                                        | 说明                                                     |
+| ---------------------- | ----------------------------------------------- | -------------------------------------------------------- |
+| 语义化结构提取         | `cdp_get_full_ax_tree`                          | 获取页面语义树，含角色/名称/值，适合复杂页面结构分析     |
+| 精确文本提取           | `cdp_get_text`                                  | 获取单个元素 innerText                                   |
+| 批量文本/属性          | `cdp_execute_js`                                | 用 `document.querySelectorAll` + map 一次提取多个元素    |
+| 完整 HTML 源码         | `cdp_get_page_source`                           | 获取整页或指定元素的 outerHTML                           |
+| DOM 节点结构           | `cdp_get_document`                              | 获取 DOM 树，`depth: -1` 可获取完整树                    |
+| 属性值                 | `cdp_get_attribute`                             | 获取 href/src/data-* 等属性                              |
+| Cookie/存储            | `cdp_get_cookies` / `cdp_get_local_storage`     | 读取认证信息、用户偏好等                                 |
+| 网络请求监控           | `cdp_get_network_requests`                      | 查看 API 调用（仅元数据，不含响应体）                    |
+| 控制台调试信息         | `cdp_get_console_logs`                          | 查看 JS 错误、调试输出                                   |
+| 当前页面 URL           | `cdp_get_current_url`                           | 快速获取 URL                                             |
+| 视觉判断               | `cdp_screenshot`                                | 页面视觉状态（文字提取请用以上工具代替）                 |
+| 任意 CDP 方法          | `cdp`（逃生舱）                                 | 调用未封装的原始 CDP 方法                                |
 
 **注意事项**：
 
@@ -407,18 +426,18 @@ magic_set_bounds(x=0, y=0, width=1200, height=800)
 
 **Profile 操作**：
 
-| 工具                       | 用途                         | 必需参数                                            |
-| -------------------------- | ---------------------------- | --------------------------------------------------- |
-| `app_list_profiles`        | 列出所有 profile             | 无（可选 `group_id`, `keyword`, `include_deleted`） |
-| `app_get_profile`          | 获取单个 profile 详情        | `profile_id`                                        |
-| `app_create_profile`       | 创建新 profile               | `name`（可选 `group_id`, `note`）                   |
-| `app_update_profile`       | 更新 profile 信息            | `profile_id`（可选 `name`, `group_id`, `note`）     |
-| `app_delete_profile`       | ⚠️ 删除 profile              | `profile_id`                                        |
-| `app_start_profile`        | 启动 profile 的浏览器        | `profile_id`                                        |
-| `app_stop_profile`         | 停止 profile 的浏览器        | `profile_id`                                        |
-| `app_get_running_profiles` | 获取所有运行中的 profile     | 无                                                  |
-| `app_set_chat_active_profile` | 切换当前聊天会话的工具目标环境 | `profile_id`                                     |
-| `app_get_current_profile`  | 获取当前工具目标环境的 profile | 无                                                  |
+| 工具                          | 用途                           | 必需参数                                            |
+| ----------------------------- | ------------------------------ | --------------------------------------------------- |
+| `app_list_profiles`           | 列出所有 profile               | 无（可选 `group_id`, `keyword`, `include_deleted`） |
+| `app_get_profile`             | 获取单个 profile 详情          | `profile_id`                                        |
+| `app_create_profile`          | 创建新 profile                 | `name`（可选 `group_id`, `note`）                   |
+| `app_update_profile`          | 更新 profile 信息              | `profile_id`（可选 `name`, `group_id`, `note`）     |
+| `app_delete_profile`          | ⚠️ 删除 profile                | `profile_id`                                        |
+| `app_start_profile`           | 启动 profile 的浏览器          | `profile_id`                                        |
+| `app_stop_profile`            | 停止 profile 的浏览器          | `profile_id`                                        |
+| `app_get_running_profiles`    | 获取所有运行中的 profile       | 无                                                  |
+| `app_set_chat_active_profile` | 切换当前聊天会话的工具目标环境 | `profile_id`                                        |
+| `app_get_current_profile`     | 获取当前工具目标环境的 profile | 无                                                  |
 
 **分组操作**：
 
@@ -522,21 +541,21 @@ file_read(path="/tmp/data.txt")
 
 **常用工具**：
 
-| 工具                   | 用途                 | 必需参数              | 行为                                          |
-| ---------------------- | -------------------- | --------------------- | --------------------------------------------- |
-| `dialog_message`       | 显示消息             | `message`             | 非阻塞，显示后继续执行                        |
-| `dialog_confirm`       | 让用户确认           | `message`             | 阻塞，返回 `true`/`false`                     |
-| `dialog_input`         | 让用户输入文本       | `message`             | 阻塞，返回用户输入的字符串                    |
-| `dialog_select`        | 让用户选择选项       | `options`             | 阻塞，返回 `{cancelled, selected}`            |
-| `dialog_form`          | 让用户填写多字段表单 | `fields`              | 阻塞，返回 `{cancelled, values}`              |
-| `dialog_table`         | 展示表格（可选行）   | `columns`, `rows`     | 阻塞，返回 `{confirmed, selected_indices}`    |
-| `dialog_image`         | 展示图片（可附输入） | `image`               | 阻塞，返回 `{cancelled, value, action}`       |
-| `dialog_countdown`     | 危险操作倒计时确认   | `message`, `seconds`  | 阻塞，返回 `{cancelled}`                      |
-| `dialog_toast`         | 轻量通知（Toast）    | `message`             | 无按钮不阻塞；有按钮阻塞，返回 `{dismissed, action}` |
-| `dialog_markdown`      | 展示 Markdown 富文本 | `content`             | 阻塞，返回 `{action}`                         |
-| `dialog_open_file`     | 选择文件             | 无                    | 阻塞，返回文件路径                            |
-| `dialog_save_file`     | 选择保存位置         | 无                    | 阻塞，返回保存路径                            |
-| `dialog_select_folder` | 选择文件夹           | 无                    | 阻塞，返回目录路径                            |
+| 工具                   | 用途                 | 必需参数             | 行为                                                 |
+| ---------------------- | -------------------- | -------------------- | ---------------------------------------------------- |
+| `dialog_message`       | 显示消息             | `message`            | 非阻塞，显示后继续执行                               |
+| `dialog_confirm`       | 让用户确认           | `message`            | 阻塞，返回 `true`/`false`                            |
+| `dialog_input`         | 让用户输入文本       | `message`            | 阻塞，返回用户输入的字符串                           |
+| `dialog_select`        | 让用户选择选项       | `options`            | 阻塞，返回 `{cancelled, selected}`                   |
+| `dialog_form`          | 让用户填写多字段表单 | `fields`             | 阻塞，返回 `{cancelled, values}`                     |
+| `dialog_table`         | 展示表格（可选行）   | `columns`, `rows`    | 阻塞，返回 `{confirmed, selected_indices}`           |
+| `dialog_image`         | 展示图片（可附输入） | `image`              | 阻塞，返回 `{cancelled, value, action}`              |
+| `dialog_countdown`     | 危险操作倒计时确认   | `message`, `seconds` | 阻塞，返回 `{cancelled}`                             |
+| `dialog_toast`         | 轻量通知（Toast）    | `message`            | 无按钮不阻塞；有按钮阻塞，返回 `{dismissed, action}` |
+| `dialog_markdown`      | 展示 Markdown 富文本 | `content`            | 阻塞，返回 `{action}`                                |
+| `dialog_open_file`     | 选择文件             | 无                   | 阻塞，返回文件路径                                   |
+| `dialog_save_file`     | 选择保存位置         | 无                   | 阻塞，返回保存路径                                   |
+| `dialog_select_folder` | 选择文件夹           | 无                   | 阻塞，返回目录路径                                   |
 
 **典型组合**：
 
@@ -682,14 +701,16 @@ magic_toggle_sync_mode(role="master")
 
 以下操作可能导致数据丢失或状态不可恢复，执行前务必确认：
 
-| 工具                    | 风险                  | 建议                                |
-| ----------------------- | --------------------- | ----------------------------------- |
-| `app_delete_profile`    | 永久删除 profile 数据 | 先 `dialog_confirm` 让用户确认      |
-| `app_delete_group`      | 永久删除分组          | 先 `dialog_confirm` 让用户确认      |
-| `file_write`            | 覆盖文件内容          | 确认路径正确，或先 `file_read` 备份 |
-| `magic_set_closed`      | 关闭浏览器窗口        | 确认不会丢失未保存的工作            |
-| `magic_safe_quit`       | 退出整个浏览器        | 确认所有工作已保存                  |
-| `magic_remove_bookmark` | 删除书签              | 确认书签 ID 正确                    |
+| 工具                    | 风险                         | 建议                                |
+| ----------------------- | ---------------------------- | ----------------------------------- |
+| `app_delete_profile`    | 永久删除 profile 数据        | 先 `dialog_confirm` 让用户确认      |
+| `app_delete_group`      | 永久删除分组                 | 先 `dialog_confirm` 让用户确认      |
+| `file_write`            | 覆盖文件内容                 | 确认路径正确，或先 `file_read` 备份 |
+| `magic_set_closed`      | 关闭浏览器窗口               | 确认不会丢失未保存的工作            |
+| `magic_safe_quit`       | 退出整个浏览器               | 确认所有工作已保存                  |
+| `magic_remove_bookmark` | 删除书签                     | 确认书签 ID 正确                    |
+| `cdp_clear_storage`     | 清除 localStorage/sessionStorage | 不可恢复，确认操作范围后再执行  |
+| `cdp_delete_cookies`    | 删除 Cookie（可能导致登出）  | 确认 Cookie 名称或范围后再执行      |
 
 ### 执行流程最佳实践
 
@@ -724,7 +745,7 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 2   | `print`         | 输出日志信息（支持 info/warn/error/debug 级别） |
 | 3   | `submit_result` | 提交最终结果并结束执行                          |
 
-### CDP — 页面操作（32 个）
+### CDP — 页面操作（56 个）
 
 | #   | 工具名                         | 说明                                          |
 | --- | ------------------------------ | --------------------------------------------- |
@@ -760,8 +781,32 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 30  | `cdp_get_document`             | 获取 DOM 树（可控深度和 Shadow DOM 穿透）     |
 | 31  | `cdp_get_full_ax_tree`         | 获取无障碍树（页面语义结构）                  |
 | 32  | `cdp_handle_dialog`            | 处理浏览器 JS 对话框（alert/confirm/prompt）  |
+| 33  | `cdp_get_cookies`              | 获取 Cookie                                   |
+| 34  | `cdp_set_cookie`               | 设置单个 Cookie                               |
+| 35  | `cdp_delete_cookies`           | ⚠️ 删除 Cookie                               |
+| 36  | `cdp_get_local_storage`        | 读取 localStorage                             |
+| 37  | `cdp_set_local_storage`        | 写入 localStorage                             |
+| 38  | `cdp_get_session_storage`      | 读取 sessionStorage                           |
+| 39  | `cdp_clear_storage`            | ⚠️ 清除存储数据（localStorage/sessionStorage）|
+| 40  | `cdp_get_current_url`          | 获取当前 URL                                  |
+| 41  | `cdp_get_page_source`          | 获取 HTML 源码                                |
+| 42  | `cdp_wait_for_navigation`      | 等待导航完成                                  |
+| 43  | `cdp_emulate_device`           | 模拟移动设备（viewport/UA/touch）             |
+| 44  | `cdp_set_geolocation`          | 模拟地理位置                                  |
+| 45  | `cdp_set_user_agent`           | 覆盖 User-Agent                               |
+| 46  | `cdp_get_element_box`          | 获取元素边界框（位置/尺寸）                   |
+| 47  | `cdp_highlight_element`        | 高亮页面元素                                  |
+| 48  | `cdp_mouse_move`               | 移动鼠标到坐标                                |
+| 49  | `cdp_drag_and_drop`            | 拖放元素                                      |
+| 50  | `cdp_select_option`            | 选择下拉选项（select 元素）                   |
+| 51  | `cdp_check_checkbox`           | 勾选/取消复选框                               |
+| 52  | `cdp_block_urls`               | 阻止指定 URL 加载                             |
+| 53  | `cdp_intercept_request`        | 拦截并修改网络请求                            |
+| 54  | `cdp_get_console_logs`         | 获取控制台日志                                |
+| 55  | `cdp_get_network_requests`     | 获取网络请求记录（仅元数据）                  |
+| 56  | `cdp_pdf`                      | 导出页面为 PDF                                |
 
-### Magic — 浏览器控制（48 个）
+### Magic — 浏览器控制（53 个）
 
 **窗口控制（12 个）**
 
@@ -792,7 +837,7 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 18  | `magic_open_new_window`       | 打开新浏览器窗口               |
 | 19  | `magic_type_string`           | 通过 Magic Controller 输入文本 |
 
-**浏览器查询（7 个）**
+**浏览器查询（11 个）**
 
 | #   | 工具名                     | 说明                   |
 | --- | -------------------------- | ---------------------- |
@@ -803,120 +848,125 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 24  | `magic_get_switches`       | 获取浏览器启动参数     |
 | 25  | `magic_get_host_name`      | 获取环境主机名         |
 | 26  | `magic_get_mac_address`    | 获取环境 MAC 地址      |
+| 27  | `magic_get_maximized`      | 查询窗口是否最大化     |
+| 28  | `magic_get_minimized`      | 查询窗口是否最小化     |
+| 29  | `magic_get_fullscreen`     | 查询窗口是否全屏       |
+| 30  | `magic_get_window_state`   | 获取完整窗口状态       |
 
 **书签管理（10 个）**
 
 | #   | 工具名                            | 说明                   |
 | --- | --------------------------------- | ---------------------- |
-| 27  | `magic_get_bookmarks`             | 获取全部书签树         |
-| 28  | `magic_create_bookmark`           | 创建书签               |
-| 29  | `magic_create_bookmark_folder`    | 创建书签文件夹         |
-| 30  | `magic_update_bookmark`           | 更新书签标题或 URL     |
-| 31  | `magic_move_bookmark`             | 移动书签到其他文件夹   |
-| 32  | `magic_remove_bookmark`           | ⚠️ 删除书签            |
-| 33  | `magic_bookmark_current_tab`      | 收藏当前标签页         |
-| 34  | `magic_unbookmark_current_tab`    | 取消收藏当前标签页     |
-| 35  | `magic_is_current_tab_bookmarked` | 检查当前页面是否已收藏 |
-| 36  | `magic_export_bookmark_state`     | 导出书签状态           |
+| 31  | `magic_get_bookmarks`             | 获取全部书签树         |
+| 32  | `magic_create_bookmark`           | 创建书签               |
+| 33  | `magic_create_bookmark_folder`    | 创建书签文件夹         |
+| 34  | `magic_update_bookmark`           | 更新书签标题或 URL     |
+| 35  | `magic_move_bookmark`             | 移动书签到其他文件夹   |
+| 36  | `magic_remove_bookmark`           | ⚠️ 删除书签            |
+| 37  | `magic_bookmark_current_tab`      | 收藏当前标签页         |
+| 38  | `magic_unbookmark_current_tab`    | 取消收藏当前标签页     |
+| 39  | `magic_is_current_tab_bookmarked` | 检查当前页面是否已收藏 |
+| 40  | `magic_export_bookmark_state`     | 导出书签状态           |
 
-**Cookie 管理（2 个）**
+**Cookie 管理（3 个）**
 
 | #   | 工具名                      | 说明                   |
 | --- | --------------------------- | ---------------------- |
-| 37  | `magic_get_managed_cookies` | 获取管理的 Cookie 列表 |
-| 38  | `magic_export_cookie_state` | 导出 Cookie 状态       |
+| 41  | `magic_get_managed_cookies` | 获取管理的 Cookie 列表 |
+| 42  | `magic_export_cookie_state` | 导出 Cookie 状态       |
+| 43  | `magic_import_cookies`      | 批量导入 Cookie        |
 
 **扩展管理（5 个）**
 
 | #   | 工具名                           | 说明                         |
 | --- | -------------------------------- | ---------------------------- |
-| 39  | `magic_get_managed_extensions`   | 获取已安装的扩展列表         |
-| 40  | `magic_trigger_extension_action` | 触发扩展图标动作             |
-| 41  | `magic_close_extension_popup`    | 关闭扩展弹窗                 |
-| 42  | `magic_enable_extension`         | 启用扩展（运行时，不持久化） |
-| 43  | `magic_disable_extension`        | 禁用扩展（运行时，不持久化） |
+| 44  | `magic_get_managed_extensions`   | 获取已安装的扩展列表         |
+| 45  | `magic_trigger_extension_action` | 触发扩展图标动作             |
+| 46  | `magic_close_extension_popup`    | 关闭扩展弹窗                 |
+| 47  | `magic_enable_extension`         | 启用扩展（运行时，不持久化） |
+| 48  | `magic_disable_extension`        | 禁用扩展（运行时，不持久化） |
 
 **同步控制（4 个）**
 
 | #   | 工具名                   | 说明                                  |
 | --- | ------------------------ | ------------------------------------- |
-| 44  | `magic_toggle_sync_mode` | 切换同步模式（master/slave/disabled） |
-| 45  | `magic_get_sync_mode`    | 获取当前同步模式                      |
-| 46  | `magic_get_is_master`    | 检查是否为主控                        |
-| 47  | `magic_get_sync_status`  | 获取同步状态详情                      |
+| 49  | `magic_toggle_sync_mode` | 切换同步模式（master/slave/disabled） |
+| 50  | `magic_get_sync_mode`    | 获取当前同步模式                      |
+| 51  | `magic_get_is_master`    | 检查是否为主控                        |
+| 52  | `magic_get_sync_status`  | 获取同步状态详情                      |
 
 **截图（1 个）**
 
 | #   | 工具名                    | 说明                         |
 | --- | ------------------------- | ---------------------------- |
-| 48  | `magic_capture_app_shell` | 带壳截图（含工具栏和标签页） |
+| 53  | `magic_capture_app_shell` | 带壳截图（含工具栏和标签页） |
 
 ### App — 应用数据（21 个）
 
-| #   | 工具名                      | 说明                                |
-| --- | --------------------------- | ----------------------------------- |
-| 1   | `app_list_profiles`         | 列出 profile（支持分组/关键字过滤） |
-| 2   | `app_get_profile`           | 获取 profile 详情                   |
-| 3   | `app_create_profile`        | 创建新 profile                      |
-| 4   | `app_update_profile`        | 更新 profile 信息                   |
-| 5   | `app_delete_profile`        | ⚠️ 删除 profile                     |
-| 6   | `app_start_profile`         | 启动 profile 的浏览器               |
-| 7   | `app_stop_profile`          | 停止 profile 的浏览器               |
-| 8   | `app_get_running_profiles`  | 获取运行中的 profile 列表           |
-| 9   | `app_set_chat_active_profile` | 切换当前聊天会话的工具目标环境    |
-| 10  | `app_get_current_profile`   | 获取当前工具目标环境的 profile      |
-| 11  | `app_list_groups`           | 列出所有分组                        |
-| 12  | `app_get_group`             | 获取分组详情                        |
-| 13  | `app_create_group`          | 创建分组                            |
-| 14  | `app_update_group`          | 更新分组                            |
-| 15  | `app_delete_group`          | ⚠️ 删除分组                         |
-| 16  | `app_get_profiles_in_group` | 获取分组内的 profile                |
-| 17  | `app_list_proxies`          | 列出代理                            |
-| 18  | `app_get_proxy`             | 获取代理详情                        |
-| 19  | `app_list_plugins`          | 列出插件包                          |
-| 20  | `app_get_plugin`            | 获取插件详情                        |
-| 21  | `app_get_engine_sessions`   | 获取引擎会话列表                    |
+| #   | 工具名                        | 说明                                |
+| --- | ----------------------------- | ----------------------------------- |
+| 1   | `app_list_profiles`           | 列出 profile（支持分组/关键字过滤） |
+| 2   | `app_get_profile`             | 获取 profile 详情                   |
+| 3   | `app_create_profile`          | 创建新 profile                      |
+| 4   | `app_update_profile`          | 更新 profile 信息                   |
+| 5   | `app_delete_profile`          | ⚠️ 删除 profile                     |
+| 6   | `app_start_profile`           | 启动 profile 的浏览器               |
+| 7   | `app_stop_profile`            | 停止 profile 的浏览器               |
+| 8   | `app_get_running_profiles`    | 获取运行中的 profile 列表           |
+| 9   | `app_set_chat_active_profile` | 切换当前聊天会话的工具目标环境      |
+| 10  | `app_get_current_profile`     | 获取当前工具目标环境的 profile      |
+| 11  | `app_list_groups`             | 列出所有分组                        |
+| 12  | `app_get_group`               | 获取分组详情                        |
+| 13  | `app_create_group`            | 创建分组                            |
+| 14  | `app_update_group`            | 更新分组                            |
+| 15  | `app_delete_group`            | ⚠️ 删除分组                         |
+| 16  | `app_get_profiles_in_group`   | 获取分组内的 profile                |
+| 17  | `app_list_proxies`            | 列出代理                            |
+| 18  | `app_get_proxy`               | 获取代理详情                        |
+| 19  | `app_list_plugins`            | 列出插件包                          |
+| 20  | `app_get_plugin`              | 获取插件详情                        |
+| 21  | `app_get_engine_sessions`     | 获取引擎会话列表                    |
 
 ### Auto — 自动化管理（19 个）
 
 **脚本管理（6 个）**
 
-| #   | 工具名                  | 说明                                          |
-| --- | ----------------------- | --------------------------------------------- |
-| 1   | `auto_list_scripts`     | 列出所有脚本摘要（id、name、step_count 等）   |
-| 2   | `auto_get_script`       | 获取脚本完整详情（含步骤、变量 schema）       |
-| 3   | `auto_create_script`    | 创建新脚本                                    |
-| 4   | `auto_update_script`    | 更新脚本（未传字段保持原值）                  |
-| 5   | `auto_delete_script`    | ⚠️ 永久删除脚本                              |
-| 6   | `auto_export_script`    | 导出脚本为 JSON 字符串                        |
+| #   | 工具名               | 说明                                        |
+| --- | -------------------- | ------------------------------------------- |
+| 1   | `auto_list_scripts`  | 列出所有脚本摘要（id、name、step_count 等） |
+| 2   | `auto_get_script`    | 获取脚本完整详情（含步骤、变量 schema）     |
+| 3   | `auto_create_script` | 创建新脚本                                  |
+| 4   | `auto_update_script` | 更新脚本（未传字段保持原值）                |
+| 5   | `auto_delete_script` | ⚠️ 永久删除脚本                             |
+| 6   | `auto_export_script` | 导出脚本为 JSON 字符串                      |
 
 **运行管理（5 个）**
 
-| #   | 工具名                    | 说明                                              |
-| --- | ------------------------- | ------------------------------------------------- |
-| 7   | `auto_run_script`         | 异步执行脚本，返回 run_id（含递归防护）           |
-| 8   | `auto_list_runs`          | 列出脚本运行历史                                  |
-| 9   | `auto_list_active_runs`   | 列出当前所有活跃 run_id                           |
-| 10  | `auto_get_run`            | 获取运行详情（状态、步骤结果、日志）              |
-| 11  | `auto_cancel_run`         | 取消正在执行的运行                                |
+| #   | 工具名                  | 说明                                    |
+| --- | ----------------------- | --------------------------------------- |
+| 7   | `auto_run_script`       | 异步执行脚本，返回 run_id（含递归防护） |
+| 8   | `auto_list_runs`        | 列出脚本运行历史                        |
+| 9   | `auto_list_active_runs` | 列出当前所有活跃 run_id                 |
+| 10  | `auto_get_run`          | 获取运行详情（状态、步骤结果、日志）    |
+| 11  | `auto_cancel_run`       | 取消正在执行的运行                      |
 
 **AI Provider 配置（4 个）**
 
-| #   | 工具名                    | 说明                                  |
-| --- | ------------------------- | ------------------------------------- |
-| 12  | `auto_list_ai_configs`    | 列出 AI 配置（API Key 脱敏）          |
-| 13  | `auto_create_ai_config`   | 创建 AI Provider 配置                 |
-| 14  | `auto_update_ai_config`   | 更新 AI Provider 配置                 |
-| 15  | `auto_delete_ai_config`   | ⚠️ 删除 AI Provider 配置             |
+| #   | 工具名                  | 说明                         |
+| --- | ----------------------- | ---------------------------- |
+| 12  | `auto_list_ai_configs`  | 列出 AI 配置（API Key 脱敏） |
+| 13  | `auto_create_ai_config` | 创建 AI Provider 配置        |
+| 14  | `auto_update_ai_config` | 更新 AI Provider 配置        |
+| 15  | `auto_delete_ai_config` | ⚠️ 删除 AI Provider 配置     |
 
 **CAPTCHA Provider 配置（4 个）**
 
-| #   | 工具名                         | 说明                              |
-| --- | ------------------------------ | --------------------------------- |
-| 16  | `auto_list_captcha_configs`    | 列出 CAPTCHA 配置（API Key 脱敏） |
-| 17  | `auto_create_captcha_config`   | 创建 CAPTCHA 求解服务配置         |
-| 18  | `auto_update_captcha_config`   | 更新 CAPTCHA 求解服务配置         |
-| 19  | `auto_delete_captcha_config`   | ⚠️ 删除 CAPTCHA 求解服务配置     |
+| #   | 工具名                       | 说明                              |
+| --- | ---------------------------- | --------------------------------- |
+| 16  | `auto_list_captcha_configs`  | 列出 CAPTCHA 配置（API Key 脱敏） |
+| 17  | `auto_create_captcha_config` | 创建 CAPTCHA 求解服务配置         |
+| 18  | `auto_update_captcha_config` | 更新 CAPTCHA 求解服务配置         |
+| 19  | `auto_delete_captcha_config` | ⚠️ 删除 CAPTCHA 求解服务配置      |
 
 > **安全提示**：标 ⚠️ 的操作不可撤销；`auto_run_script` 禁止运行当前正在执行的脚本（防止死循环）。
 
@@ -933,18 +983,18 @@ cdp_get_text(selector=".title", output_key="page_title")
 
 ### Dialog — 用户交互（13 个）
 
-| #   | 工具名                 | 说明                                             |
-| --- | ---------------------- | ------------------------------------------------ |
-| 1   | `dialog_message`       | 显示消息弹窗（非阻塞）                           |
-| 2   | `dialog_confirm`       | 确认弹窗（阻塞，返回 true/false）                |
-| 3   | `dialog_input`         | 输入弹窗（阻塞，返回用户输入）                   |
-| 4   | `dialog_select`        | 单/多选选项弹窗（阻塞，返回选中值）              |
-| 5   | `dialog_form`          | 多字段表单弹窗（阻塞，返回字段值对象）           |
-| 6   | `dialog_table`         | 数据表格弹窗，支持选行（阻塞，返回选中行索引）   |
-| 7   | `dialog_image`         | 图片预览弹窗，支持输入框和自定义按钮             |
-| 8   | `dialog_countdown`     | 倒计时确认弹窗，用于危险操作前给用户反悔时间     |
-| 9   | `dialog_toast`         | 轻量通知（Toast），可附带操作按钮                |
-| 10  | `dialog_markdown`      | Markdown 富文本展示弹窗，支持表格、代码块等      |
-| 11  | `dialog_open_file`     | 文件选择对话框                                   |
-| 12  | `dialog_save_file`     | 文件保存对话框                                   |
-| 13  | `dialog_select_folder` | 文件夹选择对话框                                 |
+| #   | 工具名                 | 说明                                           |
+| --- | ---------------------- | ---------------------------------------------- |
+| 1   | `dialog_message`       | 显示消息弹窗（非阻塞）                         |
+| 2   | `dialog_confirm`       | 确认弹窗（阻塞，返回 true/false）              |
+| 3   | `dialog_input`         | 输入弹窗（阻塞，返回用户输入）                 |
+| 4   | `dialog_select`        | 单/多选选项弹窗（阻塞，返回选中值）            |
+| 5   | `dialog_form`          | 多字段表单弹窗（阻塞，返回字段值对象）         |
+| 6   | `dialog_table`         | 数据表格弹窗，支持选行（阻塞，返回选中行索引） |
+| 7   | `dialog_image`         | 图片预览弹窗，支持输入框和自定义按钮           |
+| 8   | `dialog_countdown`     | 倒计时确认弹窗，用于危险操作前给用户反悔时间   |
+| 9   | `dialog_toast`         | 轻量通知（Toast），可附带操作按钮              |
+| 10  | `dialog_markdown`      | Markdown 富文本展示弹窗，支持表格、代码块等    |
+| 11  | `dialog_open_file`     | 文件选择对话框                                 |
+| 12  | `dialog_save_file`     | 文件保存对话框                                 |
+| 13  | `dialog_select_folder` | 文件夹选择对话框                               |

@@ -1,6 +1,6 @@
 # AI Chat 自动化系统实现文档
 
-> 最后更新: 2026-04-05
+> 最后更新: 2026-04-06
 > 状态: **Phase 1-4 已完成，Phase 5 部分待续**
 
 ---
@@ -141,6 +141,7 @@ CREATE INDEX idx_chat_messages_session_order ON chat_messages(session_id, sort_o
 | `src/features/ai-chat/ui/ai-chat-page.tsx`                | ✅ 完成 | 主页面（双面板布局 + event 监听 + 自动标题）     |
 | `src/features/ai-chat/ui/chat-session-list.tsx`           | ✅ 完成 | 左面板：会话列表 + 新建/删除                     |
 | `src/features/ai-chat/ui/chat-message-list.tsx`           | ✅ 完成 | 消息流（用户气泡/AI 卡片/工具卡片）              |
+| `src/features/ai-chat/ui/chat-message-list-lightbox.css`  | ✅ 完成 | Lightbox 样式覆写（固定右上角按钮 + 预览外观）   |
 | `src/features/ai-chat/ui/tool-call-card.tsx`              | ✅ 完成 | 可折叠工具调用展示（含截图内联）                 |
 | `src/features/ai-chat/ui/chat-input-bar.tsx`              | ✅ 完成 | 输入框 + 发送/停止按钮                           |
 | `src/features/ai-chat/ui/chat-header.tsx`                 | ✅ 完成 | 可编辑标题 + Profile/AI Config 选择 + 系统提示词 |
@@ -162,6 +163,7 @@ CREATE INDEX idx_chat_messages_session_order ON chat_messages(session_id, sort_o
 | `react-markdown` | latest | AI 回复 Markdown 渲染    |
 | `remark-gfm`     | latest | GFM 表格/删除线/链接支持 |
 | `date-fns`       | latest | 聊天列表时间格式化       |
+| `yet-another-react-lightbox` | latest | 聊天图片预览、缩放与关闭交互 |
 
 ---
 
@@ -258,7 +260,20 @@ CREATE INDEX idx_chat_messages_session_order ON chat_messages(session_id, sort_o
 已在 `src/shared/i18n/locales/en-US/nav.json` 添加 `"aiChat": "AI Chat"` 以及 `"aiChatSection"` 块。
 同步在 `zh-CN/nav.json` 添加了 `"aiChatSection"` 块。
 
-### 7.2 chat-header.tsx ✅
+### 7.2 AI 助手首屏加载优化 ✅
+
+- AI 助手页保留“记住上次会话”，但改为“会话列表先渲染，消息区延迟恢复”
+- 页面不再直接用持久化 `activeSessionId` 挂载消息区，而是先等待会话列表加载完成，再通过 `requestAnimationFrame + startTransition` 恢复右侧会话内容
+- Profile 选择器改为仅在下拉打开时请求环境列表，避免进入页面即触发额外 `list_profiles`
+- 工具截图移除折叠态缩略图；展开后才加载图片，并统一补充图片懒加载属性，减少重截图会话的首屏阻塞
+
+### 7.3 聊天图片预览改为现成 Lightbox ✅
+
+- `chat-message-list.tsx` 不再维护自写的 `Dialog + 手动 zoom state`，统一改为 `yet-another-react-lightbox + Zoom` 插件
+- 预览层保留右上角固定关闭按钮和背景点击关闭，同时把缩放、滚轮缩放、双击缩放交给库处理，减少自写交互瑕疵
+- 通过 `className="ai-chat-lightbox"` 和专用 CSS 覆写按钮/图片外观，移除旧实现中的黑色边框感，并限制图片与窗口边缘保持安全留白
+
+### 7.4 chat-header.tsx ✅
 
 已创建 `src/features/ai-chat/ui/chat-header.tsx`，包含：
 
@@ -269,15 +284,15 @@ CREATE INDEX idx_chat_messages_session_order ON chat_messages(session_id, sort_o
 
 已在 `ai-chat-page.tsx` 中集成渲染。
 
-### 7.3 设置页全局提示词 ✅
+### 7.5 设置页全局提示词 ✅
 
 已创建 `src/features/settings/ui/ai-chat-global-prompt-card.tsx`，在 settings-page.tsx AI tab 中集成，位于 AiProviderConfigCard 和 CaptchaSolverConfigCard 之间。
 
-### 7.4 i18n chat namespace 注册 ✅
+### 7.6 i18n chat namespace 注册 ✅
 
 已在 `src/shared/i18n/index.ts` 注册 `chat` namespace。5 个聊天组件（ai-chat-page、chat-session-list、chat-message-list、chat-input-bar、tool-call-card）全部替换为 `useTranslation('chat')` + `t()` 调用。`workspace-sections.ts` 中 ai-chat section 也已改用 i18n。
 
-### 7.5 后端日志修复 ✅
+### 7.7 后端日志修复 ✅
 
 `chat_service.rs` 的 `build_ai_messages()` 在 `tool_calls_json` 解析失败时现在会通过 `crate::logger::warn()` 记录警告，而不是静默忽略。
 
