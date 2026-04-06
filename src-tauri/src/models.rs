@@ -291,6 +291,8 @@ pub struct EngineSession {
     pub session_id: u64,
     pub pid: Option<u32>,
     pub started_at: i64,
+    pub debug_port: Option<u16>,
+    pub magic_port: Option<u16>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

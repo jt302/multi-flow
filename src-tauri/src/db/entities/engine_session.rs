@@ -10,6 +10,8 @@ pub struct Model {
     pub pid: Option<i64>,
     pub started_at: i64,
     pub updated_at: i64,
+    pub debug_port: Option<i64>,
+    pub magic_port: Option<i64>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

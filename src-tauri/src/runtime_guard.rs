@@ -54,6 +54,15 @@ pub fn reconcile_runtime_state(state: &AppState) -> AppResult<usize> {
                         );
                         affected += 1;
                     }
+                    // 将 session 恢复到 EngineManager 内存中，使 CDP/Magic 工具可用
+                    engine_manager.restore_session(session.clone(), profile.name.clone());
+                    logger::info(
+                        "runtime_guard",
+                        format!(
+                            "restored engine session to memory profile_id={} debug_port={:?} magic_port={:?}",
+                            session.profile_id, session.debug_port, session.magic_port
+                        ),
+                    );
                 }
                 Err(err) => {
                     engine_session_service.delete_session(&session.profile_id)?;

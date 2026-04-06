@@ -25,6 +25,8 @@ impl EngineSessionService {
             active.pid = Set(session.pid.map(i64::from));
             active.started_at = Set(session.started_at);
             active.updated_at = Set(now);
+            active.debug_port = Set(session.debug_port.map(i64::from));
+            active.magic_port = Set(session.magic_port.map(i64::from));
             self.db_query(active.update(&self.db))?;
             return Ok(());
         }
@@ -35,6 +37,8 @@ impl EngineSessionService {
             pid: Set(session.pid.map(i64::from)),
             started_at: Set(session.started_at),
             updated_at: Set(now),
+            debug_port: Set(session.debug_port.map(i64::from)),
+            magic_port: Set(session.magic_port.map(i64::from)),
             ..Default::default()
         };
         self.db_query(model.insert(&self.db))?;
@@ -96,8 +100,10 @@ fn to_engine_session(model: engine_session::Model) -> EngineSession {
     EngineSession {
         profile_id: format_profile_id(model.profile_id),
         session_id: model.session_id as u64,
-        pid: model.pid.and_then(|value| u32::try_from(value).ok()),
+        pid: model.pid.and_then(|v| u32::try_from(v).ok()),
         started_at: model.started_at,
+        debug_port: model.debug_port.and_then(|v| u16::try_from(v).ok()),
+        magic_port: model.magic_port.and_then(|v| u16::try_from(v).ok()),
     }
 }
 
@@ -140,6 +146,8 @@ mod tests {
             session_id: 9,
             pid: Some(12345),
             started_at: 100,
+            debug_port: Some(19222),
+            magic_port: Some(19333),
         };
         service
             .save_session(&profile.id, &session)
@@ -169,6 +177,8 @@ mod tests {
             session_id: 9,
             pid: Some(12345),
             started_at: 100,
+            debug_port: None,
+            magic_port: None,
         };
 
         let err = service
