@@ -10,6 +10,9 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write # Required to create GitHub Releases and upload assets
+
 jobs:
   build:
     name: Build DMG (${{ matrix.target }})
