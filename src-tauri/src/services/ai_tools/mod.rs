@@ -174,18 +174,12 @@ pub fn tool_risk_level(tool_name: &str) -> ToolRiskLevel {
         | "app_delete_proxy"
         | "app_delete_group"
         | "app_stop_profile"
-        | "app_stop_all_profiles"
-        | "app_purge_profile"
-        | "app_purge_proxy"
-        | "app_purge_group"
         | "magic_set_closed"
         | "magic_safe_quit"
         | "file_write"
-        | "file_delete"
         | "file_append"
-        | "cdp_clear_cookies"
-        | "cdp_clear_local_storage"
-        | "cdp_clear_session_storage"
+        | "cdp_clear_storage"
+        | "cdp_delete_cookies"
         | "auto_delete_script" => ToolRiskLevel::Dangerous,
 
         // 安全工具 —— 只读操作
@@ -224,18 +218,12 @@ pub fn all_dangerous_tool_names() -> Vec<&'static str> {
         "app_delete_proxy",
         "app_delete_group",
         "app_stop_profile",
-        "app_stop_all_profiles",
-        "app_purge_profile",
-        "app_purge_proxy",
-        "app_purge_group",
         "magic_set_closed",
         "magic_safe_quit",
         "file_write",
-        "file_delete",
         "file_append",
-        "cdp_clear_cookies",
-        "cdp_clear_local_storage",
-        "cdp_clear_session_storage",
+        "cdp_clear_storage",
+        "cdp_delete_cookies",
         "auto_delete_script",
     ]
 }
