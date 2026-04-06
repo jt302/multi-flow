@@ -40,10 +40,17 @@ export function ChatSessionList({
 			<div className="flex-1 overflow-y-auto overflow-x-hidden">
 				<div className="p-2 space-y-1 w-full">
 					{sessions.map((s) => (
-						<button
+						<div
 							key={s.id}
-							type="button"
+							role="button"
+							tabIndex={0}
 							onClick={() => onSelect(s.id)}
+							onKeyDown={(e) => {
+								if (e.key === 'Enter' || e.key === ' ') {
+									e.preventDefault();
+									onSelect(s.id);
+								}
+							}}
 							className={cn(
 								'group w-full min-w-0 overflow-hidden rounded-lg px-3 py-2 text-left text-sm transition-colors cursor-pointer',
 								s.id === activeId
@@ -72,7 +79,7 @@ export function ChatSessionList({
 									locale: dateLocale,
 								})}
 							</p>
-						</button>
+						</div>
 					))}
 				</div>
 			</div>
