@@ -94,6 +94,8 @@ export function ChatInputBar({
 							src={imageBase64}
 							alt="paste preview"
 							className="w-20 h-20 rounded object-cover border"
+							loading="lazy"
+							decoding="async"
 						/>
 						<button
 							type="button"

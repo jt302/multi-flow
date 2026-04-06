@@ -56,17 +56,10 @@ export function ToolCallCard({ message, onImageClick }: Props & { onImageClick?:
 						{message.toolDurationMs}ms
 					</span>
 				)}
-				{/* 截图工具在折叠状态下显示缩略图 */}
 				{isScreenshot && imageSrc && !open && (
-					<img
-						src={imageSrc}
-						alt="screenshot thumbnail"
-						className="h-12 w-auto rounded border object-cover shrink-0 cursor-zoom-in"
-						onClick={(e) => {
-							e.stopPropagation();
-							onImageClick?.(imageSrc);
-						}}
-					/>
+					<span className="shrink-0 text-[10px] text-muted-foreground">
+						{t('expandToViewScreenshot')}
+					</span>
 				)}
 				{open ? (
 					<ChevronDown className="size-3 shrink-0" />
@@ -90,7 +83,13 @@ export function ToolCallCard({ message, onImageClick }: Props & { onImageClick?:
 						<img
 							src={imageSrc}
 							alt="tool result screenshot"
-							className="max-w-full rounded border"
+							className={cn(
+								'max-w-full rounded border',
+								onImageClick && 'cursor-zoom-in',
+							)}
+							loading="lazy"
+							decoding="async"
+							onClick={() => onImageClick?.(imageSrc)}
 						/>
 					)}
 					{message.toolResult && !imageSrc && (

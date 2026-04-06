@@ -1,14 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
+import { X } from 'lucide-react';
+import Lightbox from 'yet-another-react-lightbox';
+import Zoom from 'yet-another-react-lightbox/plugins/zoom';
+import 'yet-another-react-lightbox/styles.css';
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useTranslation } from 'react-i18next';
 
-import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ChatMessageRecord } from '@/entities/chat/model/types';
 import { GenerationProgress } from './generation-progress';
 import { ThinkingBlock } from './thinking-block';
 import { ToolCallCard } from './tool-call-card';
+import './chat-message-list-lightbox.css';
 
 type Props = {
 	messages: ChatMessageRecord[];
@@ -16,8 +21,10 @@ type Props = {
 };
 
 export function ChatMessageList({ messages, isGenerating }: Props) {
+	const { t } = useTranslation('chat');
 	const bottomRef = useRef<HTMLDivElement>(null);
 	const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+	const slides = lightboxSrc ? [{ src: lightboxSrc, alt: t('imagePreview') }] : [];
 
 	// 进入聊天时立即滚动到底部（instant，不抖动）
 	useEffect(() => {
@@ -31,6 +38,10 @@ export function ChatMessageList({ messages, isGenerating }: Props) {
 		}
 	}, [messages.length, isGenerating]);
 
+	const closeLightbox = () => {
+		setLightboxSrc(null);
+	};
+
 	return (
 		<>
 			<ScrollArea className="flex-1 min-h-0">
@@ -43,18 +54,52 @@ export function ChatMessageList({ messages, isGenerating }: Props) {
 				</div>
 			</ScrollArea>
 
-			{/* 图片放大 Dialog，通过 Portal 挂到根节点，不受父级布局影响 */}
-			<Dialog open={!!lightboxSrc} onOpenChange={(open) => !open && setLightboxSrc(null)}>
-				<DialogContent className="max-w-[90vw] max-h-[90vh] w-fit h-fit p-2 bg-transparent border-none shadow-none flex items-center justify-center overflow-hidden">
-					{lightboxSrc && (
-						<img
-							src={lightboxSrc}
-							alt="enlarged"
-							className="max-w-[88vw] max-h-[86vh] rounded-lg object-contain"
-						/>
-					)}
-				</DialogContent>
-			</Dialog>
+			<Lightbox
+				open={!!lightboxSrc}
+				close={closeLightbox}
+				slides={slides}
+				index={0}
+				plugins={[Zoom]}
+				className="ai-chat-lightbox"
+				controller={{ closeOnBackdropClick: true }}
+				carousel={{ finite: slides.length <= 1, padding: '64px', spacing: '10%', imageFit: 'contain' }}
+				toolbar={{ buttons: ['close'] }}
+				zoom={{ maxZoomPixelRatio: 3, doubleClickMaxStops: 4, scrollToZoom: true }}
+				labels={{
+					Close: t('closePreview'),
+					Lightbox: t('imagePreview'),
+					Carousel: t('imagePreview'),
+					Slide: t('imagePreview'),
+					'Photo gallery': t('imagePreview'),
+					'Zoom in': t('zoomInPreview'),
+					'Zoom out': t('zoomOutPreview'),
+				}}
+				styles={{
+					container: {
+						'--yarl__color_backdrop': 'rgba(15, 23, 42, 0.68)',
+					},
+					toolbar: {
+						'--yarl__button_filter': 'none',
+						'--yarl__toolbar_padding': '12px',
+					},
+					button: {
+						'--yarl__button_background_color': 'rgba(255, 255, 255, 0.94)',
+						'--yarl__button_border': '1px solid rgba(148, 163, 184, 0.28)',
+						'--yarl__button_filter': 'none',
+						'--yarl__button_padding': '6px',
+						color: '#0f172a',
+					},
+					icon: {
+						'--yarl__icon_size': '18px',
+					},
+				}}
+				render={{
+					buttonZoom: () => null,
+					buttonPrev: slides.length <= 1 ? () => null : undefined,
+					buttonNext: slides.length <= 1 ? () => null : undefined,
+					iconClose: () => <X className="size-[18px]" strokeWidth={2.25} />,
+				}}
+			/>
 		</>
 	);
 }
@@ -69,6 +114,8 @@ function MessageItem({ message, onImageClick }: { message: ChatMessageRecord; on
 							src={message.imageBase64.startsWith('data:') ? message.imageBase64 : `data:image/png;base64,${message.imageBase64}`}
 							alt="user upload"
 							className="max-w-full rounded-lg object-contain max-h-64 cursor-pointer"
+							loading="lazy"
+							decoding="async"
 							onClick={() => onImageClick(message.imageBase64!.startsWith('data:') ? message.imageBase64! : `data:image/png;base64,${message.imageBase64}`)}
 						/>
 					)}

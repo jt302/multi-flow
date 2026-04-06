@@ -25,7 +25,10 @@ export function ProfileMultiSelect({
 }: Props) {
 	const { t } = useTranslation('chat');
 	const [open, setOpen] = useState(false);
-	const profilesQuery = useProfilesQuery();
+	const profilesQuery = useProfilesQuery({
+		enabled: open,
+		refetchInterval: open ? 5000 : false,
+	});
 	const profiles = profilesQuery.data ?? [];
 
 	const handleChange = useCallback(
@@ -67,6 +70,10 @@ export function ProfileMultiSelect({
 	const selectedProfiles = profiles.filter((p) =>
 		selectedIds.includes(p.id),
 	);
+	const selectedSummary = t('selectedProfilesCount', {
+		count: selectedIds.length,
+		defaultValue: `已选择 ${selectedIds.length} 个环境`,
+	});
 
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
@@ -77,9 +84,15 @@ export function ProfileMultiSelect({
 				>
 					<span className="flex-1 truncate text-left">
 						{selectedProfiles.length === 0 ? (
-							<span className="text-muted-foreground">
-								{t('selectProfile')}
-							</span>
+							selectedIds.length === 0 ? (
+								<span className="text-muted-foreground">
+									{t('selectProfile')}
+								</span>
+							) : (
+								<span className="truncate text-muted-foreground">
+									{selectedSummary}
+								</span>
+							)
 						) : (
 							<span className="flex items-center gap-1 overflow-hidden">
 								{selectedProfiles.slice(0, 2).map((p) => (
@@ -120,6 +133,7 @@ export function ProfileMultiSelect({
 			</PopoverTrigger>
 			<PopoverContent className="w-64 p-3" align="start">
 				<ProfileGroupSelector
+					profiles={profiles}
 					selectedIds={selectedIds}
 					onChange={handleChange}
 				/>
