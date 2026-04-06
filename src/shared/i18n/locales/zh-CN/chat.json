@@ -30,5 +30,6 @@
 	"closePreview": "关闭预览",
 	"imagePreview": "图片预览",
 	"zoomInPreview": "放大图片",
-	"zoomOutPreview": "缩小图片"
+	"zoomOutPreview": "缩小图片",
+	"copyMessage": "复制消息"
 }
