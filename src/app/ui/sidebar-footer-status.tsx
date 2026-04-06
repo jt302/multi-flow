@@ -50,8 +50,7 @@ function useAutomationBadge(): BadgeState {
   if (!activeRunId) return { label: '空闲', variant: 'secondary' };
   if (liveRunStatus === 'waiting_human') return { label: '等待操作', variant: 'warning' };
   if (liveRunStatus === 'running') return { label: '运行中', variant: 'default' };
-  if (liveRunStatus === 'pending') return { label: '准备中', variant: 'warning' };
-  // 终态 (success/failed/cancelled/interrupted): activeRunId 清除前的短暂窗口
+  // pending/terminal states or stale activeRunId from previous session
   return { label: '空闲', variant: 'secondary' };
 }
 
