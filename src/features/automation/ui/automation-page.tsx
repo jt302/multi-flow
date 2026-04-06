@@ -22,7 +22,7 @@ import { queryKeys } from '@/shared/config/query-keys';
 import { useAutomationActions } from '@/features/automation/model/use-automation-actions';
 import { useAutomationStore } from '@/store/automation-store';
 import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
-import { useDefaultLayout } from 'react-resizable-panels';
+import { usePersistentLayout } from '@/shared/hooks/use-persistent-layout';
 import {
 	ResizableHandle,
 	ResizablePanel,
@@ -37,7 +37,10 @@ export function AutomationPage() {
 	const scriptsQuery = useAutomationScriptsQuery();
 	const scripts = scriptsQuery.data ?? [];
 	const queryClient = useQueryClient();
-	const { defaultLayout: autoLayout, onLayoutChanged: onAutoLayoutChanged } = useDefaultLayout({ id: 'automation-layout' });
+	const { defaultLayout: autoLayout, onLayoutChanged: onAutoLayoutChanged } = usePersistentLayout({
+		id: 'automation-layout',
+		defaultSizes: [20, 80],
+	});
 	const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null);
 
 	const selectedScript = scripts.find((s) => s.id === selectedScriptId) ?? null;
