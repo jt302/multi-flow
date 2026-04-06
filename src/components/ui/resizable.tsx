@@ -23,7 +23,7 @@ const ResizablePanelGroup = ({
 	<Group
 		orientation={orientation ?? direction}
 		className={cn('flex h-full w-full', className)}
-		{...props}
+		{...(props as React.ComponentProps<typeof Group>)}
 	/>
 );
 
