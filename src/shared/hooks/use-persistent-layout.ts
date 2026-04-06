@@ -19,6 +19,9 @@ export function usePersistentLayout({
 		undefined,
 	);
 
+	// 使用 JSON.stringify 将数组转为字符串作为依赖项，避免引用变化导致的无限循环
+	const defaultSizesKey = JSON.stringify(defaultSizes);
+
 	useEffect(() => {
 		if (typeof window === 'undefined') {
 			setDefaultLayout(defaultSizes as unknown as Layout);
@@ -42,7 +45,8 @@ export function usePersistentLayout({
 			// 解析失败，使用默认值
 		}
 		setDefaultLayout(defaultSizes as unknown as Layout);
-	}, [id, defaultSizes]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [id, defaultSizesKey]);
 
 	const onLayoutChanged = useCallback(
 		(sizes: Layout) => {
