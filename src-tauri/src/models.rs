@@ -1416,6 +1416,16 @@ pub enum ScriptStep {
         #[serde(skip_serializing_if = "Option::is_none")]
         timeout_ms: Option<u64>,
     },
+    /// 批量提取所有匹配元素的文本或属性
+    CdpQueryAll {
+        selector: String,
+        #[serde(default, skip_serializing_if = "SelectorType::is_css")]
+        selector_type: SelectorType,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        extract: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
     CdpGetText {
         selector: String,
         #[serde(default, skip_serializing_if = "SelectorType::is_css")]
@@ -1951,6 +1961,15 @@ pub enum ScriptStep {
         limit: Option<usize>,
         #[serde(skip_serializing_if = "Option::is_none")]
         url_pattern: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    /// 获取网络请求的响应体 (通过 JS 拦截 fetch/XHR)
+    CdpGetResponseBody {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        url_filter: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        limit: Option<usize>,
         #[serde(skip_serializing_if = "Option::is_none")]
         output_key: Option<String>,
     },
