@@ -258,7 +258,7 @@ export function BrowserControlRoutePage() {
 
 	const handleViewProfile = useCallback(
 		(profileId: string) => {
-			navigation.onSetProfileNavigationIntent({ profileId, view: 'detail' });
+			navigation.onSetProfileNavigationIntent({ profileId, view: 'detail', returnNav: 'browser-control' });
 			navigation.onNavigate(NAV_PATHS.profiles);
 		},
 		[navigation],

@@ -30,11 +30,13 @@ export function ProfilesPage({
 	onRefreshProfiles,
 	navigationIntent,
 	onConsumeNavigationIntent,
+	onNavigate,
 }: ProfilesPageProps) {
 	const [view, setView] = useState<'list' | 'create' | 'edit' | 'detail'>(
 		'list',
 	);
 	const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
+	const [returnNav, setReturnNav] = useState<string | null>(null);
 
 	useEffect(() => {
 		if (!navigationIntent) {
@@ -42,6 +44,7 @@ export function ProfilesPage({
 		}
 		setActiveProfileId(navigationIntent.profileId);
 		setView(navigationIntent.view);
+		setReturnNav(navigationIntent.returnNav ?? null);
 		onConsumeNavigationIntent?.();
 	}, [navigationIntent, onConsumeNavigationIntent]);
 
@@ -115,9 +118,15 @@ export function ProfilesPage({
 					(item) => item.id === profileProxyBindings[profile.id],
 				)}
 				onBack={() => {
-					setView('list');
-					setActiveProfileId(null);
+					if (returnNav && onNavigate) {
+						onNavigate(returnNav);
+					} else {
+						setView('list');
+						setActiveProfileId(null);
+					}
+					setReturnNav(null);
 				}}
+				backLabel={returnNav ? '返回' : undefined}
 				onEditProfile={(profileId) => {
 					setActiveProfileId(profileId);
 					setView('edit');

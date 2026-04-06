@@ -153,6 +153,7 @@ export function ProfilesRoutePage() {
 			onRefreshProfiles={refreshProfilesAndBindings}
 			navigationIntent={navigation.intent}
 			onConsumeNavigationIntent={navigation.onConsumeNavigationIntent}
+			onNavigate={navigation.onNavigate}
 		/>
 	);
 }

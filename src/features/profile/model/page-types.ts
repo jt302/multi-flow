@@ -44,6 +44,8 @@ export type ProfilesPageProps = {
 	navigationIntent?: {
 		profileId: string;
 		view: 'detail' | 'edit';
+		returnNav?: string;
 	} | null;
 	onConsumeNavigationIntent?: () => void;
+	onNavigate?: (path: string) => void;
 };

@@ -34,6 +34,8 @@ export type ActiveSectionCardProps = {
 export type ProfileNavigationIntent = {
 	profileId: string;
 	view: 'detail' | 'edit';
+	/** If set, the back button navigates to this nav instead of showing the profile list */
+	returnNav?: NavId;
 } | null;
 
 export type WorkspaceThemeState = {
