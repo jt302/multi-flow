@@ -249,8 +249,8 @@ impl ChatExecutionService {
                 MAX_ROUNDS,
             );
 
-            // 仅给模型保留最近一张工具截图，其余历史截图降级为纯文本结果，避免请求体持续膨胀。
-            retain_recent_tool_images(&mut messages, 1);
+            // 保留最近 3 张工具截图，方便 AI 对比前后变化，避免死循环；其余降级为纯文本。
+            retain_recent_tool_images(&mut messages, 3);
 
             // 滑动窗口压缩：估算 token 数，若超过上下文 75% 则压缩历史
             let ctx_limit = crate::services::token_counter::TokenCounter::context_limit(
