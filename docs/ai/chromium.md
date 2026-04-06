@@ -2767,3 +2767,170 @@ CHROMIUM_COOKIE_STATE_FILE=/abs/path/cookie-state.json python3 start.py
 2. 再生成 UA / metadata / GL / fonts
 3. 做一致性校验
 4. 最后调用 `get_switches`、`get_active_browser`、`get_sync_status`、`get_managed_extensions` 做运行期确认
+
+---
+
+## 动态环境标识图标（Badge Icon）方案
+
+### 需求
+
+Multi-Flow 管理多个浏览器环境实例，需要在 Dock / Taskbar 图标上显示环境编号（如 "101"），方便用户快速区分窗口归属。
+
+### 设计：`--badge-label` 启动参数
+
+在自研 Chromium 中新增启动参数 `--badge-label=<text>`，Chromium 启动后读取该参数，动态合成带角标的应用图标。
+
+Multi-Flow 侧在 `engine_manager/mod.rs` 的 `build_chromium_launch_args` 中传入：
+
+```rust
+if let Some(badge) = options.badge_label.as_deref().and_then(trim_to_option) {
+    args.push(format!("--badge-label={badge}"));
+}
+```
+
+### macOS 实现
+
+#### 方案 A：NSDockTile badge（最简）
+
+系统原生红色圆形徽标，显示在 Dock 图标右上角。
+
+```objc
+// chrome/browser/chrome_browser_main_mac.mm — PostMainMessageLoopStart()
+NSString *badge = base::SysUTF8ToNSString(
+    command_line->GetSwitchValueASCII("badge-label"));
+if (badge.length > 0) {
+  [[NSApp dockTile] setBadgeLabel:badge];
+}
+```
+
+优点：一行代码，系统原生风格。
+缺点：样式不可自定义（固定红色圆形），只适合短文本。
+
+#### 方案 B：动态合成 NSImage（推荐）
+
+生成带自定义底色圆角矩形 + 白色文字的完整图标，替换 Dock 图标。
+
+实现文件：`chrome/browser/ui/cocoa/badge_icon_mac.h/.mm`（新建）
+
+```objc
+#import <Cocoa/Cocoa.h>
+
+void SetDockBadgeIcon(const std::string& label) {
+  if (label.empty()) return;
+
+  // 1. 获取原始 app icon
+  NSImage *baseIcon = [NSApp applicationIconImage];
+  NSSize size = baseIcon.size;  // 通常 512x512 或 1024x1024
+
+  // 2. 创建新画布
+  NSImage *badgedIcon = [[NSImage alloc] initWithSize:size];
+  [badgedIcon lockFocus];
+
+  // 画原始图标
+  [baseIcon drawInRect:NSMakeRect(0, 0, size.width, size.height)];
+
+  // 3. 右下角画圆角矩形底色 + 文字
+  NSString *text = [NSString stringWithUTF8String:label.c_str()];
+  CGFloat badgeH = size.height * 0.22;
+  CGFloat padding = badgeH * 0.3;
+
+  NSDictionary *attrs = @{
+    NSFontAttributeName: [NSFont boldSystemFontOfSize:badgeH * 0.65],
+    NSForegroundColorAttributeName: [NSColor whiteColor],
+  };
+  NSSize textSize = [text sizeWithAttributes:attrs];
+  CGFloat badgeW = MAX(textSize.width + padding * 2, badgeH);
+
+  NSRect badgeRect = NSMakeRect(
+    size.width - badgeW - size.width * 0.02,   // 右下角
+    size.height * 0.02,
+    badgeW, badgeH
+  );
+
+  // 底色
+  NSBezierPath *bg = [NSBezierPath bezierPathWithRoundedRect:badgeRect
+                                                     xRadius:badgeH * 0.25
+                                                     yRadius:badgeH * 0.25];
+  [[NSColor colorWithRed:0.2 green:0.5 blue:1.0 alpha:0.92] setFill];
+  [bg fill];
+
+  // 文字居中绘制
+  NSPoint textOrigin = NSMakePoint(
+    badgeRect.origin.x + (badgeW - textSize.width) / 2,
+    badgeRect.origin.y + (badgeH - textSize.height) / 2
+  );
+  [text drawAtPoint:textOrigin withAttributes:attrs];
+
+  [badgedIcon unlockFocus];
+
+  // 4. 替换 Dock 图标
+  [NSApp setApplicationIconImage:badgedIcon];
+}
+```
+
+调用入口：
+
+```cpp
+// chrome/browser/chrome_browser_main_mac.mm — PostMainMessageLoopStart() 或 PreMainMessageLoopRun()
+const base::CommandLine* cmd = base::CommandLine::ForCurrentProcess();
+if (cmd->HasSwitch("badge-label")) {
+  SetDockBadgeIcon(cmd->GetSwitchValueASCII("badge-label"));
+}
+```
+
+### Windows 实现
+
+使用 `ITaskbarList3::SetOverlayIcon` 在 Taskbar 图标上叠加小图标：
+
+```cpp
+// chrome/browser/ui/views/frame/browser_frame_win.cc
+#include <ShObjIdl.h>
+#include <wrl/client.h>
+
+void SetTaskbarBadge(HWND hwnd, const std::wstring& label) {
+  // 1. 创建小图标 (16x16 或 20x20)，用 GDI+ 画圆角矩形 + 文字
+  HICON hBadgeIcon = CreateBadgeIcon(label);  // 自行实现
+
+  // 2. 设置 Overlay
+  Microsoft::WRL::ComPtr<ITaskbarList3> taskbar;
+  CoCreateInstance(CLSID_TaskbarList, nullptr, CLSCTX_ALL,
+                   IID_PPV_ARGS(&taskbar));
+  if (taskbar) {
+    taskbar->HrInit();
+    taskbar->SetOverlayIcon(hwnd, hBadgeIcon, label.c_str());
+  }
+
+  DestroyIcon(hBadgeIcon);
+}
+```
+
+调用时机：在 `BrowserFrameViewWin::OnWidgetInitialized()` 中读取 `--badge-label` 并调用。
+
+### GN 构建集成（macOS 示例）
+
+```gn
+# chrome/browser/ui/cocoa/BUILD.gn 中添加
+source_set("badge_icon") {
+  sources = [
+    "badge_icon_mac.h",
+    "badge_icon_mac.mm",
+  ]
+  frameworks = [ "Cocoa.framework" ]
+  deps = [ "//base" ]
+}
+```
+
+在 `chrome/browser:browser` 的 deps 中引入 `"//chrome/browser/ui/cocoa:badge_icon"`。
+
+### 方案选型建议
+
+| 阶段     | 推荐                       | 理由                                   |
+| -------- | -------------------------- | -------------------------------------- |
+| 快速验证 | 方案 A（NSDockTile badge） | 一行代码即可看到效果                   |
+| 正式发布 | 方案 B（动态合成 NSImage） | 可自定义底色、字体、位置，品牌一致性好 |
+
+### Multi-Flow 侧需要的改动
+
+1. `EngineLaunchOptions` 添加 `badge_label: Option<String>` 字段
+2. `build_chromium_launch_args` 中将 badge_label 传为 `--badge-label=<value>`
+3. 打开环境时从 profile 的名称或序号生成 badge 文本
