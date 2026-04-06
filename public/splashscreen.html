@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Flow</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      overflow: hidden;
+      font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    }
+
+    .container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      flex-direction: column;
+      gap: 0;
+      /* Fade-in animation */
+      animation: fadeIn 0.25s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.97); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    .logo {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+      margin-bottom: 14px;
+      border-radius: 14px;
+    }
+
+    .app-name {
+      font-family: 'Chivo', 'Noto Sans SC', sans-serif;
+      font-size: 20px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.95);
+      letter-spacing: 0.02em;
+      margin-bottom: 28px;
+    }
+
+    .progress-text {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.5);
+      margin-bottom: 12px;
+      height: 20px;
+      transition: opacity 0.25s ease;
+    }
+
+    .progress-bar-track {
+      width: 200px;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: #56d3bc;
+      border-radius: 2px;
+      transition: width 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      box-shadow: 0 0 8px rgba(86, 211, 188, 0.5);
+    }
+
+    /* Fade-out class for closing */
+    .container.fade-out {
+      animation: fadeOut 0.3s ease forwards;
+    }
+
+    @keyframes fadeOut {
+      from { opacity: 1; transform: scale(1); }
+      to   { opacity: 0; transform: scale(0.97); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="container">
+    <img class="logo" src="splashscreen-logo.png" alt="Multi-Flow Logo" id="logo">
+    <div class="app-name">Multi-Flow</div>
+    <div class="progress-text" id="progressText"></div>
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" id="progressFill"></div>
+    </div>
+  </div>
+
+  <script>
+    // i18n: inline bilingual text map
+    const isChinese = navigator.language.startsWith('zh');
+
+    const messages = {
+      start:    { zh: '正在启动...', en: 'Starting...' },
+      database: { zh: '正在初始化数据库...', en: 'Initializing database...' },
+      services: { zh: '正在加载核心服务...', en: 'Loading core services...' },
+      proxy:    { zh: '正在启动代理服务...', en: 'Starting proxy daemon...' },
+      menu:     { zh: '正在配置界面...', en: 'Configuring interface...' },
+      window:   { zh: '正在准备主界面...', en: 'Preparing main window...' },
+      ready:    { zh: '即将进入...', en: 'Almost ready...' },
+    };
+
+    function getText(step) {
+      const entry = messages[step];
+      if (!entry) return step;
+      return isChinese ? entry.zh : entry.en;
+    }
+
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+
+    function updateProgress(step, progress) {
+      // Update text with fade
+      progressText.style.opacity = '0';
+      setTimeout(() => {
+        progressText.textContent = getText(step);
+        progressText.style.opacity = '1';
+      }, 120);
+
+      // Update progress bar
+      progressFill.style.width = progress + '%';
+    }
+
+    // Initialize with start message
+    updateProgress('start', 0);
+
+    // 等待 __TAURI__ 注入完毕（withGlobalTauri 模式下同步可用，加保险轮询）
+    function waitForTauri(cb, retries = 20) {
+      if (window.__TAURI__?.event?.listen) {
+        cb();
+      } else if (retries > 0) {
+        setTimeout(() => waitForTauri(cb, retries - 1), 50);
+      }
+    }
+
+    // Listen for progress events from Tauri backend
+    async function init() {
+      try {
+        const { listen } = window.__TAURI__.event;
+        await listen('splashscreen://progress', (event) => {
+          const { step, progress } = event.payload;
+          updateProgress(step, progress);
+        });
+        // listener 注册完毕，通知 Rust 可以开始 emit 进度事件
+        await window.__TAURI__.core.invoke('splashscreen_ready');
+      } catch (e) {
+        console.warn('Tauri event API not available', e);
+      }
+    }
+
+    waitForTauri(() => init());
+  </script>
+</body>
+</html>

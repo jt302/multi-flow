@@ -70,6 +70,29 @@ Commands → Services → SeaORM Entities → SQLite
 
 profiles, profile_groups, proxies, profile_proxy_bindings, engine_sessions, device_presets, plugin_packages
 
+## Internationalization (i18n)
+
+All user-visible text **must** use `react-i18next`. Never hardcode Chinese or English strings in components.
+
+**Locale files**: `src/shared/i18n/locales/{zh-CN,en-US}/<namespace>.json`
+
+**Namespaces** (pick the closest fit, do not create new ones without reason):
+- `nav` — sidebar, navigation, global UI chrome
+- `common` — shared labels (status, actions, confirmations)
+- `profile`, `proxy`, `automation`, `plugin`, `group`, `window`, `settings`, `dashboard`, `chat`, `canvas`, `log`, `device`, `recycle`, `platform`
+
+**Usage pattern**:
+```tsx
+import { useTranslation } from 'react-i18next';
+const { t } = useTranslation('nav');
+// then: t('sidebar.systemStatus')
+```
+
+**Checklist when adding any UI text**:
+1. Add the key + zh-CN value to `src/shared/i18n/locales/zh-CN/<namespace>.json`
+2. Add the key + en-US value to `src/shared/i18n/locales/en-US/<namespace>.json`
+3. Use `t('key')` in the component — no raw strings
+
 ## Development Conventions
 
 - Forms use react-hook-form + zod (zodResolver) exclusively.

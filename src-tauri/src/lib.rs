@@ -3,6 +3,7 @@ use std::fs;
 use std::panic;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Once;
 use std::thread;
 use std::time::Duration;
@@ -11,7 +12,7 @@ use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::plugin::Builder as TauriPluginBuilder;
 use tauri::utils::config::WindowConfig;
 use tauri::{
-    AppHandle, Manager, RunEvent, WebviewWindow, WebviewWindowBuilder, Window, WindowEvent,
+    AppHandle, Emitter, Manager, RunEvent, WebviewWindow, WebviewWindowBuilder, Window, WindowEvent,
 };
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri_plugin_shell::process::CommandEvent;
@@ -26,6 +27,10 @@ const PROXY_DAEMON_SIDECAR_NAME: &str = "proxy-daemon";
 const PROXY_DAEMON_RUST_LOG_ENV: &str = "MULTI_FLOW_PROXY_DAEMON_RUST_LOG";
 const DEFAULT_PROXY_DAEMON_RUST_LOG: &str = "info";
 static PANIC_HOOK_ONCE: Once = Once::new();
+/// init 完成且 400ms 动画延迟已过，React 可安全触发窗口切换
+static INIT_COMPLETE: AtomicBool = AtomicBool::new(false);
+/// 闪屏 JS listener 已注册完毕，run_app_init 可以开始 emit 进度事件
+static SPLASH_READY: AtomicBool = AtomicBool::new(false);
 
 mod commands;
 mod db;
@@ -134,18 +139,36 @@ pub fn run() {
                 .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))
                 .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })?;
             install_panic_hook();
-            let app_state = state::build_app_state(&app.handle()).map_err(|err| {
-                let io_err = std::io::Error::new(std::io::ErrorKind::Other, err.to_string());
-                Box::new(io_err) as Box<dyn std::error::Error>
-            })?;
-            start_proxy_daemon_sidecar(&app.handle(), &app_state)
-                .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))
+
+            // 通过 builder 创建闪屏窗口，确保 transparent/decorations 正确应用到原生 WKWebView
+            // （config 方式有时无法正确设置 WKWebView.isOpaque = false，导致圆角处有白边）
+            let splash_url = tauri::WebviewUrl::App("splashscreen.html".into());
+            WebviewWindowBuilder::new(app, "splashscreen", splash_url)
+                .title("Multi-Flow")
+                .inner_size(400.0, 280.0)
+                .resizable(false)
+                .decorations(false)
+                .transparent(true)
+                .always_on_top(true)
+                .skip_taskbar(true)
+                .center()
+                .visible(true)
+                .build()
                 .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })?;
-            app.manage(app_state);
-            setup_native_menu(app)?;
-            start_runtime_guard(app.handle().clone());
-            build_main_window(app)?;
-            logger::info("app", "tauri setup completed");
+
+            // 将重型初始化移到后台线程，让 setup() 立即返回，
+            // 保证主线程事件循环能正常运转并渲染闪屏窗口
+            let handle = app.handle().clone();
+            thread::Builder::new()
+                .name("multi-flow-init".to_string())
+                .spawn(move || {
+                    if let Err(err) = run_app_init(handle) {
+                        eprintln!("app init failed: {err}");
+                        std::process::exit(1);
+                    }
+                })
+                .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })?;
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -267,6 +290,9 @@ pub fn run() {
             commands::sync_commands::arrange_profile_windows,
             commands::sync_commands::batch_restore_profile_windows,
             commands::sync_commands::batch_set_profile_window_bounds,
+            commands::window_commands::splashscreen_ready,
+            commands::window_commands::show_main_window,
+            commands::window_commands::is_init_complete,
             commands::window_commands::list_open_profile_windows,
             commands::window_commands::open_profile_tab,
             commands::window_commands::close_profile_tab,
@@ -312,7 +338,7 @@ fn install_panic_hook() {
     });
 }
 
-fn setup_native_menu(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+fn setup_native_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let edit_submenu = SubmenuBuilder::new(app, "Edit")
         .undo()
         .redo()
@@ -656,7 +682,8 @@ impl MainWindowStateSource for WebviewWindow {
     }
 }
 
-fn build_main_window(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+/// 创建主窗口但保持隐藏（visible: false），由前端 React 渲染完成后调用 show_main_window 命令显示
+fn build_main_window(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     if app.get_webview_window(MAIN_WINDOW_LABEL).is_some() {
         return Ok(());
     }
@@ -674,12 +701,8 @@ fn build_main_window(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Err
                 "main window config not found in tauri.conf.json",
             )
         })?;
-    let handle = app.handle().clone();
-    let window_config = apply_saved_main_window_state(&handle, base_config);
-    let window = WebviewWindowBuilder::from_config(&handle, &window_config)?.build()?;
-
-    let _ = window.show();
-    let _ = window.set_focus();
+    let window_config = apply_saved_main_window_state(app, base_config);
+    WebviewWindowBuilder::from_config(app, &window_config)?.build()?;
     Ok(())
 }
 
@@ -1096,4 +1119,64 @@ mod tests {
             .as_nanos();
         std::env::temp_dir().join(format!("multi-flow-main-window-state-{nanos}.json"))
     }
+}
+
+/// 在后台线程中执行应用初始化，避免阻塞主线程事件循环
+/// 主线程需要保持运转才能渲染闪屏窗口
+fn run_app_init(handle: AppHandle) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let emit_splash = |step: &str, progress: u8| {
+        let _ = handle.emit_to(
+            tauri::EventTarget::labeled("splashscreen"),
+            "splashscreen://progress",
+            serde_json::json!({ "step": step, "progress": progress }),
+        );
+    };
+
+    // 等待闪屏 JS listener 注册完毕再开始 emit，最多等 2 秒
+    for _ in 0..200 {
+        if SPLASH_READY.load(Ordering::Acquire) {
+            break;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+
+    emit_splash("start", 0);
+
+    emit_splash("database", 20);
+    let app_state = state::build_app_state(&handle)
+        .map_err(|err| -> Box<dyn std::error::Error + Send + Sync> { Box::new(err) })?;
+
+    emit_splash("proxy", 65);
+    start_proxy_daemon_sidecar(&handle, &app_state)
+        .map_err(|err| -> Box<dyn std::error::Error + Send + Sync> {
+            Box::new(std::io::Error::new(std::io::ErrorKind::Other, err))
+        })?;
+    handle.manage(app_state);
+
+    emit_splash("menu", 80);
+    setup_native_menu(&handle)
+        .map_err(|err| -> Box<dyn std::error::Error + Send + Sync> {
+            Box::new(std::io::Error::new(std::io::ErrorKind::Other, err.to_string()))
+        })?;
+    start_runtime_guard(handle.clone());
+
+    emit_splash("window", 90);
+    build_main_window(&handle)
+        .map_err(|err| -> Box<dyn std::error::Error + Send + Sync> {
+            Box::new(std::io::Error::new(std::io::ErrorKind::Other, err.to_string()))
+        })?;
+
+    emit_splash("ready", 100);
+
+    // 延迟 400ms 让进度条动画完成，然后通知主窗口 React 可以切换了
+    // splash 关闭和主窗口显示统一由 show_main_window 命令处理，避免两步之间的空档
+    thread::sleep(Duration::from_millis(400));
+    INIT_COMPLETE.store(true, Ordering::Release);
+    // 通知主窗口（React 可能已就绪在等待，也可能还未就绪会自行 poll）
+    if let Some(main) = handle.get_webview_window(MAIN_WINDOW_LABEL) {
+        let _ = main.emit("splashscreen://init-complete", ());
+    }
+
+    logger::info("app", "tauri setup completed");
+    Ok(())
 }
