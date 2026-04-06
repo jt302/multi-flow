@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Allow only one release workflow per tag to run at a time
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build DMG (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest # Apple Silicon (ARM)
+            target: aarch64-apple-darwin
+          - runner: macos-13 # Intel (x64)
+            target: x86_64-apple-darwin
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Sidecar pre-flight check ────────────────────────────────────────────
+      # Tauri requires external binaries named <binary>-<target-triple>.
+      # Ensure both sidecars exist for the current build target before wasting
+      # runner time on a compile that will fail at the bundle step.
+      - name: Verify sidecar binaries for ${{ matrix.target }}
+        shell: bash
+        run: |
+          missing=()
+          for bin in proxy-daemon multi-flow-sync-manager; do
+            path="src-tauri/binaries/${bin}-${{ matrix.target }}"
+            if [[ ! -f "$path" ]]; then
+              missing+=("$path")
+            fi
+          done
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            echo "::error::Missing sidecar binary(ies) for target ${{ matrix.target }}:"
+            for f in "${missing[@]}"; do echo "  $f"; done
+            echo ""
+            echo "Build both binaries for the target and place them in src-tauri/binaries/."
+            exit 1
+          fi
+          echo "All sidecar binaries present for ${{ matrix.target }}."
+
+      # ── Toolchain ───────────────────────────────────────────────────────────
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup Rust (stable) with ${{ matrix.target }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust dependency cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ${{ matrix.target }}
+
+      # ── Frontend ────────────────────────────────────────────────────────────
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      # ── Tauri build + GitHub Release upload ─────────────────────────────────
+      # tauri-action creates a draft release and uploads .dmg + .app.tar.gz.
+      # Remove `releaseDraft: true` once you have code signing configured.
+      - name: Build and publish release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Code signing — set these secrets when ready:
+          # APPLE_CERTIFICATE:            base64-encoded .p12 certificate
+          # APPLE_CERTIFICATE_PASSWORD:   .p12 export password
+          # APPLE_SIGNING_IDENTITY:       e.g. "Developer ID Application: ..."
+          # APPLE_ID:                     Apple ID for notarization
+          # APPLE_PASSWORD:               App-specific password
+          # APPLE_TEAM_ID:                10-char Team ID
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Multi-Flow ${{ github.ref_name }}'
+          releaseBody: |
+            ## Multi-Flow ${{ github.ref_name }}
+
+            See [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+          releaseDraft: true   # Change to false after testing
+          prerelease: false
+          args: --target ${{ matrix.target }}
