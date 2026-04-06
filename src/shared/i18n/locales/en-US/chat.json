@@ -30,5 +30,6 @@
 	"closePreview": "Close preview",
 	"imagePreview": "Image preview",
 	"zoomInPreview": "Zoom in image",
-	"zoomOutPreview": "Zoom out image"
+	"zoomOutPreview": "Zoom out image",
+	"copyMessage": "Copy message"
 }

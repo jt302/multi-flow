@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { Check, Copy, X } from 'lucide-react';
 import Lightbox from 'yet-another-react-lightbox';
 import Zoom from 'yet-another-react-lightbox/plugins/zoom';
 import 'yet-another-react-lightbox/styles.css';
@@ -104,10 +104,40 @@ export function ChatMessageList({ messages, isGenerating }: Props) {
 	);
 }
 
+function CopyButton({ text, className }: { text: string; className?: string }) {
+	const { t } = useTranslation('chat');
+	const [copied, setCopied] = useState(false);
+
+	const handleCopy = async () => {
+		await navigator.clipboard.writeText(text);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 2000);
+	};
+
+	return (
+		<button
+			onClick={handleCopy}
+			title={t('copyMessage')}
+			className={`cursor-pointer p-1 rounded hover:bg-accent transition-colors ${className ?? ''}`}
+		>
+			{copied
+				? <Check className="size-3.5 text-green-500" />
+				: <Copy className="size-3.5 text-muted-foreground" />
+			}
+		</button>
+	);
+}
+
 function MessageItem({ message, onImageClick }: { message: ChatMessageRecord; onImageClick: (src: string) => void }) {
 	if (message.role === 'user') {
 		return (
-			<div className="flex justify-end">
+			<div className="flex justify-end items-end gap-1 group">
+				{message.contentText && (
+					<CopyButton
+						text={message.contentText}
+						className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mb-0.5"
+					/>
+				)}
 				<div className="max-w-[75%] rounded-2xl bg-primary px-4 py-2.5 text-sm text-primary-foreground break-words whitespace-pre-wrap space-y-2">
 					{message.imageBase64 && (
 						<img
@@ -153,20 +183,26 @@ function MessageItem({ message, onImageClick }: { message: ChatMessageRecord; on
 
 	if (message.role === 'assistant' && message.contentText) {
 		return (
-			<div className="flex flex-col justify-start gap-1">
+			<div className="flex flex-col justify-start gap-1 group">
 				{message.thinkingText && (
 					<ThinkingBlock
 						thinkingText={message.thinkingText}
 						thinkingTokens={message.thinkingTokens ?? undefined}
 					/>
 				)}
-				{/* 外层 div 控制最大宽度，内层 div 负责 prose 排版，两者不冲突 */}
-				<div className="max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-sm break-words">
-					<div className="prose prose-sm dark:prose-invert max-w-none">
-						<ReactMarkdown remarkPlugins={[remarkGfm]}>
-							{message.contentText}
-						</ReactMarkdown>
+				<div className="flex items-end gap-1">
+					{/* 外层 div 控制最大宽度，内层 div 负责 prose 排版，两者不冲突 */}
+					<div className="max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-sm break-words">
+						<div className="prose prose-sm dark:prose-invert max-w-none">
+							<ReactMarkdown remarkPlugins={[remarkGfm]}>
+								{message.contentText}
+							</ReactMarkdown>
+						</div>
 					</div>
+					<CopyButton
+						text={message.contentText}
+						className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mb-0.5"
+					/>
 				</div>
 			</div>
 		);
