@@ -97,14 +97,14 @@ CREATE INDEX idx_chat_messages_session_order ON chat_messages(session_id, sort_o
 
 ### 2.3 与现有系统的集成点
 
-| 现有模块                 | 集成方式                                                   |
-| ------------------------ | ---------------------------------------------------------- |
-| `ai_service::AiService`  | 直接复用 `chat_with_tools()`                               |
-| `ai_tools::ToolRegistry` | 直接复用 `definitions()` + `execute()`                     |
+| 现有模块                 | 集成方式                                                          |
+| ------------------------ | ----------------------------------------------------------------- |
+| `ai_service::AiService`  | 直接复用 `chat_with_tools()`                                      |
+| `ai_tools::ToolRegistry` | 直接复用 `definitions()` + `execute()`                            |
 | `ai_tools::ToolContext`  | 以 session_id 为 run_id 构建相同上下文，并补充 current_profile_id |
-| `ai_prompts`             | 新增 `build_chat_system_prompt()`，去掉 submit_result 指令 |
-| `app_preference_service` | 新增 `ai_chat_global_prompt` 字段                          |
-| `engine_manager`         | 通过 `get_runtime_handle()` 获取 debug_port/magic_port     |
+| `ai_prompts`             | 新增 `build_chat_system_prompt()`，去掉 submit_result 指令        |
+| `app_preference_service` | 新增 `ai_chat_global_prompt` 字段                                 |
+| `engine_manager`         | 通过 `get_runtime_handle()` 获取 debug_port/magic_port            |
 
 ---
 
@@ -158,11 +158,11 @@ CREATE INDEX idx_chat_messages_session_order ON chat_messages(session_id, sort_o
 
 ### 3.3 新增依赖
 
-| 包               | 版本   | 用途                     |
-| ---------------- | ------ | ------------------------ |
-| `react-markdown` | latest | AI 回复 Markdown 渲染    |
-| `remark-gfm`     | latest | GFM 表格/删除线/链接支持 |
-| `date-fns`       | latest | 聊天列表时间格式化       |
+| 包                           | 版本   | 用途                         |
+| ---------------------------- | ------ | ---------------------------- |
+| `react-markdown`             | latest | AI 回复 Markdown 渲染        |
+| `remark-gfm`                 | latest | GFM 表格/删除线/链接支持     |
+| `date-fns`                   | latest | 聊天列表时间格式化           |
 | `yet-another-react-lightbox` | latest | 聊天图片预览、缩放与关闭交互 |
 
 ---
@@ -186,10 +186,10 @@ CREATE INDEX idx_chat_messages_session_order ON chat_messages(session_id, sort_o
 
 ## 五、Tauri 事件规范
 
-| 事件名              | Payload                                          | 触发时机             |
-| ------------------- | ------------------------------------------------ | -------------------- |
-| `ai_chat://message`         | `{ sessionId, message: ChatMessageRecord }`      | 每条消息保存到 DB 后 |
-| `ai_chat://phase`           | `{ sessionId, phase, round, toolName?, error? }` | 每轮状态变化时       |
+| 事件名                      | Payload                                          | 触发时机                         |
+| --------------------------- | ------------------------------------------------ | -------------------------------- |
+| `ai_chat://message`         | `{ sessionId, message: ChatMessageRecord }`      | 每条消息保存到 DB 后             |
+| `ai_chat://phase`           | `{ sessionId, phase, round, toolName?, error? }` | 每轮状态变化时                   |
 | `ai_chat://session_updated` | `{ sessionId, session: ChatSession }`            | 会话 active profile 被后端改写时 |
 
 **phase 取值：**

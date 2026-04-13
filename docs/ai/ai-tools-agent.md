@@ -245,13 +245,13 @@ cdp_set_input_value(selector="input[name=q]", value="搜索词")
 
 **文本输入工具选择指南**：
 
-| 场景                        | 推荐工具              | 原因                                                                       |
-| --------------------------- | --------------------- | -------------------------------------------------------------------------- |
-| **通用文本输入（首选）**    | `magic_type_string`   | 模拟真实键盘输入，兼容性最好。**前置条件：先用 cdp_click 聚焦目标输入框** |
-| 普通 HTML input             | `cdp_type`            | 通过 CDP insertText 输入，速度快但不触发 keydown/keyup                     |
-| React/Vue 受控组件          | `cdp_set_input_value` | 直接设值并触发 input/change 事件，兼容性更好                               |
-| 需要触发自动补全            | `cdp_type`            | 逐字符输入触发 keydown/keyup                                               |
-| 大段文本粘贴                | `cdp_input_text`      | 支持从文件/变量读取文本                                                    |
+| 场景                     | 推荐工具              | 原因                                                                      |
+| ------------------------ | --------------------- | ------------------------------------------------------------------------- |
+| **通用文本输入（首选）** | `magic_type_string`   | 模拟真实键盘输入，兼容性最好。**前置条件：先用 cdp_click 聚焦目标输入框** |
+| 普通 HTML input          | `cdp_type`            | 通过 CDP insertText 输入，速度快但不触发 keydown/keyup                    |
+| React/Vue 受控组件       | `cdp_set_input_value` | 直接设值并触发 input/change 事件，兼容性更好                              |
+| 需要触发自动补全         | `cdp_type`            | 逐字符输入触发 keydown/keyup                                              |
+| 大段文本粘贴             | `cdp_input_text`      | 支持从文件/变量读取文本                                                   |
 
 **注意事项**：
 
@@ -307,20 +307,20 @@ cdp_get_document(depth=3)                 ← 先看 DOM 概览
 
 > **优先使用结构化文本提取（`cdp_get_text`、`cdp_get_full_ax_tree`、`cdp_execute_js`），避免依赖截图进行数据提取 — 截图应仅用于视觉状态判断，不适合提取结构化数据。**
 
-| 场景                   | 推荐工具                                        | 说明                                                     |
-| ---------------------- | ----------------------------------------------- | -------------------------------------------------------- |
-| 语义化结构提取         | `cdp_get_full_ax_tree`                          | 获取页面语义树，含角色/名称/值，适合复杂页面结构分析     |
-| 精确文本提取           | `cdp_get_text`                                  | 获取单个元素 innerText                                   |
-| 批量文本/属性          | `cdp_execute_js`                                | 用 `document.querySelectorAll` + map 一次提取多个元素    |
-| 完整 HTML 源码         | `cdp_get_page_source`                           | 获取整页或指定元素的 outerHTML                           |
-| DOM 节点结构           | `cdp_get_document`                              | 获取 DOM 树，`depth: -1` 可获取完整树                    |
-| 属性值                 | `cdp_get_attribute`                             | 获取 href/src/data-* 等属性                              |
-| Cookie/存储            | `cdp_get_cookies` / `cdp_get_local_storage`     | 读取认证信息、用户偏好等                                 |
-| 网络请求监控           | `cdp_get_network_requests`                      | 查看 API 调用（仅元数据，不含响应体）                    |
-| 控制台调试信息         | `cdp_get_console_logs`                          | 查看 JS 错误、调试输出                                   |
-| 当前页面 URL           | `cdp_get_current_url`                           | 快速获取 URL                                             |
-| 视觉判断               | `cdp_screenshot`                                | 页面视觉状态（文字提取请用以上工具代替）                 |
-| 任意 CDP 方法          | `cdp`（逃生舱）                                 | 调用未封装的原始 CDP 方法                                |
+| 场景           | 推荐工具                                    | 说明                                                  |
+| -------------- | ------------------------------------------- | ----------------------------------------------------- |
+| 语义化结构提取 | `cdp_get_full_ax_tree`                      | 获取页面语义树，含角色/名称/值，适合复杂页面结构分析  |
+| 精确文本提取   | `cdp_get_text`                              | 获取单个元素 innerText                                |
+| 批量文本/属性  | `cdp_execute_js`                            | 用 `document.querySelectorAll` + map 一次提取多个元素 |
+| 完整 HTML 源码 | `cdp_get_page_source`                       | 获取整页或指定元素的 outerHTML                        |
+| DOM 节点结构   | `cdp_get_document`                          | 获取 DOM 树，`depth: -1` 可获取完整树                 |
+| 属性值         | `cdp_get_attribute`                         | 获取 href/src/data-\* 等属性                          |
+| Cookie/存储    | `cdp_get_cookies` / `cdp_get_local_storage` | 读取认证信息、用户偏好等                              |
+| 网络请求监控   | `cdp_get_network_requests`                  | 查看 API 调用（仅元数据，不含响应体）                 |
+| 控制台调试信息 | `cdp_get_console_logs`                      | 查看 JS 错误、调试输出                                |
+| 当前页面 URL   | `cdp_get_current_url`                       | 快速获取 URL                                          |
+| 视觉判断       | `cdp_screenshot`                            | 页面视觉状态（文字提取请用以上工具代替）              |
+| 任意 CDP 方法  | `cdp`（逃生舱）                             | 调用未封装的原始 CDP 方法                             |
 
 **注意事项**：
 
@@ -701,16 +701,16 @@ magic_toggle_sync_mode(role="master")
 
 以下操作可能导致数据丢失或状态不可恢复，执行前务必确认：
 
-| 工具                    | 风险                         | 建议                                |
-| ----------------------- | ---------------------------- | ----------------------------------- |
-| `app_delete_profile`    | 永久删除 profile 数据        | 先 `dialog_confirm` 让用户确认      |
-| `app_delete_group`      | 永久删除分组                 | 先 `dialog_confirm` 让用户确认      |
-| `file_write`            | 覆盖文件内容                 | 确认路径正确，或先 `file_read` 备份 |
-| `magic_set_closed`      | 关闭浏览器窗口               | 确认不会丢失未保存的工作            |
-| `magic_safe_quit`       | 退出整个浏览器               | 确认所有工作已保存                  |
-| `magic_remove_bookmark` | 删除书签                     | 确认书签 ID 正确                    |
-| `cdp_clear_storage`     | 清除 localStorage/sessionStorage | 不可恢复，确认操作范围后再执行  |
-| `cdp_delete_cookies`    | 删除 Cookie（可能导致登出）  | 确认 Cookie 名称或范围后再执行      |
+| 工具                    | 风险                             | 建议                                |
+| ----------------------- | -------------------------------- | ----------------------------------- |
+| `app_delete_profile`    | 永久删除 profile 数据            | 先 `dialog_confirm` 让用户确认      |
+| `app_delete_group`      | 永久删除分组                     | 先 `dialog_confirm` 让用户确认      |
+| `file_write`            | 覆盖文件内容                     | 确认路径正确，或先 `file_read` 备份 |
+| `magic_set_closed`      | 关闭浏览器窗口                   | 确认不会丢失未保存的工作            |
+| `magic_safe_quit`       | 退出整个浏览器                   | 确认所有工作已保存                  |
+| `magic_remove_bookmark` | 删除书签                         | 确认书签 ID 正确                    |
+| `cdp_clear_storage`     | 清除 localStorage/sessionStorage | 不可恢复，确认操作范围后再执行      |
+| `cdp_delete_cookies`    | 删除 Cookie（可能导致登出）      | 确认 Cookie 名称或范围后再执行      |
 
 ### 执行流程最佳实践
 
@@ -747,64 +747,64 @@ cdp_get_text(selector=".title", output_key="page_title")
 
 ### CDP — 页面操作（56 个）
 
-| #   | 工具名                         | 说明                                          |
-| --- | ------------------------------ | --------------------------------------------- |
-| 1   | `cdp_navigate`                 | 导航到指定 URL                                |
-| 2   | `cdp_reload`                   | 重新加载页面（可选忽略缓存）                  |
-| 3   | `cdp_go_back`                  | 浏览器后退（可指定步数）                      |
-| 4   | `cdp_go_forward`               | 浏览器前进（可指定步数）                      |
-| 5   | `cdp_click`                    | 点击页面元素                                  |
-| 6   | `cdp_type`                     | 聚焦元素并通过 CDP Input.insertText 输入文本  |
-| 7   | `cdp_set_input_value`          | 直接设置 input value 并触发 input/change 事件 |
-| 8   | `cdp_input_text`               | 多来源文本输入（内联/文件/变量）              |
-| 9   | `cdp_get_text`                 | 获取元素文本内容                              |
-| 10  | `cdp_get_attribute`            | 获取元素 HTML 属性值                          |
-| 11  | `cdp_wait_for_selector`        | 等待元素出现在 DOM 中                         |
-| 12  | `cdp_wait_for_page_load`       | 等待页面完全加载                              |
-| 13  | `cdp_scroll_to`                | 滚动到元素或坐标位置                          |
-| 14  | `cdp_screenshot`               | 截取页面截图（支持视觉分析）                  |
-| 15  | `cdp_execute_js`               | 执行 JavaScript 并返回结果                    |
-| 16  | `cdp_open_new_tab`             | 打开新标签页                                  |
-| 17  | `cdp_get_all_tabs`             | 获取所有标签页列表                            |
-| 18  | `cdp_switch_tab`               | 切换到指定标签页                              |
-| 19  | `cdp_close_tab_by_target`      | 关闭指定标签页                                |
-| 20  | `cdp_upload_file`              | 为 file input 设置文件                        |
-| 21  | `cdp_download_file`            | 设置浏览器下载路径                            |
-| 22  | `cdp_clipboard`                | 剪贴板操作（复制/粘贴/全选）                  |
-| 23  | `cdp_press_key`                | 模拟单个按键                                  |
-| 24  | `cdp_shortcut`                 | 模拟键盘快捷键组合                            |
-| 25  | `cdp`                          | 调用任意 CDP 方法（低级，需了解协议）         |
-| 26  | `cdp_get_browser_version`      | 获取浏览器版本信息                            |
-| 27  | `cdp_get_browser_command_line` | 获取浏览器启动命令行参数                      |
-| 28  | `cdp_get_window_for_target`    | 获取目标所在窗口的信息                        |
-| 29  | `cdp_get_layout_metrics`       | 获取页面布局指标                              |
-| 30  | `cdp_get_document`             | 获取 DOM 树（可控深度和 Shadow DOM 穿透）     |
-| 31  | `cdp_get_full_ax_tree`         | 获取无障碍树（页面语义结构）                  |
-| 32  | `cdp_handle_dialog`            | 处理浏览器 JS 对话框（alert/confirm/prompt）  |
-| 33  | `cdp_get_cookies`              | 获取 Cookie                                   |
-| 34  | `cdp_set_cookie`               | 设置单个 Cookie                               |
-| 35  | `cdp_delete_cookies`           | ⚠️ 删除 Cookie                               |
-| 36  | `cdp_get_local_storage`        | 读取 localStorage                             |
-| 37  | `cdp_set_local_storage`        | 写入 localStorage                             |
-| 38  | `cdp_get_session_storage`      | 读取 sessionStorage                           |
-| 39  | `cdp_clear_storage`            | ⚠️ 清除存储数据（localStorage/sessionStorage）|
-| 40  | `cdp_get_current_url`          | 获取当前 URL                                  |
-| 41  | `cdp_get_page_source`          | 获取 HTML 源码                                |
-| 42  | `cdp_wait_for_navigation`      | 等待导航完成                                  |
-| 43  | `cdp_emulate_device`           | 模拟移动设备（viewport/UA/touch）             |
-| 44  | `cdp_set_geolocation`          | 模拟地理位置                                  |
-| 45  | `cdp_set_user_agent`           | 覆盖 User-Agent                               |
-| 46  | `cdp_get_element_box`          | 获取元素边界框（位置/尺寸）                   |
-| 47  | `cdp_highlight_element`        | 高亮页面元素                                  |
-| 48  | `cdp_mouse_move`               | 移动鼠标到坐标                                |
-| 49  | `cdp_drag_and_drop`            | 拖放元素                                      |
-| 50  | `cdp_select_option`            | 选择下拉选项（select 元素）                   |
-| 51  | `cdp_check_checkbox`           | 勾选/取消复选框                               |
-| 52  | `cdp_block_urls`               | 阻止指定 URL 加载                             |
-| 53  | `cdp_intercept_request`        | 拦截并修改网络请求                            |
-| 54  | `cdp_get_console_logs`         | 获取控制台日志                                |
-| 55  | `cdp_get_network_requests`     | 获取网络请求记录（仅元数据）                  |
-| 56  | `cdp_pdf`                      | 导出页面为 PDF                                |
+| #   | 工具名                         | 说明                                           |
+| --- | ------------------------------ | ---------------------------------------------- |
+| 1   | `cdp_navigate`                 | 导航到指定 URL                                 |
+| 2   | `cdp_reload`                   | 重新加载页面（可选忽略缓存）                   |
+| 3   | `cdp_go_back`                  | 浏览器后退（可指定步数）                       |
+| 4   | `cdp_go_forward`               | 浏览器前进（可指定步数）                       |
+| 5   | `cdp_click`                    | 点击页面元素                                   |
+| 6   | `cdp_type`                     | 聚焦元素并通过 CDP Input.insertText 输入文本   |
+| 7   | `cdp_set_input_value`          | 直接设置 input value 并触发 input/change 事件  |
+| 8   | `cdp_input_text`               | 多来源文本输入（内联/文件/变量）               |
+| 9   | `cdp_get_text`                 | 获取元素文本内容                               |
+| 10  | `cdp_get_attribute`            | 获取元素 HTML 属性值                           |
+| 11  | `cdp_wait_for_selector`        | 等待元素出现在 DOM 中                          |
+| 12  | `cdp_wait_for_page_load`       | 等待页面完全加载                               |
+| 13  | `cdp_scroll_to`                | 滚动到元素或坐标位置                           |
+| 14  | `cdp_screenshot`               | 截取页面截图（支持视觉分析）                   |
+| 15  | `cdp_execute_js`               | 执行 JavaScript 并返回结果                     |
+| 16  | `cdp_open_new_tab`             | 打开新标签页                                   |
+| 17  | `cdp_get_all_tabs`             | 获取所有标签页列表                             |
+| 18  | `cdp_switch_tab`               | 切换到指定标签页                               |
+| 19  | `cdp_close_tab_by_target`      | 关闭指定标签页                                 |
+| 20  | `cdp_upload_file`              | 为 file input 设置文件                         |
+| 21  | `cdp_download_file`            | 设置浏览器下载路径                             |
+| 22  | `cdp_clipboard`                | 剪贴板操作（复制/粘贴/全选）                   |
+| 23  | `cdp_press_key`                | 模拟单个按键                                   |
+| 24  | `cdp_shortcut`                 | 模拟键盘快捷键组合                             |
+| 25  | `cdp`                          | 调用任意 CDP 方法（低级，需了解协议）          |
+| 26  | `cdp_get_browser_version`      | 获取浏览器版本信息                             |
+| 27  | `cdp_get_browser_command_line` | 获取浏览器启动命令行参数                       |
+| 28  | `cdp_get_window_for_target`    | 获取目标所在窗口的信息                         |
+| 29  | `cdp_get_layout_metrics`       | 获取页面布局指标                               |
+| 30  | `cdp_get_document`             | 获取 DOM 树（可控深度和 Shadow DOM 穿透）      |
+| 31  | `cdp_get_full_ax_tree`         | 获取无障碍树（页面语义结构）                   |
+| 32  | `cdp_handle_dialog`            | 处理浏览器 JS 对话框（alert/confirm/prompt）   |
+| 33  | `cdp_get_cookies`              | 获取 Cookie                                    |
+| 34  | `cdp_set_cookie`               | 设置单个 Cookie                                |
+| 35  | `cdp_delete_cookies`           | ⚠️ 删除 Cookie                                 |
+| 36  | `cdp_get_local_storage`        | 读取 localStorage                              |
+| 37  | `cdp_set_local_storage`        | 写入 localStorage                              |
+| 38  | `cdp_get_session_storage`      | 读取 sessionStorage                            |
+| 39  | `cdp_clear_storage`            | ⚠️ 清除存储数据（localStorage/sessionStorage） |
+| 40  | `cdp_get_current_url`          | 获取当前 URL                                   |
+| 41  | `cdp_get_page_source`          | 获取 HTML 源码                                 |
+| 42  | `cdp_wait_for_navigation`      | 等待导航完成                                   |
+| 43  | `cdp_emulate_device`           | 模拟移动设备（viewport/UA/touch）              |
+| 44  | `cdp_set_geolocation`          | 模拟地理位置                                   |
+| 45  | `cdp_set_user_agent`           | 覆盖 User-Agent                                |
+| 46  | `cdp_get_element_box`          | 获取元素边界框（位置/尺寸）                    |
+| 47  | `cdp_highlight_element`        | 高亮页面元素                                   |
+| 48  | `cdp_mouse_move`               | 移动鼠标到坐标                                 |
+| 49  | `cdp_drag_and_drop`            | 拖放元素                                       |
+| 50  | `cdp_select_option`            | 选择下拉选项（select 元素）                    |
+| 51  | `cdp_check_checkbox`           | 勾选/取消复选框                                |
+| 52  | `cdp_block_urls`               | 阻止指定 URL 加载                              |
+| 53  | `cdp_intercept_request`        | 拦截并修改网络请求                             |
+| 54  | `cdp_get_console_logs`         | 获取控制台日志                                 |
+| 55  | `cdp_get_network_requests`     | 获取网络请求记录（仅元数据）                   |
+| 56  | `cdp_pdf`                      | 导出页面为 PDF                                 |
 
 ### Magic — 浏览器控制（53 个）
 
