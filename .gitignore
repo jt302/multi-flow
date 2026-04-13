@@ -14,6 +14,8 @@ dist-ssr
 
 # Superpowers tool internals
 .superpowers/
+docs/plans/
+docs/superpowers/
 
 # Editor directories and files
 .vscode/*
