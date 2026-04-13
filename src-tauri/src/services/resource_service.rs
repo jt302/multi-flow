@@ -16,7 +16,7 @@ use crate::models::{
 
 const DEFAULT_CHROMIUM_ID: &str = "chromium-macos-144.0.7559.97";
 const DEFAULT_GEOIP_ID: &str = "geoip-city-latest";
-const DEFAULT_CHROMIUM_URL: &str = "https://supabase-studio.webspaces.cc/storage/v1/object/public/multi-flow/chromium_144.0.7559.97.dmg";
+const DEFAULT_CHROMIUM_URL: &str = "https://pub-a864de27cbb94ddbb6df4bd821e5d544.r2.dev/chromium/chromium_144.0.7559.97.dmg";
 const DEFAULT_GEOIP_URL: &str =
     "https://supabase-studio.webspaces.cc/storage/v1/object/public/multi-flow/GeoLite2-City.mmdb";
 const MANIFEST_ENV: &str = "MULTI_FLOW_RESOURCE_MANIFEST_URL";
