@@ -30,3 +30,13 @@ dist-ssr
 .vscode/
 .claude/
 .worktree/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets/
+credentials/
+private/
