@@ -59,9 +59,9 @@
 - [项目背景与路线](docs/ai/project-context.md)
 - [会话摘要与阶段记录](docs/ai/session-summary.md)
 - [Proxy Daemon 用法说明](docs/ai/proxy-daemon.md)
-- [自研 chromium 项目位置](/Users/tt/Developer/Personal/chromium)
-- [sync-manger 项目位置](/Users/tt/Developer/Personal/Rust/multi-flow-sync-manager)
-- [tauri 日志文件位置](/Users/tt/Library/Application Support/com.tt.multi-flow/logs/backend.log)
+- 自研 chromium 源码（单独克隆，路径通过 `MULTI_FLOW_CHROMIUM_EXECUTABLE` 配置）
+- sync-manager 源码（单独仓库 `multi-flow-sync-manager`）
+- tauri 日志文件位置：`~/Library/Application Support/io.multiflow.app/logs/backend.log`
 - [sync manager 文档](docs/ai/multi-flow-sync-manager.md)
 - [AI 工具开发者文档](docs/ai/ai-tools-developer.md)
 - [AI 工具 Agent 使用文档](docs/ai/ai-tools-agent.md)

@@ -10,7 +10,7 @@
 - 什么时候允许用户点“开始同步”
 - 异常和自动停会话时 UI 应该怎么处理
 
-协议基线以 [AGENTS.md](/Users/tt/Developer/Personal/Rust/multi-flow-sync-manager/AGENTS.md) 为准；这里聚焦 Tauri 项目怎么用当前这版 sidecar。
+协议基线以 [AGENTS.md](<sync-manager-source>/AGENTS.md) 为准；这里聚焦 Tauri 项目怎么用当前这版 sidecar。
 
 ## 接入前提
 
@@ -620,5 +620,5 @@ export class MultiFlowSyncManagerClient {
 
 ## 9. 进一步阅读
 
-- 协议基线与 Chromium 字段说明：[AGENTS.md](/Users/tt/Developer/Personal/Rust/multi-flow-sync-manager/AGENTS.md)
-- Chromium 控制接口完整参考：[chromium-control/references/chromium.md](/Users/tt/Developer/Personal/Rust/multi-flow-sync-manager/chromium-control/references/chromium.md)
+- 协议基线与 Chromium 字段说明：[AGENTS.md](<sync-manager-source>/AGENTS.md)
+- Chromium 控制接口完整参考：[chromium-control/references/chromium.md](<sync-manager-source>/chromium-control/references/chromium.md)

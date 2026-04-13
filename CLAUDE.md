@@ -124,6 +124,6 @@ Read relevant docs before starting implementation, update them after changes:
 
 ## Related Projects
 
-- Custom Chromium source: `/Users/tt/Developer/Personal/chromium`
-- Sync Manager: `/Users/tt/Developer/Personal/Rust/multi-flow-sync-manager`
-- Tauri logs: `/Users/tt/Library/Application Support/com.tt.multi-flow/logs/backend.log`
+- Custom Chromium source: clone separately, path configurable via `MULTI_FLOW_CHROMIUM_EXECUTABLE`
+- Sync Manager: separate repository (`multi-flow-sync-manager`)
+- Tauri logs: `~/Library/Application Support/io.multiflow.app/logs/backend.log`

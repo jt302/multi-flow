@@ -5,7 +5,7 @@
 1. 完整实现以下所有功能 全部实现后接入前端自动化中 完成后看看步骤列表是否需要进行UI布局重构 因为工具太多了 看看是否有好的方案 进行实现
 2. 多语言支持 中文和英文 Agent prompt需根据语言切换
 3. 关于AI模型的配置 请查询主流国内外提供商文档按照规范进行重构 目前我看所有的提供商都需要填入base URL 请按照规范设计并实现 最后添加一个自定义选项作为通用方案
-4. 实现 [captcha-anti-bot-integration.md](/Users/tt/Developer/personal/multi-flow/docs/ai/captcha-anti-bot-integration.md)
+4. 实现 [captcha-anti-bot-integration.md](docs/ai/captcha-anti-bot-integration.md)
 5. 编写计划和划分任务并结合所需上下文一起写入实现文档然后开始执行实现过程中随进度更新 防止任务过长和压缩导致上下文丢失
 
 > 基于 2026-04-03 审计结果，当前 121 个工具全部已实现。以下为待新增工具清单。

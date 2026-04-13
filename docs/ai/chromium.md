@@ -2,7 +2,7 @@
 
 这份文档面向“指纹浏览器批量管理软件 app”中的 agent，目标是让 agent 能直接阅读、调用并编排这个编译后的 Chromium 程序。
 
-本文档基于当前源码、旧版接入文档 [`chromium-old.md`](/Users/tt/Developer/Personal/chromium/chromium-old.md) 和当前项目接入约定整理而成。
+本文档基于当前源码、旧版接入文档 [`chromium-old.md`](<chromium-source>/chromium-old.md) 和当前项目接入约定整理而成。
 
 本文档只描述当前代码中已经存在的实际接口和行为，不描述未实现的理想能力。
 
@@ -24,12 +24,12 @@
 
 核心实现位于：
 
-- [chrome_browser_main.cc](/Users/tt/Developer/Personal/chromium/src/chrome/browser/chrome_browser_main.cc)
-- [magic_socket_server.cc](/Users/tt/Developer/Personal/chromium/src/chrome/browser/magic_controller/magic_socket_server.cc)
-- [magic_http_handler.cc](/Users/tt/Developer/Personal/chromium/src/chrome/browser/magic_controller/magic_http_handler.cc)
-- [magic_ws_handler.cc](/Users/tt/Developer/Personal/chromium/src/chrome/browser/magic_controller/magic_ws_handler.cc)
-- [magic_server_helper.cc](/Users/tt/Developer/Personal/chromium/src/chrome/browser/magic_controller/magic_server_helper.cc)
-- [magic_sync_manager.h](/Users/tt/Developer/Personal/chromium/src/components/magic_sync_manager/magic_sync_manager.h)
+- [chrome_browser_main.cc](<chromium-source>/src/chrome/browser/chrome_browser_main.cc)
+- [magic_socket_server.cc](<chromium-source>/src/chrome/browser/magic_controller/magic_socket_server.cc)
+- [magic_http_handler.cc](<chromium-source>/src/chrome/browser/magic_controller/magic_http_handler.cc)
+- [magic_ws_handler.cc](<chromium-source>/src/chrome/browser/magic_controller/magic_ws_handler.cc)
+- [magic_server_helper.cc](<chromium-source>/src/chrome/browser/magic_controller/magic_server_helper.cc)
+- [magic_sync_manager.h](<chromium-source>/src/components/magic_sync_manager/magic_sync_manager.h)
 
 ## 2. 启动与监听
 
@@ -43,8 +43,8 @@
 
 代码依据：
 
-- [chrome_browser_main.cc:1407](/Users/tt/Developer/Personal/chromium/src/chrome/browser/chrome_browser_main.cc:1407)
-- [base_switches.cc:237](/Users/tt/Developer/Personal/chromium/src/base/base_switches.cc:237)
+- [chrome_browser_main.cc:1407](<chromium-source>/src/chrome/browser/chrome_browser_main.cc:1407)
+- [base_switches.cc:237](<chromium-source>/src/base/base_switches.cc:237)
 
 如果没有这个参数，HTTP/WS 控制服务都不会启动。
 
@@ -58,7 +58,7 @@
 
 代码依据：
 
-- [start.py:865](/Users/tt/Developer/Personal/chromium/start.py:865)
+- [start.py:865](<chromium-source>/start.py:865)
 
 ### 2.3 监听地址
 
@@ -70,7 +70,7 @@
 
 代码依据：
 
-- [magic_socket_server.cc:68](/Users/tt/Developer/Personal/chromium/src/chrome/browser/magic_controller/magic_socket_server.cc:68)
+- [magic_socket_server.cc:68](<chromium-source>/src/chrome/browser/magic_controller/magic_socket_server.cc:68)
 
 这意味着它不是只监听 `127.0.0.1`。如果你只希望本机访问，需要在启动环境或防火墙层面额外限制。
 
@@ -1457,7 +1457,7 @@ WebSocket 主要用于同步功能。
 
 如果你正在实现 Rust sidecar，建议优先阅读独立整理的同步接入文档：
 
-- [sidecar-integration.md](/Users/tt/Developer/Personal/chromium/sidecar-integration.md)
+- [sidecar-integration.md](<chromium-source>/sidecar-integration.md)
 
 ### 6.1 客户端请求
 
@@ -1963,7 +1963,7 @@ Chromium 实际接收的仍是这些注入结果：
 
 ### 13.1 `base_switches.cc` 中的 `kCustom*` 参数
 
-以下参数直接定义在 [base_switches.cc:198](/Users/tt/Developer/Personal/chromium/src/base/base_switches.cc:198) 一带。
+以下参数直接定义在 [base_switches.cc:198](<chromium-source>/src/base/base_switches.cc:198) 一带。
 
 | 参数                             | 常量名                        | 用途                              | 示例                                                      |
 | -------------------------------- | ----------------------------- | --------------------------------- | --------------------------------------------------------- | ----------------------- | -------- | ---------- | -------- | ------------------------------------- | --------------------- |
@@ -2003,9 +2003,9 @@ Chromium 实际接收的仍是这些注入结果：
 | `--toolbar-text`                       | 地址栏和刷新按钮之间显示自定义标识文字     | `--toolbar-text=实例-01`                                                                                                       |
 | `--magic-socket-server-port`           | 启动 Chromium 内置 HTTP/WS 控制服务        | `--magic-socket-server-port=9999`                                                                                              |
 | `--auto-allow-geolocation`             | 地理位置权限请求静默自动通过，不弹授权框   | `--auto-allow-geolocation`                                                                                                     |
-| `--extension-state-file`               | 启动时加载受管理扩展目标状态 JSON 文件     | `--extension-state-file=/Users/tt/app_data/environments/env_001/runtime/extension-state.json`                                  |
-| `--cookie-state-file`                  | 启动时加载受管理 Cookie 目标状态 JSON 文件 | `--cookie-state-file=/Users/tt/app_data/environments/env_001/runtime/cookie-state.json`                                        |
-| `--bookmark-state-file`                | 启动时加载受管理书签目标状态 JSON 文件     | `--bookmark-state-file=/Users/tt/app_data/environments/env_001/runtime/bookmark-state.json`                                    |
+| `--extension-state-file`               | 启动时加载受管理扩展目标状态 JSON 文件     | `--extension-state-file=/path/to/app_data/environments/env_001/runtime/extension-state.json`                                  |
+| `--cookie-state-file`                  | 启动时加载受管理 Cookie 目标状态 JSON 文件 | `--cookie-state-file=/path/to/app_data/environments/env_001/runtime/cookie-state.json`                                        |
+| `--bookmark-state-file`                | 启动时加载受管理书签目标状态 JSON 文件     | `--bookmark-state-file=/path/to/app_data/environments/env_001/runtime/bookmark-state.json`                                    |
 | `--enable-port-scan-protection`        | 启用普通网页端口扫描保护                   | `--enable-port-scan-protection`                                                                                                |
 | `--enable-automation-detection-shield` | 启用自动化检测隔绝                         | `--enable-automation-detection-shield`                                                                                         |
 | `--enable-do-not-track`                | 启动时为当前 profile 开启 Do Not Track     | `--enable-do-not-track`                                                                                                        |
@@ -2413,7 +2413,7 @@ CHROMIUM_BOOKMARK_STATE_FILE=/abs/path/bookmark-state.json python3 start.py
 - 当前仓库里的 `start.py` 默认会附加：
 
 ```bash
---cookie-state-file=/Users/tt/Developer/Personal/chromium/cookie-state.test.json
+--cookie-state-file=<chromium-source>/cookie-state.test.json
 ```
 
 - 若设置 `CHROMIUM_COOKIE_STATE_FILE`，则会覆盖 `start.py` 里的默认测试文件：
@@ -2425,7 +2425,7 @@ CHROMIUM_COOKIE_STATE_FILE=/abs/path/cookie-state.json python3 start.py
 - 当前仓库里的 `start.py` 还把 `user-data-dir` 固定到了仓库根目录下的 `profile` 目录，因此上面的命令默认会把 Cookie 写入：
 
 ```text
-/Users/tt/Developer/Personal/chromium/profile/Default/Cookies
+<chromium-source>/profile/Default/Cookies
 ```
 
 ### 13.4 参数一致性规则
@@ -2534,7 +2534,7 @@ CHROMIUM_COOKIE_STATE_FILE=/abs/path/cookie-state.json python3 start.py
 			"browser_info": {
 				"app_name": "",
 				"profile_name": "",
-				"profile_path": "/Users/tt/Library/Application Support/Chromium/Default",
+				"profile_path": "~/Library/Application Support/Chromium/Default",
 				"user_title": ""
 			},
 			"fullscreen": false,
@@ -2571,7 +2571,7 @@ CHROMIUM_COOKIE_STATE_FILE=/abs/path/cookie-state.json python3 start.py
 			"browser_info": {
 				"app_name": "",
 				"profile_name": "",
-				"profile_path": "/Users/tt/Library/Application Support/Chromium/Default",
+				"profile_path": "~/Library/Application Support/Chromium/Default",
 				"user_title": ""
 			},
 			"fullscreen": false,
@@ -2610,7 +2610,7 @@ CHROMIUM_COOKIE_STATE_FILE=/abs/path/cookie-state.json python3 start.py
 		"browser_info": {
 			"app_name": "",
 			"profile_name": "",
-			"profile_path": "/Users/tt/Library/Application Support/Chromium/Default",
+			"profile_path": "~/Library/Application Support/Chromium/Default",
 			"user_title": ""
 		},
 		"fullscreen": false,
@@ -2672,7 +2672,7 @@ CHROMIUM_COOKIE_STATE_FILE=/abs/path/cookie-state.json python3 start.py
 		"browser_info": {
 			"app_name": "",
 			"profile_name": "",
-			"profile_path": "/Users/tt/Library/Application Support/Chromium/Default",
+			"profile_path": "~/Library/Application Support/Chromium/Default",
 			"user_title": ""
 		},
 		"fullscreen": false,
