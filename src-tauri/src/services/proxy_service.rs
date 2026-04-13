@@ -1765,7 +1765,7 @@ mod tests {
             .create_proxy(CreateProxyRequest {
                 name: "proxy-a".to_string(),
                 protocol: "http".to_string(),
-                host: "10.0.0.1".to_string(),
+                host: "192.0.2.1".to_string(),
                 port: 8001,
                 username: None,
                 password: None,
@@ -1783,7 +1783,7 @@ mod tests {
             .create_proxy(CreateProxyRequest {
                 name: "proxy-b".to_string(),
                 protocol: "socks5".to_string(),
-                host: "10.0.0.2".to_string(),
+                host: "192.0.2.2".to_string(),
                 port: 8002,
                 username: None,
                 password: None,
@@ -1850,7 +1850,7 @@ mod tests {
             .create_proxy(CreateProxyRequest {
                 name: "proxy-a".to_string(),
                 protocol: "http".to_string(),
-                host: "10.0.0.1".to_string(),
+                host: "192.0.2.1".to_string(),
                 port: 8001,
                 username: Some("user-a".to_string()),
                 password: None,
@@ -1868,7 +1868,7 @@ mod tests {
             .create_proxy(CreateProxyRequest {
                 name: "proxy-b".to_string(),
                 protocol: "socks5".to_string(),
-                host: "10.0.0.2".to_string(),
+                host: "192.0.2.2".to_string(),
                 port: 8002,
                 username: Some("user-b".to_string()),
                 password: None,
@@ -1908,7 +1908,7 @@ mod tests {
         assert_eq!(second_updated.provider.as_deref(), Some("batch-provider"));
         assert!(first_updated.note.is_none());
         assert!(second_updated.note.is_none());
-        assert_eq!(first_updated.host, "10.0.0.1");
+        assert_eq!(first_updated.host, "192.0.2.1");
         assert_eq!(second_updated.port, 8002);
     }
 
@@ -1921,7 +1921,7 @@ mod tests {
             .create_proxy(CreateProxyRequest {
                 name: "proxy-delete".to_string(),
                 protocol: "http".to_string(),
-                host: "10.0.0.1".to_string(),
+                host: "192.0.2.1".to_string(),
                 port: 8001,
                 username: None,
                 password: None,
