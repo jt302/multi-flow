@@ -70,16 +70,17 @@ export function useResourceActions({
 			setResourceProgress((prev) => (prev ? { ...prev, stage: 'done', percent: 100 } : prev));
 			toast.success(i18n.t('resource:browserInstalled'), { id: toastId });
 		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : i18n.t('resource:installFailed');
 			setResourceProgress((prev) =>
 				prev
 					? {
 							...prev,
 							stage: 'error',
-							message: error instanceof Error ? error.message : i18n.t('resource:installFailed'),
+							message: errorMessage,
 						}
 					: prev,
 			);
-			toast.error(i18n.t('resource:installBrowserFailed'), { id: toastId });
+			toast.error(errorMessage, { id: toastId });
 			throw error;
 		}
 	};
@@ -128,16 +129,17 @@ export function useResourceActions({
 			setResourceProgress((prev) => (prev ? { ...prev, stage: 'done', percent: 100 } : prev));
 			toast.success(i18n.t('resource:labelDownloaded', { label }), { id: toastId });
 		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : i18n.t('resource:downloadFailed');
 			setResourceProgress((prev) =>
 				prev
 					? {
 							...prev,
 							stage: 'error',
-							message: error instanceof Error ? error.message : i18n.t('resource:downloadFailed'),
+							message: errorMessage,
 						}
 					: prev,
 			);
-			toast.error(i18n.t('resource:labelDownloadFailed', { label }), { id: toastId });
+			toast.error(errorMessage, { id: toastId });
 			throw error;
 		}
 	};

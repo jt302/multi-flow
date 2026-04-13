@@ -54,7 +54,7 @@ pub async fn download_resource(
         "start",
         0,
         None,
-        "开始下载资源",
+        "Starting download",
     );
     let app_c = app.clone();
     let task_id_c = task_id.clone();
@@ -69,7 +69,7 @@ pub async fn download_resource(
                 "download",
                 downloaded,
                 total,
-                "下载中",
+                "Downloading",
             );
         })
     })
@@ -84,7 +84,7 @@ pub async fn download_resource(
                 "done",
                 response.bytes,
                 Some(response.bytes),
-                "已完成",
+                "Done",
             );
             Ok(response)
         }
@@ -96,7 +96,7 @@ pub async fn download_resource(
                 "error",
                 0,
                 None,
-                &format!("失败: {}", err),
+                &err.to_string(),
             );
             Err(error_to_string(err))
         }
@@ -126,7 +126,7 @@ pub async fn install_chromium_resource(
         "start",
         0,
         None,
-        "开始下载资源",
+        "Starting download",
     );
     let app_c = app.clone();
     let task_id_c = task_id.clone();
@@ -149,10 +149,10 @@ pub async fn install_chromium_resource(
                     downloaded,
                     total,
                     match stage {
-                        "download" => "下载中",
-                        "install" => "安装并激活中",
-                        "done" => "已完成",
-                        _ => "处理中",
+                        "download" => "Downloading",
+                        "install" => "Installing",
+                        "done" => "Done",
+                        _ => "Processing",
                     },
                 );
             },
@@ -170,7 +170,7 @@ pub async fn install_chromium_resource(
                 "error",
                 0,
                 None,
-                &format!("失败: {}", err),
+                &err.to_string(),
             );
             Err(error_to_string(err))
         }
