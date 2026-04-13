@@ -88,7 +88,7 @@ const cases: Array<{ name: string; steps: ScriptStep[] }> = [
 					},
 					{
 						kind: 'cdp_screenshot',
-						output_path: '/Users/tt/Documents/search.png',
+						output_path: '/tmp/search.png',
 						output_key_file_path: 'success_png_path',
 					},
 					{
@@ -108,7 +108,7 @@ const cases: Array<{ name: string; steps: ScriptStep[] }> = [
 				else_steps: [
 					{
 						kind: 'cdp_screenshot',
-						output_path: '/Users/tt/Documents/search.png',
+						output_path: '/tmp/search.png',
 						output_key_file_path: 'success_png_path',
 					},
 					{
@@ -167,7 +167,7 @@ const cases: Array<{ name: string; steps: ScriptStep[] }> = [
 							[
 								{
 									kind: 'cdp_screenshot',
-									output_path: '/Users/tt/Documents/search.png',
+									output_path: '/tmp/search.png',
 									output_key_file_path: 'success_png_path',
 								},
 								{
@@ -194,7 +194,7 @@ const cases: Array<{ name: string; steps: ScriptStep[] }> = [
 				else_steps: [
 					{
 						kind: 'cdp_screenshot',
-						output_path: '/Users/tt/Documents/search.png',
+						output_path: '/tmp/search.png',
 						output_key_file_path: 'success_png_path',
 					},
 					{
