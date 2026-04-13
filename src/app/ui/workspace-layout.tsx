@@ -142,7 +142,7 @@ export function WorkspaceLayout() {
 							/>
 						</Card>
 						<Card className="min-h-0 w-full flex-1 overflow-hidden flex flex-col border-border/40 bg-card/60 p-0 backdrop-blur-3xl shadow-md transition-all duration-300">
-							<div className="flex-1 min-h-0 overflow-hidden">
+							<div className="flex-1 min-h-0 overflow-y-auto">
 								<div
 									key={location.pathname}
 									className="flex h-full w-full min-w-0 flex-col p-3 md:p-4 animate-in fade-in zoom-in-[0.98] duration-500 fill-mode-both"
