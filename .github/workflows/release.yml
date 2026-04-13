@@ -101,6 +101,6 @@ jobs:
             ## Multi-Flow ${{ github.ref_name }}
 
             See [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
-          releaseDraft: true   # Change to false after testing
+          releaseDraft: false
           prerelease: false
           args: --target ${{ matrix.target }}
