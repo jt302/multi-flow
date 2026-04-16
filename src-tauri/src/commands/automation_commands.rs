@@ -3545,6 +3545,303 @@ pub async fn execute_step(
             .await?;
             Ok((None, HashMap::new()))
         }
+        // AI Agent 语义化操作
+        ScriptStep::MagicGetBrowser {
+            browser_id,
+            output_key,
+        } => {
+            let port = get_magic_port()?;
+            let body = magic_post(
+                http_client,
+                port,
+                json!({ "cmd": "get_browser", "browser_id": browser_id }),
+            )
+            .await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicClickAt {
+            grid,
+            position,
+            button,
+            modifiers,
+            click_count,
+            action,
+            browser_id,
+            output_key,
+        } => {
+            let port = get_magic_port()?;
+            let grid = vars.interpolate(grid);
+            let position = vars.interpolate(position);
+            let mut payload = json!({ "cmd": "click_at", "grid": grid, "position": position });
+            if let Some(b) = button {
+                payload["button"] = json!(b);
+            }
+            if let Some(m) = modifiers {
+                payload["modifiers"] = json!(m);
+            }
+            if let Some(c) = click_count {
+                payload["click_count"] = json!(c);
+            }
+            if let Some(a) = action {
+                payload["action"] = json!(a);
+            }
+            if let Some(id) = browser_id {
+                payload["browser_id"] = json!(id);
+            }
+            let body = magic_post(http_client, port, payload).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicClickElement {
+            target,
+            browser_id,
+            output_key,
+        } => {
+            let port = get_magic_port()?;
+            let target = vars.interpolate(target);
+            let mut payload = json!({ "cmd": "click_element", "target": target });
+            if let Some(id) = browser_id {
+                payload["browser_id"] = json!(id);
+            }
+            let body = magic_post(http_client, port, payload).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicGetUiElements {
+            browser_id,
+            output_key,
+        } => {
+            let port = get_magic_port()?;
+            let mut payload = json!({ "cmd": "get_ui_elements" });
+            if let Some(id) = browser_id {
+                payload["browser_id"] = json!(id);
+            }
+            let body = magic_post(http_client, port, payload).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicNavigateTo {
+            url,
+            tab_id,
+            output_key,
+        } => {
+            let port = get_magic_port()?;
+            let url = vars.interpolate(url);
+            let mut payload = json!({ "cmd": "navigate_to", "url": url });
+            if let Some(id) = tab_id {
+                payload["tab_id"] = json!(id);
+            }
+            let body = magic_post(http_client, port, payload).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicQueryDom {
+            by,
+            selector,
+            r#match,
+            tab_id,
+            limit,
+            visible_only,
+            output_key,
+        } => {
+            let port = get_magic_port()?;
+            let selector = vars.interpolate(selector);
+            let mut payload = json!({ "cmd": "query_dom", "by": by, "selector": selector });
+            if let Some(m) = r#match {
+                payload["match"] = json!(m);
+            }
+            if let Some(id) = tab_id {
+                payload["tab_id"] = json!(id);
+            }
+            if let Some(l) = limit {
+                payload["limit"] = json!(l);
+            }
+            if let Some(v) = visible_only {
+                payload["visible_only"] = json!(v);
+            }
+            let body = magic_post(http_client, port, payload).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicClickDom {
+            by,
+            selector,
+            r#match,
+            index,
+            tab_id,
+            visible_only,
+            output_key,
+        } => {
+            let port = get_magic_port()?;
+            let selector = vars.interpolate(selector);
+            let mut payload = json!({ "cmd": "click_dom", "by": by, "selector": selector });
+            if let Some(m) = r#match {
+                payload["match"] = json!(m);
+            }
+            if let Some(i) = index {
+                payload["index"] = json!(i);
+            }
+            if let Some(id) = tab_id {
+                payload["tab_id"] = json!(id);
+            }
+            if let Some(v) = visible_only {
+                payload["visible_only"] = json!(v);
+            }
+            let body = magic_post(http_client, port, payload).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicFillDom {
+            by,
+            selector,
+            value,
+            r#match,
+            index,
+            clear,
+            tab_id,
+            visible_only,
+            output_key,
+        } => {
+            let port = get_magic_port()?;
+            let selector = vars.interpolate(selector);
+            let value = vars.interpolate(value);
+            let mut payload = json!({ "cmd": "fill_dom", "by": by, "selector": selector, "value": value });
+            if let Some(m) = r#match {
+                payload["match"] = json!(m);
+            }
+            if let Some(i) = index {
+                payload["index"] = json!(i);
+            }
+            if let Some(c) = clear {
+                payload["clear"] = json!(c);
+            }
+            if let Some(id) = tab_id {
+                payload["tab_id"] = json!(id);
+            }
+            if let Some(v) = visible_only {
+                payload["visible_only"] = json!(v);
+            }
+            let body = magic_post(http_client, port, payload).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicSendKeys {
+            keys,
+            tab_id,
+            output_key,
+        } => {
+            let port = get_magic_port()?;
+            let mut payload = json!({ "cmd": "send_keys", "keys": keys });
+            if let Some(id) = tab_id {
+                payload["tab_id"] = json!(id);
+            }
+            let body = magic_post(http_client, port, payload).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicGetPageInfo {
+            tab_id,
+            output_key,
+        } => {
+            let port = get_magic_port()?;
+            let mut payload = json!({ "cmd": "get_page_info" });
+            if let Some(id) = tab_id {
+                payload["tab_id"] = json!(id);
+            }
+            let body = magic_post(http_client, port, payload).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicScroll {
+            direction,
+            distance,
+            by,
+            selector,
+            index,
+            visible_only,
+            tab_id,
+            output_key,
+        } => {
+            let port = get_magic_port()?;
+            let mut payload = json!({ "cmd": "scroll" });
+            if let Some(d) = direction {
+                payload["direction"] = json!(d);
+            }
+            if let Some(d) = distance {
+                payload["distance"] = json!(d);
+            }
+            if let Some(b) = by {
+                payload["by"] = json!(b);
+            }
+            if let Some(s) = selector {
+                payload["selector"] = json!(vars.interpolate(s));
+            }
+            if let Some(i) = index {
+                payload["index"] = json!(i);
+            }
+            if let Some(v) = visible_only {
+                payload["visible_only"] = json!(v);
+            }
+            if let Some(id) = tab_id {
+                payload["tab_id"] = json!(id);
+            }
+            let body = magic_post(http_client, port, payload).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicSetDockIconText {
+            text,
+            color,
+            output_key,
+        } => {
+            let port = get_magic_port()?;
+            let text = vars.interpolate(text);
+            let mut payload = json!({ "cmd": "set_dock_icon_text", "text": text });
+            if let Some(c) = color {
+                payload["color"] = json!(c);
+            }
+            let body = magic_post(http_client, port, payload).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+        ScriptStep::MagicGetPageContent {
+            mode,
+            format,
+            tab_id,
+            viewport_only,
+            max_elements,
+            max_text_length,
+            max_depth,
+            include_hidden,
+            regions,
+            exclude_regions,
+            output_key,
+        } => {
+            let port = get_magic_port()?;
+            let mut payload = json!({ "cmd": "get_page_content" });
+            if let Some(m) = mode {
+                payload["mode"] = json!(m);
+            }
+            if let Some(f) = format {
+                payload["format"] = json!(f);
+            }
+            if let Some(id) = tab_id {
+                payload["tab_id"] = json!(id);
+            }
+            if let Some(v) = viewport_only {
+                payload["viewport_only"] = json!(v);
+            }
+            if let Some(m) = max_elements {
+                payload["max_elements"] = json!(m);
+            }
+            if let Some(m) = max_text_length {
+                payload["max_text_length"] = json!(m);
+            }
+            if let Some(m) = max_depth {
+                payload["max_depth"] = json!(m);
+            }
+            if let Some(h) = include_hidden {
+                payload["include_hidden"] = json!(h);
+            }
+            if let Some(r) = regions {
+                payload["regions"] = json!(r);
+            }
+            if let Some(e) = exclude_regions {
+                payload["exclude_regions"] = json!(e);
+            }
+            let body = magic_post(http_client, port, payload).await?;
+            Ok((Some(body.clone()), opt_key(output_key, body)))
+        }
+
         ScriptStep::MagicToggleSyncMode {
             role,
             browser_id,

@@ -25,7 +25,7 @@ fn tool(name: &str, description: &str, parameters: Value) -> Value {
 
 /// 返回所有工具定义
 pub fn all_tool_definitions() -> Vec<Value> {
-    let mut defs = Vec::with_capacity(175);
+    let mut defs = Vec::with_capacity(189);
     defs.extend(utility_tools());
     defs.extend(cdp_tools());
     defs.extend(magic_tools());
@@ -1387,6 +1387,201 @@ fn magic_tools() -> Vec<Value> {
                 "type": "object",
                 "properties": {
                     "output_key": { "type": "string", "description": "将完整窗口状态 JSON 存入此变量名" }
+                }
+            }),
+        ),
+        // ── AI Agent 语义化操作 (13) ──
+        tool(
+            "magic_get_browser",
+            "根据 browser_id 获取指定浏览器窗口信息",
+            json!({
+                "type": "object",
+                "properties": {
+                    "browser_id": { "type": "integer", "description": "浏览器窗口 ID" },
+                    "output_key": { "type": "string", "description": "将结果存入此变量名" }
+                },
+                "required": ["browser_id"]
+            }),
+        ),
+        tool(
+            "magic_click_at",
+            "坐标系点击，将虚拟坐标映射到浏览器窗口像素坐标注入鼠标事件",
+            json!({
+                "type": "object",
+                "properties": {
+                    "grid": { "type": "string", "description": "虚拟坐标系尺寸，格式 '宽,高'，如 '1200,800'" },
+                    "position": { "type": "string", "description": "目标点坐标，格式 'x,y'，如 '125,60'" },
+                    "button": { "type": "string", "enum": ["left", "right", "middle"], "description": "鼠标按钮" },
+                    "modifiers": { "type": "array", "items": { "type": "string", "enum": ["shift", "ctrl", "alt", "meta"] }, "description": "修饰键列表" },
+                    "click_count": { "type": "integer", "description": "点击次数，1=单击 2=双击 3=三击" },
+                    "action": { "type": "string", "enum": ["click", "down", "up", "move"], "description": "动作类型" },
+                    "browser_id": { "type": "integer", "description": "目标窗口 ID，省略则使用活动窗口" },
+                    "output_key": { "type": "string", "description": "将结果存入此变量名" }
+                },
+                "required": ["grid", "position"]
+            }),
+        ),
+        tool(
+            "magic_click_element",
+            "语义化点击浏览器 Chrome UI 元素（工具栏/标签栏/菜单），无需截图",
+            json!({
+                "type": "object",
+                "properties": {
+                    "target": { "type": "string", "description": "目标元素标识：back_button, forward_button, reload_button, bookmark_star, avatar_button, app_menu_button, tab_search_button, location_bar, new_tab_button, tab:{index}, tab_close:{index}, app_menu_item:{command_id}" },
+                    "browser_id": { "type": "integer", "description": "目标窗口 ID，省略则使用活动窗口" },
+                    "output_key": { "type": "string", "description": "将结果存入此变量名" }
+                },
+                "required": ["target"]
+            }),
+        ),
+        tool(
+            "magic_get_ui_elements",
+            "查询浏览器 UI 当前状态（工具栏按钮、标签页列表、菜单），供 Agent 决策",
+            json!({
+                "type": "object",
+                "properties": {
+                    "browser_id": { "type": "integer", "description": "目标窗口 ID，省略则使用活动窗口" },
+                    "output_key": { "type": "string", "description": "将结果存入此变量名" }
+                }
+            }),
+        ),
+        tool(
+            "magic_navigate_to",
+            "导航到指定 URL（使用 Magic Controller，比 CDP 更可靠）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "url": { "type": "string", "description": "目标 URL" },
+                    "tab_id": { "type": "integer", "description": "目标标签页 ID（可选）" },
+                    "output_key": { "type": "string", "description": "将结果存入此变量名" }
+                },
+                "required": ["url"]
+            }),
+        ),
+        tool(
+            "magic_query_dom",
+            "DOM 元素查询，返回匹配元素候选列表（用于后续 click_dom/fill_dom 定位）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "by": { "type": "string", "enum": ["css", "xpath", "text", "aria", "role", "placeholder", "name", "search", "idx"], "description": "选择器类型" },
+                    "selector": { "type": "string", "description": "选择器值" },
+                    "match": { "type": "string", "enum": ["contains", "icontains", "exact", "regex", "starts_with", "ends_with"], "description": "文本匹配模式" },
+                    "tab_id": { "type": "integer", "description": "目标标签页 ID（可选）" },
+                    "limit": { "type": "integer", "description": "返回结果数量上限" },
+                    "visible_only": { "type": "boolean", "description": "只返回可见元素" },
+                    "output_key": { "type": "string", "description": "将结果存入此变量名" }
+                },
+                "required": ["by", "selector"]
+            }),
+        ),
+        tool(
+            "magic_click_dom",
+            "点击 DOM 元素（支持多种选择器方式，比 CDP 更稳定）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "by": { "type": "string", "enum": ["css", "xpath", "text", "aria", "role", "placeholder", "name", "search", "idx"], "description": "选择器类型" },
+                    "selector": { "type": "string", "description": "选择器值" },
+                    "match": { "type": "string", "enum": ["contains", "icontains", "exact", "regex", "starts_with", "ends_with"], "description": "文本匹配模式" },
+                    "index": { "type": "integer", "description": "多个匹配结果时选取的索引（从 0 开始）" },
+                    "tab_id": { "type": "integer", "description": "目标标签页 ID（可选）" },
+                    "visible_only": { "type": "boolean", "description": "只操作可见元素" },
+                    "output_key": { "type": "string", "description": "将结果存入此变量名" }
+                },
+                "required": ["by", "selector"]
+            }),
+        ),
+        tool(
+            "magic_fill_dom",
+            "填写表单元素（支持清空后输入，比 CDP 更稳定）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "by": { "type": "string", "enum": ["css", "xpath", "text", "aria", "role", "placeholder", "name", "search", "idx"], "description": "选择器类型" },
+                    "selector": { "type": "string", "description": "选择器值" },
+                    "value": { "type": "string", "description": "要填写的内容" },
+                    "match": { "type": "string", "enum": ["contains", "icontains", "exact", "regex", "starts_with", "ends_with"], "description": "文本匹配模式" },
+                    "index": { "type": "integer", "description": "多个匹配结果时选取的索引（从 0 开始）" },
+                    "clear": { "type": "boolean", "description": "填写前是否先清空，默认 true" },
+                    "tab_id": { "type": "integer", "description": "目标标签页 ID（可选）" },
+                    "visible_only": { "type": "boolean", "description": "只操作可见元素" },
+                    "output_key": { "type": "string", "description": "将结果存入此变量名" }
+                },
+                "required": ["by", "selector", "value"]
+            }),
+        ),
+        tool(
+            "magic_send_keys",
+            "键盘输入（支持特殊键/快捷键组合/文字输入）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "keys": { "type": "array", "items": { "type": "string" }, "description": "按键序列，支持 Enter、Tab、Escape、ArrowDown、ctrl+a 等" },
+                    "tab_id": { "type": "integer", "description": "目标标签页 ID（可选）" },
+                    "output_key": { "type": "string", "description": "将结果存入此变量名" }
+                },
+                "required": ["keys"]
+            }),
+        ),
+        tool(
+            "magic_get_page_info",
+            "获取页面综合状态信息（URL、标题、加载状态、标签页列表等）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "tab_id": { "type": "integer", "description": "目标标签页 ID（可选）" },
+                    "output_key": { "type": "string", "description": "将结果存入此变量名" }
+                }
+            }),
+        ),
+        tool(
+            "magic_scroll",
+            "页面滚动（按方向/距离，或滚动到指定元素）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "direction": { "type": "string", "enum": ["up", "down", "left", "right"], "description": "滚动方向" },
+                    "distance": { "type": "integer", "description": "滚动距离（像素）" },
+                    "by": { "type": "string", "enum": ["css", "xpath", "text", "aria", "role", "placeholder", "name", "search", "idx"], "description": "元素定位方式（滚动到元素时使用）" },
+                    "selector": { "type": "string", "description": "目标元素选择器" },
+                    "index": { "type": "integer", "description": "多匹配时选择索引" },
+                    "visible_only": { "type": "boolean", "description": "只操作可见元素" },
+                    "tab_id": { "type": "integer", "description": "目标标签页 ID（可选）" },
+                    "output_key": { "type": "string", "description": "将结果存入此变量名" }
+                }
+            }),
+        ),
+        tool(
+            "magic_set_dock_icon_text",
+            "设置 Dock 图标文字标签（macOS）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "text": { "type": "string", "description": "显示在 Dock 图标上的文字" },
+                    "color": { "type": "string", "description": "文字颜色（十六进制，如 #FF0000）" },
+                    "output_key": { "type": "string", "description": "将结果存入此变量名" }
+                },
+                "required": ["text"]
+            }),
+        ),
+        tool(
+            "magic_get_page_content",
+            "获取页面语义快照（结构化 DOM 树、可交互元素、文本内容等）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "mode": { "type": "string", "enum": ["summary", "interactive", "content", "a11y", "full"], "description": "快照模式：summary=摘要, interactive=可交互元素, content=文本内容, a11y=无障碍树, full=完整" },
+                    "format": { "type": "string", "enum": ["json", "text"], "description": "输出格式" },
+                    "tab_id": { "type": "integer", "description": "目标标签页 ID（可选）" },
+                    "viewport_only": { "type": "boolean", "description": "只返回视口内元素" },
+                    "max_elements": { "type": "integer", "description": "最大元素数量" },
+                    "max_text_length": { "type": "integer", "description": "最大文本长度" },
+                    "max_depth": { "type": "integer", "description": "DOM 最大深度" },
+                    "include_hidden": { "type": "boolean", "description": "是否包含隐藏元素" },
+                    "regions": { "type": "array", "items": { "type": "string" }, "description": "只提取指定区域（CSS 选择器列表）" },
+                    "exclude_regions": { "type": "array", "items": { "type": "string" }, "description": "排除指定区域（CSS 选择器列表）" },
+                    "output_key": { "type": "string", "description": "将结果存入此变量名" }
                 }
             }),
         ),

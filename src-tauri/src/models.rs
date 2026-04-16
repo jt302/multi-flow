@@ -380,10 +380,14 @@ pub struct OpenProfileOptions {
     pub mac_address_mode: Option<CustomValueMode>,
     pub custom_mac_address: Option<String>,
     pub do_not_track_enabled: Option<bool>,
+    pub port_scan_protection: Option<bool>,
+    pub automation_detection_shield: Option<bool>,
     pub web_rtc_mode: Option<WebRtcMode>,
     pub webrtc_ip_override: Option<String>,
     pub headless: Option<bool>,
     pub disable_images: Option<bool>,
+    pub image_loading_mode: Option<String>,
+    pub image_max_area: Option<u32>,
     pub custom_launch_args: Option<Vec<String>>,
     pub fingerprint_seed: Option<u32>,
 }
@@ -1351,6 +1355,156 @@ pub enum ScriptStep {
     /// 禁用扩展
     MagicDisableExtension {
         extension_id: String,
+    },
+
+    // AI Agent 语义化操作
+    MagicGetBrowser {
+        browser_id: i64,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    MagicClickAt {
+        grid: String,
+        position: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        button: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        modifiers: Option<Vec<String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        click_count: Option<i32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        action: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        browser_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    MagicClickElement {
+        target: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        browser_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    MagicGetUiElements {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        browser_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    MagicNavigateTo {
+        url: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tab_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    MagicQueryDom {
+        by: String,
+        selector: String,
+        #[serde(rename = "match", skip_serializing_if = "Option::is_none")]
+        r#match: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tab_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        limit: Option<i32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        visible_only: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    MagicClickDom {
+        by: String,
+        selector: String,
+        #[serde(rename = "match", skip_serializing_if = "Option::is_none")]
+        r#match: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        index: Option<i32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tab_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        visible_only: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    MagicFillDom {
+        by: String,
+        selector: String,
+        value: String,
+        #[serde(rename = "match", skip_serializing_if = "Option::is_none")]
+        r#match: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        index: Option<i32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        clear: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tab_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        visible_only: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    MagicSendKeys {
+        keys: Vec<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tab_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    MagicGetPageInfo {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tab_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    MagicScroll {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        direction: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        distance: Option<i32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        by: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        selector: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        index: Option<i32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        visible_only: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tab_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    MagicSetDockIconText {
+        text: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        color: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
+    },
+    MagicGetPageContent {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        mode: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        format: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tab_id: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        viewport_only: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        max_elements: Option<i32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        max_text_length: Option<i32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        max_depth: Option<i32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        include_hidden: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        regions: Option<Vec<String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        exclude_regions: Option<Vec<String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_key: Option<String>,
     },
 
     // 同步模式

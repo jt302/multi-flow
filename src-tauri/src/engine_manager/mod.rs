@@ -79,6 +79,9 @@ pub struct EngineLaunchOptions {
     pub custom_font_list: Option<Vec<String>>,
     pub cookie_state_file: Option<PathBuf>,
     pub extension_state_file: Option<PathBuf>,
+    pub bookmark_state_file: Option<PathBuf>,
+    pub dock_icon_text: Option<String>,
+    pub dock_icon_text_color: Option<String>,
     pub extra_args: Vec<String>,
     pub logging_enabled: bool,
 }
@@ -1670,6 +1673,18 @@ fn build_chromium_launch_args(
             "--extension-state-file={}",
             extension_state_file.to_string_lossy()
         ));
+    }
+    if let Some(bookmark_state_file) = options.bookmark_state_file.as_ref() {
+        args.push(format!(
+            "--bookmark-state-file={}",
+            bookmark_state_file.to_string_lossy()
+        ));
+    }
+    if let Some(text) = &options.dock_icon_text {
+        args.push(format!("--custom-dock-icon-text={text}"));
+    }
+    if let Some(color) = &options.dock_icon_text_color {
+        args.push(format!("--custom-dock-icon-text-color={color}"));
     }
     for extra in &options.extra_args {
         if let Some(arg) = trim_to_option(extra) {

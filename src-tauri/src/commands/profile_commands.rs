@@ -1581,6 +1581,11 @@ pub(crate) fn do_open_profile(
     )?;
     launch_options.cookie_state_file = cookie_state_file;
     launch_options.extension_state_file = extension_state_file;
+    // bookmark_state_file: 路径始终传递，Chromium 会在首次修改书签时自动创建
+    launch_options.bookmark_state_file = engine_manager
+        .profile_data_dirs(profile_id)
+        .ok()
+        .map(|(data_dir, _, _)| data_dir.join("runtime").join("bookmark-state.json"));
     launch_options.logging_enabled = state
         .app_preference_service
         .lock()
@@ -1794,6 +1799,20 @@ fn resolve_launch_options(
     if options.do_not_track_enabled.unwrap_or(false) {
         extra_args.push("--enable-do-not-track".to_string());
     }
+    if options.port_scan_protection.unwrap_or(false) {
+        extra_args.push("--enable-port-scan-protection".to_string());
+    }
+    if options.automation_detection_shield.unwrap_or(false) {
+        extra_args.push("--enable-automation-detection-shield".to_string());
+    }
+    if let Some(mode) = options.image_loading_mode.as_deref().and_then(trim_str_to_option) {
+        extra_args.push(format!("--custom-image-loading-mode={mode}"));
+        if mode == "max-area" {
+            if let Some(max_area) = options.image_max_area {
+                extra_args.push(format!("--custom-image-max-area={max_area}"));
+            }
+        }
+    }
     if let Some(seed) = runtime_snapshot
         .fingerprint_seed
         .or(options.fingerprint_seed)
@@ -1839,13 +1858,16 @@ fn resolve_launch_options(
         web_rtc_policy: None,
         headless: options.headless.unwrap_or(false),
         disable_images: options.disable_images.unwrap_or(false),
-        toolbar_text,
+        toolbar_text: toolbar_text.clone(),
         background_color,
         custom_cpu_cores,
         custom_ram_gb,
         custom_font_list,
         cookie_state_file: None,
         extension_state_file: None,
+        bookmark_state_file: None,
+        dock_icon_text: toolbar_text,
+        dock_icon_text_color: None,
         extra_args,
         logging_enabled: true,
     })
@@ -2347,6 +2369,22 @@ fn append_snapshot_args(extra_args: &mut Vec<String>, snapshot: &ProfileFingerpr
     }
     if let Some(language) = snapshot.language.as_deref().and_then(trim_str_to_option) {
         extra_args.push(format!("--custom-main-language={language}"));
+    }
+    if let Some(langs) = snapshot.accept_languages.as_deref().and_then(trim_str_to_option) {
+        // accept_languages 格式如 "en-US,en;q=0.9,zh-CN;q=0.8"
+        // --custom-languages 需要纯语言列表（不含 q 权重）
+        let lang_list: String = langs
+            .split(',')
+            .filter_map(|part| {
+                let lang = part.split(';').next()?.trim();
+                if lang.is_empty() { None } else { Some(lang) }
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        if !lang_list.is_empty() {
+            extra_args.push(format!("--custom-languages={lang_list}"));
+        }
+        extra_args.push(format!("--custom-accept-languages={langs}"));
     }
     if let Some(time_zone) = snapshot.time_zone.as_deref().and_then(trim_str_to_option) {
         extra_args.push(format!("--custom-time-zone={time_zone}"));
