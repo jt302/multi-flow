@@ -19,7 +19,9 @@ use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 
 const MENU_ID_OPEN_DATA_DIR: &str = "open_data_dir";
+const MENU_ID_OPEN_DEVTOOLS: &str = "open_devtools";
 const MENU_ID_OPEN_LOG_PANEL: &str = "open_log_panel";
+const MENU_ID_RELOAD_MAIN_WINDOW: &str = "reload_main_window";
 const MAIN_WINDOW_LABEL: &str = "main";
 const MAIN_WINDOW_STATE_FILENAME: &str = "main-window-state.json";
 const PLUGIN_WINDOW_STATE_FILENAME: &str = ".window-state.json";
@@ -82,6 +84,14 @@ pub fn run() {
                 .build(),
         )
         .on_menu_event(|app, event| {
+            if event.id().as_ref() == MENU_ID_OPEN_DEVTOOLS {
+                open_main_window_devtools(app);
+                return;
+            }
+            if event.id().as_ref() == MENU_ID_RELOAD_MAIN_WINDOW {
+                reload_main_window(app);
+                return;
+            }
             if event.id().as_ref() == MENU_ID_OPEN_DATA_DIR {
                 let _ = open_data_dir(app);
                 return;
@@ -357,6 +367,9 @@ fn setup_native_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> 
         .minimize()
         .build()?;
     let tools_submenu = SubmenuBuilder::new(app, "Tools")
+        .item(&MenuItemBuilder::with_id(MENU_ID_OPEN_DEVTOOLS, "打开开发者调试工具").build(app)?)
+        .item(&MenuItemBuilder::with_id(MENU_ID_RELOAD_MAIN_WINDOW, "刷新").build(app)?)
+        .separator()
         .item(&MenuItemBuilder::with_id(MENU_ID_OPEN_LOG_PANEL, "Log Panel").build(app)?)
         .item(&MenuItemBuilder::with_id(MENU_ID_OPEN_DATA_DIR, "打开数据目录").build(app)?)
         .build()?;
@@ -512,6 +525,40 @@ fn open_data_dir(app: &AppHandle) -> Result<(), String> {
         format!("open data dir requested: {}", data_dir.to_string_lossy()),
     );
     Ok(())
+}
+
+fn open_main_window_devtools(app: &AppHandle) {
+    let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) else {
+        logger::warn(
+            "menu",
+            format!("open devtools requested but window={MAIN_WINDOW_LABEL} not found"),
+        );
+        return;
+    };
+
+    logger::info(
+        "menu",
+        format!("open devtools requested for window={MAIN_WINDOW_LABEL}"),
+    );
+    window.open_devtools();
+}
+
+fn reload_main_window(app: &AppHandle) {
+    let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) else {
+        logger::warn(
+            "menu",
+            format!("reload requested but window={MAIN_WINDOW_LABEL} not found"),
+        );
+        return;
+    };
+
+    logger::info("menu", format!("reload requested for window={MAIN_WINDOW_LABEL}"));
+    if let Err(err) = window.reload() {
+        logger::warn(
+            "menu",
+            format!("reload failed for window={MAIN_WINDOW_LABEL}: {err}"),
+        );
+    }
 }
 
 fn sidecar_line(bytes: &[u8]) -> Option<String> {
