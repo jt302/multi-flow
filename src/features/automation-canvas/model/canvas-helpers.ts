@@ -4,12 +4,15 @@
  * 包含：节点构建、边构建、画布数据解析、拓扑排序。
  */
 
-import { Position, type Edge, type Node } from '@xyflow/react';
+import type { Edge, Node } from '@xyflow/react';
 
 import type { ScriptStep } from '@/entities/automation/model/types';
 import { isTerminalStepKind } from '@/entities/automation/model/step-flow';
 
-import type { StepNodeData } from '../ui/step-node';
+import {
+	buildStepCanvasNode,
+	type StepNodeData,
+} from './canvas-node-data';
 
 // ─── 类型定义 ──────────────────────────────────────────────────────────────────
 
@@ -60,14 +63,7 @@ export function buildNodes(
 		const id = `step-${i}`;
 		// 若无已保存位置，则纵向排列（默认 x=120, y=i*120+60）
 		const pos = positions[id] ?? { x: 120, y: i * 120 + 60 };
-		return {
-			id,
-			type: 'step',
-			position: pos,
-			sourcePosition: Position.Bottom,
-			targetPosition: Position.Top,
-			data: { step, index: i, stepStatus: liveStatuses[i] } as StepNodeData,
-		};
+		return buildStepCanvasNode(step, i, pos, liveStatuses[i]) as Node<StepNodeData>;
 	});
 }
 
@@ -675,11 +671,13 @@ export function serializeControlFlowGraph(
 		if (right === primaryRootIndex) return 1;
 		return left - right;
 	});
+	const fallbackPrimaryRoot =
+		primaryRootId === undefined ? (rootIndices[0] ?? -1) : primaryRootIndex;
 
 	// 仅从 Start 连接的主根节点开始收集可达步骤（执行路径）
 	const nestedSteps: ScriptStep[] = [];
-	if (primaryRootIndex >= 0 && !visited.has(primaryRootIndex)) {
-		nestedSteps.push(...collectChain(primaryRootIndex, -1));
+	if (fallbackPrimaryRoot >= 0 && !visited.has(fallbackPrimaryRoot)) {
+		nestedSteps.push(...collectChain(fallbackPrimaryRoot, -1));
 	}
 
 	// 其余根节点和不可达节点归为孤立步骤（不参与执行，仅保留在 canvas 中）

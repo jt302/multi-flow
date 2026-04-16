@@ -4,20 +4,15 @@
  * 包含：运行状态环样式、连接点样式、节点数据类型定义、节点组件、以及 NODE_TYPES 映射。
  */
 
+import { memo } from 'react';
+
 import { Handle, Position } from '@xyflow/react';
 
 import type {
-	DialogButton,
-	ScriptStep,
-} from '@/entities/automation/model/types';
-import { isTerminalStepKind } from '@/entities/automation/model/step-flow';
-import {
-	GROUP_ACCENT_COLORS,
-	GROUP_COLORS,
-	KIND_GROUPS,
-	getKindLabel,
-	getStepSummaryText,
-} from '@/entities/automation/model/step-registry';
+	StepNodeData,
+	StepNodeSourceHandle,
+} from '../model/canvas-node-data';
+export type { StepNodeData } from '../model/canvas-node-data';
 
 // ─── 运行状态高亮环 ────────────────────────────────────────────────────────────
 /** 步骤运行状态 → Tailwind ring class 映射 */
@@ -40,18 +35,10 @@ const HIDDEN_HANDLE_STYLE = {
 	pointerEvents: 'none' as const,
 };
 
-// ─── 节点数据类型 ──────────────────────────────────────────────────────────────
-/** ReactFlow 节点的 data 字段类型 */
-export type StepNodeData = {
-	step: ScriptStep;
-	index: number;
-	stepStatus?: string;
-};
-
 // ─── 起点节点 ─────────────────────────────────────────────────────────────────
 
 /** 虚拟起点节点 — 标识流程入口，不参与步骤数组 */
-function StartNodeComponent() {
+const StartNodeComponent = memo(function StartNodeComponent() {
 	return (
 		<div className="flex items-center gap-2 rounded-lg border-2 border-emerald-500/40 bg-emerald-500/5 px-4 py-2 shadow-sm">
 			<div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -61,7 +48,8 @@ function StartNodeComponent() {
 			<Handle type="source" position={Position.Bottom} className={HANDLE_CLS} />
 		</div>
 	);
-}
+});
+StartNodeComponent.displayName = 'StartNodeComponent';
 
 // ─── 步骤节点 ──────────────────────────────────────────────────────────────────
 /**
@@ -69,39 +57,55 @@ function StartNodeComponent() {
  * - condition 步骤会渲染两个底部 Handle（then / else）
  * - 其余步骤渲染单个底部 Handle
  */
-export function StepNodeComponent({
+function resolveHandleStyle(handle: StepNodeSourceHandle) {
+	if (handle.hidden) {
+		return {
+			...HIDDEN_HANDLE_STYLE,
+			...(handle.left ? { left: handle.left } : {}),
+		};
+	}
+
+	if (handle.left) {
+		return { left: handle.left };
+	}
+
+	return undefined;
+}
+
+export const StepNodeComponent = memo(function StepNodeComponent({
 	data,
 	selected,
 }: {
 	data: StepNodeData;
 	selected?: boolean;
 }) {
-	const { step, stepStatus } = data;
-	const kind = step.kind;
-	const label = getKindLabel(kind);
-	const group = KIND_GROUPS[kind] ?? '通用';
-	const colorClass = GROUP_COLORS[group] ?? GROUP_COLORS['通用'];
-	const accentClass = GROUP_ACCENT_COLORS[group] ?? 'border-l-slate-400';
+	const {
+		label,
+		groupLabel,
+		groupColorClass,
+		accentClass,
+		summary,
+		stepStatus,
+		isTerminal,
+		sourceHandles,
+		footerLabels,
+	} = data;
 	const ringClass = stepStatus ? (STEP_STATUS_RING[stepStatus] ?? '') : '';
 	const selectedClass = selected
 		? 'ring-2 ring-primary/60 ring-offset-1 ring-offset-background'
 		: '';
-	const summary = getStepSummaryText(step);
-	const isCondition = kind === 'condition';
-	const isLoop = kind === 'loop';
-	const isTerminal = isTerminalStepKind(kind);
 
 	return (
 		<div
-			className={`relative min-w-[160px] max-w-[240px] rounded-lg border border-border/50 bg-card shadow-sm cursor-pointer transition-all hover:shadow-md border-l-[3px] ${accentClass} ${selectedClass} ${ringClass} ${isTerminal ? '!border-l-red-500 bg-red-500/5' : ''}`}
+			className={`relative min-w-[160px] max-w-[240px] rounded-lg border border-border/50 bg-card shadow-sm cursor-pointer transition-shadow hover:shadow-md border-l-[3px] ${accentClass} ${selectedClass} ${ringClass} ${isTerminal ? '!border-l-red-500 bg-red-500/5' : ''}`}
 		>
 			<Handle type="target" position={Position.Top} className={HANDLE_CLS} />
 			<div className="px-3 py-2">
 				<div className="flex items-center gap-1.5 mb-0.5">
 					<span
-						className={`text-[9px] font-semibold px-1 rounded ${colorClass}`}
+						className={`text-[9px] font-semibold px-1 rounded ${groupColorClass}`}
 					>
-						{group}
+						{groupLabel}
 					</span>
 				</div>
 				<div className="text-[11px] font-bold truncate leading-tight">
@@ -111,100 +115,50 @@ export function StepNodeComponent({
 					<div className="text-[10px] text-muted-foreground truncate mt-0.5 font-mono opacity-70">
 						{summary}
 					</div>
-				)}
-			</div>
-			{isCondition ? (
+					)}
+				</div>
+			{footerLabels.length > 0 && (
+				<div className="flex justify-between mt-1.5 text-[9px] text-muted-foreground select-none px-1">
+					{footerLabels.map((footerLabel) => (
+						<span
+							key={footerLabel}
+							className="truncate max-w-[50px] text-center flex-1"
+						>
+							{footerLabel}
+						</span>
+					))}
+				</div>
+			)}
+			{sourceHandles.length > 0 ? (
 				<>
-					<div className="flex justify-between mt-1.5 text-[9px] text-muted-foreground select-none">
-						<span className="pl-3">then</span>
-						<span className="pr-3">else</span>
-					</div>
-					<Handle
-						type="source"
-						position={Position.Bottom}
-						style={HIDDEN_HANDLE_STYLE}
-						className={HANDLE_CLS}
-					/>
-					<Handle
-						type="source"
-						position={Position.Bottom}
-						id="then"
-						style={{ left: '30%' }}
-						className={HANDLE_CLS}
-					/>
-					<Handle
-						type="source"
-						position={Position.Bottom}
-						id="else"
-						style={{ left: '70%' }}
-						className={HANDLE_CLS}
-					/>
-				</>
-			) : isLoop ? (
-				<>
-					<div className="flex justify-between mt-1.5 text-[9px] text-muted-foreground select-none">
-						<span className="pl-3">body</span>
-						<span className="pr-3">next</span>
-					</div>
-					<Handle
-						type="source"
-						position={Position.Bottom}
-						id="body"
-						style={{ left: '30%' }}
-						className={HANDLE_CLS}
-					/>
-					<Handle
-						type="source"
-						position={Position.Bottom}
-						id={undefined}
-						style={{ left: '70%' }}
-						className={HANDLE_CLS}
-					/>
-				</>
-			) : kind === 'confirm_dialog' &&
-			  step.kind === 'confirm_dialog' &&
-			  step.buttons &&
-			  step.buttons.length > 0 ? (
-				<>
-					<div className="flex justify-around mt-1.5 text-[9px] text-muted-foreground select-none px-1">
-						{step.buttons.map((btn: DialogButton) => (
-							<span
-								key={btn.value}
-								className="truncate max-w-[50px] text-center"
-							>
-								{btn.text}
-							</span>
-						))}
-					</div>
-					{step.buttons.map((_btn: DialogButton, i: number) => (
+					{sourceHandles.map((handle) => (
 						<Handle
-							key={`btn_${i}`}
+							key={`${handle.id ?? 'default'}-${handle.left ?? 'center'}-${handle.hidden ? 'hidden' : 'visible'}`}
 							type="source"
 							position={Position.Bottom}
-							id={`btn_${i}`}
-							style={{
-								left: `${((i + 1) / (step.buttons!.length + 1)) * 100}%`,
-							}}
+							id={handle.id ?? undefined}
+							style={resolveHandleStyle(handle)}
 							className={HANDLE_CLS}
 						/>
 					))}
+				</>
+			) : isTerminal ? null : (
+				<>
+					<div className="flex justify-between mt-1.5 text-[9px] text-muted-foreground select-none">
+						<span className="pl-3" />
+						<span className="pr-3" />
+					</div>
 					<Handle
 						type="source"
 						position={Position.Bottom}
-						style={HIDDEN_HANDLE_STYLE}
 						className={HANDLE_CLS}
 					/>
 				</>
-			) : isTerminal ? null : (
-				<Handle
-					type="source"
-					position={Position.Bottom}
-					className={HANDLE_CLS}
-				/>
 			)}
 		</div>
 	);
-}
+});
+StepNodeComponent.displayName = 'StepNodeComponent';
 
 // ─── NODE_TYPES ────────────────────────────────────────────────────────────────
 /**

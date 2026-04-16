@@ -1,12 +1,21 @@
 /**
  * automation-canvas-page.tsx
- * 自动化脚本画布页面（薄组合层）
- * 所有业务逻辑委托给 useCanvasState hook，UI 子组件已拆分到各自模块。
+ * 自动化脚本画布页面。
+ * 使用页面级 canvas store，将 React Flow 热路径与外围面板拆开，避免拖拽时整页重渲染。
  */
 
 import '@xyflow/react/dist/style.css';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	type KeyboardEvent as ReactKeyboardEvent,
+	type MouseEvent as ReactMouseEvent,
+	type MutableRefObject,
+} from 'react';
 
 import {
 	Background,
@@ -30,24 +39,26 @@ import type { ProfileItem } from '@/entities/profile/model/types';
 import { RunDialog } from '@/features/automation/ui/run-dialog';
 
 import { resolveCanvasDeleteTargets } from '../model/canvas-delete-shortcut';
-import { useCanvasState } from '../model/use-canvas-state';
-import { CanvasHelpDialog } from './canvas-help-dialog';
+import {
+	createCanvasStore,
+	useCanvasStore,
+	type CanvasStoreApi,
+} from '../model/canvas-store';
+import { START_NODE_ID } from '../model/canvas-helpers';
+import type { StepNodeData } from '../model/canvas-node-data';
 import { CanvasToolbar } from './canvas-toolbar';
+import { NODE_TYPES } from './step-node';
 import { StepPalette } from './step-palette';
 import { StepPropertiesPanel } from './step-properties-panel';
-import { START_NODE_ID } from '../model/canvas-helpers';
-import { NODE_TYPES, type StepNodeData } from './step-node';
 import { VariablesSchemaDialog } from './variables-schema-dialog';
 
-// ─── InnerCanvas（需在 ReactFlowProvider 内部） ───────────────────────────────
-
 type InnerProps = {
+	canvasStore: CanvasStoreApi;
 	script: AutomationScript;
 	activeProfiles: ProfileItem[];
 	allProfiles: ProfileItem[];
 	isRunning: boolean;
 	activeRunId: string | null;
-	liveStatuses: Record<number, string>;
 	onRun: (
 		profileIds: string[],
 		initialVars: Record<string, string>,
@@ -57,142 +68,100 @@ type InnerProps = {
 	onCancel: () => void;
 };
 
-function InnerCanvas({
-	script,
-	activeProfiles,
-	allProfiles,
+function CanvasToolbarHost({
+	canvasStore,
+	scriptName,
 	isRunning,
 	activeRunId,
-	liveStatuses,
-	onRun,
-	onDebugRun,
+	onOpenRunDialog,
 	onCancel,
-}: InnerProps) {
-	const { fitView, getNodes, getEdges, screenToFlowPosition } = useReactFlow();
+	onOpenVariables,
+}: {
+	canvasStore: CanvasStoreApi;
+	scriptName: string;
+	isRunning: boolean;
+	activeRunId: string | null;
+	onOpenRunDialog: () => void;
+	onCancel: () => void;
+	onOpenVariables: () => void;
+}) {
+	const stepCount = useCanvasStore(canvasStore, (state) => state.steps.length);
+	const saving = useCanvasStore(canvasStore, (state) => state.saving);
+	const savedAt = useCanvasStore(canvasStore, (state) => state.savedAt);
+	const stepDelayMs = useCanvasStore(canvasStore, (state) => state.stepDelayMs);
+	const varsDefs = useCanvasStore(canvasStore, (state) => state.varsDefs);
+	const setStepDelayMs = useCanvasStore(canvasStore, (state) => state.setStepDelayMs);
+	const saveNow = useCanvasStore(canvasStore, (state) => state.saveNow);
 
-	// 对话框 UI 状态（非业务逻辑，不放入 hook）
-	const [runDialogOpen, setRunDialogOpen] = useState(false);
-	const [varsDialogOpen, setVarsDialogOpen] = useState(false);
-	const [panelWidth, setPanelWidth] = useState(() => {
-		const saved = localStorage.getItem('mf_canvas_panel_width');
-		return saved ? Math.max(256, Math.min(600, Number(saved))) : 320;
-	});
-	const [paletteCollapsed, setPaletteCollapsed] = useState(false);
-	const [helpDialogOpen, setHelpDialogOpen] = useState(false);
+	return (
+		<CanvasToolbar
+			scriptName={scriptName}
+			stepCount={stepCount}
+			saving={saving}
+			savedAt={savedAt}
+			stepDelayMs={stepDelayMs}
+			onStepDelayChange={setStepDelayMs}
+			isRunning={isRunning}
+			activeRunId={activeRunId}
+			onOpenRunDialog={onOpenRunDialog}
+			onCancel={onCancel}
+			onOpenVariables={onOpenVariables}
+			varsDefs={varsDefs}
+			onSave={() => void saveNow()}
+		/>
+	);
+}
 
-	// 边默认选项：增大交互宽度，使连接线更容易选中
+function StepPaletteHost({
+	canvasStore,
+	collapsed,
+	onToggleCollapse,
+}: {
+	canvasStore: CanvasStoreApi;
+	collapsed: boolean;
+	onToggleCollapse: () => void;
+}) {
+	const addStep = useCanvasStore(canvasStore, (state) => state.addStep);
+	const { screenToFlowPosition } = useReactFlow();
+
+	return (
+		<StepPalette
+			onAddStep={(kind) => {
+				const element = document.querySelector('.react-flow');
+				const rect = element?.getBoundingClientRect();
+				const center = rect
+					? screenToFlowPosition({
+							x: rect.x + rect.width / 2,
+							y: rect.y + rect.height / 2,
+					  })
+					: undefined;
+				void addStep(kind, center);
+			}}
+			collapsed={collapsed}
+			onToggleCollapse={onToggleCollapse}
+		/>
+	);
+}
+
+function CanvasViewport({
+	canvasStore,
+	lastClickedEdgeRef,
+}: {
+	canvasStore: CanvasStoreApi;
+	lastClickedEdgeRef: MutableRefObject<string | null>;
+}) {
+	const { fitView, getEdges } = useReactFlow();
+	const nodes = useCanvasStore(canvasStore, (state) => state.nodes);
+	const edges = useCanvasStore(canvasStore, (state) => state.edges);
+	const onNodesChange = useCanvasStore(canvasStore, (state) => state.onNodesChange);
+	const onEdgesChange = useCanvasStore(canvasStore, (state) => state.onEdgesChange);
+	const onConnect = useCanvasStore(canvasStore, (state) => state.onConnect);
+	const onNodeClick = useCanvasStore(canvasStore, (state) => state.onNodeClick);
+	const onPaneClick = useCanvasStore(canvasStore, (state) => state.onPaneClick);
+
 	const defaultEdgeOptions = useMemo(
 		() => ({ type: 'smoothstep', interactionWidth: 40 }),
 		[],
-	);
-
-	// 所有业务状态和操作来自 hook
-	const {
-		steps,
-		nodes,
-		edges,
-		selectedIndex,
-		setSelectedIndex,
-		saving,
-		savedAt,
-		stepDelayMs,
-		setStepDelayMs,
-		varsDefs,
-		setVarsDefs,
-		addStep,
-		updateStep,
-		pasteSteps,
-		deleteStep,
-		onNodesChange,
-		onEdgesChange,
-		onConnect,
-		onNodeClick,
-		onPaneClick,
-		saveNow,
-	} = useCanvasState(script, liveStatuses);
-
-	// ── 键盘快捷键 ─────────────────────────────────────────────────────────
-	const clipboardRef = useRef<ScriptStep[]>([]);
-	const lastClickedEdgeRef = useRef<string | null>(null);
-
-	// 全局保存/删除快捷键保持页面任意位置都可触发，避免 Tauri 下画布焦点丢失时删线失效
-	useEffect(() => {
-		const handleGlobalKeyDown = (e: KeyboardEvent) => {
-			const tag = (e.target as HTMLElement)?.tagName;
-			if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-			const mod = e.metaKey || e.ctrlKey;
-
-			if (mod && e.key === 's') {
-				e.preventDefault();
-				void saveNow();
-				return;
-			}
-
-			if (e.key !== 'Backspace' && e.key !== 'Delete') {
-				return;
-			}
-
-			const { nodeIds, edgeIds } = resolveCanvasDeleteTargets(
-				getNodes(),
-				getEdges(),
-				lastClickedEdgeRef.current,
-			);
-			if (nodeIds.length > 0) {
-				e.preventDefault();
-				onNodesChange(nodeIds.map((id) => ({ id, type: 'remove' as const })));
-				lastClickedEdgeRef.current = null;
-				return;
-			}
-			if (edgeIds.length > 0) {
-				e.preventDefault();
-				onEdgesChange(edgeIds.map((id) => ({ id, type: 'remove' as const })));
-				lastClickedEdgeRef.current = null;
-			}
-		};
-		window.addEventListener('keydown', handleGlobalKeyDown);
-		return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-	}, [getEdges, getNodes, onEdgesChange, onNodesChange, saveNow]);
-
-	// React onKeyDown 仅处理复制/粘贴等非删除快捷键
-	const handleKeyDown = useCallback(
-		(e: React.KeyboardEvent) => {
-			const mod = e.metaKey || e.ctrlKey;
-			const tag = (e.target as HTMLElement).tagName;
-			if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-
-			if (mod && e.key === 'a') {
-				e.preventDefault();
-				onNodesChange(
-					nodes.map((n) => ({
-						id: n.id,
-						type: 'select' as const,
-						selected: true,
-					})),
-				);
-				return;
-			}
-			if (mod && e.key === 'c') {
-				const sel = getNodes().filter((n) => n.selected);
-				if (sel.length === 0) return;
-				clipboardRef.current = sel.map((n) =>
-					structuredClone((n.data as StepNodeData).step),
-				);
-				return;
-			}
-			if (mod && e.key === 'v') {
-				if (clipboardRef.current.length === 0) return;
-				e.preventDefault();
-				void pasteSteps(clipboardRef.current.map((s) => structuredClone(s)));
-				return;
-			}
-			if (mod && e.key === 'd') {
-				e.preventDefault();
-				if (selectedIndex === null || !steps[selectedIndex]) return;
-				void pasteSteps([structuredClone(steps[selectedIndex])]);
-				return;
-			}
-		},
-		[nodes, steps, selectedIndex, pasteSteps, onNodesChange, getNodes],
 	);
 
 	const handleSelectionChange = useCallback<OnSelectionChangeFunc>(
@@ -203,77 +172,307 @@ function InnerCanvas({
 			lastClickedEdgeRef.current =
 				selectedEdges.length === 1 ? selectedEdges[0].id : null;
 
-			// 框选时自动关联选中连接这些节点之间的边
 			if (selectedStepNodes.length >= 2) {
-				const selectedNodeIds = new Set(selectedNodes.map((n) => n.id));
+				const selectedNodeIds = new Set(selectedNodes.map((node) => node.id));
 				const allEdges = getEdges();
 				const edgeChanges = allEdges
-					.filter((e) => e.source !== START_NODE_ID)
-					.filter((e) => {
+					.filter((edge) => edge.source !== START_NODE_ID)
+					.filter((edge) => {
 						const shouldSelect =
-							selectedNodeIds.has(e.source) && selectedNodeIds.has(e.target);
-						return e.selected !== shouldSelect;
+							selectedNodeIds.has(edge.source) &&
+							selectedNodeIds.has(edge.target);
+						return edge.selected !== shouldSelect;
 					})
-					.map((e) => ({
-						id: e.id,
+					.map((edge) => ({
+						id: edge.id,
 						type: 'select' as const,
 						selected:
-							selectedNodeIds.has(e.source) && selectedNodeIds.has(e.target),
+							selectedNodeIds.has(edge.source) &&
+							selectedNodeIds.has(edge.target),
 					}));
 				if (edgeChanges.length > 0) {
 					onEdgesChange(edgeChanges);
 				}
 			}
 
-			// 框选/取消选择时关闭属性面板（单击打开由 onNodeClick 处理）
 			if (selectedStepNodes.length !== 1) {
-				setSelectedIndex(null);
+				canvasStore.getState().setSelectedIndex(null);
 			}
-			// 注意：不在这里设置 selectedIndex —— 只有 onNodeClick 才打开属性面板
-			// 这样框选经过单个节点时不会弹出面板
 		},
-		[setSelectedIndex, getEdges, onEdgesChange],
+		[canvasStore, getEdges, lastClickedEdgeRef, onEdgesChange],
 	);
 
 	const handleEdgeClick = useCallback(
-		(_: React.MouseEvent, edge: { id: string }) => {
+		(_: ReactMouseEvent, edge: { id: string }) => {
 			lastClickedEdgeRef.current = edge.id;
-			setSelectedIndex(null);
+			canvasStore.getState().setSelectedIndex(null);
 		},
-		[setSelectedIndex],
+		[canvasStore, lastClickedEdgeRef],
 	);
 
-	// 挂载后执行一次 fitView
 	useEffect(() => {
 		void fitView({ padding: 0.2, duration: 300 });
 	}, [fitView]);
 
 	return (
-		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
+		<div className="flex-1 overflow-hidden">
+			<ReactFlow
+				nodes={nodes}
+				edges={edges}
+				nodeTypes={NODE_TYPES}
+				defaultEdgeOptions={defaultEdgeOptions}
+				onNodesChange={onNodesChange}
+				onEdgesChange={onEdgesChange}
+				onSelectionChange={handleSelectionChange}
+				onConnect={onConnect}
+				onNodeClick={(event, node) => {
+					lastClickedEdgeRef.current = null;
+					onNodeClick(event, node);
+				}}
+				onEdgeClick={handleEdgeClick}
+				onPaneClick={() => {
+					lastClickedEdgeRef.current = null;
+					onPaneClick();
+				}}
+				fitView
+				fitViewOptions={{ padding: 0.2 }}
+				deleteKeyCode={null}
+				selectionOnDrag
+				panOnDrag={[1, 2]}
+				selectionMode={SelectionMode.Partial}
+				connectionLineType={'smoothstep' as never}
+				proOptions={{ hideAttribution: true }}
+			>
+				<Background
+					variant={BackgroundVariant.Dots}
+					gap={20}
+					size={1}
+					color="var(--muted-foreground)"
+					style={{ opacity: 0.15 }}
+				/>
+				<Controls showInteractive={false} />
+				<MiniMap
+					pannable
+					zoomable
+					style={{ width: 140, height: 100 }}
+					maskColor="var(--background)"
+				/>
+			</ReactFlow>
+		</div>
+	);
+}
+
+function StepPropertiesSidebarHost({
+	canvasStore,
+	panelWidth,
+	onPanelWidthChange,
+}: {
+	canvasStore: CanvasStoreApi;
+	panelWidth: number;
+	onPanelWidthChange: (width: number) => void;
+}) {
+	const selectedIndex = useCanvasStore(canvasStore, (state) => state.selectedIndex);
+	const steps = useCanvasStore(canvasStore, (state) => state.steps);
+	const varsDefs = useCanvasStore(canvasStore, (state) => state.varsDefs);
+	const updateStep = useCanvasStore(canvasStore, (state) => state.updateStep);
+	const deleteStep = useCanvasStore(canvasStore, (state) => state.deleteStep);
+
+	if (selectedIndex === null || !steps[selectedIndex]) {
+		return null;
+	}
+
+	return (
+		<>
+			<div
+				className="w-px cursor-col-resize bg-border hover:bg-primary/40 active:bg-primary/60 transition-colors flex-shrink-0"
+				onMouseDown={(event) => {
+					event.preventDefault();
+					const startX = event.clientX;
+					const startWidth = panelWidth;
+					let latestWidth = startWidth;
+					const handleMove = (moveEvent: MouseEvent) => {
+						const delta = startX - moveEvent.clientX;
+						latestWidth = Math.max(256, Math.min(600, startWidth + delta));
+						onPanelWidthChange(latestWidth);
+					};
+					const handleUp = () => {
+						window.removeEventListener('mousemove', handleMove);
+						window.removeEventListener('mouseup', handleUp);
+						localStorage.setItem('mf_canvas_panel_width', String(latestWidth));
+					};
+					window.addEventListener('mousemove', handleMove);
+					window.addEventListener('mouseup', handleUp);
+				}}
+			/>
+			<div
+				style={{ width: panelWidth }}
+				className="flex-shrink-0 bg-background flex flex-col min-h-0"
+			>
+				<StepPropertiesPanel
+					step={steps[selectedIndex]}
+					onUpdate={(step) => void updateStep(selectedIndex, step)}
+					onDelete={() => void deleteStep(selectedIndex)}
+					varsDefs={varsDefs}
+					stepIndex={selectedIndex}
+					allSteps={steps}
+				/>
+			</div>
+		</>
+	);
+}
+
+function InnerCanvas({
+	canvasStore,
+	script,
+	activeProfiles,
+	allProfiles,
+	isRunning,
+	activeRunId,
+	onRun,
+	onDebugRun,
+	onCancel,
+}: InnerProps) {
+	const { getEdges, getNodes } = useReactFlow();
+	const varsDefs = useCanvasStore(canvasStore, (state) => state.varsDefs);
+	const setVarsDefs = useCanvasStore(canvasStore, (state) => state.setVarsDefs);
+	const stepCount = useCanvasStore(canvasStore, (state) => state.steps.length);
+
+	const [runDialogOpen, setRunDialogOpen] = useState(false);
+	const [varsDialogOpen, setVarsDialogOpen] = useState(false);
+	const [panelWidth, setPanelWidth] = useState(() => {
+		const saved = localStorage.getItem('mf_canvas_panel_width');
+		return saved ? Math.max(256, Math.min(600, Number(saved))) : 320;
+	});
+	const [paletteCollapsed, setPaletteCollapsed] = useState(false);
+
+	const clipboardRef = useRef<ScriptStep[]>([]);
+	const lastClickedEdgeRef = useRef<string | null>(null);
+
+	useEffect(() => {
+		const handleGlobalKeyDown = (event: KeyboardEvent) => {
+			const tag = (event.target as HTMLElement)?.tagName;
+			if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+				return;
+			}
+			const mod = event.metaKey || event.ctrlKey;
+
+			if (mod && event.key === 's') {
+				event.preventDefault();
+				void canvasStore.getState().saveNow();
+				return;
+			}
+
+			if (event.key !== 'Backspace' && event.key !== 'Delete') {
+				return;
+			}
+
+			const { nodeIds, edgeIds } = resolveCanvasDeleteTargets(
+				getNodes(),
+				getEdges(),
+				lastClickedEdgeRef.current,
+			);
+			if (nodeIds.length > 0) {
+				event.preventDefault();
+				canvasStore
+					.getState()
+					.onNodesChange(nodeIds.map((id) => ({ id, type: 'remove' as const })));
+				lastClickedEdgeRef.current = null;
+				return;
+			}
+			if (edgeIds.length > 0) {
+				event.preventDefault();
+				canvasStore
+					.getState()
+					.onEdgesChange(edgeIds.map((id) => ({ id, type: 'remove' as const })));
+				lastClickedEdgeRef.current = null;
+			}
+		};
+
+		window.addEventListener('keydown', handleGlobalKeyDown);
+		return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+	}, [canvasStore, getEdges, getNodes]);
+
+	useEffect(() => {
+		const handleBeforeUnload = () => {
+			void canvasStore.getState().flushPendingPersistence();
+		};
+		window.addEventListener('beforeunload', handleBeforeUnload);
+		return () => {
+			window.removeEventListener('beforeunload', handleBeforeUnload);
+			void canvasStore.getState().dispose();
+		};
+	}, [canvasStore]);
+
+	const handleKeyDown = useCallback(
+		(event: ReactKeyboardEvent) => {
+			const mod = event.metaKey || event.ctrlKey;
+			const tag = (event.target as HTMLElement).tagName;
+			if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+				return;
+			}
+
+			if (mod && event.key === 'a') {
+				event.preventDefault();
+				canvasStore.getState().onNodesChange(
+					getNodes().map((node) => ({
+						id: node.id,
+						type: 'select' as const,
+						selected: true,
+					})),
+				);
+				return;
+			}
+
+			if (mod && event.key === 'c') {
+				const selectedNodes = getNodes().filter((node) => node.selected);
+				if (selectedNodes.length === 0) {
+					return;
+				}
+				clipboardRef.current = selectedNodes.map((node) =>
+					structuredClone((node.data as StepNodeData).step),
+				);
+				return;
+			}
+
+			if (mod && event.key === 'v') {
+				if (clipboardRef.current.length === 0) {
+					return;
+				}
+				event.preventDefault();
+				void canvasStore
+					.getState()
+					.pasteSteps(clipboardRef.current.map((step) => structuredClone(step)));
+				return;
+			}
+
+			if (mod && event.key === 'd') {
+				event.preventDefault();
+				const { selectedIndex, steps, pasteSteps } = canvasStore.getState();
+				if (selectedIndex === null || !steps[selectedIndex]) {
+					return;
+				}
+				void pasteSteps([structuredClone(steps[selectedIndex])]);
+			}
+		},
+		[canvasStore, getNodes],
+	);
+
+	return (
 		<div
 			className="flex flex-col h-screen outline-none"
 			tabIndex={-1}
 			onKeyDown={handleKeyDown}
 		>
-			{/* 顶部工具栏 */}
-			<CanvasToolbar
+			<CanvasToolbarHost
+				canvasStore={canvasStore}
 				scriptName={script.name}
-				stepCount={steps.length}
-				saving={saving}
-				savedAt={savedAt}
-				stepDelayMs={stepDelayMs}
-				onStepDelayChange={setStepDelayMs}
 				isRunning={isRunning}
 				activeRunId={activeRunId}
 				onOpenRunDialog={() => setRunDialogOpen(true)}
 				onCancel={onCancel}
 				onOpenVariables={() => setVarsDialogOpen(true)}
-				varsDefs={varsDefs}
-				onSave={() => void saveNow()}
-				onOpenHelp={() => setHelpDialogOpen(true)}
 			/>
 
-			{/* 运行对话框 */}
 			<RunDialog
 				open={runDialogOpen}
 				onOpenChange={setRunDialogOpen}
@@ -281,17 +480,16 @@ function InnerCanvas({
 				allProfiles={allProfiles}
 				associatedProfileIds={script.associatedProfileIds}
 				isRunning={isRunning}
-				disabled={steps.length === 0}
-				defaultVars={varsDefs.map((v) => ({
-					key: v.name,
-					value: v.defaultValue,
+				disabled={stepCount === 0}
+				defaultVars={varsDefs.map((variable) => ({
+					key: variable.name,
+					value: variable.defaultValue,
 				}))}
 				scriptSettings={script.settings}
 				onRun={onRun}
 				onDebugRun={onDebugRun}
 			/>
 
-			{/* 变量 Schema 对话框 */}
 			<VariablesSchemaDialog
 				open={varsDialogOpen}
 				onOpenChange={setVarsDialogOpen}
@@ -300,125 +498,25 @@ function InnerCanvas({
 				onSaved={setVarsDefs}
 			/>
 
-			{/* 操作指南 */}
-			<CanvasHelpDialog
-				open={helpDialogOpen}
-				onOpenChange={setHelpDialogOpen}
-			/>
-
-			{/* 主体：步骤面板 + 画布 + 属性面板 */}
 			<div className="flex flex-1 overflow-hidden">
-				{/* 左侧：步骤调色板 */}
-				<StepPalette
-					onAddStep={(kind) => {
-						const el = document.querySelector('.react-flow');
-						const rect = el?.getBoundingClientRect();
-						const center = rect
-							? screenToFlowPosition({
-									x: rect.x + rect.width / 2,
-									y: rect.y + rect.height / 2,
-								})
-							: undefined;
-						void addStep(kind, center);
-					}}
+				<StepPaletteHost
+					canvasStore={canvasStore}
 					collapsed={paletteCollapsed}
-					onToggleCollapse={() => setPaletteCollapsed((p) => !p)}
+					onToggleCollapse={() => setPaletteCollapsed((collapsed) => !collapsed)}
 				/>
-
-				{/* 中间：ReactFlow 画布 */}
-				<div className="flex-1 overflow-hidden">
-					<ReactFlow
-						nodes={nodes}
-						edges={edges}
-						nodeTypes={NODE_TYPES}
-						defaultEdgeOptions={defaultEdgeOptions}
-						onNodesChange={onNodesChange}
-						onEdgesChange={onEdgesChange}
-						onSelectionChange={handleSelectionChange}
-						onConnect={onConnect}
-						onNodeClick={(event, node) => {
-							lastClickedEdgeRef.current = null;
-							onNodeClick(event, node);
-						}}
-						onEdgeClick={handleEdgeClick}
-						onPaneClick={() => {
-							lastClickedEdgeRef.current = null;
-							onPaneClick();
-						}}
-						fitView
-						fitViewOptions={{ padding: 0.2 }}
-						deleteKeyCode={null}
-						selectionOnDrag={true}
-						panOnDrag={[1, 2]}
-						selectionMode={SelectionMode.Partial}
-						connectionLineType={'smoothstep' as never}
-						proOptions={{ hideAttribution: true }}
-					>
-						<Background
-							variant={BackgroundVariant.Dots}
-							gap={20}
-							size={1}
-							color="var(--muted-foreground)"
-							style={{ opacity: 0.15 }}
-						/>
-						<Controls showInteractive={false} />
-						<MiniMap
-							pannable
-							zoomable
-							style={{ width: 140, height: 100 }}
-							maskColor="var(--background)"
-						/>
-					</ReactFlow>
-				</div>
-
-				{/* 右侧：可拖拽分隔条 + 步骤属性面板（选中时显示） */}
-				{selectedIndex !== null && steps[selectedIndex] && (
-					<>
-						<div
-							className="w-px cursor-col-resize bg-border hover:bg-primary/40 active:bg-primary/60 transition-colors flex-shrink-0"
-							onMouseDown={(e) => {
-								e.preventDefault();
-								const startX = e.clientX;
-								const startW = panelWidth;
-								let latestW = startW;
-								const onMove = (ev: MouseEvent) => {
-									const delta = startX - ev.clientX;
-									latestW = Math.max(256, Math.min(600, startW + delta));
-									setPanelWidth(latestW);
-								};
-								const onUp = () => {
-									window.removeEventListener('mousemove', onMove);
-									window.removeEventListener('mouseup', onUp);
-									localStorage.setItem(
-										'mf_canvas_panel_width',
-										String(latestW),
-									);
-								};
-								window.addEventListener('mousemove', onMove);
-								window.addEventListener('mouseup', onUp);
-							}}
-						/>
-						<div
-							style={{ width: panelWidth }}
-							className="flex-shrink-0 bg-background flex flex-col min-h-0"
-						>
-							<StepPropertiesPanel
-								step={steps[selectedIndex]}
-								onUpdate={(s) => void updateStep(selectedIndex, s)}
-								onDelete={() => void deleteStep(selectedIndex)}
-								varsDefs={varsDefs}
-								stepIndex={selectedIndex}
-								allSteps={steps}
-							/>
-						</div>
-					</>
-				)}
+				<CanvasViewport
+					canvasStore={canvasStore}
+					lastClickedEdgeRef={lastClickedEdgeRef}
+				/>
+				<StepPropertiesSidebarHost
+					canvasStore={canvasStore}
+					panelWidth={panelWidth}
+					onPanelWidthChange={setPanelWidth}
+				/>
 			</div>
 		</div>
 	);
 }
-
-// ─── 页面出口（ReactFlowProvider 包裹） ───────────────────────────────────────
 
 type Props = {
 	script: AutomationScript;
@@ -447,22 +545,25 @@ export function AutomationCanvasPage({
 	onDebugRun,
 	onCancel,
 }: Props) {
-	// 将 StepResult[] 转为 index → status 映射，传给 InnerCanvas
-	const liveStatuses = useMemo<Record<number, string>>(() => {
-		const map: Record<number, string> = {};
-		for (const r of liveStepResults) map[r.index] = r.status;
-		return map;
-	}, [liveStepResults]);
+	const canvasStore = useMemo(() => createCanvasStore(script), [script.id]);
+
+	useEffect(() => {
+		const liveStatuses: Record<number, string> = {};
+		for (const result of liveStepResults) {
+			liveStatuses[result.index] = result.status;
+		}
+		canvasStore.getState().syncLiveStatuses(liveStatuses);
+	}, [canvasStore, liveStepResults]);
 
 	return (
 		<ReactFlowProvider>
 			<InnerCanvas
+				canvasStore={canvasStore}
 				script={script}
 				activeProfiles={activeProfiles}
 				allProfiles={allProfiles}
 				isRunning={isRunning}
 				activeRunId={activeRunId}
-				liveStatuses={liveStatuses}
 				onRun={onRun}
 				onDebugRun={onDebugRun}
 				onCancel={onCancel}
