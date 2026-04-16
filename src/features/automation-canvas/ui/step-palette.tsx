@@ -31,6 +31,7 @@ import {
 	PALETTE_DOT_COLORS,
 	GROUP_ACCENT_COLORS,
 	KIND_GROUPS,
+	getKindDescription,
 	getKindLabel,
 	getGroupLabel,
 	PALETTE_GROUPS,
@@ -39,7 +40,21 @@ import {
 
 function StepToolPopover({ kind }: { kind: string }) {
 	const { t } = useTranslation(['automation', 'common']);
-	const info = STEP_TOOL_INFO[kind];
+	const info =
+		STEP_TOOL_INFO[kind] ??
+		(() => {
+			const description = getKindDescription(kind);
+			if (!description) return null;
+			return {
+				description,
+				inputs: [],
+				outputs: [],
+				whenToUse: t(
+					'automation:stepTooltip.genericWhenToUse',
+					'用于快速了解该步骤作用，详细参数可在右侧属性面板中继续查看。',
+				),
+			};
+		})();
 	if (!info) return null;
 
 	const groupKey = KIND_GROUPS[kind] ?? 'general';
@@ -51,22 +66,22 @@ function StepToolPopover({ kind }: { kind: string }) {
 			className={`w-80 border-l-4 ${accentColor} bg-popover rounded-lg shadow-lg`}
 		>
 			{/* Header */}
-			<div className="px-4 py-3 border-b">
-				<div className="flex items-center gap-2 mb-1">
+				<div className="px-4 py-3 border-b">
+					<div className="flex items-center gap-2 mb-1">
 					<span
 						className={`inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded ${GROUP_COLORS[groupKey] ?? GROUP_COLORS['通用']}`}
 					>
 						{groupLabel}
 					</span>
+					</div>
+					<h4 className="font-semibold text-xs text-muted-foreground mt-3 break-words [overflow-wrap:anywhere]">
+						{getKindLabel(kind)}
+					</h4>
 				</div>
-				<h4 className="font-semibold text-xs text-muted-foreground mt-3">
-					{getKindLabel(kind)}
-				</h4>
-			</div>
 
 			<div className="p-4 space-y-4">
 				{/* Description */}
-				<p className="text-sm text-muted-foreground leading-relaxed">
+				<p className="text-sm text-muted-foreground leading-relaxed break-words [overflow-wrap:anywhere]">
 					{info.description}
 				</p>
 
@@ -81,7 +96,7 @@ function StepToolPopover({ kind }: { kind: string }) {
 							{info.inputs.map((input) => (
 								<div
 									key={input.name}
-									className="flex items-start gap-2 text-xs"
+									className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-2 text-xs"
 								>
 									<code className="font-mono text-primary bg-primary/5 px-1.5 py-0.5 rounded shrink-0">
 										{input.name}
@@ -101,7 +116,7 @@ function StepToolPopover({ kind }: { kind: string }) {
 											{t('automation:stepTooltip.optional', '可选')}
 										</Badge>
 									)}
-									<span className="text-muted-foreground leading-relaxed">
+									<span className="min-w-0 text-muted-foreground leading-relaxed break-words [overflow-wrap:anywhere]">
 										{input.desc}
 									</span>
 								</div>
@@ -121,12 +136,14 @@ function StepToolPopover({ kind }: { kind: string }) {
 							{info.outputs.map((output) => (
 								<div
 									key={output.name}
-									className="flex items-start gap-2 text-xs"
+									className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 text-xs"
 								>
 									<code className="font-mono text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded shrink-0">
 										{output.name}
 									</code>
-									<span className="text-muted-foreground">{output.desc}</span>
+									<span className="min-w-0 text-muted-foreground break-words [overflow-wrap:anywhere]">
+										{output.desc}
+									</span>
 								</div>
 							))}
 						</div>
@@ -139,7 +156,7 @@ function StepToolPopover({ kind }: { kind: string }) {
 						<span className="w-1 h-1 rounded-full bg-amber-500" />
 						{t('automation:stepTooltip.whenToUse', '使用时机')}
 					</h5>
-					<p className="text-xs text-muted-foreground leading-relaxed">
+					<p className="text-xs text-muted-foreground leading-relaxed break-words [overflow-wrap:anywhere]">
 						{info.whenToUse}
 					</p>
 				</div>
