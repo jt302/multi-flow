@@ -11,9 +11,7 @@ use crate::models::{
 use crate::state::AppState;
 
 #[tauri::command]
-pub async fn list_open_profile_windows(
-    app: AppHandle,
-) -> Result<Vec<ProfileWindowState>, String> {
+pub async fn list_open_profile_windows(app: AppHandle) -> Result<Vec<ProfileWindowState>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
         list_open_profile_windows_inner(&state)

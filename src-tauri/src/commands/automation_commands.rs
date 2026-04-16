@@ -512,9 +512,7 @@ fn resolve_script_ai_config(
 // ─── Tauri 命令 ───────────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub async fn list_automation_scripts(
-    app: AppHandle,
-) -> Result<Vec<AutomationScript>, String> {
+pub async fn list_automation_scripts(app: AppHandle) -> Result<Vec<AutomationScript>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
         let result = state
@@ -2983,7 +2981,10 @@ pub async fn execute_step(
                 ),
             };
             let result = cdp
-                .call("Runtime.evaluate", json!({ "expression": expr, "returnByValue": true }))
+                .call(
+                    "Runtime.evaluate",
+                    json!({ "expression": expr, "returnByValue": true }),
+                )
                 .await?;
             let val = result
                 .pointer("/result/value")
@@ -3724,7 +3725,8 @@ pub async fn execute_step(
             let port = get_magic_port()?;
             let selector = vars.interpolate(selector);
             let value = vars.interpolate(value);
-            let mut payload = json!({ "cmd": "fill_dom", "by": by, "selector": selector, "value": value });
+            let mut payload =
+                json!({ "cmd": "fill_dom", "by": by, "selector": selector, "value": value });
             if let Some(m) = r#match {
                 payload["match"] = json!(m);
             }
@@ -3756,10 +3758,7 @@ pub async fn execute_step(
             let body = magic_post(http_client, port, payload).await?;
             Ok((Some(body.clone()), opt_key(output_key, body)))
         }
-        ScriptStep::MagicGetPageInfo {
-            tab_id,
-            output_key,
-        } => {
+        ScriptStep::MagicGetPageInfo { tab_id, output_key } => {
             let port = get_magic_port()?;
             let mut payload = json!({ "cmd": "get_page_info" });
             if let Some(id) = tab_id {
@@ -5759,7 +5758,10 @@ pub async fn execute_step(
             }})()"#
             );
             let result = cdp
-                .call("Runtime.evaluate", json!({ "expression": expr, "returnByValue": true }))
+                .call(
+                    "Runtime.evaluate",
+                    json!({ "expression": expr, "returnByValue": true }),
+                )
                 .await?;
             let val = result
                 .pointer("/result/value")

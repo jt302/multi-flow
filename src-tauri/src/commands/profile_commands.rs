@@ -194,7 +194,9 @@ pub async fn list_profiles(
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
         let profile_service = state.lock_profile_service();
-        profile_service.list_profiles(query).map_err(error_to_string)
+        profile_service
+            .list_profiles(query)
+            .map_err(error_to_string)
     })
     .await
     .map_err(|err| format!("list profiles task join failed: {err}"))?
@@ -1523,9 +1525,9 @@ pub(crate) fn do_open_profile(
 
         let chromium_executable = dev_override
             .or_else(|| {
-                preferred_chromium_version
-                    .as_deref()
-                    .and_then(|version| resource_service.resolve_chromium_executable_for_version(version))
+                preferred_chromium_version.as_deref().and_then(|version| {
+                    resource_service.resolve_chromium_executable_for_version(version)
+                })
             })
             .or_else(|| resource_service.resolve_active_chromium_executable())
             .unwrap_or_default();
@@ -1825,7 +1827,11 @@ fn resolve_launch_options(
     if options.automation_detection_shield.unwrap_or(false) {
         extra_args.push("--enable-automation-detection-shield".to_string());
     }
-    if let Some(mode) = options.image_loading_mode.as_deref().and_then(trim_str_to_option) {
+    if let Some(mode) = options
+        .image_loading_mode
+        .as_deref()
+        .and_then(trim_str_to_option)
+    {
         extra_args.push(format!("--custom-image-loading-mode={mode}"));
         if mode == "max-area" {
             if let Some(max_area) = options.image_max_area {
@@ -2390,14 +2396,22 @@ fn append_snapshot_args(extra_args: &mut Vec<String>, snapshot: &ProfileFingerpr
     if let Some(language) = snapshot.language.as_deref().and_then(trim_str_to_option) {
         extra_args.push(format!("--custom-main-language={language}"));
     }
-    if let Some(langs) = snapshot.accept_languages.as_deref().and_then(trim_str_to_option) {
+    if let Some(langs) = snapshot
+        .accept_languages
+        .as_deref()
+        .and_then(trim_str_to_option)
+    {
         // accept_languages 格式如 "en-US,en;q=0.9,zh-CN;q=0.8"
         // --custom-languages 需要纯语言列表（不含 q 权重）
         let lang_list: String = langs
             .split(',')
             .filter_map(|part| {
                 let lang = part.split(';').next()?.trim();
-                if lang.is_empty() { None } else { Some(lang) }
+                if lang.is_empty() {
+                    None
+                } else {
+                    Some(lang)
+                }
             })
             .collect::<Vec<_>>()
             .join(",");

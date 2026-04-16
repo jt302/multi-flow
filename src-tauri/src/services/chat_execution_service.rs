@@ -209,11 +209,24 @@ impl ChatExecutionService {
                         session_id,
                         "system",
                         Some(limit_msg),
-                        None, None, None, None, None, None, None, None, None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
                     )
                     .await;
                 emit_phase(
-                    app, session_id, "done", round, None, None,
+                    app,
+                    session_id,
+                    "done",
+                    round,
+                    None,
+                    None,
                     generation_start.elapsed().as_millis() as u64,
                     Some(cumulative_prompt_tokens),
                     Some(cumulative_completion_tokens),
@@ -320,8 +333,10 @@ impl ChatExecutionService {
                         messages.extend(recent);
 
                         // 更新上下文用量（压缩后 token 数变小）
-                        last_ctx_used = (crate::services::token_counter::TokenCounter::count_messages(&messages)
-                            + tool_tokens) as u64;
+                        last_ctx_used =
+                            (crate::services::token_counter::TokenCounter::count_messages(
+                                &messages,
+                            ) + tool_tokens) as u64;
 
                         eprintln!(
                             "Chat {}: compressed {} messages (est. {} tokens → {})",
@@ -725,8 +740,8 @@ impl ChatExecutionService {
                         }
 
                         // 重复操作检测：如果最近 6 次中同一 (tool, args) 出现 >= 3 次，注入警告
-                        let args_key = serde_json::to_string(&tool_call.arguments)
-                            .unwrap_or_default();
+                        let args_key =
+                            serde_json::to_string(&tool_call.arguments).unwrap_or_default();
                         let call_key = (tool_call.name.clone(), args_key);
                         if recent_tool_calls.len() >= 10 {
                             recent_tool_calls.pop_front();

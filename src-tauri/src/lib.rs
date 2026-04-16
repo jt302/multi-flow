@@ -1173,24 +1173,29 @@ fn run_app_init(handle: AppHandle) -> Result<(), Box<dyn std::error::Error + Sen
         .map_err(|err| -> Box<dyn std::error::Error + Send + Sync> { Box::new(err) })?;
 
     emit_splash("proxy", 65);
-    start_proxy_daemon_sidecar(&handle, &app_state)
-        .map_err(|err| -> Box<dyn std::error::Error + Send + Sync> {
+    start_proxy_daemon_sidecar(&handle, &app_state).map_err(
+        |err| -> Box<dyn std::error::Error + Send + Sync> {
             Box::new(std::io::Error::new(std::io::ErrorKind::Other, err))
-        })?;
+        },
+    )?;
     handle.manage(app_state);
 
     emit_splash("menu", 80);
-    setup_native_menu(&handle)
-        .map_err(|err| -> Box<dyn std::error::Error + Send + Sync> {
-            Box::new(std::io::Error::new(std::io::ErrorKind::Other, err.to_string()))
-        })?;
+    setup_native_menu(&handle).map_err(|err| -> Box<dyn std::error::Error + Send + Sync> {
+        Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            err.to_string(),
+        ))
+    })?;
     start_runtime_guard(handle.clone());
 
     emit_splash("window", 90);
-    build_main_window(&handle)
-        .map_err(|err| -> Box<dyn std::error::Error + Send + Sync> {
-            Box::new(std::io::Error::new(std::io::ErrorKind::Other, err.to_string()))
-        })?;
+    build_main_window(&handle).map_err(|err| -> Box<dyn std::error::Error + Send + Sync> {
+        Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            err.to_string(),
+        ))
+    })?;
 
     emit_splash("ready", 100);
 

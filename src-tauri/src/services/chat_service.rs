@@ -1,7 +1,7 @@
+use sea_orm::sea_query::Expr;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, Set,
 };
-use sea_orm::sea_query::Expr;
 use serde::{Deserialize, Deserializer, Serialize};
 
 /// 正确反序列化"可选可清空"字段：
@@ -386,8 +386,10 @@ impl ChatService {
         let compress_end = ai_relevant.len() - keep_recent;
 
         // 批量将被压缩的消息设为 is_active=0
-        let ids_to_deactivate: Vec<String> =
-            ai_relevant[..compress_end].iter().map(|r| r.id.clone()).collect();
+        let ids_to_deactivate: Vec<String> = ai_relevant[..compress_end]
+            .iter()
+            .map(|r| r.id.clone())
+            .collect();
         chat_message::Entity::update_many()
             .col_expr(chat_message::Column::IsActive, Expr::value(0i32))
             .filter(chat_message::Column::Id.is_in(ids_to_deactivate))

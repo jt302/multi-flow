@@ -317,7 +317,11 @@ impl AppPreferenceService {
         let mut preferences = self.read_preferences_file()?;
         preferences.dev_chromium_executable = path.and_then(|p| {
             let trimmed = p.trim().to_string();
-            if trimmed.is_empty() { None } else { Some(trimmed) }
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed)
+            }
         });
         self.write_preferences_file(&preferences)
     }

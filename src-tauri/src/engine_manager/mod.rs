@@ -194,10 +194,15 @@ impl EngineManager {
             EngineProcess::Mock | EngineProcess::Orphan { .. } => None,
         };
         let (debug_port, magic_port) = match &process {
-            EngineProcess::Chromium { debug_port, magic_port, .. }
-            | EngineProcess::Orphan { debug_port, magic_port } => {
-                (Some(*debug_port), Some(*magic_port))
+            EngineProcess::Chromium {
+                debug_port,
+                magic_port,
+                ..
             }
+            | EngineProcess::Orphan {
+                debug_port,
+                magic_port,
+            } => (Some(*debug_port), Some(*magic_port)),
             EngineProcess::Mock => (None, None),
         };
         let session = EngineSession {
@@ -239,7 +244,10 @@ impl EngineManager {
             return;
         }
         let process = match (session.debug_port, session.magic_port) {
-            (Some(debug_port), Some(magic_port)) => EngineProcess::Orphan { debug_port, magic_port },
+            (Some(debug_port), Some(magic_port)) => EngineProcess::Orphan {
+                debug_port,
+                magic_port,
+            },
             _ => EngineProcess::Mock,
         };
         logger::info(
@@ -279,7 +287,11 @@ impl EngineManager {
         // 避免持有 engine_manager 锁阻塞其他操作和前端 IPC 响应。
         let profile_id_owned = profile_id.to_string();
         match record.process {
-            EngineProcess::Chromium { mut child, debug_port, magic_port } => {
+            EngineProcess::Chromium {
+                mut child,
+                debug_port,
+                magic_port,
+            } => {
                 std::thread::spawn(move || {
                     shutdown_chromium_process(
                         &profile_id_owned,
@@ -323,7 +335,10 @@ impl EngineManager {
         })?;
         let (debug_port, magic_port) = match &record.process {
             EngineProcess::Mock => (None, None),
-            EngineProcess::Orphan { debug_port, magic_port }
+            EngineProcess::Orphan {
+                debug_port,
+                magic_port,
+            }
             | EngineProcess::Chromium {
                 debug_port,
                 magic_port,
@@ -1173,7 +1188,9 @@ impl EngineManager {
                 EngineProcess::Mock => false,
                 EngineProcess::Orphan { magic_port, .. } => {
                     // 孤儿进程：通过 PID 存活检查来判断是否需要清理
-                    let alive = record.session.pid
+                    let alive = record
+                        .session
+                        .pid
                         .map(crate::runtime_guard::is_process_alive)
                         .unwrap_or(false);
                     if !alive && !is_magic_server_alive(*magic_port) {
