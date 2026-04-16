@@ -489,7 +489,13 @@ fn open_data_dir(app: &AppHandle) -> Result<(), String> {
     fs::create_dir_all(&data_dir).map_err(|err| format!("create data dir failed: {err}"))?;
 
     #[cfg(target_os = "macos")]
-    let mut command = Command::new("open");
+    let mut command = {
+        let mut cmd = Command::new("open");
+        // -R reveals the item in Finder instead of trying to launch it.
+        // Without -R, macOS treats paths ending in ".app" as app bundles.
+        cmd.arg("-R");
+        cmd
+    };
     #[cfg(target_os = "windows")]
     let mut command = Command::new("explorer");
     #[cfg(all(unix, not(target_os = "macos")))]
