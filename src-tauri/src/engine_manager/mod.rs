@@ -269,19 +269,31 @@ impl EngineManager {
             "engine_manager",
             format!("close_profile start profile_id={profile_id}"),
         );
-        let mut record = self.sessions.remove(profile_id).ok_or_else(|| {
+        let record = self.sessions.remove(profile_id).ok_or_else(|| {
             AppError::NotFound(format!("running session not found: {profile_id}"))
         })?;
         let profile_name = record.profile_name.clone();
+        let pid = record.session.pid;
 
-        match &mut record.process {
-            EngineProcess::Chromium { child, debug_port, magic_port } => {
-                shutdown_chromium_process(profile_id, &profile_name, child, *debug_port, *magic_port);
+        // 将 Chromium 进程的实际关闭（最多等待 3 秒）放入后台线程，
+        // 避免持有 engine_manager 锁阻塞其他操作和前端 IPC 响应。
+        let profile_id_owned = profile_id.to_string();
+        match record.process {
+            EngineProcess::Chromium { mut child, debug_port, magic_port } => {
+                std::thread::spawn(move || {
+                    shutdown_chromium_process(
+                        &profile_id_owned,
+                        &profile_name,
+                        &mut child,
+                        debug_port,
+                        magic_port,
+                    );
+                });
             }
             EngineProcess::Orphan { .. } => {
                 // 孤儿进程：没有子进程句柄，直接用 PID 发送终止信号
-                if let Some(pid) = record.session.pid {
-                    crate::runtime_guard::terminate_process(pid);
+                if let Some(p) = pid {
+                    crate::runtime_guard::terminate_process(p);
                 }
             }
             EngineProcess::Mock => {}
@@ -289,8 +301,8 @@ impl EngineManager {
         logger::info(
             "engine_manager",
             format!(
-                "close_profile success profile_id={profile_id} profile_name=\"{profile_name}\" session_id={} pid={:?}",
-                record.session.session_id, record.session.pid
+                "close_profile detached shutdown profile_id={profile_id} session_id={} pid={pid:?}",
+                record.session.session_id,
             ),
         );
 
