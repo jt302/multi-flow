@@ -161,6 +161,34 @@ export type ScriptStep =
 	| { kind: 'magic_get_is_master'; output_key?: string }
 	| { kind: 'magic_get_sync_status'; output_key?: string }
 
+	// AI Agent 语义化操作
+	| { kind: 'magic_get_browser'; browser_id: string; output_key?: string }
+	| { kind: 'magic_click_at'; grid: string; position: string; button?: string; modifiers?: string[]; click_count?: string; action?: string; browser_id?: string; output_key?: string }
+	| { kind: 'magic_click_element'; target: string; browser_id?: string; output_key?: string }
+	| { kind: 'magic_get_ui_elements'; browser_id?: string; output_key?: string }
+	| { kind: 'magic_navigate_to'; url: string; tab_id?: string; output_key?: string }
+	| { kind: 'magic_query_dom'; by: string; selector: string; match?: string; tab_id?: string; limit?: string; visible_only?: boolean; output_key?: string }
+	| { kind: 'magic_click_dom'; by: string; selector: string; match?: string; index?: string; tab_id?: string; visible_only?: boolean; output_key?: string }
+	| { kind: 'magic_fill_dom'; by: string; selector: string; value: string; match?: string; index?: string; clear?: boolean; tab_id?: string; visible_only?: boolean; output_key?: string }
+	| { kind: 'magic_send_keys'; keys: string[]; tab_id?: string; output_key?: string }
+	| { kind: 'magic_get_page_info'; tab_id?: string; output_key?: string }
+	| { kind: 'magic_scroll'; direction?: string; distance?: string; by?: string; selector?: string; index?: string; visible_only?: boolean; tab_id?: string; output_key?: string }
+	| { kind: 'magic_set_dock_icon_text'; text: string; color?: string; output_key?: string }
+	| {
+			kind: 'magic_get_page_content';
+			mode?: string;
+			format?: string;
+			tab_id?: string;
+			viewport_only?: boolean;
+			max_elements?: string;
+			max_text_length?: string;
+			max_depth?: string;
+			include_hidden?: boolean;
+			regions?: string[];
+			exclude_regions?: string[];
+			output_key?: string;
+	  }
+
 	// 截图（app 壳）— 与 cdp_screenshot 一致，mode=file，不用 base64
 	| {
 			kind: 'magic_capture_app_shell';

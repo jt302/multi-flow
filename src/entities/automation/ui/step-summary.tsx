@@ -490,6 +490,32 @@ export function getStepSummaryText(step: Step): string {
 			return i18next.t('automation:steps.isMaster');
 		case 'magic_get_sync_status':
 			return i18next.t('automation:steps.fullSyncStatus');
+		case 'magic_get_browser':
+			return `Get browser ${step.browser_id}`;
+		case 'magic_click_at':
+			return `Click at ${step.position} on ${step.grid}`;
+		case 'magic_click_element':
+			return `Click element ${step.target}`;
+		case 'magic_get_ui_elements':
+			return 'Get UI elements';
+		case 'magic_navigate_to':
+			return `Navigate to ${step.url}`;
+		case 'magic_query_dom':
+			return `Query ${step.by}: ${step.selector}`;
+		case 'magic_click_dom':
+			return `Click ${step.by}: ${step.selector}`;
+		case 'magic_fill_dom':
+			return `Fill ${step.by}: ${step.selector}`;
+		case 'magic_send_keys':
+			return `Send keys: ${step.keys.join(', ')}`;
+		case 'magic_get_page_info':
+			return 'Get page info';
+		case 'magic_scroll':
+			return step.direction ? `Scroll ${step.direction}` : 'Scroll to element';
+		case 'magic_set_dock_icon_text':
+			return `Set dock icon: ${step.text}`;
+		case 'magic_get_page_content':
+			return `Get page content (${step.mode ?? 'interactive'})`;
 		default:
 			return '';
 	}

@@ -134,6 +134,20 @@ export const STEP_KINDS: StepKindDef[] = [
 	{ value: 'magic_get_sync_mode', label: 'magic_get_sync_mode', group: 'sync' },
 	{ value: 'magic_get_is_master', label: 'magic_get_is_master', group: 'sync' },
 	{ value: 'magic_get_sync_status', label: 'magic_get_sync_status', group: 'sync' },
+	// AI Agent 语义化操作
+	{ value: 'magic_get_browser', label: 'magic_get_browser', group: 'browser' },
+	{ value: 'magic_click_at', label: 'magic_click_at', group: 'window' },
+	{ value: 'magic_click_element', label: 'magic_click_element', group: 'browser' },
+	{ value: 'magic_get_ui_elements', label: 'magic_get_ui_elements', group: 'browser' },
+	{ value: 'magic_navigate_to', label: 'magic_navigate_to', group: 'element' },
+	{ value: 'magic_query_dom', label: 'magic_query_dom', group: 'element' },
+	{ value: 'magic_click_dom', label: 'magic_click_dom', group: 'element' },
+	{ value: 'magic_fill_dom', label: 'magic_fill_dom', group: 'element' },
+	{ value: 'magic_send_keys', label: 'magic_send_keys', group: 'element' },
+	{ value: 'magic_get_page_info', label: 'magic_get_page_info', group: 'element' },
+	{ value: 'magic_scroll', label: 'magic_scroll', group: 'element' },
+	{ value: 'magic_set_dock_icon_text', label: 'magic_set_dock_icon_text', group: 'window' },
+	{ value: 'magic_get_page_content', label: 'magic_get_page_content', group: 'element' },
 	// Cookie & 存储
 	{ value: 'cdp_get_cookies', label: 'cdp_get_cookies', group: 'storage' },
 	{ value: 'cdp_set_cookie', label: 'cdp_set_cookie', group: 'storage' },
@@ -268,6 +282,20 @@ export const KIND_GROUPS: Record<string, string> = {
 	// Sync
 	magic_toggle_sync_mode: 'sync', magic_get_sync_mode: 'sync',
 	magic_get_is_master: 'sync', magic_get_sync_status: 'sync',
+	// AI Agent 语义化操作
+	magic_get_browser: 'browser',
+	magic_click_at: 'window',
+	magic_click_element: 'browser',
+	magic_get_ui_elements: 'browser',
+	magic_navigate_to: 'element',
+	magic_query_dom: 'element',
+	magic_click_dom: 'element',
+	magic_fill_dom: 'element',
+	magic_send_keys: 'element',
+	magic_get_page_info: 'element',
+	magic_scroll: 'element',
+	magic_set_dock_icon_text: 'window',
+	magic_get_page_content: 'element',
 	// Storage (cdp_*)
 	cdp_get_cookies: 'storage', cdp_set_cookie: 'storage',
 	cdp_delete_cookies: 'storage', cdp_get_local_storage: 'storage',
@@ -427,12 +455,16 @@ export const PALETTE_GROUPS: { label: string; kinds: string[] }[] = [
 	{ label: 'ai', kinds: ['ai_agent', 'ai_judge'] },
 	{
 		label: 'magic',
-		kinds: ['magic_get_browsers', 'magic_open_new_tab', 'magic_close_tab',
+		kinds: ['magic_get_browsers', 'magic_get_browser', 'magic_open_new_tab', 'magic_close_tab',
 			'magic_close_inactive_tabs', 'magic_activate_tab', 'magic_get_tabs', 'magic_set_bounds',
 			'magic_get_bounds', 'magic_set_maximized', 'magic_set_minimized',
 			'magic_capture_app_shell', 'magic_safe_quit',
 			'magic_get_maximized', 'magic_get_minimized', 'magic_get_fullscreen',
-			'magic_get_window_state', 'magic_import_cookies'],
+			'magic_get_window_state', 'magic_import_cookies',
+			'magic_click_at', 'magic_set_dock_icon_text',
+			'magic_click_element', 'magic_get_ui_elements',
+			'magic_navigate_to', 'magic_query_dom', 'magic_click_dom', 'magic_fill_dom',
+			'magic_send_keys', 'magic_get_page_info', 'magic_scroll', 'magic_get_page_content'],
 	},
 	{
 		label: 'extension',
@@ -557,6 +589,20 @@ export function defaultStep(kind: string): ScriptStep {
 		case 'magic_get_sync_mode': return { kind: 'magic_get_sync_mode' };
 		case 'magic_get_is_master': return { kind: 'magic_get_is_master' };
 		case 'magic_get_sync_status': return { kind: 'magic_get_sync_status' };
+		// AI Agent 语义化操作
+		case 'magic_get_browser': return { kind: 'magic_get_browser', browser_id: '' };
+		case 'magic_click_at': return { kind: 'magic_click_at', grid: '1280,800', position: '640,400' };
+		case 'magic_click_element': return { kind: 'magic_click_element', target: 'reload_button' };
+		case 'magic_get_ui_elements': return { kind: 'magic_get_ui_elements' };
+		case 'magic_navigate_to': return { kind: 'magic_navigate_to', url: 'https://' };
+		case 'magic_query_dom': return { kind: 'magic_query_dom', by: 'css', selector: '' };
+		case 'magic_click_dom': return { kind: 'magic_click_dom', by: 'css', selector: '' };
+		case 'magic_fill_dom': return { kind: 'magic_fill_dom', by: 'css', selector: '', value: '' };
+		case 'magic_send_keys': return { kind: 'magic_send_keys', keys: ['Enter'] };
+		case 'magic_get_page_info': return { kind: 'magic_get_page_info' };
+		case 'magic_scroll': return { kind: 'magic_scroll', direction: 'down', distance: '300' };
+		case 'magic_set_dock_icon_text': return { kind: 'magic_set_dock_icon_text', text: '' };
+		case 'magic_get_page_content': return { kind: 'magic_get_page_content', mode: 'interactive' };
 		case 'cdp_get_cookies': return { kind: 'cdp_get_cookies' };
 		case 'cdp_set_cookie': return { kind: 'cdp_set_cookie', name: '', value: '' };
 		case 'cdp_delete_cookies': return { kind: 'cdp_delete_cookies', name: '' };

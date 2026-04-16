@@ -670,4 +670,177 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
       filters: [{ name: i18next.t('automation:fields.filterImage'), extensions: ['png', 'jpeg', 'jpg'] }],
     },
   ],
+
+  // AI Agent 语义化操作
+  magic_get_browser: [
+    { type: 'text', key: 'browser_id', label: 'Browser ID' },
+    { type: 'output_key' },
+  ],
+
+  magic_click_at: [
+    { type: 'text', key: 'grid', label: 'Grid (W,H)' },
+    { type: 'text', key: 'position', label: 'Position (X,Y)' },
+    {
+      type: 'select',
+      key: 'button',
+      label: 'Button',
+      options: [
+        { value: 'left', label: 'Left' },
+        { value: 'right', label: 'Right' },
+        { value: 'middle', label: 'Middle' },
+      ],
+    },
+    { type: 'text', key: 'click_count', label: 'Click Count' },
+    {
+      type: 'select',
+      key: 'action',
+      label: 'Action',
+      options: [
+        { value: 'click', label: 'Click' },
+        { value: 'down', label: 'Down' },
+        { value: 'up', label: 'Up' },
+        { value: 'move', label: 'Move' },
+      ],
+    },
+    { type: 'text', key: 'browser_id', label: 'Browser ID' },
+    { type: 'output_key' },
+  ],
+
+  magic_click_element: [
+    { type: 'text', key: 'target', label: 'Target' },
+    { type: 'text', key: 'browser_id', label: 'Browser ID' },
+    { type: 'output_key' },
+  ],
+
+  magic_get_ui_elements: [
+    { type: 'text', key: 'browser_id', label: 'Browser ID' },
+    { type: 'output_key' },
+  ],
+
+  magic_navigate_to: [
+    { type: 'text', key: 'url', label: 'URL' },
+    { type: 'text', key: 'tab_id', label: 'Tab ID' },
+    { type: 'output_key' },
+  ],
+
+  magic_query_dom: [
+    {
+      type: 'select',
+      key: 'by',
+      label: 'By',
+      options: ['css', 'xpath', 'text', 'aria', 'role', 'placeholder', 'name', 'search', 'idx'].map(v => ({ value: v, label: v })),
+    },
+    { type: 'text', key: 'selector', label: 'Selector' },
+    {
+      type: 'select',
+      key: 'match',
+      label: 'Match',
+      options: ['contains', 'icontains', 'exact', 'regex', 'starts_with', 'ends_with'].map(v => ({ value: v, label: v })),
+    },
+    { type: 'text', key: 'limit', label: 'Limit' },
+    { type: 'checkbox', key: 'visible_only', label: 'Visible Only' },
+    { type: 'text', key: 'tab_id', label: 'Tab ID' },
+    { type: 'output_key' },
+  ],
+
+  magic_click_dom: [
+    {
+      type: 'select',
+      key: 'by',
+      label: 'By',
+      options: ['css', 'xpath', 'text', 'aria', 'role', 'placeholder', 'name', 'search', 'idx'].map(v => ({ value: v, label: v })),
+    },
+    { type: 'text', key: 'selector', label: 'Selector' },
+    {
+      type: 'select',
+      key: 'match',
+      label: 'Match',
+      options: ['contains', 'icontains', 'exact', 'regex', 'starts_with', 'ends_with'].map(v => ({ value: v, label: v })),
+    },
+    { type: 'text', key: 'index', label: 'Index' },
+    { type: 'checkbox', key: 'visible_only', label: 'Visible Only' },
+    { type: 'text', key: 'tab_id', label: 'Tab ID' },
+    { type: 'output_key' },
+  ],
+
+  magic_fill_dom: [
+    {
+      type: 'select',
+      key: 'by',
+      label: 'By',
+      options: ['css', 'xpath', 'text', 'aria', 'role', 'placeholder', 'name', 'search', 'idx'].map(v => ({ value: v, label: v })),
+    },
+    { type: 'text', key: 'selector', label: 'Selector' },
+    { type: 'text', key: 'value', label: 'Value' },
+    {
+      type: 'select',
+      key: 'match',
+      label: 'Match',
+      options: ['contains', 'icontains', 'exact', 'regex', 'starts_with', 'ends_with'].map(v => ({ value: v, label: v })),
+    },
+    { type: 'text', key: 'index', label: 'Index' },
+    { type: 'checkbox', key: 'clear', label: 'Clear Before Fill' },
+    { type: 'checkbox', key: 'visible_only', label: 'Visible Only' },
+    { type: 'text', key: 'tab_id', label: 'Tab ID' },
+    { type: 'output_key' },
+  ],
+
+  magic_send_keys: [
+    { type: 'text', key: 'tab_id', label: 'Tab ID' },
+    { type: 'output_key' },
+  ],
+
+  magic_get_page_info: [
+    { type: 'text', key: 'tab_id', label: 'Tab ID' },
+    { type: 'output_key' },
+  ],
+
+  magic_scroll: [
+    {
+      type: 'select',
+      key: 'direction',
+      label: 'Direction',
+      options: ['up', 'down', 'left', 'right'].map(v => ({ value: v, label: v })),
+    },
+    { type: 'text', key: 'distance', label: 'Distance (px)' },
+    {
+      type: 'select',
+      key: 'by',
+      label: 'By (scroll to element)',
+      options: ['css', 'xpath', 'text', 'aria', 'role', 'placeholder', 'name', 'search', 'idx'].map(v => ({ value: v, label: v })),
+    },
+    { type: 'text', key: 'selector', label: 'Selector' },
+    { type: 'text', key: 'index', label: 'Index' },
+    { type: 'checkbox', key: 'visible_only', label: 'Visible Only' },
+    { type: 'text', key: 'tab_id', label: 'Tab ID' },
+    { type: 'output_key' },
+  ],
+
+  magic_set_dock_icon_text: [
+    { type: 'text', key: 'text', label: 'Text' },
+    { type: 'text', key: 'color', label: 'Color (#RRGGBB)' },
+    { type: 'output_key' },
+  ],
+
+  magic_get_page_content: [
+    {
+      type: 'select',
+      key: 'mode',
+      label: 'Mode',
+      options: ['summary', 'interactive', 'content', 'a11y', 'full'].map(v => ({ value: v, label: v })),
+    },
+    {
+      type: 'select',
+      key: 'format',
+      label: 'Format',
+      options: [{ value: 'json', label: 'JSON' }, { value: 'text', label: 'Text' }],
+    },
+    { type: 'text', key: 'max_elements', label: 'Max Elements' },
+    { type: 'text', key: 'max_text_length', label: 'Max Text Length' },
+    { type: 'text', key: 'max_depth', label: 'Max Depth' },
+    { type: 'checkbox', key: 'viewport_only', label: 'Viewport Only' },
+    { type: 'checkbox', key: 'include_hidden', label: 'Include Hidden' },
+    { type: 'text', key: 'tab_id', label: 'Tab ID' },
+    { type: 'output_key' },
+  ],
 };
