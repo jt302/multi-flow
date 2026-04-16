@@ -1,7 +1,7 @@
 # Multi-Flow AI 工具开发者参考文档
 
-> **最后更新日期**: 2026-04-06
-> **工具总数**: 176 个
+> **最后更新日期**: 2026-04-16
+> **工具总数**: 189 个
 > **分类**: 8 个（Utility / CDP / Magic Controller / App Data / Auto / File I/O / Dialog / Captcha）
 
 ---
@@ -13,7 +13,7 @@
 - [3. 工具分类详细参考](#3-工具分类详细参考)
   - [3.1 Utility 工具（3 个）](#31-utility-工具3-个)
   - [3.2 CDP 工具（56 个）](#32-cdp-工具56-个)
-  - [3.3 Magic Controller 工具（53 个）](#33-magic-controller-工具53-个)
+  - [3.3 Magic Controller 工具（66 个）](#33-magic-controller-工具66-个)
   - [3.4 App Data 工具（21 个）](#34-app-data-工具21-个)
   - [3.5 Auto 工具（19 个）](#35-auto-工具19-个)
   - [3.6 File I/O 工具（6 个）](#36-file-io-工具6-个)
@@ -27,7 +27,7 @@
 
 ## 1. 概述
 
-Multi-Flow 的自动化系统为 AI Agent 提供了 **176 个工具**，覆盖浏览器控制、应用数据管理、自动化管理、文件操作、用户交互等完整能力。
+Multi-Flow 的自动化系统为 AI Agent 提供了 **189 个工具**，覆盖浏览器控制、应用数据管理、自动化管理、文件操作、用户交互等完整能力。
 
 ### 工具系统架构
 
@@ -86,13 +86,13 @@ ToolRegistry（注册表）
 | ---------------- | ---------------------------------- | ---- | ------------------------------------------- |
 | Utility          | `wait` / `print` / `submit_result` | 3    | 等待、日志、提交结果                        |
 | CDP              | `cdp_` / `cdp`                     | 56   | 页面交互（导航、点击、输入、提取、截图、JS执行等） |
-| Magic Controller | `magic_`                           | 53   | 通过 Magic Controller 控制浏览器窗口和原生功能 |
+| Magic Controller | `magic_`                           | 66   | 通过 Magic Controller 控制浏览器窗口和原生功能 |
 | App Data         | `app_`                             | 21   | 读写 Multi-Flow 应用数据（Profile、分组、代理等） |
 | Auto             | `auto_`                            | 19   | 自动化管理（脚本/运行/AI配置/CAPTCHA配置 CRUD） |
 | File I/O         | `file_`                            | 6    | 文件系统读写                                |
 | Dialog           | `dialog_`                          | 13   | 向用户展示 UI 弹窗获取反馈                  |
 | Captcha          | `captcha_`                         | 5    | CAPTCHA 检测与自动求解                      |
-| **合计**         |                                    | **176** |                                          |
+| **合计**         |                                    | **189** |                                          |
 
 ---
 
@@ -1000,7 +1000,7 @@ pub struct ToolResult {
 
 ---
 
-### 3.3 Magic Controller 工具（53 个）
+### 3.3 Magic Controller 工具（66 个）
 
 通过自研 Chromium 的 Magic Controller HTTP API 控制浏览器。这些工具通过 `magic_port` 与 Chromium 实例通信。
 
@@ -1694,6 +1694,219 @@ pub struct ToolResult {
 | `output_key` | string        | ❌   | 将导入数量存入此变量名                                        |
 
 **返回值**: 导入数量
+
+---
+
+#### AI Agent 语义化操作（13 个）
+
+##### `magic_get_browser`
+
+根据 browser_id 获取指定浏览器窗口信息。
+
+| 参数         | 类型    | 必需 | 描述                   |
+| ------------ | ------- | ---- | ---------------------- |
+| `browser_id` | integer | ✅   | 浏览器窗口 ID          |
+| `output_key` | string  | ❌   | 将结果存入此变量名     |
+
+**返回值**: 浏览器窗口信息 JSON
+
+---
+
+##### `magic_click_at`
+
+坐标系点击，将虚拟坐标映射到浏览器窗口像素坐标并注入鼠标事件。
+
+| 参数          | 类型     | 必需 | 描述                                         |
+| ------------- | -------- | ---- | -------------------------------------------- |
+| `grid`        | string   | ✅   | 虚拟坐标系尺寸，格式 `'宽,高'`，如 `'1200,800'` |
+| `position`    | string   | ✅   | 目标点坐标，格式 `'x,y'`，如 `'125,60'`     |
+| `button`      | string   | ❌   | 鼠标按钮：`left` / `right` / `middle`       |
+| `modifiers`   | string[] | ❌   | 修饰键列表：`shift` / `ctrl` / `alt` / `meta` |
+| `click_count` | integer  | ❌   | 点击次数，1=单击 2=双击 3=三击              |
+| `action`      | string   | ❌   | 动作类型：`click` / `down` / `up` / `move`  |
+| `browser_id`  | integer  | ❌   | 目标窗口 ID，省略则使用活动窗口              |
+| `output_key`  | string   | ❌   | 将结果存入此变量名                           |
+
+**返回值**: 点击结果
+
+---
+
+##### `magic_click_element`
+
+语义化点击浏览器 Chrome UI 元素（工具栏/标签栏/菜单），无需截图。
+
+| 参数         | 类型    | 必需 | 描述                                                         |
+| ------------ | ------- | ---- | ------------------------------------------------------------ |
+| `target`     | string  | ✅   | 目标元素标识：`back_button`、`forward_button`、`reload_button`、`bookmark_star`、`avatar_button`、`app_menu_button`、`tab_search_button`、`location_bar`、`new_tab_button`、`tab:{index}`、`tab_close:{index}`、`app_menu_item:{command_id}` |
+| `browser_id` | integer | ❌   | 目标窗口 ID，省略则使用活动窗口                              |
+| `output_key` | string  | ❌   | 将结果存入此变量名                                           |
+
+**返回值**: 点击结果
+
+---
+
+##### `magic_get_ui_elements`
+
+查询浏览器 UI 当前状态（工具栏按钮、标签页列表、菜单），供 Agent 决策。
+
+| 参数         | 类型    | 必需 | 描述                            |
+| ------------ | ------- | ---- | ------------------------------- |
+| `browser_id` | integer | ❌   | 目标窗口 ID，省略则使用活动窗口 |
+| `output_key` | string  | ❌   | 将结果存入此变量名              |
+
+**返回值**: UI 元素树 JSON
+
+---
+
+##### `magic_navigate_to`
+
+导航到指定 URL（使用 Magic Controller，比 CDP 更可靠）。
+
+| 参数         | 类型    | 必需 | 描述                   |
+| ------------ | ------- | ---- | ---------------------- |
+| `url`        | string  | ✅   | 目标 URL               |
+| `tab_id`     | integer | ❌   | 目标标签页 ID          |
+| `output_key` | string  | ❌   | 将结果存入此变量名     |
+
+**返回值**: 导航结果
+
+---
+
+##### `magic_query_dom`
+
+DOM 元素查询，返回匹配元素候选列表（用于后续 `magic_click_dom`/`magic_fill_dom` 定位）。
+
+| 参数           | 类型    | 必需 | 描述                                                                  |
+| -------------- | ------- | ---- | --------------------------------------------------------------------- |
+| `by`           | string  | ✅   | 选择器类型：`css` / `xpath` / `text` / `aria` / `role` / `placeholder` / `name` / `search` / `idx` |
+| `selector`     | string  | ✅   | 选择器值                                                              |
+| `match`        | string  | ❌   | 文本匹配模式：`contains` / `icontains` / `exact` / `regex` / `starts_with` / `ends_with` |
+| `tab_id`       | integer | ❌   | 目标标签页 ID                                                         |
+| `limit`        | integer | ❌   | 返回结果数量上限                                                      |
+| `visible_only` | boolean | ❌   | 只返回可见元素                                                        |
+| `output_key`   | string  | ❌   | 将结果存入此变量名                                                    |
+
+**返回值**: 匹配元素列表 JSON
+
+---
+
+##### `magic_click_dom`
+
+点击 DOM 元素（支持多种选择器方式，比 CDP 更稳定）。
+
+| 参数           | 类型    | 必需 | 描述                               |
+| -------------- | ------- | ---- | ---------------------------------- |
+| `by`           | string  | ✅   | 选择器类型（同 `magic_query_dom`） |
+| `selector`     | string  | ✅   | 选择器值                           |
+| `match`        | string  | ❌   | 文本匹配模式（同上）               |
+| `index`        | integer | ❌   | 多个匹配结果时选取的索引（从 0 开始） |
+| `tab_id`       | integer | ❌   | 目标标签页 ID                      |
+| `visible_only` | boolean | ❌   | 只操作可见元素                     |
+| `output_key`   | string  | ❌   | 将结果存入此变量名                 |
+
+**返回值**: 点击结果
+
+---
+
+##### `magic_fill_dom`
+
+填写表单元素（支持清空后输入，比 CDP 更稳定）。
+
+| 参数           | 类型    | 必需 | 描述                                    |
+| -------------- | ------- | ---- | --------------------------------------- |
+| `by`           | string  | ✅   | 选择器类型（同 `magic_query_dom`）      |
+| `selector`     | string  | ✅   | 选择器值                                |
+| `value`        | string  | ✅   | 要填写的内容                            |
+| `match`        | string  | ❌   | 文本匹配模式（同上）                    |
+| `index`        | integer | ❌   | 多个匹配结果时选取的索引（从 0 开始）   |
+| `clear`        | boolean | ❌   | 填写前是否先清空，默认 `true`           |
+| `tab_id`       | integer | ❌   | 目标标签页 ID                           |
+| `visible_only` | boolean | ❌   | 只操作可见元素                          |
+| `output_key`   | string  | ❌   | 将结果存入此变量名                      |
+
+**返回值**: 填写结果
+
+---
+
+##### `magic_send_keys`
+
+键盘输入（支持特殊键/快捷键组合/文字输入）。
+
+| 参数         | 类型     | 必需 | 描述                                                |
+| ------------ | -------- | ---- | --------------------------------------------------- |
+| `keys`       | string[] | ✅   | 按键序列，支持 `Enter`、`Tab`、`Escape`、`ArrowDown`、`ctrl+a` 等 |
+| `tab_id`     | integer  | ❌   | 目标标签页 ID                                       |
+| `output_key` | string   | ❌   | 将结果存入此变量名                                  |
+
+**返回值**: 输入结果
+
+---
+
+##### `magic_get_page_info`
+
+获取页面综合状态信息（URL、标题、加载状态、标签页列表等）。
+
+| 参数         | 类型    | 必需 | 描述                   |
+| ------------ | ------- | ---- | ---------------------- |
+| `tab_id`     | integer | ❌   | 目标标签页 ID          |
+| `output_key` | string  | ❌   | 将结果存入此变量名     |
+
+**返回值**: 页面综合状态 JSON
+
+---
+
+##### `magic_scroll`
+
+页面滚动（按方向/距离，或滚动到指定元素）。
+
+| 参数           | 类型    | 必需 | 描述                               |
+| -------------- | ------- | ---- | ---------------------------------- |
+| `direction`    | string  | ❌   | 滚动方向：`up` / `down` / `left` / `right` |
+| `distance`     | integer | ❌   | 滚动距离（像素）                   |
+| `by`           | string  | ❌   | 元素定位方式（滚动到元素时使用）   |
+| `selector`     | string  | ❌   | 目标元素选择器                     |
+| `index`        | integer | ❌   | 多匹配时选择索引                   |
+| `visible_only` | boolean | ❌   | 只操作可见元素                     |
+| `tab_id`       | integer | ❌   | 目标标签页 ID                      |
+| `output_key`   | string  | ❌   | 将结果存入此变量名                 |
+
+**返回值**: 滚动结果
+
+---
+
+##### `magic_set_dock_icon_text`
+
+设置 Dock 图标文字标签（macOS）。
+
+| 参数         | 类型   | 必需 | 描述                              |
+| ------------ | ------ | ---- | --------------------------------- |
+| `text`       | string | ✅   | 显示在 Dock 图标上的文字          |
+| `color`      | string | ❌   | 文字颜色（十六进制，如 `#FF0000`） |
+| `output_key` | string | ❌   | 将结果存入此变量名                |
+
+**返回值**: 设置结果
+
+---
+
+##### `magic_get_page_content`
+
+获取页面语义快照（结构化 DOM 树、可交互元素、文本内容等）。
+
+| 参数              | 类型     | 必需 | 描述                                                    |
+| ----------------- | -------- | ---- | ------------------------------------------------------- |
+| `mode`            | string   | ❌   | 快照模式：`summary` / `interactive` / `content` / `a11y` / `full` |
+| `format`          | string   | ❌   | 输出格式：`json` / `text`                               |
+| `tab_id`          | integer  | ❌   | 目标标签页 ID                                           |
+| `viewport_only`   | boolean  | ❌   | 只返回视口内元素                                        |
+| `max_elements`    | integer  | ❌   | 最大元素数量                                            |
+| `max_text_length` | integer  | ❌   | 最大文本长度                                            |
+| `max_depth`       | integer  | ❌   | DOM 最大深度                                            |
+| `include_hidden`  | boolean  | ❌   | 是否包含隐藏元素                                        |
+| `regions`         | string[] | ❌   | 只提取指定区域（CSS 选择器列表）                        |
+| `exclude_regions` | string[] | ❌   | 排除指定区域（CSS 选择器列表）                          |
+| `output_key`      | string   | ❌   | 将结果存入此变量名                                      |
+
+**返回值**: 页面语义快照（JSON 或文本）
 
 ---
 

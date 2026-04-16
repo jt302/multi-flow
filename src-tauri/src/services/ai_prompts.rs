@@ -17,7 +17,7 @@ const BASE_CORE_ZH: &str = "\
 
 const TOOL_DESC_CDP_ZH: &str = "- cdp_*：页面交互（导航、点击、输入、获取文本、截图、执行JS等）";
 const TOOL_DESC_MAGIC_ZH: &str =
-    "- magic_*：浏览器窗口控制（窗口大小、标签管理、书签、Cookie、扩展等）";
+    "- magic_*：浏览器窗口控制（窗口大小、标签管理、书签、Cookie、扩展等）；以及 AI Agent 语义化操作（DOM 查询/点击/填写、UI 元素点击、页面信息获取、坐标系点击等）";
 const TOOL_DESC_APP_ZH: &str = "- app_*：应用数据查询与管理（配置文件、分组、代理等）";
 const TOOL_DESC_FILE_ZH: &str = "- file_*：文件读写（受路径保护，10MB 限制）";
 const TOOL_DESC_DIALOG_ZH: &str = "- dialog_*：用户交互弹窗（确认框、输入框、文件选择等）";
@@ -76,7 +76,7 @@ You must complete tasks by calling tools. Never reply with \"I need more informa
 
 const TOOL_DESC_CDP_EN: &str = "- cdp_*: Page interaction (navigation, clicks, input, get text, screenshots, execute JS, etc.)";
 const TOOL_DESC_MAGIC_EN: &str =
-    "- magic_*: Browser window control (window size, tab management, bookmarks, cookies, extensions, etc.)";
+    "- magic_*: Browser window control (window size, tab management, bookmarks, cookies, extensions, etc.); and AI Agent semantic operations (DOM query/click/fill, UI element click, page info, coordinate-based click, etc.)";
 const TOOL_DESC_APP_EN: &str =
     "- app_*: Application data query & management (profiles, groups, proxies, etc.)";
 const TOOL_DESC_FILE_EN: &str = "- file_*: File read/write (path-protected, 10MB limit)";

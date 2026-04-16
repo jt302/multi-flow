@@ -1,8 +1,8 @@
 # Multi-Flow AI Agent 工具参考
 
-> 最后更新日期: 2026-04-05
+> 最后更新日期: 2026-04-16
 >
-> 本文档面向 AI Agent（LLM）在执行自动化任务时参考，包含全部 176 个工具的使用指南。
+> 本文档面向 AI Agent（LLM）在执行自动化任务时参考，包含全部 189 个工具的使用指南。
 
 ---
 
@@ -23,7 +23,7 @@
 | 前缀       | 类别    | 用途                                                        | 数量 |
 | ---------- | ------- | ----------------------------------------------------------- | ---- |
 | `cdp_`     | CDP     | 通过 Chrome DevTools Protocol 操作页面内容                  | 56   |
-| `magic_`   | Magic   | 通过 Magic Controller 控制浏览器窗口和原生功能              | 53   |
+| `magic_`   | Magic   | 通过 Magic Controller 控制浏览器窗口和原生功能              | 66   |
 | `app_`     | App     | 读写 Multi-Flow 应用数据（Profile、分组、代理、聊天会话等） | 21   |
 | `auto_`    | Auto    | 自动化管理（脚本/运行/AI配置/CAPTCHA配置 CRUD）             | 19   |
 | `file_`    | File    | 文件系统读写                                                | 6    |
@@ -59,23 +59,41 @@
 ├─ 需要视觉判断 → cdp_screenshot
 ├─ 需要精确文本 → cdp_get_text / cdp_execute_js
 ├─ 需要 DOM 结构 → cdp_get_document
-├─ 需要语义结构 → cdp_get_full_ax_tree
+├─ 需要语义结构 → cdp_get_full_ax_tree / magic_get_page_content（mode=a11y）
 ├─ 需要元素属性 → cdp_get_attribute
-└─ 需要页面尺寸 → cdp_get_layout_metrics
+├─ 需要页面尺寸 → cdp_get_layout_metrics
+├─ 需要页面语义快照（可交互元素/文本内容） → magic_get_page_content
+└─ 需要页面综合状态（URL/标题/加载） → magic_get_page_info
 
 需要与页面交互？
-├─ 点击元素 → cdp_click
+├─ 点击元素
+│  ├─ CDP 方式（通过 CSS/XPath） → cdp_click
+│  └─ Magic 方式（多种选择器，更稳定） → magic_click_dom
 ├─ 输入文本
 │  ├─ 模拟键盘（触发事件） → cdp_type
 │  ├─ 直接设值（React等框架） → cdp_set_input_value
-│  └─ 多来源输入（文件/变量） → cdp_input_text
-├─ 按键操作 → cdp_press_key / cdp_shortcut
+│  ├─ 多来源输入（文件/变量） → cdp_input_text
+│  └─ Magic 填写表单（更稳定） → magic_fill_dom
+├─ 按键操作 → cdp_press_key / cdp_shortcut / magic_send_keys
 ├─ 剪贴板 → cdp_clipboard
-├─ 滚动 → cdp_scroll_to
+├─ 滚动 → cdp_scroll_to / magic_scroll
 ├─ 等待元素 → cdp_wait_for_selector
 ├─ 等待加载 → cdp_wait_for_page_load
 ├─ 上传文件 → cdp_upload_file
 └─ 设置下载目录 → cdp_download_file
+
+需要操作浏览器 Chrome UI（工具栏/标签栏/菜单）？
+├─ 查询 UI 状态 → magic_get_ui_elements
+└─ 点击 UI 元素（后退/前进/刷新/书签/扩展等） → magic_click_element
+
+需要 DOM 元素语义化操作？
+├─ 查询元素（返回候选列表） → magic_query_dom
+├─ 点击元素 → magic_click_dom
+├─ 填写表单 → magic_fill_dom
+└─ 滚动到元素 → magic_scroll（配合 by/selector）
+
+需要坐标系点击？（截图后映射坐标）
+└─ 虚拟坐标 → 窗口像素 → magic_click_at
 
 需要页面导航？
 ├─ 跳转 URL → cdp_navigate
@@ -806,7 +824,7 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 55  | `cdp_get_network_requests`     | 获取网络请求记录（仅元数据）                   |
 | 56  | `cdp_pdf`                      | 导出页面为 PDF                                 |
 
-### Magic — 浏览器控制（53 个）
+### Magic — 浏览器控制（66 个）
 
 **窗口控制（12 个）**
 
@@ -900,6 +918,24 @@ cdp_get_text(selector=".title", output_key="page_title")
 | #   | 工具名                    | 说明                         |
 | --- | ------------------------- | ---------------------------- |
 | 53  | `magic_capture_app_shell` | 带壳截图（含工具栏和标签页） |
+
+**AI Agent 语义化操作（13 个）**
+
+| #   | 工具名                      | 说明                                   |
+| --- | --------------------------- | -------------------------------------- |
+| 54  | `magic_get_browser`         | 根据 browser_id 获取指定浏览器信息     |
+| 55  | `magic_click_at`            | 坐标系点击（虚拟坐标映射到窗口像素）   |
+| 56  | `magic_click_element`       | 语义化点击浏览器 Chrome UI 元素        |
+| 57  | `magic_get_ui_elements`     | 查询浏览器 UI 当前状态                 |
+| 58  | `magic_navigate_to`         | 导航到 URL（Magic Controller）         |
+| 59  | `magic_query_dom`           | DOM 元素查询（返回候选列表）           |
+| 60  | `magic_click_dom`           | 点击 DOM 元素（多种选择器）            |
+| 61  | `magic_fill_dom`            | 填写表单元素                           |
+| 62  | `magic_send_keys`           | 键盘输入（支持特殊键/快捷键）          |
+| 63  | `magic_get_page_info`       | 获取页面综合状态信息                   |
+| 64  | `magic_scroll`              | 页面滚动（方向或元素定位）             |
+| 65  | `magic_set_dock_icon_text`  | 设置 Dock 图标文字标签（macOS）        |
+| 66  | `magic_get_page_content`    | 获取页面语义快照（DOM/交互元素/文本）  |
 
 ### App — 应用数据（21 个）
 
