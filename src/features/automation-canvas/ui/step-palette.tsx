@@ -8,7 +8,14 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, HelpCircle, Search } from 'lucide-react';
+import {
+	ChevronDown,
+	ChevronRight,
+	ChevronsLeft,
+	ChevronsRight,
+	HelpCircle,
+	Search,
+} from 'lucide-react';
 import {
 	Tooltip,
 	TooltipContent,
@@ -40,20 +47,28 @@ function StepToolPopover({ kind }: { kind: string }) {
 	const groupLabel = getGroupLabel(groupKey);
 
 	return (
-		<div className={`w-80 border-l-4 ${accentColor} bg-popover rounded-lg shadow-lg`}>
+		<div
+			className={`w-80 border-l-4 ${accentColor} bg-popover rounded-lg shadow-lg`}
+		>
 			{/* Header */}
 			<div className="px-4 py-3 border-b">
 				<div className="flex items-center gap-2 mb-1">
-					<span className={`inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded ${GROUP_COLORS[groupKey] ?? GROUP_COLORS['通用']}`}>
+					<span
+						className={`inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded ${GROUP_COLORS[groupKey] ?? GROUP_COLORS['通用']}`}
+					>
 						{groupLabel}
 					</span>
 				</div>
-				<h4 className="font-semibold text-sm">{getKindLabel(kind)}</h4>
+				<h4 className="font-semibold text-xs text-muted-foreground mt-3">
+					{getKindLabel(kind)}
+				</h4>
 			</div>
 
 			<div className="p-4 space-y-4">
 				{/* Description */}
-				<p className="text-sm text-muted-foreground leading-relaxed">{info.description}</p>
+				<p className="text-sm text-muted-foreground leading-relaxed">
+					{info.description}
+				</p>
 
 				{/* Inputs */}
 				{info.inputs.length > 0 && (
@@ -64,25 +79,36 @@ function StepToolPopover({ kind }: { kind: string }) {
 						</h5>
 						<div className="space-y-2">
 							{info.inputs.map((input) => (
-								<div key={input.name} className="flex items-start gap-2 text-xs">
+								<div
+									key={input.name}
+									className="flex items-start gap-2 text-xs"
+								>
 									<code className="font-mono text-primary bg-primary/5 px-1.5 py-0.5 rounded shrink-0">
 										{input.name}
 									</code>
 									{input.required ? (
-										<Badge variant="secondary" className="text-[10px] h-4 px-1 shrink-0">
+										<Badge
+											variant="secondary"
+											className="text-[10px] h-4 px-1 shrink-0"
+										>
 											{t('automation:stepTooltip.required', '必需')}
 										</Badge>
 									) : (
-										<Badge variant="outline" className="text-[10px] h-4 px-1 shrink-0">
+										<Badge
+											variant="outline"
+											className="text-[10px] h-4 px-1 shrink-0"
+										>
 											{t('automation:stepTooltip.optional', '可选')}
 										</Badge>
 									)}
-									<span className="text-muted-foreground leading-relaxed">{input.desc}</span>
+									<span className="text-muted-foreground leading-relaxed">
+										{input.desc}
+									</span>
 								</div>
-								))}
-							</div>
+							))}
 						</div>
-					)}
+					</div>
+				)}
 
 				{/* Outputs */}
 				{info.outputs.length > 0 && (
@@ -93,16 +119,19 @@ function StepToolPopover({ kind }: { kind: string }) {
 						</h5>
 						<div className="space-y-1.5">
 							{info.outputs.map((output) => (
-								<div key={output.name} className="flex items-start gap-2 text-xs">
+								<div
+									key={output.name}
+									className="flex items-start gap-2 text-xs"
+								>
 									<code className="font-mono text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded shrink-0">
 										{output.name}
 									</code>
 									<span className="text-muted-foreground">{output.desc}</span>
 								</div>
-								))}
-							</div>
+							))}
 						</div>
-					)}
+					</div>
+				)}
 
 				{/* When to Use */}
 				<div>
@@ -110,7 +139,9 @@ function StepToolPopover({ kind }: { kind: string }) {
 						<span className="w-1 h-1 rounded-full bg-amber-500" />
 						{t('automation:stepTooltip.whenToUse', '使用时机')}
 					</h5>
-					<p className="text-xs text-muted-foreground leading-relaxed">{info.whenToUse}</p>
+					<p className="text-xs text-muted-foreground leading-relaxed">
+						{info.whenToUse}
+					</p>
 				</div>
 
 				{/* Example */}
@@ -144,16 +175,26 @@ type Props = {
  */
 // 常用步骤（置顶显示，始终展开）
 const FAVORITE_KINDS = [
-	'cdp_navigate', 'cdp_click', 'cdp_type', 'cdp_screenshot',
-	'cdp_get_text', 'wait', 'cdp_wait_for_page_load', 'ai_agent',
+	'cdp_navigate',
+	'cdp_click',
+	'cdp_type',
+	'cdp_screenshot',
+	'cdp_get_text',
+	'wait',
+	'cdp_wait_for_page_load',
+	'ai_agent',
 ];
 
 export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 	const { t } = useTranslation(['automation', 'common']);
 	const [search, setSearch] = useState('');
 	const searchRef = useRef<HTMLInputElement>(null);
-	const favoritesLabel = t('automation:palette.favorites', { ns: 'automation' });
-	const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set([favoritesLabel]));
+	const favoritesLabel = t('automation:palette.favorites', {
+		ns: 'automation',
+	});
+	const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+		() => new Set([favoritesLabel]),
+	);
 
 	const toggleGroup = useCallback((label: string) => {
 		setExpandedGroups((prev) => {
@@ -171,8 +212,11 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 		// 构建常用组
 		const favoriteGroup = {
 			label: favoritesLabel,
-			kinds: FAVORITE_KINDS.filter((k) =>
-				!isSearching || getKindLabel(k).toLowerCase().includes(q) || k.toLowerCase().includes(q),
+			kinds: FAVORITE_KINDS.filter(
+				(k) =>
+					!isSearching ||
+					getKindLabel(k).toLowerCase().includes(q) ||
+					k.toLowerCase().includes(q),
 			),
 		};
 
@@ -186,11 +230,16 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 				if (favoriteSet.has(kind)) return false;
 				if (!isSearching) return true;
 				const label = getKindLabel(kind);
-				return label.toLowerCase().includes(q) || kind.toLowerCase().includes(q);
+				return (
+					label.toLowerCase().includes(q) || kind.toLowerCase().includes(q)
+				);
 			}),
 		})).filter((group) => group.kinds.length > 0);
 
-		const result = favoriteGroup.kinds.length > 0 ? [favoriteGroup, ...otherGroups] : otherGroups;
+		const result =
+			favoriteGroup.kinds.length > 0
+				? [favoriteGroup, ...otherGroups]
+				: otherGroups;
 		return result;
 	}, [search, favoritesLabel]);
 
@@ -247,7 +296,10 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 						const isSearching = !!search.trim();
 						const isExpanded = isSearching || expandedGroups.has(group.label);
 						// 显示翻译后的分组名称，回退到原始 label
-						const displayLabel = 'displayLabel' in group ? (group as { displayLabel: string }).displayLabel : group.label;
+						const displayLabel =
+							'displayLabel' in group
+								? (group as { displayLabel: string }).displayLabel
+								: group.label;
 						return (
 							<div key={group.label}>
 								{/* 分组标签（可点击折叠/展开） */}
@@ -274,7 +326,10 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 								{/* 该分组下的步骤按钮（折叠时隐藏） */}
 								{isExpanded &&
 									group.kinds.map((kind) => (
-										<div key={kind} className="flex items-center gap-1 group/item">
+										<div
+											key={kind}
+											className="flex items-center gap-1 group/item"
+										>
 											<button
 												type="button"
 												className="flex-1 text-left text-xs px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer flex items-center gap-2"
@@ -285,21 +340,24 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 												/>
 												<span className="truncate">{getKindLabel(kind)}</span>
 											</button>
-										<TooltipProvider delayDuration={200}>
-											<Tooltip>
-												<TooltipTrigger asChild>
-													<button
-														type="button"
-														className="p-1 rounded hover:bg-accent text-muted-foreground opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
+											<TooltipProvider delayDuration={200}>
+												<Tooltip>
+													<TooltipTrigger asChild>
+														<button
+															type="button"
+															className="p-1 rounded hover:bg-accent text-muted-foreground opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
+														>
+															<HelpCircle className="h-3 w-3" />
+														</button>
+													</TooltipTrigger>
+													<TooltipContent
+														side="right"
+														className="p-0 w-auto border-none bg-transparent shadow-none"
 													>
-														<HelpCircle className="h-3 w-3" />
-													</button>
-												</TooltipTrigger>
-												<TooltipContent side="right" className="p-0 w-auto border-none bg-transparent shadow-none">
-													<StepToolPopover kind={kind} />
-												</TooltipContent>
-											</Tooltip>
-										</TooltipProvider>
+														<StepToolPopover kind={kind} />
+													</TooltipContent>
+												</Tooltip>
+											</TooltipProvider>
 										</div>
 									))}
 							</div>

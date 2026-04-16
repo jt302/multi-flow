@@ -301,20 +301,26 @@ function InnerCanvas({
 			/>
 
 			{/* 操作指南 */}
-			<CanvasHelpDialog open={helpDialogOpen} onOpenChange={setHelpDialogOpen} />
+			<CanvasHelpDialog
+				open={helpDialogOpen}
+				onOpenChange={setHelpDialogOpen}
+			/>
 
 			{/* 主体：步骤面板 + 画布 + 属性面板 */}
 			<div className="flex flex-1 overflow-hidden">
 				{/* 左侧：步骤调色板 */}
 				<StepPalette
 					onAddStep={(kind) => {
-					const el = document.querySelector('.react-flow');
-					const rect = el?.getBoundingClientRect();
-					const center = rect
-						? screenToFlowPosition({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 })
-						: undefined;
-					void addStep(kind, center);
-				}}
+						const el = document.querySelector('.react-flow');
+						const rect = el?.getBoundingClientRect();
+						const center = rect
+							? screenToFlowPosition({
+									x: rect.x + rect.width / 2,
+									y: rect.y + rect.height / 2,
+								})
+							: undefined;
+						void addStep(kind, center);
+					}}
 					collapsed={paletteCollapsed}
 					onToggleCollapse={() => setPaletteCollapsed((p) => !p)}
 				/>
@@ -383,7 +389,10 @@ function InnerCanvas({
 								const onUp = () => {
 									window.removeEventListener('mousemove', onMove);
 									window.removeEventListener('mouseup', onUp);
-									localStorage.setItem('mf_canvas_panel_width', String(latestW));
+									localStorage.setItem(
+										'mf_canvas_panel_width',
+										String(latestW),
+									);
 								};
 								window.addEventListener('mousemove', onMove);
 								window.addEventListener('mouseup', onUp);

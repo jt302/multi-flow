@@ -2,7 +2,7 @@
 
 这份文档面向“指纹浏览器批量管理软件 app”中的 agent，目标是让 agent 能直接阅读、调用并编排这个编译后的 Chromium 程序。
 
-本文档基于当前源码、旧版接入文档 [`chromium-old.md`](<chromium-source>/chromium-old.md) 和当前项目接入约定整理而成。
+本文档基于当前源码、旧版接入文档 [`chromium-old.md`](/Users/tt/Developer/Personal/chromium/chromium-old.md) 和当前项目接入约定整理而成。
 
 本文档只描述当前代码中已经存在的实际接口和行为，不描述未实现的理想能力。
 
@@ -24,12 +24,12 @@
 
 核心实现位于：
 
-- [chrome_browser_main.cc](<chromium-source>/src/chrome/browser/chrome_browser_main.cc)
-- [magic_socket_server.cc](<chromium-source>/src/chrome/browser/magic_controller/magic_socket_server.cc)
-- [magic_http_handler.cc](<chromium-source>/src/chrome/browser/magic_controller/magic_http_handler.cc)
-- [magic_ws_handler.cc](<chromium-source>/src/chrome/browser/magic_controller/magic_ws_handler.cc)
-- [magic_server_helper.cc](<chromium-source>/src/chrome/browser/magic_controller/magic_server_helper.cc)
-- [magic_sync_manager.h](<chromium-source>/src/components/magic_sync_manager/magic_sync_manager.h)
+- [chrome_browser_main.cc](/Users/tt/Developer/Personal/chromium/src/chrome/browser/chrome_browser_main.cc)
+- [magic_socket_server.cc](/Users/tt/Developer/Personal/chromium/src/chrome/browser/magic_controller/magic_socket_server.cc)
+- [magic_http_handler.cc](/Users/tt/Developer/Personal/chromium/src/chrome/browser/magic_controller/magic_http_handler.cc)
+- [magic_ws_handler.cc](/Users/tt/Developer/Personal/chromium/src/chrome/browser/magic_controller/magic_ws_handler.cc)
+- [magic_server_helper.cc](/Users/tt/Developer/Personal/chromium/src/chrome/browser/magic_controller/magic_server_helper.cc)
+- [magic_sync_manager.h](/Users/tt/Developer/Personal/chromium/src/components/magic_sync_manager/magic_sync_manager.h)
 
 ## 2. 启动与监听
 
@@ -43,8 +43,8 @@
 
 代码依据：
 
-- [chrome_browser_main.cc:1407](<chromium-source>/src/chrome/browser/chrome_browser_main.cc:1407)
-- [base_switches.cc:237](<chromium-source>/src/base/base_switches.cc:237)
+- [chrome_browser_main.cc:1407](/Users/tt/Developer/Personal/chromium/src/chrome/browser/chrome_browser_main.cc:1407)
+- [base_switches.cc:237](/Users/tt/Developer/Personal/chromium/src/base/base_switches.cc:237)
 
 如果没有这个参数，HTTP/WS 控制服务都不会启动。
 
@@ -58,7 +58,7 @@
 
 代码依据：
 
-- [start.py:865](<chromium-source>/start.py:865)
+- [start.py:865](/Users/tt/Developer/Personal/chromium/start.py:865)
 
 ### 2.3 监听地址
 
@@ -70,7 +70,7 @@
 
 代码依据：
 
-- [magic_socket_server.cc:68](<chromium-source>/src/chrome/browser/magic_controller/magic_socket_server.cc:68)
+- [magic_socket_server.cc:68](/Users/tt/Developer/Personal/chromium/src/chrome/browser/magic_controller/magic_socket_server.cc:68)
 
 这意味着它不是只监听 `127.0.0.1`。如果你只希望本机访问，需要在启动环境或防火墙层面额外限制。
 
@@ -546,6 +546,7 @@ agent 不要假设所有接口都严格遵守同一个返回模板。
 
 - `magic-socket-server-port`
 - `custom-bg-color`
+- `custom-dock-icon-text`
 - `toolbar-text`
 - `fingerprint-seed`
 - `enable-automation-detection-shield`
@@ -1116,6 +1117,7 @@ PY
 - 不会自动激活、恢复、最大化目标窗口
 - 如果目标窗口已最小化，当前会直接报错
 - `base64` 返回的是纯字符串，不带 `data:image/...;base64,` 前缀
+- **已知限制**：`mode=file` 和 `mode=both` 目前会导致浏览器进程崩溃（底层 `WriteFile` 在不允许阻塞的线程执行触发 DCHECK）；在该问题修复前，请改用 `mode=inline` 并由调用方自行将 base64 写入文件
 
 ### 5.4 浏览器窗口查询
 
@@ -1337,12 +1339,846 @@ PY
 
 重要说明：
 
-- **前置条件：目标输入区域必须已处于焦点状态**，否则文本不会被正确输入到目标位置
 - 当前实现逐字符发送 `kChar` 键盘事件
 - 更接近”输入文本”而不是”模拟完整键盘按下/抬起”
 - 适合表单输入，不适合复杂快捷键
 
-### 5.8 同步模式
+#### `click_at`
+
+坐标系点击。将浏览器窗口（含标签栏、地址栏、工具栏、插件栏、DOM 区域等所有可见区域）划分为虚拟坐标系，按比例坐标注入鼠标点击事件。
+
+请求：
+
+```json
+{
+	“cmd”: “click_at”,
+	“grid”: “1200,800”,
+	“position”: “125,60”,
+	“button”: “left”,
+	“modifiers”: [],
+	“click_count”: 1,
+	“action”: “click”,
+	“browser_id”: null
+}
+```
+
+参数：
+
+| 字段          | 类型   | 必填   | 默认值    | 说明                                                                          |
+| ------------- | ------ | ------ | --------- | ----------------------------------------------------------------------------- |
+| `grid`        | string | **是** | -         | `”宽,高”` 虚拟坐标系尺寸，例如 `”1200,800”`                                   |
+| `position`    | string | **是** | -         | `”x,y”` 目标点坐标，例如 `”125,60”`                                           |
+| `button`      | string | 否     | `”left”`  | `”left”` / `”right”` / `”middle”`                                             |
+| `modifiers`   | list   | 否     | `[]`      | 修饰键列表：`”shift”` / `”ctrl”` / `”alt”` / `”meta”`                         |
+| `click_count` | int    | 否     | `1`       | 1=单击, 2=双击, 3=三击                                                        |
+| `action`      | string | 否     | `”click”` | `”click”` = 完整点击, `”down”` = 仅按下, `”up”` = 仅释放, `”move”` = 鼠标移动 |
+| `browser_id`  | int    | 否     | null      | 目标窗口 ID，省略则使用活动窗口                                               |
+
+响应：
+
+```json
+{“status”: “ok”}
+```
+
+坐标映射规则：
+
+```
+实际窗口像素坐标 = (虚拟坐标 / 网格尺寸) × 窗口内容区实际尺寸
+window_x = (pos_x / grid_x) × content_width
+window_y = (pos_y / grid_y) × content_height
+```
+
+覆盖区域：标签栏、地址栏、书签栏、扩展插件栏、Web 内容区域（坐标 (0,0) 为窗口左上角）。
+
+示例：
+
+```bash
+# 点击地址栏区域（窗口顶部约 1/15 处）
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”click_at”,”grid”:”1000,1000”,”position”:”500,50”,”button”:”left”}'
+
+# 双击 Web 内容区中间（选中文字）
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”click_at”,”grid”:”1000,1000”,”position”:”500,500”,”button”:”left”,”click_count”:2}'
+
+# Cmd+点击（在新标签页打开链接）
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”click_at”,”grid”:”1000,1000”,”position”:”500,500”,”button”:”left”,”modifiers”:[“meta”]}'
+
+# 右键点击（弹出上下文菜单）
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”click_at”,”grid”:”1000,1000”,”position”:”500,500”,”button”:”right”}'
+
+# 鼠标移动（不点击，用于 hover 效果）
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”click_at”,”grid”:”1000,1000”,”position”:”500,300”,”action”:”move”}'
+```
+
+注意事项：
+
+- 仅支持 macOS 平台
+- 使用原生 macOS Cocoa 事件注入，可点击所有浏览器 UI 区域（包括 chrome UI）
+- `action:”down”` + `action:”up”` 组合可实现拖拽操作（在两次调用之间移动位置）
+- 若需要在点击前确认点击位置，可先调用 `capture_app_shell` 截图分析 UI 布局
+
+### 5.8 AI Agent 语义化操作
+
+以下命令面向 AI Agent 场景，提供无需截图、无需坐标推算的语义化控制能力，分为浏览器 Chrome UI 和网页 DOM 两层。
+
+#### `click_element`
+
+语义化点击浏览器 UI 元素（工具栏、标签栏、菜单），跨平台，无需截图。
+
+请求：
+
+```json
+{
+  “cmd”: “click_element”,
+  “target”: “back_button”,
+  “browser_id”: 123
+}
+```
+
+参数：
+
+| 字段         | 类型   | 必填   | 默认值 | 说明                            |
+| ------------ | ------ | ------ | ------ | ------------------------------- |
+| `target`     | string | **是** | -      | 目标元素标识符，见下表          |
+| `browser_id` | int    | 否     | null   | 目标窗口 ID，省略则使用活动窗口 |
+
+支持的 `target` 值：
+
+| target                       | 说明                               |
+| ---------------------------- | ---------------------------------- |
+| `back_button`                | 后退按钮                           |
+| `forward_button`             | 前进按钮                           |
+| `reload_button`              | 刷新按钮                           |
+| `bookmark_star`              | 收藏星（地址栏右侧）               |
+| `avatar_button`              | 账户头像按钮                       |
+| `app_menu_button`            | 右上角汉堡菜单                     |
+| `tab_search_button`          | 标签搜索按钮                       |
+| `location_bar`               | 地址栏（聚焦）                     |
+| `new_tab_button`             | 新建标签页按钮                     |
+| `tab:{index}`                | 激活第 index 个标签页（从 0 开始） |
+| `tab_close:{index}`          | 关闭第 index 个标签页              |
+| `app_menu_item:{command_id}` | 点击菜单中 command_id 对应的菜单项 |
+
+响应：
+
+```json
+{“status”: “ok”}
+```
+
+示例：
+
+```bash
+# 点击后退按钮
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”click_element”,”target”:”back_button”}'
+
+# 激活第 2 个标签页（从 0 开始）
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”click_element”,”target”:”tab:1”}'
+
+# 点击菜单中”新建标签页”（command_id=34001）
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”click_element”,”target”:”app_menu_item:34001”}'
+```
+
+#### `get_ui_elements`
+
+查询浏览器 UI 当前状态（工具栏、标签栏、菜单），供 Agent 决策，无需截图。
+
+请求：
+
+```json
+{
+  “cmd”: “get_ui_elements”,
+  “browser_id”: 123
+}
+```
+
+参数：
+
+| 字段         | 类型 | 必填 | 默认值 | 说明                            |
+| ------------ | ---- | ---- | ------ | ------------------------------- |
+| `browser_id` | int  | 否   | null   | 目标窗口 ID，省略则使用活动窗口 |
+
+响应示例：
+
+```json
+{
+  “status”: “ok”,
+  “data”: {
+    “toolbar”: {
+      “back_button”:    {“enabled”: true,  “visible”: true},
+      “forward_button”: {“enabled”: false, “visible”: true},
+      “reload_button”:  {“enabled”: true,  “visible”: true},
+      “bookmark_star”:  {“enabled”: true,  “visible”: true},
+      “avatar_button”:  {“enabled”: true,  “visible”: true},
+      “app_menu_button”:{“enabled”: true,  “visible”: true},
+      “location_bar”:   {“url”: “https://example.com”, “focused”: false, “bookmarked”: false}
+    },
+    “tabs”: [
+      {“index”: 0, “active”: true,  “title”: “Example”, “url”: “https://example.com”},
+      {“index”: 1, “active”: false, “title”: “Other”,   “url”: “https://other.com”}
+    ],
+    “new_tab_button”: {“visible”: true},
+    “app_menu”: null
+  }
+}
+```
+
+菜单打开时 `app_menu` 非 null：
+
+```json
+“app_menu”: {
+  “items”: [
+    {“command_id”: 34001, “title”: “New Tab”,  “enabled”: true, “has_submenu”: false},
+    {“command_id”: 34003, “title”: “History”,  “enabled”: true, “has_submenu”: true}
+  ]
+}
+```
+
+#### `navigate_to`
+
+在当前或指定标签页导航到指定 URL。
+
+请求：
+
+```json
+{
+  “cmd”: “navigate_to”,
+  “url”: “https://example.com”,
+  “tab_id”: 456
+}
+```
+
+参数：
+
+| 字段     | 类型   | 必填   | 默认值 | 说明                                       |
+| -------- | ------ | ------ | ------ | ------------------------------------------ |
+| `url`    | string | **是** | -      | 目标 URL，必须包含 scheme（如 `https://`） |
+| `tab_id` | int    | 否     | null   | 目标标签页 ID，省略则使用活动标签页        |
+
+响应：
+
+```json
+{“status”: “ok”}
+```
+
+示例：
+
+```bash
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”navigate_to”,”url”:”https://baidu.com”}'
+```
+
+#### `query_dom`
+
+在页面中查询 DOM 元素，返回所有匹配候选项（含 index），供 Agent 决策后传给 `click_dom` / `fill_dom`。
+
+请求：
+
+```json
+{
+  “cmd”: “query_dom”,
+  “by”: “css”,
+  “selector”: “button.submit”,
+  “tab_id”: 456,
+  “limit”: 10,
+  “visible_only”: true
+}
+```
+
+参数：
+
+| 字段           | 类型   | 必填   | 默认值       | 说明                                |
+| -------------- | ------ | ------ | ------------ | ----------------------------------- |
+| `by`           | string | **是** | -            | 查询方式，见下表                    |
+| `selector`     | string | **是** | -            | 查询表达式                          |
+| `match`        | string | 否     | 按 `by` 决定 | 匹配模式，见下表                    |
+| `tab_id`       | int    | 否     | null         | 目标标签页 ID，省略则使用活动标签页 |
+| `limit`        | int    | 否     | 10           | 最多返回几个候选元素                |
+| `visible_only` | bool   | 否     | true         | 是否只返回可见元素                  |
+
+`by` 查询方式：
+
+| 值            | 匹配目标                     | 默认 `match` | 说明                                                                         |
+| ------------- | ---------------------------- | ------------ | ---------------------------------------------------------------------------- |
+| `css`         | CSS 选择器                   | N/A          | 忽略 `match` 参数                                                            |
+| `xpath`       | XPath 表达式                 | N/A          | 忽略 `match` 参数                                                            |
+| `text`        | 元素 `textContent`（叶节点） | `contains`   | 只返回最深层匹配元素，不返回祖先节点                                         |
+| `aria`        | `aria-label` 属性            | `contains`   | 搜索带 `aria-label` 的元素                                                   |
+| `role`        | `role` 属性                  | `exact`      | 精确匹配 role 值，如 `”button”`                                              |
+| `placeholder` | `placeholder` 属性           | `icontains`  | 找输入框最直觉的方式                                                         |
+| `name`        | `name` 属性                  | `exact`      | 表单元素 name 定位                                                           |
+| `search`      | 多字段综合搜索               | `icontains`  | 跨 textContent/id/class/name/placeholder/aria-label/title/alt/value 任一命中 |
+
+`match` 匹配模式（对 `css`/`xpath` 无效）：
+
+| 值            | 说明                           |
+| ------------- | ------------------------------ |
+| `contains`    | 大小写敏感子串匹配（默认行为） |
+| `icontains`   | 大小写不敏感子串匹配           |
+| `exact`       | 完整精确匹配（trim 后全等）    |
+| `regex`       | 正则表达式匹配                 |
+| `starts_with` | 前缀匹配                       |
+| `ends_with`   | 后缀匹配                       |
+
+响应示例：
+
+```json
+{
+  “status”: “ok”,
+  “data”: {
+    “count”: 2,
+    “elements”: [
+      {
+        “index”: 0,
+        “tag”: “button”,
+        “text”: “登录”,
+        “aria_label”: “用户登录”,
+        “id”: “login-btn”,
+        “class”: “btn submit”,
+        “bounds”: {“x”: 200, “y”: 400, “width”: 80, “height”: 36},
+        “visible”: true,
+        “enabled”: true
+      },
+      {
+        “index”: 1,
+        “tag”: “button”,
+        “text”: “登录邮箱”,
+        “aria_label”: “”,
+        “id”: “”,
+        “class”: “btn secondary”,
+        “bounds”: {“x”: 300, “y”: 400, “width”: 100, “height”: 36},
+        “visible”: true,
+        “enabled”: true
+      }
+    ]
+  }
+}
+```
+
+示例：
+
+```bash
+# 查询 CSS 元素
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”query_dom”,”by”:”css”,”selector”:”input[type=search]”}'
+
+# 按文本查询（大小写不敏感）
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”query_dom”,”by”:”text”,”selector”:”登录”,”match”:”icontains”}'
+
+# 通过 placeholder 找输入框
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”query_dom”,”by”:”placeholder”,”selector”:”email”}'
+
+# 通过 name 属性精确定位
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”query_dom”,”by”:”name”,”selector”:”username”}'
+
+# 跨多字段综合搜索
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”query_dom”,”by”:”search”,”selector”:”login”}'
+
+# 正则匹配
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”query_dom”,”by”:”text”,”selector”:”^第\\d+章”,”match”:”regex”}'
+```
+
+#### `click_dom`
+
+点击指定 DOM 元素。通过 `query_dom` 获取候选列表后，用 `index` 精确指定要点击的元素。
+
+请求：
+
+```json
+{
+  “cmd”: “click_dom”,
+  “by”: “css”,
+  “selector”: “button.submit”,
+  “index”: 0,
+  “tab_id”: 456
+}
+```
+
+参数：
+
+| 字段           | 类型   | 必填   | 默认值  | 说明                                    |
+| -------------- | ------ | ------ | ------- | --------------------------------------- |
+| `by`           | string | **是** | -       | 同 `query_dom`，支持全部 8 种 `by` 模式 |
+| `selector`     | string | **是** | -       | 查询表达式                              |
+| `match`        | string | 否     | 按 `by` | 匹配模式，同 `query_dom`                |
+| `index`        | int    | 否     | 0       | 多元素匹配时指定第几个（从 0 开始）     |
+| `tab_id`       | int    | 否     | null    | 目标标签页 ID，省略则使用活动标签页     |
+| `visible_only` | bool   | 否     | true    | 是否只在可见元素中查找                  |
+
+**实现细节**：使用 `RenderWidgetHost::ForwardMouseEvent` 注入真实鼠标事件（移动 → 按下 → 释放），不调用 `el.click()`，可绕过反自动化检测。
+
+响应：
+
+```json
+{“status”: “ok”}
+```
+
+示例：
+
+```bash
+# 点击第一个匹配”登录”文字的按钮
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”click_dom”,”by”:”text”,”selector”:”登录”,”index”:0}'
+```
+
+#### `fill_dom`
+
+填写表单元素（input、textarea、select 等）。
+
+请求：
+
+```json
+{
+  “cmd”: “fill_dom”,
+  “by”: “css”,
+  “selector”: “#username”,
+  “value”: “test@example.com”,
+  “index”: 0,
+  “clear”: true,
+  “tab_id”: 456
+}
+```
+
+参数：
+
+| 字段           | 类型   | 必填   | 默认值  | 说明                                    |
+| -------------- | ------ | ------ | ------- | --------------------------------------- |
+| `by`           | string | **是** | -       | 同 `query_dom`，支持全部 8 种 `by` 模式 |
+| `selector`     | string | **是** | -       | 查询表达式                              |
+| `match`        | string | 否     | 按 `by` | 匹配模式，同 `query_dom`                |
+| `value`        | string | **是** | -       | 要填入的文本值                          |
+| `index`        | int    | 否     | 0       | 多元素匹配时指定第几个（从 0 开始）     |
+| `clear`        | bool   | 否     | true    | 是否先清空原有内容                      |
+| `tab_id`       | int    | 否     | null    | 目标标签页 ID，省略则使用活动标签页     |
+| `visible_only` | bool   | 否     | true    | 是否只在可见元素中查找                  |
+
+响应：
+
+```json
+{“status”: “ok”}
+```
+
+示例：
+
+```bash
+# 填写用户名输入框
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”fill_dom”,”by”:”css”,”selector”:”#username”,”value”:”myuser”}'
+```
+
+#### `send_keys`
+
+发送键盘输入，支持特殊键、浏览器快捷键和普通文字输入。
+
+请求：
+
+```json
+{
+  “cmd”: “send_keys”,
+  “keys”: [“meta+l”, “https://example.com”, “Return”],
+  “tab_id”: 456
+}
+```
+
+参数：
+
+| 字段     | 类型 | 必填   | 默认值 | 说明                                |
+| -------- | ---- | ------ | ------ | ----------------------------------- |
+| `keys`   | list | **是** | -      | 按键序列，每个元素见下表            |
+| `tab_id` | int  | 否     | null   | 目标标签页 ID，省略则使用活动标签页 |
+
+`keys` 数组每个元素的格式：
+
+| 格式             | 示例                                                                                                                                                                                                     | 说明                                                                       |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| 已知浏览器快捷键 | `”meta+t”`, `”meta+w”`, `”meta+l”`, `”ctrl+r”`, `”meta+shift+t”` 等                                                                                                                                      | 走 `chrome::ExecuteCommand` IDC 通道                                       |
+| 通用修饰键组合   | `”meta+a”`, `”ctrl+c”`, `”ctrl+shift+j”`, `”alt+F4”`                                                                                                                                                     | 发到页面 keydown+keyup，支持 `ctrl`/`shift`/`alt`/`meta`/`cmd`/`option` 等 |
+| 特殊键名         | `”Return”`, `”Enter”`, `”Tab”`, `”Escape”`, `”Backspace”`, `”Delete”`, `”Space”`, `”ArrowUp”`, `”ArrowDown”`, `”ArrowLeft”`, `”ArrowRight”`, `”F1”`-`”F12”`, `”Home”`, `”End”`, `”PageUp”`, `”PageDown”` | 注入真实按键事件                                                           |
+| 普通文字         | `”hello”`, `”@”`                                                                                                                                                                                         | 逐字符发送 `kChar` 事件                                                    |
+
+响应：
+
+```json
+{“status”: “ok”}
+```
+
+示例：
+
+```bash
+# 地址栏输入 URL 并回车
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”send_keys”,”keys”:[“meta+l”,”https://baidu.com”,”Return”]}'
+
+# 按 Tab 跳到下一个表单字段
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”send_keys”,”keys”:[“Tab”]}'
+
+# 新建标签页快捷键
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”send_keys”,”keys”:[“meta+t”]}'
+```
+
+**AI Agent 典型工作流示例：**
+
+```bash
+# 工作流 1：打开百度，搜索”天气”
+# 1. 导航
+curl -X POST http://127.0.0.1:9999/ -d '{“cmd”:”navigate_to”,”url”:”https://baidu.com”}'
+# 2. 查询搜索框
+curl -X POST http://127.0.0.1:9999/ -d '{“cmd”:”query_dom”,”by”:”css”,”selector”:”input#kw”}'
+# 3. 填写关键词
+curl -X POST http://127.0.0.1:9999/ -d '{“cmd”:”fill_dom”,”by”:”css”,”selector”:”input#kw”,”value”:”天气”}'
+# 4. 点击搜索按钮
+curl -X POST http://127.0.0.1:9999/ -d '{“cmd”:”click_dom”,”by”:”css”,”selector”:”input#su”}'
+
+# 工作流 2：点击前进按钮
+# 1. 查询 UI 状态
+curl -X POST http://127.0.0.1:9999/ -d '{“cmd”:”get_ui_elements”}'
+# 2. 点击（若 forward_button.enabled=true）
+curl -X POST http://127.0.0.1:9999/ -d '{“cmd”:”click_element”,”target”:”forward_button”}'
+
+# 工作流 3：处理多匹配
+# 1. 按文本查询
+curl -X POST http://127.0.0.1:9999/ -d '{“cmd”:”query_dom”,”by”:”text”,”selector”:”登录”}'
+# → 返回 3 个候选，Agent 判断用 index=0
+# 2. 精确点击
+curl -X POST http://127.0.0.1:9999/ -d '{“cmd”:”click_dom”,”by”:”text”,”selector”:”登录”,”index”:0}'
+```
+
+#### `get_page_info`
+
+获取当前页面状态的综合信息，Agent 执行操作前或操作后可调用此命令快速了解页面状态。
+
+请求：
+
+```json
+{ "cmd": "get_page_info", "tab_id": 456 }
+```
+
+参数：
+
+| 字段     | 类型 | 必填 | 默认值 | 说明                                |
+| -------- | ---- | ---- | ------ | ----------------------------------- |
+| `tab_id` | int  | 否   | null   | 目标标签页 ID，省略则使用活动标签页 |
+
+响应：
+
+```json
+{
+	"status": "ok",
+	"data": {
+		"url": "https://example.com/",
+		"title": "Example Domain",
+		"loading": false,
+		"tab_id": 1280373850,
+		"ready_state": "complete",
+		"has_dialog": false,
+		"scroll": {
+			"x": 0,
+			"y": 0,
+			"height": 1200,
+			"width": 820,
+			"viewport_height": 768,
+			"viewport_width": 1366
+		}
+	}
+}
+```
+
+示例：
+
+```bash
+curl -X POST http://127.0.0.1:9999/ -d '{"cmd":"get_page_info"}'
+```
+
+#### `scroll`
+
+滚动页面到指定位置或滚动到指定元素。
+
+请求（方向滚动）：
+
+```json
+{ "cmd": "scroll", "direction": "down", "distance": 500, "tab_id": 456 }
+```
+
+请求（滚动到元素）：
+
+```json
+{ "cmd": "scroll", "by": "css", "selector": "footer", "tab_id": 456 }
+```
+
+参数：
+
+| 字段           | 类型   | 必填 | 默认值 | 说明                                            |
+| -------------- | ------ | ---- | ------ | ----------------------------------------------- |
+| `direction`    | string | 否   | `down` | 方向：`up`/`down`/`left`/`right`/`top`/`bottom` |
+| `distance`     | int    | 否   | 300    | 滚动像素（方向模式）                            |
+| `by`           | string | 否   | -      | 有此参数时切换为元素滚动模式，同 `query_dom`    |
+| `selector`     | string | 否   | -      | 元素选择器（元素滚动模式必填）                  |
+| `index`        | int    | 否   | 0      | 多元素时指定第几个                              |
+| `visible_only` | bool   | 否   | true   | 是否只在可见元素中查找                          |
+| `tab_id`       | int    | 否   | null   | 目标标签页 ID，省略则使用活动标签页             |
+
+响应：
+
+```json
+{
+	"status": "ok",
+	"data": {
+		"scrollX": 0,
+		"scrollY": 500,
+		"scrollHeight": 1200,
+		"viewportHeight": 768
+	}
+}
+```
+
+示例：
+
+```bash
+# 向下滚动 500px
+curl -X POST http://127.0.0.1:9999/ -d '{"cmd":"scroll","direction":"down","distance":500}'
+
+# 滚到页面顶部
+curl -X POST http://127.0.0.1:9999/ -d '{"cmd":"scroll","direction":"top"}'
+
+# 滚动到 footer 元素
+curl -X POST http://127.0.0.1:9999/ -d '{"cmd":"scroll","by":"css","selector":"footer"}'
+```
+
+#### `set_dock_icon_text`
+
+设置 Dock 图标底部的文字标签，用于在多实例场景下视觉区分不同浏览器。
+
+请求：
+
+```json
+{
+	"cmd": "set_dock_icon_text",
+	"text": "亚马逊-001"
+}
+```
+
+参数：
+
+| 字段    | 类型   | 必填 | 默认 | 说明                                                         |
+| ------- | ------ | ---- | ---- | ------------------------------------------------------------ |
+| `text`  | string | 是   | —    | 标签文字；空字符串表示清除当前标签                           |
+| `color` | string | 否   | 白色 | 文字颜色，格式 `#RRGGBB`（如 `#FF6600`）；省略时保持当前颜色 |
+
+响应：
+
+```json
+{
+	"status": "ok",
+	"data": {
+		"text": "亚马逊-001",
+		"color": "#FF6600"
+	}
+}
+```
+
+说明：
+
+- 仅 macOS 支持；其他平台返回错误
+- 标签绘制在 Dock 图标底部约 45% 区域，和右上角下载 badge 可同时显示
+- 文本字号从 40pt 自动缩小到 20pt，仍超宽时截断并追加省略号
+- 支持中文、英文及混合文本
+- `color` 字段可选，省略时不改变当前颜色（默认白色）
+
+示例：
+
+```bash
+# 设置标签（默认白色）
+curl -X POST http://127.0.0.1:9999/ -d '{"cmd":"set_dock_icon_text","text":"亚马逊-001"}'
+
+# 设置标签并指定颜色
+curl -X POST http://127.0.0.1:9999/ -d '{"cmd":"set_dock_icon_text","text":"运营-097号","color":"#FF6600"}'
+
+# 清除标签
+curl -X POST http://127.0.0.1:9999/ -d '{"cmd":"set_dock_icon_text","text":""}'
+```
+
+#### `get_page_content`
+
+获取页面语义快照，让 AI Agent 无需猜测即可"看懂"页面结构、可交互元素和文本内容。
+
+请求：
+
+```json
+{
+	"cmd": "get_page_content",
+	"mode": "interactive",
+	"format": "text",
+	"tab_id": 456,
+	"viewport_only": false,
+	"max_elements": 500,
+	"max_text_length": 200,
+	"regions": ["main"],
+	"exclude_regions": ["contentinfo"]
+}
+```
+
+参数：
+
+| 字段              | 类型     | 必填 | 默认值             | 说明                                                  |
+| ----------------- | -------- | ---- | ------------------ | ----------------------------------------------------- |
+| `mode`            | string   | 否   | `interactive`      | 见下表                                                |
+| `format`          | string   | 否   | `json`             | `json`（结构化）/ `text`（紧凑文本，节省 3-5x token） |
+| `tab_id`          | int      | 否   | 活动标签页         | 目标标签页 ID                                         |
+| `viewport_only`   | bool     | 否   | `false`            | 仅返回视口内元素                                      |
+| `max_elements`    | int      | 否   | `500`（上限 2000） | 最大元素数                                            |
+| `max_text_length` | int      | 否   | `200`              | 单个文本截断长度                                      |
+| `max_depth`       | int      | 否   | `8`                | DOM 遍历深度限制                                      |
+| `include_hidden`  | bool     | 否   | `false`            | 是否包含隐藏元素                                      |
+| `regions`         | string[] | 否   | `[]`（全部）       | 只提取指定 landmark 区域                              |
+| `exclude_regions` | string[] | 否   | `[]`               | 排除指定 landmark 区域                                |
+
+`mode` 说明：
+
+| mode          | 用途               | 返回内容                                              |
+| ------------- | ------------------ | ----------------------------------------------------- |
+| `summary`     | 页面鸟瞰           | landmarks / headings / stats / forms / alerts         |
+| `interactive` | 可操作元素（默认） | 所有交互元素 + 标签 + 选择器 + 状态，按 landmark 分组 |
+| `content`     | 文本内容提取       | 按 heading 分段的文本 / 列表 / 表格 / 图片            |
+| `a11y`        | 无障碍语义树       | ARIA role + 语义标签树形结构                          |
+| `full`        | 完整快照           | summary + interactive + content 合并                  |
+
+响应（`format: "json"`, `mode: "interactive"`）：
+
+```json
+{
+	"status": "ok",
+	"data": {
+		"url": "https://example.com/",
+		"title": "Example Domain",
+		"tab_id": 123,
+		"mode": "interactive",
+		"generation": 5,
+		"groups": {
+			"navigation::主导航": {
+				"role": "navigation",
+				"label": "主导航",
+				"elements": [
+					{
+						"idx": 0,
+						"type": "link",
+						"label": "首页",
+						"selector": "nav a:nth-child(1)",
+						"href": "/"
+					},
+					{
+						"idx": 1,
+						"type": "link",
+						"label": "分类",
+						"selector": "nav a:nth-child(2)",
+						"href": "/category"
+					}
+				]
+			},
+			"main::": {
+				"role": "main",
+				"elements": [
+					{
+						"idx": 5,
+						"type": "input:text",
+						"label": "搜索",
+						"selector": "input[name='q']",
+						"placeholder": "搜索商品",
+						"name": "q",
+						"value": ""
+					},
+					{
+						"idx": 6,
+						"type": "button",
+						"label": "搜索",
+						"selector": "form button[type=submit]"
+					}
+				]
+			}
+		},
+		"ungrouped": []
+	}
+}
+```
+
+响应（`format: "text"`）— 紧凑格式，比 JSON 节省 3-5 倍 token：
+
+```
+=== Page: Example Domain ===
+URL: https://example.com/
+Lang: en
+
+--- [navigation] 主导航 ---
+  [0:link] 首页  →  /
+  [1:link] 分类  →  /category
+
+--- [main] ---
+  [5:input:text] 搜索 | placeholder="搜索商品" name=q
+  [6:button] 搜索
+
+--- [page] ---
+  [2:link] Learn more  →  https://iana.org/domains/example
+```
+
+**`idx` 引用系统**：每次调用 `get_page_content` 时，所有交互元素自动分配 `idx` 并存储在 `window.__magic_refs`。Agent 可在后续操作中用 `by: "idx"` 直接引用，避免重新搜索：
+
+```bash
+# 1. 获取页面内容，拿到 idx
+curl -X POST http://127.0.0.1:9999/ -d '{"cmd":"get_page_content","format":"text"}'
+# 响应: [0:link] 首页  [3:input:text] 搜索 | name=q  [5:button] 搜索
+
+# 2. 用 idx 直接操作（无需再搜索元素）
+curl -X POST http://127.0.0.1:9999/ -d '{"cmd":"fill_dom","by":"idx","selector":"3","value":"chromium"}'
+curl -X POST http://127.0.0.1:9999/ -d '{"cmd":"click_dom","by":"idx","selector":"5"}'
+```
+
+`by: "idx"` 适用于所有 DOM 命令：`query_dom`、`click_dom`、`fill_dom`、`scroll`。页面导航后 idx 会失效（`el.isConnected` 检测），此时重新调用 `get_page_content` 即可。
+
+示例：
+
+```bash
+# summary — 快速了解页面结构
+curl -X POST http://127.0.0.1:9999/ -d '{"cmd":"get_page_content","mode":"summary"}'
+
+# interactive + text — 最省 token 的交互元素列表
+curl -X POST http://127.0.0.1:9999/ -d '{"cmd":"get_page_content","format":"text"}'
+
+# 只看 main 区域
+curl -X POST http://127.0.0.1:9999/ -d '{"cmd":"get_page_content","regions":["main"]}'
+
+# a11y 树 — 用于复杂 SPA
+curl -X POST http://127.0.0.1:9999/ -d '{"cmd":"get_page_content","mode":"a11y","format":"text"}'
+
+# full 完整快照
+curl -X POST http://127.0.0.1:9999/ -d '{"cmd":"get_page_content","mode":"full"}'
+```
+
+#### 已知限制与规划改进
+
+当前实现的限制（已纳入路线图修复/扩展）：
+
+| 限制                                       | 影响                            | 路线图 Phase                        |
+| ------------------------------------------ | ------------------------------- | ----------------------------------- |
+| `navigate_to` 立即返回，不知道何时加载完成 | Agent 必须盲猜等待时间          | Phase 3B: `wait_for`                |
+| DOM 命令只能访问主 frame，不能访问 iframe  | 登录框/CAPTCHA/嵌入表单不可操作 | Phase 3C: `get_frames` + `frame_id` |
+| 没有弹窗处理                               | `alert()`/`confirm()` 阻塞页面  | Phase 3B: `handle_dialog`           |
+| 没有 Cookie CRUD                           | 会话管理依赖外部工具            | Phase 3D: Cookie 管理               |
+
+完整路线图见项目根目录 [`ai-agent-api-roadmap.md`](./ai-agent-api-roadmap.md)，分阶段任务见 [`tasks/`](./tasks/) 目录。
+
+### 5.9 同步模式
 
 #### `toggle_sync_mode`
 
@@ -1457,7 +2293,7 @@ WebSocket 主要用于同步功能。
 
 如果你正在实现 Rust sidecar，建议优先阅读独立整理的同步接入文档：
 
-- [sidecar-integration.md](<chromium-source>/sidecar-integration.md)
+- [sidecar-integration.md](/Users/tt/Developer/Personal/chromium/sidecar-integration.md)
 
 ### 6.1 客户端请求
 
@@ -1963,58 +2799,62 @@ Chromium 实际接收的仍是这些注入结果：
 
 ### 13.1 `base_switches.cc` 中的 `kCustom*` 参数
 
-以下参数直接定义在 [base_switches.cc:198](<chromium-source>/src/base/base_switches.cc:198) 一带。
+以下参数直接定义在 [base_switches.cc:198](/Users/tt/Developer/Personal/chromium/src/base/base_switches.cc:198) 一带。
 
-| 参数                             | 常量名                        | 用途                              | 示例                                                      |
-| -------------------------------- | ----------------------------- | --------------------------------- | --------------------------------------------------------- | ----------------------- | -------- | ---------- | -------- | ------------------------------------- | --------------------- |
-| `--custom-bg-color`              | `kCustomBackgroundColor`      | 启动时设置窗口背景色              | `--custom-bg-color=#1E1E1E`                               |
-| `--custom-ua-metadata`           | `kCustomUAMetadata`           | 自定义 `Sec-CH-UA*` 相关元数据    | `--custom-ua-metadata=platform=Windows                    | platform_version=13.0.0 | arch=x86 | bitness=64 | mobile=0 | brands=Google Chrome:144,Chromium:144 | form_factors=Desktop` |
-| `--custom-cpu-cores`             | `kCustomCpuCores`             | 自定义 CPU 核心数                 | `--custom-cpu-cores=8`                                    |
-| `--custom-ram-gb`                | `kCustomRamGb`                | 自定义内存大小，单位 GB           | `--custom-ram-gb=16`                                      |
-| `--custom-gl-vendor`             | `kCustomGlVendor`             | 自定义 GL 供应商                  | `--custom-gl-vendor=NVIDIA`                               |
-| `--custom-gl-renderer`           | `kCustomGlRenderer`           | 自定义 GL 渲染器                  | `--custom-gl-renderer=NVIDIA GeForce RTX 4090`            |
-| `--custom-touch-points`          | `kCustomTouchPoints`          | 自定义触摸点数                    | `--custom-touch-points=5`                                 |
-| `--custom-main-language`         | `kCustomMainLanguage`         | 自定义主语言                      | `--custom-main-language=en-US`                            |
-| `--custom-languages`             | `kCustomLanguages`            | 自定义语言列表                    | `--custom-languages=en-US,zh-CN`                          |
-| `--custom-accept-languages`      | `kCustomAcceptLanguages`      | 自定义 Accept-Language 值         | `--custom-accept-languages=en-US,en,zh-CN`                |
-| `--custom-time-zone`             | `kCustomTimeZone`             | 自定义时区                        | `--custom-time-zone=Asia/Shanghai`                        |
-| `--custom-geolocation-latitude`  | `kCustomGeolocationLatitude`  | 自定义地理位置纬度                | `--custom-geolocation-latitude=37.422`                    |
-| `--custom-geolocation-longitude` | `kCustomGeolocationLongitude` | 自定义地理位置经度                | `--custom-geolocation-longitude=-122.084`                 |
-| `--custom-geolocation-accuracy`  | `kCustomGeolocationAccuracy`  | 自定义地理位置精确度，单位米      | `--custom-geolocation-accuracy=15.5`                      |
-| `--custom-resolution-width`      | `kCustomResolutionWidth`      | 自定义页面分辨率宽度，单位 CSS px | `--custom-resolution-width=1366`                          |
-| `--custom-resolution-height`     | `kCustomResolutionHeight`     | 自定义页面分辨率高度，单位 CSS px | `--custom-resolution-height=768`                          |
-| `--custom-resolution-dpr`        | `kCustomResolutionDpr`        | 自定义页面 DPR                    | `--custom-resolution-dpr=1.0`                             |
-| `--custom-image-loading-mode`    | `kCustomImageLoadingMode`     | 自定义图片加载策略模式            | `--custom-image-loading-mode=block`                       |
-| `--custom-image-max-area`        | `kCustomImageMaxArea`         | 自定义图片最大像素面积阈值        | `--custom-image-max-area=1024`                            |
-| `--custom-mac-address`           | `kCustomMacAddress`           | 自定义 Chromium 导出的 MAC 地址   | `--custom-mac-address=AA:BB:CC:DD:EE:FF`                  |
-| `--custom-host-name`             | `kCustomHostName`             | 自定义 Chromium 可见主机名        | `--custom-host-name=test-host-name`                       |
-| `--webrtc-ip-override`           | `kWebrtcIpOverride`           | 覆盖 WebRTC 暴露 IP               | `--webrtc-ip-override=203.0.113.10`                       |
-| `--custom-platform`              | `kCustomPlatform`             | 自定义平台标识                    | `--custom-platform=Win32`                                 |
-| `--custom-font-list`             | `kCustomFontList`             | 自定义字体列表                    | `--custom-font-list=Arial,Verdana,Tahoma,Microsoft YaHei` |
+| 参数                             | 常量名                        | 用途                                                             | 示例                                                      |
+| -------------------------------- | ----------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------- | ----------------------- | -------- | ---------- | -------- | ------------------------------------- | --------------------- |
+| `--custom-bg-color`              | `kCustomBackgroundColor`      | 启动时设置窗口背景色                                             | `--custom-bg-color=#1E1E1E`                               |
+| `--custom-ua-metadata`           | `kCustomUAMetadata`           | 自定义 `Sec-CH-UA*` 相关元数据                                   | `--custom-ua-metadata=platform=Windows                    | platform_version=13.0.0 | arch=x86 | bitness=64 | mobile=0 | brands=Google Chrome:144,Chromium:144 | form_factors=Desktop` |
+| `--custom-cpu-cores`             | `kCustomCpuCores`             | 自定义 CPU 核心数                                                | `--custom-cpu-cores=8`                                    |
+| `--custom-ram-gb`                | `kCustomRamGb`                | 自定义内存大小，单位 GB                                          | `--custom-ram-gb=16`                                      |
+| `--custom-gl-vendor`             | `kCustomGlVendor`             | 自定义 GL 供应商                                                 | `--custom-gl-vendor=NVIDIA`                               |
+| `--custom-gl-renderer`           | `kCustomGlRenderer`           | 自定义 GL 渲染器                                                 | `--custom-gl-renderer=NVIDIA GeForce RTX 4090`            |
+| `--custom-touch-points`          | `kCustomTouchPoints`          | 自定义触摸点数                                                   | `--custom-touch-points=5`                                 |
+| `--custom-main-language`         | `kCustomMainLanguage`         | 自定义主语言                                                     | `--custom-main-language=en-US`                            |
+| `--custom-languages`             | `kCustomLanguages`            | 自定义语言列表                                                   | `--custom-languages=en-US,zh-CN`                          |
+| `--custom-accept-languages`      | `kCustomAcceptLanguages`      | 自定义 Accept-Language 值                                        | `--custom-accept-languages=en-US,en,zh-CN`                |
+| `--custom-time-zone`             | `kCustomTimeZone`             | 自定义时区                                                       | `--custom-time-zone=Asia/Shanghai`                        |
+| `--custom-geolocation-latitude`  | `kCustomGeolocationLatitude`  | 自定义地理位置纬度                                               | `--custom-geolocation-latitude=37.422`                    |
+| `--custom-geolocation-longitude` | `kCustomGeolocationLongitude` | 自定义地理位置经度                                               | `--custom-geolocation-longitude=-122.084`                 |
+| `--custom-geolocation-accuracy`  | `kCustomGeolocationAccuracy`  | 自定义地理位置精确度，单位米                                     | `--custom-geolocation-accuracy=15.5`                      |
+| `--custom-resolution-width`      | `kCustomResolutionWidth`      | 自定义页面分辨率宽度，单位 CSS px                                | `--custom-resolution-width=1366`                          |
+| `--custom-resolution-height`     | `kCustomResolutionHeight`     | 自定义页面分辨率高度，单位 CSS px                                | `--custom-resolution-height=768`                          |
+| `--custom-resolution-dpr`        | `kCustomResolutionDpr`        | 自定义页面 DPR                                                   | `--custom-resolution-dpr=1.0`                             |
+| `--custom-image-loading-mode`    | `kCustomImageLoadingMode`     | 自定义图片加载策略模式                                           | `--custom-image-loading-mode=block`                       |
+| `--custom-image-max-area`        | `kCustomImageMaxArea`         | 自定义图片最大像素面积阈值                                       | `--custom-image-max-area=1024`                            |
+| `--custom-mac-address`           | `kCustomMacAddress`           | 自定义 Chromium 导出的 MAC 地址                                  | `--custom-mac-address=AA:BB:CC:DD:EE:FF`                  |
+| `--custom-host-name`             | `kCustomHostName`             | 自定义 Chromium 可见主机名                                       | `--custom-host-name=test-host-name`                       |
+| `--webrtc-ip-override`           | `kWebrtcIpOverride`           | 覆盖 WebRTC 暴露 IP                                              | `--webrtc-ip-override=203.0.113.10`                       |
+| `--custom-platform`              | `kCustomPlatform`             | 自定义平台标识                                                   | `--custom-platform=Win32`                                 |
+| `--custom-font-list`             | `kCustomFontList`             | 自定义字体列表                                                   | `--custom-font-list=Arial,Verdana,Tahoma,Microsoft YaHei` |
+| `--custom-dock-icon-text`        | `kCustomDockIconText`         | 自定义 Dock 图标底部文字标签（macOS 专属）                       | `--custom-dock-icon-text=亚马逊-001`                      |
+| `--custom-dock-icon-text-color`  | `kCustomDockIconTextColor`    | 自定义 Dock 图标文字颜色，格式 `#RRGGBB`（macOS 专属，默认白色） | `--custom-dock-icon-text-color=#FFD700`                   |
 
 ### 13.2 其他强相关启动参数
 
 这些参数虽然不属于 `kCustom*` 命名，但对当前 app 同样是强依赖：
 
-| 参数                                   | 用途                                       | 示例                                                                                                                           |
-| -------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `--user-agent`                         | 自定义 UA                                  | `--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36` |
-| `--fingerprint-seed`                   | 自定义指纹种子                             | `--fingerprint-seed=178172`                                                                                                    |
-| `--toolbar-text`                       | 地址栏和刷新按钮之间显示自定义标识文字     | `--toolbar-text=实例-01`                                                                                                       |
-| `--magic-socket-server-port`           | 启动 Chromium 内置 HTTP/WS 控制服务        | `--magic-socket-server-port=9999`                                                                                              |
-| `--auto-allow-geolocation`             | 地理位置权限请求静默自动通过，不弹授权框   | `--auto-allow-geolocation`                                                                                                     |
-| `--extension-state-file`               | 启动时加载受管理扩展目标状态 JSON 文件     | `--extension-state-file=/path/to/app_data/environments/env_001/runtime/extension-state.json`                                   |
-| `--cookie-state-file`                  | 启动时加载受管理 Cookie 目标状态 JSON 文件 | `--cookie-state-file=/path/to/app_data/environments/env_001/runtime/cookie-state.json`                                         |
-| `--bookmark-state-file`                | 启动时加载受管理书签目标状态 JSON 文件     | `--bookmark-state-file=/path/to/app_data/environments/env_001/runtime/bookmark-state.json`                                     |
-| `--enable-port-scan-protection`        | 启用普通网页端口扫描保护                   | `--enable-port-scan-protection`                                                                                                |
-| `--enable-automation-detection-shield` | 启用自动化检测隔绝                         | `--enable-automation-detection-shield`                                                                                         |
-| `--enable-do-not-track`                | 启动时为当前 profile 开启 Do Not Track     | `--enable-do-not-track`                                                                                                        |
-| `--window-size`                        | 窗口尺寸                                   | `--window-size=393,852`                                                                                                        |
-| `--force-device-scale-factor`          | 设备缩放因子 / DPR                         | `--force-device-scale-factor=3`                                                                                                |
-| `--touch-events=enabled`               | 显式开启触摸事件                           | `--touch-events=enabled`                                                                                                       |
-| `--use-mobile-user-agent`              | 使用移动端 UA 行为                         | `--use-mobile-user-agent`                                                                                                      |
-| `--lang`                               | 浏览器语言                                 | `--lang=en-US`                                                                                                                 |
-| `TZ`                                   | 进程时区环境变量                           | `TZ=Asia/Shanghai`                                                                                                             |
+| 参数                                   | 用途                                                       | 示例                                                                                                                           |
+| -------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `--user-agent`                         | 自定义 UA                                                  | `--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36` |
+| `--fingerprint-seed`                   | 自定义指纹种子                                             | `--fingerprint-seed=178172`                                                                                                    |
+| `--toolbar-text`                       | 地址栏和刷新按钮之间显示自定义标识文字                     | `--toolbar-text=实例-01`                                                                                                       |
+| `--custom-dock-icon-text`              | Dock 图标底部显示自定义标签，仅 macOS 生效                 | `--custom-dock-icon-text=亚马逊-001`                                                                                           |
+| `--custom-dock-icon-text-color`        | Dock 图标文字颜色，格式 `#RRGGBB`，仅 macOS 生效，默认白色 | `--custom-dock-icon-text-color=#FFD700`                                                                                        |
+| `--magic-socket-server-port`           | 启动 Chromium 内置 HTTP/WS 控制服务                        | `--magic-socket-server-port=9999`                                                                                              |
+| `--auto-allow-geolocation`             | 地理位置权限请求静默自动通过，不弹授权框                   | `--auto-allow-geolocation`                                                                                                     |
+| `--extension-state-file`               | 启动时加载受管理扩展目标状态 JSON 文件                     | `--extension-state-file=/Users/tt/app_data/environments/env_001/runtime/extension-state.json`                                  |
+| `--cookie-state-file`                  | 启动时加载受管理 Cookie 目标状态 JSON 文件                 | `--cookie-state-file=/Users/tt/app_data/environments/env_001/runtime/cookie-state.json`                                        |
+| `--bookmark-state-file`                | 启动时加载受管理书签目标状态 JSON 文件                     | `--bookmark-state-file=/Users/tt/app_data/environments/env_001/runtime/bookmark-state.json`                                    |
+| `--enable-port-scan-protection`        | 启用普通网页端口扫描保护                                   | `--enable-port-scan-protection`                                                                                                |
+| `--enable-automation-detection-shield` | 启用自动化检测隔绝                                         | `--enable-automation-detection-shield`                                                                                         |
+| `--enable-do-not-track`                | 启动时为当前 profile 开启 Do Not Track                     | `--enable-do-not-track`                                                                                                        |
+| `--window-size`                        | 窗口尺寸                                                   | `--window-size=393,852`                                                                                                        |
+| `--force-device-scale-factor`          | 设备缩放因子 / DPR                                         | `--force-device-scale-factor=3`                                                                                                |
+| `--touch-events=enabled`               | 显式开启触摸事件                                           | `--touch-events=enabled`                                                                                                       |
+| `--use-mobile-user-agent`              | 使用移动端 UA 行为                                         | `--use-mobile-user-agent`                                                                                                      |
+| `--lang`                               | 浏览器语言                                                 | `--lang=en-US`                                                                                                                 |
+| `TZ`                                   | 进程时区环境变量                                           | `TZ=Asia/Shanghai`                                                                                                             |
 
 说明：
 
@@ -2413,7 +3253,7 @@ CHROMIUM_BOOKMARK_STATE_FILE=/abs/path/bookmark-state.json python3 start.py
 - 当前仓库里的 `start.py` 默认会附加：
 
 ```bash
---cookie-state-file=<chromium-source>/cookie-state.test.json
+--cookie-state-file=/Users/tt/Developer/Personal/chromium/cookie-state.test.json
 ```
 
 - 若设置 `CHROMIUM_COOKIE_STATE_FILE`，则会覆盖 `start.py` 里的默认测试文件：
@@ -2425,7 +3265,7 @@ CHROMIUM_COOKIE_STATE_FILE=/abs/path/cookie-state.json python3 start.py
 - 当前仓库里的 `start.py` 还把 `user-data-dir` 固定到了仓库根目录下的 `profile` 目录，因此上面的命令默认会把 Cookie 写入：
 
 ```text
-<chromium-source>/profile/Default/Cookies
+/Users/tt/Developer/Personal/chromium/profile/Default/Cookies
 ```
 
 ### 13.4 参数一致性规则
@@ -2534,7 +3374,7 @@ CHROMIUM_COOKIE_STATE_FILE=/abs/path/cookie-state.json python3 start.py
 			"browser_info": {
 				"app_name": "",
 				"profile_name": "",
-				"profile_path": "~/Library/Application Support/Chromium/Default",
+				"profile_path": "/Users/tt/Library/Application Support/Chromium/Default",
 				"user_title": ""
 			},
 			"fullscreen": false,
@@ -2571,7 +3411,7 @@ CHROMIUM_COOKIE_STATE_FILE=/abs/path/cookie-state.json python3 start.py
 			"browser_info": {
 				"app_name": "",
 				"profile_name": "",
-				"profile_path": "~/Library/Application Support/Chromium/Default",
+				"profile_path": "/Users/tt/Library/Application Support/Chromium/Default",
 				"user_title": ""
 			},
 			"fullscreen": false,
@@ -2610,7 +3450,7 @@ CHROMIUM_COOKIE_STATE_FILE=/abs/path/cookie-state.json python3 start.py
 		"browser_info": {
 			"app_name": "",
 			"profile_name": "",
-			"profile_path": "~/Library/Application Support/Chromium/Default",
+			"profile_path": "/Users/tt/Library/Application Support/Chromium/Default",
 			"user_title": ""
 		},
 		"fullscreen": false,
@@ -2672,7 +3512,7 @@ CHROMIUM_COOKIE_STATE_FILE=/abs/path/cookie-state.json python3 start.py
 		"browser_info": {
 			"app_name": "",
 			"profile_name": "",
-			"profile_path": "~/Library/Application Support/Chromium/Default",
+			"profile_path": "/Users/tt/Library/Application Support/Chromium/Default",
 			"user_title": ""
 		},
 		"fullscreen": false,
@@ -2767,170 +3607,3 @@ CHROMIUM_COOKIE_STATE_FILE=/abs/path/cookie-state.json python3 start.py
 2. 再生成 UA / metadata / GL / fonts
 3. 做一致性校验
 4. 最后调用 `get_switches`、`get_active_browser`、`get_sync_status`、`get_managed_extensions` 做运行期确认
-
----
-
-## 动态环境标识图标（Badge Icon）方案
-
-### 需求
-
-Multi-Flow 管理多个浏览器环境实例，需要在 Dock / Taskbar 图标上显示环境编号（如 "101"），方便用户快速区分窗口归属。
-
-### 设计：`--badge-label` 启动参数
-
-在自研 Chromium 中新增启动参数 `--badge-label=<text>`，Chromium 启动后读取该参数，动态合成带角标的应用图标。
-
-Multi-Flow 侧在 `engine_manager/mod.rs` 的 `build_chromium_launch_args` 中传入：
-
-```rust
-if let Some(badge) = options.badge_label.as_deref().and_then(trim_to_option) {
-    args.push(format!("--badge-label={badge}"));
-}
-```
-
-### macOS 实现
-
-#### 方案 A：NSDockTile badge（最简）
-
-系统原生红色圆形徽标，显示在 Dock 图标右上角。
-
-```objc
-// chrome/browser/chrome_browser_main_mac.mm — PostMainMessageLoopStart()
-NSString *badge = base::SysUTF8ToNSString(
-    command_line->GetSwitchValueASCII("badge-label"));
-if (badge.length > 0) {
-  [[NSApp dockTile] setBadgeLabel:badge];
-}
-```
-
-优点：一行代码，系统原生风格。
-缺点：样式不可自定义（固定红色圆形），只适合短文本。
-
-#### 方案 B：动态合成 NSImage（推荐）
-
-生成带自定义底色圆角矩形 + 白色文字的完整图标，替换 Dock 图标。
-
-实现文件：`chrome/browser/ui/cocoa/badge_icon_mac.h/.mm`（新建）
-
-```objc
-#import <Cocoa/Cocoa.h>
-
-void SetDockBadgeIcon(const std::string& label) {
-  if (label.empty()) return;
-
-  // 1. 获取原始 app icon
-  NSImage *baseIcon = [NSApp applicationIconImage];
-  NSSize size = baseIcon.size;  // 通常 512x512 或 1024x1024
-
-  // 2. 创建新画布
-  NSImage *badgedIcon = [[NSImage alloc] initWithSize:size];
-  [badgedIcon lockFocus];
-
-  // 画原始图标
-  [baseIcon drawInRect:NSMakeRect(0, 0, size.width, size.height)];
-
-  // 3. 右下角画圆角矩形底色 + 文字
-  NSString *text = [NSString stringWithUTF8String:label.c_str()];
-  CGFloat badgeH = size.height * 0.22;
-  CGFloat padding = badgeH * 0.3;
-
-  NSDictionary *attrs = @{
-    NSFontAttributeName: [NSFont boldSystemFontOfSize:badgeH * 0.65],
-    NSForegroundColorAttributeName: [NSColor whiteColor],
-  };
-  NSSize textSize = [text sizeWithAttributes:attrs];
-  CGFloat badgeW = MAX(textSize.width + padding * 2, badgeH);
-
-  NSRect badgeRect = NSMakeRect(
-    size.width - badgeW - size.width * 0.02,   // 右下角
-    size.height * 0.02,
-    badgeW, badgeH
-  );
-
-  // 底色
-  NSBezierPath *bg = [NSBezierPath bezierPathWithRoundedRect:badgeRect
-                                                     xRadius:badgeH * 0.25
-                                                     yRadius:badgeH * 0.25];
-  [[NSColor colorWithRed:0.2 green:0.5 blue:1.0 alpha:0.92] setFill];
-  [bg fill];
-
-  // 文字居中绘制
-  NSPoint textOrigin = NSMakePoint(
-    badgeRect.origin.x + (badgeW - textSize.width) / 2,
-    badgeRect.origin.y + (badgeH - textSize.height) / 2
-  );
-  [text drawAtPoint:textOrigin withAttributes:attrs];
-
-  [badgedIcon unlockFocus];
-
-  // 4. 替换 Dock 图标
-  [NSApp setApplicationIconImage:badgedIcon];
-}
-```
-
-调用入口：
-
-```cpp
-// chrome/browser/chrome_browser_main_mac.mm — PostMainMessageLoopStart() 或 PreMainMessageLoopRun()
-const base::CommandLine* cmd = base::CommandLine::ForCurrentProcess();
-if (cmd->HasSwitch("badge-label")) {
-  SetDockBadgeIcon(cmd->GetSwitchValueASCII("badge-label"));
-}
-```
-
-### Windows 实现
-
-使用 `ITaskbarList3::SetOverlayIcon` 在 Taskbar 图标上叠加小图标：
-
-```cpp
-// chrome/browser/ui/views/frame/browser_frame_win.cc
-#include <ShObjIdl.h>
-#include <wrl/client.h>
-
-void SetTaskbarBadge(HWND hwnd, const std::wstring& label) {
-  // 1. 创建小图标 (16x16 或 20x20)，用 GDI+ 画圆角矩形 + 文字
-  HICON hBadgeIcon = CreateBadgeIcon(label);  // 自行实现
-
-  // 2. 设置 Overlay
-  Microsoft::WRL::ComPtr<ITaskbarList3> taskbar;
-  CoCreateInstance(CLSID_TaskbarList, nullptr, CLSCTX_ALL,
-                   IID_PPV_ARGS(&taskbar));
-  if (taskbar) {
-    taskbar->HrInit();
-    taskbar->SetOverlayIcon(hwnd, hBadgeIcon, label.c_str());
-  }
-
-  DestroyIcon(hBadgeIcon);
-}
-```
-
-调用时机：在 `BrowserFrameViewWin::OnWidgetInitialized()` 中读取 `--badge-label` 并调用。
-
-### GN 构建集成（macOS 示例）
-
-```gn
-# chrome/browser/ui/cocoa/BUILD.gn 中添加
-source_set("badge_icon") {
-  sources = [
-    "badge_icon_mac.h",
-    "badge_icon_mac.mm",
-  ]
-  frameworks = [ "Cocoa.framework" ]
-  deps = [ "//base" ]
-}
-```
-
-在 `chrome/browser:browser` 的 deps 中引入 `"//chrome/browser/ui/cocoa:badge_icon"`。
-
-### 方案选型建议
-
-| 阶段     | 推荐                       | 理由                                   |
-| -------- | -------------------------- | -------------------------------------- |
-| 快速验证 | 方案 A（NSDockTile badge） | 一行代码即可看到效果                   |
-| 正式发布 | 方案 B（动态合成 NSImage） | 可自定义底色、字体、位置，品牌一致性好 |
-
-### Multi-Flow 侧需要的改动
-
-1. `EngineLaunchOptions` 添加 `badge_label: Option<String>` 字段
-2. `build_chromium_launch_args` 中将 badge_label 传为 `--badge-label=<value>`
-3. 打开环境时从 profile 的名称或序号生成 badge 文本
