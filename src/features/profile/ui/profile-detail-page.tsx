@@ -321,12 +321,12 @@ export function ProfileDetailPage({
 					) : null}
 
 					<Card className="border border-border/60 shadow-none">
-						<CardHeader className="p-0 pb-2">
+						<CardHeader className="px-4 pt-4 pb-2">
 							<CardTitle className="text-sm">
 								{t('detail.launchParams')}
 							</CardTitle>
 						</CardHeader>
-						<CardContent className="space-y-3 p-0">
+						<CardContent className="space-y-3 px-4 pb-4 pt-0">
 							{profile.running ? (
 								<>
 									<div className="grid gap-3 md:grid-cols-2">

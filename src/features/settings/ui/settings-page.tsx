@@ -19,6 +19,7 @@ import { ToolPermissionsCard } from './tool-permissions-card';
 import { ResourceManagementCard } from './resource-management-card';
 import { GeneralSettingsPlaceholder } from './general-settings-placeholder';
 import { RecycleBinRoutePage } from '@/pages/recycle-bin';
+import { DevConfigCard } from './dev-config-card';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -81,7 +82,7 @@ export function SettingsPage({
 
 			<div className="grid grid-cols-[11rem_1fr] gap-4 flex-1 min-h-0">
 				{/* 左侧 Tab 导航 */}
-				<nav className="flex flex-col self-start h-fit rounded-xl border border-border/40 bg-card/60 backdrop-blur-md p-2 gap-0.5">
+				<nav className="flex flex-col self-start h-fit rounded-xl border border-border/40 bg-card/60 backdrop-blur-md shadow p-2 gap-0.5">
 					{settingsTabs.map((tab) => (
 						<button
 							key={tab.id}
@@ -149,6 +150,8 @@ export function SettingsPage({
 						)}
 
 						{activeTab === 'recycle-bin' && <RecycleBinRoutePage />}
+
+						{import.meta.env.DEV && activeTab === 'dev' && <DevConfigCard />}
 					</div>
 				</ScrollArea>
 			</div>
