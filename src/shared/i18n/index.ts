@@ -39,6 +39,16 @@ import enPlatform from './locales/en-US/platform.json';
 import enResource from './locales/en-US/resource.json';
 
 export const defaultNS = 'common';
+export type AppLanguage = 'zh-CN' | 'en-US';
+
+export function normalizeAppLanguage(language?: string | null): AppLanguage {
+	const normalized = (language ?? '').trim().toLowerCase();
+	if (normalized.startsWith('en')) {
+		return 'en-US';
+	}
+	return 'zh-CN';
+}
+
 export const resources = {
 	'zh-CN': {
 		common: zhCommon,

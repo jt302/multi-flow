@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
+import { normalizeAppLanguage } from '@/shared/i18n';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -31,6 +33,18 @@ export function GeneralSettingsPlaceholder() {
 			tauriInvoke<void>('update_chromium_logging_enabled', { enabled }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['chromium-logging-enabled'] });
+		},
+	});
+	const updateLanguage = useMutation({
+		mutationFn: (locale: string) =>
+			tauriInvoke<string>('update_app_language', {
+				locale: normalizeAppLanguage(locale),
+			}),
+		onSuccess: async (locale) => {
+			await i18n.changeLanguage(normalizeAppLanguage(locale));
+		},
+		onError: (error) => {
+			toast.error(`${t('language.changeFailed')}: ${String(error)}`);
 		},
 	});
 
@@ -69,10 +83,18 @@ export function GeneralSettingsPlaceholder() {
 				</CardHeader>
 				<CardContent>
 					<Select
-						value={i18n.language}
-						onValueChange={(lng) => i18n.changeLanguage(lng)}
+						value={normalizeAppLanguage(i18n.resolvedLanguage ?? i18n.language)}
+						onValueChange={(lng) => {
+							if (normalizeAppLanguage(i18n.resolvedLanguage ?? i18n.language) === lng) {
+								return;
+							}
+							updateLanguage.mutate(lng);
+						}}
 					>
-						<SelectTrigger className="w-48 cursor-pointer">
+						<SelectTrigger
+							className="w-48 cursor-pointer"
+							disabled={updateLanguage.isPending}
+						>
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>

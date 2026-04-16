@@ -18,6 +18,8 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 
+use crate::services::app_preference_service::normalize_app_language;
+
 const MENU_ID_OPEN_DATA_DIR: &str = "open_data_dir";
 const MENU_ID_OPEN_DEVTOOLS: &str = "open_devtools";
 const MENU_ID_OPEN_LOG_PANEL: &str = "open_log_panel";
@@ -35,6 +37,25 @@ static INIT_COMPLETE: AtomicBool = AtomicBool::new(false);
 static SPLASH_READY: AtomicBool = AtomicBool::new(false);
 /// 主窗口已经执行过“关 splash + 显窗口”，避免前端 ready 与后端 fallback 重复触发
 static MAIN_WINDOW_SHOWN: AtomicBool = AtomicBool::new(false);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct NativeMenuTranslations {
+    edit_menu: &'static str,
+    window_menu: &'static str,
+    tools_menu: &'static str,
+    open_devtools: &'static str,
+    reload: &'static str,
+    open_log_panel: &'static str,
+    open_data_dir: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CloseConfirmDialogText {
+    title: &'static str,
+    message: String,
+    confirm_label: &'static str,
+    cancel_label: &'static str,
+}
 
 mod commands;
 mod db;
@@ -116,21 +137,18 @@ pub fn run() {
                     if engine_count > 0 || run_count > 0 {
                         api.prevent_close();
                         let window_clone = window.clone();
-                        let mut msg = String::from("当前有以下活动：\n");
-                        if engine_count > 0 {
-                            msg.push_str(&format!("• {} 个浏览器环境正在运行\n", engine_count));
-                        }
-                        if run_count > 0 {
-                            msg.push_str(&format!("• {} 个自动化任务正在执行\n", run_count));
-                        }
-                        msg.push_str("\n关闭窗口将终止所有进程，确定要退出吗？");
+                        let dialog = build_close_confirm_dialog_text(
+                            current_app_language(&window.app_handle()),
+                            engine_count,
+                            run_count,
+                        );
                         window
                             .dialog()
-                            .message(msg)
-                            .title("确认退出")
+                            .message(dialog.message)
+                            .title(dialog.title)
                             .buttons(MessageDialogButtons::OkCancelCustom(
-                                "退出".to_string(),
-                                "取消".to_string(),
+                                dialog.confirm_label.to_string(),
+                                dialog.cancel_label.to_string(),
                             ))
                             .show(move |confirmed| {
                                 if confirmed {
@@ -228,6 +246,8 @@ pub fn run() {
             commands::automation_commands::save_dev_chromium_executable,
             commands::automation_commands::read_chromium_logging_enabled,
             commands::automation_commands::update_chromium_logging_enabled,
+            commands::automation_commands::read_app_language,
+            commands::automation_commands::update_app_language,
             commands::automation_commands::update_script_canvas_positions,
             commands::automation_commands::update_script_variables_schema,
             commands::automation_commands::list_active_automation_runs,
@@ -352,8 +372,114 @@ fn install_panic_hook() {
     });
 }
 
-fn setup_native_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    let edit_submenu = SubmenuBuilder::new(app, "Edit")
+fn read_saved_app_language(app: &AppHandle) -> Option<String> {
+    app.state::<state::AppState>()
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .read_app_language()
+        .ok()
+        .flatten()
+}
+
+pub(crate) fn resolve_effective_app_language(
+    saved_locale: Option<&str>,
+    system_locale: Option<&str>,
+) -> &'static str {
+    saved_locale
+        .filter(|value| !value.trim().is_empty())
+        .map(normalize_app_language)
+        .or_else(|| {
+            system_locale
+                .filter(|value| !value.trim().is_empty())
+                .map(normalize_app_language)
+        })
+        .unwrap_or("zh-CN")
+}
+
+fn current_app_language(app: &AppHandle) -> &'static str {
+    resolve_effective_app_language(
+        read_saved_app_language(app).as_deref(),
+        sys_locale::get_locale().as_deref(),
+    )
+}
+
+fn native_menu_translations_for_locale(locale: &str) -> NativeMenuTranslations {
+    if normalize_app_language(locale) == "en-US" {
+        NativeMenuTranslations {
+            edit_menu: "Edit",
+            window_menu: "Window",
+            tools_menu: "Tools",
+            open_devtools: "Open Developer Tools",
+            reload: "Reload",
+            open_log_panel: "Log Panel",
+            open_data_dir: "Open Data Directory",
+        }
+    } else {
+        NativeMenuTranslations {
+            edit_menu: "编辑",
+            window_menu: "窗口",
+            tools_menu: "工具",
+            open_devtools: "打开开发者调试工具",
+            reload: "刷新",
+            open_log_panel: "日志面板",
+            open_data_dir: "打开数据目录",
+        }
+    }
+}
+
+fn build_close_confirm_dialog_text(
+    locale: &str,
+    engine_count: usize,
+    run_count: usize,
+) -> CloseConfirmDialogText {
+    if normalize_app_language(locale) == "en-US" {
+        let mut message = String::from("The following activities are still running:\n");
+        if engine_count > 0 {
+            message.push_str(&format!(
+                "• {engine_count} browser environment(s) are still running\n"
+            ));
+        }
+        if run_count > 0 {
+            message.push_str(&format!(
+                "• {run_count} automation task(s) are still running\n"
+            ));
+        }
+        message.push_str("\nClosing the window will terminate all related processes. Exit now?");
+        CloseConfirmDialogText {
+            title: "Confirm Exit",
+            message,
+            confirm_label: "Exit",
+            cancel_label: "Cancel",
+        }
+    } else {
+        let mut message = String::from("当前有以下活动：\n");
+        if engine_count > 0 {
+            message.push_str(&format!("• {engine_count} 个浏览器环境正在运行\n"));
+        }
+        if run_count > 0 {
+            message.push_str(&format!("• {run_count} 个自动化任务正在执行\n"));
+        }
+        message.push_str("\n关闭窗口将终止所有进程，确定要退出吗？");
+        CloseConfirmDialogText {
+            title: "确认退出",
+            message,
+            confirm_label: "退出",
+            cancel_label: "取消",
+        }
+    }
+}
+
+pub(crate) fn setup_native_menu(
+    app: &AppHandle,
+    locale_override: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let locale = locale_override
+        .map(normalize_app_language)
+        .unwrap_or_else(|| current_app_language(app));
+    let translations = native_menu_translations_for_locale(locale);
+
+    let edit_submenu = SubmenuBuilder::new(app, translations.edit_menu)
         .undo()
         .redo()
         .separator()
@@ -362,16 +488,28 @@ fn setup_native_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> 
         .paste()
         .select_all()
         .build()?;
-    let window_submenu = SubmenuBuilder::new(app, "Window")
+    let window_submenu = SubmenuBuilder::new(app, translations.window_menu)
         .close_window()
         .minimize()
         .build()?;
-    let tools_submenu = SubmenuBuilder::new(app, "Tools")
-        .item(&MenuItemBuilder::with_id(MENU_ID_OPEN_DEVTOOLS, "打开开发者调试工具").build(app)?)
-        .item(&MenuItemBuilder::with_id(MENU_ID_RELOAD_MAIN_WINDOW, "刷新").build(app)?)
+    let tools_submenu = SubmenuBuilder::new(app, translations.tools_menu)
+        .item(
+            &MenuItemBuilder::with_id(MENU_ID_OPEN_DEVTOOLS, translations.open_devtools)
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id(MENU_ID_RELOAD_MAIN_WINDOW, translations.reload)
+                .build(app)?,
+        )
         .separator()
-        .item(&MenuItemBuilder::with_id(MENU_ID_OPEN_LOG_PANEL, "Log Panel").build(app)?)
-        .item(&MenuItemBuilder::with_id(MENU_ID_OPEN_DATA_DIR, "打开数据目录").build(app)?)
+        .item(
+            &MenuItemBuilder::with_id(MENU_ID_OPEN_LOG_PANEL, translations.open_log_panel)
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id(MENU_ID_OPEN_DATA_DIR, translations.open_data_dir)
+                .build(app)?,
+        )
         .build()?;
     let menu = MenuBuilder::new(app)
         .item(&edit_submenu)
@@ -552,7 +690,10 @@ fn reload_main_window(app: &AppHandle) {
         return;
     };
 
-    logger::info("menu", format!("reload requested for window={MAIN_WINDOW_LABEL}"));
+    logger::info(
+        "menu",
+        format!("reload requested for window={MAIN_WINDOW_LABEL}"),
+    );
     if let Err(err) = window.reload() {
         logger::warn(
             "menu",
@@ -1076,8 +1217,10 @@ fn physical_to_logical(value: f64, scale_factor: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_saved_main_window_state_with_monitors, load_saved_main_window_state_from_path,
-        save_main_window_state_to_path, SavedMainWindowState, SavedMonitorSnapshot,
+        apply_saved_main_window_state_with_monitors, build_close_confirm_dialog_text,
+        load_saved_main_window_state_from_path, native_menu_translations_for_locale,
+        resolve_effective_app_language, save_main_window_state_to_path, SavedMainWindowState,
+        SavedMonitorSnapshot,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -1185,6 +1328,58 @@ mod tests {
         let _ = fs::remove_file(path);
     }
 
+    #[test]
+    fn native_menu_translations_follow_app_language() {
+        let zh = native_menu_translations_for_locale("zh-CN");
+        assert_eq!(zh.edit_menu, "编辑");
+        assert_eq!(zh.window_menu, "窗口");
+        assert_eq!(zh.tools_menu, "工具");
+        assert_eq!(zh.open_devtools, "打开开发者调试工具");
+        assert_eq!(zh.reload, "刷新");
+        assert_eq!(zh.open_log_panel, "日志面板");
+        assert_eq!(zh.open_data_dir, "打开数据目录");
+
+        let en = native_menu_translations_for_locale("en-US");
+        assert_eq!(en.edit_menu, "Edit");
+        assert_eq!(en.window_menu, "Window");
+        assert_eq!(en.tools_menu, "Tools");
+        assert_eq!(en.open_devtools, "Open Developer Tools");
+        assert_eq!(en.reload, "Reload");
+        assert_eq!(en.open_log_panel, "Log Panel");
+        assert_eq!(en.open_data_dir, "Open Data Directory");
+    }
+
+    #[test]
+    fn close_confirm_dialog_text_follows_language_and_counts() {
+        let zh = build_close_confirm_dialog_text("zh-CN", 2, 1);
+        assert_eq!(zh.title, "确认退出");
+        assert_eq!(zh.confirm_label, "退出");
+        assert_eq!(zh.cancel_label, "取消");
+        assert!(zh.message.contains("2 个浏览器环境正在运行"));
+        assert!(zh.message.contains("1 个自动化任务正在执行"));
+
+        let en = build_close_confirm_dialog_text("en-US", 3, 4);
+        assert_eq!(en.title, "Confirm Exit");
+        assert_eq!(en.confirm_label, "Exit");
+        assert_eq!(en.cancel_label, "Cancel");
+        assert!(en
+            .message
+            .contains("3 browser environment(s) are still running"));
+        assert!(en
+            .message
+            .contains("4 automation task(s) are still running"));
+    }
+
+    #[test]
+    fn effective_app_language_prefers_saved_then_system_then_default() {
+        assert_eq!(
+            resolve_effective_app_language(Some("en-GB"), Some("zh-CN")),
+            "en-US"
+        );
+        assert_eq!(resolve_effective_app_language(None, Some("en-GB")), "en-US");
+        assert_eq!(resolve_effective_app_language(None, Some("fr-FR")), "zh-CN");
+    }
+
     fn unique_temp_state_path() -> PathBuf {
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -1228,12 +1423,14 @@ fn run_app_init(handle: AppHandle) -> Result<(), Box<dyn std::error::Error + Sen
     handle.manage(app_state);
 
     emit_splash("menu", 80);
-    setup_native_menu(&handle).map_err(|err| -> Box<dyn std::error::Error + Send + Sync> {
-        Box::new(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            err.to_string(),
-        ))
-    })?;
+    setup_native_menu(&handle, None).map_err(
+        |err| -> Box<dyn std::error::Error + Send + Sync> {
+            Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                err.to_string(),
+            ))
+        },
+    )?;
     start_runtime_guard(handle.clone());
 
     emit_splash("window", 90);

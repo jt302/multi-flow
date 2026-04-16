@@ -111,6 +111,7 @@
 	"language": {
 		"title": "界面语言",
 		"desc": "切换应用界面的显示语言",
+		"changeFailed": "切换界面语言失败",
 		"zhCN": "中文（简体）",
 		"enUS": "English"
 	},
