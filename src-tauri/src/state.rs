@@ -145,6 +145,7 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
     let local_api_server = LocalApiServer::new(DEFAULT_PROXY_DAEMON_BIND_ADDRESS);
     let chromium_magic_adapter_service = ChromiumMagicAdapterService::new();
     let sync_manager_service = SyncManagerService::new(None, None);
+    ensure_app_fs_root(app)?;
     cleanup_rpa_artifacts_dir(app)?;
 
     let app_state = AppState {
@@ -179,13 +180,7 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
 }
 
 fn build_engine_manager(app: &AppHandle) -> AppResult<EngineManager> {
-    let data_dir = app
-        .path()
-        .app_local_data_dir()
-        .or_else(|_| app.path().app_data_dir())
-        .map_err(|err| {
-            crate::error::AppError::Validation(format!("failed to resolve app data dir: {err}"))
-        })?;
+    let data_dir = resolve_app_data_dir(app)?;
     fs::create_dir_all(&data_dir)?;
 
     let profiles_root = data_dir.join("profiles");
@@ -198,13 +193,7 @@ fn build_engine_manager(app: &AppHandle) -> AppResult<EngineManager> {
 }
 
 fn cleanup_rpa_artifacts_dir(app: &AppHandle) -> AppResult<()> {
-    let data_dir = app
-        .path()
-        .app_local_data_dir()
-        .or_else(|_| app.path().app_data_dir())
-        .map_err(|err| {
-            crate::error::AppError::Validation(format!("failed to resolve app data dir: {err}"))
-        })?;
+    let data_dir = resolve_app_data_dir(app)?;
     fs::create_dir_all(&data_dir)?;
     let artifacts_dir = data_dir.join("rpa-artifacts");
     if artifacts_dir.exists() {
@@ -218,6 +207,25 @@ fn cleanup_rpa_artifacts_dir(app: &AppHandle) -> AppResult<()> {
         );
     }
     Ok(())
+}
+
+pub fn resolve_app_data_dir(app: &AppHandle) -> AppResult<PathBuf> {
+    app.path()
+        .app_local_data_dir()
+        .or_else(|_| app.path().app_data_dir())
+        .map_err(|err| {
+            crate::error::AppError::Validation(format!("failed to resolve app data dir: {err}"))
+        })
+}
+
+pub fn ensure_app_fs_root(app: &AppHandle) -> AppResult<PathBuf> {
+    let data_dir = resolve_app_data_dir(app)?;
+    fs::create_dir_all(&data_dir)?;
+
+    let fs_root = data_dir.join("fs");
+    fs::create_dir_all(&fs_root)?;
+
+    Ok(fs_root)
 }
 
 fn resolve_chromium_executable(data_dir: &Path) -> Option<PathBuf> {

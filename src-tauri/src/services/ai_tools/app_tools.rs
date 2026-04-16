@@ -7,7 +7,7 @@ use tauri::Manager;
 
 use crate::models::{
     CreateProfileGroupRequest, CreateProfileRequest, ListProfilesQuery, ListProxiesQuery,
-    UpdateProfileGroupRequest,
+    SaveProfileDevicePresetRequest, UpdateProfileGroupRequest,
 };
 use crate::services::chat_service::UpdateChatSessionRequest;
 use crate::state::AppState;
@@ -227,6 +227,72 @@ pub async fn execute(
             }
         }
 
+        // ═══════════════ Device Preset 操作 ═══════════════
+        "app_list_device_presets" => {
+            let platform = opt_str(&args, "platform");
+            let svc = state
+                .device_preset_service
+                .lock()
+                .map_err(|_| "device preset service lock poisoned".to_string())?;
+            let presets = svc
+                .list_presets(platform.as_deref(), None)
+                .map_err(|e| e.to_string())?;
+            Ok(ToolResult::text(
+                serde_json::to_string(&presets).unwrap_or_default(),
+            ))
+        }
+
+        "app_get_device_preset" => {
+            let preset_id = require_str(&args, "preset_id")?;
+            let svc = state
+                .device_preset_service
+                .lock()
+                .map_err(|_| "device preset service lock poisoned".to_string())?;
+            let preset = svc.get_preset(&preset_id).map_err(|e| e.to_string())?;
+            Ok(ToolResult::text(
+                serde_json::to_string(&preset).unwrap_or_default(),
+            ))
+        }
+
+        "app_create_device_preset" => {
+            let payload = parse_device_preset_request(&args)?;
+            let svc = state
+                .device_preset_service
+                .lock()
+                .map_err(|_| "device preset service lock poisoned".to_string())?;
+            let preset = svc.create_preset(payload).map_err(|e| e.to_string())?;
+            Ok(ToolResult::text(
+                serde_json::to_string(&preset).unwrap_or_default(),
+            ))
+        }
+
+        "app_update_device_preset" => {
+            let preset_id = require_str(&args, "preset_id")?;
+            let payload = parse_device_preset_request(&args)?;
+            let svc = state
+                .device_preset_service
+                .lock()
+                .map_err(|_| "device preset service lock poisoned".to_string())?;
+            let preset = svc
+                .update_preset(&preset_id, payload)
+                .map_err(|e| e.to_string())?;
+            Ok(ToolResult::text(
+                serde_json::to_string(&preset).unwrap_or_default(),
+            ))
+        }
+
+        "app_delete_device_preset" => {
+            let preset_id = require_str(&args, "preset_id")?;
+            let svc = state
+                .device_preset_service
+                .lock()
+                .map_err(|_| "device preset service lock poisoned".to_string())?;
+            svc.delete_preset(&preset_id).map_err(|e| e.to_string())?;
+            Ok(ToolResult::text(format!(
+                "Device preset '{preset_id}' deleted"
+            )))
+        }
+
         // ═══════════════ Group 操作 ═══════════════
         "app_list_groups" => {
             let include_deleted = args
@@ -413,4 +479,51 @@ fn require_str(args: &Value, key: &str) -> Result<String, String> {
 
 fn opt_str(args: &Value, key: &str) -> Option<String> {
     args.get(key).and_then(|v| v.as_str()).map(String::from)
+}
+
+fn require_bool(args: &Value, key: &str) -> Result<bool, String> {
+    args.get(key)
+        .and_then(|v| v.as_bool())
+        .ok_or_else(|| format!("Missing required boolean parameter: '{key}'"))
+}
+
+fn require_u32(args: &Value, key: &str) -> Result<u32, String> {
+    let value = args
+        .get(key)
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| format!("Missing required numeric parameter: '{key}'"))?;
+    u32::try_from(value).map_err(|_| format!("Parameter '{key}' is out of range for u32"))
+}
+
+fn require_f32(args: &Value, key: &str) -> Result<f32, String> {
+    let value = args
+        .get(key)
+        .and_then(|v| v.as_f64())
+        .ok_or_else(|| format!("Missing required numeric parameter: '{key}'"))?;
+    if !value.is_finite() {
+        return Err(format!("Parameter '{key}' must be a finite number"));
+    }
+    Ok(value as f32)
+}
+
+fn parse_device_preset_request(args: &Value) -> Result<SaveProfileDevicePresetRequest, String> {
+    Ok(SaveProfileDevicePresetRequest {
+        label: require_str(args, "label")?,
+        platform: require_str(args, "platform")?,
+        platform_version: require_str(args, "platform_version")?,
+        viewport_width: require_u32(args, "viewport_width")?,
+        viewport_height: require_u32(args, "viewport_height")?,
+        device_scale_factor: require_f32(args, "device_scale_factor")?,
+        touch_points: require_u32(args, "touch_points")?,
+        custom_platform: require_str(args, "custom_platform")?,
+        arch: require_str(args, "arch")?,
+        bitness: require_str(args, "bitness")?,
+        mobile: require_bool(args, "mobile")?,
+        form_factor: require_str(args, "form_factor")?,
+        user_agent_template: require_str(args, "user_agent_template")?,
+        custom_gl_vendor: require_str(args, "custom_gl_vendor")?,
+        custom_gl_renderer: require_str(args, "custom_gl_renderer")?,
+        custom_cpu_cores: require_u32(args, "custom_cpu_cores")?,
+        custom_ram_gb: require_u32(args, "custom_ram_gb")?,
+    })
 }

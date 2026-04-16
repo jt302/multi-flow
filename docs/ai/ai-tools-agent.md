@@ -2,7 +2,7 @@
 
 > 最后更新日期: 2026-04-16
 >
-> 本文档面向 AI Agent（LLM）在执行自动化任务时参考，包含全部 189 个工具的使用指南。
+> 本文档面向 AI Agent（LLM）在执行自动化任务时参考，包含全部 194 个工具的使用指南。
 
 ---
 
@@ -24,7 +24,7 @@
 | ---------- | ------- | ----------------------------------------------------------- | ---- |
 | `cdp_`     | CDP     | 通过 Chrome DevTools Protocol 操作页面内容                  | 56   |
 | `magic_`   | Magic   | 通过 Magic Controller 控制浏览器窗口和原生功能              | 66   |
-| `app_`     | App     | 读写 Multi-Flow 应用数据（Profile、分组、代理、聊天会话等） | 21   |
+| `app_`     | App     | 读写 Multi-Flow 应用数据（Profile、机型预设、分组、代理、聊天会话等） | 26   |
 | `auto_`    | Auto    | 自动化管理（脚本/运行/AI配置/CAPTCHA配置 CRUD）             | 19   |
 | `file_`    | File    | 文件系统读写                                                | 6    |
 | `dialog_`  | Dialog  | 向用户展示 UI 弹窗获取反馈                                  | 13   |
@@ -128,6 +128,7 @@
 ├─ Profile → app_list_profiles / app_get_profile / app_create_profile / app_update_profile / app_delete_profile
 ├─ Profile 生命周期 → app_start_profile / app_stop_profile / app_get_running_profiles / app_get_current_profile
 ├─ 聊天目标环境 → app_set_chat_active_profile
+├─ 机型预设 → app_list_device_presets / app_get_device_preset / app_create_device_preset / app_update_device_preset / app_delete_device_preset
 ├─ 分组 → app_list_groups / app_get_group / app_create_group / app_update_group / app_delete_group / app_get_profiles_in_group
 ├─ 代理 → app_list_proxies / app_get_proxy
 ├─ 插件 → app_list_plugins / app_get_plugin
@@ -457,6 +458,16 @@ magic_set_bounds(x=0, y=0, width=1200, height=800)
 | `app_set_chat_active_profile` | 切换当前聊天会话的工具目标环境 | `profile_id`                                        |
 | `app_get_current_profile`     | 获取当前工具目标环境的 profile | 无                                                  |
 
+**机型预设操作**：
+
+| 工具                       | 用途                    | 必需参数                              |
+| -------------------------- | ----------------------- | ------------------------------------- |
+| `app_list_device_presets`  | 列出机型预设            | 无（可选 `platform`）                 |
+| `app_get_device_preset`    | 获取机型预设详情        | `preset_id`                           |
+| `app_create_device_preset` | 创建机型预设            | 见下方完整字段说明                    |
+| `app_update_device_preset` | ⚠️ 更新机型预设         | `preset_id` + 完整机型字段            |
+| `app_delete_device_preset` | ⚠️ 删除机型预设         | `preset_id`                           |
+
 **分组操作**：
 
 | 工具                        | 用途                 | 必需参数                           |
@@ -502,9 +513,18 @@ app_list_groups()
   → app_start_profile(profile_id="第一个profile的ID")
 ```
 
+查询并修改机型预设：
+
+```
+app_list_device_presets(platform="android")
+  → app_get_device_preset(preset_id="目标预设ID")
+  → app_update_device_preset(preset_id="目标预设ID", ...)
+```
+
 **注意事项**：
 
-- ⚠️ `app_delete_profile` 和 `app_delete_group` 是危险操作，会永久删除数据。执行前确认是否有必要。
+- ⚠️ `app_update_device_preset`、`app_delete_device_preset`、`app_delete_profile` 和 `app_delete_group` 是高风险操作，通常会触发 Multi-Flow 的工具确认弹窗。
+- `app_create_device_preset` / `app_update_device_preset` 需要传完整字段，字段语义与设置页“机型映射”表单一致。
 - `app_start_profile` 启动浏览器需要几秒钟，建议配合 `wait` 或 `cdp_wait_for_page_load` 使用。
 - 在多环境聊天会话中，先调用 `app_set_chat_active_profile(profile_id)`，再执行 `cdp_*` / `magic_*`。
 - `app_get_current_profile` 返回当前工具目标环境，适合在脚本或聊天中确认当前上下文。
@@ -515,18 +535,18 @@ app_list_groups()
 
 ### 场景 F: 文件系统操作
 
-**场景描述**：需要在本地文件系统中读写文件、检查目录结构。
+**场景描述**：需要在应用内 `appData/fs` 文件系统中读写文件、检查目录结构。
 
 **常用工具**：
 
 | 工具            | 用途                  | 必需参数           |
 | --------------- | --------------------- | ------------------ |
-| `file_read`     | 读取文件内容          | `path`（绝对路径） |
-| `file_write`    | 覆盖写入文件          | `path`, `content`  |
-| `file_append`   | 追加内容到文件        | `path`, `content`  |
-| `file_list_dir` | 列出目录内容          | `path`（绝对路径） |
-| `file_exists`   | 检查文件/目录是否存在 | `path`（绝对路径） |
-| `file_mkdir`    | 递归创建目录          | `path`（绝对路径） |
+| `file_read`     | 读取文件内容          | `path`（`fs` 内相对路径） |
+| `file_write`    | 覆盖写入文件          | `path`（`fs` 内相对路径）, `content` |
+| `file_append`   | 追加内容到文件        | `path`（`fs` 内相对路径）, `content` |
+| `file_list_dir` | 列出目录内容          | `path`（`fs` 内相对路径） |
+| `file_exists`   | 检查文件/目录是否存在 | `path`（`fs` 内相对路径） |
+| `file_mkdir`    | 递归创建目录          | `path`（`fs` 内相对路径） |
 
 **典型组合**：
 
@@ -534,22 +554,21 @@ app_list_groups()
 
 ```
 cdp_get_text(selector=".content", output_key="content")
-  → file_write(path="/tmp/output.txt", content="{{content}}")
+  → file_write(path="exports/output.txt", content="{{content}}")
 ```
 
-从文件读取并输入到页面：
+读取 `fs` 根目录中的文本文件：
 
 ```
-file_read(path="/tmp/data.txt")
-  → cdp_input_text(selector="#editor", text_source="file", file_path="/tmp/data.txt")
+file_read(path="notes/data.txt")
 ```
 
 **注意事项**：
 
 - ⚠️ `file_write` 是**覆盖写入**，现有内容会丢失。追加请用 `file_append`。
 - ⚠️ 文件大小限制 **10MB**。
-- ⚠️ `path` 必须是**绝对路径**，受安全保护，不能访问系统敏感目录。
-- `file_mkdir` 支持递归创建：`/a/b/c` 如果 `/a/b` 不存在也会一并创建。
+- ⚠️ `path` 必须是 `appData/fs` 内的**相对路径**，不能传系统绝对路径；`.` 表示 `fs` 根目录。
+- `file_mkdir` 支持递归创建：`a/b/c` 如果 `a/b` 不存在也会一并创建。
 
 ---
 
@@ -721,6 +740,8 @@ magic_toggle_sync_mode(role="master")
 
 | 工具                    | 风险                             | 建议                                |
 | ----------------------- | -------------------------------- | ----------------------------------- |
+| `app_update_device_preset` | 修改机型预设并影响后续环境创建 | 确认目标预设 ID 和完整字段后再执行   |
+| `app_delete_device_preset` | 永久删除机型预设               | 先核对是否仍有环境依赖该预设         |
 | `app_delete_profile`    | 永久删除 profile 数据            | 先 `dialog_confirm` 让用户确认      |
 | `app_delete_group`      | 永久删除分组                     | 先 `dialog_confirm` 让用户确认      |
 | `file_write`            | 覆盖文件内容                     | 确认路径正确，或先 `file_read` 备份 |
@@ -937,7 +958,7 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 65  | `magic_set_dock_icon_text`  | 设置 Dock 图标文字标签（macOS）        |
 | 66  | `magic_get_page_content`    | 获取页面语义快照（DOM/交互元素/文本）  |
 
-### App — 应用数据（21 个）
+### App — 应用数据（26 个）
 
 | #   | 工具名                        | 说明                                |
 | --- | ----------------------------- | ----------------------------------- |
@@ -951,17 +972,22 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 8   | `app_get_running_profiles`    | 获取运行中的 profile 列表           |
 | 9   | `app_set_chat_active_profile` | 切换当前聊天会话的工具目标环境      |
 | 10  | `app_get_current_profile`     | 获取当前工具目标环境的 profile      |
-| 11  | `app_list_groups`             | 列出所有分组                        |
-| 12  | `app_get_group`               | 获取分组详情                        |
-| 13  | `app_create_group`            | 创建分组                            |
-| 14  | `app_update_group`            | 更新分组                            |
-| 15  | `app_delete_group`            | ⚠️ 删除分组                         |
-| 16  | `app_get_profiles_in_group`   | 获取分组内的 profile                |
-| 17  | `app_list_proxies`            | 列出代理                            |
-| 18  | `app_get_proxy`               | 获取代理详情                        |
-| 19  | `app_list_plugins`            | 列出插件包                          |
-| 20  | `app_get_plugin`              | 获取插件详情                        |
-| 21  | `app_get_engine_sessions`     | 获取引擎会话列表                    |
+| 11  | `app_list_device_presets`     | 列出机型预设                        |
+| 12  | `app_get_device_preset`       | 获取机型预设详情                    |
+| 13  | `app_create_device_preset`    | 创建机型预设                        |
+| 14  | `app_update_device_preset`    | ⚠️ 更新机型预设                     |
+| 15  | `app_delete_device_preset`    | ⚠️ 删除机型预设                     |
+| 16  | `app_list_groups`             | 列出所有分组                        |
+| 17  | `app_get_group`               | 获取分组详情                        |
+| 18  | `app_create_group`            | 创建分组                            |
+| 19  | `app_update_group`            | 更新分组                            |
+| 20  | `app_delete_group`            | ⚠️ 删除分组                         |
+| 21  | `app_get_profiles_in_group`   | 获取分组内的 profile                |
+| 22  | `app_list_proxies`            | 列出代理                            |
+| 23  | `app_get_proxy`               | 获取代理详情                        |
+| 24  | `app_list_plugins`            | 列出插件包                          |
+| 25  | `app_get_plugin`              | 获取插件详情                        |
+| 26  | `app_get_engine_sessions`     | 获取引擎会话列表                    |
 
 ### Auto — 自动化管理（19 个）
 

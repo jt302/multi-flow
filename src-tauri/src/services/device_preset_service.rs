@@ -39,6 +39,12 @@ impl DevicePresetService {
         Ok(items.into_iter().map(|item| to_api_preset(&item)).collect())
     }
 
+    pub fn get_preset(&self, preset_id: &str) -> AppResult<ProfileDevicePreset> {
+        self.ensure_seeded()?;
+        let model = self.find_preset_model(preset_id)?;
+        Ok(to_api_preset(&model))
+    }
+
     pub fn create_preset(
         &self,
         payload: SaveProfileDevicePresetRequest,
@@ -391,6 +397,56 @@ fn generate_preset_key() -> String {
 mod tests {
     use super::*;
     use crate::db;
+
+    #[test]
+    fn get_preset_returns_saved_entry() {
+        let db = db::init_test_database().expect("init test db");
+        let service = DevicePresetService::from_db(db);
+        let preset = service
+            .create_preset(SaveProfileDevicePresetRequest {
+                label: "Android Lab".to_string(),
+                platform: "android".to_string(),
+                platform_version: "15.0.0".to_string(),
+                viewport_width: 412,
+                viewport_height: 915,
+                device_scale_factor: 2.75,
+                touch_points: 5,
+                custom_platform: "Linux armv81".to_string(),
+                arch: "arm".to_string(),
+                bitness: "64".to_string(),
+                mobile: true,
+                form_factor: "Mobile".to_string(),
+                user_agent_template:
+                    "Mozilla/5.0 (Linux; Android 15; Android Lab) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Mobile Safari/537.36"
+                        .to_string(),
+                custom_gl_vendor: "Qualcomm".to_string(),
+                custom_gl_renderer: "Adreno 750".to_string(),
+                custom_cpu_cores: 8,
+                custom_ram_gb: 8,
+            })
+            .expect("create preset");
+
+        let stored = service.get_preset(&preset.id).expect("get preset");
+
+        assert_eq!(stored.id, preset.id);
+        assert_eq!(stored.label, "Android Lab");
+        assert_eq!(stored.platform, "android");
+    }
+
+    #[test]
+    fn get_preset_returns_not_found_for_unknown_id() {
+        let db = db::init_test_database().expect("init test db");
+        let service = DevicePresetService::from_db(db);
+
+        let err = service
+            .get_preset("missing_preset_id")
+            .expect_err("missing preset should fail");
+
+        assert!(
+            matches!(err, AppError::NotFound(ref message) if message.contains("missing_preset_id")),
+            "unexpected error: {err:?}"
+        );
+    }
 
     #[test]
     fn list_presets_includes_custom_entries() {

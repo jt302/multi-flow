@@ -170,17 +170,12 @@ pub enum ToolRiskLevel {
 pub fn tool_risk_level(tool_name: &str) -> ToolRiskLevel {
     match tool_name {
         // 危险工具 —— 破坏性操作
-        "app_delete_profile"
-        | "app_delete_proxy"
-        | "app_delete_group"
-        | "app_stop_profile"
-        | "magic_set_closed"
-        | "magic_safe_quit"
-        | "file_write"
-        | "file_append"
-        | "cdp_clear_storage"
-        | "cdp_delete_cookies"
-        | "auto_delete_script" => ToolRiskLevel::Dangerous,
+        "app_delete_profile" | "app_delete_proxy" | "app_delete_group" | "app_stop_profile"
+        | "app_update_device_preset" | "app_delete_device_preset" | "magic_set_closed"
+        | "magic_safe_quit" | "file_write" | "file_append" | "cdp_clear_storage"
+        | "cdp_delete_cookies" | "auto_delete_script" => {
+            ToolRiskLevel::Dangerous
+        }
 
         // 安全工具 —— 只读操作
         name if name.starts_with("app_list_")
@@ -218,6 +213,8 @@ pub fn all_dangerous_tool_names() -> Vec<&'static str> {
         "app_delete_proxy",
         "app_delete_group",
         "app_stop_profile",
+        "app_update_device_preset",
+        "app_delete_device_preset",
         "magic_set_closed",
         "magic_safe_quit",
         "file_write",
@@ -256,7 +253,7 @@ impl ToolRegistry {
     /// 分发策略：
     /// - cdp_* / magic_* / wait / print / utility → 构造 ScriptStep 委托 execute_step
     /// - app_* → app_tools 模块直接调用 Service
-    /// - file_* → file_tools 模块直接调用 std::fs
+    /// - file_* → file_tools 模块直接调用 std::fs（限制在 appData/fs）
     /// - dialog_* → dialog_tools 模块通过 Tauri 事件与前端通信
     pub async fn execute(
         name: &str,
@@ -429,4 +426,41 @@ impl ToolRegistry {
 fn base64_encode(data: &[u8]) -> String {
     use base64::Engine;
     base64::engine::general_purpose::STANDARD.encode(data)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{all_dangerous_tool_names, tool_risk_level, ToolRiskLevel};
+
+    #[test]
+    fn device_preset_tool_risk_levels_match_plan() {
+        assert_eq!(
+            tool_risk_level("app_list_device_presets"),
+            ToolRiskLevel::Safe
+        );
+        assert_eq!(
+            tool_risk_level("app_get_device_preset"),
+            ToolRiskLevel::Safe
+        );
+        assert_eq!(
+            tool_risk_level("app_create_device_preset"),
+            ToolRiskLevel::Moderate
+        );
+        assert_eq!(
+            tool_risk_level("app_update_device_preset"),
+            ToolRiskLevel::Dangerous
+        );
+        assert_eq!(
+            tool_risk_level("app_delete_device_preset"),
+            ToolRiskLevel::Dangerous
+        );
+    }
+
+    #[test]
+    fn dangerous_tool_list_includes_device_preset_mutations() {
+        let dangerous = all_dangerous_tool_names();
+
+        assert!(dangerous.contains(&"app_update_device_preset"));
+        assert!(dangerous.contains(&"app_delete_device_preset"));
+    }
 }

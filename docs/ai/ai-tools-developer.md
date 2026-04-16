@@ -1,7 +1,7 @@
 # Multi-Flow AI 工具开发者参考文档
 
 > **最后更新日期**: 2026-04-16
-> **工具总数**: 189 个
+> **工具总数**: 194 个
 > **分类**: 8 个（Utility / CDP / Magic Controller / App Data / Auto / File I/O / Dialog / Captcha）
 
 ---
@@ -14,7 +14,7 @@
   - [3.1 Utility 工具（3 个）](#31-utility-工具3-个)
   - [3.2 CDP 工具（56 个）](#32-cdp-工具56-个)
   - [3.3 Magic Controller 工具（66 个）](#33-magic-controller-工具66-个)
-  - [3.4 App Data 工具（21 个）](#34-app-data-工具21-个)
+  - [3.4 App Data 工具（26 个）](#34-app-data-工具26-个)
   - [3.5 Auto 工具（19 个）](#35-auto-工具19-个)
   - [3.6 File I/O 工具（6 个）](#36-file-io-工具6-个)
   - [3.7 Dialog 工具（13 个）](#37-dialog-工具13-个)
@@ -27,7 +27,7 @@
 
 ## 1. 概述
 
-Multi-Flow 的自动化系统为 AI Agent 提供了 **189 个工具**，覆盖浏览器控制、应用数据管理、自动化管理、文件操作、用户交互等完整能力。
+Multi-Flow 的自动化系统为 AI Agent 提供了 **194 个工具**，覆盖浏览器控制、应用数据管理、自动化管理、文件操作、用户交互等完整能力。
 
 ### 工具系统架构
 
@@ -38,7 +38,7 @@ ToolRegistry（注册表）
   └── 执行分发
        ├── cdp_* / magic_* / utility → ScriptStep 委托 execute_step
        ├── app_*                     → app_tools 模块直接调用 Service
-       ├── file_*                    → file_tools 模块直接调用 std::fs
+       ├── file_*                    → file_tools 模块直接调用 std::fs（限制在 appData/fs）
        └── dialog_*                  → dialog_tools 模块通过 Tauri 事件与前端通信
 ```
 
@@ -87,12 +87,12 @@ ToolRegistry（注册表）
 | Utility          | `wait` / `print` / `submit_result` | 3    | 等待、日志、提交结果                        |
 | CDP              | `cdp_` / `cdp`                     | 56   | 页面交互（导航、点击、输入、提取、截图、JS执行等） |
 | Magic Controller | `magic_`                           | 66   | 通过 Magic Controller 控制浏览器窗口和原生功能 |
-| App Data         | `app_`                             | 21   | 读写 Multi-Flow 应用数据（Profile、分组、代理等） |
+| App Data         | `app_`                             | 26   | 读写 Multi-Flow 应用数据（Profile、机型预设、分组、代理等） |
 | Auto             | `auto_`                            | 19   | 自动化管理（脚本/运行/AI配置/CAPTCHA配置 CRUD） |
-| File I/O         | `file_`                            | 6    | 文件系统读写                                |
+| File I/O         | `file_`                            | 6    | app 内 `fs` 文件系统读写                    |
 | Dialog           | `dialog_`                          | 13   | 向用户展示 UI 弹窗获取反馈                  |
 | Captcha          | `captcha_`                         | 5    | CAPTCHA 检测与自动求解                      |
-| **合计**         |                                    | **189** |                                          |
+| **合计**         |                                    | **194** |                                          |
 
 ---
 
@@ -133,7 +133,7 @@ AiAgent 步骤
 | `magic_*`                          | `execute_via_script_step` | 构造 ScriptStep 委托 `execute_step`      |
 | `wait` / `print` / `submit_result` | `execute_via_script_step` | 构造 ScriptStep 委托 `execute_step`      |
 | `app_*`                            | `app_tools::execute`      | 直接调用 AppState 中的 Service           |
-| `file_*`                           | `file_tools::execute`     | 直接调用 `std::fs`                       |
+| `file_*`                           | `file_tools::execute`     | 直接调用 `std::fs`（限制在 `appData/fs`） |
 | `dialog_*`                         | `dialog_tools::execute`   | 通过 Tauri 事件 + oneshot 通道与前端通信 |
 
 ### 核心类型
@@ -1910,7 +1910,7 @@ DOM 元素查询，返回匹配元素候选列表（用于后续 `magic_click_do
 
 ---
 
-### 3.4 App Data 工具（21 个）
+### 3.4 App Data 工具（26 个）
 
 通过 `AppState` 中的 Service 操作应用数据。所有返回值均为序列化后的 JSON 字符串。
 
@@ -2040,6 +2040,101 @@ DOM 元素查询，返回匹配元素候选列表（用于后续 `magic_click_do
 | （无参数） | —    | —    | —    |
 
 **返回值**: 当前 Profile 详情 JSON
+
+---
+
+#### 机型预设操作（5 个）
+
+##### `app_list_device_presets`
+
+列出机型预设，支持按平台过滤。
+
+| 参数       | 类型   | 必需 | 描述                                                           |
+| ---------- | ------ | ---- | -------------------------------------------------------------- |
+| `platform` | string | ❌   | 按平台过滤，如 `windows` / `macos` / `linux` / `android` / `ios` |
+
+**返回值**: 机型预设列表 JSON
+
+---
+
+##### `app_get_device_preset`
+
+按 ID 获取机型预设详情。
+
+| 参数        | 类型   | 必需 | 描述        |
+| ----------- | ------ | ---- | ----------- |
+| `preset_id` | string | ✅   | 机型预设 ID |
+
+**返回值**: 机型预设详情 JSON
+
+---
+
+##### `app_create_device_preset`
+
+创建新的机型预设。
+
+| 参数                   | 类型    | 必需 | 描述                                  |
+| ---------------------- | ------- | ---- | ------------------------------------- |
+| `label`                | string  | ✅   | 机型名称                              |
+| `platform`             | string  | ✅   | 平台，如 `windows` / `android`        |
+| `platform_version`     | string  | ✅   | 平台版本，如 `14.0.0`                 |
+| `viewport_width`       | integer | ✅   | 默认视口宽度                          |
+| `viewport_height`      | integer | ✅   | 默认视口高度                          |
+| `device_scale_factor`  | number  | ✅   | 默认 DPR / 设备像素比                 |
+| `touch_points`         | integer | ✅   | 最大触控点数                          |
+| `custom_platform`      | string  | ✅   | 自定义 platform 字符串                |
+| `arch`                 | string  | ✅   | 架构，如 `x86` / `arm`                |
+| `bitness`              | string  | ✅   | 位数，如 `64`                         |
+| `mobile`               | boolean | ✅   | 是否为移动端机型                      |
+| `form_factor`          | string  | ✅   | 形态，如 `Desktop` / `Mobile` / `Tablet` |
+| `user_agent_template`  | string  | ✅   | UA 模板，必须包含 `{version}`         |
+| `custom_gl_vendor`     | string  | ✅   | WebGL vendor                          |
+| `custom_gl_renderer`   | string  | ✅   | WebGL renderer                        |
+| `custom_cpu_cores`     | integer | ✅   | CPU 核心数                            |
+| `custom_ram_gb`        | integer | ✅   | RAM 大小（GB）                        |
+
+**返回值**: 创建后的机型预设 JSON
+
+---
+
+##### `app_update_device_preset`
+
+更新已有机型预设。
+
+| 参数                   | 类型    | 必需 | 描述                          |
+| ---------------------- | ------- | ---- | ----------------------------- |
+| `preset_id`            | string  | ✅   | 机型预设 ID                   |
+| `label`                | string  | ✅   | 机型名称                      |
+| `platform`             | string  | ✅   | 平台                          |
+| `platform_version`     | string  | ✅   | 平台版本                      |
+| `viewport_width`       | integer | ✅   | 默认视口宽度                  |
+| `viewport_height`      | integer | ✅   | 默认视口高度                  |
+| `device_scale_factor`  | number  | ✅   | 默认 DPR / 设备像素比         |
+| `touch_points`         | integer | ✅   | 最大触控点数                  |
+| `custom_platform`      | string  | ✅   | 自定义 platform 字符串        |
+| `arch`                 | string  | ✅   | 架构                          |
+| `bitness`              | string  | ✅   | 位数                          |
+| `mobile`               | boolean | ✅   | 是否为移动端机型              |
+| `form_factor`          | string  | ✅   | 形态                          |
+| `user_agent_template`  | string  | ✅   | UA 模板，必须包含 `{version}` |
+| `custom_gl_vendor`     | string  | ✅   | WebGL vendor                  |
+| `custom_gl_renderer`   | string  | ✅   | WebGL renderer                |
+| `custom_cpu_cores`     | integer | ✅   | CPU 核心数                    |
+| `custom_ram_gb`        | integer | ✅   | RAM 大小（GB）                |
+
+**返回值**: 更新后的机型预设 JSON
+
+---
+
+##### `app_delete_device_preset`
+
+删除机型预设。
+
+| 参数        | 类型   | 必需 | 描述              |
+| ----------- | ------ | ---- | ----------------- |
+| `preset_id` | string | ✅   | 要删除的机型预设 ID |
+
+**返回值**: 删除结果
 
 ---
 
@@ -2239,7 +2334,7 @@ DOM 元素查询，返回匹配元素候选列表（用于后续 `magic_click_do
 
 ### 3.6 File I/O 工具（6 个）
 
-安全的文件系统操作，带有大小限制（10MB）和路径遍历保护。
+安全的文件系统操作，固定限制在 `appData/fs` 根目录下，带有大小限制（10MB）和路径遍历保护。所有 `path` 参数都必须是 `fs` 内相对路径，`.` 表示 `fs` 根目录。
 
 ##### `file_read`
 
@@ -2247,7 +2342,7 @@ DOM 元素查询，返回匹配元素候选列表（用于后续 `magic_click_do
 
 | 参数   | 类型   | 必需 | 描述         |
 | ------ | ------ | ---- | ------------ |
-| `path` | string | ✅   | 文件绝对路径 |
+| `path` | string | ✅   | `appData/fs` 内相对路径，`.` 表示 `fs` 根目录 |
 
 **返回值**: 文件文本内容
 
@@ -2259,7 +2354,7 @@ DOM 元素查询，返回匹配元素候选列表（用于后续 `magic_click_do
 
 | 参数      | 类型   | 必需 | 描述             |
 | --------- | ------ | ---- | ---------------- |
-| `path`    | string | ✅   | 文件绝对路径     |
+| `path`    | string | ✅   | `appData/fs` 内相对路径，`.` 表示 `fs` 根目录 |
 | `content` | string | ✅   | 要写入的文本内容 |
 
 **返回值**: 写入确认
@@ -2272,7 +2367,7 @@ DOM 元素查询，返回匹配元素候选列表（用于后续 `magic_click_do
 
 | 参数      | 类型   | 必需 | 描述             |
 | --------- | ------ | ---- | ---------------- |
-| `path`    | string | ✅   | 文件绝对路径     |
+| `path`    | string | ✅   | `appData/fs` 内相对路径，`.` 表示 `fs` 根目录 |
 | `content` | string | ✅   | 要追加的文本内容 |
 
 **返回值**: 追加确认
@@ -2285,7 +2380,7 @@ DOM 元素查询，返回匹配元素候选列表（用于后续 `magic_click_do
 
 | 参数   | 类型   | 必需 | 描述         |
 | ------ | ------ | ---- | ------------ |
-| `path` | string | ✅   | 目录绝对路径 |
+| `path` | string | ✅   | `appData/fs` 内相对路径，`.` 表示 `fs` 根目录 |
 
 **返回值**: 目录内容列表
 
@@ -2297,7 +2392,7 @@ DOM 元素查询，返回匹配元素候选列表（用于后续 `magic_click_do
 
 | 参数   | 类型   | 必需 | 描述                 |
 | ------ | ------ | ---- | -------------------- |
-| `path` | string | ✅   | 文件或目录的绝对路径 |
+| `path` | string | ✅   | `appData/fs` 内相对路径，`.` 表示 `fs` 根目录 |
 
 **返回值**: `true` / `false`
 
@@ -2309,7 +2404,7 @@ DOM 元素查询，返回匹配元素候选列表（用于后续 `magic_click_do
 
 | 参数   | 类型   | 必需 | 描述                 |
 | ------ | ------ | ---- | -------------------- |
-| `path` | string | ✅   | 要创建的目录绝对路径 |
+| `path` | string | ✅   | `appData/fs` 内相对路径，`.` 表示 `fs` 根目录 |
 
 **返回值**: 创建确认
 
@@ -2564,6 +2659,8 @@ DOM 元素查询，返回匹配元素候选列表（用于后续 `magic_click_do
 | `app_delete_proxy` | 删除代理 | 永久删除指定的代理配置 |
 | `app_delete_group` | 删除分组 | 永久删除指定的环境分组 |
 | `app_stop_profile` | 停止环境 | 强制停止正在运行的浏览器环境 |
+| `app_update_device_preset` | 修改机型预设 | 修改指定的机型预设参数，可能影响后续环境创建与指纹解析 |
+| `app_delete_device_preset` | 删除机型预设 | 永久删除指定的机型预设，引用它的环境将失去对应机型配置 |
 | `magic_set_closed` | 关闭浏览器窗口 | 关闭当前浏览器窗口 |
 | `magic_safe_quit` | 安全退出浏览器 | 安全退出整个浏览器应用（关闭所有窗口和标签页） |
 | `file_write` | 写入文件 | 创建或覆盖文件内容 |

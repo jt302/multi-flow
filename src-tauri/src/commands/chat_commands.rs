@@ -256,7 +256,14 @@ pub async fn regenerate_chat_message(
     }
 
     // 重新发送
-    Box::pin(send_chat_message(app, state, session_id, last_user_text, None)).await
+    Box::pin(send_chat_message(
+        app,
+        state,
+        session_id,
+        last_user_text,
+        None,
+    ))
+    .await
 }
 
 // ─── 全局提示词 ───────────────────────────────────────────────────────────
@@ -382,6 +389,14 @@ fn get_tool_metadata(name: &str) -> (String, String) {
         "app_stop_profile" => (
             "停止环境".to_string(),
             "强制停止正在运行的浏览器环境".to_string(),
+        ),
+        "app_update_device_preset" => (
+            "修改机型预设".to_string(),
+            "修改指定的机型预设参数，可能影响后续环境创建与指纹解析".to_string(),
+        ),
+        "app_delete_device_preset" => (
+            "删除机型预设".to_string(),
+            "永久删除指定的机型预设，引用它的环境将失去对应机型配置".to_string(),
         ),
         "app_stop_all_profiles" => (
             "停止全部环境".to_string(),

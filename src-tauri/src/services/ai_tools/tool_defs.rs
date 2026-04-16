@@ -25,7 +25,7 @@ fn tool(name: &str, description: &str, parameters: Value) -> Value {
 
 /// 返回所有工具定义
 pub fn all_tool_definitions() -> Vec<Value> {
-    let mut defs = Vec::with_capacity(189);
+    let mut defs = Vec::with_capacity(194);
     defs.extend(utility_tools());
     defs.extend(cdp_tools());
     defs.extend(magic_tools());
@@ -1614,7 +1614,7 @@ fn magic_tools() -> Vec<Value> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// App Data 工具（21 个）— 不含 app_run_script（由 auto_run_script 覆盖）
+// App Data 工具（26 个）— 不含 app_run_script（由 auto_run_script 覆盖）
 // ═══════════════════════════════════════════════════════════════════════════
 
 fn app_tools() -> Vec<Value> {
@@ -1728,6 +1728,131 @@ fn app_tools() -> Vec<Value> {
             json!({
                 "type": "object",
                 "properties": {}
+            }),
+        ),
+        // ── 机型预设操作 (5) ──
+        tool(
+            "app_list_device_presets",
+            "列出机型预设，支持按平台过滤",
+            json!({
+                "type": "object",
+                "properties": {
+                    "platform": { "type": "string", "description": "按平台过滤，可选值通常为 windows / macos / linux / android / ios" }
+                }
+            }),
+        ),
+        tool(
+            "app_get_device_preset",
+            "按 ID 获取机型预设详情",
+            json!({
+                "type": "object",
+                "properties": {
+                    "preset_id": { "type": "string", "description": "机型预设 ID" }
+                },
+                "required": ["preset_id"]
+            }),
+        ),
+        tool(
+            "app_create_device_preset",
+            "创建新的机型预设",
+            json!({
+                "type": "object",
+                "properties": {
+                    "label": { "type": "string", "description": "机型名称" },
+                    "platform": { "type": "string", "description": "平台，如 windows / macos / linux / android / ios" },
+                    "platform_version": { "type": "string", "description": "平台版本，如 14.0.0" },
+                    "viewport_width": { "type": "integer", "description": "默认视口宽度" },
+                    "viewport_height": { "type": "integer", "description": "默认视口高度" },
+                    "device_scale_factor": { "type": "number", "description": "默认 DPR / 设备像素比" },
+                    "touch_points": { "type": "integer", "description": "最大触控点数" },
+                    "custom_platform": { "type": "string", "description": "自定义 platform 字符串" },
+                    "arch": { "type": "string", "description": "架构，如 x86 / arm" },
+                    "bitness": { "type": "string", "description": "位数，如 64" },
+                    "mobile": { "type": "boolean", "description": "是否为移动端机型" },
+                    "form_factor": { "type": "string", "description": "形态，如 Desktop / Mobile / Tablet" },
+                    "user_agent_template": { "type": "string", "description": "UA 模板，必须包含 {version}" },
+                    "custom_gl_vendor": { "type": "string", "description": "WebGL vendor" },
+                    "custom_gl_renderer": { "type": "string", "description": "WebGL renderer" },
+                    "custom_cpu_cores": { "type": "integer", "description": "CPU 核心数" },
+                    "custom_ram_gb": { "type": "integer", "description": "RAM 大小（GB）" }
+                },
+                "required": [
+                    "label",
+                    "platform",
+                    "platform_version",
+                    "viewport_width",
+                    "viewport_height",
+                    "device_scale_factor",
+                    "touch_points",
+                    "custom_platform",
+                    "arch",
+                    "bitness",
+                    "mobile",
+                    "form_factor",
+                    "user_agent_template",
+                    "custom_gl_vendor",
+                    "custom_gl_renderer",
+                    "custom_cpu_cores",
+                    "custom_ram_gb"
+                ]
+            }),
+        ),
+        tool(
+            "app_update_device_preset",
+            "更新已有机型预设（可能需要用户确认）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "preset_id": { "type": "string", "description": "机型预设 ID" },
+                    "label": { "type": "string", "description": "机型名称" },
+                    "platform": { "type": "string", "description": "平台，如 windows / macos / linux / android / ios" },
+                    "platform_version": { "type": "string", "description": "平台版本，如 14.0.0" },
+                    "viewport_width": { "type": "integer", "description": "默认视口宽度" },
+                    "viewport_height": { "type": "integer", "description": "默认视口高度" },
+                    "device_scale_factor": { "type": "number", "description": "默认 DPR / 设备像素比" },
+                    "touch_points": { "type": "integer", "description": "最大触控点数" },
+                    "custom_platform": { "type": "string", "description": "自定义 platform 字符串" },
+                    "arch": { "type": "string", "description": "架构，如 x86 / arm" },
+                    "bitness": { "type": "string", "description": "位数，如 64" },
+                    "mobile": { "type": "boolean", "description": "是否为移动端机型" },
+                    "form_factor": { "type": "string", "description": "形态，如 Desktop / Mobile / Tablet" },
+                    "user_agent_template": { "type": "string", "description": "UA 模板，必须包含 {version}" },
+                    "custom_gl_vendor": { "type": "string", "description": "WebGL vendor" },
+                    "custom_gl_renderer": { "type": "string", "description": "WebGL renderer" },
+                    "custom_cpu_cores": { "type": "integer", "description": "CPU 核心数" },
+                    "custom_ram_gb": { "type": "integer", "description": "RAM 大小（GB）" }
+                },
+                "required": [
+                    "preset_id",
+                    "label",
+                    "platform",
+                    "platform_version",
+                    "viewport_width",
+                    "viewport_height",
+                    "device_scale_factor",
+                    "touch_points",
+                    "custom_platform",
+                    "arch",
+                    "bitness",
+                    "mobile",
+                    "form_factor",
+                    "user_agent_template",
+                    "custom_gl_vendor",
+                    "custom_gl_renderer",
+                    "custom_cpu_cores",
+                    "custom_ram_gb"
+                ]
+            }),
+        ),
+        tool(
+            "app_delete_device_preset",
+            "删除机型预设（可能需要用户确认）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "preset_id": { "type": "string", "description": "要删除的机型预设 ID" }
+                },
+                "required": ["preset_id"]
             }),
         ),
         // ── 分组操作 (6) ──
@@ -1866,7 +1991,7 @@ fn file_tools() -> Vec<Value> {
             json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "文件绝对路径" }
+                    "path": { "type": "string", "description": "app 内 fs 文件系统中的相对路径，`.` 表示 fs 根目录" }
                 },
                 "required": ["path"]
             }),
@@ -1877,7 +2002,7 @@ fn file_tools() -> Vec<Value> {
             json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "文件绝对路径" },
+                    "path": { "type": "string", "description": "app 内 fs 文件系统中的相对路径，`.` 表示 fs 根目录" },
                     "content": { "type": "string", "description": "要写入的文本内容" }
                 },
                 "required": ["path", "content"]
@@ -1889,7 +2014,7 @@ fn file_tools() -> Vec<Value> {
             json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "文件绝对路径" },
+                    "path": { "type": "string", "description": "app 内 fs 文件系统中的相对路径，`.` 表示 fs 根目录" },
                     "content": { "type": "string", "description": "要追加的文本内容" }
                 },
                 "required": ["path", "content"]
@@ -1901,7 +2026,7 @@ fn file_tools() -> Vec<Value> {
             json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "目录绝对路径" }
+                    "path": { "type": "string", "description": "app 内 fs 文件系统中的相对路径，`.` 表示 fs 根目录" }
                 },
                 "required": ["path"]
             }),
@@ -1912,7 +2037,7 @@ fn file_tools() -> Vec<Value> {
             json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "文件或目录的绝对路径" }
+                    "path": { "type": "string", "description": "app 内 fs 文件系统中的相对路径，`.` 表示 fs 根目录" }
                 },
                 "required": ["path"]
             }),
@@ -1923,7 +2048,7 @@ fn file_tools() -> Vec<Value> {
             json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "要创建的目录绝对路径" }
+                    "path": { "type": "string", "description": "app 内 fs 文件系统中的相对路径，`.` 表示 fs 根目录" }
                 },
                 "required": ["path"]
             }),
@@ -2573,4 +2698,110 @@ fn auto_tools() -> Vec<Value> {
             }),
         ),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::all_tool_definitions;
+
+    fn tool_def<'a>(defs: &'a [serde_json::Value], name: &str) -> &'a serde_json::Value {
+        defs.iter()
+            .find(|def| {
+                def.get("function")
+                    .and_then(|value| value.get("name"))
+                    .and_then(|value| value.as_str())
+                    == Some(name)
+            })
+            .unwrap_or_else(|| panic!("tool definition not found: {name}"))
+    }
+
+    #[test]
+    fn device_preset_crud_tool_definitions_exist() {
+        let defs = all_tool_definitions();
+
+        for name in [
+            "app_list_device_presets",
+            "app_get_device_preset",
+            "app_create_device_preset",
+            "app_update_device_preset",
+            "app_delete_device_preset",
+        ] {
+            let _ = tool_def(&defs, name);
+        }
+    }
+
+    #[test]
+    fn device_preset_mutation_tools_require_expected_fields() {
+        let defs = all_tool_definitions();
+
+        let create_required = tool_def(&defs, "app_create_device_preset")
+            .get("function")
+            .and_then(|value| value.get("parameters"))
+            .and_then(|value| value.get("required"))
+            .and_then(|value| value.as_array())
+            .expect("create required fields");
+        let update_required = tool_def(&defs, "app_update_device_preset")
+            .get("function")
+            .and_then(|value| value.get("parameters"))
+            .and_then(|value| value.get("required"))
+            .and_then(|value| value.as_array())
+            .expect("update required fields");
+        let get_required = tool_def(&defs, "app_get_device_preset")
+            .get("function")
+            .and_then(|value| value.get("parameters"))
+            .and_then(|value| value.get("required"))
+            .and_then(|value| value.as_array())
+            .expect("get required fields");
+        let delete_required = tool_def(&defs, "app_delete_device_preset")
+            .get("function")
+            .and_then(|value| value.get("parameters"))
+            .and_then(|value| value.get("required"))
+            .and_then(|value| value.as_array())
+            .expect("delete required fields");
+
+        let required_names = |items: &[serde_json::Value]| {
+            items
+                .iter()
+                .filter_map(|value| value.as_str().map(str::to_string))
+                .collect::<Vec<_>>()
+        };
+
+        let create_required = required_names(create_required);
+        let update_required = required_names(update_required);
+        let get_required = required_names(get_required);
+        let delete_required = required_names(delete_required);
+
+        for field in [
+            "label",
+            "platform",
+            "platform_version",
+            "viewport_width",
+            "viewport_height",
+            "device_scale_factor",
+            "touch_points",
+            "custom_platform",
+            "arch",
+            "bitness",
+            "mobile",
+            "form_factor",
+            "user_agent_template",
+            "custom_gl_vendor",
+            "custom_gl_renderer",
+            "custom_cpu_cores",
+            "custom_ram_gb",
+        ] {
+            assert!(
+                create_required.iter().any(|value| value == field),
+                "missing create field: {field}"
+            );
+            assert!(
+                update_required.iter().any(|value| value == field),
+                "missing update field: {field}"
+            );
+        }
+
+        assert!(update_required.iter().any(|value| value == "preset_id"));
+        assert_eq!(get_required, vec!["preset_id".to_string()]);
+        assert_eq!(delete_required, vec!["preset_id".to_string()]);
+    }
 }
