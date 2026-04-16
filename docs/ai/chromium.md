@@ -2003,9 +2003,9 @@ Chromium 实际接收的仍是这些注入结果：
 | `--toolbar-text`                       | 地址栏和刷新按钮之间显示自定义标识文字     | `--toolbar-text=实例-01`                                                                                                       |
 | `--magic-socket-server-port`           | 启动 Chromium 内置 HTTP/WS 控制服务        | `--magic-socket-server-port=9999`                                                                                              |
 | `--auto-allow-geolocation`             | 地理位置权限请求静默自动通过，不弹授权框   | `--auto-allow-geolocation`                                                                                                     |
-| `--extension-state-file`               | 启动时加载受管理扩展目标状态 JSON 文件     | `--extension-state-file=/path/to/app_data/environments/env_001/runtime/extension-state.json`                                  |
-| `--cookie-state-file`                  | 启动时加载受管理 Cookie 目标状态 JSON 文件 | `--cookie-state-file=/path/to/app_data/environments/env_001/runtime/cookie-state.json`                                        |
-| `--bookmark-state-file`                | 启动时加载受管理书签目标状态 JSON 文件     | `--bookmark-state-file=/path/to/app_data/environments/env_001/runtime/bookmark-state.json`                                    |
+| `--extension-state-file`               | 启动时加载受管理扩展目标状态 JSON 文件     | `--extension-state-file=/path/to/app_data/environments/env_001/runtime/extension-state.json`                                   |
+| `--cookie-state-file`                  | 启动时加载受管理 Cookie 目标状态 JSON 文件 | `--cookie-state-file=/path/to/app_data/environments/env_001/runtime/cookie-state.json`                                         |
+| `--bookmark-state-file`                | 启动时加载受管理书签目标状态 JSON 文件     | `--bookmark-state-file=/path/to/app_data/environments/env_001/runtime/bookmark-state.json`                                     |
 | `--enable-port-scan-protection`        | 启用普通网页端口扫描保护                   | `--enable-port-scan-protection`                                                                                                |
 | `--enable-automation-detection-shield` | 启用自动化检测隔绝                         | `--enable-automation-detection-shield`                                                                                         |
 | `--enable-do-not-track`                | 启动时为当前 profile 开启 Do Not Track     | `--enable-do-not-track`                                                                                                        |

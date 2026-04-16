@@ -116,7 +116,7 @@ Read relevant docs before starting implementation, update them after changes:
 - `docs/ai/chromium.md` — Custom Chromium integration, Magic Controller protocol, CDP
 - `docs/ai/multi-flow-sync-manager.md` — Window sync sidecar protocol
 - `docs/ai/proxy-daemon.md` — Proxy daemon sidecar
-- `docs/ai/current-task.md` — Active development priorities
+- `docs/ai/current-task.md` — Active development prioritieS
 - `docs/ai/ai-tools-developer.md` — AI tool definitions, parameters, architecture (developer reference)
 - `docs/ai/ai-tools-agent.md` — AI tool usage guide, decision tree, task scenarios (agent reference)
 
