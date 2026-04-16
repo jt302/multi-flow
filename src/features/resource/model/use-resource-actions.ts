@@ -52,7 +52,7 @@ export function useResourceActions({
 					}
 					if (percent !== null) {
 						lastShownPercent = percent;
-						toast.loading(i18n.t('resource:browserDownloading', { percent }), { id: toastId });
+						toast.loading(i18n.t('resource:browserDownloadingPercent', { percent }), { id: toastId });
 					} else {
 						toast.loading(i18n.t('resource:browserDownloading'), { id: toastId });
 					}

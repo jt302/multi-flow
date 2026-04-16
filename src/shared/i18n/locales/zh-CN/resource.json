@@ -1,0 +1,17 @@
+{
+	"downloadingBrowser": "正在下载浏览器...",
+	"browserDownloading": "正在下载浏览器...",
+	"browserDownloadingPercent": "正在下载浏览器 {{percent}}%",
+	"browserInstalling": "正在安装浏览器...",
+	"browserInstalled": "浏览器安装成功",
+	"browserInstallFailed": "浏览器安装失败",
+	"startDownloadResource": "开始下载资源",
+	"startDownloadLabel": "正在下载 {{label}}...",
+	"downloadingLabel": "正在下载 {{label}}...",
+	"downloadingLabelPercent": "正在下载 {{label}} {{percent}}%",
+	"labelDownloaded": "{{label}} 下载完成",
+	"downloadFailed": "下载失败",
+	"installFailed": "安装失败",
+	"switchedChromium": "已切换到 Chromium {{version}}",
+	"switchVersionFailed": "切换版本失败"
+}

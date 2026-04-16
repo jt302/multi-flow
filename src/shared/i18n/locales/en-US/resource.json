@@ -1,0 +1,17 @@
+{
+	"downloadingBrowser": "Downloading browser...",
+	"browserDownloading": "Downloading browser...",
+	"browserDownloadingPercent": "Downloading browser {{percent}}%",
+	"browserInstalling": "Installing browser...",
+	"browserInstalled": "Browser installed successfully",
+	"browserInstallFailed": "Browser installation failed",
+	"startDownloadResource": "Starting download",
+	"startDownloadLabel": "Downloading {{label}}...",
+	"downloadingLabel": "Downloading {{label}}...",
+	"downloadingLabelPercent": "Downloading {{label}} {{percent}}%",
+	"labelDownloaded": "{{label}} downloaded",
+	"downloadFailed": "Download failed",
+	"installFailed": "Installation failed",
+	"switchedChromium": "Switched to Chromium {{version}}",
+	"switchVersionFailed": "Failed to switch version"
+}
