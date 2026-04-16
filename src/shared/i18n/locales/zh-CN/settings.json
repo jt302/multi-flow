@@ -8,6 +8,14 @@
 		"language": "语言",
 		"dev": "开发配置"
 	},
+	"tabDescriptions": {
+		"general": "管理应用通用行为与默认运行设置。",
+		"appearance": "调整工作台主题、主色和自定义预设。",
+		"resources": "管理 Chromium 与 GEO 资源的下载、安装和激活。",
+		"ai": "管理 AI 配置、聊天默认项与工具权限策略。",
+		"recycle-bin": "恢复或彻底删除已归档的环境、代理与分组数据。",
+		"dev": "配置开发调试阶段使用的 Chromium 路径。"
+	},
 	"dev": {
 		"title": "开发者配置",
 		"chromiumExecutable": "自定义 Chromium 路径",

@@ -14,6 +14,15 @@ export const NAV_PATHS: Record<NavId, string> = {
 };
 
 export const PROFILES_DEVICE_PRESETS_PATH = '/profiles/device-presets';
+export const SETTINGS_PATHS = {
+	general: '/settings/general',
+	appearance: '/settings/appearance',
+	resources: '/settings/resources',
+	ai: '/settings/ai',
+	'recycle-bin': '/settings/recycle-bin',
+	dev: '/settings/dev',
+} as const;
+export const SETTINGS_DEFAULT_PATH = SETTINGS_PATHS.general;
 
 const PATH_TO_NAV: Record<string, NavId> = Object.entries(NAV_PATHS).reduce(
 	(acc, [nav, path]) => {
@@ -24,6 +33,9 @@ const PATH_TO_NAV: Record<string, NavId> = Object.entries(NAV_PATHS).reduce(
 );
 
 PATH_TO_NAV[PROFILES_DEVICE_PRESETS_PATH] = 'profiles';
+for (const path of Object.values(SETTINGS_PATHS)) {
+	PATH_TO_NAV[path] = 'settings';
+}
 
 export function resolveNavFromPath(pathname: string): NavId | null {
 	if (!pathname) {

@@ -1,4 +1,4 @@
-import { Cpu, Smartphone } from 'lucide-react';
+import { Cpu } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -19,7 +19,6 @@ import {
 import { cn } from '@/lib/utils';
 import { getWorkspaceNavItems } from '@/app/model/workspace-nav-items';
 import type { NavId } from '@/app/model/workspace-types';
-import { PROFILES_DEVICE_PRESETS_PATH } from '@/app/workspace-routes';
 import { SidebarFooterStatus } from './sidebar-footer-status';
 
 type WorkspaceSidebarProps = {
@@ -75,7 +74,6 @@ export function WorkspaceSidebar({
 							{getWorkspaceNavItems().map((item) => {
 								const active = item.id === activeNav;
 								const ItemIcon = item.icon;
-								const isProfilesItem = item.id === 'profiles';
 								return (
 									<SidebarMenuItem key={item.id}>
 										<SidebarMenuButton
@@ -110,21 +108,26 @@ export function WorkspaceSidebar({
 											</span>
 											{collapsed ? null : <span>{item.label}</span>}
 										</SidebarMenuButton>
-										{isProfilesItem && !collapsed && (
+										{!collapsed && item.children?.length ? (
 											<SidebarMenuSub>
-												<SidebarMenuSubItem>
-													<SidebarMenuSubButton
-														type="button"
-														isActive={activePath === PROFILES_DEVICE_PRESETS_PATH}
-														onClick={() => onNavigate(PROFILES_DEVICE_PRESETS_PATH)}
-														className="cursor-pointer"
-													>
-														<Smartphone className="size-3.5" />
-														{t('sidebar.devicePresets')}
-													</SidebarMenuSubButton>
-												</SidebarMenuSubItem>
+												{item.children.map((child) => {
+													const ChildIcon = child.icon;
+													return (
+														<SidebarMenuSubItem key={child.path}>
+															<SidebarMenuSubButton
+																type="button"
+																isActive={activePath === child.path}
+																onClick={() => onNavigate(child.path)}
+																className="cursor-pointer"
+															>
+																<ChildIcon className="size-3.5" />
+																{child.label}
+															</SidebarMenuSubButton>
+														</SidebarMenuSubItem>
+													);
+												})}
 											</SidebarMenuSub>
-										)}
+										) : null}
 									</SidebarMenuItem>
 								);
 							})}

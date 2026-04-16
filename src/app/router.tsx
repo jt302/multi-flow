@@ -1,8 +1,12 @@
 import { lazy } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { WorkspaceLayout } from '@/app/ui/workspace-layout';
-import { PROFILES_DEVICE_PRESETS_PATH } from '@/app/workspace-routes';
+import {
+	PROFILES_DEVICE_PRESETS_PATH,
+	SETTINGS_DEFAULT_PATH,
+	SETTINGS_PATHS,
+} from '@/app/workspace-routes';
 import { LogPanelPage } from '@/pages/log-panel';
 import { RootRedirectPage } from '@/pages/root-redirect';
 
@@ -90,7 +94,27 @@ export function AppRouter() {
 				<Route path="/browser-control" element={<BrowserControlRoutePage />} />
 				<Route path="/automation" element={<AutomationRoutePage />} />
 				<Route path="/ai-chat" element={<AiChatRoutePage />} />
-				<Route path="/settings" element={<SettingsRoutePage />} />
+				<Route
+					path="/settings"
+					element={<Navigate to={SETTINGS_DEFAULT_PATH} replace />}
+				/>
+				<Route path={SETTINGS_PATHS.general} element={<SettingsRoutePage />} />
+				<Route
+					path={SETTINGS_PATHS.appearance}
+					element={<SettingsRoutePage />}
+				/>
+				<Route
+					path={SETTINGS_PATHS.resources}
+					element={<SettingsRoutePage />}
+				/>
+				<Route path={SETTINGS_PATHS.ai} element={<SettingsRoutePage />} />
+				<Route
+					path={SETTINGS_PATHS['recycle-bin']}
+					element={<SettingsRoutePage />}
+				/>
+				{import.meta.env.DEV ? (
+					<Route path={SETTINGS_PATHS.dev} element={<SettingsRoutePage />} />
+				) : null}
 			</Route>
 		</Routes>
 	);

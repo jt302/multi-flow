@@ -8,10 +8,17 @@ import type {
 
 export type NavId = 'dashboard' | 'profiles' | 'plugins' | 'groups' | 'proxy' | 'windows' | 'browser-control' | 'automation' | 'ai-chat' | 'settings';
 
+export type NavChildItem = {
+	label: string;
+	path: string;
+	icon: LucideIcon;
+};
+
 export type NavItem = {
 	id: NavId;
 	label: string;
 	icon: LucideIcon;
+	children?: NavChildItem[];
 };
 
 export type SessionRow = {

@@ -3,6 +3,7 @@ import type {
 	CustomThemePreset,
 	PresetKey,
 } from '@/entities/theme/model/types';
+import type { SettingsTabId } from '@/features/settings/ui/settings-tab-constants';
 
 export type ThemeCustomizerCardProps = {
 	useCustomColor: boolean;
@@ -18,6 +19,7 @@ export type ThemeCustomizerCardProps = {
 };
 
 export type SettingsPageProps = {
+	activeTab: SettingsTabId;
 	useCustomColor: boolean;
 	preset: PresetKey;
 	customColor: string;
