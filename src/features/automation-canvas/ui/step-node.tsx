@@ -1,12 +1,13 @@
 /**
  * step-node.tsx
  * ReactFlow 自定义节点组件，用于渲染单个自动化步骤节点。
- * 包含：运行状态环样式、连接点样式、节点数据类型定义、节点组件、以及 NODE_TYPES 映射。
+ * 包含：运行状态环样式、连接点样式、节点组件、以及 NODE_TYPES 映射。
  */
 
 import { memo } from 'react';
 
 import { Handle, Position } from '@xyflow/react';
+import i18next from 'i18next';
 
 import type {
 	StepNodeData,
@@ -43,7 +44,7 @@ const StartNodeComponent = memo(function StartNodeComponent() {
 		<div className="flex items-center gap-2 rounded-lg border-2 border-emerald-500/40 bg-emerald-500/5 px-4 py-2 shadow-sm">
 			<div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
 			<span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 tracking-wide uppercase">
-				Start
+				{i18next.t('automation:canvas.start')}
 			</span>
 			<Handle type="source" position={Position.Bottom} className={HANDLE_CLS} />
 		</div>
@@ -54,8 +55,6 @@ StartNodeComponent.displayName = 'StartNodeComponent';
 // ─── 步骤节点 ──────────────────────────────────────────────────────────────────
 /**
  * 自定义 ReactFlow 节点，渲染一个步骤卡片。
- * - condition 步骤会渲染两个底部 Handle（then / else）
- * - 其余步骤渲染单个底部 Handle
  */
 function resolveHandleStyle(handle: StepNodeSourceHandle) {
 	if (handle.hidden) {
@@ -115,8 +114,8 @@ export const StepNodeComponent = memo(function StepNodeComponent({
 					<div className="text-[10px] text-muted-foreground truncate mt-0.5 font-mono opacity-70">
 						{summary}
 					</div>
-					)}
-				</div>
+				)}
+			</div>
 			{footerLabels.length > 0 && (
 				<div className="flex justify-between mt-1.5 text-[9px] text-muted-foreground select-none px-1">
 					{footerLabels.map((footerLabel) => (

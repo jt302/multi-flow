@@ -474,6 +474,14 @@
 		"completed": "Completed",
 		"help": "Help"
 	},
+	"canvas": {
+		"windowTitle": "Flow Editor",
+		"start": "Start",
+		"conditionThen": "Then",
+		"conditionElse": "Else",
+		"loopBody": "Body",
+		"loopNext": "Next"
+	},
 	"properties": {
 		"title": "Properties",
 		"deleteStep": "Delete Step",
@@ -597,7 +605,14 @@
 		"modKeyMeta": "Cmd/Meta",
 		"modKeyCtrl": "Ctrl",
 		"modKeyAlt": "Alt",
-		"modKeyShift": "Shift"
+		"modKeyShift": "Shift",
+		"variantDefault": "Default",
+		"variantOutline": "Secondary",
+		"variantDestructive": "Destructive",
+		"levelInfo": "Info",
+		"levelSuccess": "Success",
+		"levelWarning": "Warning",
+		"levelError": "Error"
 	},
 	"toolCategories": {
 		"available": "Available Tool Categories",
@@ -618,4 +633,3 @@
 		"markFailed": "Mark as Failed"
 	}
 }
-

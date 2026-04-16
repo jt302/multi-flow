@@ -122,6 +122,17 @@
 		"openRecycleBin": "Open Recycle Bin"
 	},
 	"aiChatSettings": {
+		"title": "AI Chat Settings",
+		"defaultModel": "Default AI Model",
+		"selectConfig": "Select AI Config",
+		"noDefault": "No Default",
+		"connectionTest": "Connection Test",
+		"test": "Test",
+		"connected": "Connected",
+		"modelCapabilities": "Model Capabilities",
+		"capabilityVision": "Vision",
+		"capabilityTools": "Tools",
+		"capabilityThinking": "Thinking",
 		"setDefault": "Set as Default",
 		"removeDefault": "Remove Default",
 		"isDefault": "(Default)",

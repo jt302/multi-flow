@@ -474,6 +474,14 @@
 		"completed": "已完成",
 		"help": "操作指南"
 	},
+	"canvas": {
+		"windowTitle": "流程编辑",
+		"start": "开始",
+		"conditionThen": "是",
+		"conditionElse": "否",
+		"loopBody": "循环体",
+		"loopNext": "下一步"
+	},
 	"properties": {
 		"title": "属性",
 		"deleteStep": "删除步骤",
@@ -597,7 +605,14 @@
 		"modKeyMeta": "Cmd/Meta",
 		"modKeyCtrl": "Ctrl",
 		"modKeyAlt": "Alt",
-		"modKeyShift": "Shift"
+		"modKeyShift": "Shift",
+		"variantDefault": "默认",
+		"variantOutline": "次要",
+		"variantDestructive": "危险",
+		"levelInfo": "信息",
+		"levelSuccess": "成功",
+		"levelWarning": "警告",
+		"levelError": "错误"
 	},
 	"toolCategories": {
 		"available": "可用工具类别",
@@ -618,4 +633,3 @@
 		"markFailed": "标记为失败"
 	}
 }
-

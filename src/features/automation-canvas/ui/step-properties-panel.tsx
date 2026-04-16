@@ -984,13 +984,13 @@ export function StepPropertiesPanel({
 								</SelectTrigger>
 								<SelectContent>
 									<SelectItem value="default" className="cursor-pointer">
-										默认
+										{t('automation:properties.variantDefault')}
 									</SelectItem>
 									<SelectItem value="outline" className="cursor-pointer">
-										次要
+										{t('automation:properties.variantOutline')}
 									</SelectItem>
 									<SelectItem value="destructive" className="cursor-pointer">
-										危险
+										{t('automation:properties.variantDestructive')}
 									</SelectItem>
 								</SelectContent>
 							</Select>
@@ -1118,16 +1118,16 @@ export function StepPropertiesPanel({
 					</SelectTrigger>
 					<SelectContent>
 						<SelectItem value="info" className="cursor-pointer">
-							info
+							{t('automation:properties.levelInfo')}
 						</SelectItem>
 						<SelectItem value="success" className="cursor-pointer">
-							success
+							{t('automation:properties.levelSuccess')}
 						</SelectItem>
 						<SelectItem value="warning" className="cursor-pointer">
-							warning
+							{t('automation:properties.levelWarning')}
 						</SelectItem>
 						<SelectItem value="error" className="cursor-pointer">
-							error
+							{t('automation:properties.levelError')}
 						</SelectItem>
 					</SelectContent>
 				</Select>

@@ -122,6 +122,17 @@
 		"openRecycleBin": "打开回收站"
 	},
 	"aiChatSettings": {
+		"title": "AI 聊天设置",
+		"defaultModel": "默认 AI 模型",
+		"selectConfig": "选择 AI 配置",
+		"noDefault": "未设置默认",
+		"connectionTest": "连接测试",
+		"test": "测试",
+		"connected": "连接成功",
+		"modelCapabilities": "模型能力",
+		"capabilityVision": "视觉",
+		"capabilityTools": "工具",
+		"capabilityThinking": "思考",
 		"setDefault": "设为默认",
 		"removeDefault": "取消默认",
 		"isDefault": "（默认）",

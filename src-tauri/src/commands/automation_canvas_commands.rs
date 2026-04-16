@@ -5,15 +5,27 @@ fn canvas_window_label(script_id: &str) -> String {
     format!("automation-canvas-{}", &script_id[..script_id.len().min(8)])
 }
 
+fn canvas_window_title(window_title: &str, script_name: &str) -> String {
+    let script_name = script_name.trim();
+    if script_name.is_empty() {
+        window_title.to_string()
+    } else {
+        format!("{window_title} — {script_name}")
+    }
+}
+
 #[tauri::command]
 pub fn open_automation_canvas_window(
     app: AppHandle,
     script_id: String,
     script_name: String,
+    window_title: String,
 ) -> Result<(), String> {
     let label = canvas_window_label(&script_id);
+    let resolved_title = canvas_window_title(&window_title, &script_name);
     // 已存在则聚焦复用
     if let Some(win) = app.get_webview_window(&label) {
+        let _ = win.set_title(&resolved_title);
         let _ = win.show();
         let _ = win.unminimize();
         let _ = win.set_focus();
@@ -21,7 +33,7 @@ pub fn open_automation_canvas_window(
     }
     let url = format!("/automation/{}/canvas", script_id);
     WebviewWindowBuilder::new(&app, label, WebviewUrl::App(url.into()))
-        .title(format!("流程编辑 — {}", script_name))
+        .title(&resolved_title)
         .inner_size(1440.0, 900.0)
         .min_inner_size(900.0, 600.0)
         .resizable(true)

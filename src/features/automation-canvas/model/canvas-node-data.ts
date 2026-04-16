@@ -1,4 +1,5 @@
 import { Position, type Node } from '@xyflow/react';
+import i18next from 'i18next';
 
 import type { ScriptStep } from '@/entities/automation/model/types';
 import { isTerminalStepKind } from '@/entities/automation/model/step-flow';
@@ -36,7 +37,10 @@ type SourceHandlePresentation = Pick<StepNodeData, 'sourceHandles' | 'footerLabe
 function buildSourceHandlePresentation(step: ScriptStep): SourceHandlePresentation {
 	if (step.kind === 'condition') {
 		return {
-			footerLabels: ['then', 'else'],
+			footerLabels: [
+				i18next.t('automation:canvas.conditionThen'),
+				i18next.t('automation:canvas.conditionElse'),
+			],
 			sourceHandles: [
 				{ id: null, hidden: true },
 				{ id: 'then', left: '30%' },
@@ -47,7 +51,10 @@ function buildSourceHandlePresentation(step: ScriptStep): SourceHandlePresentati
 
 	if (step.kind === 'loop') {
 		return {
-			footerLabels: ['body', 'next'],
+			footerLabels: [
+				i18next.t('automation:canvas.loopBody'),
+				i18next.t('automation:canvas.loopNext'),
+			],
 			sourceHandles: [
 				{ id: 'body', left: '30%' },
 				{ id: null, left: '70%' },
@@ -87,7 +94,7 @@ export function buildStepNodeData(
 	stepStatus?: string,
 ): StepNodeData {
 	const kind = step.kind;
-	const groupKey = KIND_GROUPS[kind] ?? '通用';
+	const groupKey = KIND_GROUPS[kind] ?? 'general';
 	const handles = buildSourceHandlePresentation(step);
 
 	return {
@@ -96,7 +103,7 @@ export function buildStepNodeData(
 		stepStatus,
 		label: getKindLabel(kind) || kind,
 		groupLabel: getGroupLabel(groupKey) || groupKey,
-		groupColorClass: GROUP_COLORS[groupKey] ?? GROUP_COLORS['通用'],
+		groupColorClass: GROUP_COLORS[groupKey] ?? GROUP_COLORS.general,
 		accentClass: GROUP_ACCENT_COLORS[groupKey] ?? 'border-l-slate-400',
 		summary: getStepSummaryText(step) || '',
 		isTerminal: isTerminalStepKind(kind),

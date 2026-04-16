@@ -1,5 +1,6 @@
 import { emit, listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import i18next from 'i18next';
 
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
 
@@ -169,7 +170,11 @@ export async function openAutomationCanvasWindow(
 	scriptId: string,
 	scriptName: string,
 ): Promise<void> {
-	return tauriInvoke<void>('open_automation_canvas_window', { scriptId, scriptName });
+	return tauriInvoke<void>('open_automation_canvas_window', {
+		scriptId,
+		scriptName,
+		windowTitle: i18next.t('automation:canvas.windowTitle'),
+	});
 }
 
 export async function updateScriptCanvasPositions(

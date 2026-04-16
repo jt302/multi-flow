@@ -278,7 +278,7 @@ export function ScriptDetailPanel({
 					<AlertDialogHeader>
 						<AlertDialogTitle>{t('common:deleteItem', { item: t('common:script') })}</AlertDialogTitle>
 						<AlertDialogDescription>
-							{t('automation:deleteScriptConfirm', { name: script.name })}
+							{t('automation:detail.deleteScriptConfirm', { name: script.name })}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
