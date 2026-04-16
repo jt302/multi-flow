@@ -1047,6 +1047,31 @@ pub fn delete_captcha_config(state: State<'_, AppState>, id: String) -> Result<(
     svc.delete_captcha_config(&id).map_err(|e| e.to_string())
 }
 
+// ── Dev 模式 Chromium 可执行文件覆盖 ─────────────────────────────────────
+
+#[tauri::command]
+pub fn read_dev_chromium_executable(state: State<'_, AppState>) -> Result<Option<String>, String> {
+    let svc = state
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    svc.read_dev_chromium_executable()
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn save_dev_chromium_executable(
+    state: State<'_, AppState>,
+    path: Option<String>,
+) -> Result<(), String> {
+    let svc = state
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    svc.save_dev_chromium_executable(path)
+        .map_err(|e| e.to_string())
+}
+
 // ── Chromium logging toggle ───────────────────────────────────────────────
 
 #[tauri::command]

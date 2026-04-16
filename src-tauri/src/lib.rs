@@ -214,6 +214,8 @@ pub fn run() {
             commands::automation_commands::create_captcha_config,
             commands::automation_commands::update_captcha_config,
             commands::automation_commands::delete_captcha_config,
+            commands::automation_commands::read_dev_chromium_executable,
+            commands::automation_commands::save_dev_chromium_executable,
             commands::automation_commands::read_chromium_logging_enabled,
             commands::automation_commands::update_chromium_logging_enabled,
             commands::automation_commands::update_script_canvas_positions,

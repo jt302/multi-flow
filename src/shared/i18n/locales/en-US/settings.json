@@ -5,7 +5,21 @@
 		"resources": "Resources",
 		"ai": "AI Config",
 		"recycleBin": "Recycle Bin",
-		"language": "Language"
+		"language": "Language",
+		"dev": "Dev Config"
+	},
+	"dev": {
+		"title": "Developer Configuration",
+		"chromiumExecutable": "Custom Chromium Path",
+		"chromiumExecutableDesc": "Override the Chromium executable used during development. Takes effect only in tauri dev mode.",
+		"chromiumExecutablePlaceholder": "/path/to/Chromium.app/Contents/MacOS/Chromium",
+		"browse": "Browse",
+		"clear": "Clear",
+		"saved": "Saved",
+		"saveFailed": "Save failed",
+		"notAFile": "Path is not a valid file",
+		"currentActive": "Currently active path",
+		"notSet": "Not set (using default resource directory)"
 	},
 	"general": {
 		"title": "General Settings",

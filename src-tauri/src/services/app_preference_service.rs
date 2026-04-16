@@ -36,6 +36,9 @@ struct AppPreferencesFile {
     /// 全局默认 AI 配置 ID
     #[serde(default, skip_serializing_if = "Option::is_none")]
     default_ai_config_id: Option<String>,
+    /// Dev 模式 Chromium 可执行文件路径覆盖（仅开发环境生效）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    dev_chromium_executable: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -53,6 +56,7 @@ impl Default for AppPreferencesFile {
             ai_chat_global_prompt: None,
             tool_confirmation_overrides: HashMap::new(),
             default_ai_config_id: None,
+            dev_chromium_executable: None,
         }
     }
 }
@@ -300,6 +304,21 @@ impl AppPreferenceService {
     pub fn save_ai_chat_global_prompt(&self, prompt: Option<String>) -> AppResult<()> {
         let mut preferences = self.read_preferences_file()?;
         preferences.ai_chat_global_prompt = trim_to_option(prompt);
+        self.write_preferences_file(&preferences)
+    }
+
+    // ── Dev 模式 Chromium 可执行文件覆盖 ───────────────────────────────
+
+    pub fn read_dev_chromium_executable(&self) -> AppResult<Option<String>> {
+        Ok(self.read_preferences_file()?.dev_chromium_executable)
+    }
+
+    pub fn save_dev_chromium_executable(&self, path: Option<String>) -> AppResult<()> {
+        let mut preferences = self.read_preferences_file()?;
+        preferences.dev_chromium_executable = path.and_then(|p| {
+            let trimmed = p.trim().to_string();
+            if trimmed.is_empty() { None } else { Some(trimmed) }
+        });
         self.write_preferences_file(&preferences)
     }
 

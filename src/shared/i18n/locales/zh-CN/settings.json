@@ -5,7 +5,21 @@
 		"resources": "资源",
 		"ai": "AI 配置",
 		"recycleBin": "回收站",
-		"language": "语言"
+		"language": "语言",
+		"dev": "开发配置"
+	},
+	"dev": {
+		"title": "开发者配置",
+		"chromiumExecutable": "自定义 Chromium 路径",
+		"chromiumExecutableDesc": "指定开发调试时使用的 Chromium 可执行文件路径，覆盖默认资源目录中的版本。仅在 tauri dev 模式下生效。",
+		"chromiumExecutablePlaceholder": "/path/to/Chromium.app/Contents/MacOS/Chromium",
+		"browse": "选择文件",
+		"clear": "清除",
+		"saved": "已保存",
+		"saveFailed": "保存失败",
+		"notAFile": "路径不是有效文件",
+		"currentActive": "当前生效路径",
+		"notSet": "未设置（使用默认资源目录）"
 	},
 	"general": {
 		"title": "通用设置",

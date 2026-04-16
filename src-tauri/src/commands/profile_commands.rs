@@ -1504,9 +1504,29 @@ pub(crate) fn do_open_profile(
                     .flatten()
             })
             .unwrap_or_else(|| fingerprint_catalog::default_browser_version().to_string());
-        let chromium_executable = preferred_chromium_version
-            .as_deref()
-            .and_then(|version| resource_service.resolve_chromium_executable_for_version(version))
+        // 在 debug 模式下，优先使用开发者配置的自定义 Chromium 路径
+        #[cfg(debug_assertions)]
+        let dev_override: Option<std::path::PathBuf> = {
+            let pref_svc = state
+                .app_preference_service
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            pref_svc
+                .read_dev_chromium_executable()
+                .ok()
+                .flatten()
+                .map(std::path::PathBuf::from)
+                .filter(|p| p.is_file())
+        };
+        #[cfg(not(debug_assertions))]
+        let dev_override: Option<std::path::PathBuf> = None;
+
+        let chromium_executable = dev_override
+            .or_else(|| {
+                preferred_chromium_version
+                    .as_deref()
+                    .and_then(|version| resource_service.resolve_chromium_executable_for_version(version))
+            })
             .or_else(|| resource_service.resolve_active_chromium_executable())
             .unwrap_or_default();
         // Fast-fail when Chromium is not installed: do NOT auto-download inside this sync
