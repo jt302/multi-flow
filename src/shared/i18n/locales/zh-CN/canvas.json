@@ -4,6 +4,7 @@
     "searchSteps": "搜索步骤...",
     "noMatch": "无匹配步骤",
     "favorites": "常用",
+    "terminalStepLocked": "当前流程已由“{{step}}”结束，不能继续添加新步骤",
     "expandPanel": "展开步骤面板",
     "collapsePanel": "折叠面板"
   },
@@ -44,6 +45,7 @@
     "connectionOps": {
       "connect": "连接节点",
       "connectDesc": "从节点底部圆点拖拽到另一个节点顶部圆点",
+      "terminalStepNoOutput": "终止步骤不允许再连接后续节点",
       "deleteEdge": "删除连线",
       "deleteEdgeDesc": "点击连线使其高亮，按 Backspace 或 Delete 键删除",
       "changeOrder": "更改流程顺序",
@@ -164,6 +166,9 @@
   "orphan": {
     "warning": "{{count}} 个步骤未连接到流程中：{{names}}",
     "deleteAction": "删除孤立步骤"
+  },
+  "connection": {
+    "terminalStepNoOutput": "“{{step}}”是终止步骤，不能再连接后续节点"
   },
   "save": {
     "failed": "保存失败，请重试",

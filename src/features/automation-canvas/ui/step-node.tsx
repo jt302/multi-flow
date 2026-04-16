@@ -10,6 +10,7 @@ import type {
 	DialogButton,
 	ScriptStep,
 } from '@/entities/automation/model/types';
+import { isTerminalStepKind } from '@/entities/automation/model/step-flow';
 import {
 	GROUP_ACCENT_COLORS,
 	GROUP_COLORS,
@@ -88,11 +89,11 @@ export function StepNodeComponent({
 	const summary = getStepSummaryText(step);
 	const isCondition = kind === 'condition';
 	const isLoop = kind === 'loop';
-	const isEnd = kind === 'end';
+	const isTerminal = isTerminalStepKind(kind);
 
 	return (
 		<div
-			className={`relative min-w-[160px] max-w-[240px] rounded-lg border border-border/50 bg-card shadow-sm cursor-pointer transition-all hover:shadow-md border-l-[3px] ${accentClass} ${selectedClass} ${ringClass} ${isEnd ? '!border-l-red-500 bg-red-500/5' : ''}`}
+			className={`relative min-w-[160px] max-w-[240px] rounded-lg border border-border/50 bg-card shadow-sm cursor-pointer transition-all hover:shadow-md border-l-[3px] ${accentClass} ${selectedClass} ${ringClass} ${isTerminal ? '!border-l-red-500 bg-red-500/5' : ''}`}
 		>
 			<Handle type="target" position={Position.Top} className={HANDLE_CLS} />
 			<div className="px-3 py-2">
@@ -194,7 +195,7 @@ export function StepNodeComponent({
 						className={HANDLE_CLS}
 					/>
 				</>
-			) : isEnd ? null : (
+			) : isTerminal ? null : (
 				<Handle
 					type="source"
 					position={Position.Bottom}

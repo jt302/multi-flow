@@ -4,6 +4,7 @@
     "searchSteps": "Search steps...",
     "noMatch": "No matching steps",
     "favorites": "Favorites",
+    "terminalStepLocked": "The flow already ends with \"{{step}}\", so no more steps can be added",
     "expandPanel": "Expand Panel",
     "collapsePanel": "Collapse Panel"
   },
@@ -44,6 +45,7 @@
     "connectionOps": {
       "connect": "Connect Nodes",
       "connectDesc": "Drag from the bottom dot of one node to the top dot of another.",
+      "terminalStepNoOutput": "Terminal steps cannot connect to downstream nodes",
       "deleteEdge": "Delete Edge",
       "deleteEdgeDesc": "Click an edge to highlight, press Backspace or Delete to remove.",
       "changeOrder": "Change Flow Order",
@@ -164,6 +166,9 @@
   "orphan": {
     "warning": "{{count}} steps not connected to flow: {{names}}",
     "deleteAction": "Delete Orphan Steps"
+  },
+  "connection": {
+    "terminalStepNoOutput": "\"{{step}}\" is a terminal step and cannot connect to downstream nodes"
   },
   "save": {
     "failed": "Save failed, please retry",

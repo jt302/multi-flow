@@ -22,6 +22,7 @@ import {
 	saveAutomationCanvasGraph,
 	updateScriptCanvasPositions,
 } from '@/entities/automation/api/automation-api';
+import { isTerminalStepKind } from '@/entities/automation/model/step-flow';
 import { defaultStep, KIND_LABELS } from '@/entities/automation/model/step-registry';
 
 import type { StepNodeData } from '../ui/step-node';
@@ -90,7 +91,7 @@ export function useCanvasState(
 	// 将后端返回的嵌套控制流树展平 + 从 canvas 数据恢复孤立步骤
 	const [{ initFlatSteps, reconstructedEdges, parsedCanvas }] = useState(() => {
 		const { flatSteps, edges } = flattenControlFlowTree(script.steps);
-		const canvas = parseCanvasData(script.canvasPositionsJson, flatSteps.length);
+		const canvas = parseCanvasData(script.canvasPositionsJson, flatSteps);
 		// 合并孤立步骤（从 canvasPositionsJson 恢复）到 flat 步骤列表末尾
 		const allSteps = canvas.orphanedSteps && canvas.orphanedSteps.length > 0
 			? [...flatSteps, ...canvas.orphanedSteps]
@@ -536,6 +537,21 @@ export function useCanvasState(
 		(connection: Connection) => {
 			// 禁止节点自连接
 			if (connection.source === connection.target) return;
+			if (connection.source && connection.source !== START_NODE_ID) {
+				const sourceIndex = Number.parseInt(
+					connection.source.replace('step-', ''),
+					10,
+				);
+				const sourceStep = steps[sourceIndex];
+				if (sourceStep && isTerminalStepKind(sourceStep.kind)) {
+					toast.warning(
+						i18next.t('canvas:connection.terminalStepNoOutput', {
+							step: KIND_LABELS[sourceStep.kind] ?? sourceStep.kind,
+						}),
+					);
+					return;
+				}
+			}
 			// Start 节点连线：只能有一条出边，替换旧的
 			if (connection.source === START_NODE_ID) {
 				setEdges((prev) => {
@@ -568,7 +584,7 @@ export function useCanvasState(
 				);
 			});
 		},
-		[scheduleCanvasSave, flushPendingEdits, saveScript],
+		[scheduleCanvasSave, flushPendingEdits, saveScript, steps],
 	);
 
 	// ── 节点/面板点击 ──────────────────────────────────────────────────────────
@@ -583,6 +599,15 @@ export function useCanvasState(
 	const addStep = useCallback(
 		async (kind: string, viewportCenter?: { x: number; y: number }) => {
 			const baseSteps = flushPendingEdits();
+			const lastStep = baseSteps[baseSteps.length - 1];
+			if (lastStep && isTerminalStepKind(lastStep.kind)) {
+				toast.warning(
+					i18next.t('canvas:palette.terminalStepLocked', {
+						step: KIND_LABELS[lastStep.kind] ?? lastStep.kind,
+					}),
+				);
+				return;
+			}
 			const step = defaultStep(kind);
 			const newIndex = baseSteps.length;
 			const newSteps = [...baseSteps, step];
@@ -688,6 +713,15 @@ export function useCanvasState(
 		async (stepsToAdd: ScriptStep[]) => {
 			if (stepsToAdd.length === 0) return;
 			let currentSteps = flushPendingEdits();
+			const lastStep = currentSteps[currentSteps.length - 1];
+			if (lastStep && isTerminalStepKind(lastStep.kind)) {
+				toast.warning(
+					i18next.t('canvas:palette.terminalStepLocked', {
+						step: KIND_LABELS[lastStep.kind] ?? lastStep.kind,
+					}),
+				);
+				return;
+			}
 			for (const step of stepsToAdd) {
 				const newIndex = currentSteps.length;
 				currentSteps = [...currentSteps, step];

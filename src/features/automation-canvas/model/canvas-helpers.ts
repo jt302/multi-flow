@@ -7,6 +7,7 @@
 import { Position, type Edge, type Node } from '@xyflow/react';
 
 import type { ScriptStep } from '@/entities/automation/model/types';
+import { isTerminalStepKind } from '@/entities/automation/model/step-flow';
 
 import type { StepNodeData } from '../ui/step-node';
 
@@ -79,13 +80,19 @@ export function buildNodes(
  * @param count - 步骤总数
  * @returns Edge 数组（smoothstep 类型）
  */
-export function buildDefaultEdges(count: number): Edge[] {
-	return Array.from({ length: count - 1 }, (_, i) => ({
-		id: `e-${i}-${i + 1}`,
-		source: `step-${i}`,
-		target: `step-${i + 1}`,
-		type: 'smoothstep',
-	}));
+export function buildDefaultEdges(stepsOrCount: ScriptStep[] | number): Edge[] {
+	const steps = Array.isArray(stepsOrCount) ? stepsOrCount : null;
+	const count = Array.isArray(stepsOrCount) ? stepsOrCount.length : stepsOrCount;
+	if (count <= 1) return [];
+
+	return Array.from({ length: count - 1 }, (_, i) => i)
+		.filter((index) => !steps || !isTerminalStepKind(steps[index]?.kind))
+		.map((index) => ({
+			id: `e-${index}-${index + 1}`,
+			source: `step-${index}`,
+			target: `step-${index + 1}`,
+			type: 'smoothstep',
+		}));
 }
 
 // ─── 画布数据解析 ──────────────────────────────────────────────────────────────
@@ -102,9 +109,9 @@ export function buildDefaultEdges(count: number): Edge[] {
  */
 export function parseCanvasData(
 	json: string | null,
-	stepCount: number,
+	stepsOrCount: ScriptStep[] | number,
 ): ParsedCanvasData {
-	if (!json) return { positions: {}, edges: buildDefaultEdges(stepCount), edgesFromSave: false };
+	if (!json) return { positions: {}, edges: buildDefaultEdges(stepsOrCount), edgesFromSave: false };
 	try {
 		const parsed = JSON.parse(json) as Record<string, unknown>;
 		if ('positions' in parsed || 'edges' in parsed || 'startEdgeTarget' in parsed) {
@@ -131,11 +138,11 @@ export function parseCanvasData(
 		// 旧格式：直接是 { 'step-0': {x,y}, ... }
 		return {
 			positions: parsed as PositionsMap,
-			edges: buildDefaultEdges(stepCount),
+			edges: buildDefaultEdges(stepsOrCount),
 			edgesFromSave: false,
 		};
 	} catch {
-		return { positions: {}, edges: buildDefaultEdges(stepCount), edgesFromSave: false };
+		return { positions: {}, edges: buildDefaultEdges(stepsOrCount), edgesFromSave: false };
 	}
 }
 
@@ -340,7 +347,7 @@ export function flattenControlFlowTree(
 				pendingConnections = [currentIdx];
 			} else {
 				flatSteps.push(step);
-				pendingConnections = [currentIdx];
+				pendingConnections = isTerminalStepKind(step.kind) ? [] : [currentIdx];
 			}
 		}
 
@@ -517,6 +524,17 @@ function remapEdgesToOrderedIds(edges: Edge[], orderedIds: string[]): Edge[] {
 		.filter((edge): edge is Edge => edge !== null);
 }
 
+function sanitizeCanvasEdges(steps: ScriptStep[], edges: Edge[]): Edge[] {
+	return edges.filter((edge) => {
+		const sourceIndex = Number.parseInt(edge.source.replace('step-', ''), 10);
+		if (Number.isNaN(sourceIndex) || sourceIndex < 0 || sourceIndex >= steps.length) {
+			return false;
+		}
+
+		return !isTerminalStepKind(steps[sourceIndex].kind);
+	});
+}
+
 /**
  * 将当前画布图序列化为稳定的嵌套树，并同步产出 canonical 顺序下的节点/边/位置。
  * 顺序规则与 flattenControlFlowTree 完全镜像，保证 graph -> tree -> graph 可幂等。
@@ -540,12 +558,13 @@ export function serializeControlFlowGraph(
 		};
 	}
 
-	const edgeMap = buildHandleEdgeMap(edges, n);
+	const sanitizedEdges = sanitizeCanvasEdges(steps, edges);
+	const edgeMap = buildHandleEdgeMap(sanitizedEdges, n);
 	const inDegree = new Map<number, number>();
 	for (let i = 0; i < n; i++) {
 		inDegree.set(i, 0);
 	}
-	for (const edge of edges) {
+	for (const edge of sanitizedEdges) {
 		const ti = parseInt(edge.target.replace('step-', ''), 10);
 		if (!Number.isNaN(ti) && ti >= 0 && ti < n) {
 			inDegree.set(ti, (inDegree.get(ti) ?? 0) + 1);
@@ -631,6 +650,12 @@ export function serializeControlFlowGraph(
 				continue;
 			}
 
+			if (isTerminalStepKind(step.kind)) {
+				result.push(step);
+				cur = -1;
+				continue;
+			}
+
 			result.push(step);
 			cur = getFirstHandleTarget(handles, null);
 		}
@@ -673,7 +698,7 @@ export function serializeControlFlowGraph(
 		const oldIndex = Number.parseInt(oldId.replace('step-', ''), 10);
 		return steps[oldIndex];
 	});
-	const remappedEdges = remapEdgesToOrderedIds(edges, orderedIds);
+	const remappedEdges = remapEdgesToOrderedIds(sanitizedEdges, orderedIds);
 	const remappedPositions: PositionsMap = {};
 	orderedIds.forEach((oldId, newIndex) => {
 		const position = positions[oldId];
