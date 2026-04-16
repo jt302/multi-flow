@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import '@/styles/global.css';
-import '@/shared/i18n';
+import i18n, { normalizeAppLanguage } from '@/shared/i18n';
 import { QueryProvider } from '@/app/providers/query-provider';
 import { installInputSelectAllHotkey } from '@/shared/lib/hotkeys/install-input-select-all-hotkey';
 import { installWindowHotkeys } from '@/shared/lib/hotkeys/install-window-hotkeys';
@@ -13,21 +13,36 @@ import { listen } from '@tauri-apps/api/event';
 installInputSelectAllHotkey();
 installWindowHotkeys();
 
-ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-	<React.StrictMode>
-		<QueryProvider>
-			<BrowserRouter>
-				<App />
-			</BrowserRouter>
-		</QueryProvider>
-	</React.StrictMode>,
-);
+function renderApp() {
+	ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+		<React.StrictMode>
+			<QueryProvider>
+				<BrowserRouter>
+					<App />
+				</BrowserRouter>
+			</QueryProvider>
+		</React.StrictMode>,
+	);
+}
 
-// React 渲染完成后，等 init 信号再切换窗口：
-// - 若 init 已完成（React 比 init 慢）：直接切换
-// - 若 init 未完成（React 比 init 快）：等待事件再切换
-// show_main_window 原子完成"关 splash + 显主窗口"，消除空档
-(async () => {
+async function syncInitialAppLanguage() {
+	try {
+		const saved = await invoke<string | null>('read_app_language');
+		if (saved) {
+			await i18n.changeLanguage(normalizeAppLanguage(saved));
+			return;
+		}
+
+		const locale = await invoke<string>('update_app_language', {
+			locale: normalizeAppLanguage(i18n.resolvedLanguage ?? i18n.language),
+		});
+		await i18n.changeLanguage(normalizeAppLanguage(locale));
+	} catch {
+		// 非 Tauri 环境（浏览器预览等）忽略
+	}
+}
+
+async function waitAndShowMainWindow() {
 	try {
 		const done = await invoke<boolean>('is_init_complete');
 		if (done) {
@@ -41,4 +56,10 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
 	} catch {
 		// 非 Tauri 环境（浏览器预览等）忽略
 	}
+}
+
+(async () => {
+	await syncInitialAppLanguage();
+	renderApp();
+	await waitAndShowMainWindow();
 })();

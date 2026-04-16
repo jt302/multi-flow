@@ -1096,6 +1096,33 @@ pub fn update_chromium_logging_enabled(
 }
 
 #[tauri::command]
+pub fn read_app_language(state: State<'_, AppState>) -> Result<Option<String>, String> {
+    let svc = state
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    svc.read_app_language().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_app_language(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    locale: String,
+) -> Result<String, String> {
+    let svc = state
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    let locale = svc
+        .save_app_language(Some(locale))
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "app language cannot be empty".to_string())?;
+    crate::setup_native_menu(&app, Some(&locale)).map_err(|e| e.to_string())?;
+    Ok(locale)
+}
+
+#[tauri::command]
 pub fn update_script_canvas_positions(
     state: State<'_, AppState>,
     script_id: String,

@@ -111,6 +111,7 @@
 	"language": {
 		"title": "Interface Language",
 		"desc": "Switch application display language",
+		"changeFailed": "Failed to switch interface language",
 		"zhCN": "中文（简体）",
 		"enUS": "English"
 	},

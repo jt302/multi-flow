@@ -39,6 +39,9 @@ struct AppPreferencesFile {
     /// Dev 模式 Chromium 可执行文件路径覆盖（仅开发环境生效）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     dev_chromium_executable: Option<String>,
+    /// 应用界面语言，同时作为原生菜单语言真相源
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    app_language: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -57,6 +60,7 @@ impl Default for AppPreferencesFile {
             tool_confirmation_overrides: HashMap::new(),
             default_ai_config_id: None,
             dev_chromium_executable: None,
+            app_language: None,
         }
     }
 }
@@ -130,6 +134,22 @@ impl AppPreferenceService {
         let mut preferences = self.read_preferences_file()?;
         preferences.plugin_download_proxy_id = trim_to_option(proxy_id);
         self.write_preferences_file(&preferences)
+    }
+
+    pub fn read_app_language(&self) -> AppResult<Option<String>> {
+        Ok(self
+            .read_preferences_file()?
+            .app_language
+            .map(|value| normalize_app_language(&value).to_string()))
+    }
+
+    pub fn save_app_language(&self, locale: Option<String>) -> AppResult<Option<String>> {
+        let mut preferences = self.read_preferences_file()?;
+        let normalized =
+            trim_to_option(locale).map(|value| normalize_app_language(&value).to_string());
+        preferences.app_language = normalized.clone();
+        self.write_preferences_file(&preferences)?;
+        Ok(normalized)
     }
 
     pub fn read_ai_provider_config(&self) -> AppResult<AiProviderConfig> {
@@ -403,9 +423,29 @@ fn trim_to_option(value: Option<String>) -> Option<String> {
     })
 }
 
+pub(crate) fn normalize_app_language(locale: &str) -> &'static str {
+    let normalized = locale.trim().to_ascii_lowercase();
+    if normalized.starts_with("en") {
+        "en-US"
+    } else {
+        "zh-CN"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn normalize_app_language_maps_supported_variants() {
+        assert_eq!(normalize_app_language("zh-CN"), "zh-CN");
+        assert_eq!(normalize_app_language("zh-Hans"), "zh-CN");
+        assert_eq!(normalize_app_language("zh"), "zh-CN");
+        assert_eq!(normalize_app_language("en-US"), "en-US");
+        assert_eq!(normalize_app_language("en-GB"), "en-US");
+        assert_eq!(normalize_app_language("en"), "en-US");
+        assert_eq!(normalize_app_language("fr-FR"), "zh-CN");
+    }
 
     #[test]
     fn app_preference_service_persists_plugin_download_proxy_id() {
@@ -443,6 +483,31 @@ mod tests {
             .read_plugin_download_proxy_id()
             .expect("read plugin download proxy id");
         assert_eq!(saved, None);
+
+        let _ = std::fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    fn app_preference_service_persists_normalized_app_language() {
+        let unique = format!("multi-flow-app-language-test-{}", crate::models::now_ts());
+        let temp_dir = std::env::temp_dir().join(unique);
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        let service = AppPreferenceService::from_data_dir(temp_dir.clone());
+
+        service
+            .save_app_language(Some("en-GB".to_string()))
+            .expect("save app language");
+
+        let saved = service.read_app_language().expect("read app language");
+        assert_eq!(saved.as_deref(), Some("en-US"));
+
+        service
+            .save_app_language(Some("".to_string()))
+            .expect("clear app language");
+        let cleared = service
+            .read_app_language()
+            .expect("read cleared app language");
+        assert_eq!(cleared, None);
 
         let _ = std::fs::remove_dir_all(temp_dir);
     }
