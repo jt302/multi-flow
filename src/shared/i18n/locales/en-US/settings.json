@@ -8,6 +8,14 @@
 		"language": "Language",
 		"dev": "Dev Config"
 	},
+	"tabDescriptions": {
+		"general": "Manage shared application behavior and default runtime settings.",
+		"appearance": "Adjust workspace themes, primary colors, and custom presets.",
+		"resources": "Manage Chromium and GEO resource download, installation, and activation.",
+		"ai": "Manage AI configs, chat defaults, and tool permission policies.",
+		"recycle-bin": "Restore or permanently delete archived environments, proxies, and groups.",
+		"dev": "Configure the Chromium path used during local development and debugging."
+	},
 	"dev": {
 		"title": "Developer Configuration",
 		"chromiumExecutable": "Custom Chromium Path",
