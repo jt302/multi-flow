@@ -28,10 +28,20 @@
 	},
 	"theme": {
 		"title": "Theme Customization",
+		"presetSection": "Preset Theme",
+		"customSection": "Custom Theme",
 		"dualMode": "Light/Dark Dual Mode",
 		"customPrimaryColor": "Custom Primary Color",
 		"useCustomColor": "Use Custom Primary Color",
-		"switchToCustomColor": "Switch to Custom Color"
+		"switchToCustomColor": "Switch to Custom Color",
+		"switchToPresetTheme": "Switch to Preset Theme",
+		"switchToCustomTheme": "Switch to Custom Theme",
+		"addToCustomPresets": "Save as Custom Preset",
+		"customPresets": "Custom Presets",
+		"customPresetAdded": "Added to custom presets",
+		"customPresetExists": "Already saved",
+		"noCustomPresets": "No custom presets yet. Save a color you use often.",
+		"deleteCustomPreset": "Delete custom preset"
 	},
 	"ai": {
 		"custom": "Custom",

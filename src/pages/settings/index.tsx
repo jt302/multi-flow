@@ -25,9 +25,13 @@ export function SettingsRoutePage() {
 			useCustomColor={theme.useCustomColor}
 			preset={theme.preset}
 			customColor={theme.customColor}
+			customPresets={theme.customPresets}
 			onPresetChange={theme.onPresetChange}
 			onCustomColorChange={theme.onCustomColorChange}
 			onToggleCustomColor={theme.onToggleCustomColor}
+			onAddCustomPreset={theme.onAddCustomPreset}
+			onApplyCustomPreset={theme.onApplyCustomPreset}
+			onDeleteCustomPreset={theme.onDeleteCustomPreset}
 			resources={resources}
 			onRefreshResources={refreshResources}
 			onInstallChromium={resourceActions.installChromium}

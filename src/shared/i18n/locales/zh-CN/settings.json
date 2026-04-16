@@ -28,10 +28,20 @@
 	},
 	"theme": {
 		"title": "主题定制",
+		"presetSection": "预设主题",
+		"customSection": "自定义主题",
 		"dualMode": "亮/暗双态",
 		"customPrimaryColor": "自定义主色",
 		"useCustomColor": "使用自定义主色",
-		"switchToCustomColor": "切换到自定义主色"
+		"switchToCustomColor": "切换到自定义主色",
+		"switchToPresetTheme": "切换到预设主题",
+		"switchToCustomTheme": "切换到自定义主题",
+		"addToCustomPresets": "添加到自定义预设",
+		"customPresets": "自定义预设",
+		"customPresetAdded": "已添加到自定义预设",
+		"customPresetExists": "已在预设中",
+		"noCustomPresets": "还没有自定义预设，先保存一个你常用的颜色。",
+		"deleteCustomPreset": "删除自定义预设"
 	},
 	"ai": {
 		"custom": "自定义",

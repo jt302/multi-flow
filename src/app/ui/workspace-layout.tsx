@@ -22,6 +22,7 @@ import {
 } from './workspace-sidebar-state';
 import { WorkspaceSidebar } from './workspace-sidebar';
 import { WorkspaceTopbar } from './workspace-topbar';
+import { normalizeCustomThemePreset } from '@/entities/theme/model/custom-presets';
 
 function resolveActiveNav(pathname: string): NavId {
 	return resolveNavFromPath(pathname) ?? 'dashboard';
@@ -72,6 +73,7 @@ export function WorkspaceLayout() {
 				useCustomColor: themeState.useCustomColor,
 				preset: themeState.preset,
 				customColor: themeState.customColor,
+				customPresets: themeState.customPresets,
 				themeMode: themeState.themeMode,
 				setThemeMode: themeState.setThemeMode,
 				onPresetChange: (nextPreset) => {
@@ -84,6 +86,21 @@ export function WorkspaceLayout() {
 				},
 				onToggleCustomColor: () =>
 					themeState.setUseCustomColor((prev) => !prev),
+				onAddCustomPreset: () => {
+					const normalized = normalizeCustomThemePreset(themeState.customColor);
+					if (!normalized) {
+						return;
+					}
+
+					themeState.addCustomPreset(normalized);
+				},
+				onApplyCustomPreset: (value) => {
+					themeState.setCustomColor(value);
+					themeState.setUseCustomColor(true);
+				},
+				onDeleteCustomPreset: (value) => {
+					themeState.removeCustomPreset(value);
+				},
 			},
 			navigation: {
 				pathname: location.pathname,

@@ -1,8 +1,18 @@
 import { setTheme as setNativeAppTheme } from '@tauri-apps/api/app';
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 
-import type { Palette, PresetKey, ThemeMode } from '@/entities/theme/model/types';
+import type {
+	CustomThemePreset,
+	Palette,
+	PresetKey,
+	ThemeMode,
+} from '@/entities/theme/model/types';
 import { THEME_PRESET_KEYS, THEME_PRESETS } from '@/entities/theme/model/presets';
+import {
+	addCustomThemePreset,
+	readCustomThemePresets,
+	removeCustomThemePreset,
+} from '@/entities/theme/model/custom-presets';
 import { getReadableForeground, hexToRgb, mixHex } from '@/shared/lib/color';
 
 const THEME_SYNC_CHANNEL = 'mf-theme-sync';
@@ -12,6 +22,7 @@ const STORAGE_KEYS = {
 	preset: 'mf_theme_preset',
 	customColor: 'mf_theme_custom_color',
 	useCustom: 'mf_theme_use_custom',
+	customPresets: 'mf_theme_custom_presets',
 } as const;
 
 type ThemeSyncPayload = {
@@ -19,6 +30,7 @@ type ThemeSyncPayload = {
 	preset: PresetKey;
 	customColor: string;
 	useCustomColor: boolean;
+	customPresets: CustomThemePreset[];
 };
 
 function isThemeMode(value: string | null): value is ThemeMode {
@@ -59,6 +71,10 @@ function getInitialUseCustomColor(): boolean {
 	return saved === 'true';
 }
 
+function getInitialCustomPresets(): CustomThemePreset[] {
+	return readCustomThemePresets(getStorageItem(STORAGE_KEYS.customPresets));
+}
+
 function getInitialSystemDark(): boolean {
 	if (typeof window === 'undefined') {
 		return false;
@@ -71,6 +87,9 @@ export function useThemeSettings() {
 	const [preset, setPreset] = useState<PresetKey>(getInitialPreset);
 	const [customColor, setCustomColor] = useState(getInitialCustomColor);
 	const [useCustomColor, setUseCustomColor] = useState(getInitialUseCustomColor);
+	const [customPresets, setCustomPresets] = useState<CustomThemePreset[]>(
+		getInitialCustomPresets,
+	);
 	const [systemDark, setSystemDark] = useState(getInitialSystemDark);
 	const resolvedMode = themeMode === 'system' ? (systemDark ? 'dark' : 'light') : themeMode;
 
@@ -101,6 +120,10 @@ export function useThemeSettings() {
 			}
 			if (event.key === STORAGE_KEYS.useCustom && (event.newValue === 'true' || event.newValue === 'false')) {
 				setUseCustomColor(event.newValue === 'true');
+				return;
+			}
+			if (event.key === STORAGE_KEYS.customPresets) {
+				setCustomPresets(readCustomThemePresets(event.newValue));
 			}
 		};
 		window.addEventListener('storage', onStorage);
@@ -123,6 +146,7 @@ export function useThemeSettings() {
 			setPreset(payload.preset);
 			setCustomColor(payload.customColor);
 			setUseCustomColor(payload.useCustomColor);
+			setCustomPresets(payload.customPresets);
 		};
 
 		return () => {
@@ -159,6 +183,10 @@ export function useThemeSettings() {
 		localStorage.setItem(STORAGE_KEYS.preset, preset);
 		localStorage.setItem(STORAGE_KEYS.customColor, customColor);
 		localStorage.setItem(STORAGE_KEYS.useCustom, String(useCustomColor));
+		localStorage.setItem(
+			STORAGE_KEYS.customPresets,
+			JSON.stringify(customPresets),
+		);
 
 		if (typeof BroadcastChannel !== 'undefined') {
 			const channel = new BroadcastChannel(THEME_SYNC_CHANNEL);
@@ -167,6 +195,7 @@ export function useThemeSettings() {
 				preset,
 				customColor,
 				useCustomColor,
+				customPresets,
 			} satisfies ThemeSyncPayload);
 			channel.close();
 		}
@@ -178,7 +207,7 @@ export function useThemeSettings() {
 		root.style.setProperty('--primary-foreground-dark', getReadableForeground(activePalette.dark));
 		root.style.setProperty('--ring-light', mixHex(activePalette.light, '#FFFFFF', 0.4));
 		root.style.setProperty('--ring-dark', mixHex(activePalette.dark, '#0B1220', 0.35));
-	}, [activePalette, customColor, preset, themeMode, useCustomColor]);
+	}, [activePalette, customColor, customPresets, preset, themeMode, useCustomColor]);
 
 	return {
 		themeMode,
@@ -189,6 +218,11 @@ export function useThemeSettings() {
 		setCustomColor,
 		useCustomColor,
 		setUseCustomColor,
+		customPresets,
+		addCustomPreset: (value: string) =>
+			setCustomPresets((current) => addCustomThemePreset(current, value)),
+		removeCustomPreset: (value: string) =>
+			setCustomPresets((current) => removeCustomThemePreset(current, value)),
 		resolvedMode,
 	};
 }

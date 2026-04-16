@@ -1,6 +1,10 @@
 import type { LucideIcon } from 'lucide-react';
 
-import type { PresetKey, ThemeMode } from '@/entities/theme/model/types';
+import type {
+	CustomThemePreset,
+	PresetKey,
+	ThemeMode,
+} from '@/entities/theme/model/types';
 
 export type NavId = 'dashboard' | 'profiles' | 'plugins' | 'groups' | 'proxy' | 'windows' | 'browser-control' | 'automation' | 'ai-chat' | 'settings';
 
@@ -43,6 +47,7 @@ export type WorkspaceThemeState = {
 	useCustomColor: boolean;
 	preset: PresetKey;
 	customColor: string;
+	customPresets: CustomThemePreset[];
 	themeMode: ThemeMode;
 };
 
@@ -51,6 +56,9 @@ export type WorkspaceThemeActions = {
 	onPresetChange: (preset: PresetKey) => void;
 	onCustomColorChange: (value: string) => void;
 	onToggleCustomColor: () => void;
+	onAddCustomPreset: () => void;
+	onApplyCustomPreset: (value: CustomThemePreset) => void;
+	onDeleteCustomPreset: (value: CustomThemePreset) => void;
 };
 
 export type WorkspaceNavigation = {

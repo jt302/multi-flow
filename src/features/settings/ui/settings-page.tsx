@@ -27,9 +27,13 @@ export function SettingsPage({
 	useCustomColor,
 	preset,
 	customColor,
+	customPresets,
 	onPresetChange,
 	onCustomColorChange,
 	onToggleCustomColor,
+	onAddCustomPreset,
+	onApplyCustomPreset,
+	onDeleteCustomPreset,
 	resources,
 	onRefreshResources,
 	onInstallChromium,
@@ -111,9 +115,13 @@ export function SettingsPage({
 								useCustomColor={useCustomColor}
 								preset={preset}
 								customColor={customColor}
+								customPresets={customPresets}
 								onPresetChange={onPresetChange}
 								onCustomColorChange={onCustomColorChange}
 								onToggleCustomColor={onToggleCustomColor}
+								onAddCustomPreset={onAddCustomPreset}
+								onApplyCustomPreset={onApplyCustomPreset}
+								onDeleteCustomPreset={onDeleteCustomPreset}
 							/>
 						)}
 
