@@ -124,7 +124,8 @@
 		"setDefault": "设为默认",
 		"removeDefault": "取消默认",
 		"isDefault": "（默认）",
-		"usingDefault": "使用默认: {{name}}"
+		"usingDefault": "使用默认: {{name}}",
+		"noConfigs": "暂无 AI 配置"
 	},
 	"aiDialog": {
 		"editTitle": "编辑 AI 配置",

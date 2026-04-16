@@ -157,30 +157,32 @@ export function ThemeCustomizerCard({
 							type="color"
 							value={normalizedCustomColor ?? '#0F8A73'}
 							onChange={(event) => onCustomColorChange(event.target.value)}
-							className="h-11 w-12 shrink-0 cursor-pointer rounded-xl border-border/70 bg-background p-1"
+							className="h-8 w-12 shrink-0 cursor-pointer rounded-xl border-border/70 bg-background p-1"
 						/>
 						<Input
 							id={customColorTextId}
 							type="text"
 							value={customColor}
 							onChange={(event) => onCustomColorChange(event.target.value)}
-							className="h-11 w-[8.5rem] shrink-0 rounded-xl border-border/70 bg-background uppercase tracking-[0.16em]"
+							className="h-8 w-[8.5rem] shrink-0 rounded-xl border-border/70 bg-background uppercase tracking-[0.16em]"
 						/>
 						<Button
 							type="button"
+							size="sm"
 							variant="outline"
 							onClick={onAddCustomPreset}
 							disabled={!normalizedCustomColor || hasSavedCustomPreset}
-							className="h-11 shrink-0 rounded-xl border-border/70 px-3"
+							className="shrink-0 rounded-xl border-border/70"
 						>
 							<Plus className="size-4" />
 							{t('theme.addToCustomPresets')}
 						</Button>
 						<Button
 							type="button"
+							size="sm"
 							variant={useCustomColor ? 'default' : 'outline'}
 							onClick={onToggleCustomColor}
-							className="h-11 shrink-0 rounded-xl px-4"
+							className="shrink-0 rounded-xl px-4"
 						>
 							{toggleLabel}
 						</Button>

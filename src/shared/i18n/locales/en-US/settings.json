@@ -124,7 +124,8 @@
 		"setDefault": "Set as Default",
 		"removeDefault": "Remove Default",
 		"isDefault": "(Default)",
-		"usingDefault": "Using default: {{name}}"
+		"usingDefault": "Using default: {{name}}",
+		"noConfigs": "No AI configs available"
 	},
 	"aiDialog": {
 		"editTitle": "Edit AI Config",

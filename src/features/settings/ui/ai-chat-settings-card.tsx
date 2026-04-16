@@ -22,6 +22,7 @@ export function AiChatSettingsCard() {
 	const { t } = useTranslation('settings');
 	const configsQuery = useQuery({ queryKey: ['ai-configs'], queryFn: listAiConfigs });
 	const configs = configsQuery.data ?? [];
+	const hasConfigs = configs.length > 0;
 
 	const defaultConfigQuery = useDefaultAiConfigQuery();
 	const setDefaultMutation = useSetDefaultAiConfigMutation();
@@ -33,6 +34,9 @@ export function AiChatSettingsCard() {
 
 	const selectedConfig = configs.find((c) => c.id === selectedConfigId);
 	const modelCap = selectedConfig ? getModelCapability(selectedConfig.model ?? '') : null;
+	const configSelectPlaceholder = hasConfigs
+		? t('aiChatSettings.selectConfig', 'Select AI Config')
+		: t('aiChatSettings.noConfigs', '暂无 AI 配置');
 
 	const handleTest = async () => {
 		if (!selectedConfigId) return;
@@ -66,6 +70,7 @@ export function AiChatSettingsCard() {
 					</label>
 					<Select
 						value={defaultConfigId ?? '__none__'}
+						disabled={!hasConfigs}
 						onValueChange={(v) => setDefaultMutation.mutate(v === '__none__' ? null : v)}
 					>
 						<SelectTrigger className="w-full cursor-pointer">
@@ -78,17 +83,19 @@ export function AiChatSettingsCard() {
 									: t('aiChatSettings.noDefault', '未设置默认')}
 							</SelectValue>
 						</SelectTrigger>
-						<SelectContent position="popper" className="z-[200]">
-							<SelectItem value="__none__">
-								{t('aiChatSettings.noDefault', '未设置默认')}
-							</SelectItem>
-							{configs.map((c) => (
-								<SelectItem key={c.id} value={c.id} className="cursor-pointer">
-									{c.name}
-									{c.model ? ` (${c.model})` : ''}
+						{hasConfigs ? (
+							<SelectContent position="popper" className="z-[200]">
+								<SelectItem value="__none__">
+									{t('aiChatSettings.noDefault', '未设置默认')}
 								</SelectItem>
-							))}
-						</SelectContent>
+								{configs.map((c) => (
+									<SelectItem key={c.id} value={c.id} className="cursor-pointer">
+										{c.name}
+										{c.model ? ` (${c.model})` : ''}
+									</SelectItem>
+								))}
+							</SelectContent>
+						) : null}
 					</Select>
 				</div>
 
@@ -98,17 +105,19 @@ export function AiChatSettingsCard() {
 						{t('aiChatSettings.connectionTest', 'Connection Test')}
 					</label>
 					<div className="flex items-center gap-2">
-						<Select value={selectedConfigId} onValueChange={setSelectedConfigId}>
+						<Select value={selectedConfigId} onValueChange={setSelectedConfigId} disabled={!hasConfigs}>
 							<SelectTrigger className="flex-1">
-								<SelectValue placeholder={t('aiChatSettings.selectConfig', 'Select AI Config')} />
+								<SelectValue placeholder={configSelectPlaceholder} />
 							</SelectTrigger>
-							<SelectContent>
-								{configs.map((c) => (
-									<SelectItem key={c.id} value={c.id}>
-										{c.name} ({c.model}){c.id === defaultConfigId ? ` ${t('aiChatSettings.isDefault', '（默认）')}` : ''}
-									</SelectItem>
-								))}
-							</SelectContent>
+							{hasConfigs ? (
+								<SelectContent>
+									{configs.map((c) => (
+										<SelectItem key={c.id} value={c.id}>
+											{c.name} ({c.model}){c.id === defaultConfigId ? ` ${t('aiChatSettings.isDefault', '（默认）')}` : ''}
+										</SelectItem>
+									))}
+								</SelectContent>
+							) : null}
 						</Select>
 						<Button
 							size="sm"
