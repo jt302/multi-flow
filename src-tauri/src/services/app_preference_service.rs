@@ -146,12 +146,13 @@ impl AppPreferenceService {
     }
 
     pub fn save_global_default_startup_url(&self, url: Option<String>) -> AppResult<()> {
-        let normalized = url
+        let trimmed = url
             .as_deref()
             .map(|s| s.trim())
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string());
-        if let Some(ref value) = normalized {
+        // 验证并规范化 URL（URL 解析会将 scheme 规范化为小写，避免大写 "Https://" 在启动时匹配失败）
+        let canonical = if let Some(ref value) = trimmed {
             let parsed = Url::parse(value).map_err(|_| {
                 AppError::Validation(format!(
                     "global default startup URL must be a valid http/https URL: {value}"
@@ -168,9 +169,12 @@ impl AppPreferenceService {
                     "global default startup URL must contain a valid host: {value}"
                 )));
             }
-        }
+            Some(parsed.to_string())
+        } else {
+            None
+        };
         let mut preferences = self.read_preferences_file()?;
-        preferences.global_default_startup_url = normalized;
+        preferences.global_default_startup_url = canonical;
         self.write_preferences_file(&preferences)
     }
 
