@@ -87,6 +87,7 @@ impl ChatExecutionService {
         cancel_tokens: &std::sync::Mutex<HashMap<String, bool>>,
         profile_ids: Option<&[String]>,
         active_profile_id: Option<&str>,
+        enabled_skill_slugs: &[String],
     ) -> Result<(), String> {
         let chat_service = app
             .state::<crate::state::AppState>()
@@ -164,7 +165,7 @@ impl ChatExecutionService {
             None
         };
 
-        let system_prompt_text = crate::services::ai_prompts::build_chat_system_prompt(
+        let mut system_prompt_text = crate::services::ai_prompts::build_chat_system_prompt(
             global_prompt,
             system_prompt,
             &tool_categories,
@@ -172,6 +173,18 @@ impl ChatExecutionService {
             env_text.as_deref(),
             None, // conversation_summary: Phase C
         );
+        // 注入启用的 Skill 内容到 system prompt
+        if !enabled_skill_slugs.is_empty() {
+            if let Ok(skill_svc) = crate::services::ai_skill_service::from_app(app) {
+                for (name, body) in skill_svc.load_skill_bodies(enabled_skill_slugs) {
+                    if !body.is_empty() {
+                        system_prompt_text.push_str(&format!(
+                            "\n\n--- Skill: {name} ---\n{body}\n---"
+                        ));
+                    }
+                }
+            }
+        }
         messages.insert(0, ChatMessage::system(&system_prompt_text));
 
         // 4. 获取工具定义

@@ -9,3 +9,4 @@ pub mod proxy_commands;
 pub mod resource_commands;
 pub mod sync_commands;
 pub mod window_commands;
+pub mod ai_skill_commands;

@@ -195,6 +195,7 @@ pub async fn execute(
                         tool_categories: None,
                         profile_ids: None,
                         active_profile_id: Some(Some(profile_id)),
+                        enabled_skill_slugs: None,
                     },
                 )
                 .await

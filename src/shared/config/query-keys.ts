@@ -15,4 +15,6 @@ export const queryKeys = {
 	defaultAiConfig: ['default-ai-config'] as const,
 	chatSessions: ['chat-sessions'] as const,
 	chatMessages: (sessionId: string) => ['chat-messages', sessionId] as const,
+	aiSkills: ['ai-skills'] as const,
+	aiSkill: (slug: string) => ['ai-skills', slug] as const,
 };

@@ -36,6 +36,7 @@ pub struct ChatSession {
     pub tool_categories: Option<Vec<String>>,
     pub profile_ids: Option<Vec<String>>,
     pub active_profile_id: Option<String>,
+    pub enabled_skill_slugs: Vec<String>,
     pub created_at: i64,
     pub updated_at: i64,
 }
@@ -81,6 +82,7 @@ pub struct CreateChatSessionRequest {
     pub system_prompt: Option<String>,
     pub tool_categories: Option<Vec<String>>,
     pub profile_ids: Option<Vec<String>>,
+    pub enabled_skill_slugs: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -99,6 +101,7 @@ pub struct UpdateChatSessionRequest {
     pub profile_ids: Option<Option<Vec<String>>>,
     #[serde(default, deserialize_with = "double_option")]
     pub active_profile_id: Option<Option<String>>,
+    pub enabled_skill_slugs: Option<Vec<String>>,
 }
 
 // ─── ChatService ──────────────────────────────────────────────────────────
@@ -149,6 +152,13 @@ impl ChatService {
                 .as_ref()
                 .and_then(|v| serde_json::to_string(v).ok())),
             active_profile_id: Set(normalized.active_profile_id),
+            enabled_skill_slugs: Set(
+                req.enabled_skill_slugs
+                    .as_ref()
+                    .filter(|v| !v.is_empty())
+                    .and_then(|v| serde_json::to_string(v).ok())
+                    .unwrap_or_else(|| "[]".to_string()),
+            ),
             created_at: Set(now),
             updated_at: Set(now),
         };
@@ -212,6 +222,15 @@ impl ChatService {
             .as_ref()
             .and_then(|v| serde_json::to_string(v).ok()));
         model.active_profile_id = Set(normalized.active_profile_id);
+        if let Some(slugs) = req.enabled_skill_slugs {
+            model.enabled_skill_slugs = Set(
+                if slugs.is_empty() {
+                    "[]".to_string()
+                } else {
+                    serde_json::to_string(&slugs).unwrap_or_else(|_| "[]".to_string())
+                },
+            );
+        }
 
         let updated = model.update(&self.db).await.map_err(AppError::from)?;
         Ok(to_api_session(updated))
@@ -567,6 +586,7 @@ fn to_api_session(m: chat_session::Model) -> ChatSession {
             .profile_ids
             .as_deref()
             .and_then(|s| serde_json::from_str(s).ok()),
+        enabled_skill_slugs: serde_json::from_str(&m.enabled_skill_slugs).unwrap_or_default(),
         active_profile_id: m.active_profile_id,
         id: m.id,
         title: m.title,
@@ -732,6 +752,7 @@ mod tests {
                     system_prompt: None,
                     tool_categories: None,
                     profile_ids: Some(vec!["pf_a".to_string(), "pf_b".to_string()]),
+                    enabled_skill_slugs: None,
                 })
                 .await
                 .expect("create session");
@@ -759,6 +780,7 @@ mod tests {
                     system_prompt: None,
                     tool_categories: None,
                     profile_ids: Some(vec!["pf_a".to_string(), "pf_b".to_string()]),
+                    enabled_skill_slugs: None,
                 })
                 .await
                 .expect("create session");
@@ -774,6 +796,7 @@ mod tests {
                         tool_categories: None,
                         profile_ids: None,
                         active_profile_id: Some(Some("pf_b".to_string())),
+                        enabled_skill_slugs: None,
                     },
                 )
                 .await
@@ -830,6 +853,7 @@ mod tests {
                     system_prompt: None,
                     tool_categories: None,
                     profile_ids: None,
+                    enabled_skill_slugs: None,
                 })
                 .await
                 .expect("create session");

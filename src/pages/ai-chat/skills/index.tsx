@@ -1,5 +1,5 @@
-import { AiChatPlaceholder } from '@/features/ai-chat/ui/ai-chat-placeholder';
+import { AiSkillPage } from '@/features/ai-skill/ui/ai-skill-page';
 
 export function AiChatSkillsRoutePage() {
-	return <AiChatPlaceholder tab="skills" />;
+	return <AiSkillPage />;
 }

@@ -12,6 +12,7 @@ pub struct Model {
     pub tool_categories: Option<String>,
     pub profile_ids: Option<String>,
     pub active_profile_id: Option<String>,
+    pub enabled_skill_slugs: String,
     pub created_at: i64,
     pub updated_at: i64,
 }

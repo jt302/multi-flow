@@ -33,6 +33,19 @@
 	"copyMessage": "Copy message",
 	"toolCallPending": "Calling tool: {{name}}",
 	"toolCallingFallback": "Calling tools...",
+	"skills": {
+		"title": "Skills",
+		"empty": "No skills yet. Click + to create one.",
+		"selectOrCreate": "Select or create a skill",
+		"saved": "Saved",
+		"confirmDelete": "Delete skill \"{{name}}\"?",
+		"fieldName": "Name",
+		"fieldNamePlaceholder": "My Skill",
+		"fieldDesc": "Description",
+		"fieldVersion": "Version",
+		"fieldBody": "Skill Body (Markdown)",
+		"bodyPlaceholder": "Describe the skill's capabilities and behavior..."
+	},
 	"placeholder": {
 		"skills": {
 			"title": "Skills",

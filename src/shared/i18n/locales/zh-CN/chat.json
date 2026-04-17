@@ -33,6 +33,19 @@
 	"copyMessage": "复制消息",
 	"toolCallPending": "正在调用工具：{{name}}",
 	"toolCallingFallback": "调用工具中...",
+	"skills": {
+		"title": "Skills",
+		"empty": "暂无 Skill，点击 + 新建",
+		"selectOrCreate": "选择或新建一个 Skill",
+		"saved": "已保存",
+		"confirmDelete": "确认删除 Skill「{{name}}」？",
+		"fieldName": "名称",
+		"fieldNamePlaceholder": "我的 Skill",
+		"fieldDesc": "描述",
+		"fieldVersion": "版本",
+		"fieldBody": "Skill 正文（Markdown）",
+		"bodyPlaceholder": "在这里描述 Skill 的能力和行为..."
+	},
 	"placeholder": {
 		"skills": {
 			"title": "Skills 管理",
