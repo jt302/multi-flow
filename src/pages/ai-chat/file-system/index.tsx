@@ -1,5 +1,5 @@
-import { AiChatPlaceholder } from '@/features/ai-chat/ui/ai-chat-placeholder';
+import { FsWorkspacePage } from '@/features/fs-workspace/ui/fs-workspace-page';
 
 export function AiChatFileSystemRoutePage() {
-	return <AiChatPlaceholder tab="fileSystem" />;
+	return <FsWorkspacePage />;
 }

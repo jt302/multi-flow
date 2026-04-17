@@ -9,6 +9,15 @@ use uuid::Uuid;
 
 use crate::error::{AppError, AppResult};
 
+/// 文件系统白名单条目（外部目录访问权限）
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct FsWhitelistEntry {
+    pub id: String,
+    pub label: String,
+    pub path: String,
+    pub allow_write: bool,
+}
+
 const PREFERENCES_DIR: &str = "preferences";
 const PREFERENCES_FILE_NAME: &str = "app-preferences.json";
 
@@ -46,6 +55,12 @@ struct AppPreferencesFile {
     /// 全局默认启动 URL（profile 未配置时作为 fallback；None 表示使用空标签页）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     global_default_startup_url: Option<String>,
+    /// AI 文件系统沙箱根目录（None 表示使用默认 {appData}/fs）
+    #[serde(default)]
+    fs_sandbox_root: Option<String>,
+    /// AI 文件系统外部白名单目录列表
+    #[serde(default)]
+    fs_external_whitelist: Vec<FsWhitelistEntry>,
 }
 
 fn default_true() -> bool {
@@ -66,6 +81,8 @@ impl Default for AppPreferencesFile {
             dev_chromium_executable: None,
             app_language: None,
             global_default_startup_url: None,
+            fs_sandbox_root: None,
+            fs_external_whitelist: Vec::new(),
         }
     }
 }
@@ -431,6 +448,41 @@ impl AppPreferenceService {
                 .insert(tool_name.to_string(), require_confirmation);
         }
         self.write_preferences_file(&preferences)
+    }
+
+    // ── 文件系统沙箱和白名单 ────────────────────────────────────────────
+
+    pub fn get_fs_sandbox_root(&self) -> AppResult<Option<String>> {
+        let prefs = self.read_preferences_file()?;
+        Ok(prefs.fs_sandbox_root)
+    }
+
+    pub fn set_fs_sandbox_root(&self, path: Option<String>) -> AppResult<()> {
+        let mut prefs = self.read_preferences_file()?;
+        prefs.fs_sandbox_root = path;
+        self.write_preferences_file(&prefs)
+    }
+
+    pub fn get_fs_external_whitelist(&self) -> AppResult<Vec<FsWhitelistEntry>> {
+        let prefs = self.read_preferences_file()?;
+        Ok(prefs.fs_external_whitelist)
+    }
+
+    pub fn add_fs_whitelist_entry(&self, entry: FsWhitelistEntry) -> AppResult<()> {
+        let mut prefs = self.read_preferences_file()?;
+        prefs.fs_external_whitelist.retain(|e| e.id != entry.id);
+        prefs.fs_external_whitelist.push(entry);
+        self.write_preferences_file(&prefs)
+    }
+
+    pub fn remove_fs_whitelist_entry(&self, id: &str) -> AppResult<()> {
+        let mut prefs = self.read_preferences_file()?;
+        prefs.fs_external_whitelist.retain(|e| e.id != id);
+        self.write_preferences_file(&prefs)
+    }
+
+    pub fn update_fs_whitelist_entry(&self, entry: FsWhitelistEntry) -> AppResult<()> {
+        self.add_fs_whitelist_entry(entry)
     }
 
     fn read_preferences_file(&self) -> AppResult<AppPreferencesFile> {

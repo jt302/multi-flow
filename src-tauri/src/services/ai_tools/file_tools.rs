@@ -19,9 +19,58 @@ pub async fn execute(
     args: Value,
     ctx: &mut ToolContext<'_>,
 ) -> Result<ToolResult, String> {
+    // 新增：多根目录工作区工具（需要 AppHandle）
+    match name {
+        "file_list_roots" => {
+            let result = handle_file_list_roots(ctx.app).await
+                .map(|v| serde_json::to_string(&v).unwrap_or_else(|e| e.to_string()))
+                .unwrap_or_else(|e| format!("错误: {e}"));
+            return Ok(ToolResult::text(result));
+        }
+        "file_read_folder_desc" => {
+            let root_id = args.get("root_id").and_then(|v| v.as_str()).unwrap_or("default");
+            let rel_path = args.get("rel_path").and_then(|v| v.as_str()).unwrap_or(".");
+            let result = handle_file_read_folder_desc(ctx.app, root_id, rel_path).await
+                .map(|v| v.unwrap_or_else(|| "（暂无说明）".to_string()))
+                .unwrap_or_else(|e| format!("错误: {e}"));
+            return Ok(ToolResult::text(result));
+        }
+        "file_write_folder_desc" => {
+            let root_id = args.get("root_id").and_then(|v| v.as_str()).unwrap_or("default");
+            let rel_path = args.get("rel_path").and_then(|v| v.as_str()).unwrap_or(".");
+            let text = args.get("text").and_then(|v| v.as_str()).unwrap_or("");
+            let result = handle_file_write_folder_desc(ctx.app, root_id, rel_path, text).await
+                .map(|()| "说明已保存".to_string())
+                .unwrap_or_else(|e| format!("错误: {e}"));
+            return Ok(ToolResult::text(result));
+        }
+        _ => {}
+    }
+
     let fs_root = crate::state::ensure_app_fs_root(ctx.app)
         .map_err(|err| format!("无法初始化 app 内 fs 文件系统目录: {err}"))?;
     execute_with_fs_root(name, args, &fs_root)
+}
+
+async fn handle_file_list_roots(app: &tauri::AppHandle) -> Result<Vec<crate::services::fs_workspace_service::FsRoot>, String> {
+    crate::services::fs_workspace_service::from_app(app)
+        .map_err(|e| e.to_string())?
+        .list_roots()
+        .map_err(|e| e.to_string())
+}
+
+async fn handle_file_read_folder_desc(app: &tauri::AppHandle, root_id: &str, rel_path: &str) -> Result<Option<String>, String> {
+    crate::services::fs_workspace_service::from_app(app)
+        .map_err(|e| e.to_string())?
+        .read_description(root_id, rel_path)
+        .map_err(|e| e.to_string())
+}
+
+async fn handle_file_write_folder_desc(app: &tauri::AppHandle, root_id: &str, rel_path: &str, text: &str) -> Result<(), String> {
+    crate::services::fs_workspace_service::from_app(app)
+        .map_err(|e| e.to_string())?
+        .save_description(root_id, rel_path, text)
+        .map_err(|e| e.to_string())
 }
 
 fn execute_with_fs_root(name: &str, args: Value, fs_root: &Path) -> Result<ToolResult, String> {

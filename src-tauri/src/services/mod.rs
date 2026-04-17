@@ -22,3 +22,4 @@ pub mod resource_service;
 pub mod sync_manager_service;
 pub mod token_counter;
 pub mod ai_skill_service;
+pub mod fs_workspace_service;

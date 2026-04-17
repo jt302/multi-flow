@@ -351,6 +351,18 @@ pub fn run() {
             commands::window_commands::batch_close_inactive_tabs,
             commands::window_commands::batch_open_profile_windows,
             commands::window_commands::batch_focus_profile_windows,
+            commands::fs_workspace_commands::fs_list_roots,
+            commands::fs_workspace_commands::fs_list_dir,
+            commands::fs_workspace_commands::fs_create_folder,
+            commands::fs_workspace_commands::fs_delete_entry,
+            commands::fs_workspace_commands::fs_read_description,
+            commands::fs_workspace_commands::fs_save_description,
+            commands::fs_workspace_commands::fs_set_sandbox_root,
+            commands::fs_workspace_commands::fs_get_sandbox_root,
+            commands::fs_workspace_commands::fs_get_whitelist,
+            commands::fs_workspace_commands::fs_add_whitelist_entry,
+            commands::fs_workspace_commands::fs_remove_whitelist_entry,
+            commands::fs_workspace_commands::fs_update_whitelist_entry,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

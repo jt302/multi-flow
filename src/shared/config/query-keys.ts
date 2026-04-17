@@ -17,4 +17,6 @@ export const queryKeys = {
 	chatMessages: (sessionId: string) => ['chat-messages', sessionId] as const,
 	aiSkills: ['ai-skills'] as const,
 	aiSkill: (slug: string) => ['ai-skills', slug] as const,
+	fsRoots: ['fs-roots'] as const,
+	fsDir: (rootId: string, relPath: string) => ['fs-dir', rootId, relPath] as const,
 };

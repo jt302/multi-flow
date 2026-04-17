@@ -10,3 +10,4 @@ pub mod resource_commands;
 pub mod sync_commands;
 pub mod window_commands;
 pub mod ai_skill_commands;
+pub mod fs_workspace_commands;

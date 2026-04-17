@@ -2055,6 +2055,55 @@ fn file_tools() -> Vec<Value> {
                 "required": ["path"]
             }),
         ),
+        tool(
+            "file_list_roots",
+            "列出所有可访问的文件系统根目录（默认沙箱 + 用户配置的外部白名单目录）",
+            json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        ),
+        tool(
+            "file_read_folder_desc",
+            "读取指定目录的 description.md 说明文件",
+            json!({
+                "type": "object",
+                "properties": {
+                    "root_id": {
+                        "type": "string",
+                        "description": "根目录 ID，默认为 'default'（AI 沙箱）"
+                    },
+                    "rel_path": {
+                        "type": "string",
+                        "description": "相对于根目录的路径，使用 '.' 表示根目录本身"
+                    }
+                },
+                "required": ["rel_path"]
+            }),
+        ),
+        tool(
+            "file_write_folder_desc",
+            "写入或更新指定目录的 description.md 说明文件（仅允许写根）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "root_id": {
+                        "type": "string",
+                        "description": "根目录 ID，默认为 'default'"
+                    },
+                    "rel_path": {
+                        "type": "string",
+                        "description": "相对于根目录的路径"
+                    },
+                    "text": {
+                        "type": "string",
+                        "description": "说明文件内容（Markdown 格式）"
+                    }
+                },
+                "required": ["rel_path", "text"]
+            }),
+        ),
     ]
 }
 
