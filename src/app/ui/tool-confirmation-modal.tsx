@@ -147,7 +147,7 @@ export function ToolConfirmationModal() {
 					<AlertDialogAction
 						onClick={() => void handleResponse(true)}
 						disabled={submitting}
-						className="bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-pointer h-9 px-4"
+						className="bg-destructive text-white hover:bg-destructive/90 cursor-pointer h-9 px-4"
 					>
 						{t('toolConfirmation.confirm')}
 					</AlertDialogAction>
