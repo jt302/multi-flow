@@ -525,7 +525,7 @@ app_list_device_presets(platform="android")
 **注意事项**：
 
 - ⚠️ `app_update_device_preset`、`app_delete_device_preset`、`app_delete_profile` 和 `app_delete_group` 是高风险操作，通常会触发 Multi-Flow 的工具确认弹窗。
-- `app_create_device_preset` / `app_update_device_preset` 需要传完整字段，字段语义与设置页“机型映射”表单一致。
+- `app_create_device_preset` / `app_update_device_preset` 需要传完整字段，字段语义与设置页“机型预设”表单一致。
 - `app_start_profile` 启动浏览器需要几秒钟，建议配合 `wait` 或 `cdp_wait_for_page_load` 使用。
 - 在多环境聊天会话中，先调用 `app_set_chat_active_profile(profile_id)`，再执行 `cdp_*` / `magic_*`。
 - `app_get_current_profile` 返回当前工具目标环境，适合在脚本或聊天中确认当前上下文。
@@ -1071,6 +1071,6 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 2   | `skill_read`                 | 读取指定 skill 的完整内容（body + 附件）      |
 | 3   | `skill_create`               | ⚠️ 创建新 skill（写磁盘）                     |
 | 4   | `skill_update`               | ⚠️ 更新已有 skill 的元数据或 body             |
-| 5   | `skill_delete`               | ⚠️ 删除 skill（不可恢复）                     |
+| 5   | `skill_delete`               | ⚠️ 删除用户 skill（默认内置 skill 不可删除）  |
 | 6   | `skill_install`              | ⚠️ 从 skills.sh / GitHub / SKILL.md 安装 skill 到 `fs/.agents/skills` |
 | 7   | `skill_enable_for_session`   | 添加/移除当前 session 的启用 skill 列表       |

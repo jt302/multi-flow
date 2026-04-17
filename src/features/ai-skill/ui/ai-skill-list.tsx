@@ -69,6 +69,11 @@ export function AiSkillList({ skills, isLoading, selectedSlug, onSelect, onDelet
 											{t('skills.disabledBadge')}
 										</span>
 									)}
+									{skill.builtIn && (
+										<span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+											{t('skills.builtInBadge')}
+										</span>
+									)}
 								</div>
 								<div className="text-xs text-muted-foreground">
 									{skill.description?.trim() || t('skills.noDescription')}
@@ -93,17 +98,19 @@ export function AiSkillList({ skills, isLoading, selectedSlug, onSelect, onDelet
 										}
 									/>
 								</div>
-								<Button
-									size="icon-sm"
-									variant="ghost"
-									className="cursor-pointer shrink-0"
-									onClick={(e) => {
-										e.stopPropagation();
-										setPendingDelete(skill);
-									}}
-								>
-									<Trash2 className="h-3.5 w-3.5" />
-								</Button>
+								{skill.deletable && (
+									<Button
+										size="icon-sm"
+										variant="ghost"
+										className="cursor-pointer shrink-0"
+										onClick={(e) => {
+											e.stopPropagation();
+											setPendingDelete(skill);
+										}}
+									>
+										<Trash2 className="h-3.5 w-3.5" />
+									</Button>
+								)}
 								<ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
 							</div>
 						</div>

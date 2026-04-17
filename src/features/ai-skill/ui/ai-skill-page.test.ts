@@ -45,6 +45,12 @@ test('ai skill page exposes an install entry and dialog', () => {
 	assert.equal(pageSource.includes('skills.installTitle'), true);
 });
 
+test('ai skill page exposes a refresh entry wired to query refetch', () => {
+	assert.equal(pageSource.includes('handleRefresh'), true);
+	assert.equal(pageSource.includes('refetch'), true);
+	assert.equal(pageSource.includes('skills.refreshAction'), true);
+});
+
 test('ai skill install dialog shows loading feedback while submitting', () => {
 	assert.equal(installSource.includes('LoaderCircle'), true);
 	assert.equal(installSource.includes("installSkill.isPending ? t('skills.installPending') : t('skills.installAction')"), true);
@@ -62,4 +68,10 @@ test('ai skill list renders card-style rows instead of bordered sidebar items', 
 	assert.equal(listSource.includes('rounded-xl border border-border/70 bg-card'), true);
 	assert.equal(listSource.includes('border-b px-4 py-3'), false);
 	assert.equal(listSource.includes("Switch"), true);
+});
+
+test('ai skill list hides delete action for built-in skills and shows badge', () => {
+	assert.equal(listSource.includes('skill.builtIn'), true);
+	assert.equal(listSource.includes('skill.deletable'), true);
+	assert.equal(listSource.includes("t('skills.builtInBadge')"), true);
 });

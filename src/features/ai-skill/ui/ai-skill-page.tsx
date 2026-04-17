@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download, Plus } from 'lucide-react';
+import { Download, LoaderCircle, Plus, RefreshCw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -19,7 +19,7 @@ import { AiSkillInstallDialog } from './ai-skill-install-dialog';
 export function AiSkillPage() {
 	const { t } = useTranslation('chat');
 	const activeSessionId = useChatStore((state) => state.activeSessionId);
-	const { data: skills = [], isLoading } = useAiSkillsQuery();
+	const { data: skills = [], isLoading, isFetching, refetch } = useAiSkillsQuery();
 	const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
 	const [isCreating, setIsCreating] = useState(false);
 	const [dialogOpen, setDialogOpen] = useState(false);
@@ -55,6 +55,10 @@ export function AiSkillPage() {
 		setInstallDialogOpen(true);
 	};
 
+	const handleRefresh = () => {
+		void refetch();
+	};
+
 	return (
 		<div className="flex h-full flex-col gap-4 p-4">
 			<div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border/70 bg-card px-5 py-4 shadow-sm">
@@ -63,6 +67,10 @@ export function AiSkillPage() {
 					<p className="max-w-2xl text-sm text-muted-foreground">{t('skills.pageDescription')}</p>
 				</div>
 				<div className="flex items-center gap-2">
+					<Button type="button" variant="outline" onClick={handleRefresh} className="cursor-pointer">
+						{isFetching ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+						{isFetching ? t('skills.refreshPending') : t('skills.refreshAction')}
+					</Button>
 					<Button type="button" variant="outline" onClick={handleInstall} className="cursor-pointer">
 						<Download className="h-4 w-4" />
 						{t('skills.installAction')}

@@ -6,6 +6,7 @@ export function useAiSkillsQuery() {
 	return useQuery({
 		queryKey: queryKeys.aiSkills,
 		queryFn: () => aiSkillApi.list(),
+		staleTime: 0,
 	});
 }
 

@@ -1,6 +1,8 @@
 //! AI Skill 服务 —— Claude Code 风格 markdown skill 加载与管理
 //!
-//! Skill 存储位置：{appData/fs}/.agents/skills/<slug>/SKILL.md
+//! Skill 来源：
+//! - 内置：{repo}/docs/default-skills/<slug>/SKILL.md
+//! - 用户：{appData/fs}/.agents/skills/<slug>/SKILL.md
 //! frontmatter 格式（YAML）：name / slug / description / version / enabled / triggers / allowed_tools / model
 //! body（frontmatter 之后的 markdown）在调用时注入 system prompt
 
@@ -34,6 +36,8 @@ pub struct SkillMeta {
     pub triggers: Vec<String>,
     pub allowed_tools: Vec<String>,
     pub model: Option<String>,
+    pub built_in: bool,
+    pub deletable: bool,
 }
 
 /// Skill 子目录中的附件文件（scripts/ references/ assets/）
@@ -139,6 +143,8 @@ pub fn parse_skill_file(slug: &str, content: &str) -> AppResult<SkillFull> {
         triggers: raw.triggers.unwrap_or_default(),
         allowed_tools: raw.allowed_tools.or(raw.allowed_tools_hyphen).unwrap_or_default(),
         model: raw.model,
+        built_in: false,
+        deletable: true,
     };
 
     Ok(SkillFull { meta, body: body.to_string(), attachments: vec![] })
@@ -152,15 +158,35 @@ fn is_valid_slug(s: &str) -> bool {
 
 #[derive(Clone)]
 pub struct AiSkillService {
-    skills_root: PathBuf,
+    user_skills_root: PathBuf,
+    built_in_skills_root: PathBuf,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SkillSource {
+    BuiltIn,
+    User,
 }
 
 impl AiSkillService {
     pub fn new(app_fs_root: PathBuf) -> Self {
-        Self { skills_root: app_fs_root.join(".agents").join("skills") }
+        Self::new_with_roots(
+            app_fs_root.join(".agents").join("skills"),
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("..")
+                .join("docs")
+                .join("default-skills"),
+        )
     }
 
-    fn skill_path(&self, slug: &str) -> AppResult<PathBuf> {
+    fn new_with_roots(user_skills_root: PathBuf, built_in_skills_root: PathBuf) -> Self {
+        Self {
+            user_skills_root,
+            built_in_skills_root,
+        }
+    }
+
+    fn validate_slug(&self, slug: &str) -> AppResult<()> {
         // traversal 保护：slug 不允许包含路径分隔符
         let p = PathBuf::from(slug);
         if p.components().any(|c| matches!(c, Component::ParentDir | Component::RootDir)) {
@@ -169,23 +195,42 @@ impl AiSkillService {
         if !is_valid_slug(slug) {
             return Err(AppError::Validation(format!("slug '{slug}' 只允许 [a-z0-9-]+")));
         }
-        Ok(self.skills_root.join(slug).join("SKILL.md"))
+        Ok(())
     }
 
-    pub fn list_skills(&self) -> AppResult<Vec<SkillMeta>> {
-        if !self.skills_root.exists() {
+    fn user_skill_path(&self, slug: &str) -> AppResult<PathBuf> {
+        self.validate_slug(slug)?;
+        Ok(self.user_skills_root.join(slug).join("SKILL.md"))
+    }
+
+    fn built_in_skill_path(&self, slug: &str) -> AppResult<PathBuf> {
+        self.validate_slug(slug)?;
+        Ok(self.built_in_skills_root.join(slug).join("SKILL.md"))
+    }
+
+    fn is_built_in_slug(&self, slug: &str) -> AppResult<bool> {
+        Ok(self.built_in_skill_path(slug)?.exists())
+    }
+
+    fn read_skills_from_root(
+        &self,
+        root: &PathBuf,
+        source: SkillSource,
+    ) -> AppResult<Vec<SkillMeta>> {
+        if !root.exists() {
             return Ok(vec![]);
         }
+
         let mut result = Vec::new();
-        for entry in fs::read_dir(&self.skills_root).map_err(|e| {
-            AppError::Validation(format!("读取 skills 目录失败: {e}"))
-        })? {
+        for entry in fs::read_dir(root)
+            .map_err(|e| AppError::Validation(format!("读取 skills 目录失败: {e}")))? {
             let entry = entry.map_err(|e| AppError::Validation(format!("遍历目录失败: {e}")))?;
             let path = entry.path();
             if !path.is_dir() {
                 continue;
             }
-            let slug = path.file_name()
+            let slug = path
+                .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("")
                 .to_string();
@@ -196,9 +241,25 @@ impl AiSkillService {
             if !skill_md.exists() {
                 continue;
             }
-            match self.read_skill_file(&slug, &skill_md) {
+            match self.read_skill_file(&slug, &skill_md, source) {
                 Ok(full) => result.push(full.meta),
                 Err(e) => crate::logger::warn("ai-skill", format!("跳过无法解析的 skill '{slug}': {e}")),
+            }
+        }
+
+        Ok(result)
+    }
+
+    pub fn list_skills(&self) -> AppResult<Vec<SkillMeta>> {
+        let built_in = self.read_skills_from_root(&self.built_in_skills_root, SkillSource::BuiltIn)?;
+        let user = self.read_skills_from_root(&self.user_skills_root, SkillSource::User)?;
+
+        let mut result = built_in;
+        let mut seen: std::collections::HashSet<String> =
+            result.iter().map(|item| item.slug.clone()).collect();
+        for meta in user {
+            if seen.insert(meta.slug.clone()) {
+                result.push(meta);
             }
         }
         result.sort_by(|a, b| a.slug.cmp(&b.slug));
@@ -206,14 +267,20 @@ impl AiSkillService {
     }
 
     pub fn read_skill(&self, slug: &str) -> AppResult<SkillFull> {
-        let path = self.skill_path(slug)?;
-        if !path.exists() {
-            return Err(AppError::NotFound(format!("skill '{slug}' 不存在")));
+        let built_in_path = self.built_in_skill_path(slug)?;
+        if built_in_path.exists() {
+            return self.read_skill_file(slug, &built_in_path, SkillSource::BuiltIn);
         }
-        self.read_skill_file(slug, &path)
+
+        let user_path = self.user_skill_path(slug)?;
+        if user_path.exists() {
+            return self.read_skill_file(slug, &user_path, SkillSource::User);
+        }
+
+        Err(AppError::NotFound(format!("skill '{slug}' 不存在")))
     }
 
-    fn read_skill_file(&self, slug: &str, path: &PathBuf) -> AppResult<SkillFull> {
+    fn read_skill_file(&self, slug: &str, path: &PathBuf, source: SkillSource) -> AppResult<SkillFull> {
         let meta = fs::metadata(path).map_err(|e| AppError::Validation(format!("读取文件元信息失败: {e}")))?;
         if meta.len() > MAX_SKILL_SIZE {
             return Err(AppError::Validation(format!(
@@ -225,6 +292,8 @@ impl AiSkillService {
         let content = fs::read_to_string(path)
             .map_err(|e| AppError::Validation(format!("读取 SKILL.md 失败: {e}")))?;
         let mut full = parse_skill_file(slug, &content)?;
+        full.meta.built_in = source == SkillSource::BuiltIn;
+        full.meta.deletable = source == SkillSource::User;
         // 加载附件子目录（scripts/ references/ assets/）
         let skill_dir = path.parent().unwrap_or(path);
         full.attachments = load_attachments(skill_dir);
@@ -235,7 +304,10 @@ impl AiSkillService {
         if !is_valid_slug(&req.slug) {
             return Err(AppError::Validation(format!("slug '{}' 不合法", req.slug)));
         }
-        let dir = self.skills_root.join(&req.slug);
+        if self.is_built_in_slug(&req.slug)? {
+            return Err(AppError::Validation(format!("skill '{}' 是默认 Skill，不允许覆盖", req.slug)));
+        }
+        let dir = self.user_skills_root.join(&req.slug);
         if dir.exists() {
             return Err(AppError::Validation(format!("skill '{}' 已存在", req.slug)));
         }
@@ -257,10 +329,16 @@ impl AiSkillService {
         fs::write(&path, &content)
             .map_err(|e| AppError::Validation(format!("写入 SKILL.md 失败: {e}")))?;
 
-        parse_skill_file(&req.slug, &content)
+        let mut full = parse_skill_file(&req.slug, &content)?;
+        full.meta.built_in = false;
+        full.meta.deletable = true;
+        Ok(full)
     }
 
     pub fn update_skill(&self, slug: &str, req: UpdateSkillRequest) -> AppResult<SkillFull> {
+        if self.is_built_in_slug(slug)? {
+            return Err(AppError::Validation(format!("skill '{slug}' 是默认 Skill，不允许编辑")));
+        }
         let existing = self.read_skill(slug)?;
         let meta = &existing.meta;
 
@@ -284,18 +362,21 @@ impl AiSkillService {
             new_model,
             new_body,
         );
-        let path = self.skill_path(slug)?;
+        let path = self.user_skill_path(slug)?;
         fs::write(&path, &content)
             .map_err(|e| AppError::Validation(format!("写入 SKILL.md 失败: {e}")))?;
-
-        parse_skill_file(slug, &content)
+        let mut full = parse_skill_file(slug, &content)?;
+        full.meta.built_in = false;
+        full.meta.deletable = true;
+        Ok(full)
     }
 
     pub fn delete_skill(&self, slug: &str) -> AppResult<()> {
-        let dir = self.skills_root.join(slug);
-        if !is_valid_slug(slug) {
-            return Err(AppError::Validation(format!("slug '{slug}' 不合法")));
+        self.validate_slug(slug)?;
+        if self.is_built_in_slug(slug)? {
+            return Err(AppError::Validation(format!("skill '{slug}' 是默认 Skill，不允许删除")));
         }
+        let dir = self.user_skills_root.join(slug);
         if !dir.exists() {
             return Err(AppError::NotFound(format!("skill '{slug}' 不存在")));
         }
@@ -447,6 +528,7 @@ pub fn from_app(app: &tauri::AppHandle) -> AppResult<AiSkillService> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn parse_valid_skill_frontmatter() {
@@ -558,9 +640,12 @@ allowed_tools:
         std::fs::create_dir_all(&scripts).unwrap();
         std::fs::write(scripts.join("run.sh"), "echo hi").unwrap();
 
-        let svc = AiSkillService { skills_root: tmp.path().parent().unwrap().to_path_buf() };
+        let svc = AiSkillService::new_with_roots(
+            tmp.path().join("user"),
+            tmp.path().join("builtins"),
+        );
         // 直接调内部方法（为测试构造路径）
-        let full = svc.read_skill_file("dummy", &skill_md).unwrap();
+        let full = svc.read_skill_file("dummy", &skill_md, SkillSource::User).unwrap();
         assert_eq!(full.attachments.len(), 1);
         assert_eq!(full.attachments[0].path, "scripts/run.sh");
     }
@@ -570,13 +655,17 @@ allowed_tools:
         let tmp = tempfile::TempDir::new().unwrap();
         let svc = AiSkillService::new(tmp.path().to_path_buf());
 
-        assert_eq!(svc.skills_root, tmp.path().join(".agents").join("skills"));
+        assert_eq!(svc.user_skills_root, tmp.path().join(".agents").join("skills"));
+        assert!(svc.built_in_skills_root.ends_with("docs/default-skills"));
     }
 
     #[test]
     fn create_and_read_skill_from_agents_skills_root() {
         let tmp = tempfile::TempDir::new().unwrap();
-        let svc = AiSkillService::new(tmp.path().to_path_buf());
+        let svc = AiSkillService::new_with_roots(
+            tmp.path().join(".agents").join("skills"),
+            tmp.path().join("builtins"),
+        );
 
         svc.create_skill(CreateSkillRequest {
             slug: "demo-skill".to_string(),
@@ -602,5 +691,72 @@ allowed_tools:
         let full = svc.read_skill("demo-skill").unwrap();
         assert_eq!(full.meta.slug, "demo-skill");
         assert_eq!(full.body, "body text");
+        assert_eq!(full.meta.built_in, false);
+        assert_eq!(full.meta.deletable, true);
+    }
+
+    #[test]
+    fn built_in_skill_is_listed_and_read_first() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let user_root = tmp.path().join("user");
+        let built_in_root = tmp.path().join("builtins");
+        fs::create_dir_all(user_root.join("find-skills")).unwrap();
+        fs::create_dir_all(built_in_root.join("find-skills")).unwrap();
+        fs::write(
+            user_root.join("find-skills").join("SKILL.md"),
+            "---\nname: User Find\n---\nuser body",
+        )
+        .unwrap();
+        fs::write(
+            built_in_root.join("find-skills").join("SKILL.md"),
+            "---\nname: Built In Find\n---\nbuiltin body",
+        )
+        .unwrap();
+
+        let svc = AiSkillService::new_with_roots(user_root, built_in_root);
+        let listed = svc.list_skills().unwrap();
+
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].name, "Built In Find");
+        assert_eq!(listed[0].built_in, true);
+        assert_eq!(listed[0].deletable, false);
+
+        let full = svc.read_skill("find-skills").unwrap();
+        assert_eq!(full.body, "builtin body");
+        assert_eq!(full.meta.built_in, true);
+    }
+
+    #[test]
+    fn delete_built_in_skill_is_rejected() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let user_root = tmp.path().join("user");
+        let built_in_root = tmp.path().join("builtins");
+        fs::create_dir_all(built_in_root.join("find-skills")).unwrap();
+        fs::write(
+            built_in_root.join("find-skills").join("SKILL.md"),
+            "---\nname: Built In Find\n---\nbuiltin body",
+        )
+        .unwrap();
+        let svc = AiSkillService::new_with_roots(user_root, built_in_root);
+
+        let err = svc.delete_skill("find-skills").expect_err("built-in delete should fail");
+        assert!(matches!(err, AppError::Validation(message) if message.contains("不允许删除")));
+    }
+
+    #[test]
+    fn delete_user_skill_still_works() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let user_root = tmp.path().join("user");
+        let built_in_root = tmp.path().join("builtins");
+        fs::create_dir_all(user_root.join("custom-skill")).unwrap();
+        fs::write(
+            user_root.join("custom-skill").join("SKILL.md"),
+            "---\nname: Custom Skill\n---\nuser body",
+        )
+        .unwrap();
+        let svc = AiSkillService::new_with_roots(user_root.clone(), built_in_root);
+
+        svc.delete_skill("custom-skill").unwrap();
+        assert!(!user_root.join("custom-skill").exists());
     }
 }

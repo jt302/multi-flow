@@ -46,6 +46,7 @@ export function AiSkillEditor({ slug, isNew, onSaved, onCancel }: Props) {
 	const { data: existing } = useAiSkillQuery(isNew ? null : slug);
 	const createMut = useCreateAiSkill();
 	const updateMut = useUpdateAiSkill();
+	const readOnly = Boolean(existing?.builtIn && !isNew);
 
 	const { register, handleSubmit, reset, control, formState: { errors, isDirty } } = useForm<FormValues>({
 		resolver: zodResolver(schema),
@@ -123,12 +124,12 @@ export function AiSkillEditor({ slug, isNew, onSaved, onCancel }: Props) {
 			<div className="grid grid-cols-2 gap-3">
 				<div className="flex flex-col gap-1">
 					<Label className="text-xs">Slug</Label>
-					<Input {...register('slug')} disabled={!isNew} placeholder="my-skill" className="h-8 text-sm" />
+					<Input {...register('slug')} disabled={!isNew || readOnly} placeholder="my-skill" className="h-8 text-sm" />
 					{errors.slug && <span className="text-xs text-destructive">{errors.slug.message}</span>}
 				</div>
 				<div className="flex flex-col gap-1">
 					<Label className="text-xs">{t('skills.fieldName')}</Label>
-					<Input {...register('name')} className="h-8 text-sm" />
+					<Input {...register('name')} disabled={readOnly} className="h-8 text-sm" />
 					{errors.name && <span className="text-xs text-destructive">{errors.name.message}</span>}
 				</div>
 			</div>
@@ -137,11 +138,11 @@ export function AiSkillEditor({ slug, isNew, onSaved, onCancel }: Props) {
 			<div className="grid grid-cols-2 gap-3">
 				<div className="flex flex-col gap-1">
 					<Label className="text-xs">{t('skills.fieldDesc')}</Label>
-					<Input {...register('description')} className="h-8 text-sm" />
+					<Input {...register('description')} disabled={readOnly} className="h-8 text-sm" />
 				</div>
 				<div className="flex flex-col gap-1">
 					<Label className="text-xs">{t('skills.fieldVersion')}</Label>
-					<Input {...register('version')} className="h-8 text-sm" />
+					<Input {...register('version')} disabled={readOnly} className="h-8 text-sm" />
 				</div>
 			</div>
 
@@ -156,6 +157,7 @@ export function AiSkillEditor({ slug, isNew, onSaved, onCancel }: Props) {
 								checked={field.value}
 								onCheckedChange={field.onChange}
 								id="skill-enabled"
+								disabled={readOnly}
 							/>
 						)}
 					/>
@@ -163,7 +165,7 @@ export function AiSkillEditor({ slug, isNew, onSaved, onCancel }: Props) {
 				</div>
 				<div className="flex flex-col gap-1">
 					<Label className="text-xs">{t('skills.fieldModel')}</Label>
-					<Input {...register('model')} placeholder="claude-opus-4-7" className="h-8 text-sm font-mono" />
+					<Input {...register('model')} disabled={readOnly} placeholder="claude-opus-4-7" className="h-8 text-sm font-mono" />
 				</div>
 			</div>
 
@@ -173,6 +175,7 @@ export function AiSkillEditor({ slug, isNew, onSaved, onCancel }: Props) {
 					<Label className="text-xs">{t('skills.fieldTriggers')}</Label>
 					<Textarea
 						{...register('triggers')}
+						disabled={readOnly}
 						placeholder={t('skills.triggersPlaceholder')}
 						className="resize-none text-xs font-mono"
 						rows={3}
@@ -182,6 +185,7 @@ export function AiSkillEditor({ slug, isNew, onSaved, onCancel }: Props) {
 					<Label className="text-xs">{t('skills.fieldAllowedTools')}</Label>
 					<Textarea
 						{...register('allowedTools')}
+						disabled={readOnly}
 						placeholder={t('skills.allowedToolsPlaceholder')}
 						className="resize-none text-xs font-mono"
 						rows={3}
@@ -192,8 +196,12 @@ export function AiSkillEditor({ slug, isNew, onSaved, onCancel }: Props) {
 			{/* Body */}
 			<div className="flex flex-1 flex-col gap-1">
 				<Label className="text-xs">{t('skills.fieldBody')}</Label>
+				{readOnly && (
+					<p className="text-xs text-muted-foreground">{t('skills.builtInReadonly')}</p>
+				)}
 				<Textarea
 					{...register('body')}
+					disabled={readOnly}
 					placeholder={t('skills.bodyPlaceholder')}
 					className="flex-1 resize-none font-mono text-sm"
 					rows={8}
@@ -203,7 +211,7 @@ export function AiSkillEditor({ slug, isNew, onSaved, onCancel }: Props) {
 
 			<div className="flex justify-end gap-2">
 				<Button type="button" variant="ghost" onClick={onCancel} className="cursor-pointer">{t('common:cancel')}</Button>
-				<Button type="submit" disabled={createMut.isPending || updateMut.isPending || (!isNew && !isDirty)} className="cursor-pointer">{t('common:save')}</Button>
+				<Button type="submit" disabled={readOnly || createMut.isPending || updateMut.isPending || (!isNew && !isDirty)} className="cursor-pointer">{t('common:save')}</Button>
 			</div>
 		</form>
 	);

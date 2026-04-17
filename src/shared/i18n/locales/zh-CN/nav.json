@@ -99,7 +99,7 @@
 	"sidebar": {
 		"navigation": "导航",
 		"profileList": "环境列表",
-		"devicePresets": "机型映射",
+		"devicePresets": "机型预设",
 		"aiChatSessions": "会话",
 		"aiChatSkills": "Skills",
 		"aiChatFileSystem": "文件系统",

@@ -2670,7 +2670,7 @@ DOM 元素查询，返回匹配元素候选列表（用于后续 `magic_click_do
 
 ### 3.9 Skill 工具（7 个）
 
-Agent 可通过这些工具动态安装、管理 skill，并调整当前 session 中启用的 skill 列表。写操作（`skill_create`/`skill_update`/`skill_delete`/`skill_install`）属于危险工具，需要用户确认。
+Agent 可通过这些工具动态安装、管理 skill，并调整当前 session 中启用的 skill 列表。写操作（`skill_create`/`skill_update`/`skill_delete`/`skill_install`）属于危险工具，需要用户确认。默认内置 skill 来自仓库 `docs/default-skills`，可读取但不可删除，且与用户目录重名时以内置版本为准。
 
 #### `skill_list`
 
@@ -2678,7 +2678,7 @@ Agent 可通过这些工具动态安装、管理 skill，并调整当前 session
 
 **参数**：无
 
-**返回**：`SkillMeta[]` JSON — 包含 `slug, name, description, enabled, triggers, allowedTools, model, version`
+**返回**：`SkillMeta[]` JSON — 包含 `slug, name, description, enabled, triggers, allowedTools, model, version, builtIn, deletable`
 
 ---
 
@@ -2733,7 +2733,7 @@ Agent 可通过这些工具动态安装、管理 skill，并调整当前 session
 
 #### `skill_delete`
 
-永久删除 skill 目录。
+永久删除用户 skill 目录；默认内置 skill 不允许删除。
 
 | 参数 | 类型 | 必需 | 说明 |
 |------|------|------|------|

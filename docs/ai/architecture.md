@@ -121,7 +121,7 @@
   - 设备预设当前采用“数据库单源模型”：
     - 应用启动后由 `device_preset_service` 将 catalog 默认预设 seed 到 `device_presets` 表
     - 环境创建页、环境列表显示和启动时的 snapshot 解析统一走 `device_preset_service`
-    - 设置页“机型映射”编辑的就是数据库中的同一份数据；点击“新建机型”只重置表单，点击保存后才真正写库
+    - 设置页“机型预设”编辑的就是数据库中的同一份数据；点击“新建机型”只重置表单，点击保存后才真正写库
   - 后端会从 snapshot 统一注入：
     - `--custom-platform`
     - `--custom-ua-metadata`

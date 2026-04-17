@@ -1,6 +1,6 @@
 {
 	"page": {
-		"title": "机型映射",
+		"title": "机型预设",
 		"desc": "管理环境可用的设备指纹预设，创建环境时可选择对应机型",
 		"addPreset": "新增机型预设",
 		"editPreset": "编辑机型预设",
@@ -34,9 +34,9 @@
 		"cpuCores": "CPU 核心数",
 		"memory": "内存 (GB)",
 		"uaTemplate": "UA 模板",
-		"editTitle": "编辑机型映射",
-		"createTitle": "新增机型映射",
-		"cardDesc": "这里维护环境创建、环境列表展示和启动链路共用的机型映射参数。",
+		"editTitle": "编辑机型预设",
+		"createTitle": "新增机型预设",
+		"cardDesc": "这里维护环境创建、环境列表展示和启动链路共用的机型预设参数。",
 		"editing": "编辑中",
 		"pendingSave": "待保存新项",
 		"clearAndNew": "清空并新建",

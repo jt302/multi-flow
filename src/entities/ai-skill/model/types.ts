@@ -7,6 +7,8 @@ export interface AiSkillMeta {
 	triggers: string[];
 	allowedTools: string[];
 	model?: string;
+	builtIn: boolean;
+	deletable: boolean;
 }
 
 export interface AiSkillAttachment {

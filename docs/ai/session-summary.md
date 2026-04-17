@@ -21,7 +21,7 @@
 - **workspace-layout.tsx** - 工作区布局
 
 更新翻译文件：
-- `nav.json` - 新增 sidebar.* 键（navigation, devicePresets, runtimeStatus, executionEngine等）
+- `nav.json` - 新增 sidebar.* 键（navigation, devicePresets, runtimeStatus, executionEngine等），侧边栏文案已统一为“机型预设”
 - `common.json` - 新增 40+ 翻译键（processing, confirm, cancel, stepErrorTitle等）
 
 #### 阶段2：关键功能组件（已完成）
