@@ -1578,6 +1578,19 @@ pub(crate) fn do_open_profile(
     let mut engine_manager = state.lock_engine_manager();
     let mut merged_options = merge_open_options(profile_snapshot.settings.as_ref(), user_options);
     merged_options.fingerprint_seed = Some(fingerprint_seed);
+    // 若未指定启动 URL，使用全局默认启动 URL（若已配置）
+    if merged_options.startup_urls.as_ref().map_or(true, |v| v.is_empty())
+        && merged_options.startup_url.is_none()
+    {
+        if let Ok(global_url) = state
+            .app_preference_service
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .read_global_default_startup_url()
+        {
+            merged_options.startup_url = global_url;
+        }
+    }
     let cookie_state_file = prepare_cookie_state_file(
         profile_id,
         profile_snapshot.settings.as_ref(),
@@ -1714,7 +1727,7 @@ fn resolve_launch_options(
     let startup_urls =
         normalize_startup_urls(options.startup_urls.clone(), options.startup_url.clone())
             .map_err(|_| format!("validation failed: invalid startupUrl for {profile_id}"))?
-            .unwrap_or_else(|| vec![DEFAULT_STARTUP_URL.to_string()]);
+            .unwrap_or_default();
     let geolocation_mode = resolve_effective_geolocation_mode(&options);
     let geolocation = resolve_effective_geolocation(
         profile_id,

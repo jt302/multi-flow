@@ -27,7 +27,6 @@ import {
 	buildFingerprintSource,
 	buildResolutionValuesFromPreset,
 	compareVersions,
-	DEFAULT_STARTUP_URL,
 	dedupeProfilePluginSelections,
 	generateRandomCustomDeviceName,
 	generateRandomCustomMacAddress,
@@ -160,7 +159,7 @@ export function useProfileCreateForm({
 			startupUrls:
 				initialBasic?.startupUrls?.join('\n') ??
 				initialBasic?.startupUrl ??
-				DEFAULT_STARTUP_URL,
+				'',
 			browserBgColor: initialBasic?.browserBgColor ?? '',
 			proxyId: initialProxyId ?? '__none__',
 			language: initialFingerprint?.fingerprintSnapshot?.language ?? '',
