@@ -65,7 +65,7 @@ export function McpPage() {
 			defaultLayout={defaultLayout}
 			onLayoutChanged={onLayoutChanged}
 		>
-			<ResizablePanel defaultSize={defaultLayout?.[0] ?? 30} minSize={20} maxSize={40}>
+			<ResizablePanel id="mcp-sidebar" defaultSize={defaultLayout?.[0] ?? 30} minSize={20} maxSize={40}>
 				<McpServerList
 					servers={servers}
 					selectedId={selectedId}
@@ -76,7 +76,7 @@ export function McpPage() {
 
 			<ResizableHandle />
 
-			<ResizablePanel defaultSize={defaultLayout?.[1] ?? 70} minSize={40}>
+			<ResizablePanel id="mcp-detail" defaultSize={defaultLayout?.[1] ?? 70} minSize={40}>
 				<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
 					{servers.length === 0 ? t('mcp.emptyHint') : t('mcp.selectOrCreate')}
 				</div>

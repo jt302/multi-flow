@@ -15,6 +15,16 @@ test('ai assistant pages persist sidebar widths with the same layout hook', () =
 	assert.equal(mcpSource.includes("id: 'mcp-layout'"), true);
 });
 
+test('ai assistant pages use stable panel ids so saved layouts survive refresh', () => {
+	assert.equal(chatSource.includes('id="ai-chat-sidebar"'), true);
+	assert.equal(skillSource.includes('id="ai-skill-sidebar"'), true);
+	assert.equal(fsSource.includes('id="fs-roots-panel"'), true);
+	assert.equal(fsSource.includes('id="fs-directory-panel"'), true);
+	assert.equal(fsSource.includes('id="fs-description-panel"'), true);
+	assert.equal(mcpSource.includes('id="mcp-sidebar"'), true);
+	assert.equal(mcpSource.includes('id="mcp-detail"'), true);
+});
+
 test('chat, skill, file system and mcp pages all use the shared resizable handle style', () => {
 	assert.equal(chatSource.includes('<ResizableHandle />'), true);
 	assert.equal(skillSource.includes('<ResizableHandle />'), true);

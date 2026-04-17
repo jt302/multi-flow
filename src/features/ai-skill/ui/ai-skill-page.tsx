@@ -59,7 +59,7 @@ export function AiSkillPage() {
 			defaultLayout={defaultLayout}
 			onLayoutChanged={onLayoutChanged}
 		>
-			<ResizablePanel defaultSize={defaultLayout?.[0] ?? 30} minSize={20}>
+			<ResizablePanel id="ai-skill-sidebar" defaultSize={defaultLayout?.[0] ?? 30} minSize={20}>
 				<div className="flex h-full flex-col">
 					<div className="flex items-center justify-between border-b px-4 py-3">
 						<span className="text-sm font-medium">{t('skills.title')}</span>
@@ -77,7 +77,7 @@ export function AiSkillPage() {
 				</div>
 			</ResizablePanel>
 			<ResizableHandle />
-			<ResizablePanel defaultSize={defaultLayout?.[1] ?? 70}>
+			<ResizablePanel id="ai-skill-detail" defaultSize={defaultLayout?.[1] ?? 70}>
 				<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
 					{t('skills.selectOrCreate')}
 				</div>

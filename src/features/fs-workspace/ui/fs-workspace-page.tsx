@@ -165,7 +165,7 @@ export function FsWorkspacePage() {
 				onLayoutChanged={onLayoutChanged}
 			>
 				{/* 左栏: 根列表 */}
-				<ResizablePanel defaultSize={20} minSize={15} maxSize={35}>
+				<ResizablePanel id="fs-roots-panel" defaultSize={20} minSize={15} maxSize={35}>
 					<div className="flex h-full flex-col">
 						<div className="flex items-center justify-between border-b px-3 py-2">
 							<span className="text-xs font-medium text-muted-foreground">
@@ -209,7 +209,7 @@ export function FsWorkspacePage() {
 				<ResizableHandle />
 
 				{/* 中栏: 目录内容 */}
-				<ResizablePanel defaultSize={40} minSize={25}>
+				<ResizablePanel id="fs-directory-panel" defaultSize={40} minSize={25}>
 					<div className="flex h-full flex-col">
 						{/* 面包屑 */}
 						<div className="flex items-center gap-1 overflow-x-auto border-b px-3 py-2 text-xs text-muted-foreground">
@@ -310,7 +310,7 @@ export function FsWorkspacePage() {
 				<ResizableHandle />
 
 				{/* 右栏: 说明编辑 */}
-				<ResizablePanel defaultSize={40} minSize={25}>
+				<ResizablePanel id="fs-description-panel" defaultSize={40} minSize={25}>
 					<div className="flex h-full flex-col">
 						<div className="border-b px-3 py-2">
 							<span className="text-xs font-medium text-muted-foreground">
