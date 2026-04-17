@@ -45,13 +45,13 @@ pub fn generate_pkce() -> (String, String) {
 }
 
 /// 在随机端口启动本地 HTTP loopback 服务，等待 OAuth 回调
-/// 返回 authorization_code
-pub async fn wait_for_oauth_callback(port: u16) -> Result<String, String> {
+/// 返回 authorization_code（同时校验 state 防止 CSRF）
+pub async fn wait_for_oauth_callback(port: u16, expected_state: String) -> Result<String, String> {
     use axum::{extract::Query, routing::get, Router};
     use std::net::SocketAddr;
     use tokio::sync::oneshot;
 
-    let (tx, rx) = oneshot::channel::<String>();
+    let (tx, rx) = oneshot::channel::<Result<String, String>>();
     let tx = std::sync::Arc::new(tokio::sync::Mutex::new(Some(tx)));
 
     let tx_clone = tx.clone();
@@ -59,11 +59,20 @@ pub async fn wait_for_oauth_callback(port: u16) -> Result<String, String> {
         "/callback",
         get(move |Query(params): Query<HashMap<String, String>>| {
             let tx = tx_clone.clone();
+            let state_expected = expected_state.clone();
             async move {
+                let received_state = params.get("state").map(|s| s.as_str()).unwrap_or("");
+                if received_state != state_expected {
+                    let mut lock = tx.lock().await;
+                    if let Some(sender) = lock.take() {
+                        let _ = sender.send(Err("OAuth state mismatch (possible CSRF attack)".to_string()));
+                    }
+                    return "Authorization failed: state mismatch. You can close this window.".to_string();
+                }
                 if let Some(code) = params.get("code") {
                     let mut lock = tx.lock().await;
                     if let Some(sender) = lock.take() {
-                        let _ = sender.send(code.clone());
+                        let _ = sender.send(Ok(code.clone()));
                     }
                 }
                 "Authorization complete. You can close this window.".to_string()
@@ -81,13 +90,13 @@ pub async fn wait_for_oauth_callback(port: u16) -> Result<String, String> {
     });
 
     // 等待回调（180 秒超时）
-    let code = tokio::time::timeout(std::time::Duration::from_secs(180), rx)
+    let result = tokio::time::timeout(std::time::Duration::from_secs(180), rx)
         .await
         .map_err(|_| "OAuth authorization timed out (180s)".to_string())?
         .map_err(|_| "OAuth callback channel closed".to_string())?;
 
     server_handle.abort();
-    Ok(code)
+    result
 }
 
 /// 用 code 换取 access_token
@@ -225,4 +234,34 @@ pub fn find_available_port() -> u16 {
         }
     }
     54320
+}
+
+// ─── OS Keychain 存储（替代明文 SQLite） ──────────────────────────────────
+
+const KEYRING_SERVICE: &str = "io.multiflow.app.mcp";
+
+/// 把 OAuth/Bearer token 存入 OS keychain（macOS Keychain / Windows Credential Store / Linux Secret Service）
+pub fn save_tokens_to_keychain(server_id: &str, tokens_json: &str) -> Result<(), String> {
+    let entry = keyring::Entry::new(KEYRING_SERVICE, server_id)
+        .map_err(|e| format!("Keychain 条目创建失败: {e}"))?;
+    entry.set_password(tokens_json)
+        .map_err(|e| format!("Keychain 写入失败: {e}"))
+}
+
+/// 从 OS keychain 读取 token（不存在时返回 None）
+pub fn load_tokens_from_keychain(server_id: &str) -> Result<Option<String>, String> {
+    let entry = keyring::Entry::new(KEYRING_SERVICE, server_id)
+        .map_err(|e| format!("Keychain 条目创建失败: {e}"))?;
+    match entry.get_password() {
+        Ok(tokens) => Ok(Some(tokens)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(format!("Keychain 读取失败: {e}")),
+    }
+}
+
+/// 删除 OS keychain 中的 token（server 删除时调用）
+pub fn delete_tokens_from_keychain(server_id: &str) {
+    if let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, server_id) {
+        let _ = entry.delete_credential();
+    }
 }

@@ -377,6 +377,18 @@ pub fn run() {
             commands::mcp_commands::list_all_mcp_tools,
             commands::mcp_commands::call_mcp_tool,
         ])
+        .plugin(
+            TauriPluginBuilder::<tauri::Wry, ()>::new("mcp-lifecycle")
+                .on_event(|app, event| {
+                    if let RunEvent::Exit = event {
+                        let mcp_manager = app.state::<crate::state::AppState>().mcp_manager.clone();
+                        if let Ok(rt) = tokio::runtime::Handle::try_current() {
+                            rt.block_on(async { mcp_manager.shutdown_all().await });
+                        }
+                    }
+                })
+                .build(),
+        )
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
