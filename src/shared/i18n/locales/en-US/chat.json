@@ -113,7 +113,17 @@
 		"fieldAllowedTools": "Allowed Tools (one per line, empty = all)",
 		"fieldModel": "Model (optional, overrides session config)",
 		"triggersPlaceholder": "onboarding\ndata-analysis",
-		"allowedToolsPlaceholder": "file_read\nfile_write"
+		"allowedToolsPlaceholder": "file_read\nfile_write",
+		"installTitle": "Install Skill",
+		"installDescription": "Install a skill from skills.sh, GitHub, or a direct SKILL.md link into the app.",
+		"installAction": "Install",
+		"installPending": "Installing...",
+		"installSource": "Source",
+		"installSourcePlaceholder": "https://skills.sh/vercel-labs/skills/find-skills",
+		"installSourceRequired": "Please enter a skill source",
+		"installHint": "Supports skills.sh links, GitHub URLs, owner/repo/path, or direct SKILL.md links.",
+		"installed": "Installed skill \"{{name}}\"",
+		"installedAndEnabled": "Installed and enabled skill \"{{name}}\""
 	},
 	"mcp": {
 		"sessionFilter": "Session MCP Filter",

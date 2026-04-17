@@ -193,7 +193,7 @@ pub fn tool_risk_level(tool_name: &str) -> ToolRiskLevel {
         | "magic_safe_quit" | "file_write" | "file_append" | "file_mkdir"
         | "file_str_replace" | "file_write_folder_desc" | "cdp_clear_storage"
         | "cdp_delete_cookies" | "auto_delete_script"
-        | "skill_create" | "skill_update" | "skill_delete" => {
+        | "skill_create" | "skill_update" | "skill_delete" | "skill_install" => {
             ToolRiskLevel::Dangerous
         }
 
@@ -252,6 +252,7 @@ pub fn all_dangerous_tool_names() -> Vec<&'static str> {
         "skill_create",
         "skill_update",
         "skill_delete",
+        "skill_install",
     ]
 }
 

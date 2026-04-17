@@ -33,6 +33,17 @@ export function useDeleteAiSkill() {
 	});
 }
 
+export function useInstallAiSkill() {
+	const qc = useQueryClient();
+	return useMutation({
+		mutationFn: aiSkillApi.install,
+		onSuccess: () => {
+			qc.invalidateQueries({ queryKey: queryKeys.aiSkills });
+			qc.invalidateQueries({ queryKey: queryKeys.chatSessions });
+		},
+	});
+}
+
 export function useSetSessionSkills() {
 	const qc = useQueryClient();
 	return useMutation({

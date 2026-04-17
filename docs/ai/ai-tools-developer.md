@@ -1,7 +1,7 @@
 # Multi-Flow AI 工具开发者参考文档
 
 > **最后更新日期**: 2026-04-17
-> **工具总数**: 195 个
+> **工具总数**: 196 个
 > **分类**: 8 个（Utility / CDP / Magic Controller / App Data / Auto / File I/O / Dialog / Captcha）
 
 ---
@@ -27,7 +27,7 @@
 
 ## 1. 概述
 
-Multi-Flow 的自动化系统为 AI Agent 提供了 **195 个工具**，覆盖浏览器控制、应用数据管理、自动化管理、文件操作、用户交互等完整能力。
+Multi-Flow 的自动化系统为 AI Agent 提供了 **196 个工具**，覆盖浏览器控制、应用数据管理、自动化管理、文件操作、用户交互等完整能力。
 
 ### 工具系统架构
 
@@ -92,7 +92,7 @@ ToolRegistry（注册表）
 | File I/O         | `file_`                            | 6    | app 内 `fs` 文件系统读写                    |
 | Dialog           | `dialog_`                          | 13   | 向用户展示 UI 弹窗获取反馈                  |
 | Captcha          | `captcha_`                         | 5    | CAPTCHA 检测与自动求解                      |
-| **合计**         |                                    | **195** |                                          |
+| **合计**         |                                    | **196** |                                          |
 
 ---
 
@@ -2668,9 +2668,9 @@ DOM 元素查询，返回匹配元素候选列表（用于后续 `magic_click_do
 - 后端检测逻辑会尽量提取 `callback`、`pageAction`、`data-s / enterprisePayload`、页面真实 `userAgent` 等上下文，并在求解时按服务商支持情况透传。
 - 聊天系统提示词要求：验证码未通过时必须明确说明阻塞，不能把“注入成功”表述成“验证通过”，也不能未经用户同意擅自切换到 DuckDuckGo 等替代站点。
 
-### 3.9 Skill 工具（6 个）
+### 3.9 Skill 工具（7 个）
 
-Agent 可通过这些工具动态安装、管理 skill，并调整当前 session 中启用的 skill 列表。写操作（`skill_create`/`skill_update`/`skill_delete`）属于危险工具，需要用户确认。
+Agent 可通过这些工具动态安装、管理 skill，并调整当前 session 中启用的 skill 列表。写操作（`skill_create`/`skill_update`/`skill_delete`/`skill_install`）属于危险工具，需要用户确认。
 
 #### `skill_list`
 
@@ -2740,6 +2740,29 @@ Agent 可通过这些工具动态安装、管理 skill，并调整当前 session
 | `slug` | string | 是 | 要删除的 skill |
 
 **返回**：确认字符串
+
+**风险**：Dangerous
+
+---
+
+#### `skill_install`
+
+从外部来源安装 skill，统一落盘到 `{appData/fs}/skills/<slug>/`。当前支持 `skills.sh` 链接、GitHub 仓库/路径、以及直接 `SKILL.md` 链接。安装成功后默认尝试自动启用到当前 session。
+
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `source` | string | 是 | 安装来源 |
+| `sourceType` | string | 否 | `auto` / `url` / `git`，默认 `auto` |
+| `slugHint` | string | 否 | 当仓库中存在多个 skill 时辅助定位 |
+| `enableForSession` | boolean | 否 | 是否自动启用到当前 session，默认 `true` |
+| `sessionId` | string | 否 | 显式指定目标 session |
+
+**返回**：`InstallSkillResult` JSON — 包含 `slug, name, installedPath, enabledForSession, sourceType, installedFiles, warnings`
+
+**限制**：
+- 不支持覆盖已有 slug
+- 仅同步 `scripts/`、`references/`、`assets/` 三类附件目录
+- 不支持 zip、多 Skill 批量安装、任意本地目录导入
 
 **风险**：Dangerous
 

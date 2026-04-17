@@ -41,3 +41,21 @@ export interface UpdateSkillRequest {
 	model?: string;
 	body?: string;
 }
+
+export interface InstallSkillRequest {
+	source: string;
+	sourceType?: 'auto' | 'url' | 'git';
+	slugHint?: string;
+	enableForSession?: boolean;
+	sessionId?: string;
+}
+
+export interface InstallSkillResult {
+	slug: string;
+	name: string;
+	installedPath: string;
+	enabledForSession: boolean;
+	sourceType: string;
+	installedFiles: string[];
+	warnings: string[];
+}

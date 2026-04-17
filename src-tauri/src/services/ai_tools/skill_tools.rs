@@ -5,6 +5,7 @@ use serde_json::Value;
 use tauri::Manager;
 
 use crate::services::ai_skill_service::{self, CreateSkillRequest, UpdateSkillRequest};
+use crate::services::skill_install_service::InstallSkillRequest;
 use crate::services::chat_service::{ChatService, UpdateChatSessionRequest};
 use crate::state::AppState;
 
@@ -95,6 +96,37 @@ pub async fn execute(
             let slug = require_str(&args, "slug")?;
             svc.delete_skill(slug).map_err(|e| e.to_string())?;
             Ok(ToolResult::text(format!("Skill '{slug}' deleted")))
+        }
+
+        "skill_install" => {
+            let source = require_str(&args, "source")?.to_string();
+            let payload = InstallSkillRequest {
+                source,
+                source_type: args.get("sourceType").and_then(|v| v.as_str()).map(String::from),
+                slug_hint: args.get("slugHint").and_then(|v| v.as_str()).map(String::from),
+                enable_for_session: Some(
+                    args.get("enableForSession")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(true),
+                ),
+                session_id: Some(
+                    args.get("sessionId")
+                        .and_then(|v| v.as_str())
+                        .map(String::from)
+                        .unwrap_or_else(|| ctx.run_id.to_string()),
+                ),
+            };
+            let state = ctx.app.state::<AppState>();
+            let installed = crate::commands::ai_skill_commands::install_ai_skill_inner(
+                ctx.app,
+                &state,
+                ctx.http_client,
+                payload,
+            )
+            .await?;
+            Ok(ToolResult::text(
+                serde_json::to_string(&installed).unwrap_or_default(),
+            ))
         }
 
         // ── Session 集成 ─────────────────────────────────────────────────────

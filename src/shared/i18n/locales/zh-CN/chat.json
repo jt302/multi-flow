@@ -113,7 +113,17 @@
 		"fieldAllowedTools": "允许工具（每行一个，空 = 全部允许）",
 		"fieldModel": "模型（可选，覆盖会话配置）",
 		"triggersPlaceholder": "onboarding\ndata-analysis",
-		"allowedToolsPlaceholder": "file_read\nfile_write"
+		"allowedToolsPlaceholder": "file_read\nfile_write",
+		"installTitle": "安装 Skill",
+		"installDescription": "从 skills.sh、GitHub 或直接 SKILL.md 链接安装到当前应用内。",
+		"installAction": "安装",
+		"installPending": "安装中...",
+		"installSource": "来源",
+		"installSourcePlaceholder": "https://skills.sh/vercel-labs/skills/find-skills",
+		"installSourceRequired": "请输入安装来源",
+		"installHint": "支持 skills.sh 链接、GitHub 地址、owner/repo/path，或直接 SKILL.md 链接。",
+		"installed": "已安装 Skill「{{name}}」",
+		"installedAndEnabled": "已安装并启用 Skill「{{name}}」"
 	},
 	"mcp": {
 		"sessionFilter": "会话 MCP 过滤",

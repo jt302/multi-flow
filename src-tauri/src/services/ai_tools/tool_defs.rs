@@ -2803,7 +2803,7 @@ fn auto_tools() -> Vec<Value> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Skill 工具（6 个）—— Agent 安装/管理 skill，调整 session skill 列表
+// Skill 工具（7 个）—— Agent 安装/管理 skill，调整 session skill 列表
 // ═══════════════════════════════════════════════════════════════════════════
 
 fn skill_tools() -> Vec<Value> {
@@ -2891,6 +2891,25 @@ fn skill_tools() -> Vec<Value> {
                     "slug": { "type": "string", "description": "要删除的 skill slug" }
                 },
                 "required": ["slug"]
+            }),
+        ),
+        tool(
+            "skill_install",
+            "从 skills.sh、GitHub 仓库或直接 SKILL.md 链接安装 skill。安装成功后默认会尝试自动启用到当前 session。",
+            json!({
+                "type": "object",
+                "properties": {
+                    "source": { "type": "string", "description": "安装来源。支持 skills.sh 链接、GitHub URL、owner/repo/path，或直接 SKILL.md 链接" },
+                    "sourceType": {
+                        "type": "string",
+                        "enum": ["auto", "url", "git"],
+                        "description": "来源类型，默认 auto"
+                    },
+                    "slugHint": { "type": "string", "description": "当仓库中存在多个 skill 时，用于辅助定位目标 skill（可选）" },
+                    "enableForSession": { "type": "boolean", "description": "安装成功后是否自动启用到当前 session，默认 true" },
+                    "sessionId": { "type": "string", "description": "可选会话 ID。未传时默认当前聊天 session" }
+                },
+                "required": ["source"]
             }),
         ),
         tool(

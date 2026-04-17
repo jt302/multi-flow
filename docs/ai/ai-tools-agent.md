@@ -2,7 +2,7 @@
 
 > 最后更新日期: 2026-04-17
 >
-> 本文档面向 AI Agent（LLM）在执行自动化任务时参考，包含全部 195 个工具的使用指南。
+> 本文档面向 AI Agent（LLM）在执行自动化任务时参考，包含全部 196 个工具的使用指南。
 
 ---
 
@@ -1063,7 +1063,7 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 12  | `dialog_save_file`     | 文件保存对话框                                 |
 | 13  | `dialog_select_folder` | 文件夹选择对话框                               |
 
-### Skill — Skill 安装与管理（6 个）
+### Skill — Skill 安装与管理（7 个）
 
 | #   | 工具名                       | 说明                                          |
 | --- | ---------------------------- | --------------------------------------------- |
@@ -1072,4 +1072,5 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 3   | `skill_create`               | ⚠️ 创建新 skill（写磁盘）                     |
 | 4   | `skill_update`               | ⚠️ 更新已有 skill 的元数据或 body             |
 | 5   | `skill_delete`               | ⚠️ 删除 skill（不可恢复）                     |
-| 6   | `skill_enable_for_session`   | 添加/移除当前 session 的启用 skill 列表       |
+| 6   | `skill_install`              | ⚠️ 从 skills.sh / GitHub / SKILL.md 安装 skill |
+| 7   | `skill_enable_for_session`   | 添加/移除当前 session 的启用 skill 列表       |

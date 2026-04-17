@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus } from 'lucide-react';
+import { Download, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -13,18 +13,22 @@ import {
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { usePersistentLayout } from '@/shared/hooks/use-persistent-layout';
 import { useAiSkillsQuery } from '@/entities/ai-skill/model/use-ai-skills-query';
+import { useChatStore } from '@/store/chat-store';
 import { AiSkillList } from './ai-skill-list';
 import { AiSkillEditor } from './ai-skill-editor';
+import { AiSkillInstallDialog } from './ai-skill-install-dialog';
 
 export function AiSkillPage() {
 	const { t } = useTranslation('chat');
 	const { defaultLayout, onLayoutChanged } = usePersistentLayout({
 		id: 'ai-skill-layout',
 	});
+	const activeSessionId = useChatStore((state) => state.activeSessionId);
 	const { data: skills = [], isLoading } = useAiSkillsQuery();
 	const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
 	const [isCreating, setIsCreating] = useState(false);
 	const [dialogOpen, setDialogOpen] = useState(false);
+	const [installDialogOpen, setInstallDialogOpen] = useState(false);
 
 	const handleNew = () => {
 		setSelectedSlug(null);
@@ -52,6 +56,10 @@ export function AiSkillPage() {
 		}
 	};
 
+	const handleInstall = () => {
+		setInstallDialogOpen(true);
+	};
+
 	return (
 		<ResizablePanelGroup
 			direction="horizontal"
@@ -63,9 +71,14 @@ export function AiSkillPage() {
 				<div className="flex h-full flex-col">
 					<div className="flex items-center justify-between border-b px-4 py-3">
 						<span className="text-sm font-medium">{t('skills.title')}</span>
-						<Button size="sm" variant="ghost" onClick={handleNew} className="cursor-pointer h-7 px-2">
-							<Plus className="h-4 w-4" />
-						</Button>
+						<div className="flex items-center gap-1">
+							<Button size="sm" variant="ghost" onClick={handleInstall} className="cursor-pointer h-7 px-2">
+								<Download className="h-4 w-4" />
+							</Button>
+							<Button size="sm" variant="ghost" onClick={handleNew} className="cursor-pointer h-7 px-2">
+								<Plus className="h-4 w-4" />
+							</Button>
+						</div>
 					</div>
 					<AiSkillList
 						skills={skills}
@@ -106,6 +119,22 @@ export function AiSkillPage() {
 							setDialogOpen(false);
 							setIsCreating(false);
 						}}
+					/>
+				</DialogContent>
+			</Dialog>
+			<Dialog open={installDialogOpen} onOpenChange={setInstallDialogOpen}>
+				<DialogContent className="max-w-lg">
+					<DialogHeader>
+						<DialogTitle>{t('skills.installTitle')}</DialogTitle>
+						<DialogDescription>{t('skills.installDescription')}</DialogDescription>
+					</DialogHeader>
+					<AiSkillInstallDialog
+						sessionId={activeSessionId}
+						onInstalled={(slug) => {
+							setSelectedSlug(slug);
+							setInstallDialogOpen(false);
+						}}
+						onCancel={() => setInstallDialogOpen(false)}
 					/>
 				</DialogContent>
 			</Dialog>
