@@ -376,6 +376,7 @@ pub fn run() {
             commands::mcp_commands::list_mcp_tools,
             commands::mcp_commands::list_all_mcp_tools,
             commands::mcp_commands::call_mcp_tool,
+            commands::mcp_commands::discover_mcp_oauth,
         ])
         .plugin(
             TauriPluginBuilder::<tauri::Wry, ()>::new("mcp-lifecycle")

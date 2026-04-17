@@ -3,6 +3,7 @@ import type {
 	CreateMcpServerRequest,
 	McpServer,
 	McpTool,
+	OAuthDiscoveryResult,
 	UpdateMcpServerRequest,
 } from '../model/types';
 
@@ -23,4 +24,6 @@ export const mcpApi = {
 	listTools: (serverId: string) =>
 		tauriInvoke<McpTool[]>('list_mcp_tools', { serverId }),
 	listAllTools: () => tauriInvoke<McpTool[]>('list_all_mcp_tools'),
+	discoverOAuth: (baseUrl: string) =>
+		tauriInvoke<OAuthDiscoveryResult>('discover_mcp_oauth', { baseUrl }),
 };

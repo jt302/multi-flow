@@ -7,6 +7,7 @@ use tauri::{command, AppHandle, Manager};
 use crate::services::mcp::manager::{
     CreateMcpServerRequest, McpServerDto, McpToolDef, UpdateMcpServerRequest,
 };
+use crate::services::mcp::oauth::OAuthDiscoveryResult;
 use crate::services::mcp::McpManager;
 use crate::state::AppState;
 
@@ -117,4 +118,12 @@ pub async fn call_mcp_tool(
     args: serde_json::Value,
 ) -> Result<String, String> {
     mcp(&app).call_tool(&server_id, &tool_name, args).await
+}
+
+/// 发现 OAuth 授权服务器元数据（RFC 8414 / OpenID Connect）
+///
+/// 根据给定 URL 尝试获取 authorization_endpoint、token_endpoint、scopes_supported
+#[command]
+pub async fn discover_mcp_oauth(base_url: String) -> Result<OAuthDiscoveryResult, String> {
+    crate::services::mcp::oauth::discover_oauth_metadata(&base_url).await
 }

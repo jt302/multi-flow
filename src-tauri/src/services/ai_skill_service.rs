@@ -14,6 +14,12 @@ use crate::state::ensure_app_fs_root;
 
 /// skill 文件大小上限：64KB
 const MAX_SKILL_SIZE: u64 = 64 * 1024;
+/// 单个附件文件大小上限：32KB
+const MAX_ATTACHMENT_SIZE: u64 = 32 * 1024;
+/// 所有附件总大小上限：128KB
+const MAX_ATTACHMENTS_TOTAL: u64 = 128 * 1024;
+/// 允许加载附件的子目录名
+const ATTACHMENT_DIRS: &[&str] = &["scripts", "references", "assets"];
 
 // ─── 数据结构 ──────────────────────────────────────────────────────────────
 
@@ -30,12 +36,23 @@ pub struct SkillMeta {
     pub model: Option<String>,
 }
 
+/// Skill 子目录中的附件文件（scripts/ references/ assets/）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillAttachment {
+    /// 相对于 skill 目录的路径，如 scripts/helper.py
+    pub path: String,
+    pub content: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillFull {
     #[serde(flatten)]
     pub meta: SkillMeta,
     pub body: String,
+    /// 来自 scripts/ references/ assets/ 子目录的附件
+    pub attachments: Vec<SkillAttachment>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -124,7 +141,7 @@ pub fn parse_skill_file(slug: &str, content: &str) -> AppResult<SkillFull> {
         model: raw.model,
     };
 
-    Ok(SkillFull { meta, body: body.to_string() })
+    Ok(SkillFull { meta, body: body.to_string(), attachments: vec![] })
 }
 
 fn is_valid_slug(s: &str) -> bool {
@@ -207,7 +224,11 @@ impl AiSkillService {
         }
         let content = fs::read_to_string(path)
             .map_err(|e| AppError::Validation(format!("读取 SKILL.md 失败: {e}")))?;
-        parse_skill_file(slug, &content)
+        let mut full = parse_skill_file(slug, &content)?;
+        // 加载附件子目录（scripts/ references/ assets/）
+        let skill_dir = path.parent().unwrap_or(path);
+        full.attachments = load_attachments(skill_dir);
+        Ok(full)
     }
 
     pub fn create_skill(&self, req: CreateSkillRequest) -> AppResult<SkillFull> {
@@ -332,6 +353,59 @@ impl AiSkillService {
 
 // ─── 辅助函数 ──────────────────────────────────────────────────────────────
 
+/// 扫描 skill 目录下的 scripts/ references/ assets/ 子目录，加载文本附件
+fn load_attachments(skill_dir: &std::path::Path) -> Vec<SkillAttachment> {
+    let mut attachments = Vec::new();
+    let mut total_size: u64 = 0;
+
+    for sub in ATTACHMENT_DIRS {
+        let sub_dir = skill_dir.join(sub);
+        if !sub_dir.is_dir() {
+            continue;
+        }
+        let mut entries: Vec<_> = match fs::read_dir(&sub_dir) {
+            Ok(r) => r.filter_map(|e| e.ok()).collect(),
+            Err(_) => continue,
+        };
+        // 按文件名排序，保证注入顺序确定性
+        entries.sort_by_key(|e| e.file_name());
+
+        for entry in entries {
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            let file_meta = match fs::metadata(&path) {
+                Ok(m) => m,
+                Err(_) => continue,
+            };
+            if file_meta.len() > MAX_ATTACHMENT_SIZE {
+                crate::logger::warn(
+                    "ai-skill",
+                    format!("附件 {:?} 超过单文件限制 {}B，跳过", path, MAX_ATTACHMENT_SIZE),
+                );
+                continue;
+            }
+            if total_size + file_meta.len() > MAX_ATTACHMENTS_TOTAL {
+                crate::logger::warn("ai-skill", "附件总大小超过 128KB 限制，停止加载");
+                return attachments;
+            }
+            let content = match fs::read_to_string(&path) {
+                Ok(c) => c,
+                Err(_) => continue, // 非文本文件跳过
+            };
+            let rel_path = format!(
+                "{}/{}",
+                sub,
+                path.file_name().and_then(|n| n.to_str()).unwrap_or("")
+            );
+            total_size += file_meta.len();
+            attachments.push(SkillAttachment { path: rel_path, content });
+        }
+    }
+    attachments
+}
+
 fn build_skill_content(
     slug: &str,
     name: &str,
@@ -435,5 +509,59 @@ allowed_tools:
         assert_eq!(skill.meta.slug, "round-trip");
         assert_eq!(skill.meta.name, "Round Trip");
         assert_eq!(skill.body, "body text");
+    }
+
+    #[test]
+    fn allowed_tools_hyphen_alias() {
+        let content = "---\nname: Test\nallowed-tools:\n  - file_read\n---\nbody";
+        let skill = parse_skill_file("test", content).unwrap();
+        assert_eq!(skill.meta.allowed_tools, vec!["file_read"]);
+    }
+
+    #[test]
+    fn load_attachments_loads_scripts_dir() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let skill_dir = tmp.path();
+        let scripts = skill_dir.join("scripts");
+        std::fs::create_dir_all(&scripts).unwrap();
+        std::fs::write(scripts.join("helper.py"), "print('hello')").unwrap();
+
+        let attachments = load_attachments(skill_dir);
+        assert_eq!(attachments.len(), 1);
+        assert_eq!(attachments[0].path, "scripts/helper.py");
+        assert!(attachments[0].content.contains("hello"));
+    }
+
+    #[test]
+    fn load_attachments_skips_oversized_file() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let skill_dir = tmp.path();
+        let refs = skill_dir.join("references");
+        std::fs::create_dir_all(&refs).unwrap();
+        // 写入超过 32KB 的文件
+        let big = "x".repeat((MAX_ATTACHMENT_SIZE + 1) as usize);
+        std::fs::write(refs.join("big.txt"), big).unwrap();
+
+        let attachments = load_attachments(skill_dir);
+        assert!(attachments.is_empty(), "超大附件应被跳过");
+    }
+
+    #[test]
+    fn read_skill_file_includes_attachments() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let skill_dir = tmp.path();
+        // 写 SKILL.md
+        let skill_md = skill_dir.join("SKILL.md");
+        std::fs::write(&skill_md, "---\nname: With Attachments\n---\nbody text").unwrap();
+        // 写附件
+        let scripts = skill_dir.join("scripts");
+        std::fs::create_dir_all(&scripts).unwrap();
+        std::fs::write(scripts.join("run.sh"), "echo hi").unwrap();
+
+        let svc = AiSkillService { skills_root: tmp.path().parent().unwrap().to_path_buf() };
+        // 直接调内部方法（为测试构造路径）
+        let full = svc.read_skill_file("dummy", &skill_md).unwrap();
+        assert_eq!(full.attachments.len(), 1);
+        assert_eq!(full.attachments[0].path, "scripts/run.sh");
     }
 }

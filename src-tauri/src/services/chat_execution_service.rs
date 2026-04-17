@@ -226,6 +226,44 @@ impl ChatExecutionService {
                 }
             }));
         }
+        // 注入 MCP Resources 目录到 system prompt
+        {
+            let mcp_manager = app.state::<crate::state::AppState>().mcp_manager.clone();
+            let resources = mcp_manager.all_enabled_resources().await;
+            let filtered_resources: Vec<_> = if disabled_mcp_server_ids.is_empty() {
+                resources
+            } else {
+                resources.into_iter().filter(|r| !disabled_mcp_server_ids.contains(&r.server_id)).collect()
+            };
+            if !filtered_resources.is_empty() {
+                system_prompt_text.push_str("\n\n<mcp_resources>\nThe following MCP resources are available. Use the `read_mcp_resource` tool to read their content.\n");
+                for r in &filtered_resources {
+                    let desc = r.description.as_deref().unwrap_or("");
+                    system_prompt_text.push_str(&format!("- **{}** (`{}`, server: `{}`){}\n",
+                        r.name, r.uri, r.server_id,
+                        if desc.is_empty() { String::new() } else { format!(": {desc}") }
+                    ));
+                }
+                system_prompt_text.push_str("</mcp_resources>");
+                // 动态注入 read_mcp_resource 工具
+                tools.push(serde_json::json!({
+                    "type": "function",
+                    "function": {
+                        "name": "read_mcp_resource",
+                        "description": "读取 MCP 服务器资源的内容。在 system prompt <mcp_resources> 列表中找到目标资源 uri 和 server_id，调用此工具获取内容",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "server_id": { "type": "string", "description": "MCP 服务器 ID" },
+                                "uri": { "type": "string", "description": "资源 URI" }
+                            },
+                            "required": ["server_id", "uri"]
+                        }
+                    }
+                }));
+            }
+        }
+
         // 合并已启用的 MCP 工具（过滤 session 级别禁用的 server）
         {
             let mcp_manager = app.state::<crate::state::AppState>().mcp_manager.clone();

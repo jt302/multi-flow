@@ -64,3 +64,9 @@ export type OAuthConfig = {
 	tokenUrl: string;
 	scopes: string[];
 };
+
+export type OAuthDiscoveryResult = {
+	authorizationEndpoint: string;
+	tokenEndpoint: string;
+	scopesSupported: string[];
+};

@@ -19,10 +19,11 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import type { CreateMcpServerRequest, McpServer } from '@/entities/mcp/model/types';
+import type { CreateMcpServerRequest, McpServer, OAuthDiscoveryResult } from '@/entities/mcp/model/types';
 import {
 	useCreateMcpServer,
 	useDeleteMcpServer,
+	useDiscoverMcpOAuth,
 	useStartMcpOAuth,
 	useTestMcpDraftConnection,
 	useUpdateMcpServer,
@@ -96,6 +97,7 @@ export function McpServerEditor({
 	const deleteServer = useDeleteMcpServer();
 	const testConnection = useTestMcpDraftConnection();
 	const startOAuth = useStartMcpOAuth();
+	const discoverOAuth = useDiscoverMcpOAuth();
 	const initialValues = useMemo(
 		() => buildFormValues(server, t('mcp.newServerName')),
 		[server, t],
@@ -309,7 +311,44 @@ export function McpServerEditor({
 						{authType === 'oauth' ? (
 							<>
 								<div className="space-y-1.5">
-									<Label className="text-xs">{t('mcp.fieldOAuthConfig')}</Label>
+									<div className="flex items-center justify-between">
+										<Label className="text-xs">{t('mcp.fieldOAuthConfig')}</Label>
+										<Button
+											type="button"
+											size="sm"
+											variant="ghost"
+											className="h-6 px-2 text-xs gap-1 cursor-pointer"
+											disabled={discoverOAuth.isPending}
+											onClick={() => {
+												const url = form.getValues('url') || '';
+												if (!url) {
+													import('sonner').then(({ toast }) => toast.error(t('mcp.discoverNeedsUrl')));
+													return;
+												}
+												discoverOAuth.mutate(url, {
+													onSuccess: (result: OAuthDiscoveryResult) => {
+														const existing = form.getValues('oauthConfigJson');
+														let cfg: Record<string, unknown> = {};
+														try { cfg = JSON.parse(existing || '{}'); } catch {}
+														cfg.authUrl = result.authorizationEndpoint;
+														cfg.tokenUrl = result.tokenEndpoint;
+														if (result.scopesSupported.length > 0 && !cfg.scopes) {
+															cfg.scopes = result.scopesSupported;
+														}
+														form.setValue('oauthConfigJson', JSON.stringify(cfg, null, 2), { shouldDirty: true });
+														import('sonner').then(({ toast }) => toast.success(t('mcp.discoverSuccess')));
+													},
+												});
+											}}
+										>
+											{discoverOAuth.isPending ? (
+												<Loader2 className="size-3 animate-spin" />
+											) : (
+												<Link className="size-3" />
+											)}
+											{t('mcp.discoverOAuth')}
+										</Button>
+									</div>
 									<Textarea
 										{...form.register('oauthConfigJson')}
 										className="resize-none text-xs font-mono"

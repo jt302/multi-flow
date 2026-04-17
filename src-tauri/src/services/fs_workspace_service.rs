@@ -363,3 +363,92 @@ impl FsWorkspaceService {
 pub fn from_app(app: &AppHandle) -> AppResult<FsWorkspaceService> {
     FsWorkspaceService::from_app(app)
 }
+
+/// 仅供测试用的裸路径版本 safe_join（不依赖 AppHandle）
+#[cfg(test)]
+pub fn safe_join_path(root: &std::path::Path, rel: &str) -> AppResult<PathBuf> {
+    if rel.is_empty() || rel == "." {
+        return Ok(root.to_path_buf());
+    }
+    let mut resolved = root.to_path_buf();
+    for component in Path::new(rel).components() {
+        match component {
+            Component::Normal(part) => resolved.push(part),
+            Component::CurDir => {}
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                return Err(AppError::Validation("非法路径：禁止使用 .. 或绝对路径".to_string()));
+            }
+        }
+    }
+    if let Ok(canonical_root) = root.canonicalize() {
+        let mut check = resolved.clone();
+        while !check.exists() {
+            match check.parent() {
+                Some(p) => check = p.to_path_buf(),
+                None => return Ok(resolved),
+            }
+        }
+        let canonical_check = check
+            .canonicalize()
+            .map_err(|e| AppError::Validation(format!("符号链接解析失败: {e}")))?;
+        if !canonical_check.starts_with(&canonical_root) {
+            return Err(AppError::Validation(
+                "路径越界：检测到符号链接逃逸根目录".to_string(),
+            ));
+        }
+    }
+    Ok(resolved)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dotdot_traversal_rejected() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path().join("root");
+        std::fs::create_dir_all(&root).unwrap();
+        let result = safe_join_path(&root, "../escape");
+        assert!(result.is_err(), ".. 路径应被拒绝");
+    }
+
+    #[test]
+    fn absolute_path_rejected() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path().join("root");
+        std::fs::create_dir_all(&root).unwrap();
+        let result = safe_join_path(&root, "/etc/passwd");
+        assert!(result.is_err(), "绝对路径应被拒绝");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlink_escape_detected() {
+        use std::os::unix::fs::symlink;
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path().join("root");
+        std::fs::create_dir_all(&root).unwrap();
+
+        // 创建 root 外部的目标目录
+        let outside = tmp.path().join("outside");
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::write(outside.join("secret.txt"), "sensitive").unwrap();
+
+        // 在 root 内创建指向外部的符号链接
+        symlink(&outside, root.join("link")).unwrap();
+
+        let result = safe_join_path(&root, "link/secret.txt");
+        assert!(result.is_err(), "通过符号链接逃逸 root 应被拒绝");
+    }
+
+    #[test]
+    fn normal_path_accepted() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path().join("root");
+        std::fs::create_dir_all(&root).unwrap();
+        let result = safe_join_path(&root, "subdir/file.txt");
+        assert!(result.is_ok());
+        assert!(result.unwrap().starts_with(&root));
+    }
+}

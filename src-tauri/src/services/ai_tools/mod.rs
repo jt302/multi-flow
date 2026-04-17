@@ -283,10 +283,37 @@ impl ToolRegistry {
             let svc = crate::services::ai_skill_service::from_app(ctx.app)
                 .map_err(|e| format!("Skill service error: {e}"))?;
             return match svc.read_skill(slug) {
-                Ok(full) if full.meta.enabled => Ok(ToolResult::text(full.body)),
+                Ok(full) if full.meta.enabled => {
+                    let mut output = full.body.clone();
+                    if !full.attachments.is_empty() {
+                        output.push_str("\n\n---\n## Skill Attachments\n");
+                        for att in &full.attachments {
+                            output.push_str(&format!("\n### {}\n\n```\n{}\n```\n", att.path, att.content));
+                        }
+                    }
+                    Ok(ToolResult::text(output))
+                }
                 Ok(_) => Ok(ToolResult::text(format!("Skill '{}' is disabled", slug))),
                 Err(e) => Err(format!("Skill '{}' not found: {}", slug, e)),
             };
+        }
+
+        // read_mcp_resource 是元工具（按需读取 MCP 资源内容）
+        if name == "read_mcp_resource" {
+            let server_id = args
+                .get("server_id")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| "Missing required parameter: 'server_id'".to_string())?
+                .to_string();
+            let uri = args
+                .get("uri")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| "Missing required parameter: 'uri'".to_string())?
+                .to_string();
+            let state = ctx.app.state::<crate::state::AppState>();
+            let mcp_manager = state.mcp_manager.clone();
+            let text = mcp_manager.read_resource(&server_id, &uri).await?;
+            return Ok(ToolResult::text(text));
         }
 
         let category = tool_category(name);

@@ -111,11 +111,27 @@ pub struct UpdateMcpServerRequest {
     pub oauth_config_json: Option<String>,
 }
 
+// ─── MCP Resources ───────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpResourceDef {
+    pub server_id: String,
+    pub server_name: String,
+    pub uri: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub mime_type: Option<String>,
+}
+
 // ─── 运行态连接 ──────────────────────────────────────────────────────────
 
 /// 每个 MCP 服务器的运行态（工具缓存 + 连接）
 struct McpServerRuntime {
     cached_tools: Vec<McpToolDef>,
+    /// 服务器是否声明 resources capability
+    has_resources: bool,
+    cached_resources: Vec<McpResourceDef>,
     status: McpServerStatus,
     transport: McpRuntimeTransport,
 }
@@ -312,6 +328,48 @@ impl McpManager {
         all_tools
     }
 
+    /// 返回所有已启用服务器的 resources 缓存（需先 all_enabled_tools 触发连接）
+    pub async fn all_enabled_resources(&self) -> Vec<McpResourceDef> {
+        let runtimes = self.runtimes.lock().await;
+        runtimes
+            .values()
+            .filter(|r| r.status == McpServerStatus::Running && r.has_resources)
+            .flat_map(|r| r.cached_resources.clone())
+            .collect()
+    }
+
+    /// 调用 resources/read，返回资源文本内容
+    pub async fn read_resource(&self, server_id: &str, uri: &str) -> Result<String, String> {
+        let mut runtimes = self.runtimes.lock().await;
+        let runtime = runtimes
+            .get_mut(server_id)
+            .ok_or_else(|| "MCP server not connected".to_string())?;
+
+        let result = match &mut runtime.transport {
+            McpRuntimeTransport::Stdio { transport, .. } => {
+                transport.call("resources/read", json!({ "uri": uri })).await
+            }
+            McpRuntimeTransport::Http(transport) => {
+                transport.call("resources/read", json!({ "uri": uri })).await
+            }
+            McpRuntimeTransport::None => Err("No transport available".to_string()),
+        }?;
+
+        // resources/read 响应: { contents: [{ uri, text?, blob? }] }
+        let contents = result
+            .get("contents")
+            .and_then(|c| c.as_array())
+            .ok_or("Invalid resources/read response: missing contents")?;
+
+        let text = contents
+            .iter()
+            .filter_map(|item| item.get("text").and_then(|t| t.as_str()))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        Ok(text)
+    }
+
     /// 确保服务器已连接并返回工具列表
     async fn ensure_connected_and_list_tools(
         &self,
@@ -422,7 +480,7 @@ impl McpManager {
             .call(
                 "initialize",
                 json!({
-                    "protocolVersion": "2024-11-05",
+                    "protocolVersion": "2025-06-18",
                     "capabilities": { "roots": { "listChanged": false } },
                     "clientInfo": { "name": "multi-flow", "version": "1.0.0" }
                 }),
@@ -443,9 +501,28 @@ impl McpManager {
             .notify("notifications/initialized", json!({}))
             .await?;
 
+        // 检查服务器声明的 capabilities
+        let has_resources = init_result
+            .get("capabilities")
+            .and_then(|c| c.get("resources"))
+            .is_some();
+
         // 获取工具列表
         let tools_result = transport.call("tools/list", json!({})).await?;
         let tools = parse_tools_response(tools_result, &server.id, &server.name)?;
+
+        // 若声明了 resources capability，获取资源列表
+        let resources = if has_resources {
+            match transport.call("resources/list", json!({})).await {
+                Ok(r) => parse_resources_response(r, &server.id, &server.name),
+                Err(e) => {
+                    crate::logger::warn("mcp", format!("resources/list failed for '{}': {e}", server.name));
+                    vec![]
+                }
+            }
+        } else {
+            vec![]
+        };
 
         if persist_runtime {
             let mut runtimes = self.runtimes.lock().await;
@@ -453,6 +530,8 @@ impl McpManager {
                 server.id.clone(),
                 McpServerRuntime {
                     cached_tools: tools.clone(),
+                    has_resources,
+                    cached_resources: resources,
                     status: McpServerStatus::Running,
                     transport: McpRuntimeTransport::Stdio { child, transport },
                 },
@@ -483,11 +562,11 @@ impl McpManager {
         let mut transport = HttpTransport::new(url.to_string(), headers, bearer_token);
 
         // MCP initialize handshake
-        let _init_result = transport
+        let init_result = transport
             .call(
                 "initialize",
                 json!({
-                    "protocolVersion": "2024-11-05",
+                    "protocolVersion": "2025-06-18",
                     "capabilities": {},
                     "clientInfo": { "name": "multi-flow", "version": "1.0.0" }
                 }),
@@ -497,9 +576,27 @@ impl McpManager {
         // 发送 initialized 通知（HTTP 传输也需要，忽略错误）
         let _ = transport.notify("notifications/initialized", json!({})).await;
 
+        let has_resources = init_result
+            .get("capabilities")
+            .and_then(|c| c.get("resources"))
+            .is_some();
+
         // 获取工具列表
         let tools_result = transport.call("tools/list", json!({})).await?;
         let tools = parse_tools_response(tools_result, &server.id, &server.name)?;
+
+        // 若声明了 resources capability，获取资源列表
+        let resources = if has_resources {
+            match transport.call("resources/list", json!({})).await {
+                Ok(r) => parse_resources_response(r, &server.id, &server.name),
+                Err(e) => {
+                    crate::logger::warn("mcp", format!("resources/list failed for '{}': {e}", server.name));
+                    vec![]
+                }
+            }
+        } else {
+            vec![]
+        };
 
         if persist_runtime {
             let mut runtimes = self.runtimes.lock().await;
@@ -507,6 +604,8 @@ impl McpManager {
                 server.id.clone(),
                 McpServerRuntime {
                     cached_tools: tools.clone(),
+                    has_resources,
+                    cached_resources: resources,
                     status: McpServerStatus::Running,
                     transport: McpRuntimeTransport::Http(transport),
                 },
@@ -934,6 +1033,30 @@ fn server_slug(server_name: &str) -> String {
 }
 
 /// 解析 MCP tools/list 响应
+fn parse_resources_response(
+    result: Value,
+    server_id: &str,
+    server_name: &str,
+) -> Vec<McpResourceDef> {
+    let resources_array = match result.get("resources").and_then(|r| r.as_array()) {
+        Some(a) => a,
+        None => return vec![],
+    };
+    resources_array
+        .iter()
+        .filter_map(|r| {
+            Some(McpResourceDef {
+                server_id: server_id.to_string(),
+                server_name: server_name.to_string(),
+                uri: r.get("uri")?.as_str()?.to_string(),
+                name: r.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string(),
+                description: r.get("description").and_then(|d| d.as_str()).map(|s| s.to_string()),
+                mime_type: r.get("mimeType").and_then(|m| m.as_str()).map(|s| s.to_string()),
+            })
+        })
+        .collect()
+}
+
 fn parse_tools_response(
     result: Value,
     server_id: &str,

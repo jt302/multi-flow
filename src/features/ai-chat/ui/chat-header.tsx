@@ -26,6 +26,7 @@ import type {
 } from '@/entities/chat/model/types';
 import { queryKeys } from '@/shared/config/query-keys';
 import { useUpdateChatSession } from '../model/use-chat-sessions';
+import { McpServerMultiSelect } from './mcp-server-multi-select';
 import { ProfileMultiSelect } from './profile-multi-select';
 import { SkillMultiSelect } from './skill-multi-select';
 
@@ -169,6 +170,12 @@ export function ChatHeader({ session }: Props) {
 				<SkillMultiSelect
 					selectedSlugs={session.enabledSkillSlugs ?? []}
 					onSelectionChange={(slugs) => doUpdate({ enabledSkillSlugs: slugs.length > 0 ? slugs : null })}
+				/>
+
+				{/* MCP server session filter */}
+				<McpServerMultiSelect
+					disabledIds={session.disabledMcpServerIds}
+					onSelectionChange={(ids) => doUpdate({ disabledMcpServerIds: ids.length > 0 ? ids : null })}
 				/>
 
 				{/* Toggle system prompt */}

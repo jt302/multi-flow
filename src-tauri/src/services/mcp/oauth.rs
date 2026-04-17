@@ -265,3 +265,78 @@ pub fn delete_tokens_from_keychain(server_id: &str) {
         let _ = entry.delete_credential();
     }
 }
+
+// ─── RFC 8414 / OpenID Connect 授权服务器元数据发现 ──────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OAuthDiscoveryResult {
+    pub authorization_endpoint: String,
+    pub token_endpoint: String,
+    pub scopes_supported: Vec<String>,
+}
+
+/// 尝试从给定基础 URL 发现 OAuth 授权服务器元数据（RFC 8414 / OpenID Connect）
+///
+/// 按顺序尝试：
+/// 1. `{base}/.well-known/oauth-authorization-server`（RFC 8414）
+/// 2. `{base}/.well-known/openid-configuration`（OpenID Connect Discovery）
+pub async fn discover_oauth_metadata(base_url: &str) -> Result<OAuthDiscoveryResult, String> {
+    let base = base_url.trim_end_matches('/');
+    let candidates = [
+        format!("{base}/.well-known/oauth-authorization-server"),
+        format!("{base}/.well-known/openid-configuration"),
+    ];
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("HTTP 客户端创建失败: {e}"))?;
+
+    let mut last_err = String::new();
+    for url in &candidates {
+        match client.get(url).send().await {
+            Ok(resp) if resp.status().is_success() => {
+                let body: serde_json::Value = resp
+                    .json()
+                    .await
+                    .map_err(|e| format!("发现端点响应解析失败: {e}"))?;
+
+                let auth_ep = body
+                    .get("authorization_endpoint")
+                    .and_then(|v| v.as_str())
+                    .ok_or("发现文档缺少 authorization_endpoint 字段")?
+                    .to_string();
+                let token_ep = body
+                    .get("token_endpoint")
+                    .and_then(|v| v.as_str())
+                    .ok_or("发现文档缺少 token_endpoint 字段")?
+                    .to_string();
+                let scopes = body
+                    .get("scopes_supported")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|s| s.as_str())
+                            .map(|s| s.to_string())
+                            .collect()
+                    })
+                    .unwrap_or_default();
+
+                return Ok(OAuthDiscoveryResult {
+                    authorization_endpoint: auth_ep,
+                    token_endpoint: token_ep,
+                    scopes_supported: scopes,
+                });
+            }
+            Ok(resp) => {
+                last_err = format!("HTTP {} from {url}", resp.status());
+            }
+            Err(e) => {
+                last_err = format!("{e}");
+            }
+        }
+    }
+
+    Err(format!("未找到 OAuth 元数据端点（最后错误: {last_err}）"))
+}

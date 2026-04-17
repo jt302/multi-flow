@@ -75,3 +75,10 @@ export function useStartMcpOAuth() {
 		onError: (err: unknown) => toast.error(String(err)),
 	});
 }
+
+export function useDiscoverMcpOAuth() {
+	return useMutation({
+		mutationFn: (baseUrl: string) => mcpApi.discoverOAuth(baseUrl),
+		onError: (err: unknown) => toast.error(String(err)),
+	});
+}

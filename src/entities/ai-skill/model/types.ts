@@ -9,8 +9,14 @@ export interface AiSkillMeta {
 	model?: string;
 }
 
+export interface AiSkillAttachment {
+	path: string;
+	content: string;
+}
+
 export interface AiSkillFull extends AiSkillMeta {
 	body: string;
+	attachments: AiSkillAttachment[];
 }
 
 export interface CreateSkillRequest {
