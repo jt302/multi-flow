@@ -1,4 +1,5 @@
-import { Cpu } from 'lucide-react';
+import { ChevronRight, Cpu } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -20,6 +21,12 @@ import { cn } from '@/lib/utils';
 import { getWorkspaceNavItems } from '@/app/model/workspace-nav-items';
 import type { NavId } from '@/app/model/workspace-types';
 import { SidebarFooterStatus } from './sidebar-footer-status';
+import {
+	findAutoExpandedNavId,
+	isExpandableNavItem,
+	resolveNextExpandedNavId,
+	type ExpandableWorkspaceNavId,
+} from './workspace-sidebar-submenu-state';
 
 type WorkspaceSidebarProps = {
 	activeNav: NavId;
@@ -37,6 +44,15 @@ export function WorkspaceSidebar({
 	const { state } = useSidebar();
 	const collapsed = state === 'collapsed';
 	const { t } = useTranslation('nav');
+	const navItems = getWorkspaceNavItems();
+	const [expandedNavId, setExpandedNavId] =
+		useState<ExpandableWorkspaceNavId | null>(() =>
+			findAutoExpandedNavId(navItems, activePath),
+		);
+
+	useEffect(() => {
+		setExpandedNavId(findAutoExpandedNavId(navItems, activePath));
+	}, [activePath]);
 
 	return (
 		<>
@@ -71,8 +87,10 @@ export function WorkspaceSidebar({
 					</SidebarGroupLabel>
 					<SidebarGroupContent>
 						<SidebarMenu className="gap-1.5">
-							{getWorkspaceNavItems().map((item) => {
+							{navItems.map((item) => {
 								const active = item.id === activeNav;
+								const expandable = isExpandableNavItem(item);
+								const expanded = expandable && expandedNavId === item.id;
 								const ItemIcon = item.icon;
 								return (
 									<SidebarMenuItem key={item.id}>
@@ -81,7 +99,19 @@ export function WorkspaceSidebar({
 											variant={active ? 'outline' : 'default'}
 											isActive={active}
 											aria-label={item.label}
-											onClick={() => onNavChange(item.id)}
+											aria-expanded={
+												!collapsed && expandable ? expanded : undefined
+											}
+											onClick={() => {
+												if (expandable) {
+													setExpandedNavId((current) =>
+														resolveNextExpandedNavId(current, item.id),
+													);
+													return;
+												}
+
+												onNavChange(item.id);
+											}}
 											tooltip={item.label}
 											className={cn(
 												'h-10 rounded-xl px-2.5 transition-all duration-300 active:scale-95',
@@ -106,9 +136,21 @@ export function WorkspaceSidebar({
 											>
 												<ItemIcon className="size-3.5" />
 											</span>
-											{collapsed ? null : <span>{item.label}</span>}
+											{collapsed ? null : (
+												<span className="flex min-w-0 flex-1 items-center gap-2">
+													<span className="truncate">{item.label}</span>
+													{expandable ? (
+														<ChevronRight
+															className={cn(
+																'ml-auto size-4 shrink-0 text-sidebar-foreground/60 transition-transform duration-200',
+																expanded && 'rotate-90 text-sidebar-foreground',
+															)}
+														/>
+													) : null}
+												</span>
+											)}
 										</SidebarMenuButton>
-										{!collapsed && item.children?.length ? (
+										{!collapsed && expandable && expanded ? (
 											<SidebarMenuSub>
 												{item.children.map((child) => {
 													const ChildIcon = child.icon;
