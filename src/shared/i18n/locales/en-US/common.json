@@ -431,6 +431,8 @@
 		"message": "AI is requesting to execute a dangerous operation:",
 		"toolName": "Tool",
 		"args": "Arguments",
+		"cwd": "Working directory",
+		"riskReason": "Reason",
 		"confirm": "Confirm",
 		"cancel": "Cancel",
 		"cancelled": "Operation cancelled by user"

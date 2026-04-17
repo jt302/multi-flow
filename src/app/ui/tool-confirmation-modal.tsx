@@ -23,6 +23,8 @@ interface ToolConfirmationRequest {
 	toolName: string;
 	args: Record<string, unknown>;
 	riskLevel: string;
+	cwd?: string;
+	riskReason?: string;
 }
 
 // ── 组件 ─────────────────────────────────────────────────────────────
@@ -110,6 +112,26 @@ export function ToolConfirmationModal() {
 											</ScrollArea>
 										</div>
 									)}
+								{request?.cwd && (
+									<div className="flex flex-col gap-1">
+										<span className="text-muted-foreground">
+											{t('toolConfirmation.cwd')}:
+										</span>
+										<code className="rounded bg-background px-2 py-1 text-xs font-mono break-all">
+											{request.cwd}
+										</code>
+									</div>
+								)}
+								{request?.riskReason && (
+									<div className="flex flex-col gap-1">
+										<span className="text-muted-foreground">
+											{t('toolConfirmation.riskReason')}:
+										</span>
+										<p className="rounded bg-background px-2 py-1 text-xs text-foreground">
+											{request.riskReason}
+										</p>
+									</div>
+								)}
 							</div>
 						</div>
 					</AlertDialogDescription>

@@ -7,6 +7,7 @@
 pub mod app_tools;
 pub mod auto_tools;
 pub mod dialog_tools;
+pub mod exec_tools;
 pub mod file_tools;
 pub mod skill_tools;
 pub mod tool_defs;
@@ -163,6 +164,9 @@ pub fn tool_category(name: &str) -> &str {
     if name.starts_with("dialog_") {
         return "dialog";
     }
+    if name == "exec_command" {
+        return "utility";
+    }
     if name.starts_with("captcha_") {
         return "captcha";
     }
@@ -213,6 +217,8 @@ pub fn tool_risk_level(tool_name: &str) -> ToolRiskLevel {
         {
             ToolRiskLevel::Safe
         }
+
+        "exec_command" => ToolRiskLevel::Moderate,
 
         // 其余为中等风险
         _ => ToolRiskLevel::Moderate,
@@ -324,6 +330,10 @@ impl ToolRegistry {
             let mcp_manager = state.mcp_manager.clone();
             let text = mcp_manager.read_resource(&server_id, &uri).await?;
             return Ok(ToolResult::text(text));
+        }
+
+        if name == "exec_command" {
+            return exec_tools::execute(args, ctx).await;
         }
 
         let category = tool_category(name);

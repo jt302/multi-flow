@@ -437,6 +437,8 @@
 		"message": "AI 正在请求执行以下危险操作：",
 		"toolName": "工具",
 		"args": "参数",
+		"cwd": "工作目录",
+		"riskReason": "原因",
 		"confirm": "确认执行",
 		"cancel": "取消",
 		"cancelled": "操作已被用户取消"

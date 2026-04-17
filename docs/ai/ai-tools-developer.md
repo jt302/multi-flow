@@ -1,7 +1,7 @@
 # Multi-Flow AI 工具开发者参考文档
 
-> **最后更新日期**: 2026-04-16
-> **工具总数**: 194 个
+> **最后更新日期**: 2026-04-17
+> **工具总数**: 195 个
 > **分类**: 8 个（Utility / CDP / Magic Controller / App Data / Auto / File I/O / Dialog / Captcha）
 
 ---
@@ -11,7 +11,7 @@
 - [1. 概述](#1-概述)
 - [2. 架构说明](#2-架构说明)
 - [3. 工具分类详细参考](#3-工具分类详细参考)
-  - [3.1 Utility 工具（3 个）](#31-utility-工具3-个)
+  - [3.1 Utility 工具（4 个）](#31-utility-工具4-个)
   - [3.2 CDP 工具（56 个）](#32-cdp-工具56-个)
   - [3.3 Magic Controller 工具（66 个）](#33-magic-controller-工具66-个)
   - [3.4 App Data 工具（26 个）](#34-app-data-工具26-个)
@@ -27,7 +27,7 @@
 
 ## 1. 概述
 
-Multi-Flow 的自动化系统为 AI Agent 提供了 **194 个工具**，覆盖浏览器控制、应用数据管理、自动化管理、文件操作、用户交互等完整能力。
+Multi-Flow 的自动化系统为 AI Agent 提供了 **195 个工具**，覆盖浏览器控制、应用数据管理、自动化管理、文件操作、用户交互等完整能力。
 
 ### 工具系统架构
 
@@ -84,7 +84,7 @@ ToolRegistry（注册表）
 
 | 类别             | 前缀                               | 数量 | 说明                                        |
 | ---------------- | ---------------------------------- | ---- | ------------------------------------------- |
-| Utility          | `wait` / `print` / `submit_result` | 3    | 等待、日志、提交结果                        |
+| Utility          | `wait` / `print` / `submit_result` / `exec_command` | 4    | 等待、日志、提交结果、受控命令执行          |
 | CDP              | `cdp_` / `cdp`                     | 56   | 页面交互（导航、点击、输入、提取、截图、JS执行等） |
 | Magic Controller | `magic_`                           | 66   | 通过 Magic Controller 控制浏览器窗口和原生功能 |
 | App Data         | `app_`                             | 26   | 读写 Multi-Flow 应用数据（Profile、机型预设、分组、代理等） |
@@ -92,7 +92,7 @@ ToolRegistry（注册表）
 | File I/O         | `file_`                            | 6    | app 内 `fs` 文件系统读写                    |
 | Dialog           | `dialog_`                          | 13   | 向用户展示 UI 弹窗获取反馈                  |
 | Captcha          | `captcha_`                         | 5    | CAPTCHA 检测与自动求解                      |
-| **合计**         |                                    | **194** |                                          |
+| **合计**         |                                    | **195** |                                          |
 
 ---
 
@@ -132,6 +132,7 @@ AiAgent 步骤
 | `cdp_*` / `cdp`                    | `execute_via_script_step` | 构造 ScriptStep 委托 `execute_step`      |
 | `magic_*`                          | `execute_via_script_step` | 构造 ScriptStep 委托 `execute_step`      |
 | `wait` / `print` / `submit_result` | `execute_via_script_step` | 构造 ScriptStep 委托 `execute_step`      |
+| `exec_command`                     | `exec_tools::execute`     | 受控命令执行，带风险分级、运行时探测和确认 |
 | `app_*`                            | `app_tools::execute`      | 直接调用 AppState 中的 Service           |
 | `file_*`                           | `file_tools::execute`     | 直接调用 `std::fs`（限制在 `appData/fs`） |
 | `dialog_*`                         | `dialog_tools::execute`   | 通过 Tauri 事件 + oneshot 通道与前端通信 |
@@ -165,9 +166,9 @@ pub struct ToolResult {
 
 ## 3. 工具分类详细参考
 
-### 3.1 Utility 工具（3 个）
+### 3.1 Utility 工具（4 个）
 
-基础控制工具，用于流程控制和日志输出。
+基础控制工具，用于流程控制、日志输出和受控命令执行。
 
 #### `wait`
 
@@ -203,6 +204,28 @@ pub struct ToolResult {
 | `result` | string | ✅   | 纯净的最终结果文本，不要包含任何多余说明 |
 
 **返回值**: 结束 AI 执行循环
+
+---
+
+#### `exec_command`
+
+执行受控命令行能力。默认先探测命令是否存在，再按风险规则决定直跑、确认或拒绝。
+
+| 参数 | 类型 | 必需 | 描述 |
+| ---- | ---- | ---- | ---- |
+| `command` | string | ✅ | 可执行文件名，只允许单个命令名 |
+| `args` | string[] | ❌ | 参数数组，不接受整段 shell |
+| `cwd` | string | ❌ | 工作目录，默认当前 workspace 根目录 |
+| `timeout_ms` | integer | ❌ | 超时，默认 30000 |
+| `env` | object | ❌ | 额外环境变量，仅允许白名单 key |
+| `output_mode` | string | ❌ | `stdout` 或 `combined` |
+| `check_runtime` | boolean | ❌ | 是否先探测命令是否存在，默认 `true` |
+| `require_confirmation` | boolean | ❌ | AI 主动要求确认时设为 `true` |
+
+**返回值**:
+- 命令缺失时返回 `missing_runtime`，包含安装建议
+- 高风险命令返回确认请求或直接拒绝
+- 执行完成后返回状态、退出码、输出、耗时、运行时版本信息
 
 ---
 

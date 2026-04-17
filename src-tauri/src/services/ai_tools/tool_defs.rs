@@ -78,6 +78,36 @@ fn utility_tools() -> Vec<Value> {
                 "required": ["result"]
             }),
         ),
+        tool(
+            "exec_command",
+            "执行本地命令行工具。使用 command + args 参数化调用，不要传整段 shell 字符串。默认会先探测命令是否存在和版本；若命令缺失会返回结构化结果并给出安装建议。高风险命令可能触发人工确认。",
+            json!({
+                "type": "object",
+                "properties": {
+                    "command": { "type": "string", "description": "可执行文件名，例如 npx、rg、python3。必须是单个命令名，不能包含空格或路径分隔符" },
+                    "args": {
+                        "type": "array",
+                        "description": "命令参数数组，例如 [\"skills\", \"find\", \"react\"]",
+                        "items": { "type": "string" }
+                    },
+                    "cwd": { "type": "string", "description": "工作目录。留空时默认当前 AI 工作区根目录；相对路径会基于工作区根目录解析" },
+                    "timeout_ms": { "type": "integer", "description": "执行超时毫秒数，默认 30000" },
+                    "env": {
+                        "type": "object",
+                        "description": "可选环境变量映射。仅允许安全白名单变量名",
+                        "additionalProperties": { "type": "string" }
+                    },
+                    "output_mode": {
+                        "type": "string",
+                        "enum": ["stdout", "combined"],
+                        "description": "返回 stdout 或 stdout+stderr 合并结果，默认 combined"
+                    },
+                    "check_runtime": { "type": "boolean", "description": "是否在执行前探测命令是否存在并尝试获取版本，默认 true" },
+                    "require_confirmation": { "type": "boolean", "description": "若为 true，即使规则允许直跑也主动要求人工确认" }
+                },
+                "required": ["command"]
+            }),
+        ),
     ]
 }
 

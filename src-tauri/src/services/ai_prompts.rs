@@ -22,7 +22,8 @@ const TOOL_DESC_APP_ZH: &str =
     "- app_*：应用数据查询与管理（配置文件、机型预设、分组、代理等）";
 const TOOL_DESC_FILE_ZH: &str = "- file_*：app 内 fs 文件系统读写（仅限相对路径，10MB 限制）";
 const TOOL_DESC_DIALOG_ZH: &str = "- dialog_*：用户交互弹窗（确认框、输入框、文件选择等）";
-const TOOL_DESC_UTILITY_ZH: &str = "- wait / print：延时等待与日志输出";
+const TOOL_DESC_UTILITY_ZH: &str =
+    "- wait / print / exec_command：延时等待、日志输出、受控命令执行（参数数组、默认先探测运行时、缺失时不自动安装）";
 
 const BASE_SCREENSHOTS_ZH: &str = "\
 【截图与视觉】
@@ -42,7 +43,9 @@ const BASE_EXECUTION_ZH: &str = "\
 const BASE_SAFETY_ZH: &str = "\
 【安全注意】
 - 慎用删除和关闭操作（app_delete_profile、magic_set_closed、file_write 覆盖等）
-- 未经明确指示不要关闭或删除浏览器配置文件";
+- 未经明确指示不要关闭或删除浏览器配置文件
+- 使用 `exec_command` 时必须传 `command + args`，不要传整段 shell
+- 命令缺失时先给出替代方案或安装建议，不要反复盲试";
 
 const BASE_MULTI_PROFILE_ZH: &str = "\
 【多环境会话】
@@ -84,7 +87,8 @@ const TOOL_DESC_FILE_EN: &str =
     "- file_*: File read/write inside the app fs directory (relative paths only, 10MB limit)";
 const TOOL_DESC_DIALOG_EN: &str =
     "- dialog_*: User interaction dialogs (confirm, input, file picker, etc.)";
-const TOOL_DESC_UTILITY_EN: &str = "- wait / print: Delay and log output";
+const TOOL_DESC_UTILITY_EN: &str =
+    "- wait / print / exec_command: Delay, log output, and guarded command execution (argument array only, runtime probe first, no auto-install when missing)";
 
 const BASE_SCREENSHOTS_EN: &str = "\
 [Screenshots & Vision]
@@ -104,7 +108,9 @@ const BASE_EXECUTION_EN: &str = "\
 const BASE_SAFETY_EN: &str = "\
 [Safety Notes]
 - Use delete and close operations with caution (app_delete_profile, magic_set_closed, file_write overwrite, etc.)
-- Do not close or delete browser profiles without explicit instructions";
+- Do not close or delete browser profiles without explicit instructions
+- For `exec_command`, always use `command + args`; do not pass a whole shell string
+- If a command is missing, prefer alternatives or install guidance instead of blind retries";
 
 const BASE_MULTI_PROFILE_EN: &str = "\
 [Multi-Profile Chats]
