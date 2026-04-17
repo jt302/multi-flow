@@ -2,6 +2,8 @@
 
 ## 当前重点（2026-03-13）
 
+- [x] AI skill 本地目录已切换到 `fs/.agents/skills`；读取与安装不再兼容旧 `fs/skills`
+
 - [x] 窗口同步模块按新 `chromium.md` / `multi-flow-sync-manager.md` 重构为“前端直连 sidecar”
 - [x] 前端新增全局单例 `MultiFlowSyncManagerClient + Zustand store`，统一维护实例、会话、warnings、metrics
 - [x] `sync-manager` 改为前端唯一 WebSocket 客户端消费 `instances.updated / sync.session_updated / sync.warning`

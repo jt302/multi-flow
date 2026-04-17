@@ -95,7 +95,7 @@ struct GithubTreeEntry {
 impl SkillInstallService {
     pub fn new(app_fs_root: PathBuf) -> Self {
         Self {
-            skills_root: app_fs_root.join("skills"),
+            skills_root: app_fs_root.join(".agents").join("skills"),
         }
     }
 
@@ -618,8 +618,10 @@ fn is_allowed_attachment_path(path: &str) -> bool {
 mod tests {
     use super::{
         detect_source_type, is_allowed_attachment_path, parse_github_blob_like_url,
-        parse_skills_sh_url, resolve_skill_dir, GithubTreeEntry, SkillInstallSource,
+        parse_skills_sh_url, resolve_skill_dir, GithubTreeEntry, InstallSkillRequest,
+        RemoteAttachment, RemoteSkillPackage, SkillInstallService, SkillInstallSource,
     };
+    use std::fs;
 
     #[test]
     fn parse_skills_sh_urls_into_github_repo_refs() {
@@ -671,5 +673,55 @@ mod tests {
         assert!(is_allowed_attachment_path("references/guide.md"));
         assert!(is_allowed_attachment_path("scripts/nested/helper.py"));
         assert!(!is_allowed_attachment_path("notes/readme.md"));
+    }
+
+    #[test]
+    fn new_service_uses_agents_skills_root() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let svc = SkillInstallService::new(tmp.path().to_path_buf());
+
+        assert_eq!(svc.skills_root, tmp.path().join(".agents").join("skills"));
+    }
+
+    #[test]
+    fn write_package_saves_into_agents_skills_root() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let svc = SkillInstallService::new(tmp.path().to_path_buf());
+
+        let package = RemoteSkillPackage {
+            source_type: "git".to_string(),
+            skill_content: "---\nslug: installed-skill\nname: Installed Skill\n---\nbody".to_string(),
+            skill_dir: Some("installed-skill".to_string()),
+            repo: None,
+            attachments: vec![RemoteAttachment {
+                rel_path: "scripts/helper.py".to_string(),
+                content: b"print('ok')".to_vec(),
+            }],
+            warnings: vec![],
+        };
+        let req = InstallSkillRequest {
+            source: "acme/repo".to_string(),
+            source_type: Some("git".to_string()),
+            slug_hint: None,
+            enable_for_session: None,
+            session_id: None,
+        };
+
+        let result = svc.write_package(package, &req).unwrap();
+        let skill_root = tmp.path().join(".agents").join("skills").join("installed-skill");
+        let skill_md = skill_root.join("SKILL.md");
+        let helper = skill_root.join("scripts").join("helper.py");
+
+        assert_eq!(result.installed_path, skill_root.display().to_string());
+        assert!(skill_md.exists());
+        assert!(helper.exists());
+        assert_eq!(
+            result.installed_files,
+            vec![
+                "installed-skill/SKILL.md".to_string(),
+                "installed-skill/scripts/helper.py".to_string()
+            ]
+        );
+        assert!(fs::read_to_string(skill_md).unwrap().contains("Installed Skill"));
     }
 }

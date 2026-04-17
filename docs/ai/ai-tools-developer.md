@@ -2696,7 +2696,7 @@ Agent 可通过这些工具动态安装、管理 skill，并调整当前 session
 
 #### `skill_create`
 
-创建新 skill，写入 `{appData/fs}/skills/<slug>/SKILL.md`。
+创建新 skill，写入 `{appData/fs}/.agents/skills/<slug>/SKILL.md`。
 
 | 参数 | 类型 | 必需 | 说明 |
 |------|------|------|------|
@@ -2747,7 +2747,7 @@ Agent 可通过这些工具动态安装、管理 skill，并调整当前 session
 
 #### `skill_install`
 
-从外部来源安装 skill，统一落盘到 `{appData/fs}/skills/<slug>/`。当前支持 `skills.sh` 链接、GitHub 仓库/路径、以及直接 `SKILL.md` 链接。安装成功后默认尝试自动启用到当前 session。
+从外部来源安装 skill，统一落盘到 `{appData/fs}/.agents/skills/<slug>/`。当前支持 `skills.sh` 链接、GitHub 仓库/路径、以及直接 `SKILL.md` 链接。安装成功后默认尝试自动启用到当前 session。
 
 | 参数 | 类型 | 必需 | 说明 |
 |------|------|------|------|

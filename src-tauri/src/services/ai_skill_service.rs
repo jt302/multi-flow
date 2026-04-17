@@ -1,6 +1,6 @@
 //! AI Skill 服务 —— Claude Code 风格 markdown skill 加载与管理
 //!
-//! Skill 存储位置：{appData/fs}/skills/<slug>/SKILL.md
+//! Skill 存储位置：{appData/fs}/.agents/skills/<slug>/SKILL.md
 //! frontmatter 格式（YAML）：name / slug / description / version / enabled / triggers / allowed_tools / model
 //! body（frontmatter 之后的 markdown）在调用时注入 system prompt
 
@@ -157,7 +157,7 @@ pub struct AiSkillService {
 
 impl AiSkillService {
     pub fn new(app_fs_root: PathBuf) -> Self {
-        Self { skills_root: app_fs_root.join("skills") }
+        Self { skills_root: app_fs_root.join(".agents").join("skills") }
     }
 
     fn skill_path(&self, slug: &str) -> AppResult<PathBuf> {
@@ -563,5 +563,44 @@ allowed_tools:
         let full = svc.read_skill_file("dummy", &skill_md).unwrap();
         assert_eq!(full.attachments.len(), 1);
         assert_eq!(full.attachments[0].path, "scripts/run.sh");
+    }
+
+    #[test]
+    fn new_service_uses_agents_skills_root() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let svc = AiSkillService::new(tmp.path().to_path_buf());
+
+        assert_eq!(svc.skills_root, tmp.path().join(".agents").join("skills"));
+    }
+
+    #[test]
+    fn create_and_read_skill_from_agents_skills_root() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let svc = AiSkillService::new(tmp.path().to_path_buf());
+
+        svc.create_skill(CreateSkillRequest {
+            slug: "demo-skill".to_string(),
+            name: "Demo Skill".to_string(),
+            description: Some("test skill".to_string()),
+            version: Some("1.0.0".to_string()),
+            enabled: Some(true),
+            triggers: Some(vec!["manual".to_string()]),
+            allowed_tools: Some(vec!["file_read".to_string()]),
+            model: None,
+            body: "body text".to_string(),
+        })
+        .unwrap();
+
+        let skill_path = tmp
+            .path()
+            .join(".agents")
+            .join("skills")
+            .join("demo-skill")
+            .join("SKILL.md");
+        assert!(skill_path.exists());
+
+        let full = svc.read_skill("demo-skill").unwrap();
+        assert_eq!(full.meta.slug, "demo-skill");
+        assert_eq!(full.body, "body text");
     }
 }
