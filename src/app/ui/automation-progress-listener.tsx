@@ -27,9 +27,9 @@ export function AutomationProgressListener() {
 			// 运行结束时刷新历史记录
 			const status = event.payload.runStatus;
 			if (status === 'success' || status === 'failed' || status === 'cancelled') {
-				const scriptId = automationStore.getState().activeScriptId;
-				if (scriptId) {
-					qc.invalidateQueries({ queryKey: queryKeys.automationRuns(scriptId) });
+				const run = automationStore.getState().runs[event.payload.runId];
+				if (run?.scriptId) {
+					qc.invalidateQueries({ queryKey: queryKeys.automationRuns(run.scriptId) });
 				}
 			}
 		}).then((unlisten) => {

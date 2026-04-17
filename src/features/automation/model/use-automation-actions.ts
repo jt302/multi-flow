@@ -26,7 +26,7 @@ async function registerRunListeners(
 	// progress / variables_updated 事件已移至全局监听 (AutomationProgressListener)
 	const unlistenCancelled = await listenAutomationRunCancelled((event) => {
 		if (event.runId === runId) {
-			automationStore.setState({ liveRunStatus: 'cancelled' });
+			automationStore.getState().onRunCancelled(runId);
 			if (activeScriptId) {
 				queryClient.invalidateQueries({
 					queryKey: queryKeys.automationRuns(activeScriptId),
@@ -85,20 +85,23 @@ export function useAutomationActions(activeScriptId: string | null) {
 			stepTotal,
 			initialVars,
 			delayConfig,
+			batchId,
 		}: {
 			scriptId: string;
 			profileId: string | null;
 			stepTotal: number;
 			initialVars?: Record<string, string>;
 			delayConfig?: { enabled: boolean; minSeconds: number; maxSeconds: number } | null;
+			batchId?: string | null;
 		}) => {
 			const runId = await runAutomationScript(
 				scriptId,
 				profileId,
 				initialVars,
 				delayConfig,
+				batchId,
 			);
-			automationStore.getState().startRun(runId, scriptId, stepTotal);
+			automationStore.getState().upsertRun(runId, scriptId, stepTotal);
 
 			unlistenRef.current.forEach((u) => u());
 			unlistenRef.current = [];
@@ -124,7 +127,7 @@ export function useAutomationActions(activeScriptId: string | null) {
 			initialVars?: Record<string, string>;
 		}) => {
 			const runId = await runAutomationScriptDebug(scriptId, profileId, initialVars);
-			automationStore.getState().startRun(runId, scriptId, stepTotal);
+			automationStore.getState().upsertRun(runId, scriptId, stepTotal);
 
 			unlistenRef.current.forEach((u) => u());
 			unlistenRef.current = [];

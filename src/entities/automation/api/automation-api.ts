@@ -70,12 +70,14 @@ export async function runAutomationScript(
 	profileId: string | null,
 	initialVars?: Record<string, string>,
 	delayConfig?: { enabled: boolean; minSeconds: number; maxSeconds: number } | null,
+	batchId?: string | null,
 ): Promise<string> {
 	return tauriInvoke<string>('run_automation_script', {
 		scriptId,
 		profileId,
 		initialVars: initialVars ?? null,
 		delayConfig: delayConfig ?? null,
+		batchId: batchId ?? null,
 	});
 }
 

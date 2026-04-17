@@ -205,6 +205,8 @@ export function AutomationPage() {
 		}
 
 		try {
+			const batchId =
+				profileIds.length > 1 ? crypto.randomUUID() : null;
 			for (const profileId of profileIds) {
 				await actions.runScript.mutateAsync({
 					scriptId: selectedScript.id,
@@ -213,6 +215,7 @@ export function AutomationPage() {
 					initialVars:
 						Object.keys(initialVars).length > 0 ? initialVars : undefined,
 					delayConfig: normalizedDelay,
+					batchId,
 				});
 			}
 		} catch {

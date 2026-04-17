@@ -419,6 +419,8 @@ export type RunLogEntry = {
 	category: 'flow' | 'step' | 'ai' | 'cdp' | 'magic' | 'error';
 	message: string;
 	details?: Record<string, unknown>;
+	profileId?: string;
+	profileName?: string;
 };
 
 export type AutomationRun = {
@@ -461,15 +463,24 @@ export type AutomationProgressEvent = {
 	varsSet?: Record<string, string>;
 	stepPath?: number[];
 	aiDetail?: AiExecutionDetail;
+	profileId?: string;
+	profileName?: string;
+	batchId?: string;
 };
 
 export type AutomationVariablesUpdatedEvent = {
 	runId: string;
 	vars: Record<string, string>;
+	profileId?: string;
+	profileName?: string;
+	batchId?: string;
 };
 
 export type AutomationHumanRequiredEvent = {
 	runId: string;
+	profileId?: string;
+	profileName?: string;
+	batchId?: string;
 	dialogType: string;
 	message: string;
 	inputLabel: string | null;
@@ -502,6 +513,9 @@ export type AutomationHumanRequiredEvent = {
 
 export type AutomationHumanDismissedEvent = {
 	runId: string;
+	profileId?: string;
+	profileName?: string;
+	batchId?: string;
 };
 
 export type AutomationNotificationEvent = {
@@ -510,16 +524,25 @@ export type AutomationNotificationEvent = {
 	body: string;
 	level: string;
 	durationMs: number | null;
+	profileId?: string;
+	profileName?: string;
+	batchId?: string;
 };
 
 export type AutomationStepErrorPauseEvent = {
 	runId: string;
 	stepIndex: number;
 	errorMessage: string;
+	profileId?: string;
+	profileName?: string;
+	batchId?: string;
 };
 
 export type AutomationRunCancelledEvent = {
 	runId: string;
+	profileId?: string;
+	profileName?: string;
+	batchId?: string;
 };
 
 export type AiOutputKeyMapping = {
