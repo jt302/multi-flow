@@ -7,7 +7,6 @@ import {
 	AlertDialogFooter,
 	AlertDialogHeader,
 	AlertDialogTitle,
-	Button,
 } from '@/components/ui';
 import { useTranslation } from 'react-i18next';
 
@@ -45,26 +44,15 @@ export function ConfirmActionDialog({
 					<AlertDialogDescription>{description}</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
-					<AlertDialogCancel asChild>
-						<Button
-							type="button"
-							variant="ghost"
-							className="cursor-pointer"
-							disabled={pending}
-						>
-							{resolvedCancelText}
-						</Button>
+					<AlertDialogCancel className="cursor-pointer" disabled={pending}>
+						{resolvedCancelText}
 					</AlertDialogCancel>
-					<AlertDialogAction asChild>
-						<Button
-							type="button"
-							variant={confirmVariant}
-							className="cursor-pointer"
-							disabled={pending}
-							onClick={onConfirm}
-						>
-							{resolvedConfirmText}
-						</Button>
+					<AlertDialogAction
+						className={confirmVariant === 'default' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'cursor-pointer'}
+						disabled={pending}
+						onClick={onConfirm}
+					>
+						{resolvedConfirmText}
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</AlertDialogContent>
