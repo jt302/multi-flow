@@ -30,10 +30,10 @@ pub async fn get_mcp_server(app: AppHandle, id: String) -> Result<McpServerDto, 
 #[command]
 pub async fn create_mcp_server(
     app: AppHandle,
-    req: CreateMcpServerRequest,
+    payload: CreateMcpServerRequest,
 ) -> Result<McpServerDto, String> {
     mcp(&app)
-        .create_server(req)
+        .create_server(payload)
         .await
         .map_err(|e| e.to_string())
 }
@@ -43,10 +43,10 @@ pub async fn create_mcp_server(
 pub async fn update_mcp_server(
     app: AppHandle,
     id: String,
-    req: UpdateMcpServerRequest,
+    payload: UpdateMcpServerRequest,
 ) -> Result<McpServerDto, String> {
     mcp(&app)
-        .update_server(&id, req)
+        .update_server(&id, payload)
         .await
         .map_err(|e| e.to_string())
 }
