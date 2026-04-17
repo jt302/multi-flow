@@ -59,11 +59,24 @@ export function GeneralSettingsPlaceholder() {
 	});
 
 	const [urlInput, setUrlInput] = useState('');
+	const [urlError, setUrlError] = useState('');
 	useEffect(() => {
 		if (defaultUrlQuery.data !== undefined) {
 			setUrlInput(defaultUrlQuery.data ?? '');
+			setUrlError('');
 		}
 	}, [defaultUrlQuery.data]);
+
+	const validateUrl = (value: string): boolean => {
+		const trimmed = value.trim();
+		if (!trimmed) return true;
+		try {
+			const parsed = new URL(trimmed);
+			return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+		} catch {
+			return false;
+		}
+	};
 
 	const saveDefaultUrl = useMutation({
 		mutationFn: (url: string) =>
@@ -72,6 +85,7 @@ export function GeneralSettingsPlaceholder() {
 			}),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['global-default-startup-url'] });
+			setUrlError('');
 			toast.success(t('general.defaultStartupUrlSaved'));
 		},
 		onError: (error) => {
@@ -113,20 +127,37 @@ export function GeneralSettingsPlaceholder() {
 						<div className="flex gap-2">
 							<Input
 								value={urlInput}
-								onChange={(e) => setUrlInput(e.target.value)}
+								onChange={(e) => {
+									setUrlInput(e.target.value);
+									if (urlError) setUrlError('');
+								}}
+								onBlur={() => {
+									if (!validateUrl(urlInput)) {
+										setUrlError(t('general.defaultStartupUrlInvalid'));
+									}
+								}}
 								placeholder={t('general.defaultStartupUrlPlaceholder')}
 								disabled={defaultUrlQuery.isLoading || saveDefaultUrl.isPending}
-								className="flex-1"
+								className={`flex-1 ${urlError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
 							/>
 							<Button
 								size="sm"
-								onClick={() => saveDefaultUrl.mutate(urlInput)}
+								onClick={() => {
+									if (!validateUrl(urlInput)) {
+										setUrlError(t('general.defaultStartupUrlInvalid'));
+										return;
+									}
+									saveDefaultUrl.mutate(urlInput);
+								}}
 								disabled={defaultUrlQuery.isLoading || saveDefaultUrl.isPending}
 								className="cursor-pointer"
 							>
 								{t('common:save')}
 							</Button>
 						</div>
+						{urlError && (
+							<p className="text-xs text-destructive">{urlError}</p>
+						)}
 					</div>
 				</CardContent>
 			</Card>

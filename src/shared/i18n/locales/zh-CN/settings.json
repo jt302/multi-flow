@@ -36,7 +36,8 @@
 		"defaultStartupUrl": "默认启动 URL",
 		"defaultStartupUrlDesc": "环境未配置启动 URL 时使用此地址。留空则打开新标签页。",
 		"defaultStartupUrlPlaceholder": "https://example.com（留空为新标签页）",
-		"defaultStartupUrlSaved": "默认启动 URL 已保存"
+		"defaultStartupUrlSaved": "默认启动 URL 已保存",
+		"defaultStartupUrlInvalid": "请输入有效的 URL（需以 http:// 或 https:// 开头）"
 	},
 	"theme": {
 		"title": "主题定制",

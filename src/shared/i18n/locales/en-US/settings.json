@@ -36,7 +36,8 @@
 		"defaultStartupUrl": "Default Startup URL",
 		"defaultStartupUrlDesc": "Used when an environment has no startup URL configured. Leave blank to open a new tab.",
 		"defaultStartupUrlPlaceholder": "https://example.com (blank = new tab)",
-		"defaultStartupUrlSaved": "Default startup URL saved"
+		"defaultStartupUrlSaved": "Default startup URL saved",
+		"defaultStartupUrlInvalid": "Please enter a valid URL starting with http:// or https://"
 	},
 	"theme": {
 		"title": "Theme Customization",

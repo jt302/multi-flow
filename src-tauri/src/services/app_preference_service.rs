@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 use uuid::Uuid;
@@ -145,12 +146,31 @@ impl AppPreferenceService {
     }
 
     pub fn save_global_default_startup_url(&self, url: Option<String>) -> AppResult<()> {
-        let mut preferences = self.read_preferences_file()?;
-        preferences.global_default_startup_url = url
+        let normalized = url
             .as_deref()
             .map(|s| s.trim())
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string());
+        if let Some(ref value) = normalized {
+            let parsed = Url::parse(value).map_err(|_| {
+                AppError::Validation(format!(
+                    "global default startup URL must be a valid http/https URL: {value}"
+                ))
+            })?;
+            let scheme = parsed.scheme();
+            if scheme != "http" && scheme != "https" {
+                return Err(AppError::Validation(format!(
+                    "global default startup URL must start with http:// or https://: {value}"
+                )));
+            }
+            if parsed.host_str().is_none() {
+                return Err(AppError::Validation(format!(
+                    "global default startup URL must contain a valid host: {value}"
+                )));
+            }
+        }
+        let mut preferences = self.read_preferences_file()?;
+        preferences.global_default_startup_url = normalized;
         self.write_preferences_file(&preferences)
     }
 
