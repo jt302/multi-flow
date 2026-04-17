@@ -69,6 +69,7 @@ import type { PluginPackage } from '@/entities/plugin/model/types';
 import type { GroupItem } from '@/entities/group/model/types';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import type { ResourceItem } from '@/entities/resource/model/types';
+import { getReadableForeground } from '@/shared/lib/color';
 import { cn } from '@/lib/utils';
 
 import { PlatformMark } from '@/entities/profile/ui/platform-mark';
@@ -287,6 +288,18 @@ export function ProfileListItem({
 	const [pluginDialogOpen, setPluginDialogOpen] = useState(false);
 	const [pluginDraft, setPluginDraft] = useState<ProfilePluginSelection[]>([]);
 	const [pluginSaving, setPluginSaving] = useState(false);
+	const previewBackgroundColor =
+		draftBrowserBgColorMode === 'custom' ? draftBrowserBgColor : inheritedBgColor;
+	const previewForegroundColor = previewBackgroundColor
+		? getReadableForeground(previewBackgroundColor)
+		: undefined;
+	const previewBadgeStyle = previewBackgroundColor
+		? {
+				backgroundColor: previewBackgroundColor,
+				color: previewForegroundColor,
+				borderColor: `color-mix(in oklab, ${previewBackgroundColor} 38%, var(--border))`,
+			}
+		: undefined;
 	const pluginPackagesQuery = useQuery<PluginPackage[]>({
 		queryKey: ['plugin-packages'],
 		queryFn: listPluginPackages,
@@ -756,12 +769,12 @@ export function ProfileListItem({
 						<div className="rounded-lg border border-border/60 p-3 text-xs text-muted-foreground">
 							<div>{t('profile:visual.preview')}</div>
 							<div className="mt-2 flex items-center gap-2">
-								{(draftBrowserBgColorMode === 'custom' ? draftBrowserBgColor : inheritedBgColor) ? (
+								{previewBackgroundColor ? (
 									<span
 										className="inline-flex items-center rounded-md border px-1.5 py-0.5 font-medium"
-										style={{ backgroundColor: draftBrowserBgColorMode === 'custom' ? draftBrowserBgColor : inheritedBgColor ?? undefined }}
+										style={previewBadgeStyle}
 									>
-										{draftBrowserBgColorMode === 'custom' ? draftBrowserBgColor : inheritedBgColor}
+										{previewBackgroundColor}
 									</span>
 								) : null}
 								<Badge variant="secondary">

@@ -21,6 +21,14 @@ test('profile list item exposes numeric id and visual inheritance controls', () 
 	assert.equal(file.includes("t('profile:visual.groupNameAndId')"), true);
 });
 
+test('profile list item uses readable foreground in visual preview', () => {
+	const file = readFileSync(new URL('./profile-list-item.tsx', import.meta.url), 'utf8');
+
+	assert.equal(file.includes('getReadableForeground'), true);
+	assert.equal(file.includes('previewForegroundColor'), true);
+	assert.equal(file.includes('previewBadgeStyle'), true);
+});
+
 test('profile detail page reveals directories before falling back to openPath', () => {
 	const file = readFileSync(new URL('./profile-detail-page.tsx', import.meta.url), 'utf8');
 
