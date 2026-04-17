@@ -118,13 +118,13 @@ export function SidebarFooterStatus() {
   }
 
   return (
-    <Card className="border-sidebar-border/40 bg-sidebar-accent/30 shadow-sm transition-all duration-300">
-      <CardHeader className="p-2 pb-1">
+    <Card className="gap-3 border-sidebar-border/40 bg-sidebar-accent/30 px-3 py-3 shadow-sm transition-all duration-300">
+      <CardHeader className="px-0 py-0">
         <p className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/65">
           {t('sidebar.status.title')}
         </p>
       </CardHeader>
-      <CardContent className="flex flex-col gap-0.5 p-2 pt-0">
+      <CardContent className="flex flex-col gap-0.5 px-0 py-0">
         {rows.map(({ label, badge, path }) => (
           <button
             key={label}

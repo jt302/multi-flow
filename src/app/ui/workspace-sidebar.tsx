@@ -238,7 +238,7 @@ export function WorkspaceSidebar({
 				</SidebarGroup>
 			</SidebarContent>
 
-			<SidebarFooter className={cn('p-3 pt-1', collapsed && 'p-2 pt-1')}>
+			<SidebarFooter className={cn('p-3', collapsed && 'p-2')}>
 				<SidebarFooterStatus />
 			</SidebarFooter>
 		</>

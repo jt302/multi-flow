@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import i18n from 'i18next';
@@ -119,4 +120,28 @@ test('workspace sidebar 在展开态展示环境列表与机型映射子菜单',
 
 	assert.match(html, />环境列表</);
 	assert.match(html, />机型映射</);
+});
+
+test('workspace sidebar footer padding keeps vertical spacing aligned with horizontal spacing', () => {
+	const file = readFileSync(new URL('./workspace-sidebar.tsx', import.meta.url), 'utf8');
+
+	assert.equal(file.includes("SidebarFooter className={cn('p-3 pt-1', collapsed && 'p-2 pt-1')}"), false);
+	assert.equal(file.includes("SidebarFooter className={cn('p-3', collapsed && 'p-2')}"), true);
+});
+
+test('sidebar footer status card keeps top and bottom spacing aligned with horizontal padding', () => {
+	const file = readFileSync(new URL('./sidebar-footer-status.tsx', import.meta.url), 'utf8');
+
+	assert.equal(
+		file.includes('Card className="border-sidebar-border/40 bg-sidebar-accent/30 shadow-sm transition-all duration-300"'),
+		false,
+	);
+	assert.equal(
+		file.includes('Card className="gap-3 border-sidebar-border/40 bg-sidebar-accent/30 px-3 py-3 shadow-sm transition-all duration-300"'),
+		true,
+	);
+	assert.equal(file.includes('CardHeader className="p-2 pb-1"'), false);
+	assert.equal(file.includes('CardHeader className="px-0 py-0"'), true);
+	assert.equal(file.includes('CardContent className="flex flex-col gap-0.5 p-2 pt-0"'), false);
+	assert.equal(file.includes('CardContent className="flex flex-col gap-0.5 px-0 py-0"'), true);
 });
