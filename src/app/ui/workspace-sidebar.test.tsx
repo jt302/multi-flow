@@ -159,3 +159,11 @@ test('sidebar footer status card keeps top and bottom spacing aligned with horiz
 	assert.equal(file.includes('CardContent className="flex flex-col gap-0.5 p-2 pt-0"'), false);
 	assert.equal(file.includes('CardContent className="flex flex-col gap-0.5 px-0 py-0"'), true);
 });
+
+test('workspace sidebar keeps multiple expandable sections open instead of single-open accordion state', () => {
+	const file = readFileSync(new URL('./workspace-sidebar.tsx', import.meta.url), 'utf8');
+
+	assert.equal(file.includes('const [expandedNavIds, setExpandedNavIds] ='), true);
+	assert.equal(file.includes('setExpandedNavIds((current) =>'), true);
+	assert.equal(file.includes('resolveNextExpandedNavIds(current, item.id)'), true);
+});

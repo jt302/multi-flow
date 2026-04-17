@@ -27,9 +27,22 @@ export function findAutoExpandedNavId(
 	return null;
 }
 
-export function resolveNextExpandedNavId(
-	current: ExpandableWorkspaceNavId | null,
+export function resolveNextExpandedNavIds(
+	current: ExpandableWorkspaceNavId[],
 	next: ExpandableWorkspaceNavId,
-): ExpandableWorkspaceNavId | null {
-	return current === next ? null : next;
+): ExpandableWorkspaceNavId[] {
+	return current.includes(next)
+		? current.filter((item) => item !== next)
+		: [...current, next];
+}
+
+export function mergeExpandedNavIds(
+	current: ExpandableWorkspaceNavId[],
+	next: ExpandableWorkspaceNavId | null,
+): ExpandableWorkspaceNavId[] {
+	if (!next || current.includes(next)) {
+		return current;
+	}
+
+	return [...current, next];
 }

@@ -30,7 +30,8 @@ import { SidebarFooterStatus } from './sidebar-footer-status';
 import {
 	findAutoExpandedNavId,
 	isExpandableNavItem,
-	resolveNextExpandedNavId,
+	mergeExpandedNavIds,
+	resolveNextExpandedNavIds,
 	type ExpandableWorkspaceNavId,
 } from './workspace-sidebar-submenu-state';
 
@@ -51,27 +52,25 @@ export function WorkspaceSidebar({
 	const collapsed = state === 'collapsed';
 	const { t } = useTranslation('nav');
 	const navItems = getWorkspaceNavItems();
-	const [expandedNavId, setExpandedNavId] =
-		useState<ExpandableWorkspaceNavId | null>(() => {
+	const [expandedNavIds, setExpandedNavIds] =
+		useState<ExpandableWorkspaceNavId[]>(() => {
 			const autoExpanded = findAutoExpandedNavId(navItems, activePath);
 			if (autoExpanded) {
-				return autoExpanded;
+				return [autoExpanded];
 			}
 
 			const activeItem = navItems.find((item) => item.id === activeNav);
-			return activeItem && isExpandableNavItem(activeItem) ? activeItem.id : null;
+			return activeItem && isExpandableNavItem(activeItem) ? [activeItem.id] : [];
 		});
 
 	useEffect(() => {
 		const autoExpanded = findAutoExpandedNavId(navItems, activePath);
-		if (autoExpanded) {
-			setExpandedNavId(autoExpanded);
-			return;
-		}
-
 		const activeItem = navItems.find((item) => item.id === activeNav);
-		setExpandedNavId(
-			activeItem && isExpandableNavItem(activeItem) ? activeItem.id : null,
+		const activeExpandableId =
+			activeItem && isExpandableNavItem(activeItem) ? activeItem.id : null;
+
+		setExpandedNavIds((current) =>
+			mergeExpandedNavIds(mergeExpandedNavIds(current, autoExpanded), activeExpandableId),
 		);
 	}, [activeNav, activePath, navItems]);
 
@@ -111,7 +110,7 @@ export function WorkspaceSidebar({
 							{navItems.map((item) => {
 								const active = item.id === activeNav;
 								const expandable = isExpandableNavItem(item);
-								const expanded = expandable && expandedNavId === item.id;
+								const expanded = expandable && expandedNavIds.includes(item.id);
 								const hasCollapsedMenu = collapsed && expandable;
 								const ItemIcon = item.icon;
 
@@ -128,13 +127,9 @@ export function WorkspaceSidebar({
 											}
 
 											if (expandable) {
-												setExpandedNavId((current) => {
-													if (!active) {
-														return item.id;
-													}
-
-													return resolveNextExpandedNavId(current, item.id);
-												});
+												setExpandedNavIds((current) =>
+													resolveNextExpandedNavIds(current, item.id),
+												);
 											}
 
 											onNavChange(item.id);
