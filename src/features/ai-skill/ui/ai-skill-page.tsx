@@ -11,12 +11,16 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { usePersistentLayout } from '@/shared/hooks/use-persistent-layout';
 import { useAiSkillsQuery } from '@/entities/ai-skill/model/use-ai-skills-query';
 import { AiSkillList } from './ai-skill-list';
 import { AiSkillEditor } from './ai-skill-editor';
 
 export function AiSkillPage() {
 	const { t } = useTranslation('chat');
+	const { defaultLayout, onLayoutChanged } = usePersistentLayout({
+		id: 'ai-skill-layout',
+	});
 	const { data: skills = [], isLoading } = useAiSkillsQuery();
 	const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
 	const [isCreating, setIsCreating] = useState(false);
@@ -49,8 +53,13 @@ export function AiSkillPage() {
 	};
 
 	return (
-		<ResizablePanelGroup direction="horizontal" className="h-full">
-			<ResizablePanel defaultSize={30} minSize={20}>
+		<ResizablePanelGroup
+			direction="horizontal"
+			className="h-full"
+			defaultLayout={defaultLayout}
+			onLayoutChanged={onLayoutChanged}
+		>
+			<ResizablePanel defaultSize={defaultLayout?.[0] ?? 30} minSize={20}>
 				<div className="flex h-full flex-col">
 					<div className="flex items-center justify-between border-b px-4 py-3">
 						<span className="text-sm font-medium">{t('skills.title')}</span>
@@ -68,7 +77,7 @@ export function AiSkillPage() {
 				</div>
 			</ResizablePanel>
 			<ResizableHandle />
-			<ResizablePanel defaultSize={70}>
+			<ResizablePanel defaultSize={defaultLayout?.[1] ?? 70}>
 				<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
 					{t('skills.selectOrCreate')}
 				</div>
