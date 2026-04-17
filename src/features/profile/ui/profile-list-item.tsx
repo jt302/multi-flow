@@ -233,7 +233,7 @@ export function ProfileListItem({
 	const actionPending = Boolean(actionState);
 	const runLabel = resolveRunningLabel(item.running, actionState, t);
 	const platformMeta = resolvePlatformMeta(item);
-	const currentBg = item.settings?.basic?.browserBgColor ?? '#0F8A73';
+	const currentBg = item.settings?.basic?.browserBgColor || null;
 	const currentToolbarText = item.settings?.basic?.toolbarText ?? item.name;
 	const noteNotFilled = t('profile:note.notFilled');
 	const noteNone = t('profile:note.none');
@@ -396,16 +396,18 @@ export function ProfileListItem({
 							) : null}
 						</div>
 						<p className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-							<span
-								className="inline-flex items-center rounded-md border px-1.5 py-0.5 font-medium"
-								style={{
-									backgroundColor: `color-mix(in oklab, ${currentBg} 18%, transparent)`,
-									borderColor: `color-mix(in oklab, ${currentBg} 36%, var(--border))`,
-									color: `color-mix(in oklab, ${currentBg} 62%, var(--foreground))`,
-								}}
-							>
-								{currentBg}
-							</span>
+							{currentBg && (
+								<span
+									className="inline-flex items-center rounded-md border px-1.5 py-0.5 font-medium"
+									style={{
+										backgroundColor: `color-mix(in oklab, ${currentBg} 18%, transparent)`,
+										borderColor: `color-mix(in oklab, ${currentBg} 36%, var(--border))`,
+										color: `color-mix(in oklab, ${currentBg} 62%, var(--foreground))`,
+									}}
+								>
+									{currentBg}
+								</span>
+							)}
 							<span className="truncate">{t('profile:basic.note')} {normalizedNote}</span>
 						</p>
 					</div>
@@ -659,7 +661,7 @@ export function ProfileListItem({
 						</DialogDescription>
 					</DialogHeader>
 					<BackgroundQuickEditForm
-						initialColor={currentBg}
+						initialColor={currentBg ?? ''}
 						disabled={actionPending}
 						onCancel={() => onQuickEditChange(null)}
 						onReset={async () => {

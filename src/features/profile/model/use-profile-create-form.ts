@@ -161,7 +161,7 @@ export function useProfileCreateForm({
 				initialBasic?.startupUrls?.join('\n') ??
 				initialBasic?.startupUrl ??
 				DEFAULT_STARTUP_URL,
-			browserBgColor: initialBasic?.browserBgColor ?? '#0F8A73',
+			browserBgColor: initialBasic?.browserBgColor ?? '',
 			proxyId: initialProxyId ?? '__none__',
 			language: initialFingerprint?.fingerprintSnapshot?.language ?? '',
 			timezoneId: initialFingerprint?.fingerprintSnapshot?.timeZone ?? '',
