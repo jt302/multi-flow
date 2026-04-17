@@ -73,7 +73,7 @@ pub async fn set_session_skills(
         tool_categories: None,
         profile_ids: None,
         active_profile_id: None,
-        enabled_skill_slugs: Some(valid_slugs),
+        enabled_skill_slugs: Some(Some(valid_slugs)),
     };
 
     chat_svc

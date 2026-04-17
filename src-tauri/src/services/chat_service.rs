@@ -101,7 +101,8 @@ pub struct UpdateChatSessionRequest {
     pub profile_ids: Option<Option<Vec<String>>>,
     #[serde(default, deserialize_with = "double_option")]
     pub active_profile_id: Option<Option<String>>,
-    pub enabled_skill_slugs: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "double_option")]
+    pub enabled_skill_slugs: Option<Option<Vec<String>>>,
 }
 
 // ─── ChatService ──────────────────────────────────────────────────────────
@@ -222,13 +223,10 @@ impl ChatService {
             .as_ref()
             .and_then(|v| serde_json::to_string(v).ok()));
         model.active_profile_id = Set(normalized.active_profile_id);
-        if let Some(slugs) = req.enabled_skill_slugs {
+        if let Some(slugs_opt) = req.enabled_skill_slugs {
+            let slugs = slugs_opt.unwrap_or_default();
             model.enabled_skill_slugs = Set(
-                if slugs.is_empty() {
-                    "[]".to_string()
-                } else {
-                    serde_json::to_string(&slugs).unwrap_or_else(|_| "[]".to_string())
-                },
+                serde_json::to_string(&slugs).unwrap_or_else(|_| "[]".to_string()),
             );
         }
 

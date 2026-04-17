@@ -279,10 +279,16 @@ impl AiSkillService {
             .map_err(|e| AppError::Validation(format!("删除 skill 目录失败: {e}")))
     }
 
-    /// 加载多个 skill 的 body，用于注入 system prompt
+    /// 加载多个 skill 的 body，用于注入 system prompt（跳过 enabled=false 的 skill）
     pub fn load_skill_bodies(&self, slugs: &[String]) -> Vec<(String, String)> {
         slugs.iter().filter_map(|slug| {
-            self.read_skill(slug).ok().map(|full| (full.meta.name, full.body))
+            self.read_skill(slug).ok().and_then(|full| {
+                if full.meta.enabled {
+                    Some((full.meta.name, full.body))
+                } else {
+                    None
+                }
+            })
         }).collect()
     }
 }
