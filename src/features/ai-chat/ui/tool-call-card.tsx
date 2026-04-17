@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 
-import { ChevronDown, ChevronRight, Clock, Wrench } from 'lucide-react';
+import { ChevronRight, Clock, Wrench } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -61,49 +61,61 @@ export function ToolCallCard({ message, onImageClick }: Props & { onImageClick?:
 						{t('expandToViewScreenshot')}
 					</span>
 				)}
-				{open ? (
-					<ChevronDown className="size-3 shrink-0" />
-				) : (
-					<ChevronRight className="size-3 shrink-0" />
-				)}
+				<ChevronRight
+					className={cn(
+						'size-3 shrink-0 transition-transform duration-200',
+						open && 'rotate-90',
+					)}
+				/>
 			</button>
-			{open && (
-				<div className="border-t border-border px-3 py-2 space-y-2">
-					{args && (
-						<div>
-							<p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-								{t('toolArgs')}
-							</p>
-							<pre className="whitespace-pre-wrap break-all text-[11px] bg-muted/50 rounded p-2 font-mono">
-								{JSON.stringify(args, null, 2)}
-							</pre>
-						</div>
-					)}
-					{imageSrc && (
-						<img
-							src={imageSrc}
-							alt="tool result screenshot"
-							className={cn(
-								'max-w-full rounded border',
-								onImageClick && 'cursor-zoom-in',
-							)}
-							loading="lazy"
-							decoding="async"
-							onClick={() => onImageClick?.(imageSrc)}
-						/>
-					)}
-					{message.toolResult && !imageSrc && (
-						<div>
-							<p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-								{t('toolResult')}
-							</p>
-							<pre className="whitespace-pre-wrap break-all text-[11px] max-h-40 overflow-y-auto bg-muted/50 rounded p-2 font-mono">
-								{formatToolResult(message.toolResult)}
-							</pre>
-						</div>
-					)}
+			<div
+				className="grid transition-all duration-200 ease-in-out"
+				style={{ gridTemplateRows: open ? '1fr' : '0fr' }}
+			>
+				<div className="min-h-0 overflow-hidden">
+					<div
+						className={cn(
+							'border-t border-border px-3 py-2 space-y-2 transition-[opacity,transform] duration-200',
+							open ? 'opacity-100 translate-y-0' : 'pointer-events-none -translate-y-1 opacity-0',
+						)}
+						aria-hidden={!open}
+					>
+						{args && (
+							<div>
+								<p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+									{t('toolArgs')}
+								</p>
+								<pre className="whitespace-pre-wrap break-all text-[11px] bg-muted/50 rounded p-2 font-mono">
+									{JSON.stringify(args, null, 2)}
+								</pre>
+							</div>
+						)}
+						{imageSrc && (
+							<img
+								src={imageSrc}
+								alt="tool result screenshot"
+								className={cn(
+									'max-w-full rounded border',
+									onImageClick && 'cursor-zoom-in',
+								)}
+								loading="lazy"
+								decoding="async"
+								onClick={() => onImageClick?.(imageSrc)}
+							/>
+						)}
+						{message.toolResult && !imageSrc && (
+							<div>
+								<p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+									{t('toolResult')}
+								</p>
+								<pre className="whitespace-pre-wrap break-all text-[11px] max-h-40 overflow-y-auto bg-muted/50 rounded p-2 font-mono">
+									{formatToolResult(message.toolResult)}
+								</pre>
+							</div>
+						)}
+					</div>
 				</div>
-			)}
+			</div>
 		</div>
 	);
 }

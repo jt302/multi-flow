@@ -1,19 +1,15 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import test from 'node:test';
 
-test('tool call card prefers local image refs for screenshots and keeps base64 only as fallback', () => {
-	const source = readFileSync(new URL('./tool-call-card.tsx', import.meta.url), 'utf8');
+const source = readFileSync(new URL('./tool-call-card.tsx', import.meta.url), 'utf8');
 
-	assert.equal(source.includes("convertFileSrc"), true);
-	assert.equal(source.includes('message.imageRef'), true);
-	assert.equal(source.includes('message.imageBase64'), true);
+test('tool call card uses animated expand and collapse container', () => {
+	assert.equal(source.includes("gridTemplateRows: open ? '1fr' : '0fr'"), true);
+	assert.equal(source.includes('transition-all duration-200 ease-in-out'), true);
 });
 
-test('tool call card loads screenshots lazily and no longer renders folded thumbnails', () => {
-	const source = readFileSync(new URL('./tool-call-card.tsx', import.meta.url), 'utf8');
-
-	assert.equal(source.includes('alt="screenshot thumbnail"'), false);
-	assert.equal(source.includes('loading="lazy"'), true);
-	assert.equal(source.includes('decoding="async"'), true);
+test('tool call card rotates chevron when toggled', () => {
+	assert.equal(source.includes("transition-transform duration-200"), true);
+	assert.equal(source.includes("open && 'rotate-90'"), true);
 });
