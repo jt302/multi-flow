@@ -7,7 +7,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { initReactI18next } from 'react-i18next';
 import { MemoryRouter } from 'react-router-dom';
 
-import { PROFILES_DEVICE_PRESETS_PATH, SETTINGS_PATHS } from '@/app/workspace-routes';
+import { AI_CHAT_PATHS, PROFILES_DEVICE_PRESETS_PATH, SETTINGS_PATHS } from '@/app/workspace-routes';
 import { Sidebar, SidebarProvider } from '@/components/ui';
 import zhCommon from '@/shared/i18n/locales/zh-CN/common.json';
 import zhNav from '@/shared/i18n/locales/zh-CN/nav.json';
@@ -32,7 +32,7 @@ await i18n.use(initReactI18next).init({
 
 function renderSidebar(params: {
 	defaultOpen: boolean;
-	activeNav?: 'profiles' | 'settings' | 'windows';
+	activeNav?: 'profiles' | 'settings' | 'windows' | 'ai-chat';
 	activePath?: string;
 }) {
 	const queryClient = new QueryClient();
@@ -127,6 +127,20 @@ test('workspace sidebar footer padding keeps vertical spacing aligned with horiz
 
 	assert.equal(file.includes("SidebarFooter className={cn('p-3 pt-1', collapsed && 'p-2 pt-1')}"), false);
 	assert.equal(file.includes("SidebarFooter className={cn('p-3', collapsed && 'p-2')}"), true);
+});
+
+test('workspace sidebar 在展开态展示 AI 助手子菜单', () => {
+	const html = renderSidebar({
+		defaultOpen: true,
+		activeNav: 'ai-chat',
+		activePath: AI_CHAT_PATHS.sessions,
+	});
+
+	assert.match(html, />AI 助手</);
+	assert.match(html, />会话</);
+	assert.match(html, />Skills</);
+	assert.match(html, />文件系统</);
+	assert.match(html, />MCP</);
 });
 
 test('sidebar footer status card keeps top and bottom spacing aligned with horizontal padding', () => {

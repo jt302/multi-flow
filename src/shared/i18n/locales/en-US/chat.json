@@ -32,5 +32,19 @@
 	"zoomOutPreview": "Zoom out image",
 	"copyMessage": "Copy message",
 	"toolCallPending": "Calling tool: {{name}}",
-	"toolCallingFallback": "Calling tools..."
+	"toolCallingFallback": "Calling tools...",
+	"placeholder": {
+		"skills": {
+			"title": "Skills",
+			"description": "Coming soon"
+		},
+		"fileSystem": {
+			"title": "AI File System",
+			"description": "Coming soon"
+		},
+		"mcp": {
+			"title": "MCP Servers",
+			"description": "Coming soon"
+		}
+	}
 }

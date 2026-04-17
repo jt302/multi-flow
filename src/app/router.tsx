@@ -3,6 +3,8 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { WorkspaceLayout } from '@/app/ui/workspace-layout';
 import {
+	AI_CHAT_DEFAULT_PATH,
+	AI_CHAT_PATHS,
 	PROFILES_DEVICE_PRESETS_PATH,
 	SETTINGS_DEFAULT_PATH,
 	SETTINGS_PATHS,
@@ -55,9 +57,24 @@ const AutomationRoutePage = lazy(() =>
 		default: module.AutomationRoutePage,
 	})),
 );
-const AiChatRoutePage = lazy(() =>
-	import('@/pages/ai-chat').then((module) => ({
-		default: module.AiChatRoutePage,
+const AiChatSessionsRoutePage = lazy(() =>
+	import('@/pages/ai-chat/sessions').then((module) => ({
+		default: module.AiChatSessionsRoutePage,
+	})),
+);
+const AiChatSkillsRoutePage = lazy(() =>
+	import('@/pages/ai-chat/skills').then((module) => ({
+		default: module.AiChatSkillsRoutePage,
+	})),
+);
+const AiChatFileSystemRoutePage = lazy(() =>
+	import('@/pages/ai-chat/file-system').then((module) => ({
+		default: module.AiChatFileSystemRoutePage,
+	})),
+);
+const AiChatMcpRoutePage = lazy(() =>
+	import('@/pages/ai-chat/mcp').then((module) => ({
+		default: module.AiChatMcpRoutePage,
 	})),
 );
 const AutomationCanvasRoutePage = lazy(() =>
@@ -93,7 +110,14 @@ export function AppRouter() {
 				<Route path="/windows" element={<WindowsRoutePage />} />
 				<Route path="/browser-control" element={<BrowserControlRoutePage />} />
 				<Route path="/automation" element={<AutomationRoutePage />} />
-				<Route path="/ai-chat" element={<AiChatRoutePage />} />
+				<Route
+					path="/ai-chat"
+					element={<Navigate to={AI_CHAT_DEFAULT_PATH} replace />}
+				/>
+				<Route path={AI_CHAT_PATHS.sessions} element={<AiChatSessionsRoutePage />} />
+				<Route path={AI_CHAT_PATHS.skills} element={<AiChatSkillsRoutePage />} />
+				<Route path={AI_CHAT_PATHS.fileSystem} element={<AiChatFileSystemRoutePage />} />
+				<Route path={AI_CHAT_PATHS.mcp} element={<AiChatMcpRoutePage />} />
 				<Route
 					path="/settings"
 					element={<Navigate to={SETTINGS_DEFAULT_PATH} replace />}

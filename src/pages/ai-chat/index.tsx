@@ -1,5 +1,7 @@
-import { AiChatPage } from '@/features/ai-chat/ui/ai-chat-page';
+import { Navigate } from 'react-router-dom';
+
+import { AI_CHAT_DEFAULT_PATH } from '@/app/workspace-routes';
 
 export function AiChatRoutePage() {
-	return <AiChatPage />;
+	return <Navigate to={AI_CHAT_DEFAULT_PATH} replace />;
 }

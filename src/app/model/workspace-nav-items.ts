@@ -14,6 +14,7 @@ import i18next from 'i18next';
 
 import { NAV_PATHS, PROFILES_DEVICE_PRESETS_PATH } from '@/app/workspace-routes';
 import { getSettingsTabs } from '@/features/settings/ui/settings-tab-constants';
+import { getAiChatTabs } from '@/features/ai-chat/ui/ai-chat-tab-constants';
 import type { NavItem } from './workspace-types';
 
 export function getWorkspaceNavItems(): NavItem[] {
@@ -42,7 +43,16 @@ export function getWorkspaceNavItems(): NavItem[] {
 		{ id: 'proxy', label: t('nav:proxy'), icon: Globe2 },
 		{ id: 'browser-control', label: t('nav:browserControl'), icon: AppWindow },
 		{ id: 'automation', label: t('nav:automation'), icon: Bot },
-		{ id: 'ai-chat', label: t('nav:aiChat'), icon: MessageSquare },
+		{
+			id: 'ai-chat',
+			label: t('nav:aiChat'),
+			icon: MessageSquare,
+			children: getAiChatTabs().map((tab) => ({
+				label: tab.label,
+				path: tab.path,
+				icon: tab.icon,
+			})),
+		},
 		{
 			id: 'settings',
 			label: t('nav:settings'),

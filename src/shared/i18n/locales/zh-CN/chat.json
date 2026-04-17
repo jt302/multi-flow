@@ -32,5 +32,19 @@
 	"zoomOutPreview": "缩小图片",
 	"copyMessage": "复制消息",
 	"toolCallPending": "正在调用工具：{{name}}",
-	"toolCallingFallback": "调用工具中..."
+	"toolCallingFallback": "调用工具中...",
+	"placeholder": {
+		"skills": {
+			"title": "Skills 管理",
+			"description": "即将上线，敬请期待"
+		},
+		"fileSystem": {
+			"title": "AI 文件系统",
+			"description": "即将上线，敬请期待"
+		},
+		"mcp": {
+			"title": "MCP 服务器",
+			"description": "即将上线，敬请期待"
+		}
+	}
 }

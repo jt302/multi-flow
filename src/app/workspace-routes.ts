@@ -24,6 +24,14 @@ export const SETTINGS_PATHS = {
 } as const;
 export const SETTINGS_DEFAULT_PATH = SETTINGS_PATHS.general;
 
+export const AI_CHAT_PATHS = {
+	sessions: '/ai-chat/sessions',
+	skills: '/ai-chat/skills',
+	fileSystem: '/ai-chat/file-system',
+	mcp: '/ai-chat/mcp',
+} as const;
+export const AI_CHAT_DEFAULT_PATH = AI_CHAT_PATHS.sessions;
+
 const PATH_TO_NAV: Record<string, NavId> = Object.entries(NAV_PATHS).reduce(
 	(acc, [nav, path]) => {
 		acc[path] = nav as NavId;
@@ -35,6 +43,9 @@ const PATH_TO_NAV: Record<string, NavId> = Object.entries(NAV_PATHS).reduce(
 PATH_TO_NAV[PROFILES_DEVICE_PRESETS_PATH] = 'profiles';
 for (const path of Object.values(SETTINGS_PATHS)) {
 	PATH_TO_NAV[path] = 'settings';
+}
+for (const path of Object.values(AI_CHAT_PATHS)) {
+	PATH_TO_NAV[path] = 'ai-chat';
 }
 
 export function resolveNavFromPath(pathname: string): NavId | null {
