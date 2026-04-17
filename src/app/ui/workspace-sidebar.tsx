@@ -1,4 +1,5 @@
-import { Cpu } from 'lucide-react';
+import { ChevronRight, Cpu } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -22,10 +23,16 @@ import {
 	SidebarMenuSubItem,
 	useSidebar,
 } from '@/components/ui';
-import { cn } from '@/lib/utils';
 import { getWorkspaceNavItems } from '@/app/model/workspace-nav-items';
 import type { NavId } from '@/app/model/workspace-types';
+import { cn } from '@/lib/utils';
 import { SidebarFooterStatus } from './sidebar-footer-status';
+import {
+	findAutoExpandedNavId,
+	isExpandableNavItem,
+	resolveNextExpandedNavId,
+	type ExpandableWorkspaceNavId,
+} from './workspace-sidebar-submenu-state';
 
 type WorkspaceSidebarProps = {
 	activeNav: NavId;
@@ -43,6 +50,30 @@ export function WorkspaceSidebar({
 	const { state } = useSidebar();
 	const collapsed = state === 'collapsed';
 	const { t } = useTranslation('nav');
+	const navItems = getWorkspaceNavItems();
+	const [expandedNavId, setExpandedNavId] =
+		useState<ExpandableWorkspaceNavId | null>(() => {
+			const autoExpanded = findAutoExpandedNavId(navItems, activePath);
+			if (autoExpanded) {
+				return autoExpanded;
+			}
+
+			const activeItem = navItems.find((item) => item.id === activeNav);
+			return activeItem && isExpandableNavItem(activeItem) ? activeItem.id : null;
+		});
+
+	useEffect(() => {
+		const autoExpanded = findAutoExpandedNavId(navItems, activePath);
+		if (autoExpanded) {
+			setExpandedNavId(autoExpanded);
+			return;
+		}
+
+		const activeItem = navItems.find((item) => item.id === activeNav);
+		setExpandedNavId(
+			activeItem && isExpandableNavItem(activeItem) ? activeItem.id : null,
+		);
+	}, [activeNav, activePath, navItems]);
 
 	return (
 		<>
@@ -77,21 +108,37 @@ export function WorkspaceSidebar({
 					</SidebarGroupLabel>
 					<SidebarGroupContent>
 						<SidebarMenu className="gap-1.5">
-							{getWorkspaceNavItems().map((item) => {
+							{navItems.map((item) => {
 								const active = item.id === activeNav;
+								const expandable = isExpandableNavItem(item);
+								const expanded = expandable && expandedNavId === item.id;
+								const hasCollapsedMenu = collapsed && expandable;
 								const ItemIcon = item.icon;
-								const hasCollapsedMenu = collapsed && Boolean(item.children?.length);
+
 								const button = (
 									<SidebarMenuButton
 										type="button"
 										variant={active ? 'outline' : 'default'}
 										isActive={active}
 										aria-label={item.label}
-										onClick={
-											hasCollapsedMenu
-												? undefined
-												: () => onNavChange(item.id)
-										}
+										aria-expanded={!collapsed && expandable ? expanded : undefined}
+										onClick={() => {
+											if (hasCollapsedMenu) {
+												return;
+											}
+
+											if (expandable) {
+												setExpandedNavId((current) => {
+													if (!active) {
+														return item.id;
+													}
+
+													return resolveNextExpandedNavId(current, item.id);
+												});
+											}
+
+											onNavChange(item.id);
+										}}
 										tooltip={hasCollapsedMenu ? undefined : item.label}
 										className={cn(
 											'h-10 rounded-xl px-2.5 transition-all duration-300 active:scale-95',
@@ -116,9 +163,22 @@ export function WorkspaceSidebar({
 										>
 											<ItemIcon className="size-3.5" />
 										</span>
-										{collapsed ? null : <span>{item.label}</span>}
+										{collapsed ? null : (
+											<span className="flex min-w-0 flex-1 items-center gap-2">
+												<span className="truncate">{item.label}</span>
+												{expandable ? (
+													<ChevronRight
+														className={cn(
+															'ml-auto size-4 shrink-0 text-sidebar-foreground/60 transition-transform duration-200',
+															expanded && 'rotate-90 text-sidebar-foreground',
+														)}
+													/>
+												) : null}
+											</span>
+										)}
 									</SidebarMenuButton>
 								);
+
 								return (
 									<SidebarMenuItem key={item.id}>
 										{hasCollapsedMenu ? (
@@ -133,7 +193,7 @@ export function WorkspaceSidebar({
 												>
 													<DropdownMenuLabel>{item.label}</DropdownMenuLabel>
 													<DropdownMenuSeparator />
-													{item.children?.map((child) => {
+													{item.children.map((child) => {
 														const ChildIcon = child.icon;
 														return (
 															<DropdownMenuItem
@@ -150,7 +210,7 @@ export function WorkspaceSidebar({
 										) : (
 											button
 										)}
-										{!collapsed && item.children?.length ? (
+										{!collapsed && expandable && expanded ? (
 											<SidebarMenuSub>
 												{item.children.map((child) => {
 													const ChildIcon = child.icon;
