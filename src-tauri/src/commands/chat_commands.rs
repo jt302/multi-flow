@@ -291,6 +291,31 @@ pub fn update_ai_chat_global_prompt(
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub fn read_global_default_startup_url(
+    state: State<'_, AppState>,
+) -> Result<Option<String>, String> {
+    state
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .read_global_default_startup_url()
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_global_default_startup_url(
+    state: State<'_, AppState>,
+    url: Option<String>,
+) -> Result<(), String> {
+    state
+        .app_preference_service
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .save_global_default_startup_url(url)
+        .map_err(|e| e.to_string())
+}
+
 // ─── 环境上下文 ───────────────────────────────────────────────────────────
 
 #[tauri::command]

@@ -32,7 +32,11 @@
 	"general": {
 		"title": "通用设置",
 		"chromiumLogging": "Chromium 日志输出",
-		"chromiumLoggingDesc": "启用后 Chromium 进程将输出 stderr 日志，关闭可减少资源占用。修改后对新启动的环境生效。"
+		"chromiumLoggingDesc": "启用后 Chromium 进程将输出 stderr 日志，关闭可减少资源占用。修改后对新启动的环境生效。",
+		"defaultStartupUrl": "默认启动 URL",
+		"defaultStartupUrlDesc": "环境未配置启动 URL 时使用此地址。留空则打开新标签页。",
+		"defaultStartupUrlPlaceholder": "https://example.com（留空为新标签页）",
+		"defaultStartupUrlSaved": "默认启动 URL 已保存"
 	},
 	"theme": {
 		"title": "主题定制",

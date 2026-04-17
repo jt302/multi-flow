@@ -212,6 +212,8 @@ pub fn run() {
             commands::chat_commands::regenerate_chat_message,
             commands::chat_commands::read_ai_chat_global_prompt,
             commands::chat_commands::update_ai_chat_global_prompt,
+            commands::chat_commands::read_global_default_startup_url,
+            commands::chat_commands::update_global_default_startup_url,
             commands::chat_commands::get_profile_environment_context,
             commands::chat_commands::test_ai_connection,
             commands::chat_commands::get_tool_permissions,

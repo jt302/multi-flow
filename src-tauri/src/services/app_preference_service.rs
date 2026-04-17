@@ -42,6 +42,9 @@ struct AppPreferencesFile {
     /// 应用界面语言，同时作为原生菜单语言真相源
     #[serde(default, skip_serializing_if = "Option::is_none")]
     app_language: Option<String>,
+    /// 全局默认启动 URL（profile 未配置时作为 fallback；None 表示使用空标签页）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    global_default_startup_url: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -61,6 +64,7 @@ impl Default for AppPreferencesFile {
             default_ai_config_id: None,
             dev_chromium_executable: None,
             app_language: None,
+            global_default_startup_url: None,
         }
     }
 }
@@ -133,6 +137,20 @@ impl AppPreferenceService {
     pub fn save_plugin_download_proxy_id(&self, proxy_id: Option<String>) -> AppResult<()> {
         let mut preferences = self.read_preferences_file()?;
         preferences.plugin_download_proxy_id = trim_to_option(proxy_id);
+        self.write_preferences_file(&preferences)
+    }
+
+    pub fn read_global_default_startup_url(&self) -> AppResult<Option<String>> {
+        Ok(self.read_preferences_file()?.global_default_startup_url)
+    }
+
+    pub fn save_global_default_startup_url(&self, url: Option<String>) -> AppResult<()> {
+        let mut preferences = self.read_preferences_file()?;
+        preferences.global_default_startup_url = url
+            .as_deref()
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
         self.write_preferences_file(&preferences)
     }
 

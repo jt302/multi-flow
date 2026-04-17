@@ -32,7 +32,11 @@
 	"general": {
 		"title": "General Settings",
 		"chromiumLogging": "Chromium Logging",
-		"chromiumLoggingDesc": "Enable Chromium stderr logging. Disable to reduce resource usage. Takes effect for newly launched environments."
+		"chromiumLoggingDesc": "Enable Chromium stderr logging. Disable to reduce resource usage. Takes effect for newly launched environments.",
+		"defaultStartupUrl": "Default Startup URL",
+		"defaultStartupUrlDesc": "Used when an environment has no startup URL configured. Leave blank to open a new tab.",
+		"defaultStartupUrlPlaceholder": "https://example.com (blank = new tab)",
+		"defaultStartupUrlSaved": "Default startup URL saved"
 	},
 	"theme": {
 		"title": "Theme Customization",
