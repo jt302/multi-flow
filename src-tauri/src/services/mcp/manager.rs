@@ -247,6 +247,9 @@ impl McpManager {
             runtimes.remove(id);
         }
 
+        // 清除 OS keychain 中的 token
+        super::oauth::delete_tokens_from_keychain(id);
+
         mcp_server::Entity::delete_by_id(id)
             .exec(&self.db)
             .await?;
@@ -374,9 +377,19 @@ impl McpManager {
         let env_map: HashMap<String, String> = serde_json::from_str(&server.env_json)
             .map_err(|e| format!("Invalid env_json: {e}"))?;
 
+        // 过滤高危环境变量，防止覆盖系统关键路径
+        const ENV_DENY_LIST: &[&str] = &[
+            "PATH", "LD_PRELOAD", "LD_LIBRARY_PATH",
+            "DYLD_INSERT_LIBRARIES", "DYLD_LIBRARY_PATH", "DYLD_FALLBACK_LIBRARY_PATH",
+            "PYTHONPATH", "NODE_PATH", "RUBYLIB",
+        ];
+        let safe_env: HashMap<String, String> = env_map.into_iter()
+            .filter(|(k, _)| !ENV_DENY_LIST.contains(&k.as_str()))
+            .collect();
+
         let mut child = tokio::process::Command::new(command)
             .args(&args)
-            .envs(&env_map)
+            .envs(&safe_env)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
@@ -385,6 +398,17 @@ impl McpManager {
 
         let stdin = child.stdin.take().ok_or("Failed to get child stdin")?;
         let stdout = child.stdout.take().ok_or("Failed to get child stdout")?;
+        let stderr = child.stderr.take().ok_or("Failed to get child stderr")?;
+
+        // 后台排空 stderr，防止 pipe buffer 满导致子进程 deadlock
+        let server_name_for_log = server.name.clone();
+        tokio::spawn(async move {
+            use tokio::io::{AsyncBufReadExt, BufReader};
+            let mut lines = BufReader::new(stderr).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                crate::logger::info("mcp_stderr", format!("[{}] {}", server_name_for_log, line));
+            }
+        });
 
         let mut transport = StdioTransport {
             stdin,
@@ -496,12 +520,11 @@ impl McpManager {
         match server.auth_type.as_str() {
             "bearer" => Ok(server.bearer_token.clone()),
             "oauth" => {
-                let tokens_json = server
-                    .oauth_tokens_json
-                    .as_deref()
-                    .ok_or("OAuth tokens not set. Please complete OAuth authorization first.")?;
-                let mut tokens: OAuthTokens = serde_json::from_str(tokens_json)
-                    .map_err(|e| format!("Invalid oauth_tokens_json: {e}"))?;
+                // 从 OS keychain 读取 token（不从 SQLite 读，避免明文暴露）
+                let tokens_json = super::oauth::load_tokens_from_keychain(&server.id)?
+                    .ok_or("OAuth tokens not found. Please complete OAuth authorization first.")?;
+                let mut tokens: OAuthTokens = serde_json::from_str(&tokens_json)
+                    .map_err(|e| format!("Invalid OAuth tokens in keychain: {e}"))?;
 
                 // 检查是否需要刷新（提前 60 秒）
                 let now = std::time::SystemTime::now()
@@ -520,10 +543,10 @@ impl McpManager {
                                 .map_err(|e| format!("Invalid oauth_config_json: {e}"))?;
                             tokens =
                                 super::oauth::refresh_access_token(&config, refresh_token).await?;
-                            // 保存新 token 到 DB
-                            let tokens_json =
+                            // 保存刷新后的 token 到 keychain
+                            let new_json =
                                 serde_json::to_string(&tokens).map_err(|e| e.to_string())?;
-                            let _ = self.save_oauth_tokens(&server.id, &tokens_json).await;
+                            super::oauth::save_tokens_to_keychain(&server.id, &new_json)?;
                         }
                     }
                 }
@@ -650,35 +673,48 @@ impl McpManager {
         let port = super::oauth::find_available_port();
         let redirect_uri = format!("http://127.0.0.1:{}/callback", port);
 
+        // 生成随机 state 防止 CSRF
+        let state: String = {
+            use rand::Rng;
+            rand::thread_rng()
+                .sample_iter(rand::distributions::Alphanumeric)
+                .take(32)
+                .map(char::from)
+                .collect()
+        };
+
         // 构造授权 URL
         let scopes = config.scopes.join(" ");
         let auth_url = format!(
-            "{}?response_type=code&client_id={}&redirect_uri={}&code_challenge={}&code_challenge_method=S256&scope={}",
+            "{}?response_type=code&client_id={}&redirect_uri={}&code_challenge={}&code_challenge_method=S256&scope={}&state={}",
             config.auth_url,
             urlencoding::encode(&config.client_id),
             urlencoding::encode(&redirect_uri),
             urlencoding::encode(&challenge),
             urlencoding::encode(&scopes),
+            urlencoding::encode(&state),
         );
 
         // 打开系统浏览器
         let _ = open::that(&auth_url);
 
-        // 等待回调
-        let code = super::oauth::wait_for_oauth_callback(port).await?;
+        // 等待回调（带 state 校验）
+        let code = super::oauth::wait_for_oauth_callback(port, state).await?;
 
         // 换取 token
         let tokens = super::oauth::exchange_code_for_token(&config, &code, &redirect_uri, &verifier).await?;
 
-        // 保存 token 到 DB
+        // 保存 token 到 OS keychain（不明文存 SQLite）
         let tokens_json = serde_json::to_string(&tokens).map_err(|e| e.to_string())?;
-        self.save_oauth_tokens(server_id, &tokens_json).await?;
+        super::oauth::save_tokens_to_keychain(server_id, &tokens_json)?;
+        // DB 中只存元数据标记（过期时间），不含 token 本体
+        self.save_oauth_token_metadata(server_id, tokens.expires_at).await?;
 
         Ok("OAuth authorization completed successfully".to_string())
     }
 
-    /// 保存 OAuth tokens 到数据库
-    async fn save_oauth_tokens(&self, server_id: &str, tokens_json: &str) -> Result<(), String> {
+    /// 保存 OAuth token 元数据到数据库（仅存过期时间标记，不含 token 本体）
+    async fn save_oauth_token_metadata(&self, server_id: &str, expires_at: Option<i64>) -> Result<(), String> {
         let model = mcp_server::Entity::find_by_id(server_id)
             .one(&self.db)
             .await
@@ -686,8 +722,9 @@ impl McpManager {
             .ok_or_else(|| format!("Server '{server_id}' not found"))?;
 
         let now = chrono::Utc::now().to_rfc3339();
+        let metadata = serde_json::json!({ "stored_in_keychain": true, "expires_at": expires_at });
         let mut active: mcp_server::ActiveModel = model.into();
-        active.oauth_tokens_json = Set(Some(tokens_json.to_string()));
+        active.oauth_tokens_json = Set(Some(metadata.to_string()));
         active.updated_at = Set(now);
         active.update(&self.db).await.map_err(|e| e.to_string())?;
         Ok(())
