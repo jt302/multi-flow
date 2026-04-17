@@ -172,7 +172,8 @@ pub fn tool_risk_level(tool_name: &str) -> ToolRiskLevel {
         // 危险工具 —— 破坏性操作
         "app_delete_profile" | "app_delete_proxy" | "app_delete_group" | "app_stop_profile"
         | "app_update_device_preset" | "app_delete_device_preset" | "magic_set_closed"
-        | "magic_safe_quit" | "file_write" | "file_append" | "cdp_clear_storage"
+        | "magic_safe_quit" | "file_write" | "file_append" | "file_mkdir"
+        | "file_write_folder_desc" | "cdp_clear_storage"
         | "cdp_delete_cookies" | "auto_delete_script" => {
             ToolRiskLevel::Dangerous
         }
@@ -219,6 +220,8 @@ pub fn all_dangerous_tool_names() -> Vec<&'static str> {
         "magic_safe_quit",
         "file_write",
         "file_append",
+        "file_mkdir",
+        "file_write_folder_desc",
         "cdp_clear_storage",
         "cdp_delete_cookies",
         "auto_delete_script",
