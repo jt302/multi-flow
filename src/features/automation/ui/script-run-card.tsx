@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import type { AutomationRun } from '@/entities/automation/model/types';
 import { exportBackendLogs } from '@/entities/log-entry/api/logs-api';
 import { RunStatusBadge } from '@/entities/automation/ui/run-status-badge';
+import { ProfileBadge } from '@/entities/profile/ui/profile-badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RunLogViewer } from './run-log-viewer';
@@ -33,6 +34,7 @@ export function RunRow({ run, onSelect, onDelete }: RunRowProps) {
 					onClick={onSelect}
 				>
 					<RunStatusBadge status={run.status} />
+					{run.profileId && <ProfileBadge profileId={run.profileId} showColor={false} className="shrink-0" />}
 					<span className="text-muted-foreground flex-1 min-w-0 truncate">
 						{new Date(run.startedAt * 1000).toLocaleString()}
 					</span>

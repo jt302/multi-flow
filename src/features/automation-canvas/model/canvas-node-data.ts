@@ -22,6 +22,8 @@ export type StepNodeData = {
 	step: ScriptStep;
 	index: number;
 	stepStatus?: string;
+	/** 同时在此节点执行的并发 profile 数量（>1 时显示角标） */
+	concurrentCount?: number;
 	label: string;
 	groupLabel: string;
 	groupColorClass: string;

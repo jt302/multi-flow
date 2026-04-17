@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { useAutomationStore } from '@/store/automation-store';
+import { ProfileBadge } from '@/entities/profile/ui/profile-badge';
 
 export function HumanInterventionModal() {
 	const [inputValue, setInputValue] = useState('');
@@ -110,7 +111,19 @@ export function HumanInterventionModal() {
 
 	if (!humanIntervention) return null;
 
-	const { runId, message, inputLabel, dialogType } = humanIntervention;
+	const { runId, message, inputLabel, dialogType, profileId, profileName } = humanIntervention;
+
+	// 统一标题附加 ProfileBadge（在对话框 header 里展示来源环境）
+	function TitleWithProfile({ children }: { children: React.ReactNode }) {
+		return (
+			<span className="flex items-center gap-2 flex-wrap">
+				{children}
+				{(profileId || profileName) && (
+					<ProfileBadge profileId={profileId} profileName={profileName} size="sm" />
+				)}
+			</span>
+		);
+	}
 
 	async function handleResume(value?: string) {
 		setSubmitting(true);
@@ -141,7 +154,7 @@ export function HumanInterventionModal() {
 			return (
 				<Dialog open onOpenChange={() => {}}>
 					<DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-						<DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+						<DialogHeader><DialogTitle><TitleWithProfile>{title}</TitleWithProfile></DialogTitle></DialogHeader>
 						<div className="py-2"><p className="text-sm text-foreground whitespace-pre-wrap">{message}</p></div>
 						<DialogFooter>
 							{buttons.map((btn) => (
@@ -158,7 +171,7 @@ export function HumanInterventionModal() {
 		return (
 			<Dialog open onOpenChange={() => {}}>
 				<DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-					<DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+					<DialogHeader><DialogTitle><TitleWithProfile>{title}</TitleWithProfile></DialogTitle></DialogHeader>
 					<div className="py-2"><p className="text-sm text-foreground whitespace-pre-wrap">{message}</p></div>
 					<DialogFooter>
 						<Button variant="outline" onClick={() => handleResume('false')} disabled={submitting} className="cursor-pointer">{cancelText}</Button>
@@ -185,7 +198,7 @@ export function HumanInterventionModal() {
 		return (
 			<Dialog open onOpenChange={() => {}}>
 				<DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-					<DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+					<DialogHeader><DialogTitle><TitleWithProfile>{title}</TitleWithProfile></DialogTitle></DialogHeader>
 					<div className="space-y-3 py-2">
 						{message && <p className="text-sm text-foreground whitespace-pre-wrap">{message}</p>}
 						<ScrollArea className="max-h-60">
@@ -229,7 +242,7 @@ export function HumanInterventionModal() {
 		return (
 			<Dialog open onOpenChange={() => {}}>
 				<DialogContent className="max-w-lg" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-					<DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+					<DialogHeader><DialogTitle><TitleWithProfile>{title}</TitleWithProfile></DialogTitle></DialogHeader>
 					{message && <p className="text-sm text-foreground whitespace-pre-wrap">{message}</p>}
 					<ScrollArea className="max-h-[60vh]">
 						<div className="space-y-3 py-2 pl-1 pr-3">
@@ -263,7 +276,7 @@ export function HumanInterventionModal() {
 		return (
 			<Dialog open onOpenChange={() => {}}>
 				<DialogContent className="max-w-2xl" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-					<DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+					<DialogHeader><DialogTitle><TitleWithProfile>{title}</TitleWithProfile></DialogTitle></DialogHeader>
 					{message && <p className="text-sm text-foreground whitespace-pre-wrap">{message}</p>}
 					<ScrollArea style={{ maxHeight: maxH }}>
 						<Table>
@@ -303,7 +316,7 @@ export function HumanInterventionModal() {
 		return (
 			<Dialog open onOpenChange={() => {}}>
 				<DialogContent className="max-w-lg" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-					<DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+					<DialogHeader><DialogTitle><TitleWithProfile>{title}</TitleWithProfile></DialogTitle></DialogHeader>
 					{message && <p className="text-sm text-foreground whitespace-pre-wrap">{message}</p>}
 					<div className="flex justify-center py-2">
 						<img src={imageSrc} alt="dialog" className="max-h-80 max-w-full rounded object-contain" />
@@ -332,7 +345,7 @@ export function HumanInterventionModal() {
 		return (
 			<Dialog open onOpenChange={() => {}}>
 				<DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-					<DialogHeader><DialogTitle className="flex items-center gap-2"><Clock className={`h-5 w-5 ${color.split(' ')[0]}`} />{title}</DialogTitle></DialogHeader>
+					<DialogHeader><DialogTitle><TitleWithProfile><span className="flex items-center gap-2"><Clock className={`h-5 w-5 ${color.split(' ')[0]}`} />{title}</span></TitleWithProfile></DialogTitle></DialogHeader>
 					<p className="text-sm text-foreground whitespace-pre-wrap">{message}</p>
 					<div className="flex justify-center py-4">
 						<div className={`flex h-20 w-20 items-center justify-center rounded-full border-4 ${color}`}>
@@ -360,7 +373,7 @@ export function HumanInterventionModal() {
 		return (
 			<Dialog open onOpenChange={() => {}}>
 				<DialogContent className={humanIntervention.width === 'lg' ? 'max-w-lg' : humanIntervention.width === 'xl' ? 'max-w-xl' : 'max-w-md'} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-					{title && <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>}
+					{title && <DialogHeader><DialogTitle><TitleWithProfile>{title}</TitleWithProfile></DialogTitle></DialogHeader>}
 					<ScrollArea style={{ maxHeight: maxH }}>
 						<div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap break-words py-2">{content}</div>
 					</ScrollArea>
@@ -387,7 +400,7 @@ export function HumanInterventionModal() {
 	return (
 		<Dialog open onOpenChange={() => {}}>
 			<DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-				<DialogHeader><DialogTitle>{t('waitForManualAction')}</DialogTitle></DialogHeader>
+				<DialogHeader><DialogTitle><TitleWithProfile>{t('waitForManualAction')}</TitleWithProfile></DialogTitle></DialogHeader>
 				<div className="space-y-4 py-2">
 					<p className="text-sm text-foreground whitespace-pre-wrap">{message}</p>
 					{hasInput && (

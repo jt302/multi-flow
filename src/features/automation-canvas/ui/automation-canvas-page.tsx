@@ -525,6 +525,8 @@ type Props = {
 	isRunning: boolean;
 	activeRunId: string | null;
 	liveStepResults: StepResult[];
+	/** step index → 当前并发执行的 profile 数量，用于节点角标 */
+	concurrentCounts?: Record<number, number>;
 	onRun: (
 		profileIds: string[],
 		initialVars: Record<string, string>,
@@ -541,6 +543,7 @@ export function AutomationCanvasPage({
 	isRunning,
 	activeRunId,
 	liveStepResults,
+	concurrentCounts,
 	onRun,
 	onDebugRun,
 	onCancel,
@@ -554,6 +557,12 @@ export function AutomationCanvasPage({
 		}
 		canvasStore.getState().syncLiveStatuses(liveStatuses);
 	}, [canvasStore, liveStepResults]);
+
+	useEffect(() => {
+		if (concurrentCounts) {
+			canvasStore.getState().syncConcurrentCounts(concurrentCounts);
+		}
+	}, [canvasStore, concurrentCounts]);
 
 	return (
 		<ReactFlowProvider>

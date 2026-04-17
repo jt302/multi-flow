@@ -85,6 +85,7 @@ export const StepNodeComponent = memo(function StepNodeComponent({
 		accentClass,
 		summary,
 		stepStatus,
+		concurrentCount,
 		isTerminal,
 		sourceHandles,
 		footerLabels,
@@ -99,6 +100,12 @@ export const StepNodeComponent = memo(function StepNodeComponent({
 			className={`relative min-w-[160px] max-w-[240px] rounded-lg border border-border/50 bg-card shadow-sm cursor-pointer transition-shadow hover:shadow-md border-l-[3px] ${accentClass} ${selectedClass} ${ringClass} ${isTerminal ? '!border-l-red-500 bg-red-500/5' : ''}`}
 		>
 			<Handle type="target" position={Position.Top} className={HANDLE_CLS} />
+			{/* 并发 profile 角标：多个 profile 同时执行此节点时显示数量 */}
+			{concurrentCount != null && concurrentCount > 1 && (
+				<span className="absolute -top-2 -right-2 z-10 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-500 px-1 text-[9px] font-bold text-white shadow">
+					{concurrentCount > 9 ? '9+' : concurrentCount}
+				</span>
+			)}
 			<div className="px-3 py-2">
 				<div className="flex items-center gap-1.5 mb-0.5">
 					<span

@@ -82,6 +82,7 @@ export type CanvasStoreActions = {
 	onPaneClick: () => void;
 	saveNow: () => Promise<void>;
 	syncLiveStatuses: (liveStatuses: Record<number, string>) => void;
+	syncConcurrentCounts: (counts: Record<number, number>) => void;
 	flushPendingPersistence: () => Promise<void>;
 	dispose: () => Promise<void>;
 };
@@ -834,6 +835,20 @@ export function createCanvasStore(
 						state.nodes as Node<StepNodeData>[],
 						liveStatuses,
 					) as Node[],
+				}));
+			},
+			syncConcurrentCounts: (counts) => {
+				set((state) => ({
+					nodes: (state.nodes as Node<StepNodeData>[]).map((node) => {
+						if (!node.id.startsWith('step-')) return node;
+						const idx = (node.data as StepNodeData).index;
+						const count = counts[idx] ?? 0;
+						if ((node.data as StepNodeData).concurrentCount === count) return node;
+						return {
+							...node,
+							data: { ...(node.data as StepNodeData), concurrentCount: count },
+						};
+					}) as Node[],
 				}));
 			},
 			flushPendingPersistence,

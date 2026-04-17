@@ -440,5 +440,12 @@
 		"confirm": "确认执行",
 		"cancel": "取消",
 		"cancelled": "操作已被用户取消"
+	},
+	"runContext": {
+		"profileLabel": "来自 Profile",
+		"fromProfile": "来自 {{name}}",
+		"batch": "批量 {{id}}",
+		"pendingOthers": "还有 {{count}} 个 Profile 等待响应",
+		"unknown": "未知环境"
 	}
 }

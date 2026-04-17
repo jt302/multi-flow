@@ -434,5 +434,12 @@
 		"confirm": "Confirm",
 		"cancel": "Cancel",
 		"cancelled": "Operation cancelled by user"
+	},
+	"runContext": {
+		"profileLabel": "From Profile",
+		"fromProfile": "From {{name}}",
+		"batch": "Batch {{id}}",
+		"pendingOthers": "{{count}} more profile(s) waiting",
+		"unknown": "Unknown profile"
 	}
 }
