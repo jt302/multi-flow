@@ -2887,6 +2887,7 @@ mod tests {
             local_api_server: Mutex::new(local_api_server),
             chromium_magic_adapter_service: Mutex::new(ChromiumMagicAdapterService::new()),
             sync_manager_service: Mutex::new(SyncManagerService::new_mock(None, None)),
+            mcp_manager: std::sync::Arc::new(crate::services::mcp::McpManager::from_db(db.clone())),
             require_real_engine: false,
         }
     }

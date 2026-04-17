@@ -3,6 +3,7 @@ pub mod automation_commands;
 pub mod chat_commands;
 pub mod group_commands;
 pub mod log_commands;
+pub mod mcp_commands;
 pub mod plugin_commands;
 pub mod profile_commands;
 pub mod proxy_commands;

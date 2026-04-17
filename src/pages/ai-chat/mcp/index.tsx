@@ -1,5 +1,5 @@
-import { AiChatPlaceholder } from '@/features/ai-chat/ui/ai-chat-placeholder';
+import { McpPage } from '@/features/mcp/ui/mcp-page';
 
 export function AiChatMcpRoutePage() {
-	return <AiChatPlaceholder tab="mcp" />;
+	return <McpPage />;
 }

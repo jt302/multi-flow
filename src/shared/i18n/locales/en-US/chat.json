@@ -76,6 +76,42 @@
 		"selectSkills": "Skills",
 		"selectedCount": "{{count}} skill(s)"
 	},
+	"mcp": {
+		"servers": "Servers",
+		"empty": "No MCP servers yet. Click + to create one.",
+		"emptyHint": "Click + in the top left to add an MCP server",
+		"selectOrCreate": "Select or create an MCP server",
+		"newServerName": "New MCP Server",
+		"saved": "Saved",
+		"save": "Save",
+		"testConnection": "Test Connection",
+		"startOAuth": "Start Authorization",
+		"confirmDelete": "Delete \"{{name}}\"?",
+		"confirmDeleteDesc": "This action cannot be undone. The server configuration will be permanently deleted.",
+		"tools": "Tools",
+		"loadingTools": "Loading tools...",
+		"toolsError": "Failed to load tools",
+		"noTools": "No tools available from this server",
+		"fieldName": "Name",
+		"fieldTransport": "Transport",
+		"fieldCommand": "Command",
+		"fieldArgs": "Arguments (JSON array)",
+		"fieldEnv": "Environment Variables (JSON object)",
+		"fieldUrl": "Server URL",
+		"fieldHeaders": "Request Headers (JSON object)",
+		"fieldAuthType": "Authentication",
+		"fieldBearerToken": "Bearer Token",
+		"fieldOAuthConfig": "OAuth Config (JSON)",
+		"authNone": "None",
+		"authBearer": "Bearer Token",
+		"authOAuth": "OAuth 2.0 (PKCE)",
+		"status": {
+			"idle": "Idle",
+			"starting": "Starting",
+			"running": "Running",
+			"error": "Error"
+		}
+	},
 	"placeholder": {
 		"skills": {
 			"title": "Skills",

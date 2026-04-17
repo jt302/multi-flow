@@ -19,4 +19,7 @@ export const queryKeys = {
 	aiSkill: (slug: string) => ['ai-skills', slug] as const,
 	fsRoots: ['fs-roots'] as const,
 	fsDir: (rootId: string, relPath: string) => ['fs-dir', rootId, relPath] as const,
+	mcpServers: ['mcp-servers'] as const,
+	mcpServer: (id: string) => ['mcp-servers', id] as const,
+	mcpTools: (serverId: string) => ['mcp-tools', serverId] as const,
 };

@@ -187,8 +187,17 @@ impl ChatExecutionService {
         }
         messages.insert(0, ChatMessage::system(&system_prompt_text));
 
-        // 4. 获取工具定义
-        let tools = ToolRegistry::definitions(tool_filter);
+        // 4. 获取工具定义（含 MCP 工具）
+        let mut tools = ToolRegistry::definitions(tool_filter);
+        // 合并已启用的 MCP 工具（转为 OpenAI function schema 格式）
+        {
+            let mcp_manager = app.state::<crate::state::AppState>().mcp_manager.clone();
+            let mcp_tools = mcp_manager.all_enabled_tools().await;
+            if !mcp_tools.is_empty() {
+                let mcp_schemas = crate::services::mcp::McpManager::tools_to_openai_schema(&mcp_tools);
+                tools.extend(mcp_schemas);
+            }
+        }
         let ai = AiService::with_timeout(120);
         let mut tool_target_profile_id = profile_id
             .map(str::trim)
@@ -601,45 +610,82 @@ impl ChatExecutionService {
                         };
 
                         let (result_text, result_image, tool_status) = {
-                            let tool_timeout = tool_execution_timeout(&tool_call.name);
-                            match tokio::time::timeout(
-                                tool_timeout,
-                                ToolRegistry::execute(
-                                    &tool_call.name,
-                                    tool_call.arguments.clone(),
-                                    &mut tool_ctx,
-                                ),
-                            )
-                            .await
-                            {
-                                Ok(Ok(r)) => {
-                                    let txt = r.text.unwrap_or_else(|| "ok".to_string());
-                                    // 对 HTML 类工具使用智能截断（先去 script/style，再限长）
-                                    // 其余工具按类别截断
-                                    let txt = if tool_call.name == "cdp_get_page_source"
-                                        || tool_call.name == "cdp_get_full_ax_tree"
-                                    {
-                                        crate::services::token_counter::truncate_html_result(
-                                            &txt, 3_000,
+                            // MCP 工具路由：以 mcp__ 开头的工具名，路由到 McpManager
+                            if tool_call.name.starts_with("mcp__") {
+                                let mcp_manager = app
+                                    .state::<crate::state::AppState>()
+                                    .mcp_manager
+                                    .clone();
+                                // 解析 server_id：从工具名映射回 server
+                                let all_tools = mcp_manager.all_enabled_tools().await;
+                                let tool_def = all_tools.iter().find(|t| t.name == tool_call.name);
+                                match tool_def {
+                                    Some(def) => {
+                                        let server_id = def.server_id.clone();
+                                        let original_name = def.original_name.clone();
+                                        let tool_timeout = std::time::Duration::from_secs(60);
+                                        match tokio::time::timeout(
+                                            tool_timeout,
+                                            mcp_manager.call_tool(&server_id, &original_name, tool_call.arguments.clone()),
                                         )
-                                    } else {
-                                        let category = crate::services::ai_tools::tool_category(
-                                            &tool_call.name,
-                                        );
-                                        crate::services::token_counter::truncate_tool_result(
-                                            &txt, category,
-                                        )
-                                    };
-                                    (txt, r.image_base64, "completed".to_string())
+                                        .await
+                                        {
+                                            Ok(Ok(text)) => (text, None, "completed".to_string()),
+                                            Ok(Err(e)) => (format!("mcp tool error: {e}"), None, "failed".to_string()),
+                                            Err(_) => (format!("MCP tool timed out after 60s"), None, "failed".to_string()),
+                                        }
+                                    }
+                                    None => (
+                                        format!("MCP tool '{}' not found in any enabled server", tool_call.name),
+                                        None,
+                                        "failed".to_string(),
+                                    ),
                                 }
-                                Ok(Err(e)) => {
-                                    (format!("tool error: {e}"), None, "failed".to_string())
+                            } else {
+                                let tool_timeout = tool_execution_timeout(&tool_call.name);
+                                match tokio::time::timeout(
+                                    tool_timeout,
+                                    ToolRegistry::execute(
+                                        &tool_call.name,
+                                        tool_call.arguments.clone(),
+                                        &mut tool_ctx,
+                                    ),
+                                )
+                                .await
+                                {
+                                    Ok(Ok(r)) => {
+                                        let txt = r.text.unwrap_or_else(|| "ok".to_string());
+                                        // 对 HTML 类工具使用智能截断（先去 script/style，再限长）
+                                        // 其余工具按类别截断
+                                        let txt = if tool_call.name == "cdp_get_page_source"
+                                            || tool_call.name == "cdp_get_full_ax_tree"
+                                        {
+                                            crate::services::token_counter::truncate_html_result(
+                                                &txt, 3_000,
+                                            )
+                                        } else {
+                                            let category =
+                                                crate::services::ai_tools::tool_category(
+                                                    &tool_call.name,
+                                                );
+                                            crate::services::token_counter::truncate_tool_result(
+                                                &txt, category,
+                                            )
+                                        };
+                                        (txt, r.image_base64, "completed".to_string())
+                                    }
+                                    Ok(Err(e)) => {
+                                        (format!("tool error: {e}"), None, "failed".to_string())
+                                    }
+                                    Err(_) => (
+                                        format!(
+                                            "Tool timed out after {}s",
+                                            tool_timeout.as_secs()
+                                        ),
+                                        None,
+                                        "failed".to_string(),
+                                    ),
                                 }
-                                Err(_) => (
-                                    format!("Tool timed out after {}s", tool_timeout.as_secs()),
-                                    None,
-                                    "failed".to_string(),
-                                ),
                             }
                         };
 

@@ -31,6 +31,7 @@ mod m20260406_000028_enhance_chat_system;
 mod m20260406_000029_add_engine_session_ports;
 mod m20260417_000030_add_profile_group_visuals;
 mod m20260417_000031_chat_sessions_skills;
+mod m20260417_000032_create_mcp_servers;
 
 use sea_orm_migration::prelude::*;
 
@@ -73,6 +74,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260406_000029_add_engine_session_ports::Migration),
             Box::new(m20260417_000030_add_profile_group_visuals::Migration),
             Box::new(m20260417_000031_chat_sessions_skills::Migration),
+            Box::new(m20260417_000032_create_mcp_servers::Migration),
         ]
     }
 }

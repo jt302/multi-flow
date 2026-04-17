@@ -4,6 +4,7 @@ pub mod chat_message;
 pub mod chat_session;
 pub mod device_preset;
 pub mod engine_session;
+pub mod mcp_server;
 pub mod plugin_package;
 pub mod profile;
 pub mod profile_group;

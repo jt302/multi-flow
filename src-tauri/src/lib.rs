@@ -363,6 +363,18 @@ pub fn run() {
             commands::fs_workspace_commands::fs_add_whitelist_entry,
             commands::fs_workspace_commands::fs_remove_whitelist_entry,
             commands::fs_workspace_commands::fs_update_whitelist_entry,
+            commands::mcp_commands::list_mcp_servers,
+            commands::mcp_commands::get_mcp_server,
+            commands::mcp_commands::create_mcp_server,
+            commands::mcp_commands::update_mcp_server,
+            commands::mcp_commands::delete_mcp_server,
+            commands::mcp_commands::enable_mcp_server,
+            commands::mcp_commands::disable_mcp_server,
+            commands::mcp_commands::test_mcp_connection,
+            commands::mcp_commands::start_mcp_oauth,
+            commands::mcp_commands::list_mcp_tools,
+            commands::mcp_commands::list_all_mcp_tools,
+            commands::mcp_commands::call_mcp_tool,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -1442,6 +1454,15 @@ fn run_app_init(handle: AppHandle) -> Result<(), Box<dyn std::error::Error + Sen
         },
     )?;
     handle.manage(app_state);
+
+    // 启动后台任务：连接所有已启用的 MCP 服务器
+    {
+        let mcp_handle = handle.clone();
+        tauri::async_runtime::spawn(async move {
+            let state = mcp_handle.state::<state::AppState>();
+            state.mcp_manager.refresh_all_enabled().await;
+        });
+    }
 
     emit_splash("menu", 80);
     setup_native_menu(&handle, None).map_err(
