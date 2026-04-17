@@ -43,6 +43,7 @@ export function ChatInputBar({
 }: Props) {
 	const { t } = useTranslation('chat');
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const compositionRef = useRef(false);
 
 	// 根据内容自动调整 textarea 高度
 	const adjustHeight = useCallback(() => {
@@ -57,6 +58,8 @@ export function ChatInputBar({
 	}, [value, adjustHeight]);
 
 	const handleKeyDown = (e: React.KeyboardEvent) => {
+		const isComposing = compositionRef.current || e.nativeEvent.isComposing;
+		if (isComposing) return;
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
 			if (!isGenerating && (value.trim() || imageBase64)) onSend();
@@ -112,6 +115,12 @@ export function ChatInputBar({
 							ref={textareaRef}
 							value={value}
 							onChange={(e) => onChange(e.target.value)}
+							onCompositionStart={() => {
+								compositionRef.current = true;
+							}}
+							onCompositionEnd={() => {
+								compositionRef.current = false;
+							}}
 							onKeyDown={handleKeyDown}
 							onPaste={handlePaste}
 							placeholder={t('inputPlaceholder')}
