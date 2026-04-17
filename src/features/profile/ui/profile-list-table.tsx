@@ -135,6 +135,7 @@ export function ProfileListTable({
 								</div>
 							</TableHead>
 						<TableHead>{t('list.profile')}</TableHead>
+						<TableHead>{t('list.group')}</TableHead>
 						<TableHead>{t('list.noteVersion')}</TableHead>
 						<TableHead>{t('list.device')}</TableHead>
 						<TableHead>{t('list.proxy')}</TableHead>

@@ -432,14 +432,11 @@ export function ProfileListItem({
 						<div className="flex flex-wrap items-center gap-2">
 							<p className="truncate font-medium">{item.name}</p>
 							<Badge variant="secondary" className="text-[10px]">
-								ID {item.numericId}
-							</Badge>
-							<Badge variant="outline" className="max-w-[140px] truncate text-[10px]">
-								{groupLabel}
+								{t('profile:list.identifier')} {item.numericId}
 							</Badge>
 							{showToolbarText ? (
 								<Badge variant="secondary" className="max-w-[160px] truncate text-[10px]">
-									{toolbarTextTrimmed}
+									{t('profile:list.chromiumLabel')} {toolbarTextTrimmed}
 								</Badge>
 							) : null}
 						</div>
@@ -459,6 +456,10 @@ export function ProfileListItem({
 							<span className="truncate">{t('profile:basic.note')} {normalizedNote}</span>
 						</p>
 					</div>
+				</TableCell>
+
+				<TableCell className="align-top">
+					<p className="truncate text-xs">{groupLabel}</p>
 				</TableCell>
 
 				<TableCell className="align-top">

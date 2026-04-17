@@ -21,6 +21,23 @@ test('profile list item exposes numeric id and visual inheritance controls', () 
 	assert.equal(file.includes("t('profile:visual.groupNameAndId')"), true);
 });
 
+test('profile list table includes a dedicated group column', () => {
+	const file = readFileSync(new URL('./profile-list-table.tsx', import.meta.url), 'utf8');
+
+	assert.equal(file.includes("t('list.group')"), true);
+});
+
+test('profile list item separates numeric id from chromium label display', () => {
+	const file = readFileSync(new URL('./profile-list-item.tsx', import.meta.url), 'utf8');
+
+	assert.equal(file.includes("t('profile:list.identifier')"), true);
+	assert.equal(file.includes("t('profile:list.chromiumLabel')"), true);
+	assert.equal(
+		file.includes('<Badge variant="outline" className="max-w-[140px] truncate text-[10px]">'),
+		false,
+	);
+});
+
 test('profile list item uses readable foreground in visual preview', () => {
 	const file = readFileSync(new URL('./profile-list-item.tsx', import.meta.url), 'utf8');
 
