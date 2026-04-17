@@ -153,6 +153,9 @@ export function FsWorkspacePage() {
 		setSelectedEntryPath(null);
 	};
 
+	const selectedRootLabel =
+		selectedRoot?.isDefault ? t('fileSystem.defaultRootLabel') : selectedRoot?.label;
+
 	return (
 		<>
 			<ResizablePanelGroup
@@ -190,7 +193,9 @@ export function FsWorkspacePage() {
 										selectedRoot?.id === root.id && 'bg-accent',
 									)}
 								>
-									<div className="truncate text-sm font-medium">{root.label}</div>
+									<div className="truncate text-sm font-medium">
+										{root.isDefault ? t('fileSystem.defaultRootLabel') : root.label}
+									</div>
 									<div className="truncate text-xs text-muted-foreground">{root.pathDisplay}</div>
 									{!root.allowWrite && (
 										<div className="mt-0.5 text-xs text-amber-600">{t('fileSystem.readOnly')}</div>
@@ -213,7 +218,7 @@ export function FsWorkspacePage() {
 								onClick={() => navigateTo('.')}
 								className="shrink-0 cursor-pointer hover:text-foreground"
 							>
-								{selectedRoot?.label ?? t('fileSystem.root')}
+								{selectedRootLabel ?? t('fileSystem.root')}
 							</button>
 							{breadcrumbs.map((crumb, i) => {
 								const path = breadcrumbs.slice(0, i + 1).join('/');
@@ -274,7 +279,9 @@ export function FsWorkspacePage() {
 									)}
 									<span className="flex-1 truncate text-sm">{entry.name}</span>
 									{entry.hasDescription && (
-										<span className="text-xs text-primary/70">desc</span>
+										<span className="text-xs text-primary/70">
+											{t('fileSystem.hasDescriptionBadge')}
+										</span>
 									)}
 									{selectedRoot?.allowWrite && (
 										<Button

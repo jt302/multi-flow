@@ -36,6 +36,7 @@
 	"fileSystem": {
 		"roots": "Directories",
 		"root": "Root",
+		"defaultRootLabel": "AI Sandbox",
 		"loading": "Loading...",
 		"emptyDir": "Empty directory",
 		"newFolder": "New Folder",
@@ -49,6 +50,7 @@
 		"descriptionFor": "Description for \"{{name}}\"",
 		"selectDirectory": "Description",
 		"selectDirHint": "Select a folder on the left to view or edit its description",
+		"hasDescriptionBadge": "Desc",
 		"descPlaceholder": "Write a description for this directory (Markdown). The AI reads this to decide how to use the directory...",
 		"descSaved": "Description saved",
 		"readOnly": "Read-only",

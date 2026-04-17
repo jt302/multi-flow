@@ -36,6 +36,7 @@
 	"fileSystem": {
 		"roots": "目录",
 		"root": "根",
+		"defaultRootLabel": "AI 沙箱",
 		"loading": "加载中...",
 		"emptyDir": "空目录",
 		"newFolder": "新建文件夹",
@@ -49,6 +50,7 @@
 		"descriptionFor": "「{{name}}」的说明",
 		"selectDirectory": "说明",
 		"selectDirHint": "选择左侧一个文件夹查看或编辑说明",
+		"hasDescriptionBadge": "说明",
 		"descPlaceholder": "为此目录编写说明（Markdown 格式），AI 将读取此内容决定如何使用该目录...",
 		"descSaved": "说明已保存",
 		"readOnly": "只读",
