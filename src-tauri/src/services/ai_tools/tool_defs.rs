@@ -25,7 +25,7 @@ fn tool(name: &str, description: &str, parameters: Value) -> Value {
 
 /// 返回所有工具定义
 pub fn all_tool_definitions() -> Vec<Value> {
-    let mut defs = Vec::with_capacity(194);
+    let mut defs = Vec::with_capacity(200);
     defs.extend(utility_tools());
     defs.extend(cdp_tools());
     defs.extend(magic_tools());
@@ -34,6 +34,7 @@ pub fn all_tool_definitions() -> Vec<Value> {
     defs.extend(file_tools());
     defs.extend(dialog_tools());
     defs.extend(captcha_tools());
+    defs.extend(skill_tools());
     defs
 }
 
@@ -2766,6 +2767,119 @@ fn auto_tools() -> Vec<Value> {
                     "id": { "type": "string", "description": "要删除的配置 ID" }
                 },
                 "required": ["id"]
+            }),
+        ),
+    ]
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Skill 工具（6 个）—— Agent 安装/管理 skill，调整 session skill 列表
+// ═══════════════════════════════════════════════════════════════════════════
+
+fn skill_tools() -> Vec<Value> {
+    vec![
+        tool(
+            "skill_list",
+            "列出所有已安装的 skill（返回 slug、name、description、enabled 等元数据）",
+            json!({
+                "type": "object",
+                "properties": {}
+            }),
+        ),
+        tool(
+            "skill_read",
+            "读取指定 skill 的完整内容，包括 body（Markdown）和附件列表",
+            json!({
+                "type": "object",
+                "properties": {
+                    "slug": { "type": "string", "description": "Skill 标识符（a-z0-9-）" }
+                },
+                "required": ["slug"]
+            }),
+        ),
+        tool(
+            "skill_create",
+            "创建新 skill。slug 只能含小写字母、数字和连字符。body 为 Markdown 格式的指令内容。",
+            json!({
+                "type": "object",
+                "properties": {
+                    "slug": {
+                        "type": "string",
+                        "description": "唯一标识符，只能含 a-z、0-9 和连字符，如 'web-scraper'"
+                    },
+                    "name": { "type": "string", "description": "显示名称" },
+                    "body": { "type": "string", "description": "Skill 指令正文（Markdown）" },
+                    "description": { "type": "string", "description": "简短描述（可选）" },
+                    "version": { "type": "string", "description": "版本号，如 '1.0.0'（可选）" },
+                    "enabled": { "type": "boolean", "description": "是否启用，默认 true" },
+                    "triggers": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "触发词列表（可选）"
+                    },
+                    "allowedTools": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "该 skill 允许使用的工具名列表，空表示不限制（可选）"
+                    },
+                    "model": { "type": "string", "description": "覆盖 session 模型配置（可选）" }
+                },
+                "required": ["slug", "name", "body"]
+            }),
+        ),
+        tool(
+            "skill_update",
+            "更新已有 skill 的元数据或 body。只需传入要修改的字段，未传字段保持不变。",
+            json!({
+                "type": "object",
+                "properties": {
+                    "slug": { "type": "string", "description": "要更新的 skill slug" },
+                    "name": { "type": "string" },
+                    "body": { "type": "string" },
+                    "description": { "type": "string" },
+                    "version": { "type": "string" },
+                    "enabled": { "type": "boolean" },
+                    "triggers": {
+                        "type": "array",
+                        "items": { "type": "string" }
+                    },
+                    "allowedTools": {
+                        "type": "array",
+                        "items": { "type": "string" }
+                    },
+                    "model": { "type": "string" }
+                },
+                "required": ["slug"]
+            }),
+        ),
+        tool(
+            "skill_delete",
+            "删除指定 skill（不可恢复）",
+            json!({
+                "type": "object",
+                "properties": {
+                    "slug": { "type": "string", "description": "要删除的 skill slug" }
+                },
+                "required": ["slug"]
+            }),
+        ),
+        tool(
+            "skill_enable_for_session",
+            "向当前聊天 session 的启用列表中添加或移除 skill。add/remove 均为 slug 数组，两者均可为空。",
+            json!({
+                "type": "object",
+                "properties": {
+                    "add": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "要添加到 session 的 skill slug 列表"
+                    },
+                    "remove": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "要从 session 移除的 skill slug 列表"
+                    }
+                }
             }),
         ),
     ]

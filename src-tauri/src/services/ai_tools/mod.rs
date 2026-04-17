@@ -8,6 +8,7 @@ pub mod app_tools;
 pub mod auto_tools;
 pub mod dialog_tools;
 pub mod file_tools;
+pub mod skill_tools;
 pub mod tool_defs;
 
 use serde_json::Value;
@@ -156,6 +157,9 @@ pub fn tool_category(name: &str) -> &str {
     if name.starts_with("file_") {
         return "file";
     }
+    if name.starts_with("skill_") {
+        return "skill";
+    }
     if name.starts_with("dialog_") {
         return "dialog";
     }
@@ -184,7 +188,8 @@ pub fn tool_risk_level(tool_name: &str) -> ToolRiskLevel {
         | "app_update_device_preset" | "app_delete_device_preset" | "magic_set_closed"
         | "magic_safe_quit" | "file_write" | "file_append" | "file_mkdir"
         | "file_str_replace" | "file_write_folder_desc" | "cdp_clear_storage"
-        | "cdp_delete_cookies" | "auto_delete_script" => {
+        | "cdp_delete_cookies" | "auto_delete_script"
+        | "skill_create" | "skill_update" | "skill_delete" => {
             ToolRiskLevel::Dangerous
         }
 
@@ -200,6 +205,8 @@ pub fn tool_risk_level(tool_name: &str) -> ToolRiskLevel {
             || name == "file_exists"
             || name == "file_list_dir"
             || name.starts_with("auto_list_")
+            || name == "skill_list"
+            || name == "skill_read"
             || name.starts_with("auto_get_")
             || name == "print"
             || name == "submit_result" =>
@@ -236,6 +243,9 @@ pub fn all_dangerous_tool_names() -> Vec<&'static str> {
         "cdp_clear_storage",
         "cdp_delete_cookies",
         "auto_delete_script",
+        "skill_create",
+        "skill_update",
+        "skill_delete",
     ]
 }
 
@@ -396,6 +406,7 @@ impl ToolRegistry {
             "auto" => auto_tools::execute(name, args, ctx).await,
             "file" => file_tools::execute(name, args, ctx).await,
             "dialog" => dialog_tools::execute(name, args, ctx).await,
+            "skill" => skill_tools::execute(name, args, ctx).await,
             _ => Err(format!("Unknown tool category for '{name}'")),
         }
     }

@@ -2645,6 +2645,96 @@ DOM 元素查询，返回匹配元素候选列表（用于后续 `magic_click_do
 - 后端检测逻辑会尽量提取 `callback`、`pageAction`、`data-s / enterprisePayload`、页面真实 `userAgent` 等上下文，并在求解时按服务商支持情况透传。
 - 聊天系统提示词要求：验证码未通过时必须明确说明阻塞，不能把“注入成功”表述成“验证通过”，也不能未经用户同意擅自切换到 DuckDuckGo 等替代站点。
 
+### 3.9 Skill 工具（6 个）
+
+Agent 可通过这些工具动态安装、管理 skill，并调整当前 session 中启用的 skill 列表。写操作（`skill_create`/`skill_update`/`skill_delete`）属于危险工具，需要用户确认。
+
+#### `skill_list`
+
+列出所有已安装 skill 的元数据。
+
+**参数**：无
+
+**返回**：`SkillMeta[]` JSON — 包含 `slug, name, description, enabled, triggers, allowedTools, model, version`
+
+---
+
+#### `skill_read`
+
+读取指定 skill 的完整内容。
+
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `slug` | string | 是 | Skill 标识符 |
+
+**返回**：`SkillFull` JSON — 包含元数据 + `body` + `attachments[]`
+
+---
+
+#### `skill_create`
+
+创建新 skill，写入 `{appData/fs}/skills/<slug>/SKILL.md`。
+
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `slug` | string | 是 | 唯一标识符，只允许 `a-z`、`0-9`、连字符 |
+| `name` | string | 是 | 显示名称 |
+| `body` | string | 是 | Skill 指令正文（Markdown） |
+| `description` | string | 否 | 简短描述 |
+| `version` | string | 否 | 版本号 |
+| `enabled` | boolean | 否 | 默认 `true` |
+| `triggers` | string[] | 否 | 触发词列表 |
+| `allowedTools` | string[] | 否 | 工具白名单，空表示不限制 |
+| `model` | string | 否 | 覆盖 session 模型 |
+
+**返回**：`SkillFull` JSON
+
+**风险**：Dangerous（写磁盘）
+
+---
+
+#### `skill_update`
+
+更新已有 skill，只需传入要修改的字段。
+
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `slug` | string | 是 | 要更新的 skill |
+| 其余字段同 `skill_create` | — | 否 | 未传则保持不变 |
+
+**返回**：`SkillFull` JSON
+
+**风险**：Dangerous
+
+---
+
+#### `skill_delete`
+
+永久删除 skill 目录。
+
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `slug` | string | 是 | 要删除的 skill |
+
+**返回**：确认字符串
+
+**风险**：Dangerous
+
+---
+
+#### `skill_enable_for_session`
+
+增量修改当前 session 的启用 skill 列表（add/remove 均可同时传）。
+
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `add` | string[] | 否 | 要添加的 slug 列表 |
+| `remove` | string[] | 否 | 要移除的 slug 列表 |
+
+**返回**：更新后的启用 slug 列表字符串
+
+**风险**：Moderate
+
 ---
 
 ## 4. 工具权限管理（危险工具确认机制）
@@ -2784,4 +2874,5 @@ grep -c 'tool(' src-tauri/src/services/ai_tools/tool_defs.rs
 | File I/O         | 6       | `file_tools()`                 |
 | Dialog           | 13      | `dialog_tools()`               |
 | Captcha          | 5       | `captcha_tools()`              |
-| **总计**         | **176** | `all_tool_definitions().len()` |
+| Skill            | 6       | `skill_tools()`                |
+| **总计**         | **182** | `all_tool_definitions().len()` |

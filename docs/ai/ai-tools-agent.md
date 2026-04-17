@@ -1061,3 +1061,14 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 11  | `dialog_open_file`     | 文件选择对话框                                 |
 | 12  | `dialog_save_file`     | 文件保存对话框                                 |
 | 13  | `dialog_select_folder` | 文件夹选择对话框                               |
+
+### Skill — Skill 安装与管理（6 个）
+
+| #   | 工具名                       | 说明                                          |
+| --- | ---------------------------- | --------------------------------------------- |
+| 1   | `skill_list`                 | 列出所有已安装的 skill（元数据）              |
+| 2   | `skill_read`                 | 读取指定 skill 的完整内容（body + 附件）      |
+| 3   | `skill_create`               | ⚠️ 创建新 skill（写磁盘）                     |
+| 4   | `skill_update`               | ⚠️ 更新已有 skill 的元数据或 body             |
+| 5   | `skill_delete`               | ⚠️ 删除 skill（不可恢复）                     |
+| 6   | `skill_enable_for_session`   | 添加/移除当前 session 的启用 skill 列表       |
