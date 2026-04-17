@@ -130,6 +130,7 @@ export function WorkspaceSidebar({
 												setExpandedNavIds((current) =>
 													resolveNextExpandedNavIds(current, item.id),
 												);
+												return;
 											}
 
 											onNavChange(item.id);

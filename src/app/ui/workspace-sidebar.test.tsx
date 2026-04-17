@@ -167,3 +167,14 @@ test('workspace sidebar keeps multiple expandable sections open instead of singl
 	assert.equal(file.includes('setExpandedNavIds((current) =>'), true);
 	assert.equal(file.includes('resolveNextExpandedNavIds(current, item.id)'), true);
 });
+
+test('workspace sidebar top-level expandable menus toggle only submenu state without navigating', () => {
+	const file = readFileSync(new URL('./workspace-sidebar.tsx', import.meta.url), 'utf8');
+
+	assert.equal(
+		file.includes(
+			"if (expandable) {\n\t\t\t\t\t\t\t\t\t\t\t\tsetExpandedNavIds((current) =>\n\t\t\t\t\t\t\t\t\t\t\t\t\tresolveNextExpandedNavIds(current, item.id),\n\t\t\t\t\t\t\t\t\t\t\t\t);\n\t\t\t\t\t\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t\t\t\t\t\t}",
+		),
+		true,
+	);
+});
