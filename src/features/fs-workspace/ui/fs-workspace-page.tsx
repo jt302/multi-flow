@@ -1,15 +1,34 @@
 import { useEffect, useState } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Folder, FileText, FolderPlus, Trash2, ChevronRight, Settings } from 'lucide-react';
+import { z } from 'zod/v3';
 
+import { ConfirmActionDialog } from '@/components/common/confirm-action-dialog';
+import {
+	Button,
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	Form,
+	FormControl,
+	FormField,
+	FormItem,
+	FormLabel,
+	FormMessage,
+	Input,
+	Textarea,
+} from '@/components/ui';
 import {
 	ResizableHandle,
 	ResizablePanel,
 	ResizablePanelGroup,
 } from '@/components/ui/resizable';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { usePersistentLayout } from '@/shared/hooks/use-persistent-layout';
 import {
@@ -25,6 +44,13 @@ import {
 import { FsPreferencesDrawer } from './fs-preferences-drawer';
 import type { FsRoot } from '@/entities/fs-workspace/model/types';
 
+const createFolderSchema = (t: (key: string) => string) =>
+	z.object({
+		name: z.string().trim().min(1, t('fileSystem.folderNameRequired')),
+	});
+
+type CreateFolderValues = z.infer<ReturnType<typeof createFolderSchema>>;
+
 export function FsWorkspacePage() {
 	const { t } = useTranslation('chat');
 	const { defaultLayout, onLayoutChanged } = usePersistentLayout({
@@ -39,6 +65,8 @@ export function FsWorkspacePage() {
 	const [descDraft, setDescDraft] = useState('');
 	const [descDirty, setDescDirty] = useState(false);
 	const [drawerOpen, setDrawerOpen] = useState(false);
+	const [createFolderOpen, setCreateFolderOpen] = useState(false);
+	const [pendingDelete, setPendingDelete] = useState<{ relPath: string; name: string } | null>(null);
 
 	const rootsQuery = useFsRootsQuery();
 	const roots = rootsQuery.data ?? [];
@@ -69,27 +97,34 @@ export function FsWorkspacePage() {
 	const deleteEntry = useDeleteEntry();
 	const saveDesc = useSaveDescription();
 
+	const createFolderForm = useForm<CreateFolderValues>({
+		resolver: zodResolver(createFolderSchema(t)),
+		defaultValues: {
+			name: '',
+		},
+	});
+
 	const handleCreateFolder = () => {
-		if (!selectedRoot) return;
-		const name = prompt(t('fileSystem.newFolderName'));
-		if (!name?.trim()) return;
-		const newPath = currentPath === '.' ? name.trim() : `${currentPath}/${name.trim()}`;
-		createFolder.mutate(
-			{ rootId: selectedRoot.id, relPath: newPath },
-			{ onError: (e) => toast.error(String(e)) },
-		);
+		if (!selectedRoot?.allowWrite) return;
+		createFolderForm.reset({ name: '' });
+		setCreateFolderOpen(true);
 	};
 
 	const handleDelete = (relPath: string, name: string) => {
 		if (!selectedRoot) return;
-		if (!confirm(t('fileSystem.confirmDelete', { name }))) return;
+		setPendingDelete({ relPath, name });
+	};
+
+	const handleConfirmDelete = () => {
+		if (!selectedRoot || !pendingDelete) return;
 		deleteEntry.mutate(
-			{ rootId: selectedRoot.id, relPath },
+			{ rootId: selectedRoot.id, relPath: pendingDelete.relPath },
 			{
 				onSuccess: () => {
-					if (selectedEntryPath === relPath) {
+					if (selectedEntryPath === pendingDelete.relPath) {
 						setSelectedEntryPath(null);
 					}
+					setPendingDelete(null);
 				},
 				onError: (e) => toast.error(String(e)),
 			},
@@ -311,6 +346,83 @@ export function FsWorkspacePage() {
 			</ResizablePanelGroup>
 
 			<FsPreferencesDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+			<Dialog
+				open={createFolderOpen}
+				onOpenChange={(open) => {
+					setCreateFolderOpen(open);
+					if (!open) {
+						createFolderForm.reset({ name: '' });
+					}
+				}}
+			>
+				<DialogContent className="max-w-md">
+					<DialogHeader>
+						<DialogTitle>{t('fileSystem.createFolderTitle')}</DialogTitle>
+						<DialogDescription>{t('fileSystem.createFolderDescription')}</DialogDescription>
+					</DialogHeader>
+					<Form {...createFolderForm}>
+						<form
+							className="space-y-4"
+							onSubmit={createFolderForm.handleSubmit(async (values) => {
+								if (!selectedRoot) return;
+								const name = values.name.trim();
+								const newPath = currentPath === '.' ? name : `${currentPath}/${name}`;
+								createFolder.mutate(
+									{ rootId: selectedRoot.id, relPath: newPath },
+									{
+										onSuccess: () => {
+											setCreateFolderOpen(false);
+											createFolderForm.reset({ name: '' });
+										},
+										onError: (e) => toast.error(String(e)),
+									},
+								);
+							})}
+						>
+							<FormField
+								control={createFolderForm.control}
+								name="name"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>{t('fileSystem.folderNameLabel')}</FormLabel>
+										<FormControl>
+											<Input
+												{...field}
+												placeholder={t('fileSystem.folderNamePlaceholder')}
+											/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<DialogFooter>
+								<Button
+									type="button"
+									variant="ghost"
+									onClick={() => setCreateFolderOpen(false)}
+									disabled={createFolder.isPending}
+								>
+									{t('common:cancel')}
+								</Button>
+								<Button type="submit" disabled={createFolder.isPending}>
+									{t('fileSystem.newFolder')}
+								</Button>
+							</DialogFooter>
+						</form>
+					</Form>
+				</DialogContent>
+			</Dialog>
+			<ConfirmActionDialog
+				open={pendingDelete !== null}
+				onOpenChange={(open) => {
+					if (!open) setPendingDelete(null);
+				}}
+				title={t('common:confirmDelete')}
+				description={t('fileSystem.confirmDelete', { name: pendingDelete?.name ?? '' })}
+				confirmText={t('common:delete')}
+				pending={deleteEntry.isPending}
+				onConfirm={handleConfirmDelete}
+			/>
 		</>
 	);
 }
