@@ -262,7 +262,11 @@ impl AiSkillService {
                 result.push(meta);
             }
         }
-        result.sort_by(|a, b| a.slug.cmp(&b.slug));
+        result.sort_by(|a, b| {
+            b.built_in
+                .cmp(&a.built_in)
+                .then_with(|| a.slug.cmp(&b.slug))
+        });
         Ok(result)
     }
 
@@ -805,5 +809,48 @@ allowed_tools:
             svc.list_enabled_skill_slugs().unwrap(),
             vec!["built-in-enabled".to_string(), "user-enabled".to_string()]
         );
+    }
+
+    #[test]
+    fn list_skills_keeps_built_in_skills_before_user_skills() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let user_root = tmp.path().join("user");
+        let built_in_root = tmp.path().join("builtins");
+        fs::create_dir_all(user_root.join("aaa-user")).unwrap();
+        fs::create_dir_all(user_root.join("zzz-user")).unwrap();
+        fs::create_dir_all(built_in_root.join("mmm-built-in")).unwrap();
+        fs::create_dir_all(built_in_root.join("nnn-built-in")).unwrap();
+        fs::write(
+            user_root.join("aaa-user").join("SKILL.md"),
+            "---\nname: AAA User\n---\nbody",
+        )
+        .unwrap();
+        fs::write(
+            user_root.join("zzz-user").join("SKILL.md"),
+            "---\nname: ZZZ User\n---\nbody",
+        )
+        .unwrap();
+        fs::write(
+            built_in_root.join("mmm-built-in").join("SKILL.md"),
+            "---\nname: MMM Built In\n---\nbody",
+        )
+        .unwrap();
+        fs::write(
+            built_in_root.join("nnn-built-in").join("SKILL.md"),
+            "---\nname: NNN Built In\n---\nbody",
+        )
+        .unwrap();
+
+        let svc = AiSkillService::new_with_roots(user_root, built_in_root);
+        let listed = svc.list_skills().unwrap();
+
+        assert_eq!(
+            listed.iter().map(|skill| skill.slug.as_str()).collect::<Vec<_>>(),
+            vec!["mmm-built-in", "nnn-built-in", "aaa-user", "zzz-user"]
+        );
+        assert!(listed[0].built_in);
+        assert!(listed[1].built_in);
+        assert!(!listed[2].built_in);
+        assert!(!listed[3].built_in);
     }
 }

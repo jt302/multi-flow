@@ -58,7 +58,13 @@ export function ChatInputBar({
 	}, [value, adjustHeight]);
 
 	const handleKeyDown = (e: React.KeyboardEvent) => {
-		const isComposing = compositionRef.current || e.nativeEvent.isComposing;
+		const nativeEvent = e.nativeEvent as React.KeyboardEvent<HTMLTextAreaElement>['nativeEvent'] & {
+			keyCode?: number;
+		};
+		const isComposing =
+			compositionRef.current
+			|| e.nativeEvent.isComposing
+			|| nativeEvent.keyCode === 229;
 		if (isComposing) return;
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
