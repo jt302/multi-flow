@@ -42,6 +42,15 @@ export function formatMcpErrorMessage(
 	if (message.includes('Invalid oauth_config_json')) {
 		return t('mcp.oauthConfigInvalid');
 	}
+	if (message.includes('Invalid args_json')) {
+		return t('mcp.argsJsonInvalid');
+	}
+	if (message.includes('Invalid env_json')) {
+		return t('mcp.envJsonInvalid');
+	}
+	if (message.includes('Invalid headers_json')) {
+		return t('mcp.headersJsonInvalid');
+	}
 	return message;
 }
 

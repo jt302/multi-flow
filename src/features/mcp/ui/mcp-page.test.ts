@@ -25,6 +25,9 @@ test('mcp editor uses in-app delete confirmation and draft connection testing', 
 	assert.equal(editorSource.includes('server?.id'), true);
 	assert.equal(editorSource.includes('.superRefine((values, ctx) => {'), true);
 	assert.equal(editorSource.includes("t('mcp.commandRequired')"), true);
+	assert.equal(editorSource.includes("t('mcp.argsJsonInvalid')"), true);
+	assert.equal(editorSource.includes("t('mcp.envJsonInvalid')"), true);
+	assert.equal(editorSource.includes("t('mcp.headersJsonInvalid')"), true);
 });
 
 test('mcp mutations and tauri api expose draft connection testing', () => {
@@ -42,8 +45,17 @@ test('mcp backend exposes a draft test command without persisting the form first
 test('mcp draft test feedback is localized instead of exposing raw backend strings', () => {
 	assert.equal(mutationsSource.includes('formatMcpConnectionMessage'), true);
 	assert.equal(mutationsSource.includes('formatMcpErrorMessage'), true);
+	assert.equal(mutationsSource.includes('Invalid args_json'), true);
+	assert.equal(mutationsSource.includes('Invalid env_json'), true);
+	assert.equal(mutationsSource.includes('Invalid headers_json'), true);
 	assert.equal(zhChatSource.includes('"commandRequired":'), true);
 	assert.equal(zhChatSource.includes('"connectionTestSuccess":'), true);
+	assert.equal(zhChatSource.includes('"argsJsonInvalid":'), true);
+	assert.equal(zhChatSource.includes('"envJsonInvalid":'), true);
+	assert.equal(zhChatSource.includes('"headersJsonInvalid":'), true);
 	assert.equal(enChatSource.includes('"commandRequired":'), true);
 	assert.equal(enChatSource.includes('"connectionTestSuccess":'), true);
+	assert.equal(enChatSource.includes('"argsJsonInvalid":'), true);
+	assert.equal(enChatSource.includes('"envJsonInvalid":'), true);
+	assert.equal(enChatSource.includes('"headersJsonInvalid":'), true);
 });

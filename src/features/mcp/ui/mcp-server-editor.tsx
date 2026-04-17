@@ -53,12 +53,64 @@ const schema = (t: (key: string, options?: Record<string, unknown>) => string) =
 					path: ['command'],
 				});
 			}
+			if (values.transport === 'stdio') {
+				try {
+					const parsed = JSON.parse(values.argsJson || '[]');
+					if (!Array.isArray(parsed)) {
+						ctx.addIssue({
+							code: z.ZodIssueCode.custom,
+							message: t('mcp.argsJsonInvalid'),
+							path: ['argsJson'],
+						});
+					}
+				} catch {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						message: t('mcp.argsJsonInvalid'),
+						path: ['argsJson'],
+					});
+				}
+				try {
+					const parsed = JSON.parse(values.envJson || '{}');
+					if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+						ctx.addIssue({
+							code: z.ZodIssueCode.custom,
+							message: t('mcp.envJsonInvalid'),
+							path: ['envJson'],
+						});
+					}
+				} catch {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						message: t('mcp.envJsonInvalid'),
+						path: ['envJson'],
+					});
+				}
+			}
 			if ((values.transport === 'http' || values.transport === 'sse') && !values.url?.trim()) {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
 					message: t('mcp.urlRequired'),
 					path: ['url'],
 				});
+			}
+			if (values.transport === 'http' || values.transport === 'sse') {
+				try {
+					const parsed = JSON.parse(values.headersJson || '{}');
+					if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+						ctx.addIssue({
+							code: z.ZodIssueCode.custom,
+							message: t('mcp.headersJsonInvalid'),
+							path: ['headersJson'],
+						});
+					}
+				} catch {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						message: t('mcp.headersJsonInvalid'),
+						path: ['headersJson'],
+					});
+				}
 			}
 		});
 
@@ -270,6 +322,9 @@ export function McpServerEditor({
 								rows={3}
 								placeholder='["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]'
 							/>
+							{form.formState.errors.argsJson ? (
+								<p className="text-xs text-destructive">{form.formState.errors.argsJson.message}</p>
+							) : null}
 						</div>
 						<div className="space-y-1.5">
 							<Label className="text-xs">{t('mcp.fieldEnv')}</Label>
@@ -279,6 +334,9 @@ export function McpServerEditor({
 								rows={2}
 								placeholder='{"API_KEY": "..."}'
 							/>
+							{form.formState.errors.envJson ? (
+								<p className="text-xs text-destructive">{form.formState.errors.envJson.message}</p>
+							) : null}
 						</div>
 					</>
 				) : null}
@@ -304,6 +362,9 @@ export function McpServerEditor({
 								rows={2}
 								placeholder='{"X-Custom": "value"}'
 							/>
+							{form.formState.errors.headersJson ? (
+								<p className="text-xs text-destructive">{form.formState.errors.headersJson.message}</p>
+							) : null}
 						</div>
 						<div className="space-y-1.5">
 							<Label className="text-xs">{t('mcp.fieldAuthType')}</Label>
