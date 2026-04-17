@@ -47,9 +47,59 @@ pub async fn execute(
         _ => {}
     }
 
-    let fs_root = crate::state::ensure_app_fs_root(ctx.app)
-        .map_err(|err| format!("无法初始化 app 内 fs 文件系统目录: {err}"))?;
-    execute_with_fs_root(name, args, &fs_root)
+    // 通用文件工具：全部路由到 FsWorkspaceService，root_id 默认 "default"
+    // 这样用户在设置中配置的自定义沙箱根和白名单目录才能对 AI 生效
+    let root_id = args.get("root_id").and_then(|v| v.as_str()).unwrap_or("default");
+    let svc = crate::services::fs_workspace_service::from_app(ctx.app)
+        .map_err(|e| format!("文件系统服务初始化失败: {e}"))?;
+
+    match name {
+        "file_read" => {
+            let path = require_str(&args, "path")?;
+            svc.read_file(root_id, &path).map(ToolResult::text).map_err(|e| e.to_string())
+        }
+        "file_write" => {
+            let path = require_str(&args, "path")?;
+            let content = require_str(&args, "content")?;
+            let len = content.len();
+            svc.write_file(root_id, &path, &content)
+                .map(|_| ToolResult::text(format!("已写入 {} bytes 到 '{}'", len, path)))
+                .map_err(|e| e.to_string())
+        }
+        "file_append" => {
+            let path = require_str(&args, "path")?;
+            let content = require_str(&args, "content")?;
+            let len = content.len();
+            svc.append_file(root_id, &path, &content)
+                .map(|_| ToolResult::text(format!("已向 '{}' 追加 {} bytes", path, len)))
+                .map_err(|e| e.to_string())
+        }
+        "file_list_dir" => {
+            let path = require_str(&args, "path")?;
+            svc.list_dir(root_id, &path)
+                .map(|entries| ToolResult::text(serde_json::to_string(&entries).unwrap_or_default()))
+                .map_err(|e| e.to_string())
+        }
+        "file_exists" => {
+            let path = require_str(&args, "path")?;
+            svc.path_exists(root_id, &path)
+                .map(|(exists, is_dir)| {
+                    ToolResult::text(json!({
+                        "exists": exists,
+                        "is_dir": is_dir,
+                        "is_file": exists && !is_dir,
+                    }).to_string())
+                })
+                .map_err(|e| e.to_string())
+        }
+        "file_mkdir" => {
+            let path = require_str(&args, "path")?;
+            svc.mkdir(root_id, &path)
+                .map(|_| ToolResult::text(format!("已创建目录 '{}'", path)))
+                .map_err(|e| e.to_string())
+        }
+        _ => Err(format!("未知文件工具: '{name}'")),
+    }
 }
 
 async fn handle_file_list_roots(app: &tauri::AppHandle) -> Result<Vec<crate::services::fs_workspace_service::FsRoot>, String> {

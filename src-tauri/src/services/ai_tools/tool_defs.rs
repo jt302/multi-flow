@@ -1989,68 +1989,74 @@ fn file_tools() -> Vec<Value> {
     vec![
         tool(
             "file_read",
-            "读取文本文件内容（最大 10MB）",
+            "读取文本文件内容（最大 10MB）。先调用 file_list_roots 获取可用根目录，用 root_id 指定目标根，path 为根下的相对路径",
             json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "app 内 fs 文件系统中的相对路径，`.` 表示 fs 根目录" }
+                    "path": { "type": "string", "description": "相对于根目录的文件路径，`.` 表示根目录" },
+                    "root_id": { "type": "string", "description": "根目录 ID，默认 'default'（AI 沙箱）。调用 file_list_roots 查看可用根" }
                 },
                 "required": ["path"]
             }),
         ),
         tool(
             "file_write",
-            "写入文本到文件（覆盖已有内容）",
+            "写入文本到文件（覆盖已有内容，最大 10MB，自动创建父目录）。只读根目录不允许写入",
             json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "app 内 fs 文件系统中的相对路径，`.` 表示 fs 根目录" },
-                    "content": { "type": "string", "description": "要写入的文本内容" }
+                    "path": { "type": "string", "description": "相对于根目录的文件路径" },
+                    "content": { "type": "string", "description": "要写入的文本内容" },
+                    "root_id": { "type": "string", "description": "根目录 ID，默认 'default'" }
                 },
                 "required": ["path", "content"]
             }),
         ),
         tool(
             "file_append",
-            "追加文本到文件末尾",
+            "追加文本到文件末尾（最大单次 10MB）。只读根目录不允许追加",
             json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "app 内 fs 文件系统中的相对路径，`.` 表示 fs 根目录" },
-                    "content": { "type": "string", "description": "要追加的文本内容" }
+                    "path": { "type": "string", "description": "相对于根目录的文件路径" },
+                    "content": { "type": "string", "description": "要追加的文本内容" },
+                    "root_id": { "type": "string", "description": "根目录 ID，默认 'default'" }
                 },
                 "required": ["path", "content"]
             }),
         ),
         tool(
             "file_list_dir",
-            "列出目录内容",
+            "列出目录内容，返回包含 name/rel_path/is_dir/size/modified_at 的条目列表",
             json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "app 内 fs 文件系统中的相对路径，`.` 表示 fs 根目录" }
+                    "path": { "type": "string", "description": "相对于根目录的目录路径，`.` 表示根目录" },
+                    "root_id": { "type": "string", "description": "根目录 ID，默认 'default'" }
                 },
                 "required": ["path"]
             }),
         ),
         tool(
             "file_exists",
-            "检查文件或目录是否存在",
+            "检查文件或目录是否存在，返回 {exists, is_dir, is_file}",
             json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "app 内 fs 文件系统中的相对路径，`.` 表示 fs 根目录" }
+                    "path": { "type": "string", "description": "相对于根目录的路径" },
+                    "root_id": { "type": "string", "description": "根目录 ID，默认 'default'" }
                 },
                 "required": ["path"]
             }),
         ),
         tool(
             "file_mkdir",
-            "递归创建目录",
+            "递归创建目录。只读根目录不允许创建",
             json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "app 内 fs 文件系统中的相对路径，`.` 表示 fs 根目录" }
+                    "path": { "type": "string", "description": "相对于根目录的目录路径" },
+                    "root_id": { "type": "string", "description": "根目录 ID，默认 'default'" }
                 },
                 "required": ["path"]
             }),

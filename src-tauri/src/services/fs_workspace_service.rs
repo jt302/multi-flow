@@ -220,6 +220,79 @@ impl FsWorkspaceService {
         Ok((path, entry.allow_write))
     }
 
+    // ─── AI 工具使用的文件 I/O 方法 ──────────────────────────────────────────
+
+    /// 读取文件内容（最大 10MB）
+    pub fn read_file(&self, root_id: &str, rel_path: &str) -> AppResult<String> {
+        let (root_path, _) = self.get_root_base(root_id)?;
+        let target = self.safe_join(&root_path, rel_path)?;
+        let meta = fs::metadata(&target)
+            .map_err(|e| AppError::Validation(format!("读取 '{}' 失败: {e}", rel_path)))?;
+        const MAX_READ: u64 = 10 * 1024 * 1024;
+        if meta.len() > MAX_READ {
+            return Err(AppError::Validation(format!(
+                "文件过大 ({} bytes，上限 {} bytes)", meta.len(), MAX_READ
+            )));
+        }
+        fs::read_to_string(&target)
+            .map_err(|e| AppError::Validation(format!("读取 '{}' 失败: {e}", rel_path)))
+    }
+
+    /// 覆盖写入文件（最大 10MB，自动创建父目录）
+    pub fn write_file(&self, root_id: &str, rel_path: &str, content: &str) -> AppResult<()> {
+        let (root_path, allow_write) = self.get_root_base(root_id)?;
+        if !allow_write {
+            return Err(AppError::Validation("该根目录为只读，不允许写入文件".to_string()));
+        }
+        const MAX_WRITE: usize = 10 * 1024 * 1024;
+        if content.len() > MAX_WRITE {
+            return Err(AppError::Validation(format!(
+                "内容过大 ({} bytes，上限 {} bytes)", content.len(), MAX_WRITE
+            )));
+        }
+        let target = self.safe_join(&root_path, rel_path)?;
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(&target, content)
+            .map_err(|e| AppError::Validation(format!("写入 '{}' 失败: {e}", rel_path)))
+    }
+
+    /// 追加写入文件（最大单次 10MB）
+    pub fn append_file(&self, root_id: &str, rel_path: &str, content: &str) -> AppResult<()> {
+        let (root_path, allow_write) = self.get_root_base(root_id)?;
+        if !allow_write {
+            return Err(AppError::Validation("该根目录为只读，不允许追加文件".to_string()));
+        }
+        const MAX_WRITE: usize = 10 * 1024 * 1024;
+        if content.len() > MAX_WRITE {
+            return Err(AppError::Validation(format!(
+                "追加内容过大 ({} bytes，上限 {} bytes)", content.len(), MAX_WRITE
+            )));
+        }
+        let target = self.safe_join(&root_path, rel_path)?;
+        use std::io::Write;
+        let mut file = fs::OpenOptions::new()
+            .create(true).append(true).open(&target)
+            .map_err(|e| AppError::Validation(format!("打开 '{}' 失败: {e}", rel_path)))?;
+        file.write_all(content.as_bytes())
+            .map_err(|e| AppError::Validation(format!("追加 '{}' 失败: {e}", rel_path)))
+    }
+
+    /// 检查路径是否存在，返回 (exists, is_dir)
+    pub fn path_exists(&self, root_id: &str, rel_path: &str) -> AppResult<(bool, bool)> {
+        let (root_path, _) = self.get_root_base(root_id)?;
+        let target = self.safe_join(&root_path, rel_path)?;
+        let exists = target.exists();
+        let is_dir = target.is_dir();
+        Ok((exists, is_dir))
+    }
+
+    /// 创建目录（供 AI 工具调用的 alias）
+    pub fn mkdir(&self, root_id: &str, rel_path: &str) -> AppResult<()> {
+        self.create_folder(root_id, rel_path)
+    }
+
     /// 安全路径拼接：拒绝 .. 和绝对路径
     fn safe_join(&self, root: &Path, rel: &str) -> AppResult<PathBuf> {
         if rel.is_empty() || rel == "." {
