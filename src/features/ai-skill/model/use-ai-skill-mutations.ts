@@ -26,7 +26,10 @@ export function useDeleteAiSkill() {
 	const qc = useQueryClient();
 	return useMutation({
 		mutationFn: aiSkillApi.delete,
-		onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.aiSkills }),
+		onSuccess: (_, slug) => {
+			qc.invalidateQueries({ queryKey: queryKeys.aiSkills });
+			qc.invalidateQueries({ queryKey: queryKeys.aiSkill(slug) });
+		},
 	});
 }
 

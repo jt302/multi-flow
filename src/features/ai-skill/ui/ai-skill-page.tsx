@@ -3,6 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { useAiSkillsQuery } from '@/entities/ai-skill/model/use-ai-skills-query';
 import { AiSkillList } from './ai-skill-list';
@@ -13,20 +20,32 @@ export function AiSkillPage() {
 	const { data: skills = [], isLoading } = useAiSkillsQuery();
 	const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
 	const [isCreating, setIsCreating] = useState(false);
+	const [dialogOpen, setDialogOpen] = useState(false);
 
 	const handleNew = () => {
 		setSelectedSlug(null);
 		setIsCreating(true);
+		setDialogOpen(true);
 	};
 
 	const handleSelect = (slug: string) => {
 		setSelectedSlug(slug);
 		setIsCreating(false);
+		setDialogOpen(true);
 	};
 
 	const handleSaved = (slug: string) => {
 		setSelectedSlug(slug);
 		setIsCreating(false);
+		setDialogOpen(false);
+	};
+
+	const handleDeleted = (deletedSlug: string) => {
+		if (deletedSlug === selectedSlug) {
+			setSelectedSlug(null);
+			setIsCreating(false);
+			setDialogOpen(false);
+		}
 	};
 
 	return (
@@ -44,24 +63,43 @@ export function AiSkillPage() {
 						isLoading={isLoading}
 						selectedSlug={selectedSlug}
 						onSelect={handleSelect}
+						onDeleted={handleDeleted}
 					/>
 				</div>
 			</ResizablePanel>
 			<ResizableHandle />
 			<ResizablePanel defaultSize={70}>
-				{isCreating || selectedSlug ? (
+				<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+					{t('skills.selectOrCreate')}
+				</div>
+			</ResizablePanel>
+			<Dialog
+				open={dialogOpen}
+				onOpenChange={(open) => {
+					setDialogOpen(open);
+					if (!open) {
+						setIsCreating(false);
+					}
+				}}
+			>
+				<DialogContent className="max-w-4xl">
+					<DialogHeader>
+						<DialogTitle>
+							{isCreating ? t('skills.createTitle') : t('skills.editTitle')}
+						</DialogTitle>
+						<DialogDescription>{t('skills.dialogDescription')}</DialogDescription>
+					</DialogHeader>
 					<AiSkillEditor
 						slug={selectedSlug}
 						isNew={isCreating}
 						onSaved={handleSaved}
-						onCancel={() => { setIsCreating(false); setSelectedSlug(null); }}
+						onCancel={() => {
+							setDialogOpen(false);
+							setIsCreating(false);
+						}}
 					/>
-				) : (
-					<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-						{t('skills.selectOrCreate')}
-					</div>
-				)}
-			</ResizablePanel>
+				</DialogContent>
+			</Dialog>
 		</ResizablePanelGroup>
 	);
 }

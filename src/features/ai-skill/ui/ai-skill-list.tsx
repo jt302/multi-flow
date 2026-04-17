@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { ConfirmActionDialog } from '@/components/common/confirm-action-dialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { AiSkillMeta } from '@/entities/ai-skill/model/types';
@@ -12,12 +14,14 @@ interface Props {
 	isLoading: boolean;
 	selectedSlug: string | null;
 	onSelect: (slug: string) => void;
+	onDeleted: (slug: string) => void;
 }
 
-export function AiSkillList({ skills, isLoading, selectedSlug, onSelect }: Props) {
+export function AiSkillList({ skills, isLoading, selectedSlug, onSelect, onDeleted }: Props) {
 	const { t } = useTranslation('chat');
 	const deleteMut = useDeleteAiSkill();
 	const updateMut = useUpdateAiSkill();
+	const [pendingDelete, setPendingDelete] = useState<AiSkillMeta | null>(null);
 
 	if (isLoading) {
 		return <div className="p-4 text-sm text-muted-foreground">{t('skills.title')}...</div>;
@@ -63,16 +67,33 @@ export function AiSkillList({ skills, isLoading, selectedSlug, onSelect }: Props
 						className="h-6 w-6 cursor-pointer shrink-0"
 						onClick={(e) => {
 							e.stopPropagation();
-							if (!confirm(t('skills.confirmDelete', { name: skill.name }))) return;
-							deleteMut.mutate(skill.slug, {
-								onError: (err) => toast.error(String(err)),
-							});
+							setPendingDelete(skill);
 						}}
 					>
 						<Trash2 className="h-3.5 w-3.5" />
 					</Button>
 				</div>
 			))}
+			<ConfirmActionDialog
+				open={pendingDelete !== null}
+				onOpenChange={(open) => {
+					if (!open) setPendingDelete(null);
+				}}
+				title={t('common:confirmDelete')}
+				description={t('skills.confirmDelete', { name: pendingDelete?.name ?? '' })}
+				confirmText={t('common:delete')}
+				pending={deleteMut.isPending}
+				onConfirm={() => {
+					if (!pendingDelete) return;
+					deleteMut.mutate(pendingDelete.slug, {
+						onSuccess: () => {
+							onDeleted(pendingDelete.slug);
+							setPendingDelete(null);
+						},
+						onError: (err) => toast.error(String(err)),
+					});
+				}}
+			/>
 		</div>
 	);
 }
