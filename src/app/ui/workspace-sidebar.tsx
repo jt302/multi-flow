@@ -2,6 +2,12 @@ import { Cpu } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
 	SidebarContent,
 	SidebarFooter,
 	SidebarGroup,
@@ -74,40 +80,76 @@ export function WorkspaceSidebar({
 							{getWorkspaceNavItems().map((item) => {
 								const active = item.id === activeNav;
 								const ItemIcon = item.icon;
-								return (
-									<SidebarMenuItem key={item.id}>
-										<SidebarMenuButton
-											type="button"
-											variant={active ? 'outline' : 'default'}
-											isActive={active}
-											aria-label={item.label}
-											onClick={() => onNavChange(item.id)}
-											tooltip={item.label}
+								const hasCollapsedMenu = collapsed && Boolean(item.children?.length);
+								const button = (
+									<SidebarMenuButton
+										type="button"
+										variant={active ? 'outline' : 'default'}
+										isActive={active}
+										aria-label={item.label}
+										onClick={
+											hasCollapsedMenu
+												? undefined
+												: () => onNavChange(item.id)
+										}
+										tooltip={hasCollapsedMenu ? undefined : item.label}
+										className={cn(
+											'h-10 rounded-xl px-2.5 transition-all duration-300 active:scale-95',
+											collapsed && 'h-8 justify-center px-0',
+											active
+												? 'border-primary/30 bg-primary/10 shadow-sm'
+												: 'border border-transparent hover:bg-sidebar-accent/50 hover:shadow-sm hover:scale-[1.02]',
+										)}
+									>
+										<span
 											className={cn(
-												'h-10 rounded-xl px-2.5 transition-all duration-300 active:scale-95',
-												collapsed && 'h-8 justify-center px-0',
-												active
-													? 'border-primary/30 bg-primary/10 shadow-sm'
-													: 'border border-transparent hover:bg-sidebar-accent/50 hover:shadow-sm hover:scale-[1.02]',
+												'grid place-items-center',
+												collapsed
+													? active
+														? 'size-5 text-primary'
+														: 'size-5 text-sidebar-foreground/70'
+													: active
+														? 'bg-primary/20 text-primary'
+														: 'rounded-lg bg-sidebar-accent/65 text-sidebar-foreground/70',
+												!collapsed && 'size-7 rounded-lg',
 											)}
 										>
-											<span
-												className={cn(
-													'grid place-items-center',
-													collapsed
-														? active
-															? 'size-5 text-primary'
-															: 'size-5 text-sidebar-foreground/70'
-														: active
-															? 'bg-primary/20 text-primary'
-															: 'rounded-lg bg-sidebar-accent/65 text-sidebar-foreground/70',
-													!collapsed && 'size-7 rounded-lg',
-												)}
-											>
-												<ItemIcon className="size-3.5" />
-											</span>
-											{collapsed ? null : <span>{item.label}</span>}
-										</SidebarMenuButton>
+											<ItemIcon className="size-3.5" />
+										</span>
+										{collapsed ? null : <span>{item.label}</span>}
+									</SidebarMenuButton>
+								);
+								return (
+									<SidebarMenuItem key={item.id}>
+										{hasCollapsedMenu ? (
+											<DropdownMenu>
+												<DropdownMenuTrigger asChild>
+													{button}
+												</DropdownMenuTrigger>
+												<DropdownMenuContent
+													side="right"
+													align="start"
+													className="min-w-44"
+												>
+													<DropdownMenuLabel>{item.label}</DropdownMenuLabel>
+													<DropdownMenuSeparator />
+													{item.children?.map((child) => {
+														const ChildIcon = child.icon;
+														return (
+															<DropdownMenuItem
+																key={child.path}
+																onSelect={() => onNavigate(child.path)}
+															>
+																<ChildIcon className="size-4" />
+																<span>{child.label}</span>
+															</DropdownMenuItem>
+														);
+													})}
+												</DropdownMenuContent>
+											</DropdownMenu>
+										) : (
+											button
+										)}
 										{!collapsed && item.children?.length ? (
 											<SidebarMenuSub>
 												{item.children.map((child) => {

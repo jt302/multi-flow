@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import i18next from 'i18next';
 
-import { PROFILES_DEVICE_PRESETS_PATH } from '@/app/workspace-routes';
+import { NAV_PATHS, PROFILES_DEVICE_PRESETS_PATH } from '@/app/workspace-routes';
 import { getSettingsTabs } from '@/features/settings/ui/settings-tab-constants';
 import type { NavItem } from './workspace-types';
 
@@ -25,6 +25,11 @@ export function getWorkspaceNavItems(): NavItem[] {
 			label: t('nav:profiles'),
 			icon: FolderKanban,
 			children: [
+				{
+					label: t('nav:sidebar.profileList'),
+					path: NAV_PATHS.profiles,
+					icon: FolderKanban,
+				},
 				{
 					label: t('nav:sidebar.devicePresets'),
 					path: PROFILES_DEVICE_PRESETS_PATH,

@@ -98,6 +98,7 @@
 
 	"sidebar": {
 		"navigation": "导航",
+		"profileList": "环境列表",
 		"devicePresets": "机型映射",
 		"runtimeStatus": "运行状态",
 		"executionEngine": "执行引擎",
