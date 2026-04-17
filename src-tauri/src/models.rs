@@ -2240,6 +2240,12 @@ pub struct RunLogEntry {
     /// 详细数据（可选，JSON 对象）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub details: Option<serde_json::Value>,
+    /// 产生此日志的环境 ID（可选，旧记录为 None）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_id: Option<String>,
+    /// 产生此日志的环境名称（可选，旧记录为 None）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -2341,6 +2347,12 @@ pub struct AutomationProgressEvent {
     /// AI 步骤实时执行详情（仅 ai_agent/ai_judge 步骤）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ai_detail: Option<AiExecutionDetail>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub batch_id: Option<String>,
 }
 
 /// AI 步骤执行过程中的实时详情
@@ -2416,6 +2428,12 @@ fn default_countdown_level() -> String {
 pub struct AutomationVariablesUpdatedEvent {
     pub run_id: String,
     pub vars: std::collections::HashMap<String, String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub batch_id: Option<String>,
 }
 
 /// 发给前端的人工介入请求事件
@@ -2423,6 +2441,12 @@ pub struct AutomationVariablesUpdatedEvent {
 #[serde(rename_all = "camelCase")]
 pub struct AutomationHumanRequiredEvent {
     pub run_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub batch_id: Option<String>,
     /// 弹窗类型: "wait_for_user" | "confirm" | "select"
     pub dialog_type: String,
     pub message: String,
@@ -2500,6 +2524,12 @@ pub struct AutomationHumanRequiredEvent {
 #[serde(rename_all = "camelCase")]
 pub struct AutomationHumanDismissedEvent {
     pub run_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub batch_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2508,6 +2538,12 @@ pub struct AutomationStepErrorPauseEvent {
     pub run_id: String,
     pub step_index: usize,
     pub error_message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub batch_id: Option<String>,
 }
 
 /// 运行已取消
@@ -2515,6 +2551,12 @@ pub struct AutomationStepErrorPauseEvent {
 #[serde(rename_all = "camelCase")]
 pub struct AutomationRunCancelledEvent {
     pub run_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub batch_id: Option<String>,
 }
 
 /// 自动化步骤发出的非阻塞通知
@@ -2527,6 +2569,12 @@ pub struct AutomationNotificationEvent {
     /// "info" | "success" | "warning" | "error"
     pub level: String,
     pub duration_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub batch_id: Option<String>,
 }
 
 #[cfg(test)]

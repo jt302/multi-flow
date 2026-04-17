@@ -187,6 +187,14 @@ pub async fn execute(
             let initial_vars: Option<std::collections::HashMap<String, String>> = args
                 .get("initial_vars")
                 .and_then(|v| serde_json::from_value(v.clone()).ok());
+            // 从父 run 继承 batch_id，建立父子关联
+            let inherited_batch_id = {
+                let app_state = ctx.app.state::<crate::state::AppState>();
+                app_state
+                    .active_runs
+                    .get(ctx.run_id)
+                    .and_then(|c| c.batch_id.clone())
+            };
             let run_id = crate::commands::automation_commands::do_run_script(
                 ctx.app,
                 &state,
@@ -194,6 +202,7 @@ pub async fn execute(
                 profile_id,
                 initial_vars,
                 None,
+                inherited_batch_id,
             )
             .await?;
             Ok(ToolResult::text(json!({ "run_id": run_id }).to_string()))

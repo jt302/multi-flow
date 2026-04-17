@@ -17,6 +17,7 @@ use crate::models::{
 use crate::services::ai_service::{extract_json_path, AiChatResult, AiService, ChatMessage};
 use crate::services::app_preference_service::AiProviderConfig;
 use crate::services::automation_cdp_client::CdpClient;
+use crate::services::automation_context::{ActiveRunCtx, ActiveRunGuard};
 use crate::services::automation_interpolation::RunVariables;
 use crate::state::AppState;
 
@@ -612,6 +613,7 @@ pub async fn do_run_script(
     profile_id: Option<String>,
     initial_vars: Option<HashMap<String, String>>,
     delay_config: Option<crate::models::RunDelayConfig>,
+    batch_id: Option<String>,
 ) -> Result<String, String> {
     let (steps, steps_json, script_ai_config, associated_profile_ids, step_delay_ms) = {
         let svc = state.lock_automation_service();
@@ -683,6 +685,10 @@ pub async fn do_run_script(
         svc.create_run(script_id, &resolved_profile_id, &steps_json)
             .map_err(error_to_string)?
     };
+    let profile_name = {
+        let ps = state.lock_profile_service();
+        ps.get_profile(&resolved_profile_id).ok().map(|p| p.name)
+    };
     logger::info(
         "automation",
         format!(
@@ -698,6 +704,7 @@ pub async fn do_run_script(
         run_id.clone(),
         script_id.to_string(),
         resolved_profile_id.clone(),
+        profile_name,
         debug_port,
         magic_port,
         steps,
@@ -705,6 +712,7 @@ pub async fn do_run_script(
         script_ai_config,
         step_delay_ms,
         delay_config,
+        batch_id,
     ));
     Ok(run_id)
 }
@@ -717,6 +725,7 @@ pub async fn run_automation_script(
     profile_id: Option<String>,
     initial_vars: Option<HashMap<String, String>>,
     delay_config: Option<crate::models::RunDelayConfig>,
+    batch_id: Option<String>,
 ) -> Result<String, String> {
     do_run_script(
         &app,
@@ -725,6 +734,7 @@ pub async fn run_automation_script(
         profile_id,
         initial_vars,
         delay_config,
+        batch_id,
     )
     .await
 }
@@ -825,6 +835,10 @@ pub async fn run_automation_script_debug(
         svc.create_run(&script_id, &resolved_profile_id, &steps_json)
             .map_err(error_to_string)?
     };
+    let profile_name = {
+        let ps = state.lock_profile_service();
+        ps.get_profile(&resolved_profile_id).ok().map(|p| p.name)
+    };
     logger::info(
         "automation",
         format!(
@@ -840,12 +854,14 @@ pub async fn run_automation_script_debug(
         run_id.clone(),
         script_id.clone(),
         resolved_profile_id.clone(),
+        profile_name,
         debug_port,
         magic_port,
         debug_steps,
         initial_vars.unwrap_or_default(),
         script_ai_config,
         step_delay_ms,
+        None,
         None,
     ));
     Ok(run_id)
@@ -887,10 +903,14 @@ pub async fn cancel_automation_run(
             let _ = tx.send(None);
         }
     }
+    let (profile_id, profile_name, batch_id) = resolve_run_ctx(&app, &run_id);
     let _ = app.emit(
         "automation_run_cancelled",
         AutomationRunCancelledEvent {
             run_id: run_id.clone(),
+            profile_id,
+            profile_name,
+            batch_id,
         },
     );
     logger::info("automation", format!("run={} cancel requested", run_id));
@@ -1212,6 +1232,7 @@ async fn execute_script(
     run_id: String,
     script_id: String,
     profile_id: String,
+    profile_name: Option<String>,
     debug_port: Option<u16>,
     magic_port: Option<u16>,
     steps: Vec<ScriptStep>,
@@ -1219,8 +1240,23 @@ async fn execute_script(
     script_ai_config: Option<AiProviderConfig>,
     step_delay_ms: u16,
     delay_config: Option<crate::models::RunDelayConfig>,
+    batch_id: Option<String>,
 ) {
     let step_total = steps.len();
+    // 注册运行上下文，guard 在函数结束时自动反注册（Drop）
+    let _run_guard = {
+        let ctx = ActiveRunCtx::new(
+            run_id.clone(),
+            profile_id.clone(),
+            profile_name,
+            script_id.clone(),
+            None,
+            batch_id,
+            None,
+        );
+        let registry = app.state::<AppState>().active_runs.clone();
+        ActiveRunGuard::new(registry, ctx)
+    };
     let cdp = debug_port.map(CdpClient::new);
     let http_client = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(5))
@@ -1887,12 +1923,17 @@ fn execute_steps<'a>(
                             .unwrap_or_else(|e| e.into_inner());
                         guard.insert(run_id.to_string(), tx);
                     }
+                    let (profile_id, profile_name, batch_id) =
+                        resolve_run_ctx(app, run_id);
                     let _ = app.emit(
                         "automation_step_error_pause",
                         AutomationStepErrorPauseEvent {
                             run_id: run_id.to_string(),
                             step_index: top_index,
                             error_message: err.clone(),
+                            profile_id,
+                            profile_name,
+                            batch_id,
                         },
                     );
                     logger::warn(
@@ -2101,7 +2142,7 @@ pub async fn execute_step(
             }
             let _ = app.emit_to("main", "automation_human_required", {
                 let mut evt =
-                    human_event_base(run_id, "wait_for_user", message.clone(), step_index);
+                    human_event_base(app, run_id, "wait_for_user", message.clone(), step_index);
                 evt.input_label = input_label.clone();
                 evt.timeout_ms = *timeout_ms;
                 evt
@@ -4415,7 +4456,7 @@ pub async fn execute_step(
                 guard.insert(run_id.to_string(), tx);
             }
             let _ = app.emit_to("main", "automation_human_required", {
-                let mut evt = human_event_base(run_id, "confirm", message.clone(), step_index);
+                let mut evt = human_event_base(app, run_id, "confirm", message.clone(), step_index);
                 evt.timeout_ms = *timeout_ms;
                 evt.title = Some(title.clone());
                 evt.confirm_text = confirm_text.clone();
@@ -4497,6 +4538,7 @@ pub async fn execute_step(
             }
             let _ = app.emit_to("main", "automation_human_required", {
                 let mut evt = human_event_base(
+                    app,
                     run_id,
                     "select",
                     message_str.clone().unwrap_or_default(),
@@ -4550,6 +4592,7 @@ pub async fn execute_step(
         } => {
             let title = vars.interpolate(title);
             let body = vars.interpolate(body);
+            let (profile_id, profile_name, batch_id) = resolve_run_ctx(app, run_id);
             let _ = app.emit(
                 "automation_notification",
                 AutomationNotificationEvent {
@@ -4558,6 +4601,9 @@ pub async fn execute_step(
                     body,
                     level: level.clone(),
                     duration_ms: *duration_ms,
+                    profile_id,
+                    profile_name,
+                    batch_id,
                 },
             );
             Ok((None, HashMap::new()))
@@ -4586,7 +4632,7 @@ pub async fn execute_step(
             }
             let _ = app.emit_to("main", "automation_human_required", {
                 let mut evt =
-                    human_event_base(run_id, "form", message_str.unwrap_or_default(), step_index);
+                    human_event_base(app, run_id, "form", message_str.unwrap_or_default(), step_index);
                 evt.title = Some(title);
                 evt.timeout_ms = *timeout_ms;
                 evt.fields = Some(fields.clone());
@@ -4649,7 +4695,7 @@ pub async fn execute_step(
             }
             let _ = app.emit_to("main", "automation_human_required", {
                 let mut evt =
-                    human_event_base(run_id, "table", message_str.unwrap_or_default(), step_index);
+                    human_event_base(app, run_id, "table", message_str.unwrap_or_default(), step_index);
                 evt.title = Some(title);
                 evt.timeout_ms = *timeout_ms;
                 evt.columns = Some(columns.clone());
@@ -4712,7 +4758,7 @@ pub async fn execute_step(
                     .insert(run_id.to_string(), tx);
             }
             let _ = app.emit_to("main", "automation_human_required", {
-                let mut evt = human_event_base(run_id, "image", message_str, step_index);
+                let mut evt = human_event_base(app, run_id, "image", message_str, step_index);
                 evt.title = title.clone();
                 evt.timeout_ms = *timeout_ms;
                 evt.image = Some(image_data);
@@ -4769,7 +4815,7 @@ pub async fn execute_step(
                     .insert(run_id.to_string(), tx);
             }
             let _ = app.emit_to("main", "automation_human_required", {
-                let mut evt = human_event_base(run_id, "countdown", message.clone(), step_index);
+                let mut evt = human_event_base(app, run_id, "countdown", message.clone(), step_index);
                 evt.title = title.clone();
                 evt.seconds = Some(*seconds);
                 evt.level = Some(level.clone());
@@ -4828,7 +4874,7 @@ pub async fn execute_step(
                     .insert(run_id.to_string(), tx);
             }
             let _ = app.emit_to("main", "automation_human_required", {
-                let mut evt = human_event_base(run_id, "markdown", String::new(), step_index);
+                let mut evt = human_event_base(app, run_id, "markdown", String::new(), step_index);
                 evt.title = title.clone();
                 evt.content = Some(content);
                 evt.max_height = *max_height;
@@ -6255,6 +6301,23 @@ fn is_cancelled(app: &AppHandle, run_id: &str) -> bool {
 
 // ─── 事件工具函数 ──────────────────────────────────────────────────────────────
 
+/// 从 active_runs 反查 run 的 profile 上下文，反查失败时优雅降级为 None
+fn resolve_run_ctx(
+    app: &AppHandle,
+    run_id: &str,
+) -> (Option<String>, Option<String>, Option<String>) {
+    let state = app.state::<AppState>();
+    if let Some(ctx) = state.active_runs.get(run_id) {
+        (
+            Some(ctx.profile_id.clone()),
+            ctx.profile_name.clone(),
+            ctx.batch_id.clone(),
+        )
+    } else {
+        (None, None, None)
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn emit_progress(
     app: &AppHandle,
@@ -6296,6 +6359,7 @@ fn emit_progress_with_ai(
     step_path: Vec<usize>,
     ai_detail: Option<AiExecutionDetail>,
 ) {
+    let (profile_id, profile_name, batch_id) = resolve_run_ctx(app, run_id);
     let event = AutomationProgressEvent {
         run_id: run_id.to_string(),
         step_index,
@@ -6307,6 +6371,9 @@ fn emit_progress_with_ai(
         vars_set,
         step_path,
         ai_detail,
+        profile_id,
+        profile_name,
+        batch_id,
     };
     if let Err(e) = app.emit("automation_progress", &event) {
         logger::warn("automation", format!("emit progress failed: {e}"));
@@ -6314,9 +6381,13 @@ fn emit_progress_with_ai(
 }
 
 fn emit_variables_updated(app: &AppHandle, run_id: &str, vars: HashMap<String, String>) {
+    let (profile_id, profile_name, batch_id) = resolve_run_ctx(app, run_id);
     let event = AutomationVariablesUpdatedEvent {
         run_id: run_id.to_string(),
         vars,
+        profile_id,
+        profile_name,
+        batch_id,
     };
     if let Err(e) = app.emit("automation_variables_updated", &event) {
         logger::warn("automation", format!("emit variables_updated failed: {e}"));
@@ -6325,13 +6396,18 @@ fn emit_variables_updated(app: &AppHandle, run_id: &str, vars: HashMap<String, S
 
 /// 构建人工介入事件，新增字段使用 None 默认值
 fn human_event_base(
+    app: &AppHandle,
     run_id: &str,
     dialog_type: &str,
     message: String,
     step_index: usize,
 ) -> AutomationHumanRequiredEvent {
+    let (profile_id, profile_name, batch_id) = resolve_run_ctx(app, run_id);
     AutomationHumanRequiredEvent {
         run_id: run_id.to_string(),
+        profile_id,
+        profile_name,
+        batch_id,
         dialog_type: dialog_type.to_string(),
         message,
         input_label: None,
@@ -6363,11 +6439,15 @@ fn human_event_base(
 }
 
 fn emit_human_dismissed(app: &AppHandle, run_id: &str) {
+    let (profile_id, profile_name, batch_id) = resolve_run_ctx(app, run_id);
     let _ = app.emit_to(
         "main",
         "automation_human_dismissed",
         AutomationHumanDismissedEvent {
             run_id: run_id.to_string(),
+            profile_id,
+            profile_name,
+            batch_id,
         },
     );
 }
@@ -6384,6 +6464,8 @@ fn log_entry(
         category: category.to_string(),
         message,
         details,
+        profile_id: None,
+        profile_name: None,
     }
 }
 

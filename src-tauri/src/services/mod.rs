@@ -1,4 +1,5 @@
 pub mod ai_prompts;
+pub mod automation_context;
 pub mod ai_service;
 pub mod ai_tools;
 pub mod app_preference_service;

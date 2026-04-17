@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use tauri::AppHandle;
 use tauri::Manager;
@@ -14,6 +14,7 @@ use crate::local_api_server::{LocalApiServer, DEFAULT_PROXY_DAEMON_BIND_ADDRESS}
 use crate::logger;
 use crate::runtime_guard;
 use crate::services::ai_tools::dialog_tools::AiDialogResponse;
+use crate::services::automation_context::ActiveRunRegistry;
 use crate::services::app_preference_service::AppPreferenceService;
 use crate::services::automation_service::AutomationService;
 use crate::services::chat_service::ChatService;
@@ -28,6 +29,8 @@ use crate::services::resource_service::ResourceService;
 use crate::services::sync_manager_service::SyncManagerService;
 
 pub struct AppState {
+    /// 活跃运行上下文注册表：run_id → ActiveRunCtx，供 emit helpers 反查 profile 信息
+    pub active_runs: Arc<ActiveRunRegistry>,
     /// oneshot senders for WaitForUser steps: run_id → sender(Option<String>)
     /// Some(input) = 用户提交输入后继续，None = 取消
     pub active_run_channels: Mutex<HashMap<String, tokio::sync::oneshot::Sender<Option<String>>>>,
@@ -149,6 +152,7 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
     cleanup_rpa_artifacts_dir(app)?;
 
     let app_state = AppState {
+        active_runs: Arc::new(ActiveRunRegistry::new()),
         active_run_channels: Mutex::new(HashMap::new()),
         cancel_tokens: Mutex::new(HashMap::new()),
         ai_dialog_channels: Mutex::new(HashMap::new()),
