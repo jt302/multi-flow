@@ -10,8 +10,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
-import { usePersistentLayout } from '@/shared/hooks/use-persistent-layout';
 import { useAiSkillsQuery } from '@/entities/ai-skill/model/use-ai-skills-query';
 import { useChatStore } from '@/store/chat-store';
 import { AiSkillList } from './ai-skill-list';
@@ -20,9 +18,6 @@ import { AiSkillInstallDialog } from './ai-skill-install-dialog';
 
 export function AiSkillPage() {
 	const { t } = useTranslation('chat');
-	const { defaultLayout, onLayoutChanged } = usePersistentLayout({
-		id: 'ai-skill-layout',
-	});
 	const activeSessionId = useChatStore((state) => state.activeSessionId);
 	const { data: skills = [], isLoading } = useAiSkillsQuery();
 	const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
@@ -61,40 +56,32 @@ export function AiSkillPage() {
 	};
 
 	return (
-		<ResizablePanelGroup
-			direction="horizontal"
-			className="h-full"
-			defaultLayout={defaultLayout}
-			onLayoutChanged={onLayoutChanged}
-		>
-			<ResizablePanel id="ai-skill-sidebar" defaultSize={defaultLayout?.[0] ?? 30} minSize={20}>
-				<div className="flex h-full flex-col">
-					<div className="flex items-center justify-between border-b px-4 py-3">
-						<span className="text-sm font-medium">{t('skills.title')}</span>
-						<div className="flex items-center gap-1">
-							<Button size="sm" variant="ghost" onClick={handleInstall} className="cursor-pointer h-7 px-2">
-								<Download className="h-4 w-4" />
-							</Button>
-							<Button size="sm" variant="ghost" onClick={handleNew} className="cursor-pointer h-7 px-2">
-								<Plus className="h-4 w-4" />
-							</Button>
-						</div>
-					</div>
-					<AiSkillList
-						skills={skills}
-						isLoading={isLoading}
-						selectedSlug={selectedSlug}
-						onSelect={handleSelect}
-						onDeleted={handleDeleted}
-					/>
+		<div className="flex h-full flex-col gap-4 p-4">
+			<div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border/70 bg-card px-5 py-4 shadow-sm">
+				<div className="space-y-1">
+					<h1 className="text-base font-semibold text-foreground">{t('skills.title')}</h1>
+					<p className="max-w-2xl text-sm text-muted-foreground">{t('skills.pageDescription')}</p>
 				</div>
-			</ResizablePanel>
-			<ResizableHandle />
-			<ResizablePanel id="ai-skill-detail" defaultSize={defaultLayout?.[1] ?? 70}>
-				<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-					{t('skills.selectOrCreate')}
+				<div className="flex items-center gap-2">
+					<Button type="button" variant="outline" onClick={handleInstall} className="cursor-pointer">
+						<Download className="h-4 w-4" />
+						{t('skills.installAction')}
+					</Button>
+					<Button type="button" onClick={handleNew} className="cursor-pointer">
+						<Plus className="h-4 w-4" />
+						{t('skills.createTitle')}
+					</Button>
 				</div>
-			</ResizablePanel>
+			</div>
+			<div className="min-h-0 flex-1">
+				<AiSkillList
+					skills={skills}
+					isLoading={isLoading}
+					selectedSlug={selectedSlug}
+					onSelect={handleSelect}
+					onDeleted={handleDeleted}
+				/>
+			</div>
 			<Dialog
 				open={dialogOpen}
 				onOpenChange={(open) => {
@@ -138,6 +125,6 @@ export function AiSkillPage() {
 					/>
 				</DialogContent>
 			</Dialog>
-		</ResizablePanelGroup>
+		</div>
 	);
 }
