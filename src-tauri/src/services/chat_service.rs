@@ -37,6 +37,7 @@ pub struct ChatSession {
     pub profile_ids: Option<Vec<String>>,
     pub active_profile_id: Option<String>,
     pub enabled_skill_slugs: Vec<String>,
+    pub disabled_mcp_server_ids: Vec<String>,
     pub created_at: i64,
     pub updated_at: i64,
 }
@@ -83,6 +84,7 @@ pub struct CreateChatSessionRequest {
     pub tool_categories: Option<Vec<String>>,
     pub profile_ids: Option<Vec<String>>,
     pub enabled_skill_slugs: Option<Vec<String>>,
+    pub disabled_mcp_server_ids: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -103,6 +105,8 @@ pub struct UpdateChatSessionRequest {
     pub active_profile_id: Option<Option<String>>,
     #[serde(default, deserialize_with = "double_option")]
     pub enabled_skill_slugs: Option<Option<Vec<String>>>,
+    #[serde(default, deserialize_with = "double_option")]
+    pub disabled_mcp_server_ids: Option<Option<Vec<String>>>,
 }
 
 // ─── ChatService ──────────────────────────────────────────────────────────
@@ -155,6 +159,13 @@ impl ChatService {
             active_profile_id: Set(normalized.active_profile_id),
             enabled_skill_slugs: Set(
                 req.enabled_skill_slugs
+                    .as_ref()
+                    .filter(|v| !v.is_empty())
+                    .and_then(|v| serde_json::to_string(v).ok())
+                    .unwrap_or_else(|| "[]".to_string()),
+            ),
+            disabled_mcp_server_ids: Set(
+                req.disabled_mcp_server_ids
                     .as_ref()
                     .filter(|v| !v.is_empty())
                     .and_then(|v| serde_json::to_string(v).ok())
@@ -227,6 +238,12 @@ impl ChatService {
             let slugs = slugs_opt.unwrap_or_default();
             model.enabled_skill_slugs = Set(
                 serde_json::to_string(&slugs).unwrap_or_else(|_| "[]".to_string()),
+            );
+        }
+        if let Some(ids_opt) = req.disabled_mcp_server_ids {
+            let ids = ids_opt.unwrap_or_default();
+            model.disabled_mcp_server_ids = Set(
+                serde_json::to_string(&ids).unwrap_or_else(|_| "[]".to_string()),
             );
         }
 
@@ -585,6 +602,8 @@ fn to_api_session(m: chat_session::Model) -> ChatSession {
             .as_deref()
             .and_then(|s| serde_json::from_str(s).ok()),
         enabled_skill_slugs: serde_json::from_str(&m.enabled_skill_slugs).unwrap_or_default(),
+        disabled_mcp_server_ids: serde_json::from_str(&m.disabled_mcp_server_ids)
+            .unwrap_or_default(),
         active_profile_id: m.active_profile_id,
         id: m.id,
         title: m.title,
@@ -751,6 +770,7 @@ mod tests {
                     tool_categories: None,
                     profile_ids: Some(vec!["pf_a".to_string(), "pf_b".to_string()]),
                     enabled_skill_slugs: None,
+                    disabled_mcp_server_ids: None,
                 })
                 .await
                 .expect("create session");
@@ -779,6 +799,7 @@ mod tests {
                     tool_categories: None,
                     profile_ids: Some(vec!["pf_a".to_string(), "pf_b".to_string()]),
                     enabled_skill_slugs: None,
+                    disabled_mcp_server_ids: None,
                 })
                 .await
                 .expect("create session");
@@ -795,6 +816,7 @@ mod tests {
                         profile_ids: None,
                         active_profile_id: Some(Some("pf_b".to_string())),
                         enabled_skill_slugs: None,
+                        disabled_mcp_server_ids: None,
                     },
                 )
                 .await
@@ -852,6 +874,7 @@ mod tests {
                     tool_categories: None,
                     profile_ids: None,
                     enabled_skill_slugs: None,
+                    disabled_mcp_server_ids: None,
                 })
                 .await
                 .expect("create session");

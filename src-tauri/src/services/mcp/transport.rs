@@ -11,6 +11,8 @@ pub struct StdioTransport {
     pub stdin: ChildStdin,
     pub stdout_reader: BufReader<ChildStdout>,
     pub next_id: u64,
+    /// 收到 tools/list_changed 通知时置为 true，调用方检查并刷新工具缓存
+    pub tools_list_changed: bool,
 }
 
 impl StdioTransport {
@@ -47,8 +49,13 @@ impl StdioTransport {
                 }
                 let resp: Value = serde_json::from_str(trimmed)
                     .map_err(|e| format!("JSON parse error: {e} for: {trimmed}"))?;
-                // 跳过通知（没有 id 字段）
+                // 处理通知（没有 id 字段）
                 if resp.get("id").is_none() {
+                    if resp.get("method").and_then(|m| m.as_str())
+                        == Some("notifications/tools/list_changed")
+                    {
+                        self.tools_list_changed = true;
+                    }
                     continue;
                 }
                 if resp["id"].as_u64() == Some(id) {
@@ -171,5 +178,27 @@ impl HttpTransport {
             }
             Ok(resp["result"].clone())
         }
+    }
+
+    /// 发送 JSON-RPC 通知（无需响应，用于 notifications/initialized 等）
+    pub async fn notify(&self, method: &str, params: Value) -> Result<(), String> {
+        let notification = json!({
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params,
+        });
+        let mut req = self
+            .client
+            .post(&self.url)
+            .header("Content-Type", "application/json");
+        if let Some(token) = &self.bearer_token {
+            req = req.header("Authorization", format!("Bearer {}", token));
+        }
+        for (k, v) in &self.headers {
+            req = req.header(k, v);
+        }
+        // 通知不需要解析响应，忽略错误（服务端可能返回 204 No Content）
+        let _ = req.json(&notification).send().await;
+        Ok(())
     }
 }

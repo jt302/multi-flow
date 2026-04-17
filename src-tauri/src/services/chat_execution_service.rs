@@ -88,6 +88,7 @@ impl ChatExecutionService {
         profile_ids: Option<&[String]>,
         active_profile_id: Option<&str>,
         enabled_skill_slugs: &[String],
+        disabled_mcp_server_ids: &[String],
     ) -> Result<(), String> {
         let chat_service = app
             .state::<crate::state::AppState>()
@@ -173,28 +174,73 @@ impl ChatExecutionService {
             env_text.as_deref(),
             None, // conversation_summary: Phase C
         );
-        // 注入启用的 Skill 内容到 system prompt
-        if !enabled_skill_slugs.is_empty() {
+        // Progressive disclosure: 注入 skill 目录（name+description），不注入 body
+        let skill_allowed_tools = if !enabled_skill_slugs.is_empty() {
             if let Ok(skill_svc) = crate::services::ai_skill_service::from_app(app) {
-                for (name, body) in skill_svc.load_skill_bodies(enabled_skill_slugs) {
-                    if !body.is_empty() {
-                        system_prompt_text.push_str(&format!(
-                            "\n\n--- Skill: {name} ---\n{body}\n---"
-                        ));
+                let directory = skill_svc.load_skill_directory(enabled_skill_slugs);
+                if !directory.is_empty() {
+                    system_prompt_text.push_str(
+                        "\n\n<skills>\nThe following skills are available. Use the `load_skill` tool to load a skill's full instructions when needed.\n",
+                    );
+                    for (slug, name, desc) in &directory {
+                        let desc_str = desc.as_deref().unwrap_or("No description");
+                        system_prompt_text
+                            .push_str(&format!("- **{name}** (`{slug}`): {desc_str}\n"));
                     }
+                    system_prompt_text.push_str("</skills>");
                 }
+                skill_svc.get_allowed_tools_union(enabled_skill_slugs)
+            } else {
+                vec![]
             }
-        }
+        } else {
+            vec![]
+        };
         messages.insert(0, ChatMessage::system(&system_prompt_text));
 
         // 4. 获取工具定义（含 MCP 工具）
-        let mut tools = ToolRegistry::definitions(tool_filter);
-        // 合并已启用的 MCP 工具（转为 OpenAI function schema 格式）
+        // 基于 skill allowed_tools 构建有效过滤器
+        let mut effective_filter_owned;
+        let effective_filter: &ToolFilter = if !skill_allowed_tools.is_empty() {
+            effective_filter_owned = tool_filter.clone();
+            effective_filter_owned.allowed_names = skill_allowed_tools;
+            &effective_filter_owned
+        } else {
+            tool_filter
+        };
+        let mut tools = ToolRegistry::definitions(effective_filter);
+        // 动态注入 load_skill 工具（仅在有激活 skill 时）
+        if !enabled_skill_slugs.is_empty() {
+            tools.push(serde_json::json!({
+                "type": "function",
+                "function": {
+                    "name": "load_skill",
+                    "description": "加载指定 skill 的完整指令内容。在 system prompt <skills> 列表中选择目标 skill，调用此工具按需获取详细指令",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "slug": { "type": "string", "description": "Skill 的唯一标识符（slug）" }
+                        },
+                        "required": ["slug"]
+                    }
+                }
+            }));
+        }
+        // 合并已启用的 MCP 工具（过滤 session 级别禁用的 server）
         {
             let mcp_manager = app.state::<crate::state::AppState>().mcp_manager.clone();
-            let mcp_tools = mcp_manager.all_enabled_tools().await;
+            let all_mcp_tools = mcp_manager.all_enabled_tools().await;
+            let mcp_tools: Vec<_> = if disabled_mcp_server_ids.is_empty() {
+                all_mcp_tools
+            } else {
+                all_mcp_tools
+                    .into_iter()
+                    .filter(|t| !disabled_mcp_server_ids.contains(&t.server_id))
+                    .collect()
+            };
             if !mcp_tools.is_empty() {
-                let mcp_schemas = crate::services::mcp::McpManager::tools_to_openai_schema(&mcp_tools);
+                let mcp_schemas =
+                    crate::services::mcp::McpManager::tools_to_openai_schema(&mcp_tools);
                 tools.extend(mcp_schemas);
             }
         }

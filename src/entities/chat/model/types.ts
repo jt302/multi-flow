@@ -8,6 +8,7 @@ export type ChatSession = {
 	profileIds: string[] | null;
 	activeProfileId: string | null;
 	enabledSkillSlugs: string[] | null;
+	disabledMcpServerIds: string[];
 	createdAt: number;
 	updatedAt: number;
 };
@@ -56,6 +57,7 @@ export type UpdateChatSessionRequest = {
 	profileIds?: string[] | null;
 	activeProfileId?: string | null;
 	enabledSkillSlugs?: string[] | null;
+	disabledMcpServerIds?: string[] | null;
 };
 
 export type ChatMessageEvent = {

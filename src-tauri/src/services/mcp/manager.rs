@@ -414,6 +414,7 @@ impl McpManager {
             stdin,
             stdout_reader: tokio::io::BufReader::new(stdout),
             next_id: 1,
+            tools_list_changed: false,
         };
 
         // MCP initialize handshake
@@ -481,7 +482,7 @@ impl McpManager {
 
         let mut transport = HttpTransport::new(url.to_string(), headers, bearer_token);
 
-        // MCP initialize
+        // MCP initialize handshake
         let _init_result = transport
             .call(
                 "initialize",
@@ -492,6 +493,9 @@ impl McpManager {
                 }),
             )
             .await?;
+
+        // 发送 initialized 通知（HTTP 传输也需要，忽略错误）
+        let _ = transport.notify("notifications/initialized", json!({})).await;
 
         // 获取工具列表
         let tools_result = transport.call("tools/list", json!({})).await?;
@@ -605,7 +609,50 @@ impl McpManager {
             McpRuntimeTransport::None => Err("No transport available".to_string()),
         }?;
 
-        // MCP tools/call 响应格式: { content: [{type: "text", text: "..."}] }
+        // 检查 tools/list_changed 通知并即时刷新工具缓存
+        let server_id_for_refresh = server_id.to_string();
+        let server_name_for_refresh = server.name.clone();
+        let tools_changed = if let McpRuntimeTransport::Stdio { transport, .. } =
+            &mut runtime.transport
+        {
+            let changed = transport.tools_list_changed;
+            if changed {
+                transport.tools_list_changed = false;
+            }
+            changed
+        } else {
+            false
+        };
+        if tools_changed {
+            let new_tools = if let McpRuntimeTransport::Stdio { transport, .. } =
+                &mut runtime.transport
+            {
+                transport
+                    .call("tools/list", json!({}))
+                    .await
+                    .ok()
+                    .and_then(|r| {
+                        parse_tools_response(r, &server_id_for_refresh, &server_name_for_refresh)
+                            .ok()
+                    })
+            } else {
+                None
+            };
+            if let Some(tools) = new_tools {
+                runtime.cached_tools = tools;
+                crate::logger::info(
+                    "mcp",
+                    format!("tools/list_changed: refreshed tools for '{}'", server_id_for_refresh),
+                );
+            }
+        }
+
+        // MCP tools/call 响应格式: { content: [{type: "text", text: "..."}], isError?: bool }
+        let is_error = result
+            .get("isError")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
         let content = result
             .get("content")
             .and_then(|c| c.as_array())
@@ -613,17 +660,48 @@ impl McpManager {
 
         let text = content
             .iter()
-            .filter_map(|item| {
-                if item.get("type")?.as_str()? == "text" {
-                    item.get("text")?.as_str().map(|s| s.to_string())
-                } else {
-                    None
+            .map(|item| {
+                let item_type = item.get("type").and_then(|t| t.as_str()).unwrap_or("text");
+                match item_type {
+                    "text" => item
+                        .get("text")
+                        .and_then(|t| t.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    "image" => {
+                        let mime = item
+                            .get("mimeType")
+                            .and_then(|m| m.as_str())
+                            .unwrap_or("image/*");
+                        format!("[图片内容: {}，无法在文本上下文中显示]", mime)
+                    }
+                    "resource" => {
+                        let uri = item
+                            .get("resource")
+                            .and_then(|r| r.get("uri"))
+                            .and_then(|u| u.as_str())
+                            .unwrap_or("unknown");
+                        let res_text = item
+                            .get("resource")
+                            .and_then(|r| r.get("text"))
+                            .and_then(|t| t.as_str());
+                        if let Some(t) = res_text {
+                            t.to_string()
+                        } else {
+                            format!("[资源: {}]", uri)
+                        }
+                    }
+                    other => format!("[未知内容类型: {}]", other),
                 }
             })
             .collect::<Vec<_>>()
             .join("\n");
 
-        Ok(text)
+        if is_error {
+            Err(format!("MCP tool '{}' returned an error: {}", tool_name, text))
+        } else {
+            Ok(text)
+        }
     }
 
     // ─── 连接测试 ──────────────────────────────────────────────────────

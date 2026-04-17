@@ -2110,6 +2110,20 @@ fn file_tools() -> Vec<Value> {
                 "required": ["rel_path", "text"]
             }),
         ),
+        tool(
+            "file_str_replace",
+            "在文件中替换精确唯一的字符串片段（Anthropic str_replace_based_edit 风格）。old_str 必须在文件中恰好出现一次；若有多处匹配，请提供更多上下文以消除歧义。只读根目录不允许写入",
+            json!({
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string", "description": "相对于根目录的文件路径" },
+                    "old_str": { "type": "string", "description": "要替换的原始字符串（必须在文件中精确唯一匹配）" },
+                    "new_str": { "type": "string", "description": "替换后的新字符串（可为空字符串以删除内容）" },
+                    "root_id": { "type": "string", "description": "根目录 ID，默认 'default'" }
+                },
+                "required": ["path", "old_str", "new_str"]
+            }),
+        ),
     ]
 }
 

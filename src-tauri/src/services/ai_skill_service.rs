@@ -92,6 +92,9 @@ struct RawFrontmatter {
     enabled: Option<bool>,
     triggers: Option<Vec<String>>,
     allowed_tools: Option<Vec<String>>,
+    /// Anthropic 标准字段名（连字符），与 allowed_tools（下划线）互为别名
+    #[serde(rename = "allowed-tools")]
+    allowed_tools_hyphen: Option<Vec<String>>,
     model: Option<String>,
 }
 
@@ -117,7 +120,7 @@ pub fn parse_skill_file(slug: &str, content: &str) -> AppResult<SkillFull> {
         version: raw.version,
         enabled: raw.enabled.unwrap_or(true),
         triggers: raw.triggers.unwrap_or_default(),
-        allowed_tools: raw.allowed_tools.unwrap_or_default(),
+        allowed_tools: raw.allowed_tools.or(raw.allowed_tools_hyphen).unwrap_or_default(),
         model: raw.model,
     };
 
@@ -279,7 +282,41 @@ impl AiSkillService {
             .map_err(|e| AppError::Validation(format!("删除 skill 目录失败: {e}")))
     }
 
+    /// Progressive disclosure: 返回已启用 skill 的目录（slug + name + description），不含 body
+    pub fn load_skill_directory(&self, slugs: &[String]) -> Vec<(String, String, Option<String>)> {
+        slugs.iter().filter_map(|slug| {
+            self.read_skill(slug).ok().and_then(|full| {
+                if full.meta.enabled {
+                    Some((full.meta.slug, full.meta.name, full.meta.description))
+                } else {
+                    None
+                }
+            })
+        }).collect()
+    }
+
+    /// 收集所有已启用 skill 的 allowed_tools 并集（空表示无约束）
+    /// 若任意 skill 指定了 allowed_tools，则自动包含 load_skill 本身
+    pub fn get_allowed_tools_union(&self, slugs: &[String]) -> Vec<String> {
+        let mut all: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for slug in slugs {
+            if let Ok(full) = self.read_skill(slug) {
+                if full.meta.enabled && !full.meta.allowed_tools.is_empty() {
+                    for tool in &full.meta.allowed_tools {
+                        all.insert(tool.clone());
+                    }
+                }
+            }
+        }
+        if all.is_empty() {
+            return vec![];
+        }
+        all.insert("load_skill".to_string());
+        all.into_iter().collect()
+    }
+
     /// 加载多个 skill 的 body，用于注入 system prompt（跳过 enabled=false 的 skill）
+    /// 已废弃：新代码应使用 load_skill_directory + load_skill 工具（progressive disclosure）
     pub fn load_skill_bodies(&self, slugs: &[String]) -> Vec<(String, String)> {
         slugs.iter().filter_map(|slug| {
             self.read_skill(slug).ok().and_then(|full| {

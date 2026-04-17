@@ -98,6 +98,14 @@ pub async fn execute(
                 .map(|_| ToolResult::text(format!("已创建目录 '{}'", path)))
                 .map_err(|e| e.to_string())
         }
+        "file_str_replace" => {
+            let path = require_str(&args, "path")?;
+            let old_str = require_str(&args, "old_str")?;
+            let new_str = require_str(&args, "new_str")?;
+            svc.str_replace_file(root_id, &path, &old_str, &new_str)
+                .map(|_| ToolResult::text(format!("已完成 '{}' 中的字符串替换", path)))
+                .map_err(|e| e.to_string())
+        }
         _ => Err(format!("未知文件工具: '{name}'")),
     }
 }

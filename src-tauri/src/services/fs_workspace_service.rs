@@ -293,7 +293,36 @@ impl FsWorkspaceService {
         self.create_folder(root_id, rel_path)
     }
 
-    /// 安全路径拼接：拒绝 .. 和绝对路径
+    /// 字符串替换文件内容（精确唯一匹配）
+    pub fn str_replace_file(
+        &self,
+        root_id: &str,
+        rel_path: &str,
+        old_str: &str,
+        new_str: &str,
+    ) -> AppResult<()> {
+        if old_str.is_empty() {
+            return Err(AppError::Validation("old_str 不能为空".to_string()));
+        }
+        let content = self.read_file(root_id, rel_path)?;
+        let count = content.matches(old_str).count();
+        if count == 0 {
+            return Err(AppError::Validation(format!(
+                "在 '{}' 中未找到要替换的文本，请检查内容是否完全匹配（含空白符）",
+                rel_path
+            )));
+        }
+        if count > 1 {
+            return Err(AppError::Validation(format!(
+                "在 '{}' 中找到 {} 处匹配，str_replace 只允许精确唯一匹配，请提供更多上下文以消除歧义",
+                rel_path, count
+            )));
+        }
+        let new_content = content.replacen(old_str, new_str, 1);
+        self.write_file(root_id, rel_path, &new_content)
+    }
+
+    /// 安全路径拼接：拒绝 .. 和绝对路径，并检测符号链接逃逸
     fn safe_join(&self, root: &Path, rel: &str) -> AppResult<PathBuf> {
         if rel.is_empty() || rel == "." {
             return Ok(root.to_path_buf());
@@ -306,6 +335,24 @@ impl FsWorkspaceService {
                 Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
                     return Err(AppError::Validation("非法路径：禁止使用 .. 或绝对路径".to_string()));
                 }
+            }
+        }
+        // 符号链接逃逸检测：找最深的已存在祖先节点，canonicalize 后验证在 root 内
+        if let Ok(canonical_root) = root.canonicalize() {
+            let mut check = resolved.clone();
+            while !check.exists() {
+                match check.parent() {
+                    Some(p) => check = p.to_path_buf(),
+                    None => return Ok(resolved), // 无可验证路径，跳过检测
+                }
+            }
+            let canonical_check = check
+                .canonicalize()
+                .map_err(|e| AppError::Validation(format!("符号链接解析失败: {e}")))?;
+            if !canonical_check.starts_with(&canonical_root) {
+                return Err(AppError::Validation(
+                    "路径越界：检测到符号链接逃逸根目录".to_string(),
+                ));
             }
         }
         Ok(resolved)

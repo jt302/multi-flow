@@ -74,6 +74,7 @@ pub async fn set_session_skills(
         profile_ids: None,
         active_profile_id: None,
         enabled_skill_slugs: Some(Some(valid_slugs)),
+        disabled_mcp_server_ids: None,
     };
 
     chat_svc

@@ -94,6 +94,8 @@ pub struct ToolFilter {
     pub categories: Vec<String>,
     /// 排除的工具类别（优先于 categories）
     pub excluded_categories: Vec<String>,
+    /// 精确工具名白名单（非空时只允许列出的工具通过，用于 skill allowed_tools 约束）
+    pub allowed_names: Vec<String>,
 }
 
 impl ToolFilter {
@@ -101,6 +103,7 @@ impl ToolFilter {
         Self {
             categories: vec![],
             excluded_categories: vec![],
+            allowed_names: vec![],
         }
     }
 
@@ -108,6 +111,7 @@ impl ToolFilter {
         Self {
             categories,
             excluded_categories: vec![],
+            allowed_names: vec![],
         }
     }
 
@@ -119,9 +123,15 @@ impl ToolFilter {
 
     fn is_allowed(&self, tool_name: &str) -> bool {
         let category = tool_category(tool_name);
+        // excluded_categories 最高优先级
         if self.excluded_categories.iter().any(|c| c == category) {
             return false;
         }
+        // skill allowed_names 约束（若非空，则工具名必须在列表内）
+        if !self.allowed_names.is_empty() && !self.allowed_names.iter().any(|n| n == tool_name) {
+            return false;
+        }
+        // 类别白名单
         if self.categories.is_empty() {
             return true;
         }
@@ -173,7 +183,7 @@ pub fn tool_risk_level(tool_name: &str) -> ToolRiskLevel {
         "app_delete_profile" | "app_delete_proxy" | "app_delete_group" | "app_stop_profile"
         | "app_update_device_preset" | "app_delete_device_preset" | "magic_set_closed"
         | "magic_safe_quit" | "file_write" | "file_append" | "file_mkdir"
-        | "file_write_folder_desc" | "cdp_clear_storage"
+        | "file_str_replace" | "file_write_folder_desc" | "cdp_clear_storage"
         | "cdp_delete_cookies" | "auto_delete_script" => {
             ToolRiskLevel::Dangerous
         }
@@ -221,6 +231,7 @@ pub fn all_dangerous_tool_names() -> Vec<&'static str> {
         "file_write",
         "file_append",
         "file_mkdir",
+        "file_str_replace",
         "file_write_folder_desc",
         "cdp_clear_storage",
         "cdp_delete_cookies",
@@ -263,6 +274,21 @@ impl ToolRegistry {
         args: Value,
         ctx: &mut ToolContext<'_>,
     ) -> Result<ToolResult, String> {
+        // load_skill 是元工具（始终安全，绕过危险工具检查和类别路由）
+        if name == "load_skill" {
+            let slug = args
+                .get("slug")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| "Missing required parameter: 'slug'".to_string())?;
+            let svc = crate::services::ai_skill_service::from_app(ctx.app)
+                .map_err(|e| format!("Skill service error: {e}"))?;
+            return match svc.read_skill(slug) {
+                Ok(full) if full.meta.enabled => Ok(ToolResult::text(full.body)),
+                Ok(_) => Ok(ToolResult::text(format!("Skill '{}' is disabled", slug))),
+                Err(e) => Err(format!("Skill '{}' not found: {}", slug, e)),
+            };
+        }
+
         let category = tool_category(name);
 
         // 对高风险工具记录警告日志 + 确认拦截
