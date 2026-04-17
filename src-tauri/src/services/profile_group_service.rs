@@ -10,7 +10,7 @@ use crate::db::entities::{profile, profile_group};
 use crate::error::{AppError, AppResult};
 use crate::models::{
     now_ts, CreateProfileGroupRequest, ListProfileGroupsResponse, ProfileGroup,
-    ProfileGroupLifecycle, UpdateProfileGroupRequest,
+    ProfileGroupLifecycle, ToolbarLabelMode, UpdateProfileGroupRequest,
 };
 
 const LIFECYCLE_ACTIVE: &str = "active";
@@ -28,6 +28,14 @@ impl ProfileGroupService {
     pub fn create_group(&self, req: CreateProfileGroupRequest) -> AppResult<ProfileGroup> {
         let name = require_name(req.name)?;
         let note = req.note.and_then(trim_to_option);
+        let browser_bg_color = req
+            .browser_bg_color
+            .and_then(trim_to_option)
+            .map(normalize_hex_color)
+            .transpose()?;
+        let toolbar_label_mode = req
+            .toolbar_label_mode
+            .unwrap_or(ToolbarLabelMode::IdOnly);
 
         let exists = self.db_query(
             profile_group::Entity::find()
@@ -43,6 +51,8 @@ impl ProfileGroupService {
         let model = profile_group::ActiveModel {
             name: Set(name),
             note: Set(note),
+            browser_bg_color: Set(browser_bg_color),
+            toolbar_label_mode: Set(toolbar_label_mode_as_str(toolbar_label_mode).to_string()),
             lifecycle: Set(LIFECYCLE_ACTIVE.to_string()),
             created_at: Set(now),
             updated_at: Set(now),
@@ -89,6 +99,14 @@ impl ProfileGroupService {
 
         let name = require_name(req.name)?;
         let note = req.note.and_then(trim_to_option);
+        let browser_bg_color = req
+            .browser_bg_color
+            .and_then(trim_to_option)
+            .map(normalize_hex_color)
+            .transpose()?;
+        let toolbar_label_mode = req
+            .toolbar_label_mode
+            .unwrap_or(ToolbarLabelMode::IdOnly);
         let duplicate = self.db_query(
             profile_group::Entity::find()
                 .filter(profile_group::Column::Name.eq(name.clone()))
@@ -111,6 +129,9 @@ impl ProfileGroupService {
         let mut active_model: profile_group::ActiveModel = stored.into();
         active_model.name = Set(name);
         active_model.note = Set(note);
+        active_model.browser_bg_color = Set(browser_bg_color);
+        active_model.toolbar_label_mode =
+            Set(toolbar_label_mode_as_str(toolbar_label_mode).to_string());
         active_model.updated_at = Set(now_ts());
         let updated = self.db_query(active_model.update(&self.db))?;
         self.to_api_group(updated)
@@ -201,6 +222,8 @@ impl ProfileGroupService {
             id: format_group_id(model.id),
             name: model.name,
             note: model.note,
+            browser_bg_color: model.browser_bg_color,
+            toolbar_label_mode: parse_toolbar_label_mode(&model.toolbar_label_mode),
             lifecycle: if model.lifecycle == LIFECYCLE_DELETED {
                 ProfileGroupLifecycle::Deleted
             } else {
@@ -250,12 +273,43 @@ fn format_group_id(id: i64) -> String {
     format!("pg_{id:06}")
 }
 
+fn normalize_hex_color(input: String) -> AppResult<String> {
+    let value = input.trim();
+    if value.len() != 7 || !value.starts_with('#') {
+        return Err(AppError::Validation(
+            "browserBgColor must be a hex color like #0F8A73".to_string(),
+        ));
+    }
+    let hex = &value[1..];
+    if !hex.chars().all(|ch| ch.is_ascii_hexdigit()) {
+        return Err(AppError::Validation(
+            "browserBgColor must be a hex color like #0F8A73".to_string(),
+        ));
+    }
+    Ok(format!("#{}", hex.to_uppercase()))
+}
+
+fn toolbar_label_mode_as_str(mode: ToolbarLabelMode) -> &'static str {
+    match mode {
+        ToolbarLabelMode::IdOnly => "id_only",
+        ToolbarLabelMode::GroupNameAndId => "group_name_and_id",
+    }
+}
+
+fn parse_toolbar_label_mode(value: &str) -> ToolbarLabelMode {
+    match value {
+        "group_name_and_id" => ToolbarLabelMode::GroupNameAndId,
+        _ => ToolbarLabelMode::IdOnly,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::db;
     use crate::models::CreateProfileRequest;
     use crate::services::profile_service::ProfileService;
+    use sea_orm::ConnectionTrait;
 
     #[test]
     fn create_list_delete_restore_group_with_profile_count() {
@@ -267,6 +321,8 @@ mod tests {
             .create_group(CreateProfileGroupRequest {
                 name: "AirDrop".to_string(),
                 note: Some("test".to_string()),
+                browser_bg_color: None,
+                toolbar_label_mode: None,
             })
             .expect("create group");
 
@@ -317,12 +373,16 @@ mod tests {
             .create_group(CreateProfileGroupRequest {
                 name: "Legacy".to_string(),
                 note: Some("old".to_string()),
+                browser_bg_color: None,
+                toolbar_label_mode: None,
             })
             .expect("create source group");
         let _other = group_service
             .create_group(CreateProfileGroupRequest {
                 name: "Reserved".to_string(),
                 note: None,
+                browser_bg_color: None,
+                toolbar_label_mode: None,
             })
             .expect("create other group");
 
@@ -342,6 +402,8 @@ mod tests {
                 UpdateProfileGroupRequest {
                     name: "Growth".to_string(),
                     note: Some("new".to_string()),
+                    browser_bg_color: None,
+                    toolbar_label_mode: None,
                 },
             )
             .expect("update group");
@@ -358,9 +420,43 @@ mod tests {
                 UpdateProfileGroupRequest {
                     name: "Reserved".to_string(),
                     note: None,
+                    browser_bg_color: None,
+                    toolbar_label_mode: None,
                 },
-            )
-            .expect_err("duplicate rename should fail");
+        )
+        .expect_err("duplicate rename should fail");
         assert!(duplicate_err.to_string().contains("group already exists"));
+    }
+
+    #[test]
+    fn list_groups_returns_visual_defaults() {
+        let db = db::init_test_database().expect("init db");
+        let group_service = ProfileGroupService::from_db(db.clone());
+
+        let group = group_service
+            .create_group(CreateProfileGroupRequest {
+                name: "Visual".to_string(),
+                note: Some("style".to_string()),
+                browser_bg_color: None,
+                toolbar_label_mode: None,
+            })
+            .expect("create group");
+
+        crate::runtime_compat::block_on_compat(db.execute_unprepared(&format!(
+            "UPDATE profile_groups SET browser_bg_color = '#0F8A73', toolbar_label_mode = 'group_name_and_id' WHERE id = {}",
+            parse_group_id(&group.id).expect("parse group id"),
+        )))
+        .expect("seed visual defaults");
+
+        let listed = group_service.list_groups(false).expect("list groups");
+        let serialized = serde_json::to_value(&listed.items[0]).expect("serialize group");
+
+        assert_eq!(serialized.get("browserBgColor").and_then(|value| value.as_str()), Some("#0F8A73"));
+        assert_eq!(
+            serialized
+                .get("toolbarLabelMode")
+                .and_then(|value| value.as_str()),
+            Some("group_name_and_id")
+        );
     }
 }

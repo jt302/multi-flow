@@ -280,7 +280,7 @@ pub fn update_profile(
         .map_err(error_to_string)?;
     if existing.running {
         return Err(
-            "validation failed: profile is running, only background color and toolbar text can be changed at runtime"
+            "validation failed: profile is running, only visual identifier settings can be changed at runtime"
                 .to_string(),
         );
     }
@@ -323,8 +323,8 @@ pub fn update_profile_visual(
     logger::info(
         "profile_cmd",
         format!(
-            "update_profile_visual request profile_id={profile_id} bg={:?} toolbar={:?}",
-            payload.browser_bg_color, payload.toolbar_text
+            "update_profile_visual request profile_id={profile_id} bg_mode={:?} bg={:?} label_mode={:?}",
+            payload.browser_bg_color_mode, payload.browser_bg_color, payload.toolbar_label_mode
         ),
     );
     let profile_service = state
@@ -334,8 +334,9 @@ pub fn update_profile_visual(
     let profile = profile_service
         .update_profile_visual(
             &profile_id,
+            payload.browser_bg_color_mode,
             payload.browser_bg_color.clone(),
-            payload.toolbar_text.clone(),
+            payload.toolbar_label_mode,
         )
         .map_err(error_to_string)?;
     drop(profile_service);
@@ -348,8 +349,8 @@ pub fn update_profile_visual(
         engine_manager
             .apply_profile_visual_overrides(
                 &profile_id,
-                payload.browser_bg_color,
-                payload.toolbar_text,
+                profile.resolved_browser_bg_color.clone(),
+                profile.resolved_toolbar_text.clone(),
             )
             .map_err(error_to_string)?;
     }
@@ -1614,6 +1615,9 @@ pub(crate) fn do_open_profile(
         geoip_database,
         Some(resolved_browser_version.as_str()),
     )?;
+    launch_options.background_color = profile_snapshot.resolved_browser_bg_color.clone();
+    launch_options.toolbar_text = profile_snapshot.resolved_toolbar_text.clone();
+    launch_options.dock_icon_text = profile_snapshot.resolved_toolbar_text.clone();
     launch_options.cookie_state_file = cookie_state_file;
     launch_options.extension_state_file = extension_state_file;
     // bookmark_state_file: 路径始终传递，Chromium 会在首次修改书签时自动创建
@@ -1872,7 +1876,14 @@ fn resolve_launch_options(
         }
     }
 
-    let mut toolbar_text = Some(profile_name.to_string());
+    let mut toolbar_text = Some(
+        profile_id
+            .strip_prefix("pf_")
+            .unwrap_or(profile_id)
+            .parse::<i64>()
+            .map(|value| value.to_string())
+            .unwrap_or_else(|_| profile_name.to_string()),
+    );
     let mut background_color = None;
     if let Some(settings) = profile_settings.and_then(|value| value.basic.as_ref()) {
         if let Some(value) = settings
@@ -1882,10 +1893,18 @@ fn resolve_launch_options(
         {
             toolbar_text = Some(value);
         }
-        background_color = settings
-            .browser_bg_color
-            .as_deref()
-            .and_then(trim_str_to_option);
+        background_color = match settings.browser_bg_color_mode {
+            Some(crate::models::BrowserBgColorMode::None) => None,
+            Some(crate::models::BrowserBgColorMode::Inherit) => None,
+            Some(crate::models::BrowserBgColorMode::Custom) => settings
+                .browser_bg_color
+                .as_deref()
+                .and_then(trim_str_to_option),
+            None => settings
+                .browser_bg_color
+                .as_deref()
+                .and_then(trim_str_to_option),
+        };
     }
 
     Ok(EngineLaunchOptions {
@@ -2797,6 +2816,7 @@ mod tests {
     use std::sync::Mutex;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use sea_orm::ConnectionTrait;
     use serde_json::json;
 
     use super::*;
@@ -2844,6 +2864,7 @@ mod tests {
         local_api_server.mark_started();
 
         AppState {
+            active_runs: std::sync::Arc::new(crate::services::automation_context::ActiveRunRegistry::new()),
             active_run_channels: Mutex::new(std::collections::HashMap::new()),
             cancel_tokens: Mutex::new(std::collections::HashMap::new()),
             ai_dialog_channels: Mutex::new(std::collections::HashMap::new()),
@@ -2861,6 +2882,7 @@ mod tests {
             engine_session_service: Mutex::new(engine_session_service),
             proxy_service: Mutex::new(proxy_service),
             resource_service: Mutex::new(resource_service),
+            active_resource_downloads: Mutex::new(std::collections::HashMap::new()),
             engine_manager: Mutex::new(EngineManager::with_profiles_root(profiles_root)),
             local_api_server: Mutex::new(local_api_server),
             chromium_magic_adapter_service: Mutex::new(ChromiumMagicAdapterService::new()),
@@ -2887,6 +2909,8 @@ mod tests {
                 .create_group(crate::models::CreateProfileGroupRequest {
                     name: "g-lifecycle".to_string(),
                     note: None,
+                    browser_bg_color: None,
+                    toolbar_label_mode: None,
                 })
                 .expect("create lifecycle group");
         }
@@ -3338,6 +3362,8 @@ mod tests {
                 .create_group(crate::models::CreateProfileGroupRequest {
                     name: "growth".to_string(),
                     note: None,
+                    browser_bg_color: None,
+                    toolbar_label_mode: None,
                 })
                 .expect("create growth group");
         }
@@ -3427,10 +3453,98 @@ mod tests {
             Some("http://127.0.0.1:8080")
         );
         assert_eq!(options.web_rtc_policy, None);
-        assert_eq!(
-            options.startup_urls,
-            vec!["https://www.browserscan.net/".to_string()]
-        );
+        assert!(options.startup_urls.is_empty());
+    }
+
+    #[test]
+    fn command_launch_flow_applies_resolved_profile_visuals() {
+        let db = db::init_test_database().expect("init test db");
+        let preset_service = DevicePresetService::from_db(db.clone());
+        let group_service = ProfileGroupService::from_db(db.clone());
+        let profile_service = ProfileService::from_db(db.clone());
+
+        group_service
+            .create_group(crate::models::CreateProfileGroupRequest {
+                name: "growth".to_string(),
+                note: None,
+                browser_bg_color: None,
+                toolbar_label_mode: None,
+            })
+            .expect("create group");
+
+        crate::runtime_compat::block_on_compat(db.execute_unprepared(
+            "UPDATE profile_groups SET browser_bg_color = '#0F8A73', toolbar_label_mode = 'group_name_and_id' WHERE name = 'growth'",
+        ))
+        .expect("seed group visual defaults");
+
+        let inherited = profile_service
+            .create_profile(CreateProfileRequest {
+                name: "alpha".to_string(),
+                group: Some("growth".to_string()),
+                note: None,
+                proxy_id: None,
+                settings: None,
+            })
+            .expect("create inherited profile");
+
+        let inherited = profile_service
+            .get_profile(&inherited.id)
+            .expect("reload inherited profile");
+        let mut inherited_options = resolve_launch_options(
+            &preset_service,
+            &inherited.id,
+            &inherited.name,
+            inherited.settings.as_ref(),
+            OpenProfileOptions::default(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("resolve inherited launch options");
+        inherited_options.toolbar_text = inherited.resolved_toolbar_text.clone();
+        inherited_options.background_color = inherited.resolved_browser_bg_color.clone();
+        inherited_options.dock_icon_text = inherited.resolved_toolbar_text.clone();
+        assert_eq!(inherited_options.toolbar_text.as_deref(), Some("growth-1"));
+        assert_eq!(inherited_options.background_color.as_deref(), Some("#0F8A73"));
+        assert_eq!(inherited_options.dock_icon_text.as_deref(), Some("growth-1"));
+
+        let overridden = profile_service
+            .create_profile(CreateProfileRequest {
+                name: "beta".to_string(),
+                group: Some("growth".to_string()),
+                note: None,
+                proxy_id: None,
+                settings: None,
+            })
+            .expect("create overridden profile");
+
+        crate::runtime_compat::block_on_compat(db.execute_unprepared(
+            "UPDATE profiles SET settings_json = '{\"basic\":{\"browserBgColorMode\":\"none\",\"toolbarLabelMode\":\"id_only\"}}' WHERE id = 2",
+        ))
+        .expect("seed profile visual override");
+
+        let overridden = profile_service
+            .get_profile(&overridden.id)
+            .expect("reload overridden profile");
+        let mut overridden_options = resolve_launch_options(
+            &preset_service,
+            &overridden.id,
+            &overridden.name,
+            overridden.settings.as_ref(),
+            OpenProfileOptions::default(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("resolve overridden launch options");
+        overridden_options.toolbar_text = overridden.resolved_toolbar_text.clone();
+        overridden_options.background_color = overridden.resolved_browser_bg_color.clone();
+        overridden_options.dock_icon_text = overridden.resolved_toolbar_text.clone();
+        assert_eq!(overridden_options.toolbar_text.as_deref(), Some("2"));
+        assert_eq!(overridden_options.background_color, None);
+        assert_eq!(overridden_options.dock_icon_text.as_deref(), Some("2"));
     }
 
     #[test]

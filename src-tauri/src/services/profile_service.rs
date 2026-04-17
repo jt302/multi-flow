@@ -11,10 +11,10 @@ use crate::error::{AppError, AppResult};
 use crate::fingerprint_catalog;
 use crate::font_catalog;
 use crate::models::{
-    now_ts, CookieStateFile, CreateProfileRequest, FingerprintSeedPolicy, FontListMode,
-    GeolocationMode, ListProfilesQuery, ListProfilesResponse, Profile, ProfileFingerprintSettings,
-    ProfileFingerprintSnapshot, ProfileFingerprintSource, ProfileLifecycle, ProfileSettings,
-    UserAgentMode,
+    now_ts, BrowserBgColorMode, CookieStateFile, CreateProfileRequest, FingerprintSeedPolicy,
+    FontListMode, GeolocationMode, ListProfilesQuery, ListProfilesResponse, Profile,
+    ProfileFingerprintSettings, ProfileFingerprintSnapshot, ProfileFingerprintSource,
+    ProfileLifecycle, ProfileSettings, ToolbarLabelMode, UserAgentMode,
 };
 use crate::services::device_preset_service::DevicePresetService;
 
@@ -103,8 +103,9 @@ impl ProfileService {
     pub fn update_profile_visual(
         &self,
         profile_id: &str,
+        browser_bg_color_mode: Option<BrowserBgColorMode>,
         browser_bg_color: Option<String>,
-        toolbar_text: Option<String>,
+        toolbar_label_mode: Option<ToolbarLabelMode>,
     ) -> AppResult<Profile> {
         let stored = self.find_profile_model(profile_id)?;
         if stored.lifecycle == LIFECYCLE_DELETED {
@@ -114,11 +115,25 @@ impl ProfileService {
         }
         let mut settings = parse_settings_json(stored.settings_json.clone()).unwrap_or_default();
         let basic = settings.basic.get_or_insert_with(Default::default);
-        basic.browser_bg_color = browser_bg_color
+        let normalized_color = browser_bg_color
             .and_then(trim_to_option)
             .map(normalize_hex_color)
             .transpose()?;
-        basic.toolbar_text = toolbar_text.and_then(trim_to_option);
+        if matches!(browser_bg_color_mode, Some(BrowserBgColorMode::Custom))
+            && normalized_color.is_none()
+        {
+            return Err(AppError::Validation(
+                "browserBgColor is required when browserBgColorMode=custom".to_string(),
+            ));
+        }
+        basic.browser_bg_color_mode = browser_bg_color_mode;
+        basic.browser_bg_color = match basic.browser_bg_color_mode {
+            Some(BrowserBgColorMode::None) | Some(BrowserBgColorMode::Inherit) => None,
+            Some(BrowserBgColorMode::Custom) => normalized_color,
+            None => normalized_color,
+        };
+        basic.toolbar_label_mode = toolbar_label_mode;
+        basic.toolbar_text = None;
 
         let normalized = normalize_profile_settings(&self.db, Some(settings), None)?;
         let settings_json = normalized
@@ -406,12 +421,23 @@ impl ProfileService {
 
     fn to_api_profile(&self, model: profile::Model) -> Profile {
         let settings = parse_settings_json(model.settings_json.clone());
+        let resolved_settings = hydrate_settings_for_response(&self.db, settings);
+        let visual_defaults = resolve_group_visual_defaults(&self.db, model.group_name.as_deref());
+        let resolved_visuals = resolve_profile_visuals(
+            model.id,
+            model.group_name.as_deref(),
+            resolved_settings.as_ref(),
+            visual_defaults.as_ref(),
+        );
         Profile {
             id: format_profile_id(model.id),
+            numeric_id: model.id,
             name: model.name,
             group: model.group_name,
             note: model.note,
-            settings: hydrate_settings_for_response(&self.db, settings),
+            settings: resolved_settings,
+            resolved_toolbar_text: resolved_visuals.toolbar_text,
+            resolved_browser_bg_color: resolved_visuals.browser_bg_color,
             lifecycle: if model.lifecycle == LIFECYCLE_DELETED {
                 ProfileLifecycle::Deleted
             } else {
@@ -442,6 +468,78 @@ fn hydrate_settings_for_response(
         .or(previous)
 }
 
+#[derive(Clone)]
+struct GroupVisualDefaults {
+    browser_bg_color: Option<String>,
+    toolbar_label_mode: ToolbarLabelMode,
+}
+
+struct ResolvedProfileVisuals {
+    toolbar_text: Option<String>,
+    browser_bg_color: Option<String>,
+}
+
+fn resolve_group_visual_defaults(
+    db: &DatabaseConnection,
+    group_name: Option<&str>,
+) -> Option<GroupVisualDefaults> {
+    let group_name = group_name?.trim();
+    if group_name.is_empty() {
+        return None;
+    }
+    let row = crate::runtime_compat::block_on_compat(
+        profile_group::Entity::find()
+            .filter(profile_group::Column::Name.eq(group_name))
+            .filter(profile_group::Column::Lifecycle.eq(LIFECYCLE_ACTIVE))
+            .one(db),
+    )
+    .ok()
+    .flatten()?;
+    Some(GroupVisualDefaults {
+        browser_bg_color: row.browser_bg_color.and_then(trim_to_option),
+        toolbar_label_mode: parse_toolbar_label_mode(row.toolbar_label_mode.as_str()),
+    })
+}
+
+fn resolve_profile_visuals(
+    numeric_id: i64,
+    group_name: Option<&str>,
+    settings: Option<&ProfileSettings>,
+    group_defaults: Option<&GroupVisualDefaults>,
+) -> ResolvedProfileVisuals {
+    let basic = settings.and_then(|value| value.basic.as_ref());
+    let legacy_toolbar_text = basic
+        .and_then(|value| value.toolbar_text.as_deref())
+        .and_then(trim_str_to_option);
+    let toolbar_label_mode = basic
+        .and_then(|value| value.toolbar_label_mode)
+        .or_else(|| group_defaults.map(|value| value.toolbar_label_mode))
+        .unwrap_or(ToolbarLabelMode::IdOnly);
+    let resolved_toolbar_text = legacy_toolbar_text.or_else(|| {
+        Some(match toolbar_label_mode {
+            ToolbarLabelMode::IdOnly => numeric_id.to_string(),
+            ToolbarLabelMode::GroupNameAndId => {
+                let prefix = group_name.and_then(trim_str_to_option);
+                match prefix {
+                    Some(prefix) => format!("{prefix}-{numeric_id}"),
+                    None => numeric_id.to_string(),
+                }
+            }
+        })
+    });
+
+    let browser_bg_color = match resolve_effective_browser_bg_color_mode(basic) {
+        BrowserBgColorMode::Custom => basic.and_then(|value| value.browser_bg_color.clone()),
+        BrowserBgColorMode::Inherit => group_defaults.and_then(|value| value.browser_bg_color.clone()),
+        BrowserBgColorMode::None => None,
+    };
+
+    ResolvedProfileVisuals {
+        toolbar_text: resolved_toolbar_text,
+        browser_bg_color,
+    }
+}
+
 fn normalize_profile_settings(
     db: &DatabaseConnection,
     settings: Option<ProfileSettings>,
@@ -467,7 +565,13 @@ fn normalize_profile_settings(
             .and_then(trim_to_option)
             .map(normalize_hex_color)
             .transpose()?;
+        basic.browser_bg_color_mode =
+            normalize_browser_bg_color_mode(basic.browser_bg_color_mode, basic.browser_bg_color.is_some());
+        basic.toolbar_label_mode = normalize_toolbar_label_mode(basic.toolbar_label_mode);
         basic.toolbar_text = basic.toolbar_text.take().and_then(trim_to_option);
+        if matches!(basic.browser_bg_color_mode, Some(BrowserBgColorMode::Inherit | BrowserBgColorMode::None)) {
+            basic.browser_bg_color = None;
+        }
         if basic.platform.is_none() {
             return Err(AppError::Validation("platform is required".to_string()));
         }
@@ -1047,6 +1151,41 @@ fn format_profile_id(id: i64) -> String {
     format!("pf_{id:06}")
 }
 
+fn normalize_browser_bg_color_mode(
+    mode: Option<BrowserBgColorMode>,
+    has_browser_bg_color: bool,
+) -> Option<BrowserBgColorMode> {
+    match mode {
+        Some(mode) => Some(mode),
+        None if has_browser_bg_color => Some(BrowserBgColorMode::Custom),
+        None => None,
+    }
+}
+
+fn normalize_toolbar_label_mode(mode: Option<ToolbarLabelMode>) -> Option<ToolbarLabelMode> {
+    mode
+}
+
+fn resolve_effective_browser_bg_color_mode(
+    basic: Option<&crate::models::ProfileBasicSettings>,
+) -> BrowserBgColorMode {
+    match basic.and_then(|value| normalize_browser_bg_color_mode(value.browser_bg_color_mode, value.browser_bg_color.is_some())) {
+        Some(mode) => mode,
+        None => BrowserBgColorMode::Inherit,
+    }
+}
+
+fn trim_str_to_option(input: &str) -> Option<String> {
+    trim_to_option(input.to_string())
+}
+
+fn parse_toolbar_label_mode(value: &str) -> ToolbarLabelMode {
+    match value {
+        "group_name_and_id" => ToolbarLabelMode::GroupNameAndId,
+        _ => ToolbarLabelMode::IdOnly,
+    }
+}
+
 fn trim_to_option(input: String) -> Option<String> {
     let value = input.trim();
     if value.is_empty() {
@@ -1140,6 +1279,7 @@ mod tests {
         ProfileFingerprintSettings, ProfileFingerprintSource, ProfileSettings, UserAgentMode,
     };
     use crate::services::profile_group_service::ProfileGroupService;
+    use sea_orm::ConnectionTrait;
 
     #[test]
     fn list_profiles_supports_filters_and_pagination() {
@@ -1151,12 +1291,16 @@ mod tests {
             .create_group(CreateProfileGroupRequest {
                 name: "g1".to_string(),
                 note: None,
+                browser_bg_color: None,
+                toolbar_label_mode: None,
             })
             .expect("create g1");
         group_service
             .create_group(CreateProfileGroupRequest {
                 name: "g2".to_string(),
                 note: None,
+                browser_bg_color: None,
+                toolbar_label_mode: None,
             })
             .expect("create g2");
 
@@ -1260,6 +1404,8 @@ mod tests {
             .create_group(CreateProfileGroupRequest {
                 name: "growth".to_string(),
                 note: None,
+                browser_bg_color: None,
+                toolbar_label_mode: None,
             })
             .expect("create growth group");
 
@@ -1282,6 +1428,118 @@ mod tests {
             .set_profile_group(&profile.id, None)
             .expect("clear group");
         assert_eq!(cleared.group, None);
+    }
+
+    #[test]
+    fn profiles_expose_numeric_id_and_visual_inheritance_in_api_payload() {
+        let db = db::init_test_database().expect("init test db");
+        let group_service = ProfileGroupService::from_db(db.clone());
+        let service = ProfileService::from_db(db.clone());
+
+        group_service
+            .create_group(CreateProfileGroupRequest {
+                name: "growth".to_string(),
+                note: None,
+                browser_bg_color: None,
+                toolbar_label_mode: None,
+            })
+            .expect("create growth group");
+
+        crate::runtime_compat::block_on_compat(db.execute_unprepared(
+            "UPDATE profile_groups SET browser_bg_color = '#0F8A73', toolbar_label_mode = 'group_name_and_id' WHERE name = 'growth'",
+        ))
+        .expect("seed group visual defaults");
+
+        let inherited = service
+            .create_profile(CreateProfileRequest {
+                name: "alpha".to_string(),
+                group: Some("growth".to_string()),
+                note: None,
+                proxy_id: None,
+                settings: Some(ProfileSettings {
+                    basic: Some(ProfileBasicSettings {
+                        platform: Some("macos".to_string()),
+                        browser_bg_color: None,
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+            })
+            .expect("create inherited profile");
+
+        let custom = service
+            .create_profile(CreateProfileRequest {
+                name: "beta".to_string(),
+                group: Some("growth".to_string()),
+                note: None,
+                proxy_id: None,
+                settings: None,
+            })
+            .expect("create custom profile");
+        let custom_numeric_id = custom.id.clone();
+
+        crate::runtime_compat::block_on_compat(db.execute_unprepared(&format!(
+            concat!(
+                "UPDATE profiles SET settings_json = '{{",
+                "\"basic\":{{",
+                "\"browserBgColorMode\":\"none\",",
+                "\"toolbarLabelMode\":\"id_only\"",
+                "}}",
+                "}}' WHERE id = {}"
+            ),
+            parse_profile_id(&custom_numeric_id).expect("parse profile id"),
+        )))
+        .expect("seed custom visual settings");
+
+        let listed = service
+            .list_profiles(ListProfilesQuery {
+                include_deleted: false,
+                page: 1,
+                page_size: 20,
+                keyword: None,
+                group: None,
+                running: None,
+            })
+            .expect("list profiles");
+
+        let inherited_json = serde_json::to_value(
+            listed
+                .items
+                .iter()
+                .find(|item| item.id == inherited.id)
+                .expect("find inherited"),
+        )
+        .expect("serialize inherited");
+        assert_eq!(inherited_json.get("numericId").and_then(|value| value.as_i64()), Some(1));
+        assert_eq!(
+            inherited_json
+                .get("resolvedToolbarText")
+                .and_then(|value| value.as_str()),
+            Some("growth-1")
+        );
+        assert_eq!(
+            inherited_json
+                .get("resolvedBrowserBgColor")
+                .and_then(|value| value.as_str()),
+            Some("#0F8A73")
+        );
+
+        let custom_json = serde_json::to_value(
+            listed
+                .items
+                .iter()
+                .find(|item| item.id == custom_numeric_id)
+                .expect("find custom"),
+        )
+        .expect("serialize custom");
+        assert_eq!(custom_json.get("numericId").and_then(|value| value.as_i64()), Some(2));
+        assert_eq!(
+            custom_json
+                .get("resolvedToolbarText")
+                .and_then(|value| value.as_str()),
+            Some("2")
+        );
+        assert!(custom_json.get("resolvedBrowserBgColor").is_some_and(|value| value.is_null()));
     }
 
     #[test]

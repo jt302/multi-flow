@@ -7,6 +7,8 @@ pub struct Model {
     pub id: i64,
     pub name: String,
     pub note: Option<String>,
+    pub browser_bg_color: Option<String>,
+    pub toolbar_label_mode: String,
     pub lifecycle: String,
     pub created_at: i64,
     pub updated_at: i64,

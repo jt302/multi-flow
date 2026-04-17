@@ -7,7 +7,7 @@ use tauri::Manager;
 
 use crate::models::{
     CreateProfileGroupRequest, CreateProfileRequest, ListProfilesQuery, ListProxiesQuery,
-    SaveProfileDevicePresetRequest, UpdateProfileGroupRequest,
+    SaveProfileDevicePresetRequest, ToolbarLabelMode, UpdateProfileGroupRequest,
 };
 use crate::services::chat_service::UpdateChatSessionRequest;
 use crate::state::AppState;
@@ -331,10 +331,15 @@ pub async fn execute(
 
         "app_create_group" => {
             let name_val = require_str(&args, "name")?;
-            let note = opt_str(&args, "color"); // 前端用 note 存颜色
+            let browser_bg_color = opt_str(&args, "browser_bg_color")
+                .or_else(|| opt_str(&args, "color"));
             let req = CreateProfileGroupRequest {
                 name: name_val,
-                note,
+                note: None,
+                browser_bg_color,
+                toolbar_label_mode: opt_str(&args, "toolbar_label_mode")
+                    .as_deref()
+                    .map(parse_toolbar_label_mode_arg),
             };
             let svc = state
                 .profile_group_service
@@ -349,14 +354,19 @@ pub async fn execute(
         "app_update_group" => {
             let group_id = require_str(&args, "group_id")?;
             let name_val = require_str(&args, "name").unwrap_or_default();
-            let note = opt_str(&args, "color");
+            let browser_bg_color = opt_str(&args, "browser_bg_color")
+                .or_else(|| opt_str(&args, "color"));
             let req = UpdateProfileGroupRequest {
                 name: if name_val.is_empty() {
                     "unnamed".to_string()
                 } else {
                     name_val
                 },
-                note,
+                note: None,
+                browser_bg_color,
+                toolbar_label_mode: opt_str(&args, "toolbar_label_mode")
+                    .as_deref()
+                    .map(parse_toolbar_label_mode_arg),
             };
             let svc = state
                 .profile_group_service
@@ -526,4 +536,11 @@ fn parse_device_preset_request(args: &Value) -> Result<SaveProfileDevicePresetRe
         custom_cpu_cores: require_u32(args, "custom_cpu_cores")?,
         custom_ram_gb: require_u32(args, "custom_ram_gb")?,
     })
+}
+
+fn parse_toolbar_label_mode_arg(value: &str) -> ToolbarLabelMode {
+    match value {
+        "group_name_and_id" => ToolbarLabelMode::GroupNameAndId,
+        _ => ToolbarLabelMode::IdOnly,
+    }
 }

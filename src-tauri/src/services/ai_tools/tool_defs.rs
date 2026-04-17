@@ -1626,7 +1626,7 @@ fn app_tools() -> Vec<Value> {
             json!({
                 "type": "object",
                 "properties": {
-                    "group_id": { "type": "string", "description": "按分组 ID 过滤（可选）" },
+                    "group_id": { "type": "string", "description": "按分组名称过滤（兼容历史字段名， 可选）" },
                     "keyword": { "type": "string", "description": "按名称关键字搜索（可选）" },
                     "include_deleted": { "type": "boolean", "description": "是否包含已删除的 profile，默认 false" }
                 }
@@ -1884,7 +1884,8 @@ fn app_tools() -> Vec<Value> {
                 "type": "object",
                 "properties": {
                     "name": { "type": "string", "description": "分组名称" },
-                    "color": { "type": "string", "description": "分组颜色（十六进制，如 #FF5733）（可选）" }
+                    "browser_bg_color": { "type": "string", "description": "分组默认背景色（十六进制，如 #FF5733，可选）" },
+                    "toolbar_label_mode": { "type": "string", "description": "分组默认标识模式：id_only 或 group_name_and_id（可选）" }
                 },
                 "required": ["name"]
             }),
@@ -1897,7 +1898,8 @@ fn app_tools() -> Vec<Value> {
                 "properties": {
                     "group_id": { "type": "string", "description": "分组 ID" },
                     "name": { "type": "string", "description": "新名称（可选）" },
-                    "color": { "type": "string", "description": "新颜色（可选）" }
+                    "browser_bg_color": { "type": "string", "description": "新的默认背景色（十六进制，可选）" },
+                    "toolbar_label_mode": { "type": "string", "description": "新的默认标识模式：id_only 或 group_name_and_id（可选）" }
                 },
                 "required": ["group_id"]
             }),

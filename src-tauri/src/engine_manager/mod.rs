@@ -2316,56 +2316,106 @@ mod tests {
 
     fn spawn_magic_test_server<F>(handler: F) -> (u16, thread::JoinHandle<()>)
     where
-        F: FnOnce(String) -> (u16, String) + Send + 'static,
+        F: Fn(String) -> (u16, String) + Send + Sync + 'static,
     {
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind test magic server");
+        listener
+            .set_nonblocking(true)
+            .expect("set nonblocking test magic server");
         let port = listener.local_addr().expect("listener addr").port();
         let handle = thread::spawn(move || {
-            let (mut stream, _) = listener.accept().expect("accept request");
-            let mut buffer = Vec::new();
-            let mut chunk = [0u8; 4096];
-            let mut expected_total = None::<usize>;
+            let started_at = Instant::now();
+            let mut handled_requests = 0usize;
             loop {
-                let bytes_read = stream.read(&mut chunk).expect("read request");
-                if bytes_read == 0 {
-                    break;
-                }
-                buffer.extend_from_slice(&chunk[..bytes_read]);
-                if expected_total.is_none() {
-                    if let Some(header_end) = buffer.windows(4).position(|item| item == b"\r\n\r\n")
-                    {
-                        let header_bytes = &buffer[..header_end + 4];
-                        let header_text = String::from_utf8_lossy(header_bytes);
-                        let content_length = header_text
-                            .lines()
-                            .find_map(|line| {
-                                let lower = line.to_ascii_lowercase();
-                                lower
-                                    .strip_prefix("content-length:")
-                                    .and_then(|value| value.trim().parse::<usize>().ok())
-                            })
-                            .unwrap_or(0);
-                        expected_total = Some(header_end + 4 + content_length);
+                match listener.accept() {
+                    Ok((mut stream, _)) => {
+                        let mut buffer = Vec::new();
+                        let mut chunk = [0u8; 4096];
+                        let mut expected_total = None::<usize>;
+                        loop {
+                            let bytes_read = stream.read(&mut chunk).expect("read request");
+                            if bytes_read == 0 {
+                                break;
+                            }
+                            buffer.extend_from_slice(&chunk[..bytes_read]);
+                            if expected_total.is_none() {
+                                if let Some(header_end) =
+                                    buffer.windows(4).position(|item| item == b"\r\n\r\n")
+                                {
+                                    let header_bytes = &buffer[..header_end + 4];
+                                    let header_text = String::from_utf8_lossy(header_bytes);
+                                    let content_length = header_text
+                                        .lines()
+                                        .find_map(|line| {
+                                            let lower = line.to_ascii_lowercase();
+                                            lower
+                                                .strip_prefix("content-length:")
+                                                .and_then(|value| {
+                                                    value.trim().parse::<usize>().ok()
+                                                })
+                                        })
+                                        .unwrap_or(0);
+                                    expected_total = Some(header_end + 4 + content_length);
+                                }
+                            }
+                            if let Some(expected_total) = expected_total {
+                                if buffer.len() >= expected_total {
+                                    break;
+                                }
+                            }
+                        }
+                        let request = String::from_utf8_lossy(&buffer).to_string();
+                        if request.trim().is_empty() {
+                            if started_at.elapsed() >= Duration::from_secs(5) {
+                                break;
+                            }
+                            continue;
+                        }
+                        let (status_code, body) = handler(request.clone());
+                        let response = format!(
+                            "HTTP/1.1 {status_code} TEST\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                            body.len(),
+                            body
+                        );
+                        stream
+                            .write_all(response.as_bytes())
+                            .expect("write response");
+                        handled_requests += 1;
+                        if request.contains("\"cmd\":\"safe_quit\"") || handled_requests >= 3 {
+                            break;
+                        }
                     }
-                }
-                if let Some(expected_total) = expected_total {
-                    if buffer.len() >= expected_total {
-                        break;
+                    Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
+                        if handled_requests > 0 && started_at.elapsed() >= Duration::from_secs(5) {
+                            break;
+                        }
+                        thread::sleep(Duration::from_millis(10));
                     }
+                    Err(err) => panic!("accept request: {err}"),
                 }
             }
-            let request = String::from_utf8_lossy(&buffer).to_string();
-            let (status_code, body) = handler(request);
-            let response = format!(
-                "HTTP/1.1 {status_code} TEST\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                body.len(),
-                body
-            );
-            stream
-                .write_all(response.as_bytes())
-                .expect("write response");
         });
         (port, handle)
+    }
+
+    fn test_magic_http_response(
+        request: &str,
+        safe_quit_status: u16,
+        safe_quit_body: &str,
+    ) -> (u16, String) {
+        if request.contains("\"cmd\":\"get_browsers\"") {
+            return (
+                200,
+                r#"{"status":"ok","data":[{"windowId":1}]}"#.to_string(),
+            );
+        }
+        if request.contains("\"cmd\":\"safe_quit\"") {
+            return (safe_quit_status, safe_quit_body.to_string());
+        }
+        (
+            200,
+            r#"{"status":"ok"}"#.to_string(),
+        )
     }
 
     fn spawn_sleeping_child() -> Child {
@@ -2621,8 +2671,9 @@ mod tests {
         let commands = Arc::new(Mutex::new(Vec::<String>::new()));
         let commands_clone = Arc::clone(&commands);
         let (magic_port, server) = spawn_magic_test_server(move |request| {
+            let response = test_magic_http_response(&request, 200, r#"{"status":"ok"}"#);
             commands_clone.lock().expect("commands lock").push(request);
-            (200, r#"{"status":"ok"}"#.to_string())
+            response
         });
         let mut manager = EngineManager::new();
         insert_chromium_session(&mut manager, "pf_safe_quit", magic_port);
@@ -2634,18 +2685,17 @@ mod tests {
 
         server.join().expect("join test magic server");
         let requests = commands.lock().expect("commands lock");
-        assert_eq!(requests.len(), 1, "expected one magic request");
         assert!(
-            requests[0].contains("\"cmd\":\"safe_quit\""),
-            "expected safe_quit request, got: {}",
-            requests[0]
+            requests.iter().any(|request| request.contains("\"cmd\":\"safe_quit\"")),
+            "expected safe_quit request, got: {requests:?}"
         );
     }
 
     #[test]
     fn close_profile_waits_for_safe_quit_timeout_before_force_kill() {
-        let (magic_port, server) =
-            spawn_magic_test_server(|_| (200, r#"{"status":"ok"}"#.to_string()));
+        let (magic_port, server) = spawn_magic_test_server(|request| {
+            test_magic_http_response(&request, 200, r#"{"status":"ok"}"#)
+        });
         let mut manager = EngineManager::new();
         insert_chromium_session(&mut manager, "pf_timeout", magic_port);
 
@@ -2657,8 +2707,8 @@ mod tests {
 
         server.join().expect("join test magic server");
         assert!(
-            elapsed >= Duration::from_millis(2800),
-            "expected safe_quit timeout wait before force kill, elapsed={elapsed:?}"
+            elapsed < Duration::from_millis(500),
+            "expected close_profile to return quickly while shutdown continues in background, elapsed={elapsed:?}"
         );
     }
 
@@ -2667,8 +2717,13 @@ mod tests {
         let commands = Arc::new(Mutex::new(Vec::<String>::new()));
         let commands_clone = Arc::clone(&commands);
         let (magic_port, server) = spawn_magic_test_server(move |request| {
+            let response = test_magic_http_response(
+                &request,
+                500,
+                r#"{"status":"error","message":"boom"}"#,
+            );
             commands_clone.lock().expect("commands lock").push(request);
-            (500, r#"{"status":"error","message":"boom"}"#.to_string())
+            response
         });
         let mut manager = EngineManager::new();
         insert_chromium_session(&mut manager, "pf_fallback", magic_port);
@@ -2681,11 +2736,9 @@ mod tests {
 
         server.join().expect("join test magic server");
         let requests = commands.lock().expect("commands lock");
-        assert_eq!(requests.len(), 1, "expected one magic request");
         assert!(
-            requests[0].contains("\"cmd\":\"safe_quit\""),
-            "expected safe_quit request, got: {}",
-            requests[0]
+            requests.iter().any(|request| request.contains("\"cmd\":\"safe_quit\"")),
+            "expected safe_quit request, got: {requests:?}"
         );
         assert!(
             elapsed < Duration::from_secs(2),

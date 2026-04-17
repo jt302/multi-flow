@@ -29,6 +29,7 @@ mod m20260402_000026_clean_legacy_ai_steps;
 mod m20260405_000027_create_chat_tables;
 mod m20260406_000028_enhance_chat_system;
 mod m20260406_000029_add_engine_session_ports;
+mod m20260417_000030_add_profile_group_visuals;
 
 use sea_orm_migration::prelude::*;
 
@@ -69,6 +70,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260405_000027_create_chat_tables::Migration),
             Box::new(m20260406_000028_enhance_chat_system::Migration),
             Box::new(m20260406_000029_add_engine_session_ports::Migration),
+            Box::new(m20260417_000030_add_profile_group_visuals::Migration),
         ]
     }
 }
@@ -250,6 +252,20 @@ mod tests {
                     .expect("query sqlite master");
                 assert_eq!(rows.len(), 1, "{table} table should exist");
             }
+        });
+    }
+
+    #[test]
+    fn profile_groups_visual_columns_exist() {
+        tauri::async_runtime::block_on(async {
+            let db = Database::connect("sqlite::memory:").await.expect("connect");
+            Migrator::up(&db, None).await.expect("run migrations");
+
+            db.execute_unprepared(
+                "SELECT browser_bg_color, toolbar_label_mode FROM profile_groups LIMIT 0",
+            )
+            .await
+            .expect("profile_groups should have visual columns");
         });
     }
 }

@@ -447,7 +447,7 @@ magic_set_bounds(x=0, y=0, width=1200, height=800)
 
 | 工具                          | 用途                           | 必需参数                                            |
 | ----------------------------- | ------------------------------ | --------------------------------------------------- |
-| `app_list_profiles`           | 列出所有 profile               | 无（可选 `group_id`, `keyword`, `include_deleted`） |
+| `app_list_profiles`           | 列出所有 profile               | 无（可选 `group_id`=分组名称, `keyword`, `include_deleted`） |
 | `app_get_profile`             | 获取单个 profile 详情          | `profile_id`                                        |
 | `app_create_profile`          | 创建新 profile                 | `name`（可选 `group_id`, `note`）                   |
 | `app_update_profile`          | 更新 profile 信息              | `profile_id`（可选 `name`, `group_id`, `note`）     |
@@ -474,8 +474,8 @@ magic_set_bounds(x=0, y=0, width=1200, height=800)
 | --------------------------- | -------------------- | ---------------------------------- |
 | `app_list_groups`           | 列出所有分组         | 无（可选 `include_deleted`）       |
 | `app_get_group`             | 获取单个分组         | `group_id`                         |
-| `app_create_group`          | 创建分组             | `name`（可选 `color`）             |
-| `app_update_group`          | 更新分组             | `group_id`（可选 `name`, `color`） |
+| `app_create_group`          | 创建分组             | `name`（可选 `browser_bg_color`, `toolbar_label_mode`）             |
+| `app_update_group`          | 更新分组             | `group_id`（可选 `name`, `browser_bg_color`, `toolbar_label_mode`） |
 | `app_delete_group`          | ⚠️ 删除分组          | `group_id`                         |
 | `app_get_profiles_in_group` | 获取分组内的 profile | `group_id`                         |
 
@@ -529,7 +529,8 @@ app_list_device_presets(platform="android")
 - 在多环境聊天会话中，先调用 `app_set_chat_active_profile(profile_id)`，再执行 `cdp_*` / `magic_*`。
 - `app_get_current_profile` 返回当前工具目标环境，适合在脚本或聊天中确认当前上下文。
 - `app_list_proxies` 的 `protocol` 可选值：`http`、`https`、`socks5`。
-- `app_create_group` 的 `color` 参数为十六进制颜色值，如 `#FF5733`。
+- `app_create_group` / `app_update_group` 的 `browser_bg_color` 参数为十六进制颜色值，如 `#FF5733`。
+- `toolbar_label_mode` 可选值：`id_only`、`group_name_and_id`。
 
 ---
 

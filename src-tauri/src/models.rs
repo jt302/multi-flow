@@ -14,10 +14,13 @@ pub enum ProfileLifecycle {
 #[serde(rename_all = "camelCase")]
 pub struct Profile {
     pub id: String,
+    pub numeric_id: i64,
     pub name: String,
     pub group: Option<String>,
     pub note: Option<String>,
     pub settings: Option<ProfileSettings>,
+    pub resolved_toolbar_text: Option<String>,
+    pub resolved_browser_bg_color: Option<String>,
     pub lifecycle: ProfileLifecycle,
     pub running: bool,
     pub created_at: i64,
@@ -55,7 +58,24 @@ pub struct ProfileBasicSettings {
     /// 历史兼容字段，仅用于旧数据读取；保存时统一收口到 startup_urls。
     pub startup_url: Option<String>,
     pub browser_bg_color: Option<String>,
+    pub browser_bg_color_mode: Option<BrowserBgColorMode>,
+    pub toolbar_label_mode: Option<ToolbarLabelMode>,
     pub toolbar_text: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum BrowserBgColorMode {
+    Inherit,
+    Custom,
+    None,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolbarLabelMode {
+    IdOnly,
+    GroupNameAndId,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -236,6 +256,8 @@ pub struct ProfileGroup {
     pub id: String,
     pub name: String,
     pub note: Option<String>,
+    pub browser_bg_color: Option<String>,
+    pub toolbar_label_mode: ToolbarLabelMode,
     pub lifecycle: ProfileGroupLifecycle,
     pub profile_count: usize,
     pub created_at: i64,
@@ -248,6 +270,8 @@ pub struct ProfileGroup {
 pub struct CreateProfileGroupRequest {
     pub name: String,
     pub note: Option<String>,
+    pub browser_bg_color: Option<String>,
+    pub toolbar_label_mode: Option<ToolbarLabelMode>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -255,6 +279,8 @@ pub struct CreateProfileGroupRequest {
 pub struct UpdateProfileGroupRequest {
     pub name: String,
     pub note: Option<String>,
+    pub browser_bg_color: Option<String>,
+    pub toolbar_label_mode: Option<ToolbarLabelMode>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -526,8 +552,9 @@ pub struct UpdateProfilePluginsRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateProfileVisualRequest {
+    pub browser_bg_color_mode: Option<BrowserBgColorMode>,
     pub browser_bg_color: Option<String>,
-    pub toolbar_text: Option<String>,
+    pub toolbar_label_mode: Option<ToolbarLabelMode>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

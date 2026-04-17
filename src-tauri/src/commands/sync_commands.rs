@@ -469,6 +469,7 @@ mod tests {
         local_api_server.mark_started();
 
         AppState {
+            active_runs: std::sync::Arc::new(crate::services::automation_context::ActiveRunRegistry::new()),
             active_run_channels: Mutex::new(std::collections::HashMap::new()),
             cancel_tokens: Mutex::new(std::collections::HashMap::new()),
             ai_dialog_channels: Mutex::new(std::collections::HashMap::new()),
@@ -486,6 +487,7 @@ mod tests {
             engine_session_service: Mutex::new(engine_session_service),
             proxy_service: Mutex::new(proxy_service),
             resource_service: Mutex::new(resource_service),
+            active_resource_downloads: Mutex::new(std::collections::HashMap::new()),
             engine_manager: Mutex::new(EngineManager::new()),
             local_api_server: Mutex::new(local_api_server),
             chromium_magic_adapter_service: Mutex::new(ChromiumMagicAdapterService::new()),
