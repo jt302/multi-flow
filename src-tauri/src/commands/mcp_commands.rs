@@ -81,6 +81,15 @@ pub async fn test_mcp_connection(app: AppHandle, id: String) -> Result<String, S
     mcp(&app).test_connection(&id).await
 }
 
+/// 使用草稿配置测试 MCP 服务器连接（不落库）
+#[command]
+pub async fn test_mcp_connection_draft(
+    app: AppHandle,
+    payload: CreateMcpServerRequest,
+) -> Result<String, String> {
+    mcp(&app).test_connection_draft(payload).await
+}
+
 /// 开始 OAuth 授权流程（打开系统浏览器，等待回调）
 #[command]
 pub async fn start_mcp_oauth(app: AppHandle, id: String) -> Result<String, String> {

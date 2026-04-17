@@ -17,6 +17,8 @@ export const mcpApi = {
 	enableServer: (id: string) => tauriInvoke<McpServer>('enable_mcp_server', { id }),
 	disableServer: (id: string) => tauriInvoke<McpServer>('disable_mcp_server', { id }),
 	testConnection: (id: string) => tauriInvoke<string>('test_mcp_connection', { id }),
+	testConnectionDraft: (payload: CreateMcpServerRequest) =>
+		tauriInvoke<string>('test_mcp_connection_draft', { payload }),
 	startOAuth: (id: string) => tauriInvoke<string>('start_mcp_oauth', { id }),
 	listTools: (serverId: string) =>
 		tauriInvoke<McpTool[]>('list_mcp_tools', { serverId }),

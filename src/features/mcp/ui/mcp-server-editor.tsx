@@ -1,15 +1,16 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Trash2, TestTube, Link, Loader2 } from 'lucide-react';
+import { Link, Loader2, TestTube, Trash2 } from 'lucide-react';
 
+import { ConfirmActionDialog } from '@/components/common/confirm-action-dialog';
 import { Button } from '@/components/ui/button';
+import { DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
 	Select,
 	SelectContent,
@@ -17,23 +18,14 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import type { CreateMcpServerRequest, McpServer } from '@/entities/mcp/model/types';
 import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-	AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import type { McpServer } from '@/entities/mcp/model/types';
-import {
-	useUpdateMcpServer,
+	useCreateMcpServer,
 	useDeleteMcpServer,
-	useTestMcpConnection,
 	useStartMcpOAuth,
+	useTestMcpDraftConnection,
+	useUpdateMcpServer,
 } from '../model/use-mcp-mutations';
 import { McpToolsPreview } from './mcp-tools-preview';
 
@@ -53,95 +45,136 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 type Props = {
-	server: McpServer;
-	onDeleted: () => void;
+	server: McpServer | null;
+	isNew: boolean;
+	onSaved: (serverId: string) => void;
+	onDeleted: (serverId: string) => void;
+	onCancel: () => void;
 };
 
-export function McpServerEditor({ server, onDeleted }: Props) {
+function buildFormValues(server: McpServer | null, fallbackName: string): FormValues {
+	return {
+		name: server?.name ?? fallbackName,
+		transport: server?.transport ?? 'stdio',
+		command: server?.command ?? '',
+		argsJson: server?.argsJson ?? '[]',
+		envJson: server?.envJson ?? '{}',
+		url: server?.url ?? '',
+		headersJson: server?.headersJson ?? '{}',
+		authType: server?.authType ?? 'none',
+		bearerToken: server?.bearerToken ?? '',
+		oauthConfigJson: server?.oauthConfigJson ?? '',
+	};
+}
+
+function toCreatePayload(values: FormValues): CreateMcpServerRequest {
+	return {
+		name: values.name,
+		transport: values.transport,
+		command: values.command?.trim() || null,
+		argsJson: values.argsJson,
+		envJson: values.envJson,
+		url: values.url?.trim() || null,
+		headersJson: values.headersJson,
+		authType: values.authType,
+		bearerToken: values.bearerToken?.trim() || null,
+		oauthConfigJson: values.oauthConfigJson?.trim() || null,
+	};
+}
+
+export function McpServerEditor({
+	server,
+	isNew,
+	onSaved,
+	onDeleted,
+	onCancel,
+}: Props) {
 	const { t } = useTranslation('chat');
+	const [pendingDelete, setPendingDelete] = useState(false);
+	const createServer = useCreateMcpServer();
 	const updateServer = useUpdateMcpServer();
 	const deleteServer = useDeleteMcpServer();
-	const testConnection = useTestMcpConnection();
+	const testConnection = useTestMcpDraftConnection();
 	const startOAuth = useStartMcpOAuth();
+	const initialValues = useMemo(
+		() => buildFormValues(server, t('mcp.newServerName')),
+		[server, t],
+	);
 
 	const form = useForm<FormValues>({
 		resolver: zodResolver(schema),
-		defaultValues: {
-			name: server.name,
-			transport: server.transport,
-			command: server.command ?? '',
-			argsJson: server.argsJson,
-			envJson: server.envJson,
-			url: server.url ?? '',
-			headersJson: server.headersJson,
-			authType: server.authType,
-			bearerToken: server.bearerToken ?? '',
-			oauthConfigJson: server.oauthConfigJson ?? '',
-		},
+		defaultValues: initialValues,
 	});
 
-	// 当切换 server 时重置表单
 	useEffect(() => {
-		form.reset({
-			name: server.name,
-			transport: server.transport,
-			command: server.command ?? '',
-			argsJson: server.argsJson,
-			envJson: server.envJson,
-			url: server.url ?? '',
-			headersJson: server.headersJson,
-			authType: server.authType,
-			bearerToken: server.bearerToken ?? '',
-			oauthConfigJson: server.oauthConfigJson ?? '',
-		});
-	}, [server.id]);
+		form.reset(initialValues);
+	}, [form, initialValues]);
 
 	const transport = form.watch('transport');
 	const authType = form.watch('authType');
 
 	const onSubmit = (values: FormValues) => {
+		const payload = toCreatePayload(values);
+		if (isNew) {
+			createServer.mutate(payload, {
+				onSuccess: (created) => {
+					toast.success(t('mcp.saved'));
+					onSaved(created.id);
+				},
+				onError: (err) => toast.error(String(err)),
+			});
+			return;
+		}
+
+		if (!server?.id) return;
 		updateServer.mutate(
 			{
 				id: server.id,
-				payload: {
-					name: values.name,
-					transport: values.transport,
-					command: values.command || null,
-					argsJson: values.argsJson,
-					envJson: values.envJson,
-					url: values.url || null,
-					headersJson: values.headersJson,
-					authType: values.authType,
-					bearerToken: values.bearerToken || null,
-					oauthConfigJson: values.oauthConfigJson || null,
-				},
+				payload,
 			},
 			{
-				onSuccess: () => toast.success(t('mcp.saved')),
+				onSuccess: (updated) => {
+					toast.success(t('mcp.saved'));
+					onSaved(updated.id);
+				},
 				onError: (err) => toast.error(String(err)),
 			},
 		);
 	};
 
 	const handleDelete = () => {
+		if (!server?.id) return;
 		deleteServer.mutate(server.id, {
-			onSuccess: () => onDeleted(),
+			onSuccess: () => {
+				setPendingDelete(false);
+				onDeleted(server.id);
+			},
 			onError: (err) => toast.error(String(err)),
 		});
 	};
 
+	const handleTestConnection = () => {
+		const payload = toCreatePayload(form.getValues());
+		testConnection.mutate(payload);
+	};
+
 	return (
-		<form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full overflow-y-auto">
-			<div className="flex items-center justify-between px-4 py-2 border-b shrink-0">
-				<span className="text-sm font-medium truncate">{server.name}</span>
+		<form
+			onSubmit={form.handleSubmit(onSubmit)}
+			className="flex max-h-[70vh] min-h-0 flex-col overflow-y-auto"
+		>
+			<div className="flex items-center justify-between border-b px-4 py-2 shrink-0">
+				<span className="truncate text-sm font-medium">
+					{isNew ? t('mcp.newServerName') : server?.name}
+				</span>
 				<div className="flex items-center gap-1">
 					<Button
 						type="button"
 						size="sm"
 						variant="outline"
-						className="h-7 text-xs cursor-pointer gap-1"
+						className="h-7 gap-1 text-xs cursor-pointer"
 						disabled={testConnection.isPending}
-						onClick={() => testConnection.mutate(server.id)}
+						onClick={handleTestConnection}
 					>
 						{testConnection.isPending ? (
 							<Loader2 className="size-3 animate-spin" />
@@ -150,47 +183,36 @@ export function McpServerEditor({ server, onDeleted }: Props) {
 						)}
 						{t('mcp.testConnection')}
 					</Button>
-					<AlertDialog>
-						<AlertDialogTrigger asChild>
-							<Button type="button" size="icon" variant="ghost" className="size-7 text-destructive cursor-pointer">
-								<Trash2 className="size-3.5" />
-							</Button>
-						</AlertDialogTrigger>
-						<AlertDialogContent>
-							<AlertDialogHeader>
-								<AlertDialogTitle>{t('mcp.confirmDelete', { name: server.name })}</AlertDialogTitle>
-								<AlertDialogDescription>{t('mcp.confirmDeleteDesc')}</AlertDialogDescription>
-							</AlertDialogHeader>
-							<AlertDialogFooter>
-								<AlertDialogCancel className="cursor-pointer">{t('common:cancel')}</AlertDialogCancel>
-								<AlertDialogAction
-									className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90"
-									onClick={handleDelete}
-								>
-									{t('common:delete')}
-								</AlertDialogAction>
-							</AlertDialogFooter>
-						</AlertDialogContent>
-					</AlertDialog>
+					{server?.id ? (
+						<Button
+							type="button"
+							size="icon"
+							variant="ghost"
+							className="size-7 text-destructive cursor-pointer"
+							onClick={() => setPendingDelete(true)}
+						>
+							<Trash2 className="size-3.5" />
+						</Button>
+					) : null}
 				</div>
 			</div>
 
-			<div className="flex-1 p-4 space-y-4">
-				{/* 名称 */}
+			<div className="flex-1 space-y-4 p-4">
 				<div className="space-y-1.5">
 					<Label className="text-xs">{t('mcp.fieldName')}</Label>
 					<Input {...form.register('name')} className="h-8 text-sm" />
-					{form.formState.errors.name && (
+					{form.formState.errors.name ? (
 						<p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
-					)}
+					) : null}
 				</div>
 
-				{/* 传输类型 */}
 				<div className="space-y-1.5">
 					<Label className="text-xs">{t('mcp.fieldTransport')}</Label>
 					<Select
 						value={form.watch('transport')}
-						onValueChange={(v) => form.setValue('transport', v as 'stdio' | 'sse' | 'http')}
+						onValueChange={(value) =>
+							form.setValue('transport', value as 'stdio' | 'sse' | 'http')
+						}
 					>
 						<SelectTrigger size="sm" className="text-xs">
 							<SelectValue />
@@ -203,18 +225,21 @@ export function McpServerEditor({ server, onDeleted }: Props) {
 					</Select>
 				</div>
 
-				{/* stdio 字段 */}
-				{transport === 'stdio' && (
+				{transport === 'stdio' ? (
 					<>
 						<div className="space-y-1.5">
 							<Label className="text-xs">{t('mcp.fieldCommand')}</Label>
-							<Input {...form.register('command')} className="h-8 text-sm font-mono" placeholder="npx" />
+							<Input
+								{...form.register('command')}
+								className="h-8 text-sm font-mono"
+								placeholder="npx"
+							/>
 						</div>
 						<div className="space-y-1.5">
 							<Label className="text-xs">{t('mcp.fieldArgs')}</Label>
 							<Textarea
 								{...form.register('argsJson')}
-								className="text-xs font-mono resize-none"
+								className="resize-none text-xs font-mono"
 								rows={3}
 								placeholder='["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]'
 							/>
@@ -223,16 +248,15 @@ export function McpServerEditor({ server, onDeleted }: Props) {
 							<Label className="text-xs">{t('mcp.fieldEnv')}</Label>
 							<Textarea
 								{...form.register('envJson')}
-								className="text-xs font-mono resize-none"
+								className="resize-none text-xs font-mono"
 								rows={2}
 								placeholder='{"API_KEY": "..."}'
 							/>
 						</div>
 					</>
-				)}
+				) : null}
 
-				{/* http/sse 字段 */}
-				{(transport === 'http' || transport === 'sse') && (
+				{transport === 'http' || transport === 'sse' ? (
 					<>
 						<div className="space-y-1.5">
 							<Label className="text-xs">{t('mcp.fieldUrl')}</Label>
@@ -246,18 +270,18 @@ export function McpServerEditor({ server, onDeleted }: Props) {
 							<Label className="text-xs">{t('mcp.fieldHeaders')}</Label>
 							<Textarea
 								{...form.register('headersJson')}
-								className="text-xs font-mono resize-none"
+								className="resize-none text-xs font-mono"
 								rows={2}
 								placeholder='{"X-Custom": "value"}'
 							/>
 						</div>
-
-						{/* 认证类型 */}
 						<div className="space-y-1.5">
 							<Label className="text-xs">{t('mcp.fieldAuthType')}</Label>
 							<Select
 								value={form.watch('authType')}
-								onValueChange={(v) => form.setValue('authType', v as 'none' | 'bearer' | 'oauth')}
+								onValueChange={(value) =>
+									form.setValue('authType', value as 'none' | 'bearer' | 'oauth')
+								}
 							>
 								<SelectTrigger size="sm" className="text-xs">
 									<SelectValue />
@@ -270,7 +294,7 @@ export function McpServerEditor({ server, onDeleted }: Props) {
 							</Select>
 						</div>
 
-						{authType === 'bearer' && (
+						{authType === 'bearer' ? (
 							<div className="space-y-1.5">
 								<Label className="text-xs">{t('mcp.fieldBearerToken')}</Label>
 								<Input
@@ -280,54 +304,79 @@ export function McpServerEditor({ server, onDeleted }: Props) {
 									placeholder="sk-..."
 								/>
 							</div>
-						)}
+						) : null}
 
-						{authType === 'oauth' && (
+						{authType === 'oauth' ? (
 							<>
 								<div className="space-y-1.5">
 									<Label className="text-xs">{t('mcp.fieldOAuthConfig')}</Label>
 									<Textarea
 										{...form.register('oauthConfigJson')}
-										className="text-xs font-mono resize-none"
+										className="resize-none text-xs font-mono"
 										rows={5}
 										placeholder='{"clientId":"...","authUrl":"...","tokenUrl":"...","scopes":["read"]}'
 									/>
 								</div>
-								<Button
-									type="button"
-									size="sm"
-									variant="outline"
-									className="w-full cursor-pointer gap-1.5"
-									disabled={startOAuth.isPending}
-									onClick={() => startOAuth.mutate(server.id)}
-								>
-									{startOAuth.isPending ? (
-										<Loader2 className="size-3.5 animate-spin" />
-									) : (
-										<Link className="size-3.5" />
-									)}
-									{t('mcp.startOAuth')}
-								</Button>
+								{server?.id ? (
+									<Button
+										type="button"
+										size="sm"
+										variant="outline"
+										className="w-full gap-1.5 cursor-pointer"
+										disabled={startOAuth.isPending}
+										onClick={() => startOAuth.mutate(server.id)}
+									>
+										{startOAuth.isPending ? (
+											<Loader2 className="size-3.5 animate-spin" />
+										) : (
+											<Link className="size-3.5" />
+										)}
+										{t('mcp.startOAuth')}
+									</Button>
+								) : null}
 							</>
-						)}
+						) : null}
 					</>
-				)}
+				) : null}
 
-				{/* 工具预览 */}
-				<McpToolsPreview serverId={server.enabled ? server.id : null} />
+				{server?.id ? <McpToolsPreview serverId={server.enabled ? server.id : null} /> : null}
 
-				{server.lastError && (
+				{server?.lastError ? (
 					<div className="rounded-md border border-destructive/50 bg-destructive/5 px-3 py-2">
 						<p className="text-xs text-destructive">{server.lastError}</p>
 					</div>
-				)}
+				) : null}
 			</div>
 
-			<div className="px-4 py-3 border-t shrink-0 flex justify-end">
-				<Button type="submit" size="sm" className="cursor-pointer" disabled={updateServer.isPending}>
+			<DialogFooter className="border-t px-4 py-3 shrink-0">
+				<Button
+					type="button"
+					size="sm"
+					variant="outline"
+					className="cursor-pointer"
+					onClick={onCancel}
+				>
+					{t('common:cancel')}
+				</Button>
+				<Button
+					type="submit"
+					size="sm"
+					className="cursor-pointer"
+					disabled={createServer.isPending || updateServer.isPending}
+				>
 					{t('mcp.save')}
 				</Button>
-			</div>
+			</DialogFooter>
+
+			<ConfirmActionDialog
+				open={pendingDelete}
+				title={t('mcp.confirmDelete', { name: server?.name ?? '' })}
+				description={t('mcp.confirmDeleteDesc')}
+				confirmText={t('common:delete')}
+				pending={deleteServer.isPending}
+				onOpenChange={setPendingDelete}
+				onConfirm={handleDelete}
+			/>
 		</form>
 	);
 }

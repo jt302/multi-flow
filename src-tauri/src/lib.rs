@@ -371,6 +371,7 @@ pub fn run() {
             commands::mcp_commands::enable_mcp_server,
             commands::mcp_commands::disable_mcp_server,
             commands::mcp_commands::test_mcp_connection,
+            commands::mcp_commands::test_mcp_connection_draft,
             commands::mcp_commands::start_mcp_oauth,
             commands::mcp_commands::list_mcp_tools,
             commands::mcp_commands::list_all_mcp_tools,

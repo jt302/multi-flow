@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
 
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import {
 	ResizableHandle,
 	ResizablePanel,
@@ -10,7 +16,6 @@ import {
 import { usePersistentLayout } from '@/shared/hooks/use-persistent-layout';
 import { useMcpServersQuery } from '@/entities/mcp/model/use-mcp-query';
 import type { McpServer } from '@/entities/mcp/model/types';
-import { useCreateMcpServer } from '../model/use-mcp-mutations';
 import { McpServerList } from './mcp-server-list';
 import { McpServerEditor } from './mcp-server-editor';
 
@@ -21,29 +26,36 @@ export function McpPage() {
 	});
 
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const [isCreating, setIsCreating] = useState(false);
+	const [dialogOpen, setDialogOpen] = useState(false);
 	const serversQuery = useMcpServersQuery();
 	const servers = serversQuery.data ?? [];
-	const createServer = useCreateMcpServer();
 
 	const selectedServer = servers.find((s) => s.id === selectedId) ?? null;
 
 	const handleNew = () => {
-		createServer.mutate(
-			{
-				name: t('mcp.newServerName'),
-				transport: 'stdio',
-			},
-			{
-				onSuccess: (server) => {
-					setSelectedId(server.id);
-				},
-				onError: (err) => toast.error(String(err)),
-			},
-		);
+		setIsCreating(true);
+		setDialogOpen(true);
 	};
 
-	const handleDeleted = () => {
-		setSelectedId(null);
+	const handleSelect = (server: McpServer) => {
+		setSelectedId(server.id);
+		setIsCreating(false);
+		setDialogOpen(true);
+	};
+
+	const handleSaved = (serverId: string) => {
+		setSelectedId(serverId);
+		setIsCreating(false);
+		setDialogOpen(false);
+	};
+
+	const handleDeleted = (deletedId: string) => {
+		if (deletedId === selectedId) {
+			setSelectedId(null);
+		}
+		setIsCreating(false);
+		setDialogOpen(false);
 	};
 
 	return (
@@ -57,26 +69,48 @@ export function McpPage() {
 				<McpServerList
 					servers={servers}
 					selectedId={selectedId}
-					onSelect={(s: McpServer) => setSelectedId(s.id)}
+					onSelect={handleSelect}
 					onNew={handleNew}
 				/>
 			</ResizablePanel>
 
-			<ResizableHandle withHandle />
+			<ResizableHandle />
 
 			<ResizablePanel defaultSize={defaultLayout?.[1] ?? 70} minSize={40}>
-				{selectedServer ? (
-					<McpServerEditor
-						key={selectedServer.id}
-						server={selectedServer}
-						onDeleted={handleDeleted}
-					/>
-				) : (
-					<div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-						{servers.length === 0 ? t('mcp.emptyHint') : t('mcp.selectOrCreate')}
-					</div>
-				)}
+				<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+					{servers.length === 0 ? t('mcp.emptyHint') : t('mcp.selectOrCreate')}
+				</div>
 			</ResizablePanel>
+
+			<Dialog
+				open={dialogOpen}
+				onOpenChange={(open) => {
+					setDialogOpen(open);
+					if (!open) {
+						setIsCreating(false);
+					}
+				}}
+			>
+				<DialogContent className="max-w-4xl">
+					<DialogHeader>
+						<DialogTitle>
+							{isCreating ? t('mcp.createTitle') : t('mcp.editTitle')}
+						</DialogTitle>
+						<DialogDescription>{t('mcp.dialogDescription')}</DialogDescription>
+					</DialogHeader>
+					<McpServerEditor
+						key={selectedServer?.id ?? 'new'}
+						server={selectedServer}
+						isNew={isCreating}
+						onSaved={handleSaved}
+						onDeleted={handleDeleted}
+						onCancel={() => {
+							setDialogOpen(false);
+							setIsCreating(false);
+						}}
+					/>
+				</DialogContent>
+			</Dialog>
 		</ResizablePanelGroup>
 	);
 }

@@ -56,6 +56,14 @@ export function useTestMcpConnection() {
 	});
 }
 
+export function useTestMcpDraftConnection() {
+	return useMutation({
+		mutationFn: mcpApi.testConnectionDraft,
+		onSuccess: (msg) => toast.success(msg),
+		onError: (err: unknown) => toast.error(String(err)),
+	});
+}
+
 export function useStartMcpOAuth() {
 	const qc = useQueryClient();
 	return useMutation({

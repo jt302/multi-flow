@@ -340,9 +340,21 @@ impl McpManager {
         &self,
         server: &McpServerDto,
     ) -> Result<Vec<McpToolDef>, String> {
+        self.connect_and_fetch_tools_with_mode(server, true).await
+    }
+
+    async fn connect_and_fetch_tools_with_mode(
+        &self,
+        server: &McpServerDto,
+        persist_runtime: bool,
+    ) -> Result<Vec<McpToolDef>, String> {
         match server.transport.as_str() {
-            "stdio" => self.connect_stdio_and_fetch_tools(server).await,
-            "http" | "sse" => self.connect_http_and_fetch_tools(server).await,
+            "stdio" => self
+                .connect_stdio_and_fetch_tools(server, persist_runtime)
+                .await,
+            "http" | "sse" => self
+                .connect_http_and_fetch_tools(server, persist_runtime)
+                .await,
             t => Err(format!("Unsupported transport: {t}")),
         }
     }
@@ -350,6 +362,7 @@ impl McpManager {
     async fn connect_stdio_and_fetch_tools(
         &self,
         server: &McpServerDto,
+        persist_runtime: bool,
     ) -> Result<Vec<McpToolDef>, String> {
         let command = server
             .command
@@ -409,16 +422,19 @@ impl McpManager {
         let tools_result = transport.call("tools/list", json!({})).await?;
         let tools = parse_tools_response(tools_result, &server.id, &server.name)?;
 
-        // 保存运行态
-        let mut runtimes = self.runtimes.lock().await;
-        runtimes.insert(
-            server.id.clone(),
-            McpServerRuntime {
-                cached_tools: tools.clone(),
-                status: McpServerStatus::Running,
-                transport: McpRuntimeTransport::Stdio { child, transport },
-            },
-        );
+        if persist_runtime {
+            let mut runtimes = self.runtimes.lock().await;
+            runtimes.insert(
+                server.id.clone(),
+                McpServerRuntime {
+                    cached_tools: tools.clone(),
+                    status: McpServerStatus::Running,
+                    transport: McpRuntimeTransport::Stdio { child, transport },
+                },
+            );
+        } else {
+            let _ = child.kill().await;
+        }
 
         Ok(tools)
     }
@@ -426,6 +442,7 @@ impl McpManager {
     async fn connect_http_and_fetch_tools(
         &self,
         server: &McpServerDto,
+        persist_runtime: bool,
     ) -> Result<Vec<McpToolDef>, String> {
         let url = server
             .url
@@ -456,16 +473,17 @@ impl McpManager {
         let tools_result = transport.call("tools/list", json!({})).await?;
         let tools = parse_tools_response(tools_result, &server.id, &server.name)?;
 
-        // 保存运行态
-        let mut runtimes = self.runtimes.lock().await;
-        runtimes.insert(
-            server.id.clone(),
-            McpServerRuntime {
-                cached_tools: tools.clone(),
-                status: McpServerStatus::Running,
-                transport: McpRuntimeTransport::Http(transport),
-            },
-        );
+        if persist_runtime {
+            let mut runtimes = self.runtimes.lock().await;
+            runtimes.insert(
+                server.id.clone(),
+                McpServerRuntime {
+                    cached_tools: tools.clone(),
+                    status: McpServerStatus::Running,
+                    transport: McpRuntimeTransport::Http(transport),
+                },
+            );
+        }
 
         Ok(tools)
     }
@@ -595,6 +613,18 @@ impl McpManager {
             .map_err(|e| e.to_string())?;
 
         match self.connect_and_fetch_tools(&server).await {
+            Ok(tools) => Ok(format!("Connected. {} tools available.", tools.len())),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// 使用未保存的草稿配置测试连接
+    pub async fn test_connection_draft(
+        &self,
+        payload: CreateMcpServerRequest,
+    ) -> Result<String, String> {
+        let server = build_server_draft(payload);
+        match self.connect_and_fetch_tools_with_mode(&server, false).await {
             Ok(tools) => Ok(format!("Connected. {} tools available.", tools.len())),
             Err(e) => Err(e),
         }
@@ -751,6 +781,29 @@ impl McpManager {
 }
 
 // ─── 辅助函数 ─────────────────────────────────────────────────────────────
+
+fn build_server_draft(payload: CreateMcpServerRequest) -> McpServerDto {
+    let now = chrono::Utc::now().to_rfc3339();
+    McpServerDto {
+        id: format!("draft-{}", uuid::Uuid::new_v4()),
+        name: payload.name,
+        transport: payload.transport,
+        command: payload.command,
+        args_json: payload.args_json.unwrap_or_else(|| "[]".to_string()),
+        env_json: payload.env_json.unwrap_or_else(|| "{}".to_string()),
+        url: payload.url,
+        headers_json: payload.headers_json.unwrap_or_else(|| "{}".to_string()),
+        auth_type: payload.auth_type.unwrap_or_else(|| "none".to_string()),
+        bearer_token: payload.bearer_token,
+        oauth_config_json: payload.oauth_config_json,
+        oauth_tokens_json: None,
+        enabled: false,
+        last_status: "idle".to_string(),
+        last_error: None,
+        created_at: now.clone(),
+        updated_at: now,
+    }
+}
 
 /// 将服务器名称转为 slug（用于工具命名）
 fn server_slug(server_name: &str) -> String {
