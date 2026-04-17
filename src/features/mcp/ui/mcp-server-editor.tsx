@@ -24,26 +24,45 @@ import {
 	useCreateMcpServer,
 	useDeleteMcpServer,
 	useDiscoverMcpOAuth,
+	formatMcpErrorMessage,
 	useStartMcpOAuth,
 	useTestMcpDraftConnection,
 	useUpdateMcpServer,
 } from '../model/use-mcp-mutations';
 import { McpToolsPreview } from './mcp-tools-preview';
 
-const schema = z.object({
-	name: z.string().min(1, 'required'),
-	transport: z.enum(['stdio', 'sse', 'http']),
-	command: z.string().optional(),
-	argsJson: z.string().optional(),
-	envJson: z.string().optional(),
-	url: z.string().optional(),
-	headersJson: z.string().optional(),
-	authType: z.enum(['none', 'bearer', 'oauth']),
-	bearerToken: z.string().optional(),
-	oauthConfigJson: z.string().optional(),
-});
+const schema = (t: (key: string, options?: Record<string, unknown>) => string) =>
+	z
+		.object({
+			name: z.string().trim().min(1, t('mcp.nameRequired')),
+			transport: z.enum(['stdio', 'sse', 'http']),
+			command: z.string().optional(),
+			argsJson: z.string().optional(),
+			envJson: z.string().optional(),
+			url: z.string().optional(),
+			headersJson: z.string().optional(),
+			authType: z.enum(['none', 'bearer', 'oauth']),
+			bearerToken: z.string().optional(),
+			oauthConfigJson: z.string().optional(),
+		})
+		.superRefine((values, ctx) => {
+			if (values.transport === 'stdio' && !values.command?.trim()) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: t('mcp.commandRequired'),
+					path: ['command'],
+				});
+			}
+			if ((values.transport === 'http' || values.transport === 'sse') && !values.url?.trim()) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: t('mcp.urlRequired'),
+					path: ['url'],
+				});
+			}
+		});
 
-type FormValues = z.infer<typeof schema>;
+type FormValues = z.infer<ReturnType<typeof schema>>;
 
 type Props = {
 	server: McpServer | null;
@@ -102,9 +121,10 @@ export function McpServerEditor({
 		() => buildFormValues(server, t('mcp.newServerName')),
 		[server, t],
 	);
+	const formSchema = useMemo(() => schema(t), [t]);
 
 	const form = useForm<FormValues>({
-		resolver: zodResolver(schema),
+		resolver: zodResolver(formSchema),
 		defaultValues: initialValues,
 	});
 
@@ -155,7 +175,9 @@ export function McpServerEditor({
 		});
 	};
 
-	const handleTestConnection = () => {
+	const handleTestConnection = async () => {
+		const valid = await form.trigger();
+		if (!valid) return;
 		const payload = toCreatePayload(form.getValues());
 		testConnection.mutate(payload);
 	};
@@ -236,6 +258,9 @@ export function McpServerEditor({
 								className="h-8 text-sm font-mono"
 								placeholder="npx"
 							/>
+							{form.formState.errors.command ? (
+								<p className="text-xs text-destructive">{form.formState.errors.command.message}</p>
+							) : null}
 						</div>
 						<div className="space-y-1.5">
 							<Label className="text-xs">{t('mcp.fieldArgs')}</Label>
@@ -267,6 +292,9 @@ export function McpServerEditor({
 								className="h-8 text-sm"
 								placeholder="https://api.example.com/mcp"
 							/>
+							{form.formState.errors.url ? (
+								<p className="text-xs text-destructive">{form.formState.errors.url.message}</p>
+							) : null}
 						</div>
 						<div className="space-y-1.5">
 							<Label className="text-xs">{t('mcp.fieldHeaders')}</Label>
@@ -382,7 +410,7 @@ export function McpServerEditor({
 
 				{server?.lastError ? (
 					<div className="rounded-md border border-destructive/50 bg-destructive/5 px-3 py-2">
-						<p className="text-xs text-destructive">{server.lastError}</p>
+						<p className="text-xs text-destructive">{formatMcpErrorMessage(server.lastError, t)}</p>
 					</div>
 				) : null}
 			</div>
