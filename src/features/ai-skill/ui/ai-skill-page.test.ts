@@ -5,6 +5,8 @@ import test from 'node:test';
 const pageSource = readFileSync(new URL('./ai-skill-page.tsx', import.meta.url), 'utf8');
 const listSource = readFileSync(new URL('./ai-skill-list.tsx', import.meta.url), 'utf8');
 const editorSource = readFileSync(new URL('./ai-skill-editor.tsx', import.meta.url), 'utf8');
+const inputSource = readFileSync(new URL('../../../components/ui/input.tsx', import.meta.url), 'utf8');
+const textareaSource = readFileSync(new URL('../../../components/ui/textarea.tsx', import.meta.url), 'utf8');
 
 test('ai skill page opens the editor in a dialog instead of inline panel content', () => {
 	assert.equal(pageSource.includes('<Dialog'), true);
@@ -28,4 +30,10 @@ test('ai skill flow clears selected state when deleting the active skill', () =>
 test('ai skill editor remains form-based for dialog reuse', () => {
 	assert.equal(editorSource.includes('react-hook-form'), true);
 	assert.equal(editorSource.includes('zodResolver'), true);
+	assert.equal(editorSource.includes('overflow-auto p-1'), true);
+});
+
+test('shared text fields raise focus layer above nearby elements', () => {
+	assert.equal(inputSource.includes('focus-visible:z-10'), true);
+	assert.equal(textareaSource.includes('focus-visible:z-10'), true);
 });

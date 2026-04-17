@@ -117,7 +117,7 @@ export function AiSkillEditor({ slug, isNew, onSaved, onCancel }: Props) {
 	return (
 		<form
 			onSubmit={handleSubmit(onSubmit)}
-			className="flex max-h-[80vh] min-h-0 flex-col gap-4 overflow-auto"
+			className="flex max-h-[80vh] min-h-0 flex-col gap-4 overflow-auto p-1"
 		>
 			{/* Row 1: slug + name */}
 			<div className="grid grid-cols-2 gap-3">
