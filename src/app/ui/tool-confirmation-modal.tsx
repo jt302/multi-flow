@@ -71,7 +71,7 @@ export function ToolConfirmationModal() {
 	const formatArgs = (args: Record<string, unknown>): string => {
 		try {
 			const str = JSON.stringify(args, null, 2);
-			return str.length > 500 ? str.slice(0, 500) + '...' : str;
+			return str.length > 2000 ? str.slice(0, 2000) + '...' : str;
 		} catch {
 			return String(args);
 		}
@@ -79,8 +79,8 @@ export function ToolConfirmationModal() {
 
 	return (
 		<AlertDialog open={!!request}>
-			<AlertDialogContent className="max-w-md">
-				<AlertDialogHeader>
+			<AlertDialogContent className="max-w-md flex flex-col max-h-[80vh]">
+				<AlertDialogHeader className="flex-shrink-0">
 					<AlertDialogTitle className="flex items-center gap-2">
 						<AlertTriangle className="h-5 w-5 text-destructive" />
 						{t('toolConfirmation.title')}
@@ -103,7 +103,7 @@ export function ToolConfirmationModal() {
 											<span className="text-muted-foreground">
 												{t('toolConfirmation.args')}:
 											</span>
-											<ScrollArea className="mt-1 max-h-40">
+											<ScrollArea className="mt-1 h-48">
 												<pre className="rounded bg-background p-2 text-xs font-mono whitespace-pre-wrap break-all">
 													{formatArgs(request.args)}
 												</pre>
@@ -114,7 +114,7 @@ export function ToolConfirmationModal() {
 						</div>
 					</AlertDialogDescription>
 				</AlertDialogHeader>
-				<AlertDialogFooter className="gap-2">
+				<AlertDialogFooter className="gap-2 flex-shrink-0">
 					<AlertDialogCancel
 						onClick={() => void handleResponse(false)}
 						disabled={submitting}

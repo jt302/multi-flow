@@ -1506,6 +1506,9 @@ impl EngineManager {
         if let Some(timezone_id) = timezone {
             command.env("TZ", timezone_id);
         }
+        command.env("GOOGLE_API_KEY", "no");
+        command.env("GOOGLE_DEFAULT_CLIENT_ID", "no");
+        command.env("GOOGLE_DEFAULT_CLIENT_SECRET", "no");
         let mut child = command.spawn().map_err(|err| {
             logger::error(
                 "engine_manager.launch",
