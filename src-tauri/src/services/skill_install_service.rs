@@ -722,6 +722,33 @@ mod tests {
                 "installed-skill/scripts/helper.py".to_string()
             ]
         );
+        assert!(!result.enabled_for_session);
         assert!(fs::read_to_string(skill_md).unwrap().contains("Installed Skill"));
+    }
+
+    #[test]
+    fn write_package_keeps_enabled_for_session_false_even_if_request_asks_for_it() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let svc = SkillInstallService::new(tmp.path().to_path_buf());
+
+        let package = RemoteSkillPackage {
+            source_type: "git".to_string(),
+            skill_content: "---\nslug: installed-skill\nname: Installed Skill\n---\nbody".to_string(),
+            skill_dir: Some("installed-skill".to_string()),
+            repo: None,
+            attachments: vec![],
+            warnings: vec![],
+        };
+        let req = InstallSkillRequest {
+            source: "acme/repo".to_string(),
+            source_type: Some("git".to_string()),
+            slug_hint: None,
+            enable_for_session: Some(true),
+            session_id: Some("session-1".to_string()),
+        };
+
+        let result = svc.write_package(package, &req).unwrap();
+
+        assert!(!result.enabled_for_session);
     }
 }

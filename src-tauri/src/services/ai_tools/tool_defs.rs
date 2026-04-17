@@ -2895,7 +2895,7 @@ fn skill_tools() -> Vec<Value> {
         ),
         tool(
             "skill_install",
-            "从 skills.sh、GitHub 仓库或直接 SKILL.md 链接安装 skill。安装成功后默认会尝试自动启用到当前 session。",
+            "从 skills.sh、GitHub 仓库或直接 SKILL.md 链接安装 skill。安装后只要该 skill 处于启用状态，Agent 就会自动可用。",
             json!({
                 "type": "object",
                 "properties": {
@@ -2906,29 +2906,10 @@ fn skill_tools() -> Vec<Value> {
                         "description": "来源类型，默认 auto"
                     },
                     "slugHint": { "type": "string", "description": "当仓库中存在多个 skill 时，用于辅助定位目标 skill（可选）" },
-                    "enableForSession": { "type": "boolean", "description": "安装成功后是否自动启用到当前 session，默认 true" },
-                    "sessionId": { "type": "string", "description": "可选会话 ID。未传时默认当前聊天 session" }
+                    "enableForSession": { "type": "boolean", "description": "兼容保留字段，当前已忽略" },
+                    "sessionId": { "type": "string", "description": "兼容保留字段，当前已忽略" }
                 },
                 "required": ["source"]
-            }),
-        ),
-        tool(
-            "skill_enable_for_session",
-            "向当前聊天 session 的启用列表中添加或移除 skill。add/remove 均为 slug 数组，两者均可为空。",
-            json!({
-                "type": "object",
-                "properties": {
-                    "add": {
-                        "type": "array",
-                        "items": { "type": "string" },
-                        "description": "要添加到 session 的 skill slug 列表"
-                    },
-                    "remove": {
-                        "type": "array",
-                        "items": { "type": "string" },
-                        "description": "要从 session 移除的 skill slug 列表"
-                    }
-                }
             }),
         ),
     ]

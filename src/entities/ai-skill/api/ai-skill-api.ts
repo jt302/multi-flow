@@ -17,6 +17,4 @@ export const aiSkillApi = {
 	delete: (slug: string) => tauriInvoke<void>('delete_ai_skill', { slug }),
 	install: (payload: InstallSkillRequest) =>
 		tauriInvoke<InstallSkillResult>('install_ai_skill', { payload }),
-	setSessionSkills: (sessionId: string, skillSlugs: string[]) =>
-		tauriInvoke<void>('set_session_skills', { sessionId, skillSlugs }),
 };

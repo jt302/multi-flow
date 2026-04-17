@@ -93,7 +93,7 @@ pub async fn send_chat_message(
     image_base64: Option<String>,
 ) -> Result<(), String> {
     // 获取会话配置
-    let (profile_id, ai_config_id, system_prompt, tool_categories, profile_ids, active_profile_id, enabled_skill_slugs, disabled_mcp_server_ids) = {
+    let (profile_id, ai_config_id, system_prompt, tool_categories, profile_ids, active_profile_id, disabled_mcp_server_ids) = {
         let chat_svc = state
             .chat_service
             .lock()
@@ -110,7 +110,6 @@ pub async fn send_chat_message(
             session.tool_categories,
             session.profile_ids,
             session.active_profile_id,
-            session.enabled_skill_slugs,
             session.disabled_mcp_server_ids,
         )
     };
@@ -187,7 +186,6 @@ pub async fn send_chat_message(
             &app_state.chat_cancel_tokens,
             profile_ids.as_deref(),
             active_profile_id.as_deref(),
-            &enabled_skill_slugs,
             &disabled_mcp_server_ids,
         )
         .await;

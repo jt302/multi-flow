@@ -113,8 +113,6 @@
 		"fieldBody": "Skill 正文（Markdown）",
 		"builtInReadonly": "默认 Skill 为只读，不能在应用内编辑或删除。",
 		"bodyPlaceholder": "在这里描述 Skill 的能力和行为...",
-		"selectSkills": "Skills",
-		"selectedCount": "已选 {{count}} 个 Skill",
 		"fieldEnabled": "启用",
 		"fieldTriggers": "触发词（每行一个）",
 		"fieldAllowedTools": "允许工具（每行一个，空 = 全部允许）",

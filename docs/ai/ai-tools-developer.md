@@ -2668,9 +2668,9 @@ DOM 元素查询，返回匹配元素候选列表（用于后续 `magic_click_do
 - 后端检测逻辑会尽量提取 `callback`、`pageAction`、`data-s / enterprisePayload`、页面真实 `userAgent` 等上下文，并在求解时按服务商支持情况透传。
 - 聊天系统提示词要求：验证码未通过时必须明确说明阻塞，不能把“注入成功”表述成“验证通过”，也不能未经用户同意擅自切换到 DuckDuckGo 等替代站点。
 
-### 3.9 Skill 工具（7 个）
+### 3.9 Skill 工具（6 个）
 
-Agent 可通过这些工具动态安装、管理 skill，并调整当前 session 中启用的 skill 列表。写操作（`skill_create`/`skill_update`/`skill_delete`/`skill_install`）属于危险工具，需要用户确认。默认内置 skill 来自仓库 `docs/default-skills`，可读取但不可删除，且与用户目录重名时以内置版本为准。
+Agent 可通过这些工具动态安装、管理 skill。只要 Skill 处于全局启用状态，当前 Agent 就会自动可用。写操作（`skill_create`/`skill_update`/`skill_delete`/`skill_install`）属于危险工具，需要用户确认。默认内置 skill 来自仓库 `docs/default-skills`，可读取但不可删除，且与用户目录重名时以内置版本为准。
 
 #### `skill_list`
 
@@ -2747,17 +2747,17 @@ Agent 可通过这些工具动态安装、管理 skill，并调整当前 session
 
 #### `skill_install`
 
-从外部来源安装 skill，统一落盘到 `{appData/fs}/.agents/skills/<slug>/`。当前支持 `skills.sh` 链接、GitHub 仓库/路径、以及直接 `SKILL.md` 链接。安装成功后默认尝试自动启用到当前 session。
+从外部来源安装 skill，统一落盘到 `{appData/fs}/.agents/skills/<slug>/`。当前支持 `skills.sh` 链接、GitHub 仓库/路径、以及直接 `SKILL.md` 链接。安装后只要该 Skill 处于启用状态，当前 Agent 就会自动可用。
 
 | 参数 | 类型 | 必需 | 说明 |
 |------|------|------|------|
 | `source` | string | 是 | 安装来源 |
 | `sourceType` | string | 否 | `auto` / `url` / `git`，默认 `auto` |
 | `slugHint` | string | 否 | 当仓库中存在多个 skill 时辅助定位 |
-| `enableForSession` | boolean | 否 | 是否自动启用到当前 session，默认 `true` |
-| `sessionId` | string | 否 | 显式指定目标 session |
+| `enableForSession` | boolean | 否 | 兼容保留字段，当前忽略 |
+| `sessionId` | string | 否 | 兼容保留字段，当前忽略 |
 
-**返回**：`InstallSkillResult` JSON — 包含 `slug, name, installedPath, enabledForSession, sourceType, installedFiles, warnings`
+**返回**：`InstallSkillResult` JSON — 包含 `slug, name, installedPath, enabledForSession, sourceType, installedFiles, warnings`。其中 `enabledForSession` 为兼容字段，当前固定为 `false`
 
 **限制**：
 - 不支持覆盖已有 slug
@@ -2765,21 +2765,6 @@ Agent 可通过这些工具动态安装、管理 skill，并调整当前 session
 - 不支持 zip、多 Skill 批量安装、任意本地目录导入
 
 **风险**：Dangerous
-
----
-
-#### `skill_enable_for_session`
-
-增量修改当前 session 的启用 skill 列表（add/remove 均可同时传）。
-
-| 参数 | 类型 | 必需 | 说明 |
-|------|------|------|------|
-| `add` | string[] | 否 | 要添加的 slug 列表 |
-| `remove` | string[] | 否 | 要移除的 slug 列表 |
-
-**返回**：更新后的启用 slug 列表字符串
-
-**风险**：Moderate
 
 ---
 

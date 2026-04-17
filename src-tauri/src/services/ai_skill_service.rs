@@ -266,6 +266,15 @@ impl AiSkillService {
         Ok(result)
     }
 
+    pub fn list_enabled_skill_slugs(&self) -> AppResult<Vec<String>> {
+        Ok(self
+            .list_skills()?
+            .into_iter()
+            .filter(|skill| skill.enabled)
+            .map(|skill| skill.slug)
+            .collect())
+    }
+
     pub fn read_skill(&self, slug: &str) -> AppResult<SkillFull> {
         let built_in_path = self.built_in_skill_path(slug)?;
         if built_in_path.exists() {
@@ -758,5 +767,43 @@ allowed_tools:
 
         svc.delete_skill("custom-skill").unwrap();
         assert!(!user_root.join("custom-skill").exists());
+    }
+
+    #[test]
+    fn list_enabled_skill_slugs_only_returns_enabled_skills() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let user_root = tmp.path().join("user");
+        let built_in_root = tmp.path().join("builtins");
+        fs::create_dir_all(user_root.join("user-enabled")).unwrap();
+        fs::create_dir_all(user_root.join("user-disabled")).unwrap();
+        fs::create_dir_all(built_in_root.join("built-in-enabled")).unwrap();
+        fs::create_dir_all(built_in_root.join("built-in-disabled")).unwrap();
+        fs::write(
+            user_root.join("user-enabled").join("SKILL.md"),
+            "---\nname: User Enabled\nenabled: true\n---\nbody",
+        )
+        .unwrap();
+        fs::write(
+            user_root.join("user-disabled").join("SKILL.md"),
+            "---\nname: User Disabled\nenabled: false\n---\nbody",
+        )
+        .unwrap();
+        fs::write(
+            built_in_root.join("built-in-enabled").join("SKILL.md"),
+            "---\nname: Built In Enabled\nenabled: true\n---\nbody",
+        )
+        .unwrap();
+        fs::write(
+            built_in_root.join("built-in-disabled").join("SKILL.md"),
+            "---\nname: Built In Disabled\nenabled: false\n---\nbody",
+        )
+        .unwrap();
+
+        let svc = AiSkillService::new_with_roots(user_root, built_in_root);
+
+        assert_eq!(
+            svc.list_enabled_skill_slugs().unwrap(),
+            vec!["built-in-enabled".to_string(), "user-enabled".to_string()]
+        );
     }
 }

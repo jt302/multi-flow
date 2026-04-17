@@ -1,12 +1,10 @@
-//! Skill 管理工具 —— Agent 可通过这些工具创建、读取、更新、删除 skill，
-//! 以及调整当前 session 中启用的 skill 列表。
+//! Skill 管理工具 —— Agent 可通过这些工具创建、读取、更新、删除和安装 skill。
 
 use serde_json::Value;
 use tauri::Manager;
 
 use crate::services::ai_skill_service::{self, CreateSkillRequest, UpdateSkillRequest};
 use crate::services::skill_install_service::InstallSkillRequest;
-use crate::services::chat_service::{ChatService, UpdateChatSessionRequest};
 use crate::state::AppState;
 
 use super::{ToolContext, ToolResult};
@@ -104,11 +102,7 @@ pub async fn execute(
                 source,
                 source_type: args.get("sourceType").and_then(|v| v.as_str()).map(String::from),
                 slug_hint: args.get("slugHint").and_then(|v| v.as_str()).map(String::from),
-                enable_for_session: Some(
-                    args.get("enableForSession")
-                        .and_then(|v| v.as_bool())
-                        .unwrap_or(true),
-                ),
+                enable_for_session: args.get("enableForSession").and_then(|v| v.as_bool()),
                 session_id: Some(
                     args.get("sessionId")
                         .and_then(|v| v.as_str())
@@ -127,63 +121,6 @@ pub async fn execute(
             Ok(ToolResult::text(
                 serde_json::to_string(&installed).unwrap_or_default(),
             ))
-        }
-
-        // ── Session 集成 ─────────────────────────────────────────────────────
-
-        "skill_enable_for_session" => {
-            let session_id = ctx.run_id.to_string();
-            let add = opt_str_vec(&args, "add").unwrap_or_default();
-            let remove = opt_str_vec(&args, "remove").unwrap_or_default();
-
-            // 读取当前 session 的 enabled_skill_slugs
-            let state = ctx.app.state::<AppState>();
-            let chat_svc: ChatService = state
-                .chat_service
-                .lock()
-                .unwrap_or_else(|p| p.into_inner())
-                .clone();
-            let session = chat_svc
-                .get_session(&session_id)
-                .await
-                .map_err(|e| e.to_string())?;
-
-            let mut current: Vec<String> = session.enabled_skill_slugs.clone();
-
-            // 增量更新
-            for slug in &add {
-                if !current.contains(slug) {
-                    current.push(slug.clone());
-                }
-            }
-            current.retain(|s| !remove.contains(s));
-
-            // 过滤掉不存在的 slug
-            let valid: Vec<String> = current
-                .into_iter()
-                .filter(|slug| svc.read_skill(slug).is_ok())
-                .collect();
-
-            let req = UpdateChatSessionRequest {
-                title: None,
-                profile_id: None,
-                ai_config_id: None,
-                system_prompt: None,
-                tool_categories: None,
-                profile_ids: None,
-                active_profile_id: None,
-                enabled_skill_slugs: Some(Some(valid.clone())),
-                disabled_mcp_server_ids: None,
-            };
-            chat_svc
-                .update_session(&session_id, req)
-                .await
-                .map_err(|e| e.to_string())?;
-
-            Ok(ToolResult::text(format!(
-                "Session skills updated: {}",
-                valid.join(", ")
-            )))
         }
 
         _ => Err(format!("Unknown skill tool: {name}")),

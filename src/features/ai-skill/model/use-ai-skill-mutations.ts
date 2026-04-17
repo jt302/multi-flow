@@ -43,12 +43,3 @@ export function useInstallAiSkill() {
 		},
 	});
 }
-
-export function useSetSessionSkills() {
-	const qc = useQueryClient();
-	return useMutation({
-		mutationFn: ({ sessionId, skillSlugs }: { sessionId: string; skillSlugs: string[] }) =>
-			aiSkillApi.setSessionSkills(sessionId, skillSlugs),
-		onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.chatSessions }),
-	});
-}

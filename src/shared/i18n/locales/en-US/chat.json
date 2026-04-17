@@ -113,8 +113,6 @@
 		"fieldBody": "Skill Body (Markdown)",
 		"builtInReadonly": "Built-in skills are read-only and cannot be edited or deleted in the app.",
 		"bodyPlaceholder": "Describe the skill's capabilities and behavior...",
-		"selectSkills": "Skills",
-		"selectedCount": "{{count}} skill(s)",
 		"fieldEnabled": "Enabled",
 		"fieldTriggers": "Triggers (one per line)",
 		"fieldAllowedTools": "Allowed Tools (one per line, empty = all)",

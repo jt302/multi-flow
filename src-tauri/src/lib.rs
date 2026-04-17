@@ -226,7 +226,6 @@ pub fn run() {
             commands::ai_skill_commands::update_ai_skill,
             commands::ai_skill_commands::delete_ai_skill,
             commands::ai_skill_commands::install_ai_skill,
-            commands::ai_skill_commands::set_session_skills,
             commands::automation_canvas_commands::open_automation_canvas_window,
             commands::automation_commands::list_automation_scripts,
             commands::automation_commands::create_automation_script,

@@ -87,7 +87,6 @@ impl ChatExecutionService {
         cancel_tokens: &std::sync::Mutex<HashMap<String, bool>>,
         profile_ids: Option<&[String]>,
         active_profile_id: Option<&str>,
-        enabled_skill_slugs: &[String],
         disabled_mcp_server_ids: &[String],
     ) -> Result<(), String> {
         let chat_service = app
@@ -174,10 +173,14 @@ impl ChatExecutionService {
             env_text.as_deref(),
             None, // conversation_summary: Phase C
         );
+        let enabled_skill_slugs = crate::services::ai_skill_service::from_app(app)
+            .ok()
+            .and_then(|svc| svc.list_enabled_skill_slugs().ok())
+            .unwrap_or_default();
         // Progressive disclosure: 注入 skill 目录（name+description），不注入 body
         let skill_allowed_tools = if !enabled_skill_slugs.is_empty() {
             if let Ok(skill_svc) = crate::services::ai_skill_service::from_app(app) {
-                let directory = skill_svc.load_skill_directory(enabled_skill_slugs);
+                let directory = skill_svc.load_skill_directory(&enabled_skill_slugs);
                 if !directory.is_empty() {
                     system_prompt_text.push_str(
                         "\n\n<skills>\nThe following skills are available. Use the `load_skill` tool to load a skill's full instructions when needed.\n",
@@ -189,7 +192,7 @@ impl ChatExecutionService {
                     }
                     system_prompt_text.push_str("</skills>");
                 }
-                skill_svc.get_allowed_tools_union(enabled_skill_slugs)
+                skill_svc.get_allowed_tools_union(&enabled_skill_slugs)
             } else {
                 vec![]
             }

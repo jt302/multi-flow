@@ -1063,7 +1063,7 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 12  | `dialog_save_file`     | 文件保存对话框                                 |
 | 13  | `dialog_select_folder` | 文件夹选择对话框                               |
 
-### Skill — Skill 安装与管理（7 个）
+### Skill — Skill 安装与管理（6 个）
 
 | #   | 工具名                       | 说明                                          |
 | --- | ---------------------------- | --------------------------------------------- |
@@ -1072,5 +1072,4 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 3   | `skill_create`               | ⚠️ 创建新 skill（写磁盘）                     |
 | 4   | `skill_update`               | ⚠️ 更新已有 skill 的元数据或 body             |
 | 5   | `skill_delete`               | ⚠️ 删除用户 skill（默认内置 skill 不可删除）  |
-| 6   | `skill_install`              | ⚠️ 从 skills.sh / GitHub / SKILL.md 安装 skill 到 `fs/.agents/skills` |
-| 7   | `skill_enable_for_session`   | 添加/移除当前 session 的启用 skill 列表       |
+| 6   | `skill_install`              | ⚠️ 从 skills.sh / GitHub / SKILL.md 安装 skill 到 `fs/.agents/skills`；启用状态的 skill 会自动对 Agent 生效 |
