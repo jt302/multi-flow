@@ -93,6 +93,7 @@
 	},
 	"skills": {
 		"title": "Skills",
+		"pageDescription": "View, enable, and manage in-app skills in one list. Creating and editing still use dialogs.",
 		"empty": "No skills yet. Click + to create one.",
 		"selectOrCreate": "Select or create a skill",
 		"createTitle": "Create Skill",
@@ -100,6 +101,10 @@
 		"dialogDescription": "Create or update the skill metadata and body here.",
 		"saved": "Saved",
 		"confirmDelete": "Delete skill \"{{name}}\"?",
+		"noDescription": "No description",
+		"enabledBadge": "Enabled",
+		"disabledBadge": "Disabled",
+		"triggerCount": "{{count}} trigger(s)",
 		"fieldName": "Name",
 		"fieldNamePlaceholder": "My Skill",
 		"fieldDesc": "Description",

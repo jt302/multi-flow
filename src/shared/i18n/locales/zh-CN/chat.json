@@ -93,6 +93,7 @@
 	},
 	"skills": {
 		"title": "Skills",
+		"pageDescription": "统一查看、启用和维护当前应用内的 Skill，新增与编辑继续使用弹窗处理。",
 		"empty": "暂无 Skill，点击 + 新建",
 		"selectOrCreate": "选择或新建一个 Skill",
 		"createTitle": "新建 Skill",
@@ -100,6 +101,10 @@
 		"dialogDescription": "在这里创建或修改 Skill 配置与正文。",
 		"saved": "已保存",
 		"confirmDelete": "确认删除 Skill「{{name}}」？",
+		"noDescription": "暂无描述",
+		"enabledBadge": "已启用",
+		"disabledBadge": "未启用",
+		"triggerCount": "{{count}} 个触发词",
 		"fieldName": "名称",
 		"fieldNamePlaceholder": "我的 Skill",
 		"fieldDesc": "描述",
