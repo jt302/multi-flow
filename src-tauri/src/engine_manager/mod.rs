@@ -30,6 +30,8 @@ struct SessionRecord {
     windows: Vec<WindowRecord>,
     next_window_id: u64,
     next_tab_id: u64,
+    /// 零窗口检测后已触发自动 SIGKILL，避免重复触发。
+    shutting_down: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -224,6 +226,7 @@ impl EngineManager {
                 windows: build_default_windows(options.startup_urls.clone()),
                 next_window_id: 2,
                 next_tab_id: options.startup_urls.len().max(1) as u64 + 1,
+                shutting_down: false,
             },
         );
         logger::info(
@@ -268,6 +271,7 @@ impl EngineManager {
                 windows: vec![],
                 next_window_id: 1,
                 next_tab_id: 1,
+                shutting_down: false,
             },
         );
     }
@@ -446,7 +450,33 @@ impl EngineManager {
                 continue;
             };
             match self.sync_chromium_window_state(&profile_id, magic_port) {
-                Ok(state) => states.push(state),
+                Ok(state) => {
+                    // 零窗口自治退出：Chromium 进入"NSApp 空壳"态后，
+                    // 任何后续 magic HTTP 请求（包括本轮询）都可能触发 NSApp Source0
+                    // 访问已释放的 BrowserList → EXC_BAD_ACCESS @ 0x1b0。
+                    // 检测到 0 窗口后立即 SIGKILL，防止下一次轮询再触发崩溃。
+                    if state.total_windows == 0 {
+                        if let Some(record) = self.sessions.get_mut(&profile_id) {
+                            if !record.shutting_down {
+                                record.shutting_down = true;
+                                let pid = record.session.pid;
+                                let profile_name = record.profile_name.clone();
+                                logger::warn(
+                                    "engine_manager.window",
+                                    format!(
+                                        "chromium zero windows detected, auto force kill profile_id={profile_id} pid={pid:?}"
+                                    ),
+                                );
+                                if let EngineProcess::Chromium { child, .. } =
+                                    &mut record.process
+                                {
+                                    force_kill_child(&profile_id, &profile_name, child);
+                                }
+                            }
+                        }
+                    }
+                    states.push(state)
+                }
                 Err(err) => {
                     logger::warn(
                         "engine_manager.window",
@@ -1750,7 +1780,19 @@ fn send_magic_http_request(port: u16, path: &str, payload: &Value) -> AppResult<
     })
 }
 
+/// 仅用 TCP connect 检测 magic server 是否仍在监听端口，不发任何 HTTP payload。
+/// 这样可以避免在 Chromium 处于"零窗口 NSApp 空壳"态时触发 NSApp Source0 派发，
+/// 从而防止 EXC_BAD_ACCESS @ 0x1b0 崩溃。
 fn is_magic_server_alive(port: u16) -> bool {
+    use std::net::{SocketAddr, TcpStream};
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    TcpStream::connect_timeout(&addr, Duration::from_millis(300)).is_ok()
+}
+
+/// 查询 Chromium 当前打开的浏览器窗口数量。
+/// 用于在发 safe_quit 之前检测"零窗口空壳"态（关闭所有标签后 NSApp 仍存活但
+/// BrowserList 为空），避免在该状态下触发崩溃（EXC_BAD_ACCESS @ 0x1b0）。
+fn count_magic_windows(profile_id: &str, port: u16) -> AppResult<usize> {
     let payload = json!({ "cmd": "get_browsers" });
     for path in MAGIC_HTTP_PATHS {
         let response = match send_magic_http_request(port, path, &payload) {
@@ -1765,10 +1807,17 @@ fn is_magic_server_alive(port: u16) -> bool {
             Err(_) => continue,
         };
         if parsed.get("status").and_then(Value::as_str) == Some("ok") {
-            return true;
+            let count = parsed
+                .get("data")
+                .and_then(Value::as_array)
+                .map(|arr| arr.len())
+                .unwrap_or(0);
+            return Ok(count);
         }
     }
-    false
+    Err(AppError::Validation(format!(
+        "count_magic_windows failed profile_id={profile_id} port={port}"
+    )))
 }
 
 fn try_magic_safe_quit(profile_id: &str, port: u16) -> AppResult<()> {
@@ -1901,6 +1950,62 @@ fn shutdown_chromium_process(
     magic_port: u16,
 ) {
     let pid = child.id();
+
+    // 守卫 A：子进程已提前退出（关闭所有标签后 Chromium 可能已自行退出）
+    if let Ok(Some(status)) = child.try_wait() {
+        logger::info(
+            "engine_manager",
+            format!(
+                "chromium already exited before shutdown profile_id={profile_id} profile_name=\"{profile_name}\" pid={pid} status={status}"
+            ),
+        );
+        return;
+    }
+
+    // 守卫 B：magic 端口已无响应，跳过 safe_quit 直接强杀
+    if !is_magic_server_alive(magic_port) {
+        logger::warn(
+            "engine_manager",
+            format!(
+                "magic server dead, skip safe_quit profile_id={profile_id} profile_name=\"{profile_name}\" pid={pid} magic_port={magic_port}"
+            ),
+        );
+        force_kill_child(profile_id, profile_name, child);
+        return;
+    }
+
+    // 守卫 C：零窗口空壳态。此时 NSApp 仍在运行但 BrowserList 为空，
+    // safe_quit 会在主线程 Source0 回调中访问已释放对象 → EXC_BAD_ACCESS @ 0x1b0。
+    // 跳过 safe_quit，直接 SIGKILL（内核层终止，不触发 NSApp 退出回调）。
+    match count_magic_windows(profile_id, magic_port) {
+        Ok(0) => {
+            logger::warn(
+                "engine_manager",
+                format!(
+                    "skip safe_quit due to zero windows (would crash NSApp) profile_id={profile_id} profile_name=\"{profile_name}\" pid={pid} magic_port={magic_port}"
+                ),
+            );
+            force_kill_child(profile_id, profile_name, child);
+            return;
+        }
+        Ok(window_count) => {
+            logger::info(
+                "engine_manager",
+                format!(
+                    "window_count={window_count} proceeding with safe_quit profile_id={profile_id} profile_name=\"{profile_name}\" pid={pid}"
+                ),
+            );
+        }
+        Err(err) => {
+            logger::warn(
+                "engine_manager",
+                format!(
+                    "window count query failed, fall back to safe_quit profile_id={profile_id} profile_name=\"{profile_name}\" pid={pid}: {err}"
+                ),
+            );
+        }
+    }
+
     let graceful_exit = match try_magic_safe_quit(profile_id, magic_port) {
         Ok(()) => match wait_for_child_exit(
             profile_id,
@@ -2298,6 +2403,7 @@ mod tests {
                 windows: build_default_windows(Vec::new()),
                 next_window_id: 2,
                 next_tab_id: 2,
+                shutting_down: false,
             },
         );
     }

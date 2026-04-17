@@ -468,12 +468,28 @@ agent 不要假设所有接口都严格遵守同一个返回模板。
 
 说明：
 
-- 这个命令调用后会立即返回 `status=ok`，表示“已发起退出流程”
+- 这个命令调用后会立即返回 `status=ok`，表示”已发起退出流程”
 - 它不等待进程真正结束
 - 调用方应自行等待控制端口断开或浏览器进程退出
 - `set_closed` 和 `safe_quit` 语义不同：
   - `set_closed` 只关闭当前活动窗口
   - `safe_quit` 退出整个应用
+
+**注意：零窗口空壳态崩溃（重要）**
+
+macOS 上自定义 Chromium 在最后一个标签被用户手动关闭后，`NSApplication` 主线程仍保留运行，但内部 `BrowserList` / `WebContents` 已销毁，处于”空壳”态。此时**任何** magic HTTP 请求（包括 `get_browsers`、`safe_quit` 等）都会触发 magic server 把任务 PostTask 到主线程 `NSApplication` runloop 的 `Source0`；Source0 回调访问已释放对象，引发 `EXC_BAD_ACCESS at 0x1b0`（fault_address=0x1b0，thread=CrBrowserMain，栈顶 `__CFRunLoopDoSource0 → [NSApplication run]`）。
+
+**崩溃时机**：不需要用户点”停止环境”按钮；multi-flow 后台 3 秒轮询（`is_magic_server_alive` → `get_browsers`）或前端 5 秒轮询（`list_window_states` → `get_browsers`）是最常见的触发源。
+
+multi-flow 端的应对策略（V2，`engine_manager/mod.rs`）：
+
+1. **`is_magic_server_alive` 改为 TCP-only**：仅用 `TcpStream::connect_timeout(300ms)` 检测端口是否可达，不发任何 HTTP payload，彻底消除 3 秒 prune 循环对 NSApp 的扰动。
+2. **`list_window_states` 零窗口自治退出**：`sync_chromium_window_state` 返回 `total_windows == 0` 时，立即对该 profile 触发 SIGKILL（`force_kill_child`），阻止下一次轮询再向 NSApp 发 HTTP 请求。
+3. **`shutdown_chromium_process` 三道守卫（V1，保留）**：用户手动点停止时，Guard A `try_wait()` 检测进程是否已退出，Guard B `is_magic_server_alive`（TCP）检测端口是否死，Guard C `count_magic_windows` 检测窗口数是否为 0——只有确认有窗口时才发 `safe_quit`。
+
+未来在 Chromium 侧可通过以下方式根治：
+- 启动时传 `--keep-alive-for-test` 保留空壳态下的 NSApp（使 `safe_quit` 有窗口可操作）；
+- 或在 magic handler 的所有命令分支加 `BrowserList` 空壳判定，返回特殊错误码而非 PostTask 到主线程。
 
 #### `set_restored`
 
