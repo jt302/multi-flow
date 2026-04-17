@@ -3,6 +3,7 @@
 		"pageTitle": "环境详情",
 		"backToList": "返回列表",
 		"editConfig": "修改配置",
+		"editConfigDisabledRunning": "请先关闭环境，再修改配置",
 		"noProxy": "未绑定代理",
 		"openDirFailed": "打开目录失败",
 		"cacheCleaned": "缓存目录已清理",

@@ -104,6 +104,7 @@ export function ProfileDetailPage({
 	const statusLabel = profile.running
 		? t('common:running')
 		: t('common:notRunning');
+	const editConfigDisabled = profile.running;
 	const toolbarText = profile.resolvedToolbarText?.trim();
 	const startupUrls =
 		basic?.startupUrls?.filter((item) => item.trim()) ??
@@ -174,6 +175,8 @@ export function ProfileDetailPage({
 					<Button
 						type="button"
 						className="cursor-pointer"
+						disabled={editConfigDisabled}
+						title={editConfigDisabled ? t('detail.editConfigDisabledRunning') : undefined}
 						onClick={() => onEditProfile(profile.id)}
 					>
 						<Icon icon={PencilLine} size={14} />

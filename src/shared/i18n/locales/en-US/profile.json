@@ -3,6 +3,7 @@
 		"pageTitle": "Profile Details",
 		"backToList": "Back to List",
 		"editConfig": "Edit Config",
+		"editConfigDisabledRunning": "Stop the profile before editing its config",
 		"noProxy": "No Proxy Bound",
 		"openDirFailed": "Failed to open directory",
 		"cacheCleaned": "Cache directory cleaned",

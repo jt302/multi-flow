@@ -80,6 +80,11 @@ impl ProfileService {
                 "profile already deleted: {profile_id}"
             )));
         }
+        if stored.running {
+            return Err(AppError::Validation(
+                "profile is running, config updates are not allowed".to_string(),
+            ));
+        }
 
         let group_name = self.ensure_active_group_name(req.group)?;
         let previous_settings = parse_settings_json(stored.settings_json.clone());
@@ -1985,5 +1990,40 @@ mod tests {
             .expect("persisted fixed seed");
 
         assert!(fixed_seed > 0);
+    }
+
+    #[test]
+    fn update_profile_rejects_running_profiles() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProfileService::from_db(db);
+
+        let profile = service
+            .create_profile(CreateProfileRequest {
+                name: "alpha".to_string(),
+                group: None,
+                note: None,
+                proxy_id: None,
+                settings: None,
+            })
+            .expect("create profile");
+
+        service
+            .mark_profile_running(&profile.id, true)
+            .expect("mark profile running");
+
+        let error = service
+            .update_profile(
+                &profile.id,
+                CreateProfileRequest {
+                    name: "alpha-updated".to_string(),
+                    group: None,
+                    note: None,
+                    proxy_id: None,
+                    settings: None,
+                },
+            )
+            .expect_err("running profile should not allow config update");
+
+        assert!(error.to_string().contains("profile is running"));
     }
 }

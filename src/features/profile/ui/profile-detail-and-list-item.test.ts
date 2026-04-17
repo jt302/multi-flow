@@ -36,6 +36,17 @@ test('profile detail page reveals directories before falling back to openPath', 
 	assert.equal(file.includes('await openPath(path);'), true);
 });
 
+test('profile detail page disables edit config while profile is running', () => {
+	const file = readFileSync(new URL('./profile-detail-page.tsx', import.meta.url), 'utf8');
+
+	assert.equal(file.includes('const editConfigDisabled = profile.running;'), true);
+	assert.equal(file.includes('disabled={editConfigDisabled}'), true);
+	assert.equal(
+		file.includes("title={editConfigDisabled ? t('detail.editConfigDisabledRunning') : undefined}"),
+		true,
+	);
+});
+
 test('profile list page adds one-click stop action for all filtered running profiles', () => {
 	const pageFile = readFileSync(new URL('./profile-list-page.tsx', import.meta.url), 'utf8');
 	const toolbarFile = readFileSync(new URL('./profile-list-toolbar.tsx', import.meta.url), 'utf8');
