@@ -161,6 +161,14 @@ export function useProfileCreateForm({
 				initialBasic?.startupUrl ??
 				'',
 			browserBgColor: initialBasic?.browserBgColor ?? '',
+			browserBgColorMode:
+				initialBasic?.browserBgColorMode ??
+				(initialBasic?.browserBgColor ? 'custom' : 'inherit'),
+			toolbarLabelMode:
+				initialBasic?.toolbarLabelMode ??
+				(initialProfile?.group && initialProfile.group !== t('common:noGroup')
+					? 'inherit'
+					: 'id_only'),
 			proxyId: initialProxyId ?? '__none__',
 			language: initialFingerprint?.fingerprintSnapshot?.language ?? '',
 			timezoneId: initialFingerprint?.fingerprintSnapshot?.timeZone ?? '',
@@ -210,6 +218,8 @@ export function useProfileCreateForm({
 	const browserKind = watch('browserKind');
 	const browserVersion = watch('browserVersion');
 	const browserBgColor = watch('browserBgColor');
+	const browserBgColorMode = watch('browserBgColorMode');
+	const toolbarLabelMode = watch('toolbarLabelMode');
 	const platform = watch('platform');
 	const proxyId = watch('proxyId');
 	const devicePresetId = watch('devicePresetId');
@@ -646,7 +656,15 @@ export function useProfileCreateForm({
 					platform: values.platform,
 					devicePresetId: values.devicePresetId,
 					startupUrls: parseStartupUrls(values.startupUrls),
-					browserBgColor: values.browserBgColor.trim() || undefined,
+					browserBgColor:
+						values.browserBgColorMode === 'custom'
+							? values.browserBgColor.trim() || undefined
+							: undefined,
+					browserBgColorMode: values.browserBgColorMode,
+					toolbarLabelMode:
+						values.toolbarLabelMode === 'inherit'
+							? undefined
+							: values.toolbarLabelMode,
 				},
 				fingerprint: {
 					fingerprintSource: source,
@@ -732,6 +750,8 @@ export function useProfileCreateForm({
 			browserVersion,
 			group: watch('group'),
 			browserBgColor,
+			browserBgColorMode,
+			toolbarLabelMode,
 			platform,
 			proxyId,
 			devicePresetId,

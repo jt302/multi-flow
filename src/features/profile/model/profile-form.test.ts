@@ -30,6 +30,8 @@ function buildFormValues(overrides: Record<string, unknown> = {}) {
 		devicePresetId: 'preset_1',
 		startupUrls: DEFAULT_STARTUP_URL,
 		browserBgColor: '#0F8A73',
+		browserBgColorMode: 'custom',
+		toolbarLabelMode: 'id_only',
 		proxyId: '',
 		language: '',
 		timezoneId: '',
@@ -68,6 +70,21 @@ test('profile form schema accepts multiple startup urls split by line', () => {
 		}),
 	);
 	assert.equal(result.success, true);
+});
+
+test('profile form schema accepts visual inheritance fields', () => {
+	const result = profileFormSchema.safeParse(
+		buildFormValues({
+			browserBgColorMode: 'inherit',
+			toolbarLabelMode: 'group_name_and_id',
+		}),
+	);
+	assert.equal(result.success, true);
+	if (!result.success) {
+		return;
+	}
+	assert.equal(result.data.browserBgColorMode, 'inherit');
+	assert.equal(result.data.toolbarLabelMode, 'group_name_and_id');
 });
 
 test('profile form schema rejects non http startup urls in multi line input', () => {

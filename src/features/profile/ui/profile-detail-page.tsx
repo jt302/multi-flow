@@ -104,7 +104,7 @@ export function ProfileDetailPage({
 	const statusLabel = profile.running
 		? t('common:running')
 		: t('common:notRunning');
-	const toolbarText = basic?.toolbarText?.trim();
+	const toolbarText = profile.resolvedToolbarText?.trim();
 	const startupUrls =
 		basic?.startupUrls?.filter((item) => item.trim()) ??
 		(basic?.startupUrl?.trim() ? [basic.startupUrl.trim()] : []);
@@ -189,12 +189,12 @@ export function ProfileDetailPage({
 						<div>
 							<CardTitle className="text-lg">{profile.name}</CardTitle>
 							<p className="mt-1 text-sm text-muted-foreground">
-								{profile.group} · {statusLabel}
+								{profile.group} · {statusLabel} · ID {profile.numericId}
 							</p>
 							<p className="mt-1 text-xs text-muted-foreground">
 								{platformMeta.code} · {platformMeta.hint}
 							</p>
-							{toolbarText && toolbarText !== profile.name ? (
+							{toolbarText ? (
 								<p className="mt-1 text-xs text-muted-foreground">
 									{t('toolbarText.label')} {toolbarText}
 								</p>

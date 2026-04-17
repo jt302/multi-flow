@@ -4,7 +4,7 @@ import { createStore } from 'zustand/vanilla';
 import type { BatchProfileActionResponse } from '@/entities/profile/model/types';
 import type { ProfileListFiltersState } from '@/entities/profile/lib/profile-list';
 
-export type QuickEditField = 'background' | 'toolbar';
+export type QuickEditField = 'visual';
 
 export type ProfileListQuickEditState = {
 	profileId: string;

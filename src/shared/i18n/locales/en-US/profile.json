@@ -292,8 +292,21 @@
 		"save": "Save Toolbar Text",
 		"label": "Toolbar Text"
 	},
+	"visual": {
+		"title": "Visual Identity",
+		"description": "You can inherit group defaults or override the Chromium label and background color for this profile.",
+		"toolbarLabel": "Chromium Label",
+		"backgroundColorLabel": "Background Color",
+		"preview": "Preview",
+		"inheritGroup": "Follow Group",
+		"idOnly": "ID Only",
+		"groupNameAndId": "Group Name-ID",
+		"noBackgroundColor": "No Background Color",
+		"customColor": "Custom Color"
+	},
 	"actions": {
 		"viewDetail": "View Details",
+		"editVisual": "Visual Identity",
 		"modifyBgColor": "Modify Background Color",
 		"setGroup": "Set Group",
 		"clearGroup": "Clear Group",

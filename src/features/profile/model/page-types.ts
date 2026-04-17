@@ -1,6 +1,7 @@
 import type { GroupItem } from '@/entities/group/model/types';
 import type {
 	BatchProfileActionResponse,
+	BrowserBgColorMode,
 	CreateProfilePayload,
 	ExportProfileCookiesPayload,
 	ExportProfileCookiesResponse,
@@ -8,6 +9,7 @@ import type {
 	ProfileItem,
 	ProfileProxyBindingMap,
 	ReadProfileCookiesResponse,
+	ToolbarLabelMode,
 } from '@/entities/profile/model/types';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import type { ResourceItem } from '@/entities/resource/model/types';
@@ -23,7 +25,11 @@ export type ProfilesPageProps = {
 	onUpdateProfile: (profileId: string, payload: CreateProfilePayload) => Promise<void>;
 	onUpdateProfileVisual: (
 		profileId: string,
-		payload: { browserBgColor?: string; toolbarText?: string },
+		payload: {
+			browserBgColorMode?: BrowserBgColorMode;
+			browserBgColor?: string | null;
+			toolbarLabelMode?: ToolbarLabelMode;
+		},
 	) => Promise<void>;
 	onOpenProfile: (profileId: string) => Promise<void>;
 	onCloseProfile: (profileId: string) => Promise<void>;

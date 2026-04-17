@@ -22,13 +22,21 @@ import {
 	FormMessage,
 	Icon,
 	Input,
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
 } from '@/components/ui';
 import type { GroupEditorMode } from '@/store/group-management-store';
 import type { GroupItem } from '@/entities/group/model/types';
+import type { ToolbarLabelMode } from '@/entities/profile/model/types';
 
 export const groupFormSchema = z.object({
 	name: z.string().trim().min(1, i18next.t('group:form.nameRequired')),
 	note: z.string(),
+	browserBgColor: z.string(),
+	toolbarLabelMode: z.enum(['id_only', 'group_name_and_id']),
 });
 
 export type GroupFormValues = z.infer<typeof groupFormSchema>;
@@ -54,6 +62,8 @@ export function GroupFormDialog({
 		defaultValues: {
 			name: '',
 			note: '',
+			browserBgColor: '',
+			toolbarLabelMode: 'id_only',
 		},
 	});
 	const {
@@ -71,10 +81,12 @@ export function GroupFormDialog({
 			reset({
 				name: group.name,
 				note: group.note === i18next.t('group:mock.noNote') ? '' : group.note,
+				browserBgColor: group.browserBgColor ?? '',
+				toolbarLabelMode: group.toolbarLabelMode,
 			});
 			return;
 		}
-		reset({ name: '', note: '' });
+		reset({ name: '', note: '', browserBgColor: '', toolbarLabelMode: 'id_only' });
 	}, [group, mode, open, reset]);
 
 	return (
@@ -134,6 +146,63 @@ export function GroupFormDialog({
 								</FormItem>
 							)}
 						/>
+
+						<div className="rounded-lg border border-border/60 p-3">
+							<p className="mb-3 text-sm font-medium">
+								{t('group:form.visualSectionTitle')}
+							</p>
+							<FormField
+								control={control}
+								name="toolbarLabelMode"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>{t('group:form.toolbarLabelMode')}</FormLabel>
+										<Select
+											value={field.value}
+											onValueChange={(value) =>
+												field.onChange(value as ToolbarLabelMode)
+											}
+										>
+											<FormControl>
+												<SelectTrigger>
+													<SelectValue />
+												</SelectTrigger>
+											</FormControl>
+											<SelectContent>
+												<SelectItem value="id_only">{t('group:form.toolbarLabelModeIdOnly')}</SelectItem>
+												<SelectItem value="group_name_and_id">{t('group:form.toolbarLabelModeGroupAndId')}</SelectItem>
+											</SelectContent>
+										</Select>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+
+							<FormField
+								control={control}
+								name="browserBgColor"
+								render={({ field }) => (
+									<FormItem className="mt-3">
+										<FormLabel>{t('group:form.browserBgColorDefault')}</FormLabel>
+										<FormControl>
+											<div className="flex items-center gap-2">
+												<Input
+													type="color"
+													value={field.value || '#0F8A73'}
+													onChange={(event) => field.onChange(event.target.value)}
+													className="h-10 w-12 cursor-pointer rounded p-1"
+												/>
+												<Input
+													{...field}
+													placeholder="#0F8A73"
+												/>
+											</div>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+						</div>
 
 						<DialogFooter>
 							<Button

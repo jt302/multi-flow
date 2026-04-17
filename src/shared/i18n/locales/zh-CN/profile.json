@@ -286,14 +286,27 @@
 		"cancel": "取消",
 		"invalidFormat": "背景色格式必须是 #RRGGBB"
 	},
-		"toolbarText": {
+	"toolbarText": {
 		"title": "修改工具栏文本（留空将回退为环境名称）",
 		"placeholder": "输入工具栏文本",
 		"save": "保存工具栏文本",
 		"label": "工具栏文本"
 	},
+	"visual": {
+		"title": "视觉标识",
+		"description": "可选跟随分组，也可给当前环境单独覆盖 Chromium 图标文字和背景色。",
+		"toolbarLabel": "Chromium 标识",
+		"backgroundColorLabel": "背景色",
+		"preview": "预览",
+		"inheritGroup": "跟随分组",
+		"idOnly": "仅 ID",
+		"groupNameAndId": "分组名-ID",
+		"noBackgroundColor": "无背景色",
+		"customColor": "自定义颜色"
+	},
 	"actions": {
 		"viewDetail": "查看详情",
+		"editVisual": "视觉标识",
 		"modifyBgColor": "修改背景色",
 		"setGroup": "设置分组",
 		"clearGroup": "清空分组",

@@ -1,3 +1,4 @@
+import type { ToolbarLabelMode } from '@/entities/profile/model/types';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -16,13 +17,17 @@ type GroupActionsDeps = {
 
 export function useGroupActions({ refreshGroups, refreshProfiles }: GroupActionsDeps) {
 	const { t } = useTranslation('group');
-	const createGroup = async (name: string, note: string) => {
+	const createGroup = async (
+		name: string,
+		note: string,
+		options: { browserBgColor?: string | null; toolbarLabelMode: ToolbarLabelMode },
+	) => {
 		const trimmedName = name.trim();
 		if (!trimmedName) {
 			return;
 		}
 		try {
-			await createGroupApi(trimmedName, note);
+			await createGroupApi(trimmedName, note, options);
 			await refreshGroups();
 			toast.success(t('actions.created'));
 		} catch (error) {
@@ -31,13 +36,18 @@ export function useGroupActions({ refreshGroups, refreshProfiles }: GroupActions
 		}
 	};
 
-	const updateGroup = async (groupId: string, name: string, note: string) => {
+	const updateGroup = async (
+		groupId: string,
+		name: string,
+		note: string,
+		options: { browserBgColor?: string | null; toolbarLabelMode: ToolbarLabelMode },
+	) => {
 		const trimmedName = name.trim();
 		if (!trimmedName) {
 			return;
 		}
 		try {
-			await updateGroupApi(groupId, trimmedName, note);
+			await updateGroupApi(groupId, trimmedName, note, options);
 			await Promise.all([refreshGroups(), refreshProfiles()]);
 			toast.success(t('actions.updated'));
 		} catch (error) {

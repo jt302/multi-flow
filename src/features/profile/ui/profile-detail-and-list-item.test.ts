@@ -2,12 +2,23 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-test('profile list item edits background color inside dialog and offers reset action', () => {
+test('profile list item exposes visual dialog with translated background controls', () => {
 	const file = readFileSync(new URL('./profile-list-item.tsx', import.meta.url), 'utf8');
 
-	assert.equal(file.includes('<Dialog open={isBgEditing}'), true);
-	assert.equal(file.includes('重置背景色'), true);
-	assert.equal(file.includes('恢复默认表现'), true);
+	assert.equal(file.includes("field: 'visual'"), true);
+	assert.equal(file.includes("t('profile:visual.backgroundColorLabel')"), true);
+	assert.equal(file.includes("t('profile:visual.noBackgroundColor')"), true);
+	assert.equal(file.includes("t('profile:visual.customColor')"), true);
+});
+
+test('profile list item exposes numeric id and visual inheritance controls', () => {
+	const file = readFileSync(new URL('./profile-list-item.tsx', import.meta.url), 'utf8');
+
+	assert.equal(file.includes('numericId'), true);
+	assert.equal(file.includes('resolvedToolbarText'), true);
+	assert.equal(file.includes('resolvedBrowserBgColor'), true);
+	assert.equal(file.includes("t('profile:visual.inheritGroup')"), true);
+	assert.equal(file.includes("t('profile:visual.groupNameAndId')"), true);
 });
 
 test('profile detail page reveals directories before falling back to openPath', () => {
@@ -24,17 +35,17 @@ test('profile list page adds one-click stop action for all filtered running prof
 
 	assert.equal(pageFile.includes('filteredRunningIds'), true);
 	assert.equal(pageFile.includes('ConfirmActionDialog'), true);
-	assert.equal(pageFile.includes('确认停止当前筛选结果中的'), true);
+	assert.equal(pageFile.includes("t('list.stopAllConfirmDesc'"), true);
 	assert.equal(toolbarFile.includes('onStopAllRunning'), true);
-	assert.equal(filtersFile.includes('一键停止运行中'), true);
+	assert.equal(filtersFile.includes("t('common:stopAllRunning')"), true);
 });
 
 test('profile list item exposes cookie export actions', () => {
 	const file = readFileSync(new URL('./profile-list-item.tsx', import.meta.url), 'utf8');
 
-	assert.equal(file.includes('导出 Cookie'), true);
-	assert.equal(file.includes('按站点导出'), true);
-	assert.equal(file.includes('导出整个 profile'), true);
+	assert.equal(file.includes("t('profile:actions.exportCookie')"), true);
+	assert.equal(file.includes("t('profile:actions.exportBySite')"), true);
+	assert.equal(file.includes("t('profile:actions.exportAll')"), true);
 	assert.equal(file.includes('@tauri-apps/plugin-dialog'), true);
 	assert.equal(file.includes('save({'), true);
 });
@@ -42,18 +53,18 @@ test('profile list item exposes cookie export actions', () => {
 test('profile list item exposes profile plugin management entry', () => {
 	const file = readFileSync(new URL('./profile-list-item.tsx', import.meta.url), 'utf8');
 
-	assert.equal(file.includes('插件管理'), true);
-	assert.equal(file.includes('环境插件管理'), true);
+	assert.equal(file.includes("t('profile:actions.pluginManage')"), true);
+	assert.equal(file.includes("t('profile:plugins.title')"), true);
 	assert.equal(file.includes('updateProfilePlugins'), true);
 });
 
 test('advanced settings section exposes cookie json input and merge action', () => {
 	const file = readFileSync(new URL('./advanced-settings-section.tsx', import.meta.url), 'utf8');
 
-	assert.equal(file.includes('Cookie JSON'), true);
-	assert.equal(file.includes('合并 Cookie'), true);
-	assert.equal(file.includes('cookie-state-file'), true);
-	assert.equal(file.includes('环境本地 Cookie 文件'), true);
+	assert.equal(file.includes("t('advanced.cookieJson')"), true);
+	assert.equal(file.includes("t('advanced.mergeCookie')"), true);
+	assert.equal(file.includes("t('advanced.cookieHelp')"), true);
+	assert.equal(file.includes("t('advanced.mergeCookieDesc')"), true);
 });
 
 test('profile create form includes plugin selection section', () => {
@@ -63,11 +74,20 @@ test('profile create form includes plugin selection section', () => {
 	assert.equal(file.includes('pluginPackagesQuery'), true);
 });
 
+test('group form dialog exposes visual defaults editor', () => {
+	const file = readFileSync(new URL('../../group/ui/group-form-dialog.tsx', import.meta.url), 'utf8');
+
+	assert.equal(file.includes('toolbarLabelMode'), true);
+	assert.equal(file.includes('browserBgColor'), true);
+	assert.equal(file.includes("t('group:form.visualSectionTitle')"), true);
+	assert.equal(file.includes("t('group:form.browserBgColorDefault')"), true);
+});
+
 test('plugins page exposes proxy selector for download and update actions', () => {
 	const file = readFileSync(new URL('../../plugin/ui/plugins-page.tsx', import.meta.url), 'utf8');
 
 	assert.equal(file.includes('useProxiesQuery'), true);
-	assert.equal(file.includes('下载代理'), true);
+	assert.equal(file.includes("t('downloadCrx.proxyNone')"), true);
 	assert.equal(file.includes('selectedDownloadProxyId'), true);
 	assert.equal(file.includes('readPluginDownloadPreference'), true);
 	assert.equal(file.includes('updatePluginDownloadPreference'), true);
@@ -77,7 +97,7 @@ test('plugins page renders plugin icon and name in library cards', () => {
 	const file = readFileSync(new URL('../../plugin/ui/plugins-page.tsx', import.meta.url), 'utf8');
 
 	assert.equal(file.includes('plugin.iconPath'), true);
-	assert.equal(file.includes('plugin.name} 图标'), true);
+	assert.equal(file.includes("t('library.iconAlt', { name: plugin.name })"), true);
 	assert.equal(file.includes('<img'), true);
 	assert.equal(file.includes('convertFileSrc'), true);
 });
@@ -85,7 +105,7 @@ test('plugins page renders plugin icon and name in library cards', () => {
 test('plugins page exposes open-in-store action', () => {
 	const file = readFileSync(new URL('../../plugin/ui/plugins-page.tsx', import.meta.url), 'utf8');
 
-	assert.equal(file.includes('在商店中打开'), true);
+	assert.equal(file.includes("t('library.openInStore')"), true);
 	assert.equal(file.includes('@tauri-apps/plugin-opener'), true);
 	assert.equal(file.includes('plugin.storeUrl'), true);
 });

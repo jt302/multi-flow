@@ -23,10 +23,12 @@ import {
 } from '@/entities/profile/api/profiles-api';
 import type {
 	BatchProfileActionResponse,
+	BrowserBgColorMode,
 	CreateProfilePayload,
 	ExportProfileCookiesPayload,
 	ProfileActionState,
 	SaveProfileDevicePresetPayload,
+	ToolbarLabelMode,
 } from '@/entities/profile/model/types';
 import type { ResourceProgressState } from '@/entities/resource/model/types';
 
@@ -130,7 +132,11 @@ export function useProfileActions({
 
 	const updateProfileVisual = async (
 		profileId: string,
-		payload: { browserBgColor?: string; toolbarText?: string },
+		payload: {
+			browserBgColorMode?: BrowserBgColorMode;
+			browserBgColor?: string | null;
+			toolbarLabelMode?: ToolbarLabelMode;
+		},
 	) => {
 		try {
 			await updateProfileVisualApi(profileId, payload);

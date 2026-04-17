@@ -32,6 +32,11 @@
 		"namePlaceholder": "例如 AirDrop-Matrix",
 		"note": "备注",
 		"notePlaceholder": "任务目的或业务线",
+		"visualSectionTitle": "默认 Chromium 标识",
+		"toolbarLabelMode": "标识模式",
+		"toolbarLabelModeIdOnly": "仅 ID",
+		"toolbarLabelModeGroupAndId": "分组名-ID",
+		"browserBgColorDefault": "默认背景色",
 		"saveGroup": "保存分组",
 		"createGroup": "新增分组"
 	},

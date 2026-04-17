@@ -13,7 +13,6 @@ import {
 	RotateCcw,
 	Square,
 	Trash2,
-	Type,
 	Wrench,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -41,6 +40,7 @@ import {
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 	Icon,
+	Input,
 	Select,
 	SelectContent,
 	SelectItem,
@@ -55,12 +55,14 @@ import {
 	resolvePlatformMeta,
 } from '@/entities/profile/lib/profile-list';
 import type {
+	BrowserBgColorMode,
 	ExportProfileCookiesPayload,
 	ExportProfileCookiesResponse,
 	ProfileActionState,
 	ProfileItem,
 	ProfilePluginSelection,
 	ReadProfileCookiesResponse,
+	ToolbarLabelMode,
 } from '@/entities/profile/model/types';
 import { listPluginPackages, readProfilePlugins, updateProfilePlugins } from '@/entities/plugin/api/plugins-api';
 import type { PluginPackage } from '@/entities/plugin/model/types';
@@ -70,9 +72,8 @@ import type { ResourceItem } from '@/entities/resource/model/types';
 import { cn } from '@/lib/utils';
 
 import { PlatformMark } from '@/entities/profile/ui/platform-mark';
-import { BackgroundQuickEditForm, ToolbarQuickEditForm } from './profile-list-quick-edit-forms';
 
-type QuickEditField = 'background' | 'toolbar';
+type QuickEditField = 'visual';
 
 type ProfileListItemProps = {
 	item: ProfileItem;
@@ -91,7 +92,11 @@ type ProfileListItemProps = {
 	onCreateClick: (profileId: string) => void;
 	onUpdateProfileVisual: (
 		profileId: string,
-		payload: { browserBgColor?: string; toolbarText?: string },
+		payload: {
+			browserBgColorMode?: BrowserBgColorMode;
+			browserBgColor?: string | null;
+			toolbarLabelMode?: ToolbarLabelMode;
+		},
 	) => Promise<void>;
 	onOpenProfile: (profileId: string) => Promise<void>;
 	onCloseProfile: (profileId: string) => Promise<void>;
@@ -233,8 +238,8 @@ export function ProfileListItem({
 	const actionPending = Boolean(actionState);
 	const runLabel = resolveRunningLabel(item.running, actionState, t);
 	const platformMeta = resolvePlatformMeta(item);
-	const currentBg = item.settings?.basic?.browserBgColor || null;
-	const currentToolbarText = item.settings?.basic?.toolbarText ?? item.name;
+	const currentBg = item.resolvedBrowserBgColor || null;
+	const currentToolbarText = item.resolvedToolbarText ?? String(item.numericId);
 	const noteNotFilled = t('profile:note.notFilled');
 	const noteNone = t('profile:note.none');
 	const normalizedNote =
@@ -248,7 +253,7 @@ export function ProfileListItem({
 		presetNotSet;
 	const browserVersionMeta = resolveBrowserVersionMeta(item, resources);
 	const toolbarTextTrimmed = currentToolbarText.trim();
-	const showToolbarText = Boolean(toolbarTextTrimmed) && toolbarTextTrimmed !== item.name.trim();
+	const showToolbarText = Boolean(toolbarTextTrimmed);
 	const proxyFlag = boundProxy ? resolveCountryFlag(boundProxy.country) : null;
 	const unknownCountry = t('common:unknownCountry');
 	const unknownRegion = t('common:unknownRegion');
@@ -259,8 +264,20 @@ export function ProfileListItem({
 	const proxyType = boundProxy ? boundProxy.protocol.toUpperCase() : t('profile:proxy.notBound');
 	const proxyConnectivity = resolveProxyConnectivity(boundProxy, t);
 	const editConfigDisabled = actionPending || item.running;
-	const isBgEditing = quickEdit?.profileId === item.id && quickEdit.field === 'background';
-	const isToolbarEditing = quickEdit?.profileId === item.id && quickEdit.field === 'toolbar';
+	const isVisualEditing = quickEdit?.profileId === item.id && quickEdit.field === 'visual';
+	const currentGroup = groups.find((group) => group.name === item.group);
+	const inheritedToolbarMode = currentGroup?.toolbarLabelMode ?? 'id_only';
+	const inheritedBgColor = currentGroup?.browserBgColor ?? null;
+	const initialToolbarLabelMode =
+		item.settings?.basic?.toolbarLabelMode ?? (currentGroup ? 'inherit' : inheritedToolbarMode);
+	const initialBrowserBgColorMode =
+		item.settings?.basic?.browserBgColorMode ??
+		(currentGroup ? 'inherit' : currentBg ? 'custom' : 'none');
+	const [draftToolbarLabelMode, setDraftToolbarLabelMode] =
+		useState<'inherit' | ToolbarLabelMode>(initialToolbarLabelMode);
+	const [draftBrowserBgColorMode, setDraftBrowserBgColorMode] =
+		useState<BrowserBgColorMode>(initialBrowserBgColorMode);
+	const [draftBrowserBgColor, setDraftBrowserBgColor] = useState(currentBg ?? inheritedBgColor ?? '#0F8A73');
 	const [siteExportDialogOpen, setSiteExportDialogOpen] = useState(false);
 	const [cookieSiteUrls, setCookieSiteUrls] = useState<string[]>([]);
 	const [selectedCookieSiteUrl, setSelectedCookieSiteUrl] = useState('');
@@ -287,6 +304,21 @@ export function ProfileListItem({
 		}
 		setPluginDraft(profilePluginsQuery.data);
 	}, [pluginDialogOpen, profilePluginsQuery.data]);
+
+	useEffect(() => {
+		if (!isVisualEditing) {
+			return;
+		}
+		setDraftToolbarLabelMode(initialToolbarLabelMode);
+		setDraftBrowserBgColorMode(initialBrowserBgColorMode);
+		setDraftBrowserBgColor(currentBg ?? inheritedBgColor ?? '#0F8A73');
+	}, [
+		currentBg,
+		inheritedBgColor,
+		initialBrowserBgColorMode,
+		initialToolbarLabelMode,
+		isVisualEditing,
+	]);
 
 	const openSiteExportDialog = async () => {
 		setCookieSiteError(null);
@@ -386,6 +418,9 @@ export function ProfileListItem({
 					<div className="min-w-0">
 						<div className="flex flex-wrap items-center gap-2">
 							<p className="truncate font-medium">{item.name}</p>
+							<Badge variant="secondary" className="text-[10px]">
+								ID {item.numericId}
+							</Badge>
 							<Badge variant="outline" className="max-w-[140px] truncate text-[10px]">
 								{groupLabel}
 							</Badge>
@@ -513,11 +548,11 @@ export function ProfileListItem({
 										<DropdownMenuItem
 											className="cursor-pointer"
 											onClick={() => {
-												onQuickEditChange({ profileId: item.id, field: 'background' });
+												onQuickEditChange({ profileId: item.id, field: 'visual' });
 											}}
 										>
 											<Icon icon={Palette} size={13} />
-											{t('profile:actions.modifyBgColor')}
+											{t('profile:actions.editVisual')}
 										</DropdownMenuItem>
 										<DropdownMenuSub>
 											<DropdownMenuSubTrigger className="cursor-pointer">
@@ -547,15 +582,6 @@ export function ProfileListItem({
 												</DropdownMenuItem>
 											</DropdownMenuSubContent>
 										</DropdownMenuSub>
-										<DropdownMenuItem
-											className="cursor-pointer"
-											onClick={() => {
-												onQuickEditChange({ profileId: item.id, field: 'toolbar' });
-											}}
-										>
-											<Icon icon={Type} size={13} />
-											{t('profile:actions.modifyToolbar')}
-										</DropdownMenuItem>
 										<DropdownMenuItem
 											className="cursor-pointer"
 											disabled={editConfigDisabled}
@@ -652,61 +678,127 @@ export function ProfileListItem({
 				</TableCell>
 			</TableRow>
 
-			<Dialog open={isBgEditing} onOpenChange={(open) => onQuickEditChange(open ? { profileId: item.id, field: 'background' } : null)}>
+			<Dialog
+				open={isVisualEditing}
+				onOpenChange={(open) =>
+					onQuickEditChange(open ? { profileId: item.id, field: 'visual' } : null)
+				}
+			>
 				<DialogContent>
 					<DialogHeader>
-						<DialogTitle>{t('profile:backgroundColor.title')}</DialogTitle>
+						<DialogTitle>{t('profile:visual.title')}</DialogTitle>
 						<DialogDescription>
-							{t('profile:backgroundColor.desc')}
+							{t('profile:visual.description')}
 						</DialogDescription>
 					</DialogHeader>
-					<BackgroundQuickEditForm
-						initialColor={currentBg ?? ''}
-						disabled={actionPending}
-						onCancel={() => onQuickEditChange(null)}
-						onReset={async () => {
-							await onRunAction(async () => {
-								await onUpdateProfileVisual(item.id, {
-									browserBgColor: '',
+					<div className="space-y-4">
+						<div className="space-y-2">
+							<p className="text-sm font-medium">{t('profile:visual.toolbarLabel')}</p>
+							<Select
+								value={draftToolbarLabelMode}
+								onValueChange={(value) =>
+									setDraftToolbarLabelMode(value as 'inherit' | ToolbarLabelMode)
+								}
+							>
+								<SelectTrigger>
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{currentGroup ? (
+										<SelectItem value="inherit">{t('profile:visual.inheritGroup')}</SelectItem>
+									) : null}
+									<SelectItem value="id_only">{t('profile:visual.idOnly')}</SelectItem>
+									<SelectItem value="group_name_and_id">
+										{t('profile:visual.groupNameAndId')}
+									</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+
+						<div className="space-y-2">
+							<p className="text-sm font-medium">
+								{t('profile:visual.backgroundColorLabel')}
+							</p>
+							<Select
+								value={draftBrowserBgColorMode}
+								onValueChange={(value) => setDraftBrowserBgColorMode(value as BrowserBgColorMode)}
+							>
+								<SelectTrigger>
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{currentGroup ? (
+										<SelectItem value="inherit">{t('profile:visual.inheritGroup')}</SelectItem>
+									) : null}
+									<SelectItem value="none">
+										{t('profile:visual.noBackgroundColor')}
+									</SelectItem>
+									<SelectItem value="custom">{t('profile:visual.customColor')}</SelectItem>
+								</SelectContent>
+							</Select>
+							{draftBrowserBgColorMode === 'custom' ? (
+								<div className="flex items-center gap-2">
+									<Input
+										type="color"
+										value={draftBrowserBgColor}
+										onChange={(event) => setDraftBrowserBgColor(event.target.value)}
+										className="h-10 w-12 cursor-pointer rounded p-1"
+									/>
+									<Input
+										value={draftBrowserBgColor}
+										onChange={(event) => setDraftBrowserBgColor(event.target.value)}
+										placeholder="#0F8A73"
+									/>
+								</div>
+							) : null}
+						</div>
+
+						<div className="rounded-lg border border-border/60 p-3 text-xs text-muted-foreground">
+							<div>{t('profile:visual.preview')}</div>
+							<div className="mt-2 flex items-center gap-2">
+								{(draftBrowserBgColorMode === 'custom' ? draftBrowserBgColor : inheritedBgColor) ? (
+									<span
+										className="inline-flex items-center rounded-md border px-1.5 py-0.5 font-medium"
+										style={{ backgroundColor: draftBrowserBgColorMode === 'custom' ? draftBrowserBgColor : inheritedBgColor ?? undefined }}
+									>
+										{draftBrowserBgColorMode === 'custom' ? draftBrowserBgColor : inheritedBgColor}
+									</span>
+								) : null}
+								<Badge variant="secondary">
+									{(draftToolbarLabelMode === 'inherit'
+										? inheritedToolbarMode
+										: draftToolbarLabelMode) === 'group_name_and_id' && currentGroup
+										? `${currentGroup.name}-${item.numericId}`
+										: item.numericId}
+								</Badge>
+							</div>
+						</div>
+					</div>
+					<DialogFooter>
+						<Button type="button" variant="ghost" onClick={() => onQuickEditChange(null)}>
+							{t('common:cancel')}
+						</Button>
+						<Button
+							type="button"
+							disabled={actionPending}
+							onClick={() => {
+								void onRunAction(async () => {
+									await onUpdateProfileVisual(item.id, {
+										browserBgColorMode: draftBrowserBgColorMode,
+										browserBgColor:
+											draftBrowserBgColorMode === 'custom' ? draftBrowserBgColor : null,
+										toolbarLabelMode:
+											draftToolbarLabelMode === 'inherit' ? undefined : draftToolbarLabelMode,
+									});
+									onQuickEditChange(null);
 								});
-								onQuickEditChange(null);
-							});
-						}}
-						onSubmit={async (color) => {
-							await onRunAction(async () => {
-								await onUpdateProfileVisual(item.id, {
-									browserBgColor: color,
-								});
-								onQuickEditChange(null);
-							});
-						}}
-					/>
-					<DialogFooter />
+							}}
+						>
+							{t('common:save')}
+						</Button>
+					</DialogFooter>
 				</DialogContent>
 			</Dialog>
-
-			{isToolbarEditing ? (
-				<TableRow className="bg-muted/15">
-					<TableCell colSpan={7}>
-						<div className="rounded-lg border border-border/70 bg-background/70 p-2">
-							<p className="mb-2 text-xs text-muted-foreground">{t('profile:toolbarText.title')}</p>
-							<ToolbarQuickEditForm
-								initialToolbarText={currentToolbarText}
-								disabled={actionPending}
-								onCancel={() => onQuickEditChange(null)}
-								onSubmit={async (toolbarText) => {
-									await onRunAction(async () => {
-										await onUpdateProfileVisual(item.id, {
-											toolbarText: toolbarText.trim() ? toolbarText.trim() : undefined,
-										});
-										onQuickEditChange(null);
-									});
-								}}
-							/>
-						</div>
-					</TableCell>
-				</TableRow>
-			) : null}
 
 			<Dialog open={pluginDialogOpen} onOpenChange={setPluginDialogOpen}>
 				<DialogContent className="max-w-3xl">

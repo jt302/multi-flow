@@ -100,6 +100,8 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 								platform={values.platform}
 								devicePresetId={values.devicePresetId}
 								browserBgColor={values.browserBgColor}
+								browserBgColorMode={values.browserBgColorMode}
+								toolbarLabelMode={values.toolbarLabelMode}
 								resourceStatusLabel={resourceStatusLabel}
 							/>
 

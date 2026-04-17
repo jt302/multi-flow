@@ -2,6 +2,7 @@ import i18next from 'i18next';
 
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
 import type { GroupItem } from '@/entities/group/model/types';
+import type { ToolbarLabelMode } from '@/entities/profile/model/types';
 
 type GroupLifecycle = 'active' | 'deleted';
 
@@ -9,6 +10,8 @@ type BackendGroup = {
 	id: string;
 	name: string;
 	note: string | null;
+	browserBgColor: string | null;
+	toolbarLabelMode: ToolbarLabelMode;
 	lifecycle: GroupLifecycle;
 	profileCount: number;
 	createdAt: number;
@@ -41,6 +44,8 @@ function mapBackendGroup(item: BackendGroup): GroupItem {
 		id: item.id,
 		name: item.name,
 		note: item.note ?? i18next.t('group:mock.noNote'),
+		browserBgColor: item.browserBgColor,
+		toolbarLabelMode: item.toolbarLabelMode,
 		profileCount: item.profileCount,
 		rawUpdatedAt: item.updatedAt,
 		updatedAt: formatTimeAgo(item.updatedAt),
@@ -60,21 +65,34 @@ export async function listGroups(includeDeleted = false): Promise<GroupItem[]> {
 	}
 }
 
-export async function createGroup(name: string, note: string): Promise<void> {
+export async function createGroup(
+	name: string,
+	note: string,
+	options?: { browserBgColor?: string | null; toolbarLabelMode?: ToolbarLabelMode },
+): Promise<void> {
 	await tauriInvoke('create_profile_group', {
 		payload: {
 			name,
 			note: note.trim() ? note : null,
+			browserBgColor: options?.browserBgColor?.trim() ? options.browserBgColor : null,
+			toolbarLabelMode: options?.toolbarLabelMode ?? 'id_only',
 		},
 	});
 }
 
-export async function updateGroup(groupId: string, name: string, note: string): Promise<void> {
+export async function updateGroup(
+	groupId: string,
+	name: string,
+	note: string,
+	options?: { browserBgColor?: string | null; toolbarLabelMode?: ToolbarLabelMode },
+): Promise<void> {
 	await tauriInvoke('update_profile_group', {
 		groupId,
 		payload: {
 			name,
 			note: note.trim() ? note : null,
+			browserBgColor: options?.browserBgColor?.trim() ? options.browserBgColor : null,
+			toolbarLabelMode: options?.toolbarLabelMode ?? 'id_only',
 		},
 	});
 }

@@ -11,6 +11,8 @@ export type FingerprintStrategy = 'template' | 'random_bundle';
 export type FingerprintSeedPolicy = 'fixed' | 'per_launch';
 export type FontListMode = 'preset' | 'random' | 'custom';
 export type CustomValueMode = 'real' | 'custom';
+export type BrowserBgColorMode = 'inherit' | 'custom' | 'none';
+export type ToolbarLabelMode = 'id_only' | 'group_name_and_id';
 
 export type ManagedCookie = {
 	cookie_id: string;
@@ -60,6 +62,8 @@ export type ProfileBasicSettings = {
 	startupUrls?: string[];
 	startupUrl?: string;
 	browserBgColor?: string;
+	browserBgColorMode?: BrowserBgColorMode;
+	toolbarLabelMode?: ToolbarLabelMode;
 	toolbarText?: string;
 };
 
@@ -182,10 +186,13 @@ export type ProfileSettings = {
 
 export type ProfileItem = {
 	id: string;
+	numericId: number;
 	name: string;
 	group: string;
 	note: string;
 	settings?: ProfileSettings;
+	resolvedToolbarText?: string;
+	resolvedBrowserBgColor?: string | null;
 	lifecycle: ProfileLifecycle;
 	running: boolean;
 	createdAt: number;

@@ -37,6 +37,8 @@ type BasicSettingsSectionProps = {
 	platform: string;
 	devicePresetId: string;
 	browserBgColor: string;
+	browserBgColorMode: 'inherit' | 'custom' | 'none';
+	toolbarLabelMode: 'inherit' | 'id_only' | 'group_name_and_id';
 	resourceStatusLabel: (item: ResourceItem | undefined) => string;
 };
 
@@ -105,6 +107,8 @@ export function BasicSettingsSection({
 	platform,
 	devicePresetId,
 	browserBgColor,
+	browserBgColorMode,
+	toolbarLabelMode,
 	resourceStatusLabel,
 }: BasicSettingsSectionProps) {
 	const { register, setValue } = form;
@@ -283,20 +287,68 @@ export function BasicSettingsSection({
 					<p className="mb-1 text-xs text-muted-foreground">
 						{t('basic.browserBgColor')}
 					</p>
-					<div className="flex items-center gap-2">
-						<Input
-							type="color"
-							value={browserBgColor}
-							onChange={(event) =>
-								setValue('browserBgColor', event.target.value, {
+					<div className="grid gap-2">
+						<Select
+							value={browserBgColorMode}
+							onValueChange={(value) =>
+								setValue('browserBgColorMode', value as 'inherit' | 'custom' | 'none', {
 									shouldDirty: true,
 									shouldValidate: true,
 								})
 							}
-							className="h-10 w-12 cursor-pointer rounded-lg p-1"
-						/>
-						<Input {...register('browserBgColor')} placeholder="#0F8A73" />
+						>
+							<SelectTrigger>
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="inherit">{t('visual.inheritGroup')}</SelectItem>
+								<SelectItem value="none">{t('visual.noBackgroundColor')}</SelectItem>
+								<SelectItem value="custom">{t('visual.customColor')}</SelectItem>
+							</SelectContent>
+						</Select>
+						{browserBgColorMode === 'custom' ? (
+							<div className="flex items-center gap-2">
+								<Input
+									type="color"
+									value={browserBgColor || '#0F8A73'}
+									onChange={(event) =>
+										setValue('browserBgColor', event.target.value, {
+											shouldDirty: true,
+											shouldValidate: true,
+										})
+									}
+									className="h-10 w-12 cursor-pointer rounded-lg p-1"
+								/>
+								<Input {...register('browserBgColor')} placeholder="#0F8A73" />
+							</div>
+						) : null}
 					</div>
+				</div>
+				<div>
+					<p className="mb-1 text-xs text-muted-foreground">
+						{t('visual.toolbarLabel')}
+					</p>
+					<Select
+						value={toolbarLabelMode}
+						onValueChange={(value) =>
+							setValue('toolbarLabelMode', value as 'inherit' | 'id_only' | 'group_name_and_id', {
+								shouldDirty: true,
+							})
+						}
+					>
+						<SelectTrigger>
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{groupValue ? (
+								<SelectItem value="inherit">{t('visual.inheritGroup')}</SelectItem>
+							) : null}
+							<SelectItem value="id_only">{t('visual.idOnly')}</SelectItem>
+							<SelectItem value="group_name_and_id">
+								{t('visual.groupNameAndId')}
+							</SelectItem>
+						</SelectContent>
+					</Select>
 				</div>
 			</div>
 		</div>

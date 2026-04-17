@@ -11,7 +11,7 @@ test('profile list store updates filters, selection and reset', () => {
 	store.getState().toggleProfile('pf_1', true);
 	store.getState().toggleProfile('pf_2', true);
 	store.getState().toggleProfile('pf_1', false);
-	store.getState().setQuickEdit({ profileId: 'pf_2', field: 'toolbar' });
+	store.getState().setQuickEdit({ profileId: 'pf_2', field: 'visual' });
 
 	assert.deepEqual(store.getState().filters, {
 		keyword: 'airdrop',
@@ -21,7 +21,7 @@ test('profile list store updates filters, selection and reset', () => {
 	});
 	assert.deepEqual(store.getState().selectedProfileIds, ['pf_2']);
 	assert.equal(store.getState().batchGroupTarget, 'ops');
-	assert.deepEqual(store.getState().quickEdit, { profileId: 'pf_2', field: 'toolbar' });
+	assert.deepEqual(store.getState().quickEdit, { profileId: 'pf_2', field: 'visual' });
 
 	store.getState().reset();
 

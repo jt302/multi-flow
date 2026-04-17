@@ -28,6 +28,8 @@ export const profileFormSchema = z
 			.string()
 			.trim()
 			.regex(/^#[0-9a-fA-F]{6}$/, i18next.t('validation:bgColorFormat')),
+		browserBgColorMode: z.enum(['inherit', 'custom', 'none']),
+		toolbarLabelMode: z.enum(['inherit', 'id_only', 'group_name_and_id']),
 		proxyId: z.string(),
 		language: z.string(),
 		timezoneId: z.string(),

@@ -32,6 +32,11 @@
 		"namePlaceholder": "e.g. AirDrop-Matrix",
 		"note": "Note",
 		"notePlaceholder": "Task purpose or business line",
+		"visualSectionTitle": "Default Chromium Label",
+		"toolbarLabelMode": "Label Mode",
+		"toolbarLabelModeIdOnly": "ID Only",
+		"toolbarLabelModeGroupAndId": "Group Name-ID",
+		"browserBgColorDefault": "Default Background Color",
 		"saveGroup": "Save Group",
 		"createGroup": "Create Group"
 	},

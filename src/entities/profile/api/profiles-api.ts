@@ -1,5 +1,6 @@
 import type {
 	BatchProfileActionResponse,
+	BrowserBgColorMode,
 	ClearProfileCacheResponse,
 	CreateProfilePayload,
 	ExportProfileCookiesPayload,
@@ -14,6 +15,7 @@ import type {
 	ProfileRuntimeDetails,
 	ProfileSettings,
 	SaveProfileDevicePresetPayload,
+	ToolbarLabelMode,
 } from '@/entities/profile/model/types';
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
 import i18next from 'i18next';
@@ -27,10 +29,13 @@ import {
 
 type BackendProfile = {
 	id: string;
+	numericId: number;
 	name: string;
 	group: string | null;
 	note: string | null;
 	settings: ProfileSettings | null;
+	resolvedToolbarText: string | null;
+	resolvedBrowserBgColor: string | null;
 	lifecycle: ProfileLifecycle;
 	running: boolean;
 	createdAt: number;
@@ -50,10 +55,13 @@ type ListProfilesResponse = {
 function mapBackendProfile(item: BackendProfile): ProfileItem {
 	return {
 		id: item.id,
+		numericId: item.numericId,
 		name: item.name,
 		group: item.group?.trim() || i18next.t('profile:basic.ungrouped'),
 		note: item.note?.trim() || i18next.t('profile:basic.noNote'),
 		settings: item.settings ?? undefined,
+		resolvedToolbarText: item.resolvedToolbarText ?? undefined,
+		resolvedBrowserBgColor: item.resolvedBrowserBgColor,
 		lifecycle: item.lifecycle,
 		running: item.running,
 		createdAt: item.createdAt,
@@ -103,13 +111,18 @@ export async function updateProfile(profileId: string, payload: CreateProfilePay
 
 export async function updateProfileVisual(
 	profileId: string,
-	payload: { browserBgColor?: string; toolbarText?: string },
+	payload: {
+		browserBgColorMode?: BrowserBgColorMode;
+		browserBgColor?: string | null;
+		toolbarLabelMode?: ToolbarLabelMode;
+	},
 ): Promise<void> {
 	await tauriInvoke('update_profile_visual', {
 		profileId,
 		payload: {
+			browserBgColorMode: payload.browserBgColorMode ?? null,
 			browserBgColor: payload.browserBgColor?.trim() ? payload.browserBgColor : null,
-			toolbarText: payload.toolbarText?.trim() ? payload.toolbarText : null,
+			toolbarLabelMode: payload.toolbarLabelMode ?? null,
 		},
 	});
 }

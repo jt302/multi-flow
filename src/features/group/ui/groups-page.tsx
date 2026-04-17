@@ -73,14 +73,19 @@ export function GroupsPage({
 	}, [resetState]);
 
 	const handleSubmitGroup = async (values: GroupFormValues) => {
+		const visualOptions = {
+			browserBgColor: values.browserBgColor.trim() || null,
+			toolbarLabelMode: values.toolbarLabelMode,
+		};
 		if (editorMode === 'edit' && editingGroupId) {
 			await onUpdateGroup(
 				editingGroupId,
 				values.name.trim(),
 				values.note.trim(),
+				visualOptions,
 			);
 		} else {
-			await onCreateGroup(values.name.trim(), values.note.trim());
+			await onCreateGroup(values.name.trim(), values.note.trim(), visualOptions);
 		}
 		closeForm();
 	};
