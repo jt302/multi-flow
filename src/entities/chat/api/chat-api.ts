@@ -2,6 +2,7 @@ import { listen } from '@tauri-apps/api/event';
 
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
 import type {
+	ChatMessageDeltaEvent,
 	ChatMessageEvent,
 	ChatMessageRecord,
 	ChatPhaseEvent,
@@ -46,6 +47,12 @@ export const listenChatMessage = (handler: (e: ChatMessageEvent) => void) =>
 
 export const listenChatPhase = (handler: (e: ChatPhaseEvent) => void) =>
 	listen<ChatPhaseEvent>('ai_chat://phase', (e) => handler(e.payload));
+
+export const listenChatMessageStart = (handler: (e: ChatMessageEvent) => void) =>
+	listen<ChatMessageEvent>('ai_chat://message_start', (e) => handler(e.payload));
+
+export const listenChatMessageDelta = (handler: (e: ChatMessageDeltaEvent) => void) =>
+	listen<ChatMessageDeltaEvent>('ai_chat://message_delta', (e) => handler(e.payload));
 
 export const getProfileEnvironmentContext = (
 	profileIds: string[],

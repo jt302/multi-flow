@@ -27,6 +27,9 @@ type ChatStoreActions = {
 	startGeneration: () => void;
 	finishGeneration: () => void;
 	appendMessage: (msg: ChatMessageRecord) => void;
+	startLiveMessage: (msg: ChatMessageRecord) => void;
+	appendTextChunk: (sessionId: string, messageId: string, delta: string) => void;
+	markToolCallPlaceholder: (sessionId: string, messageId: string, name: string) => void;
 	updatePhase: (event: ChatPhaseEvent) => void;
 	reset: () => void;
 };
@@ -71,10 +74,41 @@ export function createChatStore(initial?: Partial<ChatStoreState>) {
 
 		startGeneration: () => set({ isGenerating: true, generationPhase: 'thinking', generationStartTime: Date.now(), currentRound: 0, promptTokens: 0, completionTokens: 0, elapsedMs: 0 }),
 
-		finishGeneration: () => set({ isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null }),
+		finishGeneration: () => set((s) => ({
+			isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null,
+			liveMessages: s.liveMessages.map((m) =>
+				m.status === 'streaming' ? { ...m, status: 'complete' as const, streamingToolNames: undefined } : m,
+			),
+		})),
 
 		appendMessage: (msg) =>
-			set((s) => ({ liveMessages: upsertLiveMessage(s.liveMessages, msg) })),
+			set((s) => ({ liveMessages: upsertLiveMessage(s.liveMessages, { ...msg, status: 'complete' as const, streamingToolNames: undefined }) })),
+
+		startLiveMessage: (msg) =>
+			set((s) => {
+				const cleared = s.liveMessages.map((m) =>
+					m.status === 'streaming' ? { ...m, status: 'complete' as const, streamingToolNames: undefined } : m,
+				);
+				return { liveMessages: upsertLiveMessage(cleared, { ...msg, status: 'streaming' as const, contentText: '' }) };
+			}),
+
+		appendTextChunk: (_sessionId, messageId, delta) =>
+			set((s) => {
+				const idx = s.liveMessages.findIndex((m) => m.id === messageId);
+				if (idx === -1) return {};
+				const next = s.liveMessages.slice();
+				next[idx] = { ...next[idx], contentText: (next[idx].contentText ?? '') + delta };
+				return { liveMessages: next };
+			}),
+
+		markToolCallPlaceholder: (_sessionId, messageId, name) =>
+			set((s) => {
+				const idx = s.liveMessages.findIndex((m) => m.id === messageId);
+				if (idx === -1) return {};
+				const next = s.liveMessages.slice();
+				next[idx] = { ...next[idx], streamingToolNames: [...(next[idx].streamingToolNames ?? []), name] };
+				return { liveMessages: next };
+			}),
 
 		updatePhase: (event) =>
 			set((s) => {
@@ -88,7 +122,10 @@ export function createChatStore(initial?: Partial<ChatStoreState>) {
 					contextLimit: event.contextLimit ?? s.contextLimit,
 				};
 				if (event.phase === 'done' || event.phase === 'error') {
-					return { isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null, ...shared };
+					const cleanedMessages = s.liveMessages.map((m) =>
+						m.status === 'streaming' ? { ...m, status: 'complete' as const, streamingToolNames: undefined } : m,
+					);
+					return { isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null, liveMessages: cleanedMessages, ...shared };
 				} else if (event.phase === 'thinking') {
 					return { generationPhase: 'thinking', currentToolName: null, ...shared };
 				} else if (event.phase === 'tool_calling') {
@@ -111,10 +148,41 @@ export const chatStore = createStore<ChatStoreState & ChatStoreActions>()(
 
 			startGeneration: () => set({ isGenerating: true, generationPhase: 'thinking', generationStartTime: Date.now(), currentRound: 0, promptTokens: 0, completionTokens: 0, elapsedMs: 0 }),
 
-			finishGeneration: () => set({ isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null }),
+			finishGeneration: () => set((s) => ({
+				isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null,
+				liveMessages: s.liveMessages.map((m) =>
+					m.status === 'streaming' ? { ...m, status: 'complete' as const, streamingToolNames: undefined } : m,
+				),
+			})),
 
 			appendMessage: (msg) =>
-				set((s) => ({ liveMessages: upsertLiveMessage(s.liveMessages, msg) })),
+				set((s) => ({ liveMessages: upsertLiveMessage(s.liveMessages, { ...msg, status: 'complete' as const, streamingToolNames: undefined }) })),
+
+			startLiveMessage: (msg) =>
+				set((s) => {
+					const cleared = s.liveMessages.map((m) =>
+						m.status === 'streaming' ? { ...m, status: 'complete' as const, streamingToolNames: undefined } : m,
+					);
+					return { liveMessages: upsertLiveMessage(cleared, { ...msg, status: 'streaming' as const, contentText: '' }) };
+				}),
+
+			appendTextChunk: (_sessionId: string, messageId: string, delta: string) =>
+				set((s) => {
+					const idx = s.liveMessages.findIndex((m) => m.id === messageId);
+					if (idx === -1) return {};
+					const next = s.liveMessages.slice();
+					next[idx] = { ...next[idx], contentText: (next[idx].contentText ?? '') + delta };
+					return { liveMessages: next };
+				}),
+
+			markToolCallPlaceholder: (_sessionId: string, messageId: string, name: string) =>
+				set((s) => {
+					const idx = s.liveMessages.findIndex((m) => m.id === messageId);
+					if (idx === -1) return {};
+					const next = s.liveMessages.slice();
+					next[idx] = { ...next[idx], streamingToolNames: [...(next[idx].streamingToolNames ?? []), name] };
+					return { liveMessages: next };
+				}),
 
 			updatePhase: (event) => {
 				const shared = {
@@ -128,7 +196,10 @@ export const chatStore = createStore<ChatStoreState & ChatStoreActions>()(
 					contextLimit: event.contextLimit ?? get().contextLimit,
 				};
 				if (event.phase === 'done' || event.phase === 'error') {
-					set({ isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null, ...shared });
+					const cleanedMessages = get().liveMessages.map((m) =>
+						m.status === 'streaming' ? { ...m, status: 'complete' as const, streamingToolNames: undefined } : m,
+					);
+					set({ isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null, liveMessages: cleanedMessages, ...shared });
 				} else if (event.phase === 'thinking') {
 					set({ generationPhase: 'thinking', currentToolName: null, ...shared });
 				} else if (event.phase === 'tool_calling') {

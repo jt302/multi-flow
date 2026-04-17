@@ -120,6 +120,16 @@ pub enum AiChatResult {
     },
 }
 
+/// 流式 AI 增量事件（用于 SSE 解析）
+pub enum AiChatDelta {
+    TextDelta(String),
+    ToolCallStart { index: usize, id: String, name: String },
+    ToolCallArgsDelta { index: usize, delta: String },
+    Usage(TokenUsage),
+    Done { finish_reason: String },
+    Error(String),
+}
+
 #[derive(Debug, Clone)]
 pub struct AiToolCall {
     pub id: String,
@@ -848,6 +858,47 @@ impl AiService {
             .to_string();
         Ok(content)
     }
+
+    /// 流式 chat，通过 channel 推送 AiChatDelta 增量事件。
+    /// 调用方 recv().await 消费直到 Done 或 Error。
+    pub fn chat_with_tools_stream(
+        &self,
+        config: &super::app_preference_service::AiProviderConfig,
+        messages: Vec<ChatMessage>,
+        tools: Vec<Value>,
+    ) -> tokio::sync::mpsc::UnboundedReceiver<AiChatDelta> {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        let provider = config.provider.clone().unwrap_or_else(|| "openai".into());
+        let base_url = config
+            .base_url
+            .clone()
+            .unwrap_or_else(|| default_base_url(&provider).to_string());
+        let base_url = base_url.trim_end_matches('/').to_string();
+        let api_key = config.api_key.clone().unwrap_or_default();
+        let model = match provider.as_str() {
+            "anthropic" => config.model.clone().unwrap_or_else(|| "claude-opus-4-5".into()),
+            "gemini" => config.model.clone().unwrap_or_else(|| "gemini-2.0-flash".into()),
+            _ => config.model.clone().unwrap_or_else(|| "gpt-4o".into()),
+        };
+        // 流式请求使用无响应 timeout 的 client（只设 connect timeout）
+        let http = reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(15))
+            .build()
+            .expect("Failed to build streaming HTTP client");
+        tokio::spawn(async move {
+            match provider.as_str() {
+                "anthropic" => {
+                    stream_anthropic(http, &base_url, &api_key, &model, messages, tools, tx).await
+                }
+                "gemini" => stream_gemini(http, &base_url, &api_key, &model, messages, tx).await,
+                _ => {
+                    stream_openai_like(http, &base_url, &api_key, &model, messages, tools, tx)
+                        .await
+                }
+            }
+        });
+        rx
+    }
 }
 
 /// 从变量中获取 base64 图片并构造 vision 消息内容
@@ -944,4 +995,494 @@ pub fn extract_anthropic_thinking(parsed: &Value) -> Option<String> {
                 .and_then(|block| block.get("thinking").and_then(|t| t.as_str()))
                 .map(|s| s.to_string())
         })
+}
+
+// ─── 流式 provider 实现 ────────────────────────────────────────────────────
+
+/// 解析单个 OpenAI 兼容 SSE data chunk，向 tx 推送 AiChatDelta
+fn process_openai_sse_chunk(
+    data: &str,
+    tx: &tokio::sync::mpsc::UnboundedSender<AiChatDelta>,
+) -> bool {
+    // 返回 true 表示流已结束
+    if data == "[DONE]" {
+        return true;
+    }
+    let parsed: Value = match serde_json::from_str(data) {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+    let choices = match parsed.get("choices").and_then(|c| c.as_array()) {
+        Some(c) => c,
+        None => return false,
+    };
+    for choice in choices {
+        let delta = match choice.get("delta") {
+            Some(d) => d,
+            None => continue,
+        };
+        // 文本增量
+        if let Some(content) = delta.get("content").and_then(|v| v.as_str()) {
+            if !content.is_empty() {
+                let _ = tx.send(AiChatDelta::TextDelta(content.to_string()));
+            }
+        }
+        // 工具调用增量
+        if let Some(tcs) = delta.get("tool_calls").and_then(|v| v.as_array()) {
+            for tc in tcs {
+                let index = tc.get("index").and_then(|i| i.as_u64()).unwrap_or(0) as usize;
+                let id = tc.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let func = tc.get("function").cloned().unwrap_or(Value::Null);
+                let name = func.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let args_delta =
+                    func.get("arguments").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                if !id.is_empty() && !name.is_empty() {
+                    let _ = tx.send(AiChatDelta::ToolCallStart { index, id, name });
+                }
+                if !args_delta.is_empty() {
+                    let _ = tx.send(AiChatDelta::ToolCallArgsDelta { index, delta: args_delta });
+                }
+            }
+        }
+        // finish_reason
+        if let Some(fr) = choice.get("finish_reason").and_then(|v| v.as_str()) {
+            if !fr.is_empty() {
+                // 部分 API 在同一包里带 usage
+                let usage = extract_usage(&parsed);
+                if usage.prompt_tokens.is_some() || usage.completion_tokens.is_some() {
+                    let _ = tx.send(AiChatDelta::Usage(usage));
+                }
+                let _ = tx.send(AiChatDelta::Done { finish_reason: fr.to_string() });
+            }
+        }
+    }
+    // usage 可能在单独一个无 choices 的末尾包中
+    if choices.is_empty() {
+        let usage = extract_usage(&parsed);
+        if usage.prompt_tokens.is_some() || usage.completion_tokens.is_some() {
+            let _ = tx.send(AiChatDelta::Usage(usage));
+        }
+    }
+    false
+}
+
+/// 从 bytes_stream 中逐行解析 SSE，调用 on_data 处理每个 data: 行。
+/// 返回 true 表示遇到终止信号（[DONE] 或流关闭）。
+async fn drain_sse_stream<F>(
+    mut stream: impl futures_util::Stream<Item = Result<bytes::Bytes, reqwest::Error>>
+        + std::marker::Unpin,
+    mut on_event: F,
+) -> Result<(), String>
+where
+    F: FnMut(&str, Option<&str>) -> bool, // (data, event_type) -> stop?
+{
+    use futures_util::StreamExt;
+    let mut buf = String::new();
+    while let Some(chunk) = stream.next().await {
+        let chunk: bytes::Bytes = chunk.map_err(|e| format!("Stream read error: {e}"))?;
+        let text = std::str::from_utf8(&chunk).unwrap_or("");
+        buf.push_str(text);
+        // 按 \n\n 分割事件块
+        while let Some(pos) = buf.find("\n\n") {
+            let block = buf[..pos].to_string();
+            buf = buf[pos + 2..].to_string();
+            let mut event_type: Option<&'static str> = None;
+            let mut data_line: Option<String> = None;
+            for line in block.lines() {
+                if let Some(d) = line.strip_prefix("data: ") {
+                    data_line = Some(d.to_string());
+                } else if let Some(e) = line.strip_prefix("event: ") {
+                    // 用 static str 化简 pattern matching（仅限已知类型）
+                    event_type = match e.trim() {
+                        "message_start" => Some("message_start"),
+                        "content_block_start" => Some("content_block_start"),
+                        "content_block_delta" => Some("content_block_delta"),
+                        "content_block_stop" => Some("content_block_stop"),
+                        "message_delta" => Some("message_delta"),
+                        "message_stop" => Some("message_stop"),
+                        _ => None,
+                    };
+                }
+            }
+            if let Some(data) = data_line {
+                if on_event(&data, event_type) {
+                    return Ok(());
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// OpenAI 兼容 SSE 流式实现（openai/openrouter/deepseek/groq/together/ollama）
+async fn stream_openai_like(
+    http: reqwest::Client,
+    base_url: &str,
+    api_key: &str,
+    model: &str,
+    messages: Vec<ChatMessage>,
+    tools: Vec<Value>,
+    tx: tokio::sync::mpsc::UnboundedSender<AiChatDelta>,
+) {
+    use futures_util::StreamExt;
+    let body = if !tools.is_empty() {
+        json!({
+            "model": model,
+            "messages": messages,
+            "tools": tools,
+            "tool_choice": "auto",
+            "stream": true,
+            "stream_options": {"include_usage": true},
+        })
+    } else {
+        json!({
+            "model": model,
+            "messages": messages,
+            "stream": true,
+            "stream_options": {"include_usage": true},
+        })
+    };
+    let mut req = http
+        .post(format!("{base_url}/chat/completions"))
+        .header("Content-Type", "application/json")
+        .json(&body);
+    if !api_key.is_empty() {
+        req = req.bearer_auth(api_key);
+    }
+    let resp = match req.send().await {
+        Err(e) => {
+            let _ = tx.send(AiChatDelta::Error(format!("AI stream request failed: {e}")));
+            return;
+        }
+        Ok(r) => r,
+    };
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        let _ = tx.send(AiChatDelta::Error(format!("AI API error {status}: {body}")));
+        return;
+    }
+    let stream = resp.bytes_stream();
+    let tx_clone = tx.clone();
+    let result = drain_sse_stream(stream, |data, _event| {
+        process_openai_sse_chunk(data, &tx_clone)
+    })
+    .await;
+    if let Err(e) = result {
+        let _ = tx.send(AiChatDelta::Error(e));
+    }
+}
+
+/// Anthropic Messages API 流式实现
+async fn stream_anthropic(
+    http: reqwest::Client,
+    base_url: &str,
+    api_key: &str,
+    model: &str,
+    messages: Vec<ChatMessage>,
+    tools: Vec<Value>,
+    tx: tokio::sync::mpsc::UnboundedSender<AiChatDelta>,
+) {
+    // 构建 Anthropic 格式 tools
+    let anthropic_tools: Vec<Value> = tools
+        .iter()
+        .map(|t| {
+            let func = t.get("function").cloned().unwrap_or(json!({}));
+            let name = func.get("name").cloned().unwrap_or(json!(""));
+            let description = func.get("description").cloned().unwrap_or(json!(""));
+            let parameters = func
+                .get("parameters")
+                .cloned()
+                .unwrap_or(json!({"type": "object", "properties": {}}));
+            json!({"name": name, "description": description, "input_schema": parameters})
+        })
+        .collect();
+
+    let system_text: String = messages
+        .iter()
+        .filter(|m| m.role == "system")
+        .map(|m| match &m.content {
+            ChatContent::Text(t) => t.clone(),
+            _ => String::new(),
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let non_system: Vec<Value> = messages
+        .iter()
+        .filter(|m| m.role != "system")
+        .map(|m| {
+            let role = if m.role == "assistant" { "assistant" } else { "user" };
+            let text = match &m.content {
+                ChatContent::Text(t) => t.clone(),
+                _ => String::new(),
+            };
+            json!({"role": role, "content": [{"type": "text", "text": text}]})
+        })
+        .collect();
+
+    let mut body = json!({
+        "model": model,
+        "max_tokens": 4096,
+        "messages": non_system,
+        "stream": true,
+    });
+    if !system_text.is_empty() {
+        body["system"] = json!(system_text);
+    }
+    if !anthropic_tools.is_empty() {
+        body["tools"] = json!(anthropic_tools);
+    }
+
+    let resp = match http
+        .post(format!("{base_url}/v1/messages"))
+        .header("Content-Type", "application/json")
+        .header("x-api-key", api_key)
+        .header("anthropic-version", "2023-10-01")
+        .json(&body)
+        .send()
+        .await
+    {
+        Err(e) => {
+            let _ = tx.send(AiChatDelta::Error(format!("Anthropic stream request failed: {e}")));
+            return;
+        }
+        Ok(r) => r,
+    };
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        let _ = tx.send(AiChatDelta::Error(format!("Anthropic API error {status}: {body}")));
+        return;
+    }
+
+    // 跟踪 content_block 类型：index -> "text" | "tool_use"
+    let mut block_types: std::collections::HashMap<u64, String> = std::collections::HashMap::new();
+    // tool_use blocks: index -> (id, name)
+    let mut tool_starts: std::collections::HashMap<u64, (String, String)> =
+        std::collections::HashMap::new();
+
+    let stream = resp.bytes_stream();
+    let tx_clone = tx.clone();
+    let result = drain_sse_stream(stream, |data, event| {
+        let parsed: Value = match serde_json::from_str(data) {
+            Ok(v) => v,
+            Err(_) => return false,
+        };
+        let ev = event.unwrap_or("");
+        match ev {
+            "content_block_start" => {
+                let index = parsed.get("index").and_then(|i| i.as_u64()).unwrap_or(0);
+                let block = parsed.get("content_block").cloned().unwrap_or(Value::Null);
+                let btype = block.get("type").and_then(|t| t.as_str()).unwrap_or("").to_string();
+                if btype == "tool_use" {
+                    let id = block
+                        .get("id")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let name = block
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    tool_starts.insert(index, (id.clone(), name.clone()));
+                    let _ = tx_clone.send(AiChatDelta::ToolCallStart {
+                        index: index as usize,
+                        id,
+                        name,
+                    });
+                }
+                block_types.insert(index, btype);
+            }
+            "content_block_delta" => {
+                let index = parsed.get("index").and_then(|i| i.as_u64()).unwrap_or(0);
+                let delta = parsed.get("delta").cloned().unwrap_or(Value::Null);
+                let dtype = delta.get("type").and_then(|t| t.as_str()).unwrap_or("");
+                match dtype {
+                    "text_delta" => {
+                        if let Some(text) = delta.get("text").and_then(|v| v.as_str()) {
+                            if !text.is_empty() {
+                                let _ = tx_clone.send(AiChatDelta::TextDelta(text.to_string()));
+                            }
+                        }
+                    }
+                    "input_json_delta" => {
+                        if let Some(partial) =
+                            delta.get("partial_json").and_then(|v| v.as_str())
+                        {
+                            if !partial.is_empty() {
+                                let _ = tx_clone.send(AiChatDelta::ToolCallArgsDelta {
+                                    index: index as usize,
+                                    delta: partial.to_string(),
+                                });
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            "message_delta" => {
+                let delta = parsed.get("delta").cloned().unwrap_or(Value::Null);
+                let stop_reason =
+                    delta.get("stop_reason").and_then(|v| v.as_str()).unwrap_or("end_turn");
+                // 提取 usage
+                if let Some(usage_val) = parsed.get("usage") {
+                    let output_tokens =
+                        usage_val.get("output_tokens").and_then(|v| v.as_i64()).map(|v| v as i32);
+                    let _ = tx_clone.send(AiChatDelta::Usage(TokenUsage {
+                        prompt_tokens: None,
+                        completion_tokens: output_tokens,
+                    }));
+                }
+                let finish_reason = if stop_reason == "tool_use" { "tool_calls" } else { "stop" };
+                let _ =
+                    tx_clone.send(AiChatDelta::Done { finish_reason: finish_reason.to_string() });
+                return true; // 流结束
+            }
+            "message_start" => {
+                // 提取 input_tokens
+                if let Some(usage_val) =
+                    parsed.get("message").and_then(|m| m.get("usage"))
+                {
+                    let input_tokens = usage_val
+                        .get("input_tokens")
+                        .and_then(|v| v.as_i64())
+                        .map(|v| v as i32);
+                    let _ = tx_clone.send(AiChatDelta::Usage(TokenUsage {
+                        prompt_tokens: input_tokens,
+                        completion_tokens: None,
+                    }));
+                }
+            }
+            "message_stop" => return true,
+            _ => {}
+        }
+        false
+    })
+    .await;
+
+    if let Err(e) = result {
+        let _ = tx.send(AiChatDelta::Error(e));
+    }
+}
+
+/// Google Gemini SSE 流式实现（streamGenerateContent?alt=sse）
+async fn stream_gemini(
+    http: reqwest::Client,
+    base_url: &str,
+    api_key: &str,
+    model: &str,
+    messages: Vec<ChatMessage>,
+    tx: tokio::sync::mpsc::UnboundedSender<AiChatDelta>,
+) {
+    let system_parts: Vec<String> = messages
+        .iter()
+        .filter(|m| m.role == "system")
+        .map(|m| match &m.content {
+            ChatContent::Text(t) => t.clone(),
+            _ => String::new(),
+        })
+        .collect();
+    let mut contents: Vec<Value> = Vec::new();
+    if !system_parts.is_empty() {
+        contents.push(json!({"role": "user", "parts": [{"text": system_parts.join("\n")}]}));
+        contents.push(json!({"role": "model", "parts": [{"text": "Understood."}]}));
+    }
+    for m in messages.iter().filter(|m| m.role != "system") {
+        let role = if m.role == "assistant" { "model" } else { "user" };
+        let text = match &m.content {
+            ChatContent::Text(t) => t.clone(),
+            ChatContent::Parts(parts) => parts
+                .iter()
+                .filter_map(|p| if let ContentPart::Text { text } = p { Some(text.clone()) } else { None })
+                .collect::<Vec<_>>()
+                .join("\n"),
+        };
+        contents.push(json!({"role": role, "parts": [{"text": text}]}));
+    }
+
+    let url = format!(
+        "{}/v1beta/models/{}:streamGenerateContent?alt=sse&key={}",
+        base_url.trim_end_matches('/'),
+        model,
+        api_key
+    );
+    let body = json!({"contents": contents});
+
+    let resp = match http
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+    {
+        Err(e) => {
+            let _ = tx.send(AiChatDelta::Error(format!("Gemini stream request failed: {e}")));
+            return;
+        }
+        Ok(r) => r,
+    };
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        let _ = tx.send(AiChatDelta::Error(format!("Gemini API error {status}: {body}")));
+        return;
+    }
+
+    let stream = resp.bytes_stream();
+    let tx_clone = tx.clone();
+    let mut last_usage = TokenUsage::default();
+    let result = drain_sse_stream(stream, |data, _event| {
+        let parsed: Value = match serde_json::from_str(data) {
+            Ok(v) => v,
+            Err(_) => return false,
+        };
+        // 提取文本片段
+        if let Some(candidates) = parsed.get("candidates").and_then(|c| c.as_array()) {
+            for candidate in candidates {
+                if let Some(parts) = candidate
+                    .get("content")
+                    .and_then(|c| c.get("parts"))
+                    .and_then(|p| p.as_array())
+                {
+                    for part in parts {
+                        if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
+                            if !text.is_empty() {
+                                let _ = tx_clone.send(AiChatDelta::TextDelta(text.to_string()));
+                            }
+                        }
+                    }
+                }
+                // 检查 finishReason
+                if let Some(reason) = candidate.get("finishReason").and_then(|v| v.as_str()) {
+                    if !reason.is_empty() && reason != "FINISH_REASON_UNSPECIFIED" {
+                        // 提取 usage（Gemini 在每个 chunk 末尾带 usageMetadata）
+                        if let Some(meta) = parsed.get("usageMetadata") {
+                            last_usage = TokenUsage {
+                                prompt_tokens: meta
+                                    .get("promptTokenCount")
+                                    .and_then(|v| v.as_i64())
+                                    .map(|v| v as i32),
+                                completion_tokens: meta
+                                    .get("candidatesTokenCount")
+                                    .and_then(|v| v.as_i64())
+                                    .map(|v| v as i32),
+                            };
+                        }
+                        let _ = tx_clone.send(AiChatDelta::Usage(last_usage.clone()));
+                        let _ = tx_clone
+                            .send(AiChatDelta::Done { finish_reason: "stop".to_string() });
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    })
+    .await;
+
+    if let Err(e) = result {
+        let _ = tx.send(AiChatDelta::Error(e));
+    }
 }

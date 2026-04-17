@@ -32,6 +32,9 @@ export type ChatMessageRecord = {
 	imageRef: string | null;
 	promptTokens: number | null;
 	completionTokens: number | null;
+	// 本地前端字段，不从后端序列化
+	status?: 'streaming' | 'complete';
+	streamingToolNames?: string[];
 };
 
 export type CreateChatSessionRequest = {
@@ -56,6 +59,15 @@ export type UpdateChatSessionRequest = {
 export type ChatMessageEvent = {
 	sessionId: string;
 	message: ChatMessageRecord;
+};
+
+export type ChatMessageDeltaEvent = {
+	sessionId: string;
+	messageId: string;
+	kind: 'text' | 'tool_start';
+	delta: string | null;
+	toolCallIndex: number | null;
+	toolName: string | null;
 };
 
 export type ChatPhaseEvent = {

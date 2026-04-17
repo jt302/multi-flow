@@ -20,7 +20,6 @@ export function GenerationProgress() {
 	const phase = useChatStore((s) => s.generationPhase);
 	const toolName = useChatStore((s) => s.currentToolName);
 	const round = useChatStore((s) => s.currentRound);
-	const maxRounds = useChatStore((s) => s.maxRounds);
 	const generationStartTime = useChatStore((s) => s.generationStartTime);
 	const promptTokens = useChatStore((s) => s.promptTokens);
 	const completionTokens = useChatStore((s) => s.completionTokens);
@@ -71,7 +70,7 @@ export function GenerationProgress() {
 						'tabular-nums whitespace-nowrap',
 						round > 40 ? 'text-destructive font-medium' : round > 20 ? 'text-yellow-500' : '',
 					)}>
-						Round {round}{maxRounds > 0 ? `/${maxRounds}` : ''}
+						Round {round}
 					</span>
 				</>
 			)}

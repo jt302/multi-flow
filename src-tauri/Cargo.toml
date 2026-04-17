@@ -29,11 +29,12 @@ thiserror = "2"
 uuid = { version = "1", features = ["v4"] }
 sea-orm = { version = "1", default-features = false, features = ["macros", "runtime-tokio-rustls", "sqlx-sqlite"] }
 sea-orm-migration = { version = "1", default-features = false, features = ["runtime-tokio-rustls", "sqlx-sqlite"] }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "socks", "blocking"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "socks", "blocking", "stream"] }
 maxminddb = "0.26"
 chromiumoxide = "0.9.1"
 chromiumoxide_cdp = "0.9.1"
 futures-util = "0.3"
+bytes = "1"
 axum = { version = "0.8", features = ["ws"] }
 chrono = "0.4"
 cron = "0.15"

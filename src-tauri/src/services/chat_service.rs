@@ -298,6 +298,55 @@ impl ChatService {
         Ok(to_api_message(inserted))
     }
 
+    /// 使用预生成 id 插入消息（流式场景：前端占位 id 必须与 DB id 一致）
+    #[allow(clippy::too_many_arguments)]
+    pub async fn add_message_with_id(
+        &self,
+        id: &str,
+        session_id: &str,
+        role: &str,
+        content_text: Option<String>,
+        tool_calls_json: Option<String>,
+        tool_call_id: Option<String>,
+        tool_name: Option<String>,
+        tool_args_json: Option<String>,
+        tool_result: Option<String>,
+        tool_status: Option<String>,
+        tool_duration_ms: Option<i64>,
+        image_base64: Option<String>,
+        image_ref: Option<String>,
+    ) -> AppResult<ChatMessageRecord> {
+        let sort_order = self.next_sort_order(session_id).await?;
+        let now = now_ts();
+        let model = chat_message::ActiveModel {
+            id: Set(id.to_string()),
+            session_id: Set(session_id.to_string()),
+            role: Set(role.to_string()),
+            content_text: Set(content_text),
+            content_json: Set(None),
+            tool_calls_json: Set(tool_calls_json),
+            tool_call_id: Set(tool_call_id),
+            tool_name: Set(tool_name),
+            tool_args_json: Set(tool_args_json),
+            tool_result: Set(tool_result),
+            tool_status: Set(tool_status),
+            tool_duration_ms: Set(tool_duration_ms),
+            image_base64: Set(image_base64),
+            image_ref: Set(image_ref),
+            parent_id: Set(None),
+            is_active: Set(1),
+            created_at: Set(now),
+            sort_order: Set(sort_order),
+            thinking_text: Set(None),
+            thinking_tokens: Set(None),
+            prompt_tokens: Set(None),
+            completion_tokens: Set(None),
+            compression_meta: Set(None),
+        };
+        let inserted = model.insert(&self.db).await.map_err(AppError::from)?;
+        Ok(to_api_message(inserted))
+    }
+
     /// 更新消息的 token 用量（在 AI 返回后调用）
     pub async fn update_message_usage(
         &self,

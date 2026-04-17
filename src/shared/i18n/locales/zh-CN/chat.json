@@ -30,5 +30,7 @@
 	"imagePreview": "图片预览",
 	"zoomInPreview": "放大图片",
 	"zoomOutPreview": "缩小图片",
-	"copyMessage": "复制消息"
+	"copyMessage": "复制消息",
+	"toolCallPending": "正在调用工具：{{name}}",
+	"toolCallingFallback": "调用工具中..."
 }

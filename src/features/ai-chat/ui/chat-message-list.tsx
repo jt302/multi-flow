@@ -31,12 +31,15 @@ export function ChatMessageList({ messages, isGenerating }: Props) {
 		bottomRef.current?.scrollIntoView({ behavior: 'instant' });
 	}, []);
 
-	// 生成过程中新消息出现时平滑滚动
+	// 生成过程中新消息或流式内容更新时平滑滚动
+	const lastMsg = messages[messages.length - 1];
+	const lastContentLen = lastMsg?.contentText?.length ?? 0;
 	useEffect(() => {
 		if (messages.length > 0 || isGenerating) {
 			bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
 		}
-	}, [messages.length, isGenerating]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [messages.length, isGenerating, lastContentLen]);
 
 	const closeLightbox = () => {
 		setLightboxSrc(null);
@@ -129,6 +132,7 @@ function CopyButton({ text, className }: { text: string; className?: string }) {
 }
 
 function MessageItem({ message, onImageClick }: { message: ChatMessageRecord; onImageClick: (src: string) => void }) {
+	const { t } = useTranslation('chat');
 	if (message.role === 'user') {
 		return (
 			<div className="flex justify-end items-end gap-1 group">
@@ -175,13 +179,32 @@ function MessageItem({ message, onImageClick }: { message: ChatMessageRecord; on
 		return (
 			<div className="flex justify-start">
 				<div className="text-xs text-muted-foreground/60 italic px-1">
-					{toolNames.length > 0 ? toolNames.join(', ') : '调用工具中...'}
+					{toolNames.length > 0 ? toolNames.join(', ') : t('toolCallingFallback')}
 				</div>
 			</div>
 		);
 	}
 
-	if (message.role === 'assistant' && message.contentText) {
+	if (message.role === 'assistant' && (message.contentText || message.status === 'streaming')) {
+		const isStreaming = message.status === 'streaming';
+		// 流式时补齐未闭合的 code fence，避免 markdown 解析错误
+		let displayText = message.contentText ?? '';
+		if (isStreaming) {
+			const fenceMatches = (displayText.match(/^```|^~~~/gm) ?? []).length;
+			if (fenceMatches % 2 !== 0) displayText += '\n```';
+		}
+		// 正在流式但尚无内容时，显示 loading 三点动画而非空气泡
+		if (isStreaming && !displayText) {
+			return (
+				<div className="flex justify-start px-1 py-1">
+					<span className="inline-flex gap-1 items-center">
+						<span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce [animation-delay:-0.3s]" />
+						<span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce [animation-delay:-0.15s]" />
+						<span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce" />
+					</span>
+				</div>
+			);
+		}
 		return (
 			<div className="flex flex-col justify-start gap-1 group">
 				{message.thinkingText && (
@@ -190,19 +213,29 @@ function MessageItem({ message, onImageClick }: { message: ChatMessageRecord; on
 						thinkingTokens={message.thinkingTokens ?? undefined}
 					/>
 				)}
+				{/* 流式工具占位 */}
+				{isStreaming && message.streamingToolNames && message.streamingToolNames.length > 0 && (
+					<div className="text-xs text-muted-foreground/60 italic px-1">
+						{message.streamingToolNames.map((n) => t('toolCallPending', { name: n })).join(' · ')}
+					</div>
+				)}
 				<div className="flex items-end gap-1">
-					{/* 外层 div 控制最大宽度，内层 div 负责 prose 排版，两者不冲突 */}
 					<div className="max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-sm break-words">
 						<div className="prose prose-sm dark:prose-invert max-w-none">
 							<ReactMarkdown remarkPlugins={[remarkGfm]}>
-								{message.contentText}
+								{displayText}
 							</ReactMarkdown>
 						</div>
+						{isStreaming && (
+							<span className="inline-block w-0.5 h-4 bg-foreground/70 animate-pulse ml-0.5 align-middle" />
+						)}
 					</div>
-					<CopyButton
-						text={message.contentText}
-						className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mb-0.5"
-					/>
+					{!isStreaming && (
+						<CopyButton
+							text={message.contentText ?? ''}
+							className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mb-0.5"
+						/>
+					)}
 				</div>
 			</div>
 		);
