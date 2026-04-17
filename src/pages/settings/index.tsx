@@ -1,7 +1,5 @@
-import { useState } from 'react';
 import { useLocation, useOutletContext } from 'react-router-dom';
 
-import type { ResourceProgressState } from '@/entities/resource/model/types';
 import { useResourcesQuery } from '@/entities/resource/model/use-resources-query';
 import { useResourceActions } from '@/features/resource/model/use-resource-actions';
 import { useWorkspaceRefresh } from '@/app/model/use-workspace-refresh';
@@ -12,15 +10,10 @@ import { resolveSettingsTab } from '@/features/settings/ui/settings-tab-constant
 export function SettingsRoutePage() {
 	const { theme } = useOutletContext<WorkspaceOutletContext>();
 	const location = useLocation();
-	const [resourceProgress, setResourceProgress] =
-		useState<ResourceProgressState | null>(null);
 	const resourcesQuery = useResourcesQuery();
 	const resources = resourcesQuery.data ?? [];
 	const { refreshResources } = useWorkspaceRefresh();
-	const resourceActions = useResourceActions({
-		setResourceProgress,
-		refreshResources,
-	});
+	const resourceActions = useResourceActions({ refreshResources });
 	const activeTab = resolveSettingsTab(location.pathname);
 
 	return (
@@ -40,7 +33,6 @@ export function SettingsRoutePage() {
 			onRefreshResources={refreshResources}
 			onInstallChromium={resourceActions.installChromium}
 			onDownloadResource={resourceActions.downloadResource}
-			resourceProgress={resourceProgress}
 		/>
 	);
 }

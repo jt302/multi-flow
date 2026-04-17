@@ -10,6 +10,7 @@ import { Card, Sidebar, SidebarProvider, Toaster } from '@/components/ui';
 
 import { resolveNavFromPath, resolvePathFromNav } from '@/app/workspace-routes';
 import { buildWorkspaceLayoutOutletContext } from '@/app/model/workspace-layout-context';
+import { ResourceDownloadListener } from './resource-download-listener';
 import type {
 	NavId,
 	WorkspaceOutletContext,
@@ -182,6 +183,7 @@ export function WorkspaceLayout() {
 					</section>
 				</div>
 				<Toaster theme={toasterTheme} />
+				<ResourceDownloadListener />
 			</div>
 		</SidebarProvider>
 	);

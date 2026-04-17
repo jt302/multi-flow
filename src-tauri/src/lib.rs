@@ -301,6 +301,7 @@ pub fn run() {
             commands::proxy_commands::unbind_profile_proxy,
             commands::proxy_commands::get_profile_proxy,
             commands::resource_commands::list_resources,
+            commands::resource_commands::get_active_resource_downloads,
             commands::resource_commands::download_resource,
             commands::resource_commands::install_chromium_resource,
             commands::resource_commands::activate_chromium_version,

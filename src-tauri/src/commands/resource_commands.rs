@@ -1,26 +1,13 @@
-use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::error::AppError;
 use crate::models::{
     ResourceActivateResponse, ResourceCatalogResponse, ResourceDownloadResponse,
-    ResourceInstallResponse,
+    ResourceInstallResponse, ResourceProgressSnapshot,
 };
 use crate::state::AppState;
 
 const RESOURCE_PROGRESS_EVENT: &str = "resource_download_progress";
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ResourceDownloadProgressEvent {
-    task_id: String,
-    resource_id: String,
-    stage: String,
-    downloaded_bytes: u64,
-    total_bytes: Option<u64>,
-    percent: Option<f64>,
-    message: String,
-}
 
 #[tauri::command]
 pub async fn list_resources(app: AppHandle) -> Result<ResourceCatalogResponse, String> {
@@ -31,6 +18,17 @@ pub async fn list_resources(app: AppHandle) -> Result<ResourceCatalogResponse, S
     })
     .await
     .map_err(|err| format!("list resources task join failed: {err}"))?
+}
+
+#[tauri::command]
+pub fn get_active_resource_downloads(
+    state: State<'_, AppState>,
+) -> Result<Vec<ResourceProgressSnapshot>, String> {
+    let guard = state
+        .active_resource_downloads
+        .lock()
+        .map_err(|_| "active resource downloads lock poisoned".to_string())?;
+    Ok(guard.values().cloned().collect())
 }
 
 #[tauri::command]
@@ -211,7 +209,7 @@ fn emit_progress(
             Some(((downloaded_bytes as f64 / total as f64) * 100.0).min(100.0))
         }
     });
-    let payload = ResourceDownloadProgressEvent {
+    let snapshot = ResourceProgressSnapshot {
         task_id: task_id.to_string(),
         resource_id: resource_id.to_string(),
         stage: stage.to_string(),
@@ -219,6 +217,20 @@ fn emit_progress(
         total_bytes,
         percent,
         message: message.to_string(),
+        updated_at: crate::models::now_ts(),
     };
-    let _ = app.emit(RESOURCE_PROGRESS_EVENT, payload);
+
+    let state = app.state::<AppState>();
+    if let Ok(mut guard) = state.active_resource_downloads.lock() {
+        match stage {
+            "done" | "error" => {
+                guard.remove(task_id);
+            }
+            _ => {
+                guard.insert(task_id.to_string(), snapshot.clone());
+            }
+        }
+    }
+
+    let _ = app.emit(RESOURCE_PROGRESS_EVENT, snapshot);
 }

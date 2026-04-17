@@ -6,55 +6,44 @@ import {
 	downloadResourceWithProgress,
 	installChromiumResourceWithProgress,
 } from '@/entities/resource/api/resource-api';
-import type { ResourceProgressState } from '@/entities/resource/model/types';
 
 type ResourceActionsDeps = {
-	setResourceProgress: (
-		state:
-			| ResourceProgressState
-			| null
-			| ((prev: ResourceProgressState | null) => ResourceProgressState | null),
-	) => void;
 	refreshResources: () => Promise<void>;
 };
 
-export function useResourceActions({
-	setResourceProgress,
-	refreshResources,
-}: ResourceActionsDeps) {
-	
-
+/**
+ * 资源下载/安装 action。
+ *
+ * 进度状态的持久化由全局 `useResourceDownloadStore` 负责（见
+ * `ResourceDownloadListener`），本 hook 只负责：
+ *  1. 触发 tauri 命令；
+ *  2. 维护本次调用的 sonner toast 生命周期（开始 / 进度文案 / 完成 / 失败）。
+ *
+ * 这样切页面 / webview 刷新都不会丢进度 UI —— 顶部 toast 与卡片内的进度条
+ * 分别由当前活跃的 action 调用 / 持久 store 驱动，互不耦合。
+ */
+export function useResourceActions({ refreshResources }: ResourceActionsDeps) {
 	const installChromium = async (resourceId: string) => {
 		const toastId = toast.loading(i18n.t('resource:downloadingBrowser'));
 		let lastShownPercent = -1;
-		setResourceProgress({
-			resourceId,
-			stage: 'start',
-			percent: 0,
-			downloadedBytes: 0,
-			totalBytes: null,
-			message: i18n.t('resource:startDownloadResource'),
-		});
 		try {
 			await installChromiumResourceWithProgress(resourceId, (progress) => {
-				setResourceProgress({
-					resourceId,
-					stage: progress.stage,
-					percent: progress.percent,
-					downloadedBytes: progress.downloadedBytes,
-					totalBytes: progress.totalBytes,
-					message: progress.message,
-				});
 				if (progress.stage === 'download') {
-					const percent = progress.percent === null ? null : Math.floor(progress.percent);
+					const percent =
+						progress.percent === null ? null : Math.floor(progress.percent);
 					if (percent !== null && percent <= lastShownPercent) {
 						return;
 					}
 					if (percent !== null) {
 						lastShownPercent = percent;
-						toast.loading(i18n.t('resource:browserDownloadingPercent', { percent }), { id: toastId });
+						toast.loading(
+							i18n.t('resource:browserDownloadingPercent', { percent }),
+							{ id: toastId },
+						);
 					} else {
-						toast.loading(i18n.t('resource:browserDownloading'), { id: toastId });
+						toast.loading(i18n.t('resource:browserDownloading'), {
+							id: toastId,
+						});
 					}
 					return;
 				}
@@ -63,23 +52,17 @@ export function useResourceActions({
 					return;
 				}
 				if (progress.stage === 'error') {
-					toast.error(progress.message || i18n.t('resource:browserInstallFailed'), { id: toastId });
+					toast.error(
+						progress.message || i18n.t('resource:browserInstallFailed'),
+						{ id: toastId },
+					);
 				}
 			});
 			await refreshResources();
-			setResourceProgress((prev) => (prev ? { ...prev, stage: 'done', percent: 100 } : prev));
 			toast.success(i18n.t('resource:browserInstalled'), { id: toastId });
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : i18n.t('resource:installFailed');
-			setResourceProgress((prev) =>
-				prev
-					? {
-							...prev,
-							stage: 'error',
-							message: errorMessage,
-						}
-					: prev,
-			);
+			const errorMessage =
+				error instanceof Error ? error.message : i18n.t('resource:installFailed');
 			toast.error(errorMessage, { id: toastId });
 			throw error;
 		}
@@ -97,48 +80,35 @@ export function useResourceActions({
 	};
 
 	const downloadResource = async (resourceId: string, label = '资源') => {
-		const toastId = toast.loading(i18n.t('resource:startDownloadLabel', { label }));
-		setResourceProgress({
-			resourceId,
-			stage: 'start',
-			percent: 0,
-			downloadedBytes: 0,
-			totalBytes: null,
-			message: i18n.t('resource:startDownloadResource'),
-		});
+		const toastId = toast.loading(
+			i18n.t('resource:startDownloadLabel', { label }),
+		);
 		try {
 			await downloadResourceWithProgress(resourceId, (progress) => {
-				setResourceProgress({
-					resourceId,
-					stage: progress.stage,
-					percent: progress.percent,
-					downloadedBytes: progress.downloadedBytes,
-					totalBytes: progress.totalBytes,
-					message: progress.message,
-				});
 				if (progress.stage === 'download') {
-					const percent = progress.percent === null ? null : Math.floor(progress.percent);
+					const percent =
+						progress.percent === null ? null : Math.floor(progress.percent);
 					if (percent === null) {
-						toast.loading(i18n.t('resource:downloadingLabel', { label }), { id: toastId });
+						toast.loading(i18n.t('resource:downloadingLabel', { label }), {
+							id: toastId,
+						});
 					} else {
-						toast.loading(i18n.t('resource:downloadingLabelPercent', { label, percent }), { id: toastId });
+						toast.loading(
+							i18n.t('resource:downloadingLabelPercent', { label, percent }),
+							{ id: toastId },
+						);
 					}
 				}
 			});
 			await refreshResources();
-			setResourceProgress((prev) => (prev ? { ...prev, stage: 'done', percent: 100 } : prev));
-			toast.success(i18n.t('resource:labelDownloaded', { label }), { id: toastId });
+			toast.success(i18n.t('resource:labelDownloaded', { label }), {
+				id: toastId,
+			});
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : i18n.t('resource:downloadFailed');
-			setResourceProgress((prev) =>
-				prev
-					? {
-							...prev,
-							stage: 'error',
-							message: errorMessage,
-						}
-					: prev,
-			);
+			const errorMessage =
+				error instanceof Error
+					? error.message
+					: i18n.t('resource:downloadFailed');
 			toast.error(errorMessage, { id: toastId });
 			throw error;
 		}

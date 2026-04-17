@@ -919,6 +919,19 @@ pub struct ResourceActivateResponse {
     pub executable_path: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResourceProgressSnapshot {
+    pub task_id: String,
+    pub resource_id: String,
+    pub stage: String,
+    pub downloaded_bytes: u64,
+    pub total_bytes: Option<u64>,
+    pub percent: Option<f64>,
+    pub message: String,
+    pub updated_at: i64,
+}
+
 pub fn now_ts() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

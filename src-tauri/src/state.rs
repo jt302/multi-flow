@@ -14,6 +14,7 @@ use crate::local_api_server::{LocalApiServer, DEFAULT_PROXY_DAEMON_BIND_ADDRESS}
 use crate::logger;
 use crate::runtime_guard;
 use crate::services::ai_tools::dialog_tools::AiDialogResponse;
+use crate::models::ResourceProgressSnapshot;
 use crate::services::automation_context::ActiveRunRegistry;
 use crate::services::app_preference_service::AppPreferenceService;
 use crate::services::automation_service::AutomationService;
@@ -52,6 +53,9 @@ pub struct AppState {
     pub engine_session_service: Mutex<EngineSessionService>,
     pub proxy_service: Mutex<ProxyService>,
     pub resource_service: Mutex<ResourceService>,
+    /// 进行中的资源下载任务快照：task_id → 最新进度。
+    /// 用于前端组件重新挂载或 webview 刷新后恢复下载状态。
+    pub active_resource_downloads: Mutex<HashMap<String, ResourceProgressSnapshot>>,
     pub engine_manager: Mutex<EngineManager>,
     pub local_api_server: Mutex<LocalApiServer>,
     pub chromium_magic_adapter_service: Mutex<ChromiumMagicAdapterService>,
@@ -168,6 +172,7 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
         engine_session_service: Mutex::new(engine_session_service),
         proxy_service: Mutex::new(proxy_service),
         resource_service: Mutex::new(resource_service),
+        active_resource_downloads: Mutex::new(HashMap::new()),
         engine_manager: Mutex::new(engine_manager),
         local_api_server: Mutex::new(local_api_server),
         chromium_magic_adapter_service: Mutex::new(chromium_magic_adapter_service),

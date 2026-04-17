@@ -35,7 +35,6 @@ export function SettingsPage({
 	onRefreshResources,
 	onInstallChromium,
 	onDownloadResource,
-	resourceProgress,
 }: SettingsPageProps) {
 	const { t } = useTranslation('settings');
 	const section = getWorkspaceSections().settings;
@@ -98,7 +97,6 @@ export function SettingsPage({
 							chromiumItems={chromiumItems}
 							geoItems={geoItems}
 							pendingKey={pendingKey}
-							resourceProgress={resourceProgress}
 							onRefreshResources={() => {
 								void runAction('refresh-resources', onRefreshResources);
 							}}

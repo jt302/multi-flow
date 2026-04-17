@@ -2,27 +2,71 @@ import { Download, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { Badge, Button, Card, CardTitle, Icon } from '@/components/ui';
-import type {
-	ResourceItem,
-	ResourceProgressState,
-} from '@/entities/resource/model/types';
+import type { ResourceItem } from '@/entities/resource/model/types';
 import { formatBytes } from '@/shared/lib/format';
+import { useResourceDownloadProgress } from '@/store/resource-download-store';
 
 type ResourceManagementCardProps = {
 	chromiumItems: ResourceItem[];
 	geoItems: ResourceItem[];
 	pendingKey: string;
-	resourceProgress: ResourceProgressState | null;
 	onRefreshResources: () => void;
 	onInstallChromium: (resourceId: string) => void;
 	onDownloadResource: (resourceId: string, label?: string) => void;
 };
 
+function ResourceProgressBlock({
+	resourceId,
+	mode,
+}: {
+	resourceId: string;
+	mode: 'chromium' | 'geo';
+}) {
+	const { t } = useTranslation(['settings', 'common']);
+	const progress = useResourceDownloadProgress(resourceId);
+	if (!progress) return null;
+
+	const stageLabel =
+		progress.stage === 'download'
+			? t('settings:resource.downloading')
+			: progress.stage === 'install'
+				? t('settings:resource.installing')
+				: progress.stage === 'done'
+					? t('settings:resource.done')
+					: progress.stage === 'error'
+						? t('settings:resource.error')
+						: mode === 'geo'
+							? t('settings:resource.downloading')
+							: t('settings:resource.processing');
+
+	return (
+		<div className="mt-2 space-y-1">
+			<div className="flex items-center justify-between text-[11px] text-muted-foreground">
+				<span>{stageLabel}</span>
+				<span>
+					{progress.percent === null ? '--' : `${Math.floor(progress.percent)}%`}
+				</span>
+			</div>
+			<div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+				<div
+					className={`h-full transition-all ${progress.stage === 'error' ? 'bg-destructive' : 'bg-primary'}`}
+					style={{
+						width: `${Math.max(3, Math.min(100, progress.percent ?? 0))}%`,
+					}}
+				/>
+			</div>
+			<p className="text-[11px] text-muted-foreground">
+				{formatBytes(progress.downloadedBytes)} /{' '}
+				{formatBytes(progress.totalBytes)}
+			</p>
+		</div>
+	);
+}
+
 export function ResourceManagementCard({
 	chromiumItems,
 	geoItems,
 	pendingKey,
-	resourceProgress,
 	onRefreshResources,
 	onInstallChromium,
 	onDownloadResource,
@@ -91,40 +135,7 @@ export function ResourceManagementCard({
 									</Button>
 								)}
 							</div>
-							{resourceProgress?.resourceId === item.id ? (
-								<div className="mt-2 space-y-1">
-									<div className="flex items-center justify-between text-[11px] text-muted-foreground">
-										<span>
-											{resourceProgress.stage === 'download'
-												? t('settings:resource.downloading')
-												: resourceProgress.stage === 'install'
-													? t('settings:resource.installing')
-													: resourceProgress.stage === 'done'
-														? t('settings:resource.done')
-														: resourceProgress.stage === 'error'
-															? t('settings:resource.error')
-															: t('settings:resource.processing')}
-										</span>
-										<span>
-											{resourceProgress.percent === null
-												? '--'
-												: `${Math.floor(resourceProgress.percent)}%`}
-										</span>
-									</div>
-									<div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-										<div
-											className={`h-full transition-all ${resourceProgress.stage === 'error' ? 'bg-destructive' : 'bg-primary'}`}
-											style={{
-												width: `${Math.max(3, Math.min(100, resourceProgress.percent ?? 0))}%`,
-											}}
-										/>
-									</div>
-									<p className="text-[11px] text-muted-foreground">
-										{formatBytes(resourceProgress.downloadedBytes)} /{' '}
-										{formatBytes(resourceProgress.totalBytes)}
-									</p>
-								</div>
-							) : null}
+							<ResourceProgressBlock resourceId={item.id} mode="chromium" />
 						</div>
 					))
 				)}
@@ -174,36 +185,7 @@ export function ResourceManagementCard({
 									: t('settings:resource.downloadGeoDb')}
 							</Button>
 						</div>
-						{resourceProgress?.resourceId === item.id ? (
-							<div className="mt-2 space-y-1">
-								<div className="flex items-center justify-between text-[11px] text-muted-foreground">
-									<span>
-										{resourceProgress.stage === 'error'
-											? t('settings:resource.error')
-											: resourceProgress.stage === 'done'
-												? t('settings:resource.done')
-												: t('settings:resource.downloading')}
-									</span>
-									<span>
-										{resourceProgress.percent === null
-											? '--'
-											: `${Math.floor(resourceProgress.percent)}%`}
-									</span>
-								</div>
-								<div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-									<div
-										className={`h-full transition-all ${resourceProgress.stage === 'error' ? 'bg-destructive' : 'bg-primary'}`}
-										style={{
-											width: `${Math.max(3, Math.min(100, resourceProgress.percent ?? 0))}%`,
-										}}
-									/>
-								</div>
-								<p className="text-[11px] text-muted-foreground">
-									{formatBytes(resourceProgress.downloadedBytes)} /{' '}
-									{formatBytes(resourceProgress.totalBytes)}
-								</p>
-							</div>
-						) : null}
+						<ResourceProgressBlock resourceId={item.id} mode="geo" />
 					</div>
 				))}
 			</div>

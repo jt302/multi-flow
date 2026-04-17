@@ -77,6 +77,22 @@ export async function listenResourceProgressByTaskPrefix(
 	});
 }
 
+export async function listenAllResourceProgress(
+	onProgress: (progress: ResourceDownloadProgressEvent) => void,
+) {
+	return listen<ResourceDownloadProgressEvent>('resource_download_progress', (event) => {
+		onProgress(event.payload);
+	});
+}
+
+export type ResourceProgressSnapshot = ResourceDownloadProgressEvent & {
+	updatedAt: number;
+};
+
+export async function getActiveResourceDownloads(): Promise<ResourceProgressSnapshot[]> {
+	return tauriInvoke<ResourceProgressSnapshot[]>('get_active_resource_downloads');
+}
+
 export async function listResources(): Promise<ResourceItem[]> {
 	const response = await tauriInvoke<ResourceCatalogResponse>('list_resources');
 	return response.items.map(mapResource);

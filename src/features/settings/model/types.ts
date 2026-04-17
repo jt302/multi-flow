@@ -1,4 +1,4 @@
-import type { ResourceItem, ResourceProgressState } from '@/entities/resource/model/types';
+import type { ResourceItem } from '@/entities/resource/model/types';
 import type {
 	CustomThemePreset,
 	PresetKey,
@@ -34,5 +34,4 @@ export type SettingsPageProps = {
 	onRefreshResources: () => Promise<void>;
 	onInstallChromium: (resourceId: string) => Promise<void>;
 	onDownloadResource: (resourceId: string, label?: string) => Promise<void>;
-	resourceProgress: ResourceProgressState | null;
 };
