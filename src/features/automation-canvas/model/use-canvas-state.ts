@@ -480,9 +480,7 @@ export function useCanvasState(
 					});
 
 					queueMicrotask(() => {
-						saveScript(newSteps).catch((err) =>
-							console.error('[canvas] node deletion save failed:', err),
-						);
+						void saveScript(newSteps).catch(() => {});
 					});
 					return;
 				}
@@ -523,9 +521,7 @@ export function useCanvasState(
 			});
 			if (hasRemovals) {
 				queueMicrotask(() => {
-					saveScript(flushPendingEdits()).catch((err) =>
-						console.error('[canvas] edge removal save failed:', err),
-					);
+					void saveScript(flushPendingEdits()).catch(() => {});
 				});
 			}
 		},
@@ -579,9 +575,7 @@ export function useCanvasState(
 			});
 			// 新连线改变拓扑，延迟重排步骤数组
 			queueMicrotask(() => {
-				saveScript(flushPendingEdits()).catch((err) =>
-					console.error('[canvas] connect save failed:', err),
-				);
+				void saveScript(flushPendingEdits()).catch(() => {});
 			});
 		},
 		[scheduleCanvasSave, flushPendingEdits, saveScript, steps],

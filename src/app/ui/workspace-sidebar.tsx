@@ -130,20 +130,17 @@ export function WorkspaceSidebar({
 										onPointerDown={() => {
 											// 用 onPointerDown 代替 onClick：
 											// macOS 激活窗口时 click 被 Cocoa 吞，但 pointerdown(mousedown) 会传递到 webview
-											console.log(`[diag:startup] t=${performance.now().toFixed(1)} sidebar-button-click`, { itemId: item.id, expandable, hasCollapsedMenu, activeNav });
 											if (hasCollapsedMenu) {
 												return;
 											}
 
 											if (expandable) {
-												console.log(`[diag:startup] t=${performance.now().toFixed(1)} sidebar-expand-toggle`, { itemId: item.id });
 												setExpandedNavIds((current) =>
 													resolveNextExpandedNavIds(current, item.id),
 												);
 												return;
 											}
 
-											console.log(`[diag:startup] t=${performance.now().toFixed(1)} sidebar-nav-change`, { itemId: item.id });
 											onNavChange(item.id);
 										}}
 										tooltip={hasCollapsedMenu ? undefined : item.label}
@@ -205,7 +202,9 @@ export function WorkspaceSidebar({
 														return (
 															<DropdownMenuItem
 																key={child.path}
-																onSelect={() => { console.log(`[diag:startup] t=${performance.now().toFixed(1)} sidebar-dropdown-select`, { path: child.path }); onNavigate(child.path); }}
+																onSelect={() => {
+																	onNavigate(child.path);
+																}}
 															>
 																<ChildIcon className="size-4" />
 																<span>{child.label}</span>
@@ -223,12 +222,14 @@ export function WorkspaceSidebar({
 													const ChildIcon = child.icon;
 													return (
 														<SidebarMenuSubItem key={child.path}>
-															<SidebarMenuSubButton
-																type="button"
-																isActive={activePath === child.path}
-																onPointerDown={() => { console.log(`[diag:startup] t=${performance.now().toFixed(1)} sidebar-sub-click`, { path: child.path, isActive: activePath === child.path }); onNavigate(child.path); }}
-																className="cursor-pointer"
-															>
+														<SidebarMenuSubButton
+															type="button"
+															isActive={activePath === child.path}
+															onPointerDown={() => {
+																onNavigate(child.path);
+															}}
+															className="cursor-pointer"
+														>
 																<ChildIcon className="size-3.5" />
 																{child.label}
 															</SidebarMenuSubButton>

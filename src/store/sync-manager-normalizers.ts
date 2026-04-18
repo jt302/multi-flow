@@ -180,7 +180,6 @@ export function errorMessage(error: unknown) {
 
 export function stageError(stage: string, error: unknown) {
 	const message = `${stage}：${errorMessage(error)}`;
-	console.error('[sync-manager]', message, error);
 	return new Error(message);
 }
 

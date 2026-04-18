@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, extname, join } from 'node:path';
 
 test('app bootstrap does not manually show the main window', () => {
 	const file = readFileSync(new URL('./app.tsx', import.meta.url), 'utf8');
@@ -42,4 +43,43 @@ test('main window startup keeps a backend fallback for missed frontend ready han
 	assert.equal(libFile.includes('MAIN_WINDOW_SHOWN'), true);
 	assert.equal(libFile.includes('init-fallback'), true);
 	assert.equal(windowCommandsFile.includes('show_main_window_if_needed'), true);
+});
+
+test('main app router disables transition-based navigation updates during startup', () => {
+	const mainFile = readFileSync(new URL('../main.tsx', import.meta.url), 'utf8');
+
+	assert.equal(
+		mainFile.includes('<BrowserRouter unstable_useTransitions={false}>'),
+		true,
+	);
+});
+
+function collectRuntimeSourceFiles(dir: string): string[] {
+	return readdirSync(dir).flatMap((entry) => {
+		const fullPath = join(dir, entry);
+		const stats = statSync(fullPath);
+
+		if (stats.isDirectory()) {
+			return collectRuntimeSourceFiles(fullPath);
+		}
+
+		const extension = extname(fullPath);
+		if (!['.ts', '.tsx'].includes(extension) || fullPath.includes('.test.')) {
+			return [];
+		}
+
+		return [fullPath];
+	});
+}
+
+test('frontend runtime source does not emit console logs', () => {
+	const srcRoot = dirname(new URL('../main.tsx', import.meta.url).pathname);
+	const sourceFiles = collectRuntimeSourceFiles(srcRoot);
+	const filesWithConsole = sourceFiles.filter((file) =>
+		/console\.(log|warn|error|debug|info)\s*\(/.test(
+			readFileSync(file, 'utf8'),
+		),
+	);
+
+	assert.deepEqual(filesWithConsole, []);
 });

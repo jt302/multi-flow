@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { Suspense, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -30,15 +30,13 @@ function resolveActiveNav(pathname: string): NavId {
 	return resolveNavFromPath(pathname) ?? 'dashboard';
 }
 
-// 诊断用：记录路由切换导致的重挂载时机（判定假设 C）
-// 调用方须传 key={pathname} 让 React 在路径变化时重建此组件
-function RouteContainer({ pathname, children }: { pathname: string; children: React.ReactNode }) {
-	useEffect(() => {
-		console.log(`[diag:startup] t=${performance.now().toFixed(1)} route-container-remount`, { pathname });
-	// pathname 只在首次 mount 读取（配合外部 key={pathname} 使用）
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
-
+function RouteContainer({
+	pathname: _pathname,
+	children,
+}: {
+	pathname: string;
+	children: React.ReactNode;
+}) {
 	return (
 		<div className="flex h-full min-h-0 w-full min-w-0 flex-col p-2 sm:p-3 md:p-4 animate-in fade-in zoom-in-[0.98] duration-500 fill-mode-both">
 			{children}
@@ -46,15 +44,7 @@ function RouteContainer({ pathname, children }: { pathname: string; children: Re
 	);
 }
 
-// 诊断用：记录 Suspense fallback 的挂载/卸载时机（判定假设 C）
-function RouteSuspenseFallback({ pathname }: { pathname: string }) {
-	useEffect(() => {
-		console.log(`[diag:startup] t=${performance.now().toFixed(1)} suspense-fallback-mount`, { pathname });
-		return () => {
-			console.log(`[diag:startup] t=${performance.now().toFixed(1)} suspense-fallback-unmount`, { pathname });
-		};
-	}, [pathname]);
-
+function RouteSuspenseFallback({ pathname: _pathname }: { pathname: string }) {
 	return (
 		<div className="p-6 text-sm text-muted-foreground border border-border/40 bg-transparent rounded-xl flex items-center justify-center min-h-[50vh]">
 			<div className="flex flex-col items-center gap-3 opacity-60">
@@ -80,15 +70,6 @@ export function WorkspaceLayout() {
 		}),
 	);
 	const { t } = useTranslation('common');
-
-	// 诊断探针：记录 layout 挂载时机（只触发一次）
-	const mountedRef = useRef(false);
-	useEffect(() => {
-		if (!mountedRef.current) {
-			mountedRef.current = true;
-			console.log(`[diag:startup] t=${performance.now().toFixed(1)} layout-mounted`, { pathname: location.pathname, activeNav });
-		}
-	});
 
 	const profileNavigationIntent = useWorkspaceNavigationStore(
 		(state) => state.profileNavigationIntent,
@@ -192,13 +173,9 @@ export function WorkspaceLayout() {
 							activePath={location.pathname}
 							onNavChange={(nav) => {
 								const path = resolvePathFromNav(nav);
-								console.log(`[diag:startup] t=${performance.now().toFixed(1)} layout-on-nav-change`, { nav, resolvedPath: path });
 								navigate(path);
 							}}
-							onNavigate={(path) => {
-								console.log(`[diag:startup] t=${performance.now().toFixed(1)} layout-on-navigate`, { path });
-								navigate(path);
-							}}
+							onNavigate={(path) => navigate(path)}
 						/>
 					</Sidebar>
 

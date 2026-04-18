@@ -723,9 +723,7 @@ export function createCanvasStore(
 						});
 						scheduleCanvasSave(nextPositions, remappedEdges);
 						queueMicrotaskFn(() => {
-							void saveScript(newSteps).catch((error) =>
-								console.error('[canvas] node deletion save failed:', error),
-							);
+							void saveScript(newSteps).catch(() => {});
 						});
 						return;
 					}
@@ -760,9 +758,7 @@ export function createCanvasStore(
 				});
 				if (hasRemovals) {
 					queueMicrotaskFn(() => {
-						void saveScript(flushPendingEdits()).catch((error) =>
-							console.error('[canvas] edge removal save failed:', error),
-						);
+						void saveScript(flushPendingEdits()).catch(() => {});
 					});
 				}
 			},
@@ -814,9 +810,7 @@ export function createCanvasStore(
 					return { edges: nextEdges };
 				});
 				queueMicrotaskFn(() => {
-					void saveScript(flushPendingEdits()).catch((error) =>
-						console.error('[canvas] connect save failed:', error),
-					);
+					void saveScript(flushPendingEdits()).catch(() => {});
 				});
 			},
 			onNodeClick: (_event, node) => {

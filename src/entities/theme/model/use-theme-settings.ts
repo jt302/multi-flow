@@ -164,9 +164,7 @@ export function useThemeSettings() {
 
 	useEffect(() => {
 		const nativeTheme = themeMode === 'system' ? null : themeMode;
-		void setNativeAppTheme(nativeTheme).catch((error) => {
-			console.warn('sync native app theme failed', error);
-		});
+		void setNativeAppTheme(nativeTheme).catch(() => {});
 	}, [themeMode]);
 
 	const activePalette = useMemo<Palette>(() => {

@@ -183,11 +183,10 @@ export function useLogPanelState() {
 				if (!disposed) {
 					dispatch({ type: 'set_logs', logs: initial });
 				}
-			} catch (error) {
+			} catch {
 				if (!disposed) {
 					toast.error(t('errors.readFailed'));
 				}
-				console.error(error);
 			} finally {
 				if (!disposed) {
 					dispatch({ type: 'set_loading', value: false });
@@ -198,11 +197,10 @@ export function useLogPanelState() {
 				unlisten = await listenBackendLogs((event) => {
 					dispatch({ type: 'append_log', log: event });
 				});
-			} catch (error) {
+			} catch {
 				if (!disposed) {
 					toast.error(t('errors.subscribeFailed'));
 				}
-				console.error(error);
 			}
 		})();
 
@@ -259,9 +257,8 @@ export function useLogPanelState() {
 		dispatch({ type: 'set_opening_window', value: true });
 		try {
 			await openLogPanelWindow();
-		} catch (error) {
+		} catch {
 			toast.error(t('errors.openWindowFailed'));
-			console.error(error);
 		} finally {
 			dispatch({ type: 'set_opening_window', value: false });
 		}
@@ -280,9 +277,8 @@ export function useLogPanelState() {
 			toast.success(t('exported', { count: result.lineCount }), {
 				description: result.path,
 			});
-		} catch (error) {
+		} catch {
 			toast.error(t('errors.exportFailed'));
-			console.error(error);
 		} finally {
 			dispatch({ type: 'set_exporting', value: false });
 		}
