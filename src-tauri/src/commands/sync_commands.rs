@@ -160,6 +160,25 @@ pub fn arrange_profile_windows(
         .find(|item| item.id == payload.monitor_id)
         .ok_or_else(|| "目标显示器不存在".to_string())?;
 
+    // work_area 来自 Tauri，是物理像素坐标。Chromium Magic set_bounds 期望 DIP（逻辑像素）坐标。
+    // 除以 scale_factor 将物理像素转换为 DIP，使窗口落到正确屏幕的正确位置。
+    let scale = monitor.scale_factor.max(1.0);
+    let dip_work_area = WindowBounds {
+        x: (monitor.work_area.x as f64 / scale).round() as i32,
+        y: (monitor.work_area.y as f64 / scale).round() as i32,
+        width: (monitor.work_area.width as f64 / scale).round() as i32,
+        height: (monitor.work_area.height as f64 / scale).round() as i32,
+    };
+
+    logger::info(
+        "sync_cmd",
+        format!(
+            "arrange_profile_windows scale={scale} work_area={}x{}@({},{}) dip={}x{}@({},{})",
+            monitor.work_area.width, monitor.work_area.height, monitor.work_area.x, monitor.work_area.y,
+            dip_work_area.width, dip_work_area.height, dip_work_area.x, dip_work_area.y,
+        ),
+    );
+
     let profile_ids = normalize_profile_ids(payload.profile_ids.clone());
     let n = profile_ids.len();
     if n == 0 {
@@ -210,12 +229,13 @@ pub fn arrange_profile_windows(
         *guard = snapshot;
     }
 
-    // 计算初始 bounds（delta=0，无装饰补偿）
+    // 计算初始 bounds（delta=0，无装饰补偿），用 DIP 工作区
     let initial_bounds =
-        compute_arranged_bounds(&monitor.work_area, &payload, n, gap_x, gap_y, 0, 0)
+        compute_arranged_bounds(&dip_work_area, &payload, n, gap_x, gap_y, 0, 0)
             .map_err(|e| e)?;
 
     // 装饰补偿：对第一个 profile 做 pre-set + read-back，推导 delta_h / delta_w
+    // get_bounds 返回的是 DIP，和 dip_work_area 单位一致
     let (delta_w, delta_h) =
         if matches!(payload.chrome_decoration_compensation, ChromeDecorationCompensation::Auto) {
             let first_id = &profile_ids[0];
@@ -238,9 +258,9 @@ pub fn arrange_profile_windows(
             (0, 0)
         };
 
-    // 用 delta 重新计算所有 bounds（补偿后）
+    // 用 delta 重新计算所有 bounds（补偿后），仍用 DIP 工作区
     let final_bounds =
-        compute_arranged_bounds(&monitor.work_area, &payload, n, gap_x, gap_y, delta_w, delta_h)
+        compute_arranged_bounds(&dip_work_area, &payload, n, gap_x, gap_y, delta_w, delta_h)
             .map_err(|e| e)?;
 
     let mut items = Vec::with_capacity(n);
