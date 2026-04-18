@@ -53,7 +53,19 @@ export type LocalSyncTargetItem = ProfileWindowStateItem & {
 };
 
 export type SyncRole = 'none' | 'master' | 'slave';
-export type WindowArrangeMode = 'grid' | 'cascade';
+export type WindowArrangeMode = 'grid' | 'cascade' | 'main_with_sidebar';
+export type LastRowAlign = 'start' | 'center' | 'stretch';
+export type ArrangeFlow = 'row_major' | 'col_major';
+export type MainPosition = 'left' | 'right' | 'top' | 'bottom';
+export type ChromeDecorationCompensation = 'auto' | 'off';
+export type ArrangeOrder = 'selection' | 'name';
+
+export type EdgeInsets = {
+	top: number;
+	right: number;
+	bottom: number;
+	left: number;
+};
 export type SyncManagerConnectionStatus =
 	| 'idle'
 	| 'starting'
@@ -155,9 +167,26 @@ export type ArrangeWindowsPayload = {
 	profileIds: string[];
 	monitorId: string;
 	mode: WindowArrangeMode;
-	gap: number;
-	width: number;
-	height: number;
+	// grid 专用（fill 语义）
+	rows?: number | null;
+	columns?: number | null;
+	gapX?: number;
+	gapY?: number;
+	padding?: EdgeInsets;
+	lastRowAlign?: LastRowAlign;
+	flow?: ArrangeFlow;
+	// cascade 专用
+	width?: number | null;
+	height?: number | null;
+	cascadeStep?: number;
+	// mainWithSidebar 专用
+	mainRatio?: number;
+	mainPosition?: MainPosition;
+	// 通用
+	order?: ArrangeOrder;
+	chromeDecorationCompensation?: ChromeDecorationCompensation;
+	// 向后兼容
+	gap?: number;
 };
 
 export type EnsureSyncSidecarStartedResponse = {

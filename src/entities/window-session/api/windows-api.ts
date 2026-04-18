@@ -50,6 +50,10 @@ export async function arrangeProfileWindows(
 	return tauriInvoke<BatchActionResponse>('arrange_profile_windows', { payload });
 }
 
+export async function restoreLastArrangement(): Promise<BatchActionResponse> {
+	return tauriInvoke<BatchActionResponse>('restore_last_arrangement');
+}
+
 export async function batchRestoreProfileWindows(profileIds: string[]): Promise<BatchActionResponse> {
 	return tauriInvoke<BatchActionResponse>('batch_restore_profile_windows', {
 		payload: { profileIds },
