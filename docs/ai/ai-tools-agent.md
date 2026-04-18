@@ -65,6 +65,10 @@
 
 ## 2. 工具选择决策树
 
+> ⚠️ **Magic 优先策略（2026-04-18 起）**：CDP 与 Magic Controller 功能重叠时必须优先使用 `magic_*` 工具。以下 14 个 CDP 工具已在工具注册中禁用，Agent 看不到它们：
+> `cdp_navigate` / `cdp_reload` / `cdp_go_back` / `cdp_go_forward` / `cdp_click` / `cdp_scroll_to` / `cdp_wait_for_page_load` / `cdp_open_new_tab` / `cdp_get_all_tabs` / `cdp_switch_tab` / `cdp_close_tab_by_target` / `cdp_press_key` / `cdp_shortcut` / `cdp_get_current_url`。
+> 替代表见本文件 `### CDP — 页面操作` 章节开头的"已禁用工具 → Magic 替代对照"。下方决策树出现这些工具名的描述属于历史内容，实际选择时请读取 Magic 等价工具。
+
 根据任务需求，按以下路径选择工具：
 
 ```
@@ -798,34 +802,51 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 2   | `print`         | 输出日志信息（支持 info/warn/error/debug 级别） |
 | 3   | `submit_result` | 提交最终结果并结束执行                          |
 
-### CDP — 页面操作（56 个）
+### CDP — 页面操作（42 个启用 + 14 个已禁用）
+
+> ⚠️ **已禁用工具 → Magic 替代对照**（Agent 实际看不到这 14 个工具，下表中标记 🚫 的项都已在 `tool_defs.rs::cdp_tools()` 中行注释）：
+>
+> | 🚫 已禁用 CDP 工具 | ✅ 改用 Magic 工具 |
+> | --- | --- |
+> | `cdp_navigate` | `magic_navigate_to` |
+> | `cdp_reload` | `magic_click_element`(target=reload_button) |
+> | `cdp_go_back` / `cdp_go_forward` | `magic_click_element`(target=back_button / forward_button) |
+> | `cdp_click` | `magic_click_dom` |
+> | `cdp_scroll_to` | `magic_scroll` |
+> | `cdp_wait_for_page_load` | `magic_get_page_info` |
+> | `cdp_open_new_tab` | `magic_open_new_tab` |
+> | `cdp_get_all_tabs` | `magic_get_tabs` / `magic_get_active_tabs` |
+> | `cdp_switch_tab` | `magic_activate_tab` / `magic_activate_tab_by_index` |
+> | `cdp_close_tab_by_target` | `magic_close_tab` |
+> | `cdp_press_key` / `cdp_shortcut` | `magic_send_keys` |
+> | `cdp_get_current_url` | `magic_get_page_info` |
 
 | #   | 工具名                         | 说明                                           |
 | --- | ------------------------------ | ---------------------------------------------- |
-| 1   | `cdp_navigate`                 | 导航到指定 URL                                 |
-| 2   | `cdp_reload`                   | 重新加载页面（可选忽略缓存）                   |
-| 3   | `cdp_go_back`                  | 浏览器后退（可指定步数）                       |
-| 4   | `cdp_go_forward`               | 浏览器前进（可指定步数）                       |
-| 5   | `cdp_click`                    | 点击页面元素                                   |
+| 1   | `cdp_navigate`                 | 🚫 已禁用 → 改用 `magic_navigate_to`           |
+| 2   | `cdp_reload`                   | 🚫 已禁用 → 改用 `magic_click_element`(target=reload_button)      |
+| 3   | `cdp_go_back`                  | 🚫 已禁用 → 改用 `magic_click_element`(target=back_button)        |
+| 4   | `cdp_go_forward`               | 🚫 已禁用 → 改用 `magic_click_element`(target=forward_button)     |
+| 5   | `cdp_click`                    | 🚫 已禁用 → 改用 `magic_click_dom`                                |
 | 6   | `cdp_type`                     | 聚焦元素并通过 CDP Input.insertText 输入文本   |
 | 7   | `cdp_set_input_value`          | 直接设置 input value 并触发 input/change 事件  |
 | 8   | `cdp_input_text`               | 多来源文本输入（内联/文件/变量）               |
 | 9   | `cdp_get_text`                 | 获取元素文本内容                               |
 | 10  | `cdp_get_attribute`            | 获取元素 HTML 属性值                           |
 | 11  | `cdp_wait_for_selector`        | 等待元素出现在 DOM 中                          |
-| 12  | `cdp_wait_for_page_load`       | 等待页面完全加载                               |
-| 13  | `cdp_scroll_to`                | 滚动到元素或坐标位置                           |
+| 12  | `cdp_wait_for_page_load`       | 🚫 已禁用 → 改用 `magic_get_page_info`                            |
+| 13  | `cdp_scroll_to`                | 🚫 已禁用 → 改用 `magic_scroll`                                   |
 | 14  | `cdp_screenshot`               | 截取页面截图（支持视觉分析）                   |
 | 15  | `cdp_execute_js`               | 执行 JavaScript 并返回结果                     |
-| 16  | `cdp_open_new_tab`             | 打开新标签页                                   |
-| 17  | `cdp_get_all_tabs`             | 获取所有标签页列表                             |
-| 18  | `cdp_switch_tab`               | 切换到指定标签页                               |
-| 19  | `cdp_close_tab_by_target`      | 关闭指定标签页                                 |
+| 16  | `cdp_open_new_tab`             | 🚫 已禁用 → 改用 `magic_open_new_tab`                             |
+| 17  | `cdp_get_all_tabs`             | 🚫 已禁用 → 改用 `magic_get_tabs` / `magic_get_active_tabs`       |
+| 18  | `cdp_switch_tab`               | 🚫 已禁用 → 改用 `magic_activate_tab` / `magic_activate_tab_by_index` |
+| 19  | `cdp_close_tab_by_target`      | 🚫 已禁用 → 改用 `magic_close_tab`                                |
 | 20  | `cdp_upload_file`              | 为 file input 设置文件                         |
 | 21  | `cdp_download_file`            | 设置浏览器下载路径                             |
 | 22  | `cdp_clipboard`                | 剪贴板操作（复制/粘贴/全选）                   |
-| 23  | `cdp_press_key`                | 模拟单个按键                                   |
-| 24  | `cdp_shortcut`                 | 模拟键盘快捷键组合                             |
+| 23  | `cdp_press_key`                | 🚫 已禁用 → 改用 `magic_send_keys`                                |
+| 24  | `cdp_shortcut`                 | 🚫 已禁用 → 改用 `magic_send_keys`                                |
 | 25  | `cdp`                          | 调用任意 CDP 方法（低级，需了解协议）          |
 | 26  | `cdp_get_browser_version`      | 获取浏览器版本信息                             |
 | 27  | `cdp_get_browser_command_line` | 获取浏览器启动命令行参数                       |
@@ -841,7 +862,7 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 37  | `cdp_set_local_storage`        | 写入 localStorage                              |
 | 38  | `cdp_get_session_storage`      | 读取 sessionStorage                            |
 | 39  | `cdp_clear_storage`            | ⚠️ 清除存储数据（localStorage/sessionStorage） |
-| 40  | `cdp_get_current_url`          | 获取当前 URL                                   |
+| 40  | `cdp_get_current_url`          | 🚫 已禁用 → 改用 `magic_get_page_info`                            |
 | 41  | `cdp_get_page_source`          | 获取 HTML 源码                                 |
 | 42  | `cdp_wait_for_navigation`      | 等待导航完成                                   |
 | 43  | `cdp_emulate_device`           | 模拟移动设备（viewport/UA/touch）              |

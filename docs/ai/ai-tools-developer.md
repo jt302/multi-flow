@@ -12,7 +12,7 @@
 - [2. 架构说明](#2-架构说明)
 - [3. 工具分类详细参考](#3-工具分类详细参考)
   - [3.1 Utility 工具（4 个）](#31-utility-工具4-个)
-  - [3.2 CDP 工具（56 个）](#32-cdp-工具56-个)
+  - [3.2 CDP 工具（42 个启用 + 14 个已禁用）](#32-cdp-工具42-个启用--14-个已禁用)
   - [3.3 Magic Controller 工具（66 个）](#33-magic-controller-工具66-个)
   - [3.4 App Data 工具（26 个）](#34-app-data-工具26-个)
   - [3.5 Auto 工具（19 个）](#35-auto-工具19-个)
@@ -229,9 +229,30 @@ pub struct ToolResult {
 
 ---
 
-### 3.2 CDP 工具（56 个）
+### 3.2 CDP 工具（42 个启用 + 14 个已禁用）
 
 通过 Chrome DevTools Protocol 操控浏览器页面。所有带 `selector` 参数的工具均支持 `selector_type` 可选参数（`css` / `xpath` / `text`，默认 `css`）。
+
+> ⚠️ **Magic 优先策略（2026-04-18 起）**：以下 14 个 CDP 工具已在 `src-tauri/src/services/ai_tools/tool_defs.rs::cdp_tools()` 中被行注释禁用，Agent 不会看到它们。相同功能请调用 Magic Controller 等价工具（更稳定、Chromium 原生实现）：
+>
+> | 已禁用 CDP 工具             | 请改用 Magic 工具                                    |
+> | --------------------------- | ---------------------------------------------------- |
+> | `cdp_navigate`              | `magic_navigate_to`                                  |
+> | `cdp_reload`                | `magic_click_element`（target=`reload_button`）      |
+> | `cdp_go_back`               | `magic_click_element`（target=`back_button`）        |
+> | `cdp_go_forward`            | `magic_click_element`（target=`forward_button`）     |
+> | `cdp_click`                 | `magic_click_dom`                                    |
+> | `cdp_scroll_to`             | `magic_scroll`                                       |
+> | `cdp_wait_for_page_load`    | `magic_get_page_info`                                |
+> | `cdp_open_new_tab`          | `magic_open_new_tab`                                 |
+> | `cdp_get_all_tabs`          | `magic_get_tabs` / `magic_get_active_tabs`           |
+> | `cdp_switch_tab`            | `magic_activate_tab` / `magic_activate_tab_by_index` |
+> | `cdp_close_tab_by_target`   | `magic_close_tab`                                    |
+> | `cdp_press_key`             | `magic_send_keys`                                    |
+> | `cdp_shortcut`              | `magic_send_keys`                                    |
+> | `cdp_get_current_url`       | `magic_get_page_info`                                |
+>
+> 恢复方式：在 `tool_defs.rs` 的 `cdp_tools()` 中取消对应 `// TODO(magic-migration):` 区块的行注释即可重新启用。下面列出的这 14 个工具定义保留供文档参考，实际运行时 Agent 无法调用。
 
 #### 导航（Navigation）
 

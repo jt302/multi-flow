@@ -123,60 +123,65 @@ fn cdp_tools() -> Vec<Value> {
     });
 
     vec![
-        tool(
-            "cdp_navigate",
-            "导航到指定 URL",
-            json!({
-                "type": "object",
-                "properties": {
-                    "url": { "type": "string", "description": "目标 URL" },
-                    "output_key": { "type": "string", "description": "将 URL 存入此变量名" }
-                },
-                "required": ["url"]
-            }),
-        ),
-        tool(
-            "cdp_reload",
-            "重新加载当前页面",
-            json!({
-                "type": "object",
-                "properties": {
-                    "ignore_cache": { "type": "boolean", "description": "是否忽略缓存，默认 false" }
-                }
-            }),
-        ),
-        tool(
-            "cdp_go_back",
-            "浏览器后退",
-            json!({
-                "type": "object",
-                "properties": {
-                    "steps": { "type": "integer", "description": "后退步数，默认 1" }
-                }
-            }),
-        ),
-        tool(
-            "cdp_go_forward",
-            "浏览器前进",
-            json!({
-                "type": "object",
-                "properties": {
-                    "steps": { "type": "integer", "description": "前进步数，默认 1" }
-                }
-            }),
-        ),
-        tool(
-            "cdp_click",
-            "点击页面元素",
-            json!({
-                "type": "object",
-                "properties": {
-                    "selector": { "type": "string", "description": "元素选择器" },
-                    "selector_type": selector_type_prop
-                },
-                "required": ["selector"]
-            }),
-        ),
+        // TODO(magic-migration): 已被 magic_navigate_to 取代，暂时禁用；如需恢复取消下方注释
+        // tool(
+        // "cdp_navigate",
+        // "导航到指定 URL",
+        // json!({
+        // "type": "object",
+        // "properties": {
+        // "url": { "type": "string", "description": "目标 URL" },
+        // "output_key": { "type": "string", "description": "将 URL 存入此变量名" }
+        // },
+        // "required": ["url"]
+        // }),
+        // ),
+        // TODO(magic-migration): 已被 magic_click_element(target=reload_button) 取代，暂时禁用；如需恢复取消下方注释
+        // tool(
+        // "cdp_reload",
+        // "重新加载当前页面",
+        // json!({
+        // "type": "object",
+        // "properties": {
+        // "ignore_cache": { "type": "boolean", "description": "是否忽略缓存，默认 false" }
+        // }
+        // }),
+        // ),
+        // TODO(magic-migration): 已被 magic_click_element(target=back_button) 取代，暂时禁用；如需恢复取消下方注释
+        // tool(
+        // "cdp_go_back",
+        // "浏览器后退",
+        // json!({
+        // "type": "object",
+        // "properties": {
+        // "steps": { "type": "integer", "description": "后退步数，默认 1" }
+        // }
+        // }),
+        // ),
+        // TODO(magic-migration): 已被 magic_click_element(target=forward_button) 取代，暂时禁用；如需恢复取消下方注释
+        // tool(
+        // "cdp_go_forward",
+        // "浏览器前进",
+        // json!({
+        // "type": "object",
+        // "properties": {
+        // "steps": { "type": "integer", "description": "前进步数，默认 1" }
+        // }
+        // }),
+        // ),
+        // TODO(magic-migration): 已被 magic_click_dom 取代，暂时禁用；如需恢复取消下方注释
+        // tool(
+        // "cdp_click",
+        // "点击页面元素",
+        // json!({
+        // "type": "object",
+        // "properties": {
+        // "selector": { "type": "string", "description": "元素选择器" },
+        // "selector_type": selector_type_prop
+        // },
+        // "required": ["selector"]
+        // }),
+        // ),
         tool(
             "cdp_type",
             "聚焦元素并输入文本（通过 CDP Input.insertText）",
@@ -260,29 +265,31 @@ fn cdp_tools() -> Vec<Value> {
                 "required": ["selector"]
             }),
         ),
-        tool(
-            "cdp_wait_for_page_load",
-            "等待页面完全加载（readyState = complete）",
-            json!({
-                "type": "object",
-                "properties": {
-                    "timeout_ms": { "type": "integer", "description": "超时毫秒数，默认 30000" }
-                }
-            }),
-        ),
-        tool(
-            "cdp_scroll_to",
-            "滚动页面到指定元素或坐标位置",
-            json!({
-                "type": "object",
-                "properties": {
-                    "selector": { "type": "string", "description": "元素选择器（可选，与 x/y 二选一）" },
-                    "selector_type": selector_type_prop,
-                    "x": { "type": "integer", "description": "横向滚动坐标" },
-                    "y": { "type": "integer", "description": "纵向滚动坐标" }
-                }
-            }),
-        ),
+        // TODO(magic-migration): 已被 magic_get_page_info 取代，暂时禁用；如需恢复取消下方注释
+        // tool(
+        // "cdp_wait_for_page_load",
+        // "等待页面完全加载（readyState = complete）",
+        // json!({
+        // "type": "object",
+        // "properties": {
+        // "timeout_ms": { "type": "integer", "description": "超时毫秒数，默认 30000" }
+        // }
+        // }),
+        // ),
+        // TODO(magic-migration): 已被 magic_scroll 取代，暂时禁用；如需恢复取消下方注释
+        // tool(
+        // "cdp_scroll_to",
+        // "滚动页面到指定元素或坐标位置",
+        // json!({
+        // "type": "object",
+        // "properties": {
+        // "selector": { "type": "string", "description": "元素选择器（可选，与 x/y 二选一）" },
+        // "selector_type": selector_type_prop,
+        // "x": { "type": "integer", "description": "横向滚动坐标" },
+        // "y": { "type": "integer", "description": "纵向滚动坐标" }
+        // }
+        // }),
+        // ),
         tool(
             "cdp_screenshot",
             "截取当前页面截图（自动保存文件，支持视觉分析）",
@@ -308,50 +315,54 @@ fn cdp_tools() -> Vec<Value> {
                 }
             }),
         ),
-        tool(
-            "cdp_open_new_tab",
-            "在浏览器中打开新标签页",
-            json!({
-                "type": "object",
-                "properties": {
-                    "url": { "type": "string", "description": "要打开的 URL" },
-                    "output_key": { "type": "string", "description": "将新标签页的 targetId 存入此变量名" }
-                },
-                "required": ["url"]
-            }),
-        ),
-        tool(
-            "cdp_get_all_tabs",
-            "获取所有标签页信息（返回 JSON 数组）",
-            json!({
-                "type": "object",
-                "properties": {
-                    "output_key": { "type": "string", "description": "将标签页列表 JSON 存入此变量名" }
-                }
-            }),
-        ),
-        tool(
-            "cdp_switch_tab",
-            "切换到指定标签页",
-            json!({
-                "type": "object",
-                "properties": {
-                    "target_id": { "type": "string", "description": "目标标签页的 targetId" }
-                },
-                "required": ["target_id"]
-            }),
-        ),
-        tool(
-            "cdp_close_tab_by_target",
-            "关闭指定标签页",
-            json!({
-                "type": "object",
-                "properties": {
-                    "target_id": { "type": "string", "description": "要关闭的标签页 targetId" }
-                },
-                "required": ["target_id"]
-            }),
-        ),
+        // TODO(magic-migration): 已被 magic_open_new_tab 取代，暂时禁用；如需恢复取消下方注释
+        // tool(
+        // "cdp_open_new_tab",
+        // "在浏览器中打开新标签页",
+        // json!({
+        // "type": "object",
+        // "properties": {
+        // "url": { "type": "string", "description": "要打开的 URL" },
+        // "output_key": { "type": "string", "description": "将新标签页的 targetId 存入此变量名" }
+        // },
+        // "required": ["url"]
+        // }),
+        // ),
+        // TODO(magic-migration): 已被 magic_get_tabs / magic_get_active_tabs 取代，暂时禁用；如需恢复取消下方注释
+        // tool(
+        // "cdp_get_all_tabs",
+        // "获取所有标签页信息（返回 JSON 数组）",
+        // json!({
+        // "type": "object",
+        // "properties": {
+        // "output_key": { "type": "string", "description": "将标签页列表 JSON 存入此变量名" }
+        // }
+        // }),
+        // ),
+        // TODO(magic-migration): 已被 magic_activate_tab 取代，暂时禁用；如需恢复取消下方注释
+        // tool(
+        // "cdp_switch_tab",
+        // "切换到指定标签页",
+        // json!({
+        // "type": "object",
+        // "properties": {
+        // "target_id": { "type": "string", "description": "目标标签页的 targetId" }
+        // },
+        // "required": ["target_id"]
+        // }),
+        // ),
+        // TODO(magic-migration): 已被 magic_close_tab 取代，暂时禁用；如需恢复取消下方注释
+        // tool(
+        // "cdp_close_tab_by_target",
+        // "关闭指定标签页",
+        // json!({
+        // "type": "object",
+        // "properties": {
+        // "target_id": { "type": "string", "description": "要关闭的标签页 targetId" }
+        // },
+        // "required": ["target_id"]
+        // }),
+        // ),
         tool(
             "cdp_upload_file",
             "向文件 input 元素设置文件（仅支持 CSS 选择器）",
@@ -387,29 +398,31 @@ fn cdp_tools() -> Vec<Value> {
                 "required": ["action"]
             }),
         ),
-        tool(
-            "cdp_press_key",
-            "模拟按键（单个键）",
-            json!({
-                "type": "object",
-                "properties": {
-                    "key": { "type": "string", "description": "键名，如 Enter, Tab, Escape, ArrowDown 等" }
-                },
-                "required": ["key"]
-            }),
-        ),
-        tool(
-            "cdp_shortcut",
-            "模拟键盘快捷键组合",
-            json!({
-                "type": "object",
-                "properties": {
-                    "modifiers": { "type": "array", "items": { "type": "string", "enum": ["alt", "ctrl", "meta", "shift"] }, "description": "修饰键列表" },
-                    "key": { "type": "string", "description": "主键名" }
-                },
-                "required": ["modifiers", "key"]
-            }),
-        ),
+        // TODO(magic-migration): 已被 magic_send_keys 取代，暂时禁用；如需恢复取消下方注释
+        // tool(
+        // "cdp_press_key",
+        // "模拟按键（单个键）",
+        // json!({
+        // "type": "object",
+        // "properties": {
+        // "key": { "type": "string", "description": "键名，如 Enter, Tab, Escape, ArrowDown 等" }
+        // },
+        // "required": ["key"]
+        // }),
+        // ),
+        // TODO(magic-migration): 已被 magic_send_keys 取代，暂时禁用；如需恢复取消下方注释
+        // tool(
+        // "cdp_shortcut",
+        // "模拟键盘快捷键组合",
+        // json!({
+        // "type": "object",
+        // "properties": {
+        // "modifiers": { "type": "array", "items": { "type": "string", "enum": ["alt", "ctrl", "meta", "shift"] }, "description": "修饰键列表" },
+        // "key": { "type": "string", "description": "主键名" }
+        // },
+        // "required": ["modifiers", "key"]
+        // }),
+        // ),
         tool(
             "cdp_input_text",
             "多来源文本输入（内联文本/文件/变量）",
@@ -593,16 +606,17 @@ fn cdp_tools() -> Vec<Value> {
             }),
         ),
         // ── 页面信息 & 导航 (3) ──
-        tool(
-            "cdp_get_current_url",
-            "获取当前页面 URL",
-            json!({
-                "type": "object",
-                "properties": {
-                    "output_key": { "type": "string", "description": "将当前 URL 存入此变量名" }
-                }
-            }),
-        ),
+        // TODO(magic-migration): 已被 magic_get_page_info 取代，暂时禁用；如需恢复取消下方注释
+        // tool(
+        // "cdp_get_current_url",
+        // "获取当前页面 URL",
+        // json!({
+        // "type": "object",
+        // "properties": {
+        // "output_key": { "type": "string", "description": "将当前 URL 存入此变量名" }
+        // }
+        // }),
+        // ),
         tool(
             "cdp_get_page_source",
             "获取页面或指定元素的 HTML 源码",
