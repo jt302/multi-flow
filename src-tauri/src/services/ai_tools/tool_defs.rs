@@ -1721,7 +1721,7 @@ fn app_tools() -> Vec<Value> {
             json!({
                 "type": "object",
                 "properties": {
-                    "profile_id": { "type": "string", "description": "要删除的 Profile ID" }
+                    "profile_id": { "type": "string", "description": "要删除的 Profile ID，格式为 pf_NNNNNN" }
                 },
                 "required": ["profile_id"]
             }),
@@ -1732,7 +1732,7 @@ fn app_tools() -> Vec<Value> {
             json!({
                 "type": "object",
                 "properties": {
-                    "profile_id": { "type": "string", "description": "Profile ID" }
+                    "profile_id": { "type": "string", "description": "Profile ID，格式为 pf_NNNNNN（见系统提示[当前浏览器环境]区块中的 Profile ID 行）。不知道 ID 时先调 app_get_current_profile 或 app_list_profiles。禁止传占位字符串如 current、active" }
                 },
                 "required": ["profile_id"]
             }),
@@ -1743,7 +1743,7 @@ fn app_tools() -> Vec<Value> {
             json!({
                 "type": "object",
                 "properties": {
-                    "profile_id": { "type": "string", "description": "Profile ID" }
+                    "profile_id": { "type": "string", "description": "Profile ID，格式为 pf_NNNNNN（见系统提示[当前浏览器环境]区块中的 Profile ID 行）" }
                 },
                 "required": ["profile_id"]
             }),
@@ -1762,7 +1762,7 @@ fn app_tools() -> Vec<Value> {
             json!({
                 "type": "object",
                 "properties": {
-                    "profile_id": { "type": "string", "description": "目标 Profile ID，必须已关联到当前聊天会话" }
+                    "profile_id": { "type": "string", "description": "目标 Profile ID，格式为 pf_NNNNNN，必须已关联到当前聊天会话。不知道 ID 时先调 app_get_current_profile 或 app_list_profiles" }
                 },
                 "required": ["profile_id"]
             }),

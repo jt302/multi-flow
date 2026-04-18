@@ -675,6 +675,9 @@ impl ChatExecutionService {
                         name: None,
                     });
                     // 执行每个工具
+                    // 本轮内若启动工具（app_start_profile / app_set_chat_active_profile）失败，
+                    // 后续依赖浏览器会话的 cdp_* / magic_* 工具直接跳过，避免无效执行。
+                    let mut round_startup_failed: Option<String> = None;
                     for tool_call in &calls {
                         // 检查取消
                         {
@@ -682,6 +685,38 @@ impl ChatExecutionService {
                             if tokens.get(session_id).copied().unwrap_or(false) {
                                 cancelled = true;
                                 break;
+                            }
+                        }
+
+                        // 若本轮内启动工具已失败，跳过依赖浏览器会话的工具
+                        if let Some(ref failed_name) = round_startup_failed {
+                            let cat =
+                                crate::services::ai_tools::tool_category(&tool_call.name);
+                            if matches!(cat, "cdp" | "magic") {
+                                let skip_text = format!(
+                                    "skipped: {} failed earlier in this round. \
+                                     Fix the startup error before issuing browser tools.",
+                                    failed_name
+                                );
+                                let tool_msg = chat_service
+                                    .add_message(
+                                        session_id, "tool", None, None,
+                                        Some(tool_call.id.clone()),
+                                        Some(tool_call.name.clone()),
+                                        serde_json::to_string(&tool_call.arguments).ok(),
+                                        Some(skip_text.clone()),
+                                        Some("skipped".to_string()),
+                                        Some(0i64),
+                                        None, None,
+                                    )
+                                    .await
+                                    .map_err(|e| e.to_string())?;
+                                emit_message(app, session_id, &tool_msg);
+                                messages.push(ChatMessage::tool_result(
+                                    &tool_call.id,
+                                    &skip_text,
+                                ));
+                                continue;
                             }
                         }
 
@@ -821,9 +856,29 @@ impl ChatExecutionService {
                             let sig = format!(
                                 "{}:{}",
                                 tool_call.name,
-                                &result_text[..result_text.len().min(120)]
+                                // 按 UTF-8 字符边界安全截断，避免 CJK 多字节字符跨边界 panic
+                                {
+                                    let max = 120;
+                                    if result_text.len() <= max {
+                                        result_text.as_str()
+                                    } else {
+                                        let mut end = max;
+                                        while !result_text.is_char_boundary(end) {
+                                            end -= 1;
+                                        }
+                                        &result_text[..end]
+                                    }
+                                }
                             );
                             *error_signature_repeats.entry(sig).or_insert(0) += 1;
+                            // 启动类工具失败：标记本轮，后续 cdp_*/magic_* 将被短路跳过
+                            if matches!(
+                                tool_call.name.as_str(),
+                                "app_start_profile" | "app_set_chat_active_profile"
+                            ) && round_startup_failed.is_none()
+                            {
+                                round_startup_failed = Some(tool_call.name.clone());
+                            }
                         } else {
                             consecutive_tool_failures.remove(&tool_call.name);
                         }

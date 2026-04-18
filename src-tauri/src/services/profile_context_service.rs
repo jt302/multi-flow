@@ -148,6 +148,7 @@ pub fn format_for_prompt(contexts: &[ProfileEnvironmentContext], locale: &str) -
         };
 
         out.push_str(&format!("### {}{}\n", ctx.profile_name, active_marker));
+        out.push_str(&format!("- Profile ID: `{}`\n", ctx.profile_id));
         out.push_str(&format!(
             "- {}: {}\n",
             if zh { "状态" } else { "Status" },

@@ -545,6 +545,8 @@ app_list_device_presets(platform="android")
 - `app_start_profile` 启动浏览器需要几秒钟，建议配合 `wait` 或 `cdp_wait_for_page_load` 使用。
 - 在多环境聊天会话中，先调用 `app_set_chat_active_profile(profile_id)`，再执行 `cdp_*` / `magic_*`。
 - `app_get_current_profile` 返回当前工具目标环境，适合在脚本或聊天中确认当前上下文。
+- **Profile ID 获取方式**：在 AI Chat 中，系统提示的"当前浏览器环境"区块会列出已关联环境的 `Profile ID`（格式 `pf_NNNNNN`）。若不确定 ID，调用 `app_get_current_profile` 或 `app_list_profiles` 查询，禁止传占位字符串（如 `current`、`active`）。
+- **工具失败后的处理**：若工具返回 `tool error:` 开头的错误，必须先用自然语言说明原因，下一轮只发起一个诊断工具（如 `app_get_current_profile` / `app_list_profiles`），不得在同一轮继续发起依赖该工具成功的后续操作。
 - `app_list_proxies` 的 `protocol` 可选值：`http`、`https`、`socks5`。
 - `app_create_group` / `app_update_group` 的 `browser_bg_color` 参数为十六进制颜色值，如 `#FF5733`。
 - `toolbar_label_mode` 可选值：`id_only`、`group_name_and_id`。

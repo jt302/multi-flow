@@ -508,6 +508,25 @@ fn build_chat_base_context(categories: &[String], locale: &str) -> String {
         BASE_CAPTCHA_CHAT_ZH
     });
     ctx.push_str("\n\n");
+    ctx.push_str(if en {
+        BASE_MULTI_PROFILE_EN
+    } else {
+        BASE_MULTI_PROFILE_ZH
+    });
+    ctx.push_str("\n\n");
+    ctx.push_str(if en {
+        "[Tool Failure Handling]\n\
+         When a tool returns a result starting with `tool error:`, STOP the current plan and explain \
+         the failure in plain language. In the next round issue at most ONE diagnostic or remediation \
+         tool call (e.g. app_get_current_profile / app_list_profiles / app_get_running_profiles). \
+         Never issue follow-up tools that depend on a previously failed tool's success in the same round."
+    } else {
+        "【工具失败处理】\n\
+         当工具返回以 `tool error:` 开头的结果时，必须立即停止当前计划，用自然语言说明失败原因。\
+         下一轮只发起至多 1 个用于诊断或补救的工具调用（如 app_get_current_profile / app_list_profiles / app_get_running_profiles）。\
+         严禁在同一轮内继续发起依赖该失败工具成功的后续工具。"
+    });
+    ctx.push_str("\n\n");
     ctx.push_str(&anti_loop_rules(locale));
     ctx.push_str("\n\n");
     ctx.push_str(escalation_decision_tree(locale));

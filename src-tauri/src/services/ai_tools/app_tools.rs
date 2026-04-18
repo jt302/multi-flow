@@ -14,6 +14,19 @@ use crate::state::AppState;
 
 use super::{ToolContext, ToolResult};
 
+/// 将 profile_id 参数规整：若收到占位字符串（current / active / self）则自动解析为当前会话绑定的环境 ID
+fn resolve_profile_id_arg(raw: String, ctx: &ToolContext<'_>) -> Result<String, String> {
+    match raw.to_lowercase().as_str() {
+        "current" | "active" | "self" | "me" | "" => ctx
+            .current_profile_id
+            .ok_or_else(|| {
+                "当前会话未绑定工具目标环境，无法解析占位 profile_id。请先在聊天头部选择环境或调用 app_set_chat_active_profile".to_string()
+            })
+            .map(|s| s.to_string()),
+        _ => Ok(raw),
+    }
+}
+
 /// 执行 app_* 类工具
 pub async fn execute(
     name: &str,
@@ -124,7 +137,7 @@ pub async fn execute(
         }
 
         "app_start_profile" => {
-            let profile_id = require_str(&args, "profile_id")?;
+            let profile_id = resolve_profile_id_arg(require_str(&args, "profile_id")?, ctx)?;
             // 复用 UI 的完整启动流程：指纹解析、代理设置、Cookie/扩展状态加载、
             // mark_profile_running(true)、save_session 等
             let resp = crate::commands::profile_commands::do_open_profile(
@@ -140,7 +153,7 @@ pub async fn execute(
         }
 
         "app_stop_profile" => {
-            let profile_id = require_str(&args, "profile_id")?;
+            let profile_id = resolve_profile_id_arg(require_str(&args, "profile_id")?, ctx)?;
             // 复用 UI 的完整关闭流程：Cookie 快照、mark_profile_running(false)、
             // delete_session、proxy runtime 清理
             let profile =
@@ -159,7 +172,7 @@ pub async fn execute(
         }
 
         "app_set_chat_active_profile" => {
-            let profile_id = require_str(&args, "profile_id")?;
+            let profile_id = resolve_profile_id_arg(require_str(&args, "profile_id")?, ctx)?;
             let chat_svc = state
                 .chat_service
                 .lock()
