@@ -124,6 +124,26 @@ test('basic settings section clears browser color errors when leaving custom mod
 
 	assert.equal(file.includes("clearErrors('browserBgColor')"), true);
 	assert.equal(file.includes("shouldValidate: nextMode === 'custom'"), true);
+	});
+
+test('basic settings section uses compact platform cards without hint copy', () => {
+		const file = readFileSync(new URL('./basic-settings-section.tsx', import.meta.url), 'utf8');
+
+		assert.equal(file.includes('grid-cols-[repeat(auto-fit,minmax(150px,1fr))]'), true);
+		assert.equal(file.includes('<PlatformGlyph'), true);
+		assert.equal(file.includes('size="xl"'), true);
+		assert.equal(file.includes('value.hint'), false);
+	});
+
+test('platform glyph supports extra large size for frameless platform cards', () => {
+	const file = readFileSync(
+		new URL('../../../entities/profile/ui/platform-mark.tsx', import.meta.url),
+		'utf8',
+	);
+
+	assert.equal(file.includes("size?: 'sm' | 'md' | 'lg' | 'xl'"), true);
+	assert.equal(file.includes('xl: {'), true);
+	assert.equal(file.includes("image: 'h-7 w-7'"), true);
 });
 
 test('plugins page exposes proxy selector for download and update actions', () => {
