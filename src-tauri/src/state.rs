@@ -29,6 +29,7 @@ use crate::services::proxy_service::ProxyService;
 use crate::services::resource_service::ResourceService;
 use crate::services::mcp::McpManager;
 use crate::services::sync_manager_service::SyncManagerService;
+use crate::services::host_locale_service::HostLocaleService;
 
 const DEV_APP_DATA_DIR_NAME: &str = "dev";
 
@@ -68,6 +69,8 @@ pub struct AppState {
     pub require_real_engine: bool,
     /// 上一次窗口排布前的 bounds 快照，供"撤销上次"使用
     pub last_arrangement_snapshot: Mutex<Vec<ArrangementSnapshotItem>>,
+    /// 本机公网 IP 地理建议（无代理场景下用于自动填充语言 / 时区）
+    pub host_locale_service: Arc<HostLocaleService>,
 }
 
 impl AppState {
@@ -188,6 +191,7 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
         mcp_manager,
         require_real_engine: true,
         last_arrangement_snapshot: Mutex::new(Vec::new()),
+        host_locale_service: Arc::new(HostLocaleService::new()),
     };
     let affected = runtime_guard::reconcile_runtime_state(&app_state)?;
     logger::info(

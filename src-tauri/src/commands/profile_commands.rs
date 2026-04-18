@@ -1604,6 +1604,7 @@ pub(crate) fn do_open_profile(
         &engine_manager,
     )?;
     let device_preset_service = state.lock_device_preset_service();
+    let host_locale = state.host_locale_service.get_cached();
     let mut launch_options = resolve_launch_options(
         &device_preset_service,
         profile_id,
@@ -1614,6 +1615,7 @@ pub(crate) fn do_open_profile(
         daemon_proxy_server.clone(),
         geoip_database,
         Some(resolved_browser_version.as_str()),
+        host_locale.as_ref(),
     )?;
     launch_options.background_color = profile_snapshot.resolved_browser_bg_color.clone();
     launch_options.toolbar_text = profile_snapshot.resolved_toolbar_text.clone();
@@ -1727,6 +1729,7 @@ fn resolve_launch_options(
     daemon_proxy_server: Option<String>,
     geoip_database: Option<std::path::PathBuf>,
     resolved_browser_version: Option<&str>,
+    host_locale: Option<&crate::services::host_locale_service::HostLocaleSuggestion>,
 ) -> Result<EngineLaunchOptions, String> {
     let startup_urls =
         normalize_startup_urls(options.startup_urls.clone(), options.startup_url.clone())
@@ -1748,7 +1751,7 @@ fn resolve_launch_options(
             None => None,
         }
     };
-    let runtime_snapshot = resolve_runtime_fingerprint_snapshot(
+    let mut runtime_snapshot = resolve_runtime_fingerprint_snapshot(
         device_preset_service,
         profile_settings,
         resolved_browser_version,
@@ -1760,14 +1763,41 @@ fn resolve_launch_options(
     let custom_font_list = runtime_snapshot.custom_font_list.clone();
     let custom_cpu_cores = runtime_snapshot.custom_cpu_cores;
     let custom_ram_gb = runtime_snapshot.custom_ram_gb;
+    // 回退链：snapshot → proxy → host IP（仅无代理时）
     let language = runtime_snapshot
         .language
         .clone()
-        .or_else(|| bound_proxy.and_then(default_language_from_proxy));
+        .or_else(|| bound_proxy.and_then(default_language_from_proxy))
+        .or_else(|| {
+            if bound_proxy.is_none() {
+                host_locale.as_ref().and_then(|h| h.language.clone())
+            } else {
+                None
+            }
+        });
     let timezone_id = runtime_snapshot
         .time_zone
         .clone()
-        .or_else(|| bound_proxy.and_then(default_timezone_from_proxy));
+        .or_else(|| bound_proxy.and_then(default_timezone_from_proxy))
+        .or_else(|| {
+            if bound_proxy.is_none() {
+                host_locale.as_ref().and_then(|h| h.timezone.clone())
+            } else {
+                None
+            }
+        });
+    // 把回退结果写回 snapshot，使 append_snapshot_args 能生成 --custom-main-language 等 flag
+    if runtime_snapshot.language.is_none() {
+        if let Some(ref lang) = language {
+            runtime_snapshot.language = Some(lang.clone());
+            if runtime_snapshot.accept_languages.is_none() {
+                runtime_snapshot.accept_languages = Some(derive_accept_languages(lang));
+            }
+        }
+    }
+    if runtime_snapshot.time_zone.is_none() {
+        runtime_snapshot.time_zone = timezone_id.clone();
+    }
 
     let mut extra_args = Vec::new();
     let web_rtc_mode = options.web_rtc_mode.unwrap_or(WebRtcMode::Real);
@@ -2637,19 +2667,7 @@ fn default_language_from_proxy(proxy: &Proxy) -> Option<String> {
         })
         .or_else(|| {
             let country = proxy.country.as_ref()?.trim().to_uppercase();
-            let value = match country.as_str() {
-                "CN" => "zh-CN",
-                "TW" => "zh-TW",
-                "HK" => "zh-HK",
-                "JP" => "ja-JP",
-                "KR" => "ko-KR",
-                "DE" => "de-DE",
-                "FR" => "fr-FR",
-                "GB" => "en-GB",
-                "US" => "en-US",
-                _ => "en-US",
-            };
-            Some(value.to_string())
+            crate::services::locale_catalog::default_language_for_country(&country)
         })
 }
 
@@ -2666,17 +2684,7 @@ fn default_timezone_from_proxy(proxy: &Proxy) -> Option<String> {
         })
         .or_else(|| {
             let country = proxy.country.as_ref()?.trim().to_uppercase();
-            let value = match country.as_str() {
-                "CN" => "Asia/Shanghai",
-                "JP" => "Asia/Tokyo",
-                "KR" => "Asia/Seoul",
-                "DE" => "Europe/Berlin",
-                "FR" => "Europe/Paris",
-                "GB" => "Europe/London",
-                "US" => "America/New_York",
-                _ => return None,
-            };
-            Some(value.to_string())
+            crate::services::locale_catalog::default_timezone_for_country(&country)
         })
 }
 
@@ -2703,6 +2711,19 @@ fn trim_str_to_option(input: &str) -> Option<String> {
         None
     } else {
         Some(value.to_string())
+    }
+}
+
+/// 从语言代码派生 accept-languages 字符串（用于无 fingerprint snapshot 时的回退）
+/// 例：en-US → "en-US,en;q=0.9"；zh-CN → "zh-CN,zh;q=0.9,en;q=0.8"
+fn derive_accept_languages(language: &str) -> String {
+    let base = language.split('-').next().unwrap_or(language);
+    if base == language {
+        language.to_string()
+    } else if base == "en" {
+        format!("{language},{base};q=0.9")
+    } else {
+        format!("{language},{base};q=0.9,en;q=0.8")
     }
 }
 
@@ -2809,6 +2830,15 @@ fn stop_profile_proxy_runtime_quietly(state: &AppState, profile_id: &str) {
             format!("proxy daemon stop failed profile_id={profile_id} err={err}"),
         );
     }
+}
+
+/// 查询本机公网 IP 的地理建议（语言 / 时区），用于无代理场景下档案表单预填。
+/// 结果使用进程内缓存（15 分钟 TTL）；第一次调用会触发后台请求。
+#[tauri::command]
+pub async fn host_locale_suggestion(
+    state: tauri::State<'_, AppState>,
+) -> Result<crate::services::host_locale_service::HostLocaleSuggestion, String> {
+    Ok(state.host_locale_service.fetch_now().await)
 }
 
 #[cfg(test)]
@@ -3446,6 +3476,7 @@ mod tests {
             None,
             None,
             None,
+        None,
         )
         .expect("resolve launch options");
         assert_eq!(options.language.as_deref(), Some("en-US"));
@@ -3502,6 +3533,7 @@ mod tests {
             None,
             None,
             None,
+        None,
         )
         .expect("resolve inherited launch options");
         inherited_options.toolbar_text = inherited.resolved_toolbar_text.clone();
@@ -3539,6 +3571,7 @@ mod tests {
             None,
             None,
             None,
+        None,
         )
         .expect("resolve overridden launch options");
         overridden_options.toolbar_text = overridden.resolved_toolbar_text.clone();
@@ -3598,6 +3631,7 @@ mod tests {
             None,
             None,
             None,
+        None,
         )
         .expect("resolve launch options");
 
@@ -3626,6 +3660,7 @@ mod tests {
             None,
             None,
             None,
+        None,
         )
         .expect_err("invalid geolocation should fail");
         assert!(err.contains("invalid latitude"));
@@ -3715,6 +3750,7 @@ mod tests {
             None,
             None,
             None,
+        None,
         )
         .expect("resolve launch options");
 
@@ -3755,6 +3791,7 @@ mod tests {
             None,
             None,
             None,
+        None,
         )
         .expect("resolve launch options");
 
@@ -3782,6 +3819,7 @@ mod tests {
             None,
             None,
             None,
+        None,
         )
         .expect("resolve launch options");
 
@@ -3812,6 +3850,7 @@ mod tests {
             None,
             None,
             None,
+        None,
         )
         .expect("resolve launch options");
 
@@ -3878,6 +3917,7 @@ mod tests {
             None,
             None,
             None,
+        None,
         )
         .expect("resolve launch options");
 
@@ -3911,6 +3951,7 @@ mod tests {
             None,
             None,
             None,
+        None,
         )
         .expect_err("invalid startup url should fail");
         assert!(err.contains("invalid startupUrl"));
@@ -3940,6 +3981,7 @@ mod tests {
             None,
             None,
             None,
+        None,
         )
         .expect("resolve launch options");
         assert_eq!(
@@ -3981,6 +4023,7 @@ mod tests {
             None,
             None,
             Some("144.0.7559.97"),
+        None,
         )
         .expect("resolve launch options");
 
@@ -4028,6 +4071,7 @@ mod tests {
             None,
             None,
             Some("144.0.7559.97"),
+        None,
         )
         .expect("resolve launch options");
 
@@ -4109,6 +4153,7 @@ mod tests {
             None,
             None,
             Some("144.0.7559.97"),
+        None,
         )
         .expect("resolve launch options");
 
@@ -4145,6 +4190,7 @@ mod tests {
             None,
             None,
             Some("144.0.7559.97"),
+        None,
         )
         .expect("resolve launch options");
 
@@ -4229,6 +4275,7 @@ mod tests {
             None,
             None,
             Some("144.0.7559.97"),
+        None,
         )
         .expect("resolve launch options");
 
@@ -4306,6 +4353,7 @@ mod tests {
             None,
             None,
             Some("144.0.7559.97"),
+        None,
         )
         .expect("resolve launch options");
 

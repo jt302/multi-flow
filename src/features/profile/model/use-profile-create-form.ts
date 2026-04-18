@@ -22,6 +22,7 @@ import type { ProxyItem } from '@/entities/proxy/model/types';
 import type { ResourceItem } from '@/entities/resource/model/types';
 import { detectClientPlatform } from '@/shared/lib/platform';
 
+import { fetchHostLocaleSuggestion } from '@/entities/host-locale/api';
 import {
 	applyProxySuggestionValue,
 	buildFingerprintSource,
@@ -41,6 +42,7 @@ import {
 	resolveInitialResolutionValues,
 	resolveInitialWebRtcMode,
 	resolveProxySuggestedValues,
+	resolveHostSuggestedValues,
 	type ProxySuggestionFieldSource,
 	type ProfileFormValues,
 } from './profile-form';
@@ -251,16 +253,30 @@ export function useProfileCreateForm({
 		[selectedProxy],
 	);
 
+	const { data: hostLocaleSuggestion } = useQuery({
+		queryKey: ['host-locale-suggestion'],
+		queryFn: fetchHostLocaleSuggestion,
+		enabled: !proxyId || proxyId === '__none__',
+		staleTime: 5 * 60_000,
+		retry: false,
+	});
+	const hostSuggestedValues = useMemo(
+		() => resolveHostSuggestedValues(!selectedProxy ? (hostLocaleSuggestion ?? null) : null),
+		[selectedProxy, hostLocaleSuggestion],
+	);
+
 	const selectedResource = useMemo(
 		() => hostChromiumVersions.find((item) => item.version === browserVersion),
 		[browserVersion, hostChromiumVersions],
 	);
 
 	useEffect(() => {
+		const isHostSuggestion = !selectedProxy;
+		const activeValues = isHostSuggestion ? hostSuggestedValues : proxySuggestedValues;
 		const nextLanguage = applyProxySuggestionValue(
 			proxySuggestionSource.language,
 			getValues('language'),
-			proxySuggestedValues.language,
+			activeValues.language,
 		);
 		if (nextLanguage !== getValues('language')) {
 			setValue('language', nextLanguage, { shouldDirty: false, shouldValidate: true });
@@ -269,33 +285,36 @@ export function useProfileCreateForm({
 		const nextTimezone = applyProxySuggestionValue(
 			proxySuggestionSource.timezoneId,
 			getValues('timezoneId'),
-			proxySuggestedValues.timezoneId,
+			activeValues.timezoneId,
 		);
 		if (nextTimezone !== getValues('timezoneId')) {
 			setValue('timezoneId', nextTimezone, { shouldDirty: false, shouldValidate: true });
 		}
 
 		setProxySuggestionSource((prev) => {
-			const next = {
-				language:
-					prev.language === 'manual'
-						? 'manual'
-						: proxySuggestedValues.language
-							? 'proxy'
-							: 'empty',
-				timezoneId:
-					prev.timezoneId === 'manual'
-						? 'manual'
-						: proxySuggestedValues.timezoneId
-							? 'proxy'
-							: 'empty',
-				geolocation:
-					prev.geolocation === 'manual'
-						? 'manual'
-						: proxySuggestedValues.geolocation
-							? 'proxy'
-							: 'empty',
-			} as const;
+			const langSrc: ProxySuggestionFieldSource =
+				prev.language === 'manual'
+					? 'manual'
+					: proxySuggestedValues.language
+						? 'proxy'
+						: hostSuggestedValues.language
+							? 'host'
+							: 'empty';
+			const tzSrc: ProxySuggestionFieldSource =
+				prev.timezoneId === 'manual'
+					? 'manual'
+					: proxySuggestedValues.timezoneId
+						? 'proxy'
+						: hostSuggestedValues.timezoneId
+							? 'host'
+							: 'empty';
+			const geoSrc: ProxySuggestionFieldSource =
+				prev.geolocation === 'manual'
+					? 'manual'
+					: proxySuggestedValues.geolocation
+						? 'proxy'
+						: 'empty';
+			const next = { language: langSrc, timezoneId: tzSrc, geolocation: geoSrc } as const;
 			if (
 				next.language === prev.language &&
 				next.timezoneId === prev.timezoneId &&
@@ -305,7 +324,7 @@ export function useProfileCreateForm({
 			}
 			return next;
 		});
-	}, [getValues, proxySuggestedValues, proxySuggestionSource, setValue]);
+	}, [getValues, proxySuggestedValues, hostSuggestedValues, proxySuggestionSource, setValue, selectedProxy]);
 
 	const markProxyFieldManual = useCallback((field: 'language' | 'timezoneId' | 'geolocation') => {
 		setProxySuggestionSource((prev) => ({ ...prev, [field]: 'manual' }));

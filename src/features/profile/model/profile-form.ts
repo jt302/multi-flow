@@ -202,7 +202,7 @@ export type ProfileResolutionValues = Pick<
 	'viewportWidth' | 'viewportHeight' | 'deviceScaleFactor'
 >;
 
-export type ProxySuggestionFieldSource = 'manual' | 'proxy' | 'empty';
+export type ProxySuggestionFieldSource = 'manual' | 'proxy' | 'host' | 'empty';
 export type DeviceIdentityMode = 'real' | 'custom';
 export type DeviceIdentityRandomValues = {
 	deviceName: string;
@@ -270,6 +270,23 @@ export function resolveProxySuggestedValues(
 								: proxy.geoAccuracyMeters.toString(),
 					}
 				: null,
+	};
+}
+
+export interface HostLocaleSuggestion {
+	exitIp?: string;
+	country?: string;
+	language?: string;
+	timezone?: string;
+	latitude?: number;
+	longitude?: number;
+	source: string;
+}
+
+export function resolveHostSuggestedValues(suggestion: HostLocaleSuggestion | null | undefined) {
+	return {
+		language: suggestion?.language?.trim() || '',
+		timezoneId: suggestion?.timezone?.trim() || '',
 	};
 }
 

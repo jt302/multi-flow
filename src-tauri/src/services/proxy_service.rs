@@ -1480,33 +1480,11 @@ fn extract_geo_name(record: &GeoIpNameRecord) -> Option<String> {
 }
 
 fn default_language_from_country(country: &str) -> Option<String> {
-    let value = match country.trim().to_uppercase().as_str() {
-        "CN" => "zh-CN",
-        "TW" => "zh-TW",
-        "HK" => "zh-HK",
-        "JP" => "ja-JP",
-        "KR" => "ko-KR",
-        "DE" => "de-DE",
-        "FR" => "fr-FR",
-        "GB" => "en-GB",
-        "US" => "en-US",
-        _ => "en-US",
-    };
-    Some(value.to_string())
+    crate::services::locale_catalog::default_language_for_country(country)
 }
 
 fn default_timezone_from_country(country: &str) -> Option<String> {
-    let value = match country.trim().to_uppercase().as_str() {
-        "CN" => "Asia/Shanghai",
-        "JP" => "Asia/Tokyo",
-        "KR" => "Asia/Seoul",
-        "DE" => "Europe/Berlin",
-        "FR" => "Europe/Paris",
-        "GB" => "Europe/London",
-        "US" => "America/New_York",
-        _ => return None,
-    };
-    Some(value.to_string())
+    crate::services::locale_catalog::default_timezone_for_country(country)
 }
 
 fn trim_to_option_ref(input: impl AsRef<str>) -> Option<String> {

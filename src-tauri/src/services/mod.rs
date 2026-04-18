@@ -1,3 +1,5 @@
+pub mod locale_catalog;
+pub mod host_locale_service;
 pub mod agent_limits;
 pub mod ai_prompts;
 pub mod automation_context;
