@@ -14,7 +14,7 @@ use crate::local_api_server::{LocalApiServer, DEFAULT_PROXY_DAEMON_BIND_ADDRESS}
 use crate::logger;
 use crate::runtime_guard;
 use crate::services::ai_tools::dialog_tools::AiDialogResponse;
-use crate::models::ResourceProgressSnapshot;
+use crate::models::{ArrangementSnapshotItem, ResourceProgressSnapshot};
 use crate::services::automation_context::ActiveRunRegistry;
 use crate::services::app_preference_service::AppPreferenceService;
 use crate::services::automation_service::AutomationService;
@@ -64,6 +64,8 @@ pub struct AppState {
     /// MCP 服务器管理器（Arc 而非 Mutex，因为内部已有 tokio::sync::Mutex）
     pub mcp_manager: std::sync::Arc<McpManager>,
     pub require_real_engine: bool,
+    /// 上一次窗口排布前的 bounds 快照，供"撤销上次"使用
+    pub last_arrangement_snapshot: Mutex<Vec<ArrangementSnapshotItem>>,
 }
 
 impl AppState {
@@ -183,6 +185,7 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
         sync_manager_service: Mutex::new(sync_manager_service),
         mcp_manager,
         require_real_engine: true,
+        last_arrangement_snapshot: Mutex::new(Vec::new()),
     };
     let affected = runtime_guard::reconcile_runtime_state(&app_state)?;
     logger::info(

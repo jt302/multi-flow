@@ -5,10 +5,12 @@ use tauri::{AppHandle, Manager, State};
 use crate::error::{AppError, AppResult};
 use crate::logger;
 use crate::models::{
-    ArrangeProfileWindowsRequest, BatchProfileActionItem, BatchProfileActionResponse,
-    BatchSetWindowBoundsRequest, BatchWindowActionRequest, BroadcastSyncTextRequest,
-    DisplayMonitorItem, EnsureSyncSidecarStartedResponse, ListSyncTargetsResponse,
-    ProfileWindowState, SyncTargetItem, WindowArrangeMode, WindowBounds,
+    ArrangeFlow, ArrangeOrder, ArrangeProfileWindowsRequest, ArrangementSnapshotItem,
+    BatchProfileActionItem, BatchProfileActionResponse, BatchSetWindowBoundsRequest,
+    BatchWindowActionRequest, BroadcastSyncTextRequest, ChromeDecorationCompensation,
+    DisplayMonitorItem, EdgeInsets, EnsureSyncSidecarStartedResponse, LastRowAlign,
+    ListSyncTargetsResponse, MainPosition, ProfileWindowState, SyncTargetItem, WindowArrangeMode,
+    WindowBounds,
 };
 use crate::runtime_guard;
 use crate::services::display_monitor_service;
@@ -147,51 +149,109 @@ pub fn arrange_profile_windows(
     state: State<'_, AppState>,
     payload: ArrangeProfileWindowsRequest,
 ) -> Result<BatchProfileActionResponse, String> {
-    if payload.width <= 0 || payload.height <= 0 {
-        return Err("排列窗口宽高必须为正数".to_string());
-    }
-    if payload.gap < 0 {
-        return Err("窗口间距不能小于 0".to_string());
-    }
+    // 向后兼容：旧 gap 字段 → gap_x / gap_y
+    let gap_x = payload.gap_x.or(payload.gap).unwrap_or(16).max(0);
+    let gap_y = payload.gap_y.or(payload.gap).unwrap_or(16).max(0);
+
     let monitors =
         display_monitor_service::collect_display_monitors(&app).map_err(error_to_string)?;
     let monitor = monitors
         .into_iter()
         .find(|item| item.id == payload.monitor_id)
         .ok_or_else(|| "目标显示器不存在".to_string())?;
-    let profile_ids = normalize_profile_ids(payload.profile_ids);
-    let arranged_bounds = build_arranged_bounds(
-        &monitor.work_area,
-        payload.mode,
-        profile_ids.len(),
-        payload.width,
-        payload.height,
-        payload.gap,
-    );
+
+    let profile_ids = normalize_profile_ids(payload.profile_ids.clone());
+    let n = profile_ids.len();
+    if n == 0 {
+        return Ok(BatchProfileActionResponse {
+            total: 0,
+            success_count: 0,
+            failed_count: 0,
+            items: Vec::new(),
+        });
+    }
+
+    // 根据 order 字段对 profile_ids 重排
+    let profile_ids = match payload.order {
+        ArrangeOrder::Name => {
+            let mut ids = profile_ids;
+            ids.sort();
+            ids
+        }
+        ArrangeOrder::Selection => profile_ids,
+    };
 
     logger::info(
         "sync_cmd",
         format!(
-            "arrange_profile_windows request profile_count={} monitor_id={} mode={:?}",
-            profile_ids.len(),
+            "arrange_profile_windows profile_count={} monitor_id={} mode={:?}",
+            n,
             monitor.id,
             payload.mode
         ),
     );
+
     let mut engine_manager = state
         .engine_manager
         .lock()
         .map_err(|_| "engine manager lock poisoned".to_string())?;
-    let mut items = Vec::with_capacity(profile_ids.len());
+
+    // 在排布前先 snapshot 当前 bounds，供"撤销上次"使用
+    let mut snapshot: Vec<ArrangementSnapshotItem> = Vec::with_capacity(n);
+    for profile_id in &profile_ids {
+        if let Ok(actual) = engine_manager.magic_get_window_bounds(profile_id) {
+            snapshot.push(ArrangementSnapshotItem {
+                profile_id: profile_id.clone(),
+                bounds: actual,
+            });
+        }
+    }
+    if let Ok(mut guard) = state.last_arrangement_snapshot.lock() {
+        *guard = snapshot;
+    }
+
+    // 计算初始 bounds（delta=0，无装饰补偿）
+    let initial_bounds =
+        compute_arranged_bounds(&monitor.work_area, &payload, n, gap_x, gap_y, 0, 0)
+            .map_err(|e| e)?;
+
+    // 装饰补偿：对第一个 profile 做 pre-set + read-back，推导 delta_h / delta_w
+    let (delta_w, delta_h) =
+        if matches!(payload.chrome_decoration_compensation, ChromeDecorationCompensation::Auto) {
+            let first_id = &profile_ids[0];
+            // pre-set 第一个 profile 到初始 bounds
+            let _ = engine_manager.set_window_bounds(first_id, initial_bounds[0].clone(), None);
+            // read-back 实际 bounds
+            match engine_manager.magic_get_window_bounds(first_id) {
+                Ok(actual) => {
+                    let dw = (actual.width - initial_bounds[0].width).max(0);
+                    let dh = (actual.height - initial_bounds[0].height).max(0);
+                    logger::info(
+                        "sync_cmd",
+                        format!("decoration delta: delta_w={dw} delta_h={dh}"),
+                    );
+                    (dw, dh)
+                }
+                Err(_) => (0, 0),
+            }
+        } else {
+            (0, 0)
+        };
+
+    // 用 delta 重新计算所有 bounds（补偿后）
+    let final_bounds =
+        compute_arranged_bounds(&monitor.work_area, &payload, n, gap_x, gap_y, delta_w, delta_h)
+            .map_err(|e| e)?;
+
+    let mut items = Vec::with_capacity(n);
     let mut success_count = 0usize;
 
     for (index, profile_id) in profile_ids.into_iter().enumerate() {
         let result = (|| -> Result<(), AppError> {
-            let bounds = arranged_bounds
+            let bounds = final_bounds
                 .get(index)
                 .cloned()
                 .ok_or_else(|| AppError::Validation("missing arranged bounds".to_string()))?;
-            let _ = engine_manager.restore_window(&profile_id, None)?;
             let _ = engine_manager.set_window_bounds(&profile_id, bounds, None)?;
             Ok(())
         })();
@@ -207,6 +267,58 @@ pub fn arrange_profile_windows(
             Err(err) => {
                 items.push(BatchProfileActionItem {
                     profile_id,
+                    ok: false,
+                    message: err.to_string(),
+                });
+            }
+        }
+    }
+
+    let total = items.len();
+    Ok(BatchProfileActionResponse {
+        total,
+        success_count,
+        failed_count: total.saturating_sub(success_count),
+        items,
+    })
+}
+
+#[tauri::command]
+pub fn restore_last_arrangement(
+    state: State<'_, AppState>,
+) -> Result<BatchProfileActionResponse, String> {
+    let snapshot = state
+        .last_arrangement_snapshot
+        .lock()
+        .map_err(|_| "snapshot lock poisoned".to_string())?
+        .clone();
+
+    if snapshot.is_empty() {
+        return Err("没有可撤销的排布记录".to_string());
+    }
+
+    let mut engine_manager = state
+        .engine_manager
+        .lock()
+        .map_err(|_| "engine manager lock poisoned".to_string())?;
+
+    let mut items = Vec::with_capacity(snapshot.len());
+    let mut success_count = 0usize;
+
+    for item in snapshot {
+        let result = engine_manager.set_window_bounds(&item.profile_id, item.bounds, None);
+        match result {
+            Ok(_) => {
+                success_count += 1;
+                items.push(BatchProfileActionItem {
+                    profile_id: item.profile_id,
+                    ok: true,
+                    message: "ok".to_string(),
+                });
+            }
+            Err(err) => {
+                items.push(BatchProfileActionItem {
+                    profile_id: item.profile_id,
                     ok: false,
                     message: err.to_string(),
                 });
@@ -267,45 +379,281 @@ fn collect_window_states(state: &AppState) -> Result<Vec<ProfileWindowState>, St
     Ok(states)
 }
 
-fn build_arranged_bounds(
-    area: &WindowBounds,
-    mode: WindowArrangeMode,
-    count: usize,
-    width: i32,
-    height: i32,
-    gap: i32,
-) -> Vec<WindowBounds> {
-    if count == 0 {
-        return Vec::new();
+// ─── 布局算法 ─────────────────────────────────────────────────────────────────
+
+const MIN_WINDOW_W: i32 = 200;
+const MIN_WINDOW_H: i32 = 150;
+
+/// 计算工作矩形（扣除 padding 后的可用区域）
+fn compute_work_rect(area: &WindowBounds, padding: &EdgeInsets) -> WindowBounds {
+    WindowBounds {
+        x: area.x + padding.left,
+        y: area.y + padding.top,
+        width: (area.width - padding.left - padding.right).max(0),
+        height: (area.height - padding.top - padding.bottom).max(0),
+    }
+}
+
+/// 根据提示（或 auto）推算最佳行列数。
+/// auto 时选使单格宽高比最接近 work_area 宽高比的列数，同时惩罚空格。
+fn choose_rows_cols(n: u32, rows_hint: Option<u32>, cols_hint: Option<u32>, rect: &WindowBounds) -> (u32, u32) {
+    if n == 0 {
+        return (1, 1);
+    }
+    match (rows_hint, cols_hint) {
+        (Some(r), Some(c)) => (r.max(1), c.max(1)),
+        (Some(r), None) => {
+            let r = r.max(1);
+            (r, n.div_ceil(r))
+        }
+        (None, Some(c)) => {
+            let c = c.max(1);
+            (n.div_ceil(c), c)
+        }
+        (None, None) => {
+            let area_aspect = if rect.height > 0 {
+                rect.width as f64 / rect.height as f64
+            } else {
+                16.0 / 9.0
+            };
+            let best_c = (1..=n).min_by(|&a, &b| {
+                let score = |c: u32| -> f64 {
+                    let r = n.div_ceil(c);
+                    // 单格宽高比 vs 屏幕宽高比（越接近越好）
+                    let cell_aspect = (c as f64) / (r as f64) * area_aspect;
+                    let aspect_penalty = (cell_aspect / area_aspect - 1.0).abs();
+                    // 空格惩罚（尽量少空格）
+                    let empty_penalty = (r * c - n) as f64 * 0.05;
+                    aspect_penalty + empty_penalty
+                };
+                score(a)
+                    .partial_cmp(&score(b))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            }).unwrap_or(1);
+            (n.div_ceil(best_c), best_c)
+        }
+    }
+}
+
+/// 计算最后一行（可能不满）的 x 偏移和宽度
+fn apply_last_row_align(
+    align: LastRowAlign,
+    col: u32,
+    items_in_row: u32,
+    cell_w: i32,
+    gap_x: i32,
+    rect_w: i32,
+) -> (i32, i32) {
+    match align {
+        LastRowAlign::Start => (col as i32 * (cell_w + gap_x), cell_w),
+        LastRowAlign::Center => {
+            let total = items_in_row as i32 * cell_w + (items_in_row as i32 - 1) * gap_x;
+            let offset = ((rect_w - total) / 2).max(0);
+            (offset + col as i32 * (cell_w + gap_x), cell_w)
+        }
+        LastRowAlign::Stretch => {
+            let new_w = ((rect_w - (items_in_row as i32 - 1) * gap_x) / items_in_row as i32)
+                .max(MIN_WINDOW_W);
+            (col as i32 * (new_w + gap_x), new_w)
+        }
+    }
+}
+
+/// Grid fill 布局：根据 rows/cols/gap 均分工作矩形，delta 补偿 Chromium 装饰高度
+fn build_grid_bounds(
+    rect: &WindowBounds,
+    n: u32,
+    rows: u32,
+    cols: u32,
+    gap_x: i32,
+    gap_y: i32,
+    delta_w: i32,
+    delta_h: i32,
+    last_row_align: LastRowAlign,
+    flow: ArrangeFlow,
+) -> Result<Vec<WindowBounds>, String> {
+    let cell_w = ((rect.width - (cols as i32 - 1) * gap_x) / cols as i32).max(0);
+    let cell_h = ((rect.height - (rows as i32 - 1) * gap_y) / rows as i32).max(0);
+
+    // 实际下发给 Magic 的尺寸 = cell - delta（Chromium 会把外框撑到 cell 大）
+    let target_w = (cell_w - delta_w).max(MIN_WINDOW_W);
+    let target_h = (cell_h - delta_h).max(MIN_WINDOW_H);
+
+    if cell_w < MIN_WINDOW_W || cell_h < MIN_WINDOW_H {
+        return Err(format!(
+            "显示器工作区太小，无法容纳 {rows}×{cols} 的布局（最小单格 {MIN_WINDOW_W}×{MIN_WINDOW_H}px）"
+        ));
     }
 
-    match mode {
-        WindowArrangeMode::Grid => {
-            let columns = (count as f64).sqrt().ceil() as i32;
-            (0..count)
-                .map(|index| {
-                    let column = (index as i32) % columns;
-                    let row = (index as i32) / columns;
-                    WindowBounds {
-                        x: area.x + column * (width + gap),
-                        y: area.y + row * (height + gap),
-                        width,
-                        height,
-                    }
-                })
-                .collect()
+    let mut out = Vec::with_capacity(n as usize);
+    for i in 0..n {
+        let (row, col) = match flow {
+            ArrangeFlow::RowMajor => (i / cols, i % cols),
+            ArrangeFlow::ColMajor => (i % rows, i / rows),
+        };
+        let is_last_row = row == rows - 1;
+        let items_in_row = if is_last_row { n - row * cols } else { cols };
+
+        let (x_off, w_i) = if is_last_row && items_in_row < cols {
+            apply_last_row_align(last_row_align, col, items_in_row, target_w, gap_x, rect.width)
+        } else {
+            (col as i32 * (target_w + gap_x), target_w)
+        };
+
+        out.push(WindowBounds {
+            x: rect.x + x_off,
+            y: rect.y + row as i32 * (cell_h + gap_y),
+            width: w_i,
+            height: target_h,
+        });
+    }
+    Ok(out)
+}
+
+/// Cascade 布局：对角线阶梯重叠
+fn build_cascade_bounds(
+    rect: &WindowBounds,
+    n: u32,
+    width: i32,
+    height: i32,
+    step: i32,
+) -> Vec<WindowBounds> {
+    let step = step.max(8);
+    (0..n)
+        .map(|i| {
+            let offset = i as i32 * step;
+            WindowBounds {
+                x: rect.x + offset.min(rect.width - width.max(MIN_WINDOW_W)),
+                y: rect.y + offset.min(rect.height - height.max(MIN_WINDOW_H)),
+                width: width.max(MIN_WINDOW_W),
+                height: height.max(MIN_WINDOW_H),
+            }
+        })
+        .collect()
+}
+
+/// MainWithSidebar 布局：一个主窗 + N-1 个侧边窗格
+fn build_main_sidebar_bounds(
+    rect: &WindowBounds,
+    n: u32,
+    main_ratio: f64,
+    main_position: MainPosition,
+    gap_x: i32,
+    gap_y: i32,
+    delta_w: i32,
+    delta_h: i32,
+) -> Result<Vec<WindowBounds>, String> {
+    if n == 0 {
+        return Ok(Vec::new());
+    }
+    if n == 1 {
+        return Ok(vec![rect.clone()]);
+    }
+    let ratio = main_ratio.clamp(0.2, 0.9);
+    let sidebars = n - 1;
+    let mut out = Vec::with_capacity(n as usize);
+
+    match main_position {
+        MainPosition::Left | MainPosition::Right => {
+            let main_w = ((rect.width as f64 * ratio) as i32 - gap_x / 2).max(MIN_WINDOW_W);
+            let side_w = (rect.width - main_w - gap_x).max(MIN_WINDOW_W);
+            let side_h = ((rect.height - (sidebars as i32 - 1) * gap_y) / sidebars as i32).max(MIN_WINDOW_H);
+            let (main_x, side_x) = if matches!(main_position, MainPosition::Left) {
+                (rect.x, rect.x + main_w + gap_x)
+            } else {
+                (rect.x + side_w + gap_x, rect.x)
+            };
+            // 主窗
+            out.push(WindowBounds {
+                x: main_x,
+                y: rect.y,
+                width: (main_w - delta_w).max(MIN_WINDOW_W),
+                height: (rect.height - delta_h).max(MIN_WINDOW_H),
+            });
+            // 侧边
+            for i in 0..sidebars {
+                out.push(WindowBounds {
+                    x: side_x,
+                    y: rect.y + i as i32 * (side_h + gap_y),
+                    width: (side_w - delta_w).max(MIN_WINDOW_W),
+                    height: (side_h - delta_h).max(MIN_WINDOW_H),
+                });
+            }
         }
-        WindowArrangeMode::Cascade => (0..count)
-            .map(|index| {
-                let offset = index as i32 * gap;
-                WindowBounds {
-                    x: area.x + offset,
-                    y: area.y + offset,
-                    width,
-                    height,
-                }
-            })
-            .collect(),
+        MainPosition::Top | MainPosition::Bottom => {
+            let main_h = ((rect.height as f64 * ratio) as i32 - gap_y / 2).max(MIN_WINDOW_H);
+            let side_h = (rect.height - main_h - gap_y).max(MIN_WINDOW_H);
+            let side_w = ((rect.width - (sidebars as i32 - 1) * gap_x) / sidebars as i32).max(MIN_WINDOW_W);
+            let (main_y, side_y) = if matches!(main_position, MainPosition::Top) {
+                (rect.y, rect.y + main_h + gap_y)
+            } else {
+                (rect.y + side_h + gap_y, rect.y)
+            };
+            // 主窗
+            out.push(WindowBounds {
+                x: rect.x,
+                y: main_y,
+                width: (rect.width - delta_w).max(MIN_WINDOW_W),
+                height: (main_h - delta_h).max(MIN_WINDOW_H),
+            });
+            // 侧边
+            for i in 0..sidebars {
+                out.push(WindowBounds {
+                    x: rect.x + i as i32 * (side_w + gap_x),
+                    y: side_y,
+                    width: (side_w - delta_w).max(MIN_WINDOW_W),
+                    height: (side_h - delta_h).max(MIN_WINDOW_H),
+                });
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// 根据 payload 统一计算所有 profile 的目标 bounds，delta 用于装饰补偿
+fn compute_arranged_bounds(
+    area: &WindowBounds,
+    payload: &ArrangeProfileWindowsRequest,
+    n: usize,
+    gap_x: i32,
+    gap_y: i32,
+    delta_w: i32,
+    delta_h: i32,
+) -> Result<Vec<WindowBounds>, String> {
+    let n = n as u32;
+    if n == 0 {
+        return Ok(Vec::new());
+    }
+    let rect = compute_work_rect(area, &payload.padding);
+
+    match payload.mode {
+        WindowArrangeMode::Grid => {
+            let (rows, cols) =
+                choose_rows_cols(n, payload.rows, payload.columns, &rect);
+            if rows * cols < n {
+                return Err(format!(
+                    "行列乘积（{rows}×{cols}={} ）不足以容纳 {n} 个窗口",
+                    rows * cols
+                ));
+            }
+            build_grid_bounds(
+                &rect, n, rows, cols, gap_x, gap_y, delta_w, delta_h,
+                payload.last_row_align, payload.flow,
+            )
+        }
+        WindowArrangeMode::Cascade => {
+            let width = payload.width.unwrap_or(1280).max(MIN_WINDOW_W);
+            let height = payload.height.unwrap_or(800).max(MIN_WINDOW_H);
+            let step = payload.cascade_step.unwrap_or(32);
+            Ok(build_cascade_bounds(&rect, n, width, height, step))
+        }
+        WindowArrangeMode::MainWithSidebar => {
+            let main_ratio = payload.main_ratio.unwrap_or(0.66);
+            build_main_sidebar_bounds(
+                &rect, n, main_ratio, payload.main_position,
+                gap_x, gap_y, delta_w, delta_h,
+            )
+        }
     }
 }
 
@@ -399,45 +747,6 @@ mod tests {
     use crate::state::AppState;
 
     #[test]
-    fn build_arranged_bounds_grid_tiles_in_rows() {
-        let area = WindowBounds {
-            x: 10,
-            y: 20,
-            width: 1920,
-            height: 1080,
-        };
-
-        let bounds = build_arranged_bounds(&area, WindowArrangeMode::Grid, 3, 400, 300, 16);
-
-        assert_eq!(bounds.len(), 3);
-        assert_eq!(bounds[0].x, 10);
-        assert_eq!(bounds[0].y, 20);
-        assert_eq!(bounds[1].x, 426);
-        assert_eq!(bounds[1].y, 20);
-        assert_eq!(bounds[2].x, 10);
-        assert_eq!(bounds[2].y, 336);
-    }
-
-    #[test]
-    fn build_arranged_bounds_cascade_offsets_each_window() {
-        let area = WindowBounds {
-            x: 100,
-            y: 120,
-            width: 1920,
-            height: 1080,
-        };
-
-        let bounds = build_arranged_bounds(&area, WindowArrangeMode::Cascade, 3, 500, 400, 24);
-
-        assert_eq!(bounds[0].x, 100);
-        assert_eq!(bounds[0].y, 120);
-        assert_eq!(bounds[1].x, 124);
-        assert_eq!(bounds[1].y, 144);
-        assert_eq!(bounds[2].x, 148);
-        assert_eq!(bounds[2].y, 168);
-    }
-
-    #[test]
     fn ensure_sync_sidecar_started_is_idempotent_in_mock_mode() {
         let state = new_test_state();
 
@@ -494,6 +803,155 @@ mod tests {
             sync_manager_service: Mutex::new(SyncManagerService::new_mock(None, None)),
             mcp_manager: std::sync::Arc::new(crate::services::mcp::McpManager::from_db(db.clone())),
             require_real_engine: false,
+            last_arrangement_snapshot: Mutex::new(Vec::new()),
         }
+    }
+
+    // ─── layout algorithm unit tests ────────────────────────────────────────
+
+    fn make_rect(w: i32, h: i32) -> WindowBounds {
+        WindowBounds { x: 0, y: 0, width: w, height: h }
+    }
+
+    #[test]
+    fn grid_auto_cols_3_windows_wide_screen() {
+        // 3 windows on 1800×1080 → should prefer 1×3 (one row three cols)
+        let rect = make_rect(1800, 1080);
+        let (rows, cols) = choose_rows_cols(3, None, None, &rect);
+        // area is wide, so cols > rows expected
+        assert!(cols >= rows, "wide screen: cols({cols}) should >= rows({rows})");
+        assert_eq!(rows * cols, cols * rows);
+        assert!(rows * cols >= 3);
+    }
+
+    #[test]
+    fn grid_explicit_rows_cols() {
+        let rect = make_rect(1920, 1080);
+        let bounds = build_grid_bounds(
+            &rect, 4, 2, 2, 10, 20, 0, 0,
+            LastRowAlign::Stretch, ArrangeFlow::RowMajor,
+        ).expect("grid ok");
+        assert_eq!(bounds.len(), 4);
+        let cell_w = (1920 - 10) / 2;
+        let cell_h = (1080 - 20) / 2;
+        assert_eq!(bounds[0], WindowBounds { x: 0, y: 0, width: cell_w, height: cell_h });
+        assert_eq!(bounds[1].x, cell_w + 10);
+        assert_eq!(bounds[2].y, cell_h + 20);
+    }
+
+    #[test]
+    fn grid_last_row_center() {
+        let rect = make_rect(1000, 800);
+        // n=5, cols=2 → 3 rows, last row has 1 window
+        let bounds = build_grid_bounds(
+            &rect, 5, 3, 2, 0, 0, 0, 0,
+            LastRowAlign::Center, ArrangeFlow::RowMajor,
+        ).expect("grid ok");
+        assert_eq!(bounds.len(), 5);
+        let cell_w = 1000 / 2;
+        // last window (index 4) should be centered
+        let expected_x = (1000 - cell_w) / 2;
+        assert_eq!(bounds[4].x, expected_x, "last row center x mismatch");
+    }
+
+    #[test]
+    fn grid_last_row_stretch() {
+        let rect = make_rect(1000, 800);
+        let bounds = build_grid_bounds(
+            &rect, 5, 3, 2, 0, 0, 0, 0,
+            LastRowAlign::Stretch, ArrangeFlow::RowMajor,
+        ).expect("grid ok");
+        // last window should span full width
+        assert_eq!(bounds[4].x, 0);
+        assert_eq!(bounds[4].width, 1000);
+    }
+
+    #[test]
+    fn grid_decoration_delta_compensated() {
+        // delta_h=28 means Chromium adds 28px, so we send (cell_h - 28)
+        let rect = make_rect(1800, 1080);
+        let (rows, cols) = (3u32, 3u32);
+        let cell_h = (1080 - 2 * 16) / 3; // gap_y=16
+        let bounds = build_grid_bounds(
+            &rect, 9, rows, cols, 16, 16, 0, 28,
+            LastRowAlign::Stretch, ArrangeFlow::RowMajor,
+        ).expect("grid ok");
+        let expected_h = (cell_h - 28).max(MIN_WINDOW_H);
+        assert_eq!(bounds[0].height, expected_h);
+        // y step should be cell_h (gap_y added to cell before delta)
+        assert_eq!(bounds[3].y, cell_h + 16);
+    }
+
+    #[test]
+    fn grid_overflow_returns_err() {
+        // Work area too small for 5 rows 5 cols with min window size
+        let rect = make_rect(200, 200);
+        let result = build_grid_bounds(
+            &rect, 25, 5, 5, 0, 0, 0, 0,
+            LastRowAlign::Start, ArrangeFlow::RowMajor,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn cascade_step_offsets() {
+        let rect = make_rect(1920, 1080);
+        let bounds = build_cascade_bounds(&rect, 3, 800, 600, 40);
+        assert_eq!(bounds[0].x, 0);
+        assert_eq!(bounds[0].y, 0);
+        assert_eq!(bounds[1].x, 40);
+        assert_eq!(bounds[1].y, 40);
+        assert_eq!(bounds[2].x, 80);
+        assert_eq!(bounds[2].y, 80);
+    }
+
+    #[test]
+    fn main_sidebar_left() {
+        let rect = make_rect(1800, 1080);
+        let bounds = build_main_sidebar_bounds(
+            &rect, 4, 0.66, MainPosition::Left, 16, 16, 0, 0,
+        ).expect("main sidebar ok");
+        assert_eq!(bounds.len(), 4);
+        // main window at x=0
+        assert_eq!(bounds[0].x, 0);
+        // sidebars at x = main_w + gap
+        assert!(bounds[1].x > 0);
+        assert_eq!(bounds[1].x, bounds[2].x);
+        assert_eq!(bounds[1].x, bounds[3].x);
+        // sidebars stacked vertically
+        assert!(bounds[2].y > bounds[1].y);
+    }
+
+    #[test]
+    fn backward_compatible_old_bounds_grid() {
+        // Old test: build_arranged_bounds_grid_tiles_in_rows equivalent
+        // 3 windows at cols=2 (auto for n=3 on wide 1920×1080)
+        let area = WindowBounds { x: 10, y: 20, width: 1920, height: 1080 };
+        let payload = ArrangeProfileWindowsRequest {
+            profile_ids: vec![],
+            monitor_id: String::new(),
+            mode: WindowArrangeMode::Grid,
+            rows: None,
+            columns: None,
+            gap_x: Some(16),
+            gap_y: Some(16),
+            padding: EdgeInsets { top: 0, right: 0, bottom: 0, left: 0 },
+            last_row_align: LastRowAlign::Stretch,
+            flow: ArrangeFlow::RowMajor,
+            width: None,
+            height: None,
+            cascade_step: None,
+            main_ratio: None,
+            main_position: MainPosition::Left,
+            order: ArrangeOrder::Selection,
+            chrome_decoration_compensation: ChromeDecorationCompensation::Off,
+            gap: None,
+        };
+        let bounds = compute_arranged_bounds(&area, &payload, 3, 16, 16, 0, 0)
+            .expect("should succeed");
+        assert_eq!(bounds.len(), 3);
+        // first window starts at area origin
+        assert_eq!(bounds[0].x, 10);
+        assert_eq!(bounds[0].y, 20);
     }
 }

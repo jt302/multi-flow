@@ -331,6 +331,7 @@ pub fn run() {
             commands::sync_commands::broadcast_sync_text,
             commands::sync_commands::list_display_monitors,
             commands::sync_commands::arrange_profile_windows,
+            commands::sync_commands::restore_last_arrangement,
             commands::sync_commands::batch_restore_profile_windows,
             commands::sync_commands::batch_set_profile_window_bounds,
             commands::window_commands::splashscreen_ready,

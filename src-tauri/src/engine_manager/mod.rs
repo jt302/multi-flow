@@ -1104,6 +1104,38 @@ impl EngineManager {
         Ok(state)
     }
 
+    /// 通过 Magic HTTP `get_bounds` 获取 Chromium 实际渲染的窗口外框尺寸。
+    /// 用于 arrange 的 pre-set/read-back/re-set 装饰补偿策略。
+    pub fn magic_get_window_bounds(&self, profile_id: &str) -> AppResult<WindowBounds> {
+        let Some(magic_port) = self.chromium_magic_port_for_profile(profile_id)? else {
+            return Err(AppError::Validation(
+                "magic_get_window_bounds requires a real chromium session".to_string(),
+            ));
+        };
+        let response = self.chromium_magic_command(
+            profile_id,
+            magic_port,
+            json!({ "cmd": "get_bounds" }),
+        )?;
+        // 返回格式: {"status":"ok","data":{"status":"ok","x":100,"y":100,"width":1280,"height":900}}
+        let data = response
+            .get("data")
+            .ok_or_else(|| AppError::Validation("get_bounds: missing data field".to_string()))?;
+        let x = data.get("x").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+        let y = data.get("y").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+        let width = data
+            .get("width")
+            .and_then(|v| v.as_i64())
+            .ok_or_else(|| AppError::Validation("get_bounds: missing width".to_string()))?
+            as i32;
+        let height = data
+            .get("height")
+            .and_then(|v| v.as_i64())
+            .ok_or_else(|| AppError::Validation("get_bounds: missing height".to_string()))?
+            as i32;
+        Ok(WindowBounds { x, y, width, height })
+    }
+
     pub fn restore_window(
         &mut self,
         profile_id: &str,

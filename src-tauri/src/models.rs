@@ -691,6 +691,73 @@ pub struct BroadcastSyncTextRequest {
 pub enum WindowArrangeMode {
     Grid,
     Cascade,
+    MainWithSidebar,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum LastRowAlign {
+    Start,
+    Center,
+    #[default]
+    Stretch,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ArrangeFlow {
+    #[default]
+    RowMajor,
+    ColMajor,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum MainPosition {
+    #[default]
+    Left,
+    Right,
+    Top,
+    Bottom,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ChromeDecorationCompensation {
+    #[default]
+    Auto,
+    Off,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ArrangeOrder {
+    #[default]
+    Selection,
+    Name,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EdgeInsets {
+    #[serde(default = "default_edge_inset")]
+    pub top: i32,
+    #[serde(default = "default_edge_inset")]
+    pub right: i32,
+    #[serde(default = "default_edge_inset")]
+    pub bottom: i32,
+    #[serde(default = "default_edge_inset")]
+    pub left: i32,
+}
+
+fn default_edge_inset() -> i32 {
+    12
+}
+
+impl Default for EdgeInsets {
+    fn default() -> Self {
+        Self { top: 12, right: 12, bottom: 12, left: 12 }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -699,9 +766,45 @@ pub struct ArrangeProfileWindowsRequest {
     pub profile_ids: Vec<String>,
     pub monitor_id: String,
     pub mode: WindowArrangeMode,
-    pub gap: i32,
-    pub width: i32,
-    pub height: i32,
+
+    // grid 专用（fill 语义，无 fixed 模式）
+    pub rows: Option<u32>,
+    pub columns: Option<u32>,
+    pub gap_x: Option<i32>,
+    pub gap_y: Option<i32>,
+    #[serde(default)]
+    pub padding: EdgeInsets,
+    #[serde(default)]
+    pub last_row_align: LastRowAlign,
+    #[serde(default)]
+    pub flow: ArrangeFlow,
+
+    // cascade 专用
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub cascade_step: Option<i32>,
+
+    // mainWithSidebar 专用
+    pub main_ratio: Option<f64>,
+    #[serde(default)]
+    pub main_position: MainPosition,
+
+    // 通用
+    #[serde(default)]
+    pub order: ArrangeOrder,
+    #[serde(default)]
+    pub chrome_decoration_compensation: ChromeDecorationCompensation,
+
+    // 向后兼容：旧字段 gap，若 gap_x/gap_y 为 None 则 fallback 到此
+    pub gap: Option<i32>,
+}
+
+/// 排布快照项，用于"撤销上次"
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArrangementSnapshotItem {
+    pub profile_id: String,
+    pub bounds: WindowBounds,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
