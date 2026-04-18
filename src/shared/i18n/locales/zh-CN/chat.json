@@ -31,6 +31,9 @@
 	"zoomInPreview": "放大图片",
 	"zoomOutPreview": "缩小图片",
 	"copyMessage": "复制消息",
+	"copyCode": "复制代码",
+	"codeCopied": "已复制",
+	"openExternal": "在浏览器中打开",
 	"toolCallPending": "正在调用工具：{{name}}",
 	"toolCallingFallback": "调用工具中...",
 	"fileSystem": {

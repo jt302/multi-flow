@@ -1,3 +1,4 @@
+import { MarkdownRenderer } from '@/shared/ui/markdown-renderer';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { open, save } from '@tauri-apps/plugin-dialog';
@@ -869,9 +870,7 @@ export function AiDialogModal() {
 						</DialogHeader>
 					)}
 					<ScrollArea style={{ maxHeight: maxH }}>
-						<div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap break-words py-2">
-							{request.content}
-						</div>
+						<MarkdownRenderer content={request.content ?? ""} className="py-2" />
 					</ScrollArea>
 					<DialogFooter>
 						{request.copyable && (

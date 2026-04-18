@@ -5,9 +5,8 @@ import Lightbox from 'yet-another-react-lightbox';
 import Zoom from 'yet-another-react-lightbox/plugins/zoom';
 import 'yet-another-react-lightbox/styles.css';
 
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { useTranslation } from 'react-i18next';
+import { MarkdownRenderer } from '@/shared/ui/markdown-renderer';
 
 import type { ChatMessageRecord } from '@/entities/chat/model/types';
 import { GenerationProgress } from './generation-progress';
@@ -15,8 +14,6 @@ import { ThinkingBlock } from './thinking-block';
 import { ToolCallCard } from './tool-call-card';
 import './chat-message-list-lightbox.css';
 
-// 稳定引用，避免 ReactMarkdown 每次看到新数组引用而重初始化 remark 管道
-const REMARK_PLUGINS = [remarkGfm];
 
 type Props = {
 	messages: ChatMessageRecord[];
@@ -188,12 +185,7 @@ const MessageItem = memo(function MessageItem({ message, onImageClick }: { messa
 
 	if (message.role === 'assistant' && (message.contentText || message.status === 'streaming')) {
 		const isStreaming = message.status === 'streaming';
-		// 流式时补齐未闭合的 code fence，避免 markdown 解析错误
-		let displayText = message.contentText ?? '';
-		if (isStreaming) {
-			const fenceMatches = (displayText.match(/^```|^~~~/gm) ?? []).length;
-			if (fenceMatches % 2 !== 0) displayText += '\n```';
-		}
+		const displayText = message.contentText ?? '';
 		// 正在流式但尚无内容时，显示 loading 三点动画而非空气泡
 		if (isStreaming && !displayText) {
 			return (
@@ -220,21 +212,21 @@ const MessageItem = memo(function MessageItem({ message, onImageClick }: { messa
 						{message.streamingToolNames.map((n) => t('toolCallPending', { name: n })).join(' · ')}
 					</div>
 				)}
-				<div className="flex items-end gap-1">
-					<div className="max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-sm break-words">
-						<div className="prose prose-sm dark:prose-invert max-w-none">
-							<ReactMarkdown remarkPlugins={REMARK_PLUGINS}>
-								{displayText}
-							</ReactMarkdown>
-						</div>
+				<div className="flex items-start gap-2 w-full">
+					<div className="min-w-0 flex-1 text-sm text-foreground">
+						<MarkdownRenderer
+							content={displayText}
+							streaming={isStreaming}
+							onImageClick={onImageClick}
+						/>
 						{isStreaming && (
 							<span className="inline-block w-0.5 h-4 bg-foreground/70 animate-pulse ml-0.5 align-middle" />
 						)}
 					</div>
-					{!isStreaming && (
+					{!isStreaming && message.contentText && (
 						<CopyButton
-							text={message.contentText ?? ''}
-							className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mb-0.5"
+							text={message.contentText}
+							className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-1"
 						/>
 					)}
 				</div>

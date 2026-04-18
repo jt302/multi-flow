@@ -1,6 +1,10 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
+@plugin '@tailwindcss/typography';
+
+/* highlight.js 代码高亮主题（代码块容器始终深色背景，统一用 dark 主题）*/
+@import 'highlight.js/styles/github-dark.css' layer(base);
 
 @custom-variant dark (&:is(.dark *));
 
@@ -207,6 +211,23 @@
 
 .mf-scrollbar::-webkit-scrollbar-thumb:hover {
 	background: var(--scrollbar-thumb-hover);
+}
+
+/* prose 覆盖：禁用 typography 插件的默认 pre/code 包裹样式，由自定义代码块组件接管 */
+.prose pre {
+	background: transparent;
+	padding: 0;
+	margin: 0;
+	color: inherit;
+	border-radius: 0;
+	overflow: visible;
+}
+.prose :where(code)::before,
+.prose :where(code)::after {
+	content: none;
+}
+.prose table {
+	margin: 0;
 }
 
 /* React Flow Controls 暗色模式适配 */

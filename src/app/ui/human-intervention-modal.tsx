@@ -1,3 +1,4 @@
+import { MarkdownRenderer } from '@/shared/ui/markdown-renderer';
 import { useEffect, useRef, useState } from 'react';
 import { Clock, Copy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -389,7 +390,7 @@ export function HumanInterventionModal() {
 				<DialogContent className={humanIntervention.width === 'lg' ? 'max-w-lg' : humanIntervention.width === 'xl' ? 'max-w-xl' : 'max-w-md'} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
 					{title && <DialogHeader><DialogTitle><TitleWithProfile>{title}</TitleWithProfile></DialogTitle></DialogHeader>}
 					<ScrollArea style={{ maxHeight: maxH }}>
-						<div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap break-words py-2">{content}</div>
+						<MarkdownRenderer content={content} className="py-2" />
 					</ScrollArea>
 					<DialogFooter>
 						{humanIntervention.copyable && (

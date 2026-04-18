@@ -31,6 +31,9 @@
 	"zoomInPreview": "Zoom in image",
 	"zoomOutPreview": "Zoom out image",
 	"copyMessage": "Copy message",
+	"copyCode": "Copy code",
+	"codeCopied": "Copied",
+	"openExternal": "Open in browser",
 	"toolCallPending": "Calling tool: {{name}}",
 	"toolCallingFallback": "Calling tools...",
 	"fileSystem": {
