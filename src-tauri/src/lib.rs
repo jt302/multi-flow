@@ -174,7 +174,7 @@ pub fn run() {
             // （config 方式有时无法正确设置 WKWebView.isOpaque = false，导致圆角处有白边）
             let splash_url = tauri::WebviewUrl::App("splashscreen.html".into());
             WebviewWindowBuilder::new(app, "splashscreen", splash_url)
-                .title("Multi-Flow")
+                .title("Multi Flow")
                 .inner_size(400.0, 280.0)
                 .resizable(false)
                 .decorations(false)

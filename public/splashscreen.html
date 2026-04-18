@@ -25,11 +25,9 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(15, 23, 42, 0.88);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-radius: 16px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: #ffffff;
+      border-radius: 20px;
+      overflow: hidden;
       flex-direction: column;
       gap: 0;
       /* Fade-in animation */
@@ -53,14 +51,14 @@
       font-family: 'Chivo', 'Noto Sans SC', sans-serif;
       font-size: 20px;
       font-weight: 600;
-      color: rgba(255, 255, 255, 0.95);
+      color: rgba(15, 23, 42, 0.9);
       letter-spacing: 0.02em;
       margin-bottom: 28px;
     }
 
     .progress-text {
       font-size: 13px;
-      color: rgba(255, 255, 255, 0.5);
+      color: rgba(15, 23, 42, 0.45);
       margin-bottom: 12px;
       height: 20px;
       transition: opacity 0.25s ease;
@@ -69,7 +67,7 @@
     .progress-bar-track {
       width: 200px;
       height: 3px;
-      background: rgba(255, 255, 255, 0.08);
+      background: rgba(15, 23, 42, 0.08);
       border-radius: 2px;
       overflow: hidden;
     }
@@ -97,7 +95,7 @@
 <body>
   <div class="container" id="container">
     <img class="logo" src="splashscreen-logo.png" alt="Multi-Flow Logo" id="logo">
-    <div class="app-name">Multi-Flow</div>
+    <div class="app-name">Multi Flow</div>
     <div class="progress-text" id="progressText"></div>
     <div class="progress-bar-track">
       <div class="progress-bar-fill" id="progressFill"></div>
