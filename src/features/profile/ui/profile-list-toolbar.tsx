@@ -28,13 +28,11 @@ type ProfileListToolbarProps = {
 		runningFilter?: 'all' | 'running' | 'stopped';
 		lifecycleFilter?: 'active' | 'deleted' | 'all';
 	}) => void;
-	onCreateClick: () => void;
 	onOpenBatchGroupDialog: () => void;
 	onOpenBatchClearDialog: () => void;
 	onBatchOpen: () => void;
 	onBatchClose: () => void;
 	onStopAllRunning: () => void;
-	onRefresh: () => void;
 	onBatchGroupDialogOpenChange: (open: boolean) => void;
 	onBatchClearDialogOpenChange: (open: boolean) => void;
 	onBatchGroupTargetChange: (value: string) => void;
@@ -62,13 +60,11 @@ export function ProfileListToolbar({
 	lastBatchOpenResult,
 	profiles,
 	onChange,
-	onCreateClick,
 	onOpenBatchGroupDialog,
 	onOpenBatchClearDialog,
 	onBatchOpen,
 	onBatchClose,
 	onStopAllRunning,
-	onRefresh,
 	onBatchGroupDialogOpenChange,
 	onBatchClearDialogOpenChange,
 	onBatchGroupTargetChange,
@@ -97,8 +93,6 @@ export function ProfileListToolbar({
 				onBatchOpen={onBatchOpen}
 				onBatchClose={onBatchClose}
 				onStopAllRunning={onStopAllRunning}
-				onRefresh={onRefresh}
-				onCreateClick={onCreateClick}
 			/>
 
 			<ProfileBatchGroupDialog

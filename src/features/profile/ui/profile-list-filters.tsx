@@ -1,4 +1,4 @@
-import { Play, Plus, RefreshCw, Square } from 'lucide-react';
+import { Play, Square } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -36,8 +36,6 @@ type ProfileListFiltersProps = {
 	onStopAllRunning: () => void;
 	onOpenBatchGroupDialog: () => void;
 	onOpenBatchClearDialog: () => void;
-	onRefresh: () => void;
-	onCreateClick: () => void;
 };
 
 export function ProfileListFilters({
@@ -58,28 +56,10 @@ export function ProfileListFilters({
 	onStopAllRunning,
 	onOpenBatchGroupDialog,
 	onOpenBatchClearDialog,
-	onRefresh,
-	onCreateClick,
 }: ProfileListFiltersProps) {
 	const { t } = useTranslation(['common']);
 	return (
 		<>
-			<div className="mb-3 px-1">
-				<div className="flex flex-wrap items-center justify-between gap-2">
-					<h2 className="text-sm font-semibold">{t('common:profileList')}</h2>
-					<div className="flex items-center gap-2">
-						<Button type="button" variant="ghost" size="sm" className="cursor-pointer" onClick={onRefresh}>
-							<Icon icon={RefreshCw} size={12} />
-							{t('common:refresh')}
-						</Button>
-						<Button type="button" size="sm" className="cursor-pointer" onClick={onCreateClick}>
-							<Icon icon={Plus} size={14} />
-							{t('common:createItem', { item: t('common:profile') })}
-						</Button>
-					</div>
-				</div>
-			</div>
-
 			<div className="mb-3 grid gap-2 px-1 md:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
 				<Input
 					value={keyword}
@@ -131,7 +111,7 @@ export function ProfileListFilters({
 				</Select>
 			</div>
 
-			<div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+			<div className="mb-3 flex flex-col gap-2 rounded-xl border border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
 				<p>
 					{t('common:selectedCountOfFiltered', { selected: selectedCount, total: selectableCount })}
 				</p>

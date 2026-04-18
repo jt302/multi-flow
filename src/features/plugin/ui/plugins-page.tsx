@@ -296,7 +296,7 @@ export function PluginsPage({
 							value={selectedDownloadProxyId}
 							onValueChange={handleDownloadProxyChange}
 						>
-							<SelectTrigger className="min-w-[220px] cursor-pointer">
+							<SelectTrigger className="w-full cursor-pointer md:min-w-[220px] md:w-auto">
 								<SelectValue placeholder={t('downloadCrx.proxyNone')} />
 							</SelectTrigger>
 							<SelectContent>
@@ -312,7 +312,7 @@ export function PluginsPage({
 						</Select>
 						<Button
 							type="button"
-							className="cursor-pointer"
+							className="w-full cursor-pointer md:w-auto"
 							onClick={() => void handleDownload()}
 							disabled={downloadPending}
 						>

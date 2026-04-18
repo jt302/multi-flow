@@ -62,8 +62,8 @@ export function WorkspaceTopbar({
 
 	return (
 		<>
-			<header className="flex items-center justify-between gap-3">
-				<div className="flex min-w-0 items-center gap-3">
+			<header className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+				<div className="flex min-w-0 items-center gap-3 sm:flex-1">
 					<SidebarTrigger className="shrink-0" />
 					<div className="min-w-0">
 						<p className="truncate text-sm font-semibold">{section.title}</p>
@@ -73,12 +73,12 @@ export function WorkspaceTopbar({
 					</div>
 				</div>
 
-				<div className="flex flex-wrap items-center gap-2">
+				<div className="flex w-full min-w-0 items-center gap-2 sm:ml-auto sm:w-auto sm:max-w-full sm:shrink-0">
 					<Button
 						type="button"
 						variant="outline"
 						onClick={() => setCommandOpen(true)}
-						className="border-border/40 bg-background/50 dark:bg-background/50 shadow-sm transition-all duration-300 hover:scale-[1.02]"
+						className="min-w-0 flex-1 justify-start border-border/40 bg-background/50 dark:bg-background/50 shadow-sm transition-all duration-300 hover:scale-[1.02] sm:w-auto sm:flex-none sm:justify-center"
 					>
 						<Search
 							data-icon="inline-start"
@@ -89,49 +89,51 @@ export function WorkspaceTopbar({
 					<Button
 						type="button"
 						variant="secondary"
-						className="bg-background/50 dark:bg-background/50 shadow-sm border border-border/40 transition-all duration-300 hover:scale-[1.02]"
+						className="min-w-0 flex-1 justify-start bg-background/50 dark:bg-background/50 shadow-sm border border-border/40 transition-all duration-300 hover:scale-[1.02] sm:w-auto sm:flex-none sm:justify-center"
 						onClick={onOpenLogPanel}
 					>
 						<Logs data-icon="inline-start" className="text-muted-foreground" />
 						{t('nav:logPanel')}
 					</Button>
-					<div className="flex items-center rounded-xl border border-border/40 bg-background/50 dark:bg-background/50 p-1 shadow-sm transition-all duration-300 hover:shadow-md">
-						<Button
-							type="button"
-							onClick={() => onThemeModeChange('light')}
-							variant={themeMode === 'light' ? 'default' : 'ghost'}
-							size="icon-sm"
-							className={cn(
-								'rounded-lg transition-all duration-300',
-								themeMode === 'light' && 'shadow-sm',
-							)}
-						>
-							<Sun />
-						</Button>
-						<Button
-							type="button"
-							onClick={() => onThemeModeChange('dark')}
-							variant={themeMode === 'dark' ? 'default' : 'ghost'}
-							size="icon-sm"
-							className={cn(
-								'rounded-lg transition-all duration-300',
-								themeMode === 'dark' && 'shadow-sm',
-							)}
-						>
-							<MoonStar />
-						</Button>
-						<Button
-							type="button"
-							onClick={() => onThemeModeChange('system')}
-							variant={themeMode === 'system' ? 'default' : 'ghost'}
-							size="icon-sm"
-							className={cn(
-								'rounded-lg transition-all duration-300',
-								themeMode === 'system' && 'shadow-sm',
-							)}
-						>
-							<MonitorCog />
-						</Button>
+					<div className="shrink-0 rounded-xl border border-border/40 bg-background/50 dark:bg-background/50 p-1 shadow-sm transition-all duration-300 hover:shadow-md">
+						<div className="flex items-center justify-between sm:w-auto sm:justify-start">
+							<Button
+								type="button"
+								onClick={() => onThemeModeChange('light')}
+								variant={themeMode === 'light' ? 'default' : 'ghost'}
+								size="icon-sm"
+								className={cn(
+									'rounded-lg transition-all duration-300',
+									themeMode === 'light' && 'shadow-sm',
+								)}
+							>
+								<Sun />
+							</Button>
+							<Button
+								type="button"
+								onClick={() => onThemeModeChange('dark')}
+								variant={themeMode === 'dark' ? 'default' : 'ghost'}
+								size="icon-sm"
+								className={cn(
+									'rounded-lg transition-all duration-300',
+									themeMode === 'dark' && 'shadow-sm',
+								)}
+							>
+								<MoonStar />
+							</Button>
+							<Button
+								type="button"
+								onClick={() => onThemeModeChange('system')}
+								variant={themeMode === 'system' ? 'default' : 'ghost'}
+								size="icon-sm"
+								className={cn(
+									'rounded-lg transition-all duration-300',
+									themeMode === 'system' && 'shadow-sm',
+								)}
+							>
+								<MonitorCog />
+							</Button>
+						</div>
 					</div>
 				</div>
 			</header>

@@ -31,54 +31,54 @@ export function MetricsGrid() {
 	const activeSyncSessions = windowStates.length;
 
 	return (
-		<div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-			<Card>
-				<CardHeader className="pb-2">
+		<div className="mb-4 grid grid-cols-4 gap-3">
+			<Card className="min-w-0 gap-2 py-4">
+				<CardHeader className="gap-1 px-4 pb-1">
 					<CardDescription className="text-xs uppercase tracking-[0.16em]">
 						{t('metrics.runningProfiles')}
 					</CardDescription>
 					<CardTitle className="text-3xl">{runningCount}</CardTitle>
 				</CardHeader>
-				<CardContent>
+				<CardContent className="px-4 pt-0">
 					<p className="text-xs text-muted-foreground">
 						{t('metrics.totalProfiles', { count: totalCount })}
 					</p>
 				</CardContent>
 			</Card>
-			<Card>
-				<CardHeader className="pb-2">
+			<Card className="min-w-0 gap-2 py-4">
+				<CardHeader className="gap-1 px-4 pb-1">
 					<CardDescription className="text-xs uppercase tracking-[0.16em]">
 						{t('metrics.proxyAvailability')}
 					</CardDescription>
 					<CardTitle className="text-3xl">{proxyRate}%</CardTitle>
 				</CardHeader>
-				<CardContent>
+				<CardContent className="px-4 pt-0">
 					<p className="text-xs text-muted-foreground">
 						{t('metrics.proxyOkCount', { ok: proxiesOk, total: proxyTotal })}
 					</p>
 				</CardContent>
 			</Card>
-			<Card>
-				<CardHeader className="pb-2">
+			<Card className="min-w-0 gap-2 py-4">
+				<CardHeader className="gap-1 px-4 pb-1">
 					<CardDescription className="text-xs uppercase tracking-[0.16em]">
 						{t('metrics.syncSessions')}
 					</CardDescription>
 					<CardTitle className="text-3xl">{activeSyncSessions}</CardTitle>
 				</CardHeader>
-				<CardContent>
+				<CardContent className="px-4 pt-0">
 					<p className="text-xs text-muted-foreground">
 						{t('metrics.runningWindows')}
 					</p>
 				</CardContent>
 			</Card>
-			<Card>
-				<CardHeader className="pb-2">
+			<Card className="min-w-0 gap-2 py-4">
+				<CardHeader className="gap-1 px-4 pb-1">
 					<CardDescription className="text-xs uppercase tracking-[0.16em]">
 						{t('metrics.automationScripts')}
 					</CardDescription>
 					<CardTitle className="text-3xl">{scripts.length}</CardTitle>
 				</CardHeader>
-				<CardContent>
+				<CardContent className="px-4 pt-0">
 					<p className="text-xs text-muted-foreground">
 						{t('metrics.totalScripts')}
 					</p>

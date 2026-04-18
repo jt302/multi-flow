@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Plus, RefreshCw } from 'lucide-react';
 
 import {
 	ConfirmActionDialog,
 	DataSection,
 	EmptyState,
 } from '@/components/common';
+import { Button, Icon } from '@/components/ui';
 import { filterProfiles } from '@/entities/profile/lib/profile-list';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
@@ -44,6 +46,7 @@ export function ProfileListPage({
 }: ProfileListPageProps) {
 	const { t } = useTranslation('profile');
 	const { t: tNav } = useTranslation('nav');
+	const { t: tCommon } = useTranslation('common');
 	const section = getWorkspaceSections().profiles;
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [stopAllRunningDialogOpen, setStopAllRunningDialogOpen] =
@@ -212,6 +215,42 @@ export function ProfileListPage({
 
 			<DataSection
 				title={t('list.title')}
+				actions={
+					<>
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							className="cursor-pointer"
+							onClick={() => {
+								void (async () => {
+									setError(null);
+									try {
+										await onRefreshProfiles();
+									} catch (err) {
+										setError(
+											err instanceof Error
+												? err.message
+												: t('errors.refreshFailed'),
+										);
+									}
+								})();
+							}}
+						>
+							<Icon icon={RefreshCw} size={12} />
+							{tCommon('refresh')}
+						</Button>
+						<Button
+							type="button"
+							size="sm"
+							className="cursor-pointer"
+							onClick={onCreateClick}
+						>
+							<Icon icon={Plus} size={14} />
+							{tCommon('createItem', { item: tCommon('profile') })}
+						</Button>
+					</>
+				}
 				contentClassName="p-1 pt-0"
 				className="flex-1 min-h-0 overflow-hidden flex flex-col"
 			>
@@ -233,7 +272,6 @@ export function ProfileListPage({
 					lastBatchOpenResult={lastBatchOpenResult}
 					profiles={profiles}
 					onChange={handleFilterChange}
-					onCreateClick={onCreateClick}
 					onOpenBatchGroupDialog={() => {
 						if (!batchGroupTarget && groupOptions[0]) {
 							setBatchGroupTarget(groupOptions[0]);
@@ -256,20 +294,6 @@ export function ProfileListPage({
 						});
 					}}
 					onStopAllRunning={() => setStopAllRunningDialogOpen(true)}
-					onRefresh={() => {
-						void (async () => {
-							setError(null);
-							try {
-								await onRefreshProfiles();
-							} catch (err) {
-								setError(
-									err instanceof Error
-										? err.message
-										: t('errors.refreshFailed'),
-								);
-							}
-						})();
-					}}
 					onBatchGroupDialogOpenChange={setBatchGroupDialogOpen}
 					onBatchClearDialogOpenChange={setBatchClearGroupDialogOpen}
 					onBatchGroupTargetChange={setBatchGroupTarget}

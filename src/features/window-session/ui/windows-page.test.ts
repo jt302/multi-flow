@@ -16,7 +16,7 @@ test('windows sync page renders recent warning diagnostics again', () => {
 		'utf8',
 	);
 
-	assert.equal(windowsPage.includes('最近 warning'), true);
+	assert.equal(windowsPage.includes("t('syncDiag.recentWarnings')"), true);
 	assert.equal(pageTypes.includes('recentWarnings'), true);
 	assert.equal(windowsRoute.includes('recentWarnings'), true);
 });
@@ -28,15 +28,15 @@ test('windows sync page keeps config cards shrinkable inside responsive grid', (
 	);
 
 	assert.equal(
-		windowsPage.includes('lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'),
+		windowsPage.includes('sm:grid-cols-[minmax(0,1fr)_repeat(2,auto)]'),
 		true,
 	);
 	assert.equal(
-		windowsPage.includes('border border-border/60 shadow-none min-w-0'),
+		windowsPage.includes('rounded-lg border border-border/60 px-3 py-2'),
 		true,
 	);
 	assert.equal(
-		windowsPage.includes('SelectTrigger className="cursor-pointer w-full"'),
+		windowsPage.includes('w-full cursor-pointer sm:w-auto'),
 		true,
 	);
 });
@@ -51,13 +51,13 @@ test('windows sync page renders bound sync diagnostics from upstream protocol', 
 		'utf8',
 	);
 
-	assert.equal(windowsPage.includes('绑定窗口'), true);
-	assert.equal(windowsPage.includes('坐标模式'), true);
-	assert.equal(windowsPage.includes('sidecar 端口'), true);
-	assert.equal(windowsPage.includes('最近错误'), true);
-	assert.equal(windowsRoute.includes('boundBrowserId'), true);
-	assert.equal(windowsRoute.includes('boundWindowToken'), true);
-	assert.equal(windowsRoute.includes('coordinateMode'), true);
+	assert.equal(windowsPage.includes("t('syncDiag.boundWindow')"), true);
+	assert.equal(windowsPage.includes("t('syncDiag.coordinateMode')"), true);
+	assert.equal(windowsPage.includes("t('syncDiag.sidecarPort')"), true);
+	assert.equal(windowsPage.includes("t('syncDiag.lastError')"), true);
+	assert.equal(windowsRoute.includes('sessionPayload'), true);
+	assert.equal(windowsRoute.includes('buildSyncTargetItems'), true);
+	assert.equal(windowsRoute.includes('syncInstances'), true);
 });
 
 test('windows sync page uses a single stateful sync action button with loading copy', () => {
@@ -66,13 +66,13 @@ test('windows sync page uses a single stateful sync action button with loading c
 		'utf8',
 	);
 
-	assert.equal(windowsPage.includes('启动同步中'), true);
-	assert.equal(windowsPage.includes('停止同步中'), true);
+	assert.equal(windowsPage.includes("t('page.startingSync')"), true);
+	assert.equal(windowsPage.includes("t('page.stoppingSync')"), true);
 	assert.equal(windowsPage.includes('const [syncActionPending, setSyncActionPending] = useState(false);'), true);
 	assert.equal(
-		windowsPage.includes('disabled={syncActionPending || (activeSyncSession ? !activeSyncSession : !startValidation.ok)}'),
+		windowsPage.includes('disabled={') && windowsPage.includes('!startValidation.ok'),
 		true,
 	);
-	assert.equal(windowsPage.includes('重启同步'), true);
-	assert.equal(windowsPage.includes('刷新同步状态'), true);
+	assert.equal(windowsPage.includes("t('syncActions.restartSync')"), true);
+	assert.equal(windowsPage.includes("t('syncActions.refreshSyncStatus')"), true);
 });

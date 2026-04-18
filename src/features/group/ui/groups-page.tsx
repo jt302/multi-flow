@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { FolderOpen, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 import {
 	Badge,
@@ -31,6 +32,7 @@ export function GroupsPage({
 	onOpenGroupProfiles,
 }: GroupsPageProps) {
 	const { t } = useTranslation('group');
+	const isMobile = useIsMobile();
 	const section = getWorkspaceSections().groups;
 	const searchKeyword = useGroupManagementStore((state) => state.searchKeyword);
 	const isFormOpen = useGroupManagementStore((state) => state.isFormOpen);
@@ -141,6 +143,59 @@ export function GroupsPage({
 
 				{filteredGroups.length === 0 ? (
 					<EmptyState title={t('page.noMatchingGroups')} />
+				) : isMobile ? (
+					<div className="space-y-2">
+						{filteredGroups.map((group) => (
+							<div
+								key={group.id}
+								className="rounded-xl border border-border/70 bg-background/75 p-3"
+							>
+								<div className="flex items-start justify-between gap-3">
+									<div className="min-w-0">
+										<div className="flex items-center gap-2">
+											<p className="truncate font-medium">{group.name}</p>
+											<Badge variant="outline">
+												{t('page.profileCountBadge', { count: group.profileCount })}
+											</Badge>
+										</div>
+										<p className="mt-1 text-xs text-muted-foreground">
+											{group.note || '—'}
+										</p>
+										<p className="mt-2 text-[11px] text-muted-foreground">
+											{t('page.table.lastUpdated')} · {group.updatedAt}
+										</p>
+									</div>
+									<div className="flex shrink-0 items-center gap-1">
+										<Button
+											type="button"
+											size="icon-sm"
+											variant="ghost"
+											onClick={() => onOpenGroupProfiles(group.name)}
+										>
+											<Icon icon={FolderOpen} size={14} />
+										</Button>
+										<Button
+											type="button"
+											size="icon-sm"
+											variant="ghost"
+											onClick={() => openEditForm(group.id)}
+										>
+											<Icon icon={Pencil} size={14} />
+										</Button>
+										<Button
+											type="button"
+											size="icon-sm"
+											variant="ghost"
+											className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+											onClick={() => setDeletingGroup(group)}
+										>
+											<Icon icon={Trash2} size={14} />
+										</Button>
+									</div>
+								</div>
+							</div>
+						))}
+					</div>
 				) : (
 					<div className="overflow-hidden rounded-xl border border-border/70">
 						<Table>

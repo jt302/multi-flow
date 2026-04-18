@@ -104,14 +104,14 @@ export function DashboardPage() {
 						sessionRows.map((row, index) => (
 							<div
 								key={row.profileId}
-								className={`grid grid-cols-[minmax(0,1fr)_80px_80px] items-center gap-3 px-3 py-3 text-sm ${index < sessionRows.length - 1 ? 'border-b border-border/70' : ''}`}
+								className={`grid grid-cols-1 gap-2 px-3 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_80px_80px] sm:items-center sm:gap-3 ${index < sessionRows.length - 1 ? 'border-b border-border/70' : ''}`}
 							>
 								<div className="min-w-0">
 									<p className="truncate font-medium">{row.name}</p>
 									<p className="truncate text-xs text-muted-foreground">{row.group}</p>
 								</div>
-								<p className="text-xs text-muted-foreground">{t('sessionsTable.windows', { count: row.totalWindows })}</p>
-								<p className="text-xs text-muted-foreground">{t('sessionsTable.tabs', { count: row.totalTabs })}</p>
+								<p className="text-xs text-muted-foreground sm:text-right">{t('sessionsTable.windows', { count: row.totalWindows })}</p>
+								<p className="text-xs text-muted-foreground sm:text-right">{t('sessionsTable.tabs', { count: row.totalTabs })}</p>
 							</div>
 						))
 					)}

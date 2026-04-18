@@ -16,7 +16,7 @@ export function ProxyStats({
 	const { t } = useTranslation('proxy');
 
 	return (
-		<div className="grid gap-3 md:grid-cols-3">
+		<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
 			<Card className="p-3">
 				<CardHeader className="px-1 pb-1">
 					<CardTitle className="text-xs text-muted-foreground">

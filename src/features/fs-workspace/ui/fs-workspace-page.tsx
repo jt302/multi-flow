@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Folder, FileText, FolderPlus, Trash2, ChevronRight, Settings } from 'lucide-react';
+import { Folder, FileText, FolderPlus, Trash2, ChevronRight, Settings, PanelLeft } from 'lucide-react';
 import { z } from 'zod/v3';
 
 import { ConfirmActionDialog } from '@/components/common/confirm-action-dialog';
@@ -22,6 +22,10 @@ import {
 	FormLabel,
 	FormMessage,
 	Input,
+	Sheet,
+	SheetContent,
+	SheetHeader,
+	SheetTitle,
 	Textarea,
 } from '@/components/ui';
 import {
@@ -30,6 +34,7 @@ import {
 	ResizablePanelGroup,
 } from '@/components/ui/resizable';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { usePersistentLayout } from '@/shared/hooks/use-persistent-layout';
 import {
 	useFsRootsQuery,
@@ -53,6 +58,7 @@ type CreateFolderValues = z.infer<ReturnType<typeof createFolderSchema>>;
 
 export function FsWorkspacePage() {
 	const { t } = useTranslation('chat');
+	const isMobile = useIsMobile();
 	const { defaultLayout, onLayoutChanged } = usePersistentLayout({
 		id: 'fs-workspace-layout',
 		defaultSizes: [20, 40, 40],
@@ -65,6 +71,7 @@ export function FsWorkspacePage() {
 	const [descDraft, setDescDraft] = useState('');
 	const [descDirty, setDescDirty] = useState(false);
 	const [drawerOpen, setDrawerOpen] = useState(false);
+	const [rootsSheetOpen, setRootsSheetOpen] = useState(false);
 	const [createFolderOpen, setCreateFolderOpen] = useState(false);
 	const [pendingDelete, setPendingDelete] = useState<{ relPath: string; name: string } | null>(null);
 
@@ -156,8 +163,230 @@ export function FsWorkspacePage() {
 	const selectedRootLabel =
 		selectedRoot?.isDefault ? t('fileSystem.defaultRootLabel') : selectedRoot?.label;
 
+	const renderRootsPanel = () => (
+		<div className="flex h-full flex-col">
+			<div className="flex items-center justify-between border-b px-3 py-2">
+				<span className="text-xs font-medium text-muted-foreground">
+					{t('fileSystem.roots')}
+				</span>
+				<Button
+					size="icon"
+					variant="ghost"
+					className="h-6 w-6 cursor-pointer"
+					onClick={() => setDrawerOpen(true)}
+				>
+					<Settings className="h-3.5 w-3.5" />
+				</Button>
+			</div>
+			<div className="flex-1 overflow-auto">
+				{roots.map((root) => (
+					<div
+						key={root.id}
+						onClick={() => {
+							setSelectedRoot(root);
+							navigateTo('.');
+							setRootsSheetOpen(false);
+						}}
+						className={cn(
+							'cursor-pointer border-b px-3 py-2.5 hover:bg-accent/50',
+							selectedRoot?.id === root.id && 'bg-accent',
+						)}
+					>
+						<div className="truncate text-sm font-medium">
+							{root.isDefault ? t('fileSystem.defaultRootLabel') : root.label}
+						</div>
+						<div className="truncate text-xs text-muted-foreground">{root.pathDisplay}</div>
+						{!root.allowWrite && (
+							<div className="mt-0.5 text-xs text-amber-600">{t('fileSystem.readOnly')}</div>
+						)}
+					</div>
+				))}
+			</div>
+		</div>
+	);
+
+	const renderDirectoryPanel = () => (
+		<div className="flex h-full flex-col">
+			<div className="flex items-center gap-1 overflow-x-auto border-b px-3 py-2 text-xs text-muted-foreground">
+				<button
+					type="button"
+					onClick={() => navigateTo('.')}
+					className="shrink-0 cursor-pointer hover:text-foreground"
+				>
+					{selectedRootLabel ?? t('fileSystem.root')}
+				</button>
+				{breadcrumbs.map((crumb, i) => {
+					const path = breadcrumbs.slice(0, i + 1).join('/');
+					return (
+						<span key={path} className="flex shrink-0 items-center gap-1">
+							<ChevronRight className="h-3 w-3" />
+							<button
+								type="button"
+								onClick={() => navigateTo(path)}
+								className="cursor-pointer hover:text-foreground"
+							>
+								{crumb}
+							</button>
+						</span>
+					);
+				})}
+			</div>
+
+			{selectedRoot?.allowWrite && (
+				<div className="flex items-center gap-1 border-b px-3 py-1.5">
+					<Button
+						size="sm"
+						variant="ghost"
+						className="h-7 cursor-pointer gap-1 text-xs"
+						onClick={handleCreateFolder}
+					>
+						<FolderPlus className="h-3.5 w-3.5" />
+						{t('fileSystem.newFolder')}
+					</Button>
+				</div>
+			)}
+
+			<div className="flex-1 overflow-auto">
+				{dirQuery.isLoading && (
+					<div className="p-4 text-sm text-muted-foreground">{t('fileSystem.loading')}</div>
+				)}
+				{entries.map((entry) => (
+					<div
+						key={entry.relPath}
+						onClick={() => {
+							setSelectedEntryPath(entry.relPath);
+							setSelectedEntryIsDir(entry.isDir);
+						}}
+						onDoubleClick={() => {
+							if (entry.isDir) navigateTo(entry.relPath);
+						}}
+						className={cn(
+							'group flex cursor-pointer items-center gap-2 border-b px-3 py-2 hover:bg-accent/50',
+							selectedEntryPath === entry.relPath && 'bg-accent',
+						)}
+					>
+						{entry.isDir ? (
+							<Folder className="h-4 w-4 shrink-0 text-amber-500" />
+						) : (
+							<FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+						)}
+						<span className="flex-1 truncate text-sm">{entry.name}</span>
+						{entry.hasDescription && (
+							<span className="text-xs text-primary/70">
+								{t('fileSystem.hasDescriptionBadge')}
+							</span>
+						)}
+						{selectedRoot?.allowWrite && (
+							<Button
+								size="icon"
+								variant="ghost"
+								className="h-6 w-6 shrink-0 cursor-pointer opacity-0 hover:opacity-100 group-hover:opacity-100"
+								onClick={(e) => {
+									e.stopPropagation();
+									handleDelete(entry.relPath, entry.name);
+								}}
+							>
+								<Trash2 className="h-3.5 w-3.5" />
+							</Button>
+						)}
+					</div>
+				))}
+				{!dirQuery.isLoading && entries.length === 0 && (
+					<div className="flex items-center justify-center p-8 text-sm text-muted-foreground">
+						{t('fileSystem.emptyDir')}
+					</div>
+				)}
+			</div>
+		</div>
+	);
+
+	const renderDescriptionPanel = () => (
+		<div className="flex h-full flex-col">
+			<div className="border-b px-3 py-2">
+				<span className="text-xs font-medium text-muted-foreground">
+					{selectedEntryPath && selectedEntryIsDir
+						? t('fileSystem.descriptionFor', {
+								name: selectedEntryPath.split('/').pop(),
+							})
+						: t('fileSystem.selectDirectory')}
+				</span>
+			</div>
+			{selectedEntryPath && selectedEntryIsDir ? (
+				<div className="flex flex-1 flex-col gap-2 overflow-auto p-3">
+					<Textarea
+						value={descDraft}
+						onChange={(e) => {
+							setDescDraft(e.target.value);
+							setDescDirty(true);
+						}}
+						placeholder={t('fileSystem.descPlaceholder')}
+						className="flex-1 resize-none font-mono text-sm"
+					/>
+					<div className="flex justify-end">
+						<Button
+							size="sm"
+							disabled={!descDirty || saveDesc.isPending}
+							onClick={handleSaveDesc}
+							className="cursor-pointer"
+						>
+							{t('common:save')}
+						</Button>
+					</div>
+				</div>
+			) : (
+				<div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
+					{t('fileSystem.selectDirHint')}
+				</div>
+			)}
+		</div>
+	);
+
 	return (
 		<>
+			{isMobile ? (
+				<Sheet open={rootsSheetOpen} onOpenChange={setRootsSheetOpen}>
+					<div className="flex h-full flex-col overflow-hidden">
+						<div className="flex items-center gap-2 border-b px-3 py-2">
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								className="min-w-0 flex-1 justify-start gap-2"
+								onClick={() => setRootsSheetOpen(true)}
+							>
+								<PanelLeft className="h-4 w-4" />
+								<span className="truncate">
+									{selectedRootLabel ?? t('fileSystem.roots')}
+								</span>
+							</Button>
+							<Button
+								size="icon"
+								variant="ghost"
+								className="h-8 w-8 cursor-pointer"
+								onClick={() => setDrawerOpen(true)}
+							>
+								<Settings className="h-4 w-4" />
+							</Button>
+						</div>
+						<div className="min-h-0 flex flex-1 flex-col overflow-hidden">
+							<div className="min-h-0 flex-1 overflow-hidden">
+								{renderDirectoryPanel()}
+							</div>
+							<div className="min-h-[220px] border-t">
+								{renderDescriptionPanel()}
+							</div>
+						</div>
+					</div>
+					<SheetContent side="left" className="w-[min(88vw,360px)] p-0">
+						<SheetHeader className="border-b">
+							<SheetTitle>{t('fileSystem.roots')}</SheetTitle>
+						</SheetHeader>
+						<div className="min-h-0 flex-1 overflow-hidden">
+							{renderRootsPanel()}
+						</div>
+					</SheetContent>
+				</Sheet>
+			) : (
 			<ResizablePanelGroup
 				direction="horizontal"
 				className="h-full"
@@ -166,191 +395,24 @@ export function FsWorkspacePage() {
 			>
 				{/* 左栏: 根列表 */}
 				<ResizablePanel id="fs-roots-panel" defaultSize={20} minSize={15} maxSize={35}>
-					<div className="flex h-full flex-col">
-						<div className="flex items-center justify-between border-b px-3 py-2">
-							<span className="text-xs font-medium text-muted-foreground">
-								{t('fileSystem.roots')}
-							</span>
-							<Button
-								size="icon"
-								variant="ghost"
-								className="h-6 w-6 cursor-pointer"
-								onClick={() => setDrawerOpen(true)}
-							>
-								<Settings className="h-3.5 w-3.5" />
-							</Button>
-						</div>
-						<div className="flex-1 overflow-auto">
-							{roots.map((root) => (
-								<div
-									key={root.id}
-									onClick={() => {
-										setSelectedRoot(root);
-										navigateTo('.');
-									}}
-									className={cn(
-										'cursor-pointer border-b px-3 py-2.5 hover:bg-accent/50',
-										selectedRoot?.id === root.id && 'bg-accent',
-									)}
-								>
-									<div className="truncate text-sm font-medium">
-										{root.isDefault ? t('fileSystem.defaultRootLabel') : root.label}
-									</div>
-									<div className="truncate text-xs text-muted-foreground">{root.pathDisplay}</div>
-									{!root.allowWrite && (
-										<div className="mt-0.5 text-xs text-amber-600">{t('fileSystem.readOnly')}</div>
-									)}
-								</div>
-							))}
-						</div>
-					</div>
+					{renderRootsPanel()}
 				</ResizablePanel>
 
 				<ResizableHandle />
 
 				{/* 中栏: 目录内容 */}
 				<ResizablePanel id="fs-directory-panel" defaultSize={40} minSize={25}>
-					<div className="flex h-full flex-col">
-						{/* 面包屑 */}
-						<div className="flex items-center gap-1 overflow-x-auto border-b px-3 py-2 text-xs text-muted-foreground">
-							<button
-								type="button"
-								onClick={() => navigateTo('.')}
-								className="shrink-0 cursor-pointer hover:text-foreground"
-							>
-								{selectedRootLabel ?? t('fileSystem.root')}
-							</button>
-							{breadcrumbs.map((crumb, i) => {
-								const path = breadcrumbs.slice(0, i + 1).join('/');
-								return (
-									<span key={path} className="flex shrink-0 items-center gap-1">
-										<ChevronRight className="h-3 w-3" />
-										<button
-											type="button"
-											onClick={() => navigateTo(path)}
-											className="cursor-pointer hover:text-foreground"
-										>
-											{crumb}
-										</button>
-									</span>
-								);
-							})}
-						</div>
-
-						{/* 工具栏 */}
-						{selectedRoot?.allowWrite && (
-							<div className="flex items-center gap-1 border-b px-3 py-1.5">
-								<Button
-									size="sm"
-									variant="ghost"
-									className="h-7 cursor-pointer gap-1 text-xs"
-									onClick={handleCreateFolder}
-								>
-									<FolderPlus className="h-3.5 w-3.5" />
-									{t('fileSystem.newFolder')}
-								</Button>
-							</div>
-						)}
-
-						{/* 条目列表 */}
-						<div className="flex-1 overflow-auto">
-							{dirQuery.isLoading && (
-								<div className="p-4 text-sm text-muted-foreground">{t('fileSystem.loading')}</div>
-							)}
-							{entries.map((entry) => (
-								<div
-									key={entry.relPath}
-									onClick={() => {
-										setSelectedEntryPath(entry.relPath);
-										setSelectedEntryIsDir(entry.isDir);
-									}}
-									onDoubleClick={() => {
-										if (entry.isDir) navigateTo(entry.relPath);
-									}}
-									className={cn(
-										'group flex cursor-pointer items-center gap-2 border-b px-3 py-2 hover:bg-accent/50',
-										selectedEntryPath === entry.relPath && 'bg-accent',
-									)}
-								>
-									{entry.isDir ? (
-										<Folder className="h-4 w-4 shrink-0 text-amber-500" />
-									) : (
-										<FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-									)}
-									<span className="flex-1 truncate text-sm">{entry.name}</span>
-									{entry.hasDescription && (
-										<span className="text-xs text-primary/70">
-											{t('fileSystem.hasDescriptionBadge')}
-										</span>
-									)}
-									{selectedRoot?.allowWrite && (
-										<Button
-											size="icon"
-											variant="ghost"
-											className="h-6 w-6 shrink-0 cursor-pointer opacity-0 hover:opacity-100 group-hover:opacity-100"
-											onClick={(e) => {
-												e.stopPropagation();
-												handleDelete(entry.relPath, entry.name);
-											}}
-										>
-											<Trash2 className="h-3.5 w-3.5" />
-										</Button>
-									)}
-								</div>
-							))}
-							{!dirQuery.isLoading && entries.length === 0 && (
-								<div className="flex items-center justify-center p-8 text-sm text-muted-foreground">
-									{t('fileSystem.emptyDir')}
-								</div>
-							)}
-						</div>
-					</div>
+					{renderDirectoryPanel()}
 				</ResizablePanel>
 
 				<ResizableHandle />
 
 				{/* 右栏: 说明编辑 */}
 				<ResizablePanel id="fs-description-panel" defaultSize={40} minSize={25}>
-					<div className="flex h-full flex-col">
-						<div className="border-b px-3 py-2">
-							<span className="text-xs font-medium text-muted-foreground">
-								{selectedEntryPath && selectedEntryIsDir
-									? t('fileSystem.descriptionFor', {
-											name: selectedEntryPath.split('/').pop(),
-										})
-									: t('fileSystem.selectDirectory')}
-							</span>
-						</div>
-						{selectedEntryPath && selectedEntryIsDir ? (
-							<div className="flex flex-1 flex-col gap-2 overflow-auto p-3">
-								<Textarea
-									value={descDraft}
-									onChange={(e) => {
-										setDescDraft(e.target.value);
-										setDescDirty(true);
-									}}
-									placeholder={t('fileSystem.descPlaceholder')}
-									className="flex-1 resize-none font-mono text-sm"
-								/>
-								<div className="flex justify-end">
-									<Button
-										size="sm"
-										disabled={!descDirty || saveDesc.isPending}
-										onClick={handleSaveDesc}
-										className="cursor-pointer"
-									>
-										{t('common:save')}
-									</Button>
-								</div>
-							</div>
-						) : (
-							<div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
-								{t('fileSystem.selectDirHint')}
-							</div>
-						)}
-					</div>
+					{renderDescriptionPanel()}
 				</ResizablePanel>
 			</ResizablePanelGroup>
+			)}
 
 			<FsPreferencesDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 			<Dialog

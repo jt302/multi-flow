@@ -1,6 +1,7 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { PanelLeft } from 'lucide-react';
 
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -17,8 +18,10 @@ import {
 	ResizablePanel,
 	ResizablePanelGroup,
 } from '@/components/ui/resizable';
+import { Button, Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui';
 import { queryKeys } from '@/shared/config/query-keys';
 import { chatStore, useChatStore } from '@/store/chat-store';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
 	useCreateChatSession,
 	useDeleteChatSession,
@@ -33,10 +36,12 @@ import { ChatInputBar } from './chat-input-bar';
 export function AiChatPage() {
 	const { t } = useTranslation('chat');
 	const qc = useQueryClient();
+	const isMobile = useIsMobile();
 	const { defaultLayout: chatLayout, onLayoutChanged: onChatLayoutChanged } = usePersistentLayout({
 		id: 'ai-chat-layout',
 		defaultSizes: [14, 86],
 	});
+	const [mobileSessionsOpen, setMobileSessionsOpen] = useState(false);
 
 const sessionsQuery = useChatSessionsQuery();
 	const sessions = useMemo(() => sessionsQuery.data ?? [], [sessionsQuery.data]);
@@ -191,6 +196,88 @@ const sessionsQuery = useChatSessionsQuery();
 		}
 	}, [deleteSession, persistedSessionId, hydratedSessionId, activateSession]);
 
+	if (isMobile) {
+		return (
+			<>
+				<Sheet open={mobileSessionsOpen} onOpenChange={setMobileSessionsOpen}>
+					{hydratedSessionId && hydratedSession ? (
+						<div className="flex h-full flex-col overflow-hidden">
+							<div className="shrink-0 border-b px-3 py-2">
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									className="w-full justify-start gap-2"
+									onClick={() => setMobileSessionsOpen(true)}
+								>
+									<PanelLeft className="size-4" />
+									{t('sessionList', '会话列表')}
+								</Button>
+							</div>
+							<div className="flex h-full flex-col overflow-hidden">
+								<ChatHeader session={hydratedSession} />
+								<ChatMessageList
+									key={hydratedSessionId}
+									messages={allMessages}
+									isGenerating={isGenerating}
+									terminalState={terminalState}
+									terminalError={terminalError}
+									sessionId={hydratedSessionId}
+									onContinue={handleContinue}
+								/>
+								<ChatInputBar
+									onSubmit={handleSubmit}
+									onStop={handleStop}
+									isGenerating={isGenerating}
+									sendDisabled={hasProfile ? undefined : false}
+									contextUsed={contextUsed}
+								/>
+							</div>
+						</div>
+					) : isRestoringSession ? (
+						<div className="flex flex-1 flex-col justify-center gap-4 px-4 text-muted-foreground">
+							<div className="space-y-2">
+								<p className="text-sm font-medium text-foreground">
+									{t('restoringChat')}
+								</p>
+							</div>
+							<div className="space-y-3">
+								<div className="h-4 w-40 animate-pulse rounded bg-muted" />
+								<div className="h-20 w-full animate-pulse rounded-2xl bg-muted/80" />
+								<div className="h-20 w-4/5 animate-pulse rounded-2xl bg-muted/60" />
+							</div>
+						</div>
+					) : (
+						<ChatSessionList
+							sessions={sessions}
+							activeId={listActiveSessionId}
+							onSelect={activateSession}
+							onCreate={handleCreate}
+							onDelete={handleDelete}
+						/>
+					)}
+					<SheetContent side="left" className="w-[min(88vw,360px)] p-0">
+						<SheetHeader className="border-b">
+							<SheetTitle>{t('sessionList', '会话列表')}</SheetTitle>
+						</SheetHeader>
+						<div className="min-h-0 flex-1 overflow-hidden">
+							<ChatSessionList
+								sessions={sessions}
+								activeId={listActiveSessionId}
+								onSelect={(id) => {
+									activateSession(id);
+									setMobileSessionsOpen(false);
+								}}
+								onCreate={handleCreate}
+								onDelete={handleDelete}
+							/>
+						</div>
+					</SheetContent>
+				</Sheet>
+			</>
+		);
+	}
+
 	return (
 		<ResizablePanelGroup direction="horizontal" className="h-full" defaultLayout={chatLayout} onLayoutChanged={onChatLayoutChanged}>
 				<ResizablePanel id="ai-chat-sidebar" defaultSize={14} minSize={12} maxSize={35}>
@@ -223,7 +310,7 @@ const sessionsQuery = useChatSessionsQuery();
 								isGenerating={isGenerating}
 								sendDisabled={hasProfile ? undefined : false}
 								contextUsed={contextUsed}
-								/>
+							/>
 							</>
 					) : isRestoringSession ? (
 						<div className="flex flex-1 flex-col justify-center gap-4 px-6 text-muted-foreground">

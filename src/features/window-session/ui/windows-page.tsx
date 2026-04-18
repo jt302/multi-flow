@@ -211,10 +211,10 @@ export function WindowsPage({
 								</Badge>
 							</div>
 
-							<div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_repeat(2,auto)]">
+							<div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_repeat(2,auto)]">
 								<Button
 									type="button"
-									className="cursor-pointer"
+									className="w-full cursor-pointer"
 									onClick={() =>
 										void runSyncAction(() =>
 											activeSyncSession
@@ -248,7 +248,7 @@ export function WindowsPage({
 								<Button
 									type="button"
 									variant="outline"
-									className="cursor-pointer"
+									className="w-full cursor-pointer"
 									onClick={() => void runAction(onRestartSync)}
 									disabled={syncActionPending || !activeSyncSession}
 								>
@@ -258,7 +258,7 @@ export function WindowsPage({
 									type="button"
 									variant="ghost"
 									size="sm"
-									className="cursor-pointer"
+									className="w-full cursor-pointer sm:w-auto"
 									onClick={() => void runAction(onRefreshWindows)}
 									disabled={syncActionPending}
 								>
@@ -289,16 +289,16 @@ export function WindowsPage({
 									return (
 										<div
 											key={item.profileId}
-											className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 px-3 py-2"
+											className="flex flex-col gap-2 rounded-lg border border-border/60 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
 										>
-											<div className="flex items-center gap-2">
+											<div className="flex min-w-0 flex-wrap items-center gap-2">
 												<Checkbox
 													checked={selected}
 													onCheckedChange={(checked) =>
 														toggleProfile(item.profileId, checked === true)
 													}
 												/>
-												<div>
+												<div className="min-w-0">
 													<p className="text-sm font-medium">
 														{profileNameMap[item.profileId] ?? item.profileId}
 													</p>
@@ -356,12 +356,12 @@ export function WindowsPage({
 													</Badge>
 												) : null}
 											</div>
-											<div className="flex items-center gap-2">
+											<div className="flex w-full items-center gap-2 sm:w-auto">
 												<Button
 													type="button"
 													size="sm"
 													variant={isMaster ? 'default' : 'outline'}
-													className="cursor-pointer"
+													className="w-full cursor-pointer sm:w-auto"
 													onClick={() => setMasterProfileId(item.profileId)}
 													disabled={!selected}
 												>

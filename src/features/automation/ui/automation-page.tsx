@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { PanelLeft } from 'lucide-react';
 
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -28,12 +29,15 @@ import {
 	ResizablePanel,
 	ResizablePanelGroup,
 } from '@/components/ui/resizable';
+import { Button, Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui';
 import { ScriptDetailPanel } from './script-detail-panel';
 import { ScriptListSidebar } from './script-list-sidebar';
 import { ScriptMetaDialog } from './script-meta-dialog';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export function AutomationPage() {
 	const { t } = useTranslation('automation');
+	const isMobile = useIsMobile();
 	const scriptsQuery = useAutomationScriptsQuery();
 	const scripts = scriptsQuery.data ?? [];
 	const queryClient = useQueryClient();
@@ -42,6 +46,7 @@ export function AutomationPage() {
 		defaultSizes: [20, 80],
 	});
 	const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null);
+	const [mobileListOpen, setMobileListOpen] = useState(false);
 
 	const selectedScript = scripts.find((s) => s.id === selectedScriptId) ?? null;
 	const runsQuery = useAutomationRunsQuery(selectedScriptId);
@@ -275,6 +280,127 @@ export function AutomationPage() {
 		}
 	}
 
+	const renderDetail = () => (
+		<div className="flex flex-col h-full overflow-hidden">
+			{selectedScript ? (
+				<ScriptDetailPanel
+					script={selectedScript}
+					runs={runs}
+					activeProfiles={activeProfiles}
+					allProfiles={allProfiles}
+					isRunning={
+						activeScriptId === selectedScript.id &&
+						liveRunStatus === 'running'
+					}
+					liveStepResults={
+						activeScriptId === selectedScript.id ? liveStepResults : []
+					}
+					liveVariables={
+						activeScriptId === selectedScript.id ? liveVariables : {}
+					}
+					activeRunId={
+						activeScriptId === selectedScript.id ? activeRunId : null
+					}
+					onEdit={() => handleEditMeta(selectedScript)}
+					onDelete={() => handleDeleteScript(selectedScript.id)}
+					onRun={handleRun}
+					onDebugRun={handleDebugRun}
+					onCancel={() => {
+						const runId =
+							activeScriptId === selectedScript.id ? activeRunId : null;
+						if (runId) actions.cancelRun.mutate(runId);
+					}}
+					onRunsChange={() => {
+						if (selectedScriptId) {
+							void queryClient.invalidateQueries({
+								queryKey: queryKeys.automationRuns(selectedScriptId),
+							});
+						}
+					}}
+				/>
+			) : (
+				<div className="flex-1 flex items-center justify-center h-full">
+					<div className="text-center space-y-2">
+						<p className="text-sm text-muted-foreground">
+							{t('page.selectScript')}
+						</p>
+						<p className="text-xs text-muted-foreground/60">
+							{t('page.createHint')}
+						</p>
+					</div>
+				</div>
+			)}
+		</div>
+	);
+
+	if (isMobile) {
+		return (
+			<>
+				<Sheet open={mobileListOpen} onOpenChange={setMobileListOpen}>
+					{selectedScript ? (
+						<div className="flex h-full flex-col overflow-hidden">
+							<div className="shrink-0 border-b px-3 py-2">
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									className="w-full justify-start gap-2"
+									onClick={() => setMobileListOpen(true)}
+								>
+									<PanelLeft className="size-4" />
+									{selectedScript.name}
+								</Button>
+							</div>
+							{renderDetail()}
+						</div>
+					) : (
+						<ScriptListSidebar
+							scripts={scripts}
+							selectedScriptId={selectedScriptId}
+							onSelect={setSelectedScriptId}
+							onNew={handleNewScript}
+							onImport={handleImportClick}
+						/>
+					)}
+					<SheetContent side="left" className="w-[min(88vw,360px)] p-0">
+						<SheetHeader className="border-b">
+							<SheetTitle>{t('sidebar.title')}</SheetTitle>
+						</SheetHeader>
+						<div className="min-h-0 flex-1 overflow-hidden">
+							<ScriptListSidebar
+								scripts={scripts}
+								selectedScriptId={selectedScriptId}
+								onSelect={(id) => {
+									setSelectedScriptId(id);
+									setMobileListOpen(false);
+								}}
+								onNew={handleNewScript}
+								onImport={handleImportClick}
+							/>
+						</div>
+					</SheetContent>
+				</Sheet>
+				<ScriptMetaDialog
+					open={metaDialogOpen}
+					onOpenChange={setMetaDialogOpen}
+					script={metaDialogScript}
+					allProfiles={allProfiles}
+					aiConfigs={aiConfigs}
+					existingNames={scripts.map((s) => s.name)}
+					onSave={handleMetaSave}
+					isSaving={isSaving}
+				/>
+				<input
+					ref={importInputRef}
+					type="file"
+					accept=".json"
+					className="hidden"
+					onChange={handleImportFile}
+				/>
+			</>
+		);
+	}
+
 	return (
 		<>
 		<ResizablePanelGroup direction="horizontal" className="h-full" defaultLayout={autoLayout} onLayoutChanged={onAutoLayoutChanged}>
@@ -292,56 +418,7 @@ export function AutomationPage() {
 
 			{/* 右侧：详情面板 or 仪表盘 */}
 			<ResizablePanel id="automation-main" defaultSize={80}>
-			<div className="flex flex-col h-full overflow-hidden">
-				{selectedScript ? (
-					<ScriptDetailPanel
-						script={selectedScript}
-						runs={runs}
-						activeProfiles={activeProfiles}
-						allProfiles={allProfiles}
-						isRunning={
-							activeScriptId === selectedScript.id &&
-							liveRunStatus === 'running'
-						}
-						liveStepResults={
-							activeScriptId === selectedScript.id ? liveStepResults : []
-						}
-						liveVariables={
-							activeScriptId === selectedScript.id ? liveVariables : {}
-						}
-						activeRunId={
-							activeScriptId === selectedScript.id ? activeRunId : null
-						}
-						onEdit={() => handleEditMeta(selectedScript)}
-						onDelete={() => handleDeleteScript(selectedScript.id)}
-						onRun={handleRun}
-						onDebugRun={handleDebugRun}
-						onCancel={() => {
-							const runId =
-								activeScriptId === selectedScript.id ? activeRunId : null;
-							if (runId) actions.cancelRun.mutate(runId);
-						}}
-						onRunsChange={() => {
-							if (selectedScriptId) {
-								void queryClient.invalidateQueries({
-									queryKey: queryKeys.automationRuns(selectedScriptId),
-								});
-							}
-						}}
-					/>
-				) : (
-					<div className="flex-1 flex items-center justify-center h-full">
-						<div className="text-center space-y-2">
-							<p className="text-sm text-muted-foreground">
-								{t('page.selectScript')}
-							</p>
-							<p className="text-xs text-muted-foreground/60">
-								{t('page.createHint')}
-							</p>
-						</div>
-					</div>
-				)}
-			</div>
+			{renderDetail()}
 			</ResizablePanel>
 		</ResizablePanelGroup>
 

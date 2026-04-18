@@ -16,8 +16,8 @@ export function ProfileListStats({
 }: ProfileListStatsProps) {
 	const { t } = useTranslation('profile');
 	return (
-		<div className="grid gap-3 md:grid-cols-3">
-			<Card className="p-3">
+		<div className="grid grid-cols-3 gap-2 sm:gap-3">
+			<Card className="min-w-0 gap-3 p-3">
 				<CardHeader className="px-1 pb-1">
 					<CardTitle className="text-xs text-muted-foreground">{t('stats.totalProfiles')}</CardTitle>
 				</CardHeader>
@@ -26,7 +26,7 @@ export function ProfileListStats({
 					<p className="text-xs text-muted-foreground">{t('stats.total', { count: totalCount })}</p>
 				</CardContent>
 			</Card>
-			<Card className="p-3">
+			<Card className="min-w-0 gap-3 p-3">
 				<CardHeader className="px-1 pb-1">
 					<CardTitle className="text-xs text-muted-foreground">{t('stats.activeProfiles')}</CardTitle>
 				</CardHeader>
@@ -34,7 +34,7 @@ export function ProfileListStats({
 					<p className="text-2xl font-semibold">{activeCount}</p>
 				</CardContent>
 			</Card>
-			<Card className="p-3">
+			<Card className="min-w-0 gap-3 p-3">
 				<CardHeader className="px-1 pb-1">
 					<CardTitle className="text-xs text-muted-foreground">{t('stats.running')}</CardTitle>
 				</CardHeader>

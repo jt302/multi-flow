@@ -7,6 +7,7 @@ import { useThemeSettings } from '@/entities/theme/model/use-theme-settings';
 import { resolveSonnerTheme } from '@/entities/theme/model/sonner-theme';
 import { openLogPanelWindow } from '@/entities/log-entry/api/logs-api';
 import { Card, Sidebar, SidebarProvider, Toaster } from '@/components/ui';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 import { resolveNavFromPath, resolvePathFromNav } from '@/app/workspace-routes';
 import { buildWorkspaceLayoutOutletContext } from '@/app/model/workspace-layout-context';
@@ -32,6 +33,7 @@ function resolveActiveNav(pathname: string): NavId {
 export function WorkspaceLayout() {
 	const navigate = useNavigate();
 	const location = useLocation();
+	const isMobile = useIsMobile();
 	const activeNav = resolveActiveNav(location.pathname);
 	const themeState = useThemeSettings();
 	const [sidebarOpen, setSidebarOpen] = useState(() =>
@@ -126,7 +128,7 @@ export function WorkspaceLayout() {
 				} as CSSProperties
 			}
 		>
-			<div className="relative h-dvh w-full overflow-hidden p-4">
+			<div className="relative h-dvh w-full overflow-hidden p-2 sm:p-4">
 				<div
 					aria-hidden
 					className="pointer-events-none absolute inset-0 opacity-60 transition-opacity duration-1000"
@@ -149,8 +151,8 @@ export function WorkspaceLayout() {
 						/>
 					</Sidebar>
 
-					<section className="flex min-h-0 min-w-0 flex-1 basis-0 flex-col gap-4 bg-transparent pl-1 md:pl-2">
-						<Card className="w-full shrink-0 border-border/40 bg-card/60 px-4 py-2.5 backdrop-blur-3xl shadow-sm transition-all duration-300">
+					<section className="flex min-h-0 min-w-0 flex-1 basis-0 flex-col gap-2 sm:gap-4 bg-transparent pl-0 sm:pl-1 md:pl-2">
+						<Card className="w-full shrink-0 border-border/40 bg-card/60 px-3 py-2 sm:px-4 sm:py-2.5 backdrop-blur-3xl shadow-sm transition-all duration-300">
 							<WorkspaceTopbar
 								activeNav={activeNav}
 								themeMode={themeState.themeMode}
@@ -159,11 +161,14 @@ export function WorkspaceLayout() {
 								onNavigate={(path) => navigate(path)}
 							/>
 						</Card>
-						<Card className="min-h-0 w-full flex-1 overflow-hidden flex flex-col border-border/40 bg-card/60 p-0 backdrop-blur-3xl shadow-md transition-all duration-300">
+						<Card
+							className="min-h-0 w-full flex-1 overflow-hidden flex flex-col border-border/40 bg-card/60 p-0 backdrop-blur-3xl shadow-md transition-all duration-300"
+							data-mobile-layout={isMobile ? 'true' : 'false'}
+						>
 							<div className="flex-1 min-h-0 overflow-y-auto">
 								<div
 									key={location.pathname}
-									className="flex h-full w-full min-w-0 flex-col p-3 md:p-4 animate-in fade-in zoom-in-[0.98] duration-500 fill-mode-both"
+									className="flex h-full min-h-0 w-full min-w-0 flex-col p-2 sm:p-3 md:p-4 animate-in fade-in zoom-in-[0.98] duration-500 fill-mode-both"
 								>
 								<Suspense
 									fallback={

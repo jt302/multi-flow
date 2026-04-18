@@ -48,7 +48,7 @@ export function McpServerMultiSelect({ disabledIds, onSelectionChange }: Props) 
 				<button
 					type="button"
 					className={cn(
-						'inline-flex items-center gap-1 h-8 px-2 rounded-md border text-xs transition-colors cursor-pointer shrink-0',
+						'inline-flex h-8 w-full items-center justify-center gap-1 rounded-md border px-2 text-xs transition-colors cursor-pointer shrink-0 sm:w-auto',
 						disabledCount > 0
 							? 'border-destructive/50 text-destructive bg-destructive/5 hover:bg-destructive/10'
 							: 'border-input bg-background text-muted-foreground hover:text-foreground hover:bg-accent',

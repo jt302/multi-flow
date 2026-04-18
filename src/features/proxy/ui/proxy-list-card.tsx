@@ -26,6 +26,7 @@ import {
 	TooltipTrigger,
 } from '@/components/ui';
 import type { ProxyItem } from '@/entities/proxy/model/types';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 type ProxyListCardProps = {
 	proxies: ProxyItem[];
@@ -175,6 +176,7 @@ export function ProxyListCard({
 	rowActionDisabled,
 }: ProxyListCardProps) {
 	const { t, i18n } = useTranslation();
+	const isMobile = useIsMobile();
 	const locale = i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US';
 
 	const activeProxyIds = proxies.filter((item) => item.lifecycle === 'active').map((item) => item.id);
@@ -190,18 +192,130 @@ export function ProxyListCard({
 					<p className="text-xs text-muted-foreground">{t('common:selectedActiveCount', { count: selectedActiveCount })}</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
-					<Button type="button" variant="default" size="sm" disabled={pending || batchChecking || rowActionDisabled} onClick={onOpenCreate}><Icon icon={Pencil} size={12} />{t('common:createItem', { item: t('common:proxy') })}</Button>
-					<Button type="button" variant="outline" size="sm" disabled={pending || batchChecking || rowActionDisabled} onClick={onOpenImport}><Icon icon={Upload} size={12} />{t('common:batchImport')}</Button>
-					<Button type="button" variant="outline" size="sm" disabled={pending || batchChecking || selectedActiveCount === 0} onClick={onBatchCheck}><Icon icon={batchChecking ? LoaderCircle : Search} size={12} className={batchChecking ? 'animate-spin' : ''} />{t('common:batchCheck')}</Button>
-					<Button type="button" variant="outline" size="sm" disabled={pending || batchChecking || rowActionDisabled || selectedActiveCount === 0} onClick={onOpenBatchEdit}><Icon icon={Pencil} size={12} />{t('common:batchEdit')}</Button>
-					<Button type="button" variant="outline" size="sm" disabled={pending || batchChecking || rowActionDisabled || selectedActiveCount === 0} onClick={onOpenBatchDelete}><Icon icon={Trash2} size={12} />{t('common:batchDelete')}</Button>
-					<Button type="button" variant="ghost" size="sm" disabled={pending || refreshing || batchChecking} onClick={onRefresh}><Icon icon={refreshing ? LoaderCircle : RefreshCw} size={12} className={refreshing ? 'animate-spin' : ''} />{t('common:refresh')}</Button>
+					<Button type="button" variant="default" size="sm" className="w-full sm:w-auto" disabled={pending || batchChecking || rowActionDisabled} onClick={onOpenCreate}><Icon icon={Pencil} size={12} />{t('common:createItem', { item: t('common:proxy') })}</Button>
+					<Button type="button" variant="outline" size="sm" className="w-full sm:w-auto" disabled={pending || batchChecking || rowActionDisabled} onClick={onOpenImport}><Icon icon={Upload} size={12} />{t('common:batchImport')}</Button>
+					<Button type="button" variant="outline" size="sm" className="w-full sm:w-auto" disabled={pending || batchChecking || selectedActiveCount === 0} onClick={onBatchCheck}><Icon icon={batchChecking ? LoaderCircle : Search} size={12} className={batchChecking ? 'animate-spin' : ''} />{t('common:batchCheck')}</Button>
+					<Button type="button" variant="outline" size="sm" className="w-full sm:w-auto" disabled={pending || batchChecking || rowActionDisabled || selectedActiveCount === 0} onClick={onOpenBatchEdit}><Icon icon={Pencil} size={12} />{t('common:batchEdit')}</Button>
+					<Button type="button" variant="outline" size="sm" className="w-full sm:w-auto" disabled={pending || batchChecking || rowActionDisabled || selectedActiveCount === 0} onClick={onOpenBatchDelete}><Icon icon={Trash2} size={12} />{t('common:batchDelete')}</Button>
+					<Button type="button" variant="ghost" size="sm" className="w-full sm:w-auto" disabled={pending || refreshing || batchChecking} onClick={onRefresh}><Icon icon={refreshing ? LoaderCircle : RefreshCw} size={12} className={refreshing ? 'animate-spin' : ''} />{t('common:refresh')}</Button>
 				</div>
 			</div>
 
 			<div className="overflow-hidden rounded-xl border border-border/70">
 				{proxies.length === 0 ? (
 					<div className="px-4 py-10 text-center text-sm text-muted-foreground">{t('common:noProxyAddFirst')}</div>
+				) : isMobile ? (
+					<div className="space-y-2 p-2">
+						{proxies.map((item) => {
+							const latencyMs = resolveLatency(item);
+							const latencyTone = resolveLatencyTone(item, latencyMs);
+							const isChecking = checkingProxyIds.includes(item.id);
+							const exitIpLabel =
+								item.exitIp ||
+								(item.checkStatus === 'ok'
+									? t('common:exitIpFetchFailed')
+									: t('common:exitIpNotDetected'));
+							const statusLabel = resolveStatusLabel(item, t);
+
+							return (
+								<div
+									key={item.id}
+									className="rounded-xl border border-border/70 bg-background/75 p-3"
+								>
+									<div className="flex items-start justify-between gap-3">
+										<div className="flex min-w-0 items-start gap-2">
+											<Checkbox
+												checked={selectedProxyIds.includes(item.id)}
+												disabled={item.lifecycle !== 'active' || pending || isChecking}
+												onCheckedChange={(checked) => onSelectProxy(item.id, checked === true)}
+											/>
+											<div className="min-w-0">
+												<div className="flex flex-wrap items-center gap-2">
+													<p className="truncate font-medium">{resolveProxyDisplayName(item)}</p>
+													<Badge variant="outline" className="text-[10px] uppercase">{item.protocol}</Badge>
+													<Badge variant={item.lifecycle === 'active' ? 'outline' : 'secondary'}>
+														{item.lifecycle === 'active' ? t('common:active') : t('common:archived')}
+													</Badge>
+												</div>
+												<p className="mt-1 truncate text-xs text-muted-foreground">
+													{formatProxyAddress(item.protocol, item.host, item.port)}
+												</p>
+												<p className="mt-1 truncate text-[11px] text-muted-foreground">
+													{item.provider || t('common:providerNotSet')} · {t('common:itemBoundCount', { count: boundCounts[item.id] ?? 0 })}
+												</p>
+											</div>
+										</div>
+										<div className="flex shrink-0 items-center gap-1">
+											{item.lifecycle === 'active' ? (
+												<>
+													<Button type="button" size="icon-sm" variant="ghost" disabled={pending || rowActionDisabled || isChecking} onClick={() => onCheckProxy(item.id)}><Icon icon={isChecking ? LoaderCircle : Search} size={13} className={isChecking ? 'animate-spin' : ''} /></Button>
+													<DropdownMenu>
+														<DropdownMenuTrigger asChild>
+															<Button type="button" size="icon-sm" variant="ghost" disabled={pending || rowActionDisabled || isChecking}><Icon icon={Ellipsis} size={14} /></Button>
+														</DropdownMenuTrigger>
+														<DropdownMenuContent align="end" className="w-44">
+															<DropdownMenuItem className="cursor-pointer" onClick={() => onOpenEdit(item.id)}>
+																<Icon icon={Pencil} size={13} />
+																{t('common:editItem', { item: t('common:proxy') })}
+															</DropdownMenuItem>
+															<DropdownMenuItem className="cursor-pointer" onClick={() => onOpenBinding(item.id)}>
+																<Icon icon={Link2} size={13} />
+																{t('common:bind')}
+															</DropdownMenuItem>
+															<DropdownMenuSeparator />
+															<DropdownMenuItem
+																className="cursor-pointer text-destructive focus:text-destructive"
+																onClick={() => onRequestDelete(item.id)}
+															>
+																<Icon icon={Trash2} size={13} />
+																{t('common:deleteItem', { item: t('common:proxy') })}
+															</DropdownMenuItem>
+														</DropdownMenuContent>
+													</DropdownMenu>
+												</>
+											) : (
+												<Button type="button" size="sm" variant="outline" disabled={pending || rowActionDisabled} onClick={() => onRestoreProxy(item.id)}><Icon icon={RotateCcw} size={12} />{t('common:restore')}</Button>
+											)}
+										</div>
+									</div>
+
+									<div className="mt-3 grid gap-2 sm:grid-cols-2">
+										<div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+											<p className="text-[11px] text-muted-foreground">{t('common:geo')}</p>
+											<p className="mt-1 text-sm font-medium">
+												{resolveCountryFlag(item.country) ? `${resolveCountryFlag(item.country)} ` : ''}{item.country || t('common:unknownCountry')}
+											</p>
+											<p className="text-[11px] text-muted-foreground">
+												{item.region || t('common:unknownRegion')} / {item.city || t('common:unknownCity')}
+											</p>
+										</div>
+										<div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+											<p className="text-[11px] text-muted-foreground">{t('common:exit')}</p>
+											<p className="mt-1 text-sm font-medium break-all">{exitIpLabel}</p>
+											<p className="text-[11px] text-muted-foreground">
+												{t('common:recentCheck')} {formatTimestamp(item.lastCheckedAt, t, locale)}
+											</p>
+										</div>
+										<div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+											<p className="text-[11px] text-muted-foreground">{t('common:siteReachability')}</p>
+											<p className="mt-1 text-sm font-medium">
+												{resolveTargetSiteSummary(item, t)}
+											</p>
+										</div>
+										<div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+											<p className="text-[11px] text-muted-foreground">{t('common:health')}</p>
+											<p className={`mt-1 text-sm font-medium ${latencyTone}`}>
+												{latencyMs !== null ? t('common:latencyMs', { ms: latencyMs }) : item.checkStatus === 'ok' ? t('common:latencyPending') : item.checkMessage || `${t('common:expired')} ${formatExpiry(item.expiresAt, t, locale)}`}
+											</p>
+											{statusLabel ? (
+												<p className="text-[11px] text-muted-foreground">{statusLabel}</p>
+											) : null}
+										</div>
+									</div>
+								</div>
+							);
+						})}
+					</div>
 				) : (
 					<Table className="table-fixed">
 						<colgroup>

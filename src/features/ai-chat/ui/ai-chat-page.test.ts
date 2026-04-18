@@ -10,4 +10,7 @@ test('ai chat page hydrates the persisted session lazily before loading the righ
 	assert.equal(source.includes('hydratedSessionId'), true);
 	assert.equal(source.includes('useChatMessagesQuery(hydratedSessionId)'), true);
 	assert.equal(source.includes('hydratedSessionId && hydratedSession'), true);
+	assert.equal(source.includes('useIsMobile'), true);
+	assert.equal(source.includes('Sheet'), true);
+	assert.equal(source.includes('mobileSessionsOpen'), true);
 });
