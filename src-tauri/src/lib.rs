@@ -19,6 +19,7 @@ use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 
 use crate::services::app_preference_service::normalize_app_language;
+use crate::state::resolve_app_data_dir;
 
 const MENU_ID_OPEN_DATA_DIR: &str = "open_data_dir";
 const MENU_ID_OPEN_DEVTOOLS: &str = "open_devtools";
@@ -682,11 +683,7 @@ fn start_proxy_daemon_sidecar(app: &AppHandle, app_state: &state::AppState) -> R
 }
 
 fn open_data_dir(app: &AppHandle) -> Result<(), String> {
-    let data_dir = app
-        .path()
-        .app_local_data_dir()
-        .or_else(|_| app.path().app_data_dir())
-        .map_err(|err| format!("resolve data dir failed: {err}"))?;
+    let data_dir = resolve_app_data_dir(app).map_err(|err| err.to_string())?;
     fs::create_dir_all(&data_dir).map_err(|err| format!("create data dir failed: {err}"))?;
 
     #[cfg(target_os = "macos")]

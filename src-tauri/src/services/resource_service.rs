@@ -6,13 +6,14 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use serde::Deserialize;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 use crate::error::{AppError, AppResult};
 use crate::models::{
     ResourceActivateResponse, ResourceCatalogResponse, ResourceDownloadResponse,
     ResourceInstallResponse, ResourceItem,
 };
+use crate::state::resolve_app_data_dir;
 
 const DEFAULT_CHROMIUM_ID: &str = "chromium-macos-144.0.7559.97";
 const DEFAULT_GEOIP_ID: &str = "geoip-city-latest";
@@ -44,13 +45,7 @@ pub struct ResourceService {
 
 impl ResourceService {
     pub fn from_app_handle(app: &AppHandle) -> AppResult<Self> {
-        let data_dir = app
-            .path()
-            .app_local_data_dir()
-            .or_else(|_| app.path().app_data_dir())
-            .map_err(|err| {
-                AppError::Validation(format!("failed to resolve app data dir: {err}"))
-            })?;
+        let data_dir = resolve_app_data_dir(app)?;
         fs::create_dir_all(&data_dir)?;
         Ok(Self { data_dir })
     }

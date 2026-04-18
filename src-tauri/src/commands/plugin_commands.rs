@@ -17,7 +17,7 @@ use crate::models::{
     DownloadPluginByExtensionIdRequest, InstallPluginToProfilesRequest, PluginDownloadPreference,
     PluginPackage, ProfileAdvancedSettings, ProfilePluginSelection, UpdateProfilePluginsRequest,
 };
-use crate::state::AppState;
+use crate::state::{resolve_app_data_dir, AppState};
 
 const CHROME_WEB_STORE_UPDATE_URL: &str = "https://clients2.google.com/service/update2/crx";
 const CHROME_WEB_STORE_PRODUCT: &str = "chromecrx";
@@ -995,11 +995,7 @@ fn trim_to_option_ref(input: impl AsRef<str>) -> Option<String> {
 }
 
 fn resolve_plugin_package_dir(app: &AppHandle, package_id: &str) -> Result<PathBuf, String> {
-    let data_dir = app
-        .path()
-        .app_local_data_dir()
-        .or_else(|_| app.path().app_data_dir())
-        .map_err(|err| format!("failed to resolve app data dir: {err}"))?;
+    let data_dir = resolve_app_data_dir(app).map_err(|err| err.to_string())?;
     Ok(data_dir.join("plugins").join("packages").join(package_id))
 }
 

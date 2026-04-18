@@ -7,17 +7,14 @@ use std::path::Path;
 use sea_orm::{ActiveModelTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait, Set};
 use sea_orm_migration::MigratorTrait;
 use serde::Deserialize;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 use self::entities::profile;
-use crate::error::{AppError, AppResult};
+use crate::error::AppResult;
+use crate::state::resolve_app_data_dir;
 
 pub fn init_database(app: &AppHandle) -> AppResult<DatabaseConnection> {
-    let data_dir = app
-        .path()
-        .app_local_data_dir()
-        .or_else(|_| app.path().app_data_dir())
-        .map_err(|err| AppError::Validation(format!("failed to resolve app data dir: {err}")))?;
+    let data_dir = resolve_app_data_dir(app)?;
     fs::create_dir_all(&data_dir)?;
 
     let db_path = data_dir.join("multi-flow.sqlite3");

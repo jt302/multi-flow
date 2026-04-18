@@ -13,6 +13,7 @@ import type {
 export const DEFAULT_STARTUP_URL = 'https://www.browserscan.net/';
 const DEVICE_NAME_PATTERN = /^[A-Za-z0-9-]{1,63}$/;
 const MAC_ADDRESS_PATTERN = /^[0-9A-F]{2}(?::[0-9A-F]{2}){5}$/i;
+const BROWSER_BG_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 export const profileFormSchema = z
 	.object({
@@ -24,10 +25,7 @@ export const profileFormSchema = z
 		platform: z.string().trim().min(1, i18next.t('validation:platformRequired')),
 		devicePresetId: z.string().trim().min(1, i18next.t('validation:devicePresetRequired')),
 		startupUrls: z.string(),
-		browserBgColor: z
-			.string()
-			.trim()
-			.regex(/^#[0-9a-fA-F]{6}$/, i18next.t('validation:bgColorFormat')),
+		browserBgColor: z.string().trim(),
 		browserBgColorMode: z.enum(['inherit', 'custom', 'none']),
 		toolbarLabelMode: z.enum(['inherit', 'id_only', 'group_name_and_id']),
 		proxyId: z.string(),
@@ -94,6 +92,17 @@ export const profileFormSchema = z
 					path: ['webrtcIpOverride'],
 				});
 			}
+		}
+
+		if (
+			values.browserBgColorMode === 'custom' &&
+			!BROWSER_BG_COLOR_PATTERN.test(values.browserBgColor.trim())
+		) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: i18next.t('validation:bgColorFormat'),
+				path: ['browserBgColor'],
+			});
 		}
 
 		if (values.deviceNameMode === 'custom') {

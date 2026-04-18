@@ -30,6 +30,8 @@ use crate::services::resource_service::ResourceService;
 use crate::services::mcp::McpManager;
 use crate::services::sync_manager_service::SyncManagerService;
 
+const DEV_APP_DATA_DIR_NAME: &str = "dev";
+
 pub struct AppState {
     /// 活跃运行上下文注册表：run_id → ActiveRunCtx，供 emit helpers 反查 profile 信息
     pub active_runs: Arc<ActiveRunRegistry>,
@@ -227,12 +229,23 @@ fn cleanup_rpa_artifacts_dir(app: &AppHandle) -> AppResult<()> {
 }
 
 pub fn resolve_app_data_dir(app: &AppHandle) -> AppResult<PathBuf> {
-    app.path()
+    Ok(resolve_runtime_app_data_dir(
+        app.path()
         .app_local_data_dir()
         .or_else(|_| app.path().app_data_dir())
         .map_err(|err| {
             crate::error::AppError::Validation(format!("failed to resolve app data dir: {err}"))
-        })
+        })?,
+        cfg!(debug_assertions),
+    ))
+}
+
+pub(crate) fn resolve_runtime_app_data_dir(base_dir: PathBuf, is_dev: bool) -> PathBuf {
+    if is_dev {
+        base_dir.join(DEV_APP_DATA_DIR_NAME)
+    } else {
+        base_dir
+    }
 }
 
 pub fn ensure_app_fs_root(app: &AppHandle) -> AppResult<PathBuf> {
@@ -262,4 +275,21 @@ fn resolve_chromium_executable(data_dir: &Path) -> Option<PathBuf> {
     ];
 
     candidates.into_iter().find(|path| path.is_file())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_runtime_app_data_dir;
+    use std::path::PathBuf;
+
+    #[test]
+    fn resolve_runtime_app_data_dir_separates_dev_and_release() {
+        let base_dir = PathBuf::from("/tmp/multi-flow");
+
+        assert_eq!(
+            resolve_runtime_app_data_dir(base_dir.clone(), true),
+            base_dir.join("dev")
+        );
+        assert_eq!(resolve_runtime_app_data_dir(base_dir.clone(), false), base_dir);
+    }
 }

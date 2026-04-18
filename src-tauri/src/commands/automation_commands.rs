@@ -19,7 +19,7 @@ use crate::services::app_preference_service::AiProviderConfig;
 use crate::services::automation_cdp_client::CdpClient;
 use crate::services::automation_context::{ActiveRunCtx, ActiveRunGuard};
 use crate::services::automation_interpolation::RunVariables;
-use crate::state::AppState;
+use crate::state::{resolve_app_data_dir, AppState};
 
 fn error_to_string(err: crate::error::AppError) -> String {
     err.to_string()
@@ -2046,10 +2046,7 @@ pub async fn execute_step(
                     }
                     p
                 } else {
-                    let data_dir = app
-                        .path()
-                        .app_local_data_dir()
-                        .or_else(|_| app.path().app_data_dir())
+                    let data_dir = resolve_app_data_dir(app)
                         .map_err(|e| format!("Screenshot: resolve data dir: {e}"))?;
                     let screenshots_dir = data_dir.join("screenshots");
                     std::fs::create_dir_all(&screenshots_dir)
@@ -2057,10 +2054,7 @@ pub async fn execute_step(
                     screenshots_dir.join(format!("screenshot_{}_{}.png", run_id, step_index))
                 }
             } else {
-                let data_dir = app
-                    .path()
-                    .app_local_data_dir()
-                    .or_else(|_| app.path().app_data_dir())
+                let data_dir = resolve_app_data_dir(app)
                     .map_err(|e| format!("Screenshot: resolve data dir: {e}"))?;
                 let screenshots_dir = data_dir.join("screenshots");
                 std::fs::create_dir_all(&screenshots_dir)
@@ -3203,10 +3197,7 @@ pub async fn execute_step(
                 }
                 _ => {
                     // 默认路径：automation_data/<script_id>/<profile_id>/screenshots/
-                    let data_dir = app
-                        .path()
-                        .app_local_data_dir()
-                        .or_else(|_| app.path().app_data_dir())
+                    let data_dir = resolve_app_data_dir(app)
                         .map_err(|e| format!("CdpScreenshot: resolve data dir: {e}"))?;
                     let sid = vars.get("__script_id__").unwrap_or("unknown");
                     let pid = vars.get("__profile_id__").unwrap_or("unknown");
@@ -3993,10 +3984,7 @@ pub async fn execute_step(
                     path
                 }
                 _ => {
-                    let data_dir = app
-                        .path()
-                        .app_local_data_dir()
-                        .or_else(|_| app.path().app_data_dir())
+                    let data_dir = resolve_app_data_dir(app)
                         .map_err(|e| format!("MagicCaptureAppShell: resolve data dir: {e}"))?;
                     let sid = vars.get("__script_id__").unwrap_or("unknown");
                     let pid = vars.get("__profile_id__").unwrap_or("unknown");

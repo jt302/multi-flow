@@ -3,6 +3,9 @@
 ## 当前重点（2026-03-13）
 
 - [x] AI skill 本地目录已切换到 `fs/.agents/skills`；读取与安装不再兼容旧 `fs/skills`
+- [x] dev / release 数据目录已分离：`release` 保持当前目录，`dev` 改用独立 `app_local_data_dir/dev`
+- [x] AI 助手 Skills 页面已补回内置 skills：优先读取打包资源 `default-skills`，开发态回退仓库 `docs/default-skills`
+- [x] 环境背景色表单修复：`inherit / none` 不再触发 `bgColorFormat`，切换离开 `custom` 时会清掉背景色错误
 
 - [x] 窗口同步模块按新 `chromium.md` / `multi-flow-sync-manager.md` 重构为“前端直连 sidecar”
 - [x] 前端新增全局单例 `MultiFlowSyncManagerClient + Zustand store`，统一维护实例、会话、warnings、metrics

@@ -111,7 +111,7 @@ export function BasicSettingsSection({
 	toolbarLabelMode,
 	resourceStatusLabel,
 }: BasicSettingsSectionProps) {
-	const { register, setValue } = form;
+	const { clearErrors, register, setValue } = form;
 	const { t } = useTranslation(['profile', 'common']);
 
 	return (
@@ -290,12 +290,16 @@ export function BasicSettingsSection({
 					<div className="grid gap-2">
 						<Select
 							value={browserBgColorMode}
-							onValueChange={(value) =>
-								setValue('browserBgColorMode', value as 'inherit' | 'custom' | 'none', {
+							onValueChange={(value) => {
+								const nextMode = value as 'inherit' | 'custom' | 'none';
+								setValue('browserBgColorMode', nextMode, {
 									shouldDirty: true,
-									shouldValidate: true,
-								})
-							}
+									shouldValidate: nextMode === 'custom',
+								});
+								if (nextMode !== 'custom') {
+									clearErrors('browserBgColor');
+								}
+							}}
 						>
 							<SelectTrigger>
 								<SelectValue />

@@ -1,15 +1,16 @@
 //! AI Skill 服务 —— Claude Code 风格 markdown skill 加载与管理
 //!
 //! Skill 来源：
-//! - 内置：{repo}/docs/default-skills/<slug>/SKILL.md
+//! - 内置：优先 {bundleResources}/default-skills/<slug>/SKILL.md，开发态回退 {repo}/docs/default-skills/<slug>/SKILL.md
 //! - 用户：{appData/fs}/.agents/skills/<slug>/SKILL.md
 //! frontmatter 格式（YAML）：name / slug / description / version / enabled / triggers / allowed_tools / model
 //! body（frontmatter 之后的 markdown）在调用时注入 system prompt
 
 use std::fs;
-use std::path::{Component, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use tauri::Manager;
 
 use crate::error::{AppError, AppResult};
 use crate::state::ensure_app_fs_root;
@@ -159,7 +160,7 @@ fn is_valid_slug(s: &str) -> bool {
 #[derive(Clone)]
 pub struct AiSkillService {
     user_skills_root: PathBuf,
-    built_in_skills_root: PathBuf,
+    built_in_skills_roots: Vec<PathBuf>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -170,19 +171,20 @@ enum SkillSource {
 
 impl AiSkillService {
     pub fn new(app_fs_root: PathBuf) -> Self {
-        Self::new_with_roots(
+        Self::new_with_builtin_roots(
             app_fs_root.join(".agents").join("skills"),
-            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("..")
-                .join("docs")
-                .join("default-skills"),
+            vec![repo_default_skills_root()],
         )
     }
 
     fn new_with_roots(user_skills_root: PathBuf, built_in_skills_root: PathBuf) -> Self {
+        Self::new_with_builtin_roots(user_skills_root, vec![built_in_skills_root])
+    }
+
+    fn new_with_builtin_roots(user_skills_root: PathBuf, built_in_skills_roots: Vec<PathBuf>) -> Self {
         Self {
             user_skills_root,
-            built_in_skills_root,
+            built_in_skills_roots: dedupe_paths(built_in_skills_roots),
         }
     }
 
@@ -203,13 +205,19 @@ impl AiSkillService {
         Ok(self.user_skills_root.join(slug).join("SKILL.md"))
     }
 
-    fn built_in_skill_path(&self, slug: &str) -> AppResult<PathBuf> {
+    fn built_in_skill_path(&self, slug: &str) -> AppResult<Option<PathBuf>> {
         self.validate_slug(slug)?;
-        Ok(self.built_in_skills_root.join(slug).join("SKILL.md"))
+        for root in &self.built_in_skills_roots {
+            let path = root.join(slug).join("SKILL.md");
+            if path.exists() {
+                return Ok(Some(path));
+            }
+        }
+        Ok(None)
     }
 
     fn is_built_in_slug(&self, slug: &str) -> AppResult<bool> {
-        Ok(self.built_in_skill_path(slug)?.exists())
+        Ok(self.built_in_skill_path(slug)?.is_some())
     }
 
     fn read_skills_from_root(
@@ -251,7 +259,15 @@ impl AiSkillService {
     }
 
     pub fn list_skills(&self) -> AppResult<Vec<SkillMeta>> {
-        let built_in = self.read_skills_from_root(&self.built_in_skills_root, SkillSource::BuiltIn)?;
+        let mut built_in = Vec::new();
+        let mut built_in_seen = std::collections::HashSet::new();
+        for root in &self.built_in_skills_roots {
+            for meta in self.read_skills_from_root(root, SkillSource::BuiltIn)? {
+                if built_in_seen.insert(meta.slug.clone()) {
+                    built_in.push(meta);
+                }
+            }
+        }
         let user = self.read_skills_from_root(&self.user_skills_root, SkillSource::User)?;
 
         let mut result = built_in;
@@ -280,8 +296,7 @@ impl AiSkillService {
     }
 
     pub fn read_skill(&self, slug: &str) -> AppResult<SkillFull> {
-        let built_in_path = self.built_in_skill_path(slug)?;
-        if built_in_path.exists() {
+        if let Some(built_in_path) = self.built_in_skill_path(slug)? {
             return self.read_skill_file(slug, &built_in_path, SkillSource::BuiltIn);
         }
 
@@ -532,10 +547,46 @@ fn build_skill_content(
     fm
 }
 
+fn repo_default_skills_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("docs")
+        .join("default-skills")
+}
+
+fn bundled_default_skills_roots(resource_dir: &Path) -> Vec<PathBuf> {
+    vec![
+        resource_dir.join("default-skills"),
+        resource_dir.join("docs").join("default-skills"),
+    ]
+}
+
+fn dedupe_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
+    let mut result = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for path in paths {
+        let key = path.to_string_lossy().to_string();
+        if seen.insert(key) {
+            result.push(path);
+        }
+    }
+    result
+}
+
 /// 从 AppHandle 构造 AiSkillService
 pub fn from_app(app: &tauri::AppHandle) -> AppResult<AiSkillService> {
     let fs_root = ensure_app_fs_root(app)?;
-    Ok(AiSkillService::new(fs_root))
+    let mut built_in_roots = app
+        .path()
+        .resource_dir()
+        .ok()
+        .map(|dir| bundled_default_skills_roots(&dir))
+        .unwrap_or_default();
+    built_in_roots.push(repo_default_skills_root());
+    Ok(AiSkillService::new_with_builtin_roots(
+        fs_root.join(".agents").join("skills"),
+        built_in_roots,
+    ))
 }
 
 #[cfg(test)]
@@ -669,7 +720,8 @@ allowed_tools:
         let svc = AiSkillService::new(tmp.path().to_path_buf());
 
         assert_eq!(svc.user_skills_root, tmp.path().join(".agents").join("skills"));
-        assert!(svc.built_in_skills_root.ends_with("docs/default-skills"));
+        assert_eq!(svc.built_in_skills_roots.len(), 1);
+        assert!(svc.built_in_skills_roots[0].ends_with("docs/default-skills"));
     }
 
     #[test]
@@ -852,5 +904,36 @@ allowed_tools:
         assert!(listed[1].built_in);
         assert!(!listed[2].built_in);
         assert!(!listed[3].built_in);
+    }
+
+    #[test]
+    fn built_in_skill_roots_prefer_bundled_resources_before_repo_fallback() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let user_root = tmp.path().join("user");
+        let bundled_root = tmp.path().join("bundled-default-skills");
+        let repo_root = tmp.path().join("repo-default-skills");
+        fs::create_dir_all(bundled_root.join("find-skills")).unwrap();
+        fs::create_dir_all(repo_root.join("find-skills")).unwrap();
+        fs::write(
+            bundled_root.join("find-skills").join("SKILL.md"),
+            "---\nname: Bundled Find\n---\nbundled body",
+        )
+        .unwrap();
+        fs::write(
+            repo_root.join("find-skills").join("SKILL.md"),
+            "---\nname: Repo Find\n---\nrepo body",
+        )
+        .unwrap();
+
+        let svc = AiSkillService::new_with_builtin_roots(
+            user_root,
+            vec![bundled_root, repo_root],
+        );
+        let full = svc.read_skill("find-skills").unwrap();
+
+        assert_eq!(full.meta.name, "Bundled Find");
+        assert_eq!(full.body, "bundled body");
+        assert!(full.meta.built_in);
+        assert!(!full.meta.deletable);
     }
 }

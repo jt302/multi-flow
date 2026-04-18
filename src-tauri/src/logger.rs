@@ -7,7 +7,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::Serialize;
 use tauri::AppHandle;
 use tauri::Emitter;
-use tauri::Manager;
+
+use crate::state::resolve_app_data_dir;
 
 static LOG_FILE: OnceLock<Mutex<std::fs::File>> = OnceLock::new();
 static LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
@@ -28,11 +29,7 @@ pub struct BackendLogEvent {
 }
 
 pub fn init(app: &AppHandle) -> Result<(), String> {
-    let data_dir = app
-        .path()
-        .app_local_data_dir()
-        .or_else(|_| app.path().app_data_dir())
-        .map_err(|err| format!("resolve data dir for logger failed: {err}"))?;
+    let data_dir = resolve_app_data_dir(app).map_err(|err| err.to_string())?;
     let log_dir = data_dir.join("logs");
     fs::create_dir_all(&log_dir).map_err(|err| format!("create log dir failed: {err}"))?;
     let log_path = log_dir.join("backend.log");

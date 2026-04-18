@@ -68,7 +68,12 @@
   - 首屏列表型 command（如 profiles / groups / windows / proxies / resources / plugins / automation 配置）优先使用 `async command + spawn_blocking`，不要让同步存储查询直接跑在原生 invoke 主线程上
   - `local_api_server`
   - `db`（SQLite 连接 + migrator + profile/group/proxy/binding/engine_session entities）
-- 当前持久化：`app_local_data_dir/multi-flow.sqlite3`
+- 当前持久化：
+  - `release`：沿用 `app_local_data_dir/multi-flow.sqlite3`
+  - `dev`：改为 `app_local_data_dir/dev/multi-flow.sqlite3`
+- 目录策略：
+  - `dev` 与 `release` 的数据库、日志、资源、偏好、插件包、截图和 `fs` 工作区全部隔离
+  - 本次不做旧数据自动迁移；`release` 保持兼容当前目录
 - 兼容策略：若检测到历史 `profiles.json` 且数据库为空，启动时执行一次性导入。
   - 启动参数联动（M0.8）：
   - `open_profile` 支持可选 `OpenProfileOptions`（语言、时区、默认打开 URL 列表、地理位置、WebRTC、headless、禁图、附加启动参数、运行时 seed）

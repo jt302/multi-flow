@@ -119,6 +119,13 @@ test('group form dialog exposes visual defaults editor', () => {
 	assert.equal(file.includes("t('group:form.browserBgColorDefault')"), true);
 });
 
+test('basic settings section clears browser color errors when leaving custom mode', () => {
+	const file = readFileSync(new URL('./basic-settings-section.tsx', import.meta.url), 'utf8');
+
+	assert.equal(file.includes("clearErrors('browserBgColor')"), true);
+	assert.equal(file.includes("shouldValidate: nextMode === 'custom'"), true);
+});
+
 test('plugins page exposes proxy selector for download and update actions', () => {
 	const file = readFileSync(new URL('../../plugin/ui/plugins-page.tsx', import.meta.url), 'utf8');
 
@@ -155,4 +162,15 @@ test('tauri config enables asset protocol for app data icons', () => {
 	assert.equal(file.includes('"assetProtocol"'), true);
 	assert.equal(file.includes('"enable": true'), true);
 	assert.equal(file.includes('"$APPDATA/**"'), true);
+});
+
+test('tauri bundle includes default skills resources', () => {
+	const file = readFileSync(
+		new URL('../../../../src-tauri/tauri.conf.json', import.meta.url),
+		'utf8',
+	);
+
+	assert.equal(file.includes('"resources"'), true);
+	assert.equal(file.includes('"../docs/default-skills"'), true);
+	assert.equal(file.includes('"default-skills"'), true);
 });

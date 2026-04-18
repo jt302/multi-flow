@@ -75,6 +75,7 @@ test('profile form schema accepts multiple startup urls split by line', () => {
 test('profile form schema accepts visual inheritance fields', () => {
 	const result = profileFormSchema.safeParse(
 		buildFormValues({
+			browserBgColor: '',
 			browserBgColorMode: 'inherit',
 			toolbarLabelMode: 'group_name_and_id',
 		}),
@@ -85,6 +86,30 @@ test('profile form schema accepts visual inheritance fields', () => {
 	}
 	assert.equal(result.data.browserBgColorMode, 'inherit');
 	assert.equal(result.data.toolbarLabelMode, 'group_name_and_id');
+});
+
+test('profile form schema accepts empty browser color when mode is none', () => {
+	const result = profileFormSchema.safeParse(
+		buildFormValues({
+			browserBgColor: '',
+			browserBgColorMode: 'none',
+		}),
+	);
+	assert.equal(result.success, true);
+});
+
+test('profile form schema rejects empty browser color when mode is custom', () => {
+	const result = profileFormSchema.safeParse(
+		buildFormValues({
+			browserBgColor: '',
+			browserBgColorMode: 'custom',
+		}),
+	);
+	assert.equal(result.success, false);
+	if (result.success) {
+		return;
+	}
+	assert.equal(result.error.issues[0]?.path[0], 'browserBgColor');
 });
 
 test('profile form schema rejects non http startup urls in multi line input', () => {

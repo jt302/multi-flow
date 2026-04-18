@@ -1,6 +1,7 @@
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use crate::logger::{self, BackendLogEvent};
+use crate::state::resolve_app_data_dir;
 
 const LOG_PANEL_LABEL: &str = "log-panel";
 
@@ -55,11 +56,7 @@ pub fn export_backend_logs(
     app: AppHandle,
     payload: ExportBackendLogsRequest,
 ) -> Result<ExportBackendLogsResponse, String> {
-    let data_dir = app
-        .path()
-        .app_local_data_dir()
-        .or_else(|_| app.path().app_data_dir())
-        .map_err(|err| format!("resolve app data dir failed: {err}"))?;
+    let data_dir = resolve_app_data_dir(&app).map_err(|err| err.to_string())?;
     let export_dir = data_dir.join("logs").join("exports");
     std::fs::create_dir_all(&export_dir)
         .map_err(|err| format!("create export directory failed: {err}"))?;

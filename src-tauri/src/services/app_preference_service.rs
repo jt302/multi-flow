@@ -4,10 +4,11 @@ use std::path::PathBuf;
 
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use uuid::Uuid;
 
 use crate::error::{AppError, AppResult};
+use crate::state::resolve_app_data_dir;
 
 /// 文件系统白名单条目（外部目录访问权限）
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
@@ -133,13 +134,7 @@ pub struct AppPreferenceService {
 
 impl AppPreferenceService {
     pub fn from_app_handle(app: &AppHandle) -> AppResult<Self> {
-        let data_dir = app
-            .path()
-            .app_local_data_dir()
-            .or_else(|_| app.path().app_data_dir())
-            .map_err(|err| {
-                AppError::Validation(format!("failed to resolve app data dir: {err}"))
-            })?;
+        let data_dir = resolve_app_data_dir(app)?;
         Ok(Self::from_data_dir(data_dir))
     }
 
