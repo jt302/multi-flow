@@ -450,36 +450,56 @@ export function BrowserControlRoutePage() {
 									const selectedMonitor = displayMonitors.find(
 										(m) => m.id === watchedValues.monitorId,
 									);
-									const workArea = selectedMonitor?.workArea;
-									if (!workArea || selectedRunningIds.length === 0) return null;
+									if (!selectedMonitor || selectedRunningIds.length === 0) return null;
+
+									// work_area 是物理像素；预览和后端保持一致，用 DIP 空间
+									const scale = Math.max(1, selectedMonitor.scaleFactor || 1);
+									const dipWorkArea = {
+										x: Math.round(selectedMonitor.workArea.x / scale),
+										y: Math.round(selectedMonitor.workArea.y / scale),
+										width: Math.round(selectedMonitor.workArea.width / scale),
+										height: Math.round(selectedMonitor.workArea.height / scale),
+									};
+
+									// register() 默认把 input 值保留为字符串，需手动解析为数字
+									const parseNum = (v: unknown, fallback: number) => {
+										if (v === undefined || v === null || v === '' || v === 'auto') return fallback;
+										const n = typeof v === 'number' ? v : Number(v);
+										return Number.isFinite(n) ? n : fallback;
+									};
+									const parseHint = (v: unknown) => {
+										if (v === undefined || v === null || v === '' || v === 'auto') return undefined;
+										const n = typeof v === 'number' ? v : Number(v);
+										return Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined;
+									};
 
 									const previewBounds = computeArrangePreview({
-										workArea,
+										workArea: dipWorkArea,
 										n: selectedRunningIds.length,
 										mode: watchedValues.mode as 'grid' | 'cascade' | 'main_with_sidebar',
-										rows: typeof watchedValues.rows === 'number' ? watchedValues.rows : undefined,
-										columns: typeof watchedValues.columns === 'number' ? watchedValues.columns : undefined,
-										gapX: watchedValues.gapX as number ?? 16,
-										gapY: watchedValues.gapY as number ?? 16,
+										rows: parseHint(watchedValues.rows),
+										columns: parseHint(watchedValues.columns),
+										gapX: parseNum(watchedValues.gapX, 16),
+										gapY: parseNum(watchedValues.gapY, 16),
 										padding: {
-											top: watchedValues.paddingTop as number ?? 12,
-											right: watchedValues.paddingRight as number ?? 12,
-											bottom: watchedValues.paddingBottom as number ?? 12,
-											left: watchedValues.paddingLeft as number ?? 12,
+											top: parseNum(watchedValues.paddingTop, 12),
+											right: parseNum(watchedValues.paddingRight, 12),
+											bottom: parseNum(watchedValues.paddingBottom, 12),
+											left: parseNum(watchedValues.paddingLeft, 12),
 										},
 										lastRowAlign: watchedValues.lastRowAlign,
 										flow: watchedValues.flow,
-										width: watchedValues.width as number ?? 1280,
-										height: watchedValues.height as number ?? 800,
-										cascadeStep: watchedValues.cascadeStep as number ?? 32,
-										mainRatio: watchedValues.mainRatio as number ?? 0.66,
+										width: parseNum(watchedValues.width, 1280),
+										height: parseNum(watchedValues.height, 800),
+										cascadeStep: parseNum(watchedValues.cascadeStep, 32),
+										mainRatio: parseNum(watchedValues.mainRatio, 0.66),
 										mainPosition: watchedValues.mainPosition,
 									});
 
 									return (
 										<div className="flex justify-center">
 											<ArrangePreview
-												workArea={workArea}
+												workArea={dipWorkArea}
 												bounds={previewBounds}
 												canvasWidth={240}
 												canvasHeight={140}
