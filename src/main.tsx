@@ -58,12 +58,8 @@ async function waitAndShowMainWindow() {
 	}
 }
 
-// 立即注册 init-complete 监听，不等待语言同步或 React 挂载
-// 目的：保证前端 invoke show_main_window 早于 Rust 3~5s fallback，
-// 避免 macOS window-activation click 吞掉主 webview 第一次 mousedown
-waitAndShowMainWindow();
-
 (async () => {
 	await syncInitialAppLanguage();
 	renderApp();
+	await waitAndShowMainWindow();
 })();

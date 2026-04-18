@@ -1014,13 +1014,6 @@ pub(crate) fn show_main_window_if_needed(app: &AppHandle, source: &str) {
     if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
         let _ = window.show();
         let _ = window.set_focus();
-
-        // 延迟再 set_focus 一次，避免 macOS window-activation click 吞掉 webview 首次 mousedown
-        let window_clone = window.clone();
-        tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_millis(120)).await;
-            let _ = window_clone.set_focus();
-        });
     }
 
     logger::info("main_window", format!("show main window via {source}"));
@@ -1527,7 +1520,7 @@ fn run_app_init(handle: AppHandle) -> Result<(), Box<dyn std::error::Error + Sen
     let _ = thread::Builder::new()
         .name("multi-flow-main-window-init-fallback".to_string())
         .spawn(move || {
-            thread::sleep(Duration::from_secs(5));
+            thread::sleep(Duration::from_secs(3));
             show_main_window_if_needed(&fallback_handle, "init-fallback");
         });
 
