@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const pageSource = readFileSync(new URL('./mcp-page.tsx', import.meta.url), 'utf8');
+const listSource = readFileSync(new URL('./mcp-server-list.tsx', import.meta.url), 'utf8');
 const editorSource = readFileSync(new URL('./mcp-server-editor.tsx', import.meta.url), 'utf8');
 const mutationsSource = readFileSync(new URL('../model/use-mcp-mutations.ts', import.meta.url), 'utf8');
 const apiSource = readFileSync(new URL('../../../entities/mcp/api/mcp-api.ts', import.meta.url), 'utf8');
@@ -18,6 +19,26 @@ test('mcp page opens create and edit flows in a dialog instead of inline editing
 	assert.equal(pageSource.includes('createServer.mutate('), false);
 });
 
+test('mcp page uses the same single-column shell style as skills instead of a persisted split layout', () => {
+	assert.equal(pageSource.includes('ResizablePanelGroup'), false);
+	assert.equal(pageSource.includes("id: 'mcp-layout'"), false);
+	assert.equal(pageSource.includes('usePersistentLayout'), false);
+	assert.equal(pageSource.includes("t('mcp.pageDescription')"), true);
+	assert.equal(pageSource.includes('void serversQuery.refetch()'), true);
+	assert.equal(pageSource.includes('rounded-xl border border-border/70 bg-card px-5 py-4 shadow-sm'), true);
+});
+
+test('mcp list uses card rows with status, transport, summary and switch actions', () => {
+	assert.equal(listSource.includes('rounded-xl border border-border/70 bg-card p-3 shadow-sm'), true);
+	assert.equal(listSource.includes('border-dashed border-border/70 bg-card/70'), true);
+	assert.equal(listSource.includes('hover:bg-accent/30'), true);
+	assert.equal(listSource.includes('statusVariant'), true);
+	assert.equal(listSource.includes('Switch'), true);
+	assert.equal(listSource.includes('server.command?.trim()'), true);
+	assert.equal(listSource.includes('server.url?.trim()'), true);
+	assert.equal(listSource.includes('server.lastError'), true);
+});
+
 test('mcp editor uses in-app delete confirmation and draft connection testing', () => {
 	assert.equal(editorSource.includes('ConfirmActionDialog'), true);
 	assert.equal(editorSource.includes('AlertDialogTrigger'), false);
@@ -28,6 +49,9 @@ test('mcp editor uses in-app delete confirmation and draft connection testing', 
 	assert.equal(editorSource.includes("t('mcp.argsJsonInvalid')"), true);
 	assert.equal(editorSource.includes("t('mcp.envJsonInvalid')"), true);
 	assert.equal(editorSource.includes("t('mcp.headersJsonInvalid')"), true);
+	assert.equal(editorSource.includes('McpToolsPreview'), true);
+	assert.equal(editorSource.includes("t('mcp.editorTransportSection')"), true);
+	assert.equal(editorSource.includes("t('mcp.editorAuthSection')"), true);
 });
 
 test('mcp mutations and tauri api expose draft connection testing', () => {

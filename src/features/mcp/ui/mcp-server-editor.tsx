@@ -237,18 +237,21 @@ export function McpServerEditor({
 	return (
 		<form
 			onSubmit={form.handleSubmit(onSubmit)}
-			className="flex max-h-[70vh] min-h-0 flex-col overflow-y-auto"
+			className="flex max-h-[78vh] min-h-0 flex-col overflow-hidden"
 		>
-			<div className="flex items-center justify-between border-b px-4 py-2 shrink-0">
-				<span className="truncate text-sm font-medium">
-					{isNew ? t('mcp.newServerName') : server?.name}
-				</span>
-				<div className="flex items-center gap-1">
+			<div className="flex items-center justify-between border-b px-5 py-4 shrink-0">
+				<div className="min-w-0 space-y-1">
+					<span className="block truncate text-sm font-medium">
+						{isNew ? t('mcp.newServerName') : server?.name}
+					</span>
+					<p className="text-xs text-muted-foreground">{t('mcp.editorHeaderHint')}</p>
+				</div>
+				<div className="flex items-center gap-2">
 					<Button
 						type="button"
 						size="sm"
 						variant="outline"
-						className="h-7 gap-1 text-xs cursor-pointer"
+						className="h-8 gap-1.5 text-xs cursor-pointer"
 						disabled={testConnection.isPending}
 						onClick={handleTestConnection}
 					>
@@ -264,7 +267,7 @@ export function McpServerEditor({
 							type="button"
 							size="icon"
 							variant="ghost"
-							className="size-7 text-destructive cursor-pointer"
+							className="size-8 text-destructive cursor-pointer"
 							onClick={() => setPendingDelete(true)}
 						>
 							<Trash2 className="size-3.5" />
@@ -273,98 +276,118 @@ export function McpServerEditor({
 				</div>
 			</div>
 
-			<div className="flex-1 space-y-4 p-4">
-				<div className="space-y-1.5">
-					<Label className="text-xs">{t('mcp.fieldName')}</Label>
-					<Input {...form.register('name')} className="h-8 text-sm" />
-					{form.formState.errors.name ? (
-						<p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
-					) : null}
-				</div>
+			<div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+				<section className="space-y-4 rounded-xl border border-border/70 bg-card/60 p-4">
+					<div className="space-y-1">
+						<h3 className="text-sm font-medium text-foreground">{t('mcp.editorBasicSection')}</h3>
+						<p className="text-xs text-muted-foreground">{t('mcp.editorBasicSectionHint')}</p>
+					</div>
+					<div className="grid gap-4 md:grid-cols-2">
+						<div className="space-y-1.5">
+							<Label className="text-xs">{t('mcp.fieldName')}</Label>
+							<Input {...form.register('name')} className="h-9 text-sm" />
+							{form.formState.errors.name ? (
+								<p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
+							) : null}
+						</div>
+						<div className="space-y-1.5">
+							<Label className="text-xs">{t('mcp.fieldTransport')}</Label>
+							<Select
+								value={form.watch('transport')}
+								onValueChange={(value) =>
+									form.setValue('transport', value as 'stdio' | 'sse' | 'http')
+								}
+							>
+								<SelectTrigger size="sm" className="h-9 text-xs">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="stdio">stdio</SelectItem>
+									<SelectItem value="http">http</SelectItem>
+									<SelectItem value="sse">sse</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+					</div>
+				</section>
 
-				<div className="space-y-1.5">
-					<Label className="text-xs">{t('mcp.fieldTransport')}</Label>
-					<Select
-						value={form.watch('transport')}
-						onValueChange={(value) =>
-							form.setValue('transport', value as 'stdio' | 'sse' | 'http')
-						}
-					>
-						<SelectTrigger size="sm" className="text-xs">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="stdio">stdio</SelectItem>
-							<SelectItem value="http">http</SelectItem>
-							<SelectItem value="sse">sse</SelectItem>
-						</SelectContent>
-					</Select>
-				</div>
-
-				{transport === 'stdio' ? (
-					<>
-						<div className="space-y-1.5">
-							<Label className="text-xs">{t('mcp.fieldCommand')}</Label>
-							<Input
-								{...form.register('command')}
-								className="h-8 text-sm font-mono"
-								placeholder="npx"
-							/>
-							{form.formState.errors.command ? (
-								<p className="text-xs text-destructive">{form.formState.errors.command.message}</p>
-							) : null}
-						</div>
-						<div className="space-y-1.5">
-							<Label className="text-xs">{t('mcp.fieldArgs')}</Label>
-							<Textarea
-								{...form.register('argsJson')}
-								className="resize-none text-xs font-mono"
-								rows={3}
-								placeholder='["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]'
-							/>
-							{form.formState.errors.argsJson ? (
-								<p className="text-xs text-destructive">{form.formState.errors.argsJson.message}</p>
-							) : null}
-						</div>
-						<div className="space-y-1.5">
-							<Label className="text-xs">{t('mcp.fieldEnv')}</Label>
-							<Textarea
-								{...form.register('envJson')}
-								className="resize-none text-xs font-mono"
-								rows={2}
-								placeholder='{"API_KEY": "..."}'
-							/>
-							{form.formState.errors.envJson ? (
-								<p className="text-xs text-destructive">{form.formState.errors.envJson.message}</p>
-							) : null}
-						</div>
-					</>
-				) : null}
+				<section className="space-y-4 rounded-xl border border-border/70 bg-card/60 p-4">
+					<div className="space-y-1">
+						<h3 className="text-sm font-medium text-foreground">{t('mcp.editorTransportSection')}</h3>
+						<p className="text-xs text-muted-foreground">{t('mcp.editorTransportSectionHint')}</p>
+					</div>
+					{transport === 'stdio' ? (
+						<>
+							<div className="space-y-1.5">
+								<Label className="text-xs">{t('mcp.fieldCommand')}</Label>
+								<Input
+									{...form.register('command')}
+									className="h-9 text-sm font-mono"
+									placeholder="npx"
+								/>
+								{form.formState.errors.command ? (
+									<p className="text-xs text-destructive">{form.formState.errors.command.message}</p>
+								) : null}
+							</div>
+							<div className="space-y-1.5">
+								<Label className="text-xs">{t('mcp.fieldArgs')}</Label>
+								<Textarea
+									{...form.register('argsJson')}
+									className="resize-none text-xs font-mono"
+									rows={3}
+									placeholder='["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]'
+								/>
+								{form.formState.errors.argsJson ? (
+									<p className="text-xs text-destructive">{form.formState.errors.argsJson.message}</p>
+								) : null}
+							</div>
+							<div className="space-y-1.5">
+								<Label className="text-xs">{t('mcp.fieldEnv')}</Label>
+								<Textarea
+									{...form.register('envJson')}
+									className="resize-none text-xs font-mono"
+									rows={2}
+									placeholder='{"API_KEY": "..."}'
+								/>
+								{form.formState.errors.envJson ? (
+									<p className="text-xs text-destructive">{form.formState.errors.envJson.message}</p>
+								) : null}
+							</div>
+						</>
+					) : (
+						<>
+							<div className="space-y-1.5">
+								<Label className="text-xs">{t('mcp.fieldUrl')}</Label>
+								<Input
+									{...form.register('url')}
+									className="h-9 text-sm"
+									placeholder="https://api.example.com/mcp"
+								/>
+								{form.formState.errors.url ? (
+									<p className="text-xs text-destructive">{form.formState.errors.url.message}</p>
+								) : null}
+							</div>
+							<div className="space-y-1.5">
+								<Label className="text-xs">{t('mcp.fieldHeaders')}</Label>
+								<Textarea
+									{...form.register('headersJson')}
+									className="resize-none text-xs font-mono"
+									rows={2}
+									placeholder='{"X-Custom": "value"}'
+								/>
+								{form.formState.errors.headersJson ? (
+									<p className="text-xs text-destructive">{form.formState.errors.headersJson.message}</p>
+								) : null}
+							</div>
+						</>
+					)}
+				</section>
 
 				{transport === 'http' || transport === 'sse' ? (
-					<>
-						<div className="space-y-1.5">
-							<Label className="text-xs">{t('mcp.fieldUrl')}</Label>
-							<Input
-								{...form.register('url')}
-								className="h-8 text-sm"
-								placeholder="https://api.example.com/mcp"
-							/>
-							{form.formState.errors.url ? (
-								<p className="text-xs text-destructive">{form.formState.errors.url.message}</p>
-							) : null}
-						</div>
-						<div className="space-y-1.5">
-							<Label className="text-xs">{t('mcp.fieldHeaders')}</Label>
-							<Textarea
-								{...form.register('headersJson')}
-								className="resize-none text-xs font-mono"
-								rows={2}
-								placeholder='{"X-Custom": "value"}'
-							/>
-							{form.formState.errors.headersJson ? (
-								<p className="text-xs text-destructive">{form.formState.errors.headersJson.message}</p>
-							) : null}
+					<section className="space-y-4 rounded-xl border border-border/70 bg-card/60 p-4">
+						<div className="space-y-1">
+							<h3 className="text-sm font-medium text-foreground">{t('mcp.editorAuthSection')}</h3>
+							<p className="text-xs text-muted-foreground">{t('mcp.editorAuthSectionHint')}</p>
 						</div>
 						<div className="space-y-1.5">
 							<Label className="text-xs">{t('mcp.fieldAuthType')}</Label>
@@ -374,7 +397,7 @@ export function McpServerEditor({
 									form.setValue('authType', value as 'none' | 'bearer' | 'oauth')
 								}
 							>
-								<SelectTrigger size="sm" className="text-xs">
+								<SelectTrigger size="sm" className="h-9 text-xs">
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
@@ -391,7 +414,7 @@ export function McpServerEditor({
 								<Input
 									{...form.register('bearerToken')}
 									type="password"
-									className="h-8 text-sm font-mono"
+									className="h-9 text-sm font-mono"
 									placeholder="sk-..."
 								/>
 							</div>
@@ -400,13 +423,13 @@ export function McpServerEditor({
 						{authType === 'oauth' ? (
 							<>
 								<div className="space-y-1.5">
-									<div className="flex items-center justify-between">
+									<div className="flex items-center justify-between gap-3">
 										<Label className="text-xs">{t('mcp.fieldOAuthConfig')}</Label>
 										<Button
 											type="button"
 											size="sm"
 											variant="ghost"
-											className="h-6 px-2 text-xs gap-1 cursor-pointer"
+											className="h-7 px-2 text-xs gap-1 cursor-pointer"
 											disabled={discoverOAuth.isPending}
 											onClick={() => {
 												const url = form.getValues('url') || '';
@@ -464,19 +487,28 @@ export function McpServerEditor({
 								) : null}
 							</>
 						) : null}
-					</>
+					</section>
 				) : null}
 
-				{server?.id ? <McpToolsPreview serverId={server.enabled ? server.id : null} /> : null}
+				{server?.id ? (
+					<section className="space-y-3 rounded-xl border border-border/70 bg-card/60 p-4">
+						<div className="space-y-1">
+							<h3 className="text-sm font-medium text-foreground">{t('mcp.editorToolsSection')}</h3>
+							<p className="text-xs text-muted-foreground">{t('mcp.editorToolsSectionHint')}</p>
+						</div>
+						<McpToolsPreview serverId={server.enabled ? server.id : null} />
+					</section>
+				) : null}
 
 				{server?.lastError ? (
-					<div className="rounded-md border border-destructive/50 bg-destructive/5 px-3 py-2">
+					<section className="space-y-2 rounded-xl border border-destructive/50 bg-destructive/5 p-4">
+						<h3 className="text-sm font-medium text-destructive">{t('mcp.editorErrorSection')}</h3>
 						<p className="text-xs text-destructive">{formatMcpErrorMessage(server.lastError, t)}</p>
-					</div>
+					</section>
 				) : null}
 			</div>
 
-			<DialogFooter className="border-t px-4 py-3 shrink-0">
+			<DialogFooter className="border-t px-5 py-4 shrink-0">
 				<Button
 					type="button"
 					size="sm"

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { LoaderCircle, Plus, RefreshCw } from 'lucide-react';
 
 import {
 	Dialog,
@@ -8,12 +9,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
-import {
-	ResizableHandle,
-	ResizablePanel,
-	ResizablePanelGroup,
-} from '@/components/ui/resizable';
-import { usePersistentLayout } from '@/shared/hooks/use-persistent-layout';
+import { Button } from '@/components/ui/button';
 import { useMcpServersQuery } from '@/entities/mcp/model/use-mcp-query';
 import type { McpServer } from '@/entities/mcp/model/types';
 import { McpServerList } from './mcp-server-list';
@@ -21,10 +17,6 @@ import { McpServerEditor } from './mcp-server-editor';
 
 export function McpPage() {
 	const { t } = useTranslation('chat');
-	const { defaultLayout, onLayoutChanged } = usePersistentLayout({
-		id: 'mcp-layout',
-	});
-
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [isCreating, setIsCreating] = useState(false);
 	const [dialogOpen, setDialogOpen] = useState(false);
@@ -34,6 +26,7 @@ export function McpPage() {
 	const selectedServer = servers.find((s) => s.id === selectedId) ?? null;
 
 	const handleNew = () => {
+		setSelectedId(null);
 		setIsCreating(true);
 		setDialogOpen(true);
 	};
@@ -58,30 +51,41 @@ export function McpPage() {
 		setDialogOpen(false);
 	};
 
+	const handleRefresh = () => {
+		void serversQuery.refetch();
+	};
+
 	return (
-		<ResizablePanelGroup
-			direction="horizontal"
-			className="h-full"
-			defaultLayout={defaultLayout}
-			onLayoutChanged={onLayoutChanged}
-		>
-			<ResizablePanel id="mcp-sidebar" defaultSize={defaultLayout?.[0] ?? 30} minSize={20} maxSize={40}>
+		<div className="flex h-full flex-col gap-4 p-4">
+			<div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border/70 bg-card px-5 py-4 shadow-sm">
+				<div className="space-y-1">
+					<h1 className="text-base font-semibold text-foreground">{t('mcp.allServersActive')}</h1>
+					<p className="max-w-2xl text-sm text-muted-foreground">{t('mcp.pageDescription')}</p>
+				</div>
+				<div className="flex items-center gap-2">
+					<Button type="button" variant="outline" onClick={handleRefresh} className="cursor-pointer">
+						{serversQuery.isFetching ? (
+							<LoaderCircle className="h-4 w-4 animate-spin" />
+						) : (
+							<RefreshCw className="h-4 w-4" />
+						)}
+						{serversQuery.isFetching ? t('mcp.refreshPending') : t('mcp.refreshAction')}
+					</Button>
+					<Button type="button" onClick={handleNew} className="cursor-pointer">
+						<Plus className="h-4 w-4" />
+						{t('mcp.createTitle')}
+					</Button>
+				</div>
+			</div>
+			<div className="min-h-0 flex-1">
 				<McpServerList
 					servers={servers}
+					isLoading={serversQuery.isLoading}
 					selectedId={selectedId}
 					onSelect={handleSelect}
 					onNew={handleNew}
 				/>
-			</ResizablePanel>
-
-			<ResizableHandle />
-
-			<ResizablePanel id="mcp-detail" defaultSize={defaultLayout?.[1] ?? 70} minSize={40}>
-				<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-					{servers.length === 0 ? t('mcp.emptyHint') : t('mcp.selectOrCreate')}
-				</div>
-			</ResizablePanel>
-
+			</div>
 			<Dialog
 				open={dialogOpen}
 				onOpenChange={(open) => {
@@ -111,6 +115,6 @@ export function McpPage() {
 					/>
 				</DialogContent>
 			</Dialog>
-		</ResizablePanelGroup>
+		</div>
 	);
 }
