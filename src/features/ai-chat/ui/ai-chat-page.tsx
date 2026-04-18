@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -31,8 +31,6 @@ import { ChatInputBar } from './chat-input-bar';
 
 export function AiChatPage() {
 	const { t } = useTranslation('chat');
-	const [input, setInput] = useState('');
-	const [pastedImage, setPastedImage] = useState<string | null>(null);
 	const qc = useQueryClient();
 	const { defaultLayout: chatLayout, onLayoutChanged: onChatLayoutChanged } = usePersistentLayout({
 		id: 'ai-chat-layout',
@@ -40,7 +38,7 @@ export function AiChatPage() {
 	});
 
 const sessionsQuery = useChatSessionsQuery();
-	const sessions = sessionsQuery.data ?? [];
+	const sessions = useMemo(() => sessionsQuery.data ?? [], [sessionsQuery.data]);
 
 	const persistedSessionId = useChatStore((s) => s.activeSessionId);
 	const [hydratedSessionId, setHydratedSessionId] = useState<string | null>(null);
@@ -58,16 +56,18 @@ const sessionsQuery = useChatSessionsQuery();
 	const dbMessages: ChatMessageRecord[] = messagesQuery.data ?? [];
 
 	// merge DB messages with live messages (avoid duplicates)
-	const liveIds = new Set(liveMessages.map((m) => m.id));
-	const allMessages = [
-		...dbMessages.filter((m) => !liveIds.has(m.id)),
-		...liveMessages,
-	].sort((a, b) => a.sortOrder - b.sortOrder);
+	const allMessages = useMemo(() => {
+		const liveIds = new Set(liveMessages.map((m) => m.id));
+		return [
+			...dbMessages.filter((m) => !liveIds.has(m.id)),
+			...liveMessages,
+		].sort((a, b) => a.sortOrder - b.sortOrder);
+	}, [dbMessages, liveMessages]);
 
 	const createSession = useCreateChatSession();
 	const deleteSession = useDeleteChatSession();
 
-	const activateSession = (id: string | null) => {
+	const activateSession = useCallback((id: string | null) => {
 		if (restoreFrameRef.current != null) {
 			cancelAnimationFrame(restoreFrameRef.current);
 			restoreFrameRef.current = null;
@@ -75,7 +75,7 @@ const sessionsQuery = useChatSessionsQuery();
 		setHydratedSessionId(id);
 		setIsRestoringSession(false);
 		chatStore.getState().setActiveSession(id);
-	};
+	}, []);
 
 	useEffect(() => {
 		return () => {
@@ -127,30 +127,26 @@ const sessionsQuery = useChatSessionsQuery();
 		});
 	}, [hydratedSessionId, persistedSessionId, sessions, sessionsQuery.isLoading]);
 
-	const handleCreate = async () => {
+	const handleCreate = useCallback(async () => {
 		const session = await createSession.mutateAsync({});
 		activateSession(session.id);
-	};
+	}, [createSession, activateSession]);
 
 	// 当前会话是否关联了环境
 	const hasProfile = (hydratedSession?.profileIds?.length ?? 0) > 0
 		|| !!hydratedSession?.profileId;
 
-	const handleSend = async () => {
+	const handleSubmit = useCallback(async (text: string, img: string | null) => {
 		if (!hydratedSessionId || isGenerating) return;
 
-		// 未关联任何环境时提醒并阻止发送（无论输入是否为空都给提示）
+		// 未关联任何环境时提醒（input bar 的 sendDisabled=false 允许点击，这里负责拦截）
 		if (!hasProfile) {
 			toast.warning(t('noProfileWarning', '请先在顶部选择一个运行环境，否则浏览器工具将无法使用。'));
 			return;
 		}
 
-		if (!input.trim() && !pastedImage) return;
+		if (!text.trim() && !img) return;
 
-		const text = input.trim();
-		const img = pastedImage;
-		setInput('');
-		setPastedImage(null);
 		chatStore.getState().startGeneration();
 
 		// auto-generate title from the first user message
@@ -166,14 +162,21 @@ const sessionsQuery = useChatSessionsQuery();
 		} catch {
 			chatStore.getState().finishGeneration();
 		}
-	};
+	}, [hydratedSessionId, isGenerating, hasProfile, t, hydratedSession, qc]);
 
-	const handleStop = () => {
+	const handleStop = useCallback(() => {
 		if (hydratedSessionId) {
 			stopChatGeneration(hydratedSessionId);
 			chatStore.getState().finishGeneration();
 		}
-	};
+	}, [hydratedSessionId]);
+
+	const handleDelete = useCallback((id: string) => {
+		deleteSession.mutate(id);
+		if (persistedSessionId === id || hydratedSessionId === id) {
+			activateSession(null);
+		}
+	}, [deleteSession, persistedSessionId, hydratedSessionId, activateSession]);
 
 	return (
 		<ResizablePanelGroup direction="horizontal" className="h-full" defaultLayout={chatLayout} onLayoutChanged={onChatLayoutChanged}>
@@ -181,14 +184,9 @@ const sessionsQuery = useChatSessionsQuery();
 					<ChatSessionList
 						sessions={sessions}
 						activeId={listActiveSessionId}
-						onSelect={(id) => activateSession(id)}
+						onSelect={activateSession}
 						onCreate={handleCreate}
-						onDelete={(id) => {
-							deleteSession.mutate(id);
-							if (persistedSessionId === id || hydratedSessionId === id) {
-								activateSession(null);
-							}
-						}}
+						onDelete={handleDelete}
 					/>
 				</ResizablePanel>
 			<ResizableHandle />
@@ -203,15 +201,11 @@ const sessionsQuery = useChatSessionsQuery();
 								isGenerating={isGenerating}
 							/>
 							<ChatInputBar
-								value={input}
-								onChange={setInput}
-								onSend={handleSend}
+								onSubmit={handleSubmit}
 								onStop={handleStop}
 								isGenerating={isGenerating}
-								sendDisabled={hasProfile ? ((!input.trim() && !pastedImage) || undefined) : false}
+								sendDisabled={hasProfile ? undefined : false}
 								contextUsed={contextUsed}
-								imageBase64={pastedImage}
-								onImageChange={setPastedImage}
 								/>
 							</>
 					) : isRestoringSession ? (

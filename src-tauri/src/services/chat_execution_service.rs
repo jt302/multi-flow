@@ -445,6 +445,9 @@ impl ChatExecutionService {
             let mut rx = ai.chat_with_tools_stream(ai_config, messages.clone(), tools.clone());
 
             let mut text_buf = String::new();
+            // 合批缓冲：累积 TextDelta，满 64 字节或 24ms 才 emit 一次，降低 IPC 频率
+            let mut delta_buf = String::new();
+            let mut last_emit = std::time::Instant::now();
             // index -> (id, name, accumulated_args)
             let mut tool_calls_buf: std::collections::HashMap<usize, (String, String, String)> =
                 std::collections::HashMap::new();
@@ -464,13 +467,27 @@ impl ChatExecutionService {
                 match delta {
                     crate::services::ai_service::AiChatDelta::TextDelta(t) => {
                         text_buf.push_str(&t);
-                        emit_message_delta(
-                            app, session_id, &stream_msg_id, "text", Some(&t), None, None,
-                        );
+                        delta_buf.push_str(&t);
+                        let should_flush = delta_buf.len() >= 64
+                            || last_emit.elapsed() >= std::time::Duration::from_millis(24);
+                        if should_flush {
+                            emit_message_delta(
+                                app, session_id, &stream_msg_id, "text", Some(&delta_buf), None, None,
+                            );
+                            delta_buf.clear();
+                            last_emit = std::time::Instant::now();
+                        }
                     }
                     crate::services::ai_service::AiChatDelta::ToolCallStart {
                         index, id, name,
                     } => {
+                        // 工具调用前先 flush 剩余文本 delta
+                        if !delta_buf.is_empty() {
+                            emit_message_delta(
+                                app, session_id, &stream_msg_id, "text", Some(&delta_buf), None, None,
+                            );
+                            delta_buf.clear();
+                        }
                         tool_calls_buf.insert(index, (id, name.clone(), String::new()));
                         emit_message_delta(
                             app, session_id, &stream_msg_id, "tool_start", None,
@@ -501,6 +518,13 @@ impl ChatExecutionService {
                         break 'stream_loop;
                     }
                 }
+            }
+
+            // flush 剩余 delta（取消时不 emit，避免生成结束后出现幽灵更新）
+            if !cancelled && !delta_buf.is_empty() {
+                emit_message_delta(
+                    app, session_id, &stream_msg_id, "text", Some(&delta_buf), None, None,
+                );
             }
 
             if !cancelled {

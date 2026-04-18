@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 
@@ -12,18 +12,24 @@ type Props = { message: ChatMessageRecord };
 
 const SCREENSHOT_TOOLS = new Set(['cdp_screenshot', 'magic_capture_app_shell']);
 
-export function ToolCallCard({ message, onImageClick }: Props & { onImageClick?: (src: string) => void }) {
+export const ToolCallCard = memo(function ToolCallCard({ message, onImageClick }: Props & { onImageClick?: (src: string) => void }) {
 	const { t } = useTranslation('chat');
 	const isError = message.toolStatus === 'failed';
 	const [open, setOpen] = useState(isError);
-	const args = message.toolArgsJson ? tryParseJson(message.toolArgsJson) : null;
-	const imageSrc = message.imageRef
-		? convertFileSrc(message.imageRef)
-		: message.imageBase64
-			? (message.imageBase64.startsWith('data:')
+
+	const args = useMemo(() => message.toolArgsJson ? tryParseJson(message.toolArgsJson) : null, [message.toolArgsJson]);
+	const argsText = useMemo(() => args ? JSON.stringify(args, null, 2) : '', [args]);
+	const resultText = useMemo(() => message.toolResult ? formatToolResult(message.toolResult) : null, [message.toolResult]);
+	const imageSrc = useMemo(() => {
+		if (message.imageRef) return convertFileSrc(message.imageRef);
+		if (message.imageBase64) {
+			return message.imageBase64.startsWith('data:')
 				? message.imageBase64
-				: `data:image/png;base64,${message.imageBase64}`)
-			: null;
+				: `data:image/png;base64,${message.imageBase64}`;
+		}
+		return null;
+	}, [message.imageRef, message.imageBase64]);
+
 	const isScreenshot = message.toolName ? SCREENSHOT_TOOLS.has(message.toolName) : false;
 
 	return (
@@ -86,7 +92,7 @@ export function ToolCallCard({ message, onImageClick }: Props & { onImageClick?:
 									{t('toolArgs')}
 								</p>
 								<pre className="whitespace-pre-wrap break-all text-[11px] bg-muted/50 rounded p-2 font-mono">
-									{JSON.stringify(args, null, 2)}
+									{argsText}
 								</pre>
 							</div>
 						)}
@@ -109,7 +115,7 @@ export function ToolCallCard({ message, onImageClick }: Props & { onImageClick?:
 									{t('toolResult')}
 								</p>
 								<pre className="whitespace-pre-wrap break-all text-[11px] max-h-40 overflow-y-auto bg-muted/50 rounded p-2 font-mono">
-									{formatToolResult(message.toolResult)}
+									{resultText ?? ''}
 								</pre>
 							</div>
 						)}
@@ -118,7 +124,7 @@ export function ToolCallCard({ message, onImageClick }: Props & { onImageClick?:
 			</div>
 		</div>
 	);
-}
+});
 
 function tryParseJson(s: string) {
 	try {
@@ -129,7 +135,6 @@ function tryParseJson(s: string) {
 }
 
 function formatToolResult(text: string): string {
-	// 尝试格式化 JSON 结果
 	const parsed = tryParseJson(text);
 	if (parsed) return JSON.stringify(parsed, null, 2);
 	return text;

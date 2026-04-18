@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Pencil, ScrollText } from 'lucide-react';
@@ -33,7 +33,7 @@ type Props = {
 	session: ChatSession;
 };
 
-export function ChatHeader({ session }: Props) {
+export const ChatHeader = memo(function ChatHeader({ session }: Props) {
 	const { t } = useTranslation('chat');
 	const [isEditingTitle, setIsEditingTitle] = useState(false);
 	const [titleDraft, setTitleDraft] = useState('');
@@ -212,4 +212,4 @@ export function ChatHeader({ session }: Props) {
 			</Dialog>
 		</div>
 	);
-}
+});

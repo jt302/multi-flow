@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';
 import { MessageSquarePlus, Trash2 } from 'lucide-react';
@@ -15,7 +16,7 @@ type Props = {
 	onDelete: (id: string) => void;
 };
 
-export function ChatSessionList({
+export const ChatSessionList = memo(function ChatSessionList({
 	sessions,
 	activeId,
 	onSelect,
@@ -85,4 +86,4 @@ export function ChatSessionList({
 			</div>
 		</div>
 	);
-}
+});

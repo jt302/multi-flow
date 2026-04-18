@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useMemo, useRef, useState } from 'react';
 import { Check, Copy, X } from 'lucide-react';
+import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import Lightbox from 'yet-another-react-lightbox';
 import Zoom from 'yet-another-react-lightbox/plugins/zoom';
 import 'yet-another-react-lightbox/styles.css';
@@ -8,12 +9,14 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useTranslation } from 'react-i18next';
 
-import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ChatMessageRecord } from '@/entities/chat/model/types';
 import { GenerationProgress } from './generation-progress';
 import { ThinkingBlock } from './thinking-block';
 import { ToolCallCard } from './tool-call-card';
 import './chat-message-list-lightbox.css';
+
+// 稳定引用，避免 ReactMarkdown 每次看到新数组引用而重初始化 remark 管道
+const REMARK_PLUGINS = [remarkGfm];
 
 type Props = {
 	messages: ChatMessageRecord[];
@@ -22,87 +25,82 @@ type Props = {
 
 export function ChatMessageList({ messages, isGenerating }: Props) {
 	const { t } = useTranslation('chat');
-	const bottomRef = useRef<HTMLDivElement>(null);
+	const virtuosoRef = useRef<VirtuosoHandle>(null);
 	const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
-	const slides = lightboxSrc ? [{ src: lightboxSrc, alt: t('imagePreview') }] : [];
 
-	// 进入聊天时立即滚动到底部（instant，不抖动）
-	useEffect(() => {
-		bottomRef.current?.scrollIntoView({ behavior: 'instant' });
-	}, []);
-
-	// 生成过程中新消息或流式内容更新时平滑滚动
-	const lastMsg = messages[messages.length - 1];
-	const lastContentLen = lastMsg?.contentText?.length ?? 0;
-	useEffect(() => {
-		if (messages.length > 0 || isGenerating) {
-			bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-		}
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [messages.length, isGenerating, lastContentLen]);
-
-	const closeLightbox = () => {
-		setLightboxSrc(null);
-	};
+	// Lightbox 数据和组件只在 lightboxSrc 变化时重建
+	const slides = useMemo(
+		() => (lightboxSrc ? [{ src: lightboxSrc, alt: t('imagePreview') }] : []),
+		[lightboxSrc, t],
+	);
+	const lightboxEl = useMemo(() => (
+		<Lightbox
+			open={!!lightboxSrc}
+			close={() => setLightboxSrc(null)}
+			slides={slides}
+			index={0}
+			plugins={[Zoom]}
+			className="ai-chat-lightbox"
+			controller={{ closeOnBackdropClick: true }}
+			carousel={{ finite: slides.length <= 1, padding: '64px', spacing: '10%', imageFit: 'contain' }}
+			toolbar={{ buttons: ['close'] }}
+			zoom={{ maxZoomPixelRatio: 3, doubleClickMaxStops: 4, scrollToZoom: true }}
+			labels={{
+				Close: t('closePreview'),
+				Lightbox: t('imagePreview'),
+				Carousel: t('imagePreview'),
+				Slide: t('imagePreview'),
+				'Photo gallery': t('imagePreview'),
+				'Zoom in': t('zoomInPreview'),
+				'Zoom out': t('zoomOutPreview'),
+			}}
+			styles={{
+				container: { '--yarl__color_backdrop': 'rgba(15, 23, 42, 0.68)' },
+				toolbar: {
+					'--yarl__button_filter': 'none',
+					'--yarl__toolbar_padding': '12px',
+				},
+				button: {
+					'--yarl__button_background_color': 'rgba(255, 255, 255, 0.94)',
+					'--yarl__button_border': '1px solid rgba(148, 163, 184, 0.28)',
+					'--yarl__button_filter': 'none',
+					'--yarl__button_padding': '6px',
+					color: '#0f172a',
+				},
+				icon: { '--yarl__icon_size': '18px' },
+			}}
+			render={{
+				buttonZoom: () => null,
+				buttonPrev: slides.length <= 1 ? () => null : undefined,
+				buttonNext: slides.length <= 1 ? () => null : undefined,
+				iconClose: () => <X className="size-[18px]" strokeWidth={2.25} />,
+			}}
+		/>
+	), [lightboxSrc, slides, t]);
 
 	return (
 		<>
-			<ScrollArea className="flex-1 min-h-0">
-				<div className="px-4 py-4 space-y-4 max-w-5xl mx-auto w-full">
-					{messages.map((msg) => (
+			<Virtuoso
+				ref={virtuosoRef}
+				className="flex-1 min-h-0"
+				data={messages}
+				initialTopMostItemIndex={Math.max(0, messages.length - 1)}
+				// followOutput: 仅当用户已在底部附近时才自动跟随新内容，不打断向上滚动查看历史
+				followOutput={isGenerating ? 'auto' : false}
+				atBottomThreshold={120}
+				itemContent={(_, msg) => (
+					<div className="px-4 py-2 max-w-5xl mx-auto w-full">
 						<MessageItem key={msg.id} message={msg} onImageClick={setLightboxSrc} />
-					))}
-					{isGenerating && <GenerationProgress />}
-					<div ref={bottomRef} />
-				</div>
-			</ScrollArea>
-
-			<Lightbox
-				open={!!lightboxSrc}
-				close={closeLightbox}
-				slides={slides}
-				index={0}
-				plugins={[Zoom]}
-				className="ai-chat-lightbox"
-				controller={{ closeOnBackdropClick: true }}
-				carousel={{ finite: slides.length <= 1, padding: '64px', spacing: '10%', imageFit: 'contain' }}
-				toolbar={{ buttons: ['close'] }}
-				zoom={{ maxZoomPixelRatio: 3, doubleClickMaxStops: 4, scrollToZoom: true }}
-				labels={{
-					Close: t('closePreview'),
-					Lightbox: t('imagePreview'),
-					Carousel: t('imagePreview'),
-					Slide: t('imagePreview'),
-					'Photo gallery': t('imagePreview'),
-					'Zoom in': t('zoomInPreview'),
-					'Zoom out': t('zoomOutPreview'),
-				}}
-				styles={{
-					container: {
-						'--yarl__color_backdrop': 'rgba(15, 23, 42, 0.68)',
-					},
-					toolbar: {
-						'--yarl__button_filter': 'none',
-						'--yarl__toolbar_padding': '12px',
-					},
-					button: {
-						'--yarl__button_background_color': 'rgba(255, 255, 255, 0.94)',
-						'--yarl__button_border': '1px solid rgba(148, 163, 184, 0.28)',
-						'--yarl__button_filter': 'none',
-						'--yarl__button_padding': '6px',
-						color: '#0f172a',
-					},
-					icon: {
-						'--yarl__icon_size': '18px',
-					},
-				}}
-				render={{
-					buttonZoom: () => null,
-					buttonPrev: slides.length <= 1 ? () => null : undefined,
-					buttonNext: slides.length <= 1 ? () => null : undefined,
-					iconClose: () => <X className="size-[18px]" strokeWidth={2.25} />,
+					</div>
+				)}
+				components={{
+					Header: () => <div className="h-2" />,
+					Footer: () => isGenerating
+						? <div className="px-4 pb-2 max-w-5xl mx-auto w-full"><GenerationProgress /></div>
+						: <div className="h-2" />,
 				}}
 			/>
+			{lightboxEl}
 		</>
 	);
 }
@@ -131,7 +129,10 @@ function CopyButton({ text, className }: { text: string; className?: string }) {
 	);
 }
 
-function MessageItem({ message, onImageClick }: { message: ChatMessageRecord; onImageClick: (src: string) => void }) {
+// React.memo 确保历史消息在流式期间不重渲：appendTextChunk 只替换流式那一条，
+// 其他消息对象引用不变，浅比较可以正确跳过。
+// 注意：onImageClick 必须是稳定引用（useState setter），否则 memo 会失效。
+const MessageItem = memo(function MessageItem({ message, onImageClick }: { message: ChatMessageRecord; onImageClick: (src: string) => void }) {
 	const { t } = useTranslation('chat');
 	if (message.role === 'user') {
 		return (
@@ -222,7 +223,7 @@ function MessageItem({ message, onImageClick }: { message: ChatMessageRecord; on
 				<div className="flex items-end gap-1">
 					<div className="max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-sm break-words">
 						<div className="prose prose-sm dark:prose-invert max-w-none">
-							<ReactMarkdown remarkPlugins={[remarkGfm]}>
+							<ReactMarkdown remarkPlugins={REMARK_PLUGINS}>
 								{displayText}
 							</ReactMarkdown>
 						</div>
@@ -250,4 +251,4 @@ function MessageItem({ message, onImageClick }: { message: ChatMessageRecord; on
 	}
 
 	return null;
-}
+});

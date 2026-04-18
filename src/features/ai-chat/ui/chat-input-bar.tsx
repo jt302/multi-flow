@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from 'react';
+import { memo, useRef, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Send, Square, X } from 'lucide-react';
@@ -7,20 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 
 type Props = {
-	value: string;
-	onChange: (v: string) => void;
-	onSend: () => void;
+	onSubmit: (text: string, imageBase64: string | null) => void;
 	onStop: () => void;
 	isGenerating: boolean;
 	disabled?: boolean;
-	/** 覆盖发送按钮的 disabled 状态（优先于内部的 !value.trim() 判断） */
+	/** false = 始终可点（父层会处理后续逻辑）；undefined = 使用内部 canSend 判断 */
 	sendDisabled?: boolean;
-	/** 当前已使用的上下文 token 数（估算值） */
 	contextUsed?: number;
-	/** 粘贴的图片 base64（含 data: 前缀） */
-	imageBase64?: string | null;
-	/** 图片变更回调 */
-	onImageChange?: (img: string | null) => void;
 };
 
 /** 将 token 数格式化为 "Xk" 形式，保留一位小数（不足 1k 时直接显示整数） */
@@ -29,23 +22,20 @@ function fmtK(n: number): string {
 	return String(n);
 }
 
-export function ChatInputBar({
-	value,
-	onChange,
-	onSend,
+export const ChatInputBar = memo(function ChatInputBar({
+	onSubmit,
 	onStop,
 	isGenerating,
 	disabled,
 	sendDisabled,
 	contextUsed = 0,
-	imageBase64,
-	onImageChange,
 }: Props) {
 	const { t } = useTranslation('chat');
+	const [value, setValue] = useState('');
+	const [imageBase64, setImageBase64] = useState<string | null>(null);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const compositionRef = useRef(false);
 
-	// 根据内容自动调整 textarea 高度
 	const adjustHeight = useCallback(() => {
 		const el = textareaRef.current;
 		if (!el) return;
@@ -56,6 +46,15 @@ export function ChatInputBar({
 	useEffect(() => {
 		adjustHeight();
 	}, [value, adjustHeight]);
+
+	const handleSend = useCallback(() => {
+		if (isGenerating) return;
+		const text = value;
+		const img = imageBase64;
+		setValue('');
+		setImageBase64(null);
+		onSubmit(text, img);
+	}, [isGenerating, value, imageBase64, onSubmit]);
 
 	const handleKeyDown = (e: React.KeyboardEvent) => {
 		const nativeEvent = e.nativeEvent as React.KeyboardEvent<HTMLTextAreaElement>['nativeEvent'] & {
@@ -68,12 +67,11 @@ export function ChatInputBar({
 		if (isComposing) return;
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
-			if (!isGenerating && (value.trim() || imageBase64)) onSend();
+			if (!isGenerating && (value.trim() || imageBase64)) handleSend();
 		}
 	};
 
 	const handlePaste = (e: React.ClipboardEvent) => {
-		if (!onImageChange) return;
 		const items = e.clipboardData?.items;
 		if (!items) return;
 		for (const item of Array.from(items)) {
@@ -83,7 +81,7 @@ export function ChatInputBar({
 				if (!file) continue;
 				const reader = new FileReader();
 				reader.onload = () => {
-					onImageChange(reader.result as string);
+					setImageBase64(reader.result as string);
 				};
 				reader.readAsDataURL(file);
 				return;
@@ -96,7 +94,6 @@ export function ChatInputBar({
 	return (
 		<div className="shrink-0 border-t bg-background px-4 py-3">
 			<div className="max-w-3xl mx-auto flex flex-col gap-2">
-				{/* 图片预览 */}
 				{imageBase64 && (
 					<div className="relative w-20 h-20">
 						<img
@@ -108,7 +105,7 @@ export function ChatInputBar({
 						/>
 						<button
 							type="button"
-							onClick={() => onImageChange?.(null)}
+							onClick={() => setImageBase64(null)}
 							className="absolute -top-1.5 -right-1.5 bg-background border rounded-full p-0.5 cursor-pointer hover:bg-accent"
 						>
 							<X className="size-3" />
@@ -120,7 +117,7 @@ export function ChatInputBar({
 						<Textarea
 							ref={textareaRef}
 							value={value}
-							onChange={(e) => onChange(e.target.value)}
+							onChange={(e) => setValue(e.target.value)}
 							onCompositionStart={() => {
 								compositionRef.current = true;
 							}}
@@ -134,7 +131,6 @@ export function ChatInputBar({
 							disabled={disabled || isGenerating}
 							rows={1}
 						/>
-						{/* 上下文用量：叠在 textarea 右下角内部，不占空间 */}
 						{contextUsed > 0 && (
 							<span className="pointer-events-none absolute bottom-1.5 right-2 text-[10px] text-muted-foreground/60 tabular-nums">
 								{fmtK(contextUsed)}
@@ -149,7 +145,7 @@ export function ChatInputBar({
 						<Button
 							type="button"
 							size="icon"
-							onClick={onSend}
+							onClick={handleSend}
 							disabled={sendDisabled ?? !canSend}
 						>
 							<Send className="size-4" />
@@ -159,4 +155,4 @@ export function ChatInputBar({
 			</div>
 		</div>
 	);
-}
+});
