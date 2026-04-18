@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+use super::model_image_service::split_data_url;
 use super::app_preference_service::AiProviderConfig;
 
 fn default_base_url(provider: &str) -> &'static str {
@@ -72,17 +73,14 @@ impl ChatMessage {
         text: impl Into<String>,
         image_base64: &str,
     ) -> Self {
-        let data_url = if image_base64.starts_with("data:") {
-            image_base64.to_string()
-        } else {
-            format!("data:image/png;base64,{image_base64}")
-        };
         Self {
             role: "tool".into(),
             content: ChatContent::Parts(vec![
                 ContentPart::Text { text: text.into() },
                 ContentPart::ImageUrl {
-                    image_url: ImageUrl { url: data_url },
+                    image_url: ImageUrl {
+                        url: normalize_image_data_url(image_base64),
+                    },
                 },
             ]),
             tool_calls: None,
@@ -175,6 +173,169 @@ pub enum ContentPart {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImageUrl {
     pub url: String,
+}
+
+fn normalize_image_data_url(image_base64: &str) -> String {
+    if image_base64.starts_with("data:") {
+        image_base64.to_string()
+    } else {
+        format!("data:image/png;base64,{image_base64}")
+    }
+}
+
+fn chat_content_text(content: &ChatContent) -> String {
+    match content {
+        ChatContent::Text(text) => text.clone(),
+        ChatContent::Parts(parts) => parts
+            .iter()
+            .filter_map(|part| match part {
+                ContentPart::Text { text } => Some(text.clone()),
+                ContentPart::ImageUrl { .. } => None,
+            })
+            .collect::<Vec<_>>()
+            .join("\n"),
+    }
+}
+
+fn anthropic_blocks_from_content(content: &ChatContent) -> Result<Vec<Value>, String> {
+    match content {
+        ChatContent::Text(text) => Ok(vec![json!({ "type": "text", "text": text })]),
+        ChatContent::Parts(parts) => parts
+            .iter()
+            .map(anthropic_block_from_part)
+            .collect::<Result<Vec<_>, _>>(),
+    }
+}
+
+fn anthropic_block_from_part(part: &ContentPart) -> Result<Value, String> {
+    match part {
+        ContentPart::Text { text } => Ok(json!({ "type": "text", "text": text })),
+        ContentPart::ImageUrl { image_url } => {
+            let (mime_type, data) = split_data_url(&image_url.url)
+                .ok_or_else(|| "anthropic image expects data url".to_string())?;
+            Ok(json!({
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": mime_type,
+                    "data": data,
+                }
+            }))
+        }
+    }
+}
+
+fn anthropic_tool_use_block(tool_call: &Value) -> Option<Value> {
+    if tool_call.get("type").and_then(|v| v.as_str()) == Some("tool_use") {
+        return Some(tool_call.clone());
+    }
+
+    let id = tool_call.get("id")?.as_str()?;
+    let function = tool_call.get("function")?;
+    let name = function.get("name")?.as_str()?;
+    let arguments = function.get("arguments")?.as_str().unwrap_or("{}");
+    let input: Value = serde_json::from_str(arguments).unwrap_or_else(|_| json!({}));
+    Some(json!({
+        "type": "tool_use",
+        "id": id,
+        "name": name,
+        "input": input,
+    }))
+}
+
+fn anthropic_messages(messages: &[ChatMessage]) -> Result<(String, Vec<Value>), String> {
+    let system_text = messages
+        .iter()
+        .filter(|message| message.role == "system")
+        .map(|message| chat_content_text(&message.content))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let mut non_system = Vec::new();
+    for message in messages.iter().filter(|message| message.role != "system") {
+        match message.role.as_str() {
+            "assistant" => {
+                let mut blocks = anthropic_blocks_from_content(&message.content)?;
+                if let Some(tool_calls) = &message.tool_calls {
+                    blocks.extend(tool_calls.iter().filter_map(anthropic_tool_use_block));
+                }
+                non_system.push(json!({
+                    "role": "assistant",
+                    "content": blocks,
+                }));
+            }
+            "tool" => {
+                let tool_use_id = message.tool_call_id.clone().unwrap_or_default();
+                non_system.push(json!({
+                    "role": "user",
+                    "content": [{
+                        "type": "tool_result",
+                        "tool_use_id": tool_use_id,
+                        "content": anthropic_blocks_from_content(&message.content)?,
+                    }],
+                }));
+            }
+            _ => {
+                non_system.push(json!({
+                    "role": "user",
+                    "content": anthropic_blocks_from_content(&message.content)?,
+                }));
+            }
+        }
+    }
+
+    Ok((system_text, non_system))
+}
+
+fn gemini_parts_from_content(content: &ChatContent) -> Result<Vec<Value>, String> {
+    match content {
+        ChatContent::Text(text) => Ok(vec![json!({ "text": text })]),
+        ChatContent::Parts(parts) => parts
+            .iter()
+            .map(|part| match part {
+                ContentPart::Text { text } => Ok(json!({ "text": text })),
+                ContentPart::ImageUrl { image_url } => {
+                    let (mime_type, data) = split_data_url(&image_url.url)
+                        .ok_or_else(|| "gemini image expects data url".to_string())?;
+                    Ok(json!({
+                        "inlineData": {
+                            "mimeType": mime_type,
+                            "data": data,
+                        }
+                    }))
+                }
+            })
+            .collect::<Result<Vec<_>, _>>(),
+    }
+}
+
+fn gemini_contents(messages: &[ChatMessage]) -> Result<Vec<Value>, String> {
+    let system_text = messages
+        .iter()
+        .filter(|message| message.role == "system")
+        .map(|message| chat_content_text(&message.content))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let mut contents = Vec::new();
+    if !system_text.is_empty() {
+        contents.push(json!({ "role": "user", "parts": [{ "text": system_text }] }));
+        contents.push(json!({ "role": "model", "parts": [{ "text": "Understood." }] }));
+    }
+
+    for message in messages.iter().filter(|message| message.role != "system") {
+        let role = if message.role == "assistant" {
+            "model"
+        } else {
+            "user"
+        };
+        contents.push(json!({
+            "role": role,
+            "parts": gemini_parts_from_content(&message.content)?,
+        }));
+    }
+
+    Ok(contents)
 }
 
 const MAX_AI_RETRIES: u32 = 5;
@@ -433,52 +594,7 @@ impl AiService {
         model: &str,
         messages: &[ChatMessage],
     ) -> Result<String, String> {
-        let system_text: String = messages
-            .iter()
-            .filter(|m| m.role == "system")
-            .map(|m| match &m.content {
-                ChatContent::Text(t) => t.clone(),
-                ChatContent::Parts(parts) => parts
-                    .iter()
-                    .filter_map(|p| {
-                        if let ContentPart::Text { text } = p {
-                            Some(text.clone())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-
-        let non_system: Vec<Value> = messages
-            .iter()
-            .filter(|m| m.role != "system")
-            .map(|m| {
-                let role = if m.role == "assistant" {
-                    "assistant"
-                } else {
-                    "user"
-                };
-                let text = match &m.content {
-                    ChatContent::Text(t) => t.clone(),
-                    ChatContent::Parts(parts) => parts
-                        .iter()
-                        .filter_map(|p| {
-                            if let ContentPart::Text { text } = p {
-                                Some(text.clone())
-                            } else {
-                                None
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n"),
-                };
-                json!({"role": role, "content": [{"type": "text", "text": text}]})
-            })
-            .collect();
+        let (system_text, non_system) = anthropic_messages(messages)?;
 
         let mut body = json!({
             "model": model,
@@ -580,32 +696,7 @@ impl AiService {
             })
             .collect();
 
-        let system_text: String = messages
-            .iter()
-            .filter(|m| m.role == "system")
-            .map(|m| match &m.content {
-                ChatContent::Text(t) => t.clone(),
-                _ => String::new(),
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-
-        let non_system: Vec<Value> = messages
-            .iter()
-            .filter(|m| m.role != "system")
-            .map(|m| {
-                let role = if m.role == "assistant" {
-                    "assistant"
-                } else {
-                    "user"
-                };
-                let text = match &m.content {
-                    ChatContent::Text(t) => t.clone(),
-                    _ => String::new(),
-                };
-                json!({"role": role, "content": [{"type": "text", "text": text}]})
-            })
-            .collect();
+        let (system_text, non_system) = anthropic_messages(messages)?;
 
         let mut body = json!({
             "model": model,
@@ -705,16 +796,11 @@ impl AiService {
                     let id = block.get("id")?.as_str()?.to_string();
                     let name = block.get("name")?.as_str()?.to_string();
                     let arguments = block.get("input")?.clone();
-                    let raw = json!({
-                        "id": &id,
-                        "type": "function",
-                        "function": {"name": &name, "arguments": arguments.to_string()}
-                    });
                     Some(AiToolCall {
                         id,
                         name,
                         arguments,
-                        raw,
+                        raw: block.clone(),
                     })
                 })
                 .collect();
@@ -747,43 +833,7 @@ impl AiService {
         model: &str,
         messages: &[ChatMessage],
     ) -> Result<String, String> {
-        let system_parts: Vec<String> = messages
-            .iter()
-            .filter(|m| m.role == "system")
-            .map(|m| match &m.content {
-                ChatContent::Text(t) => t.clone(),
-                _ => String::new(),
-            })
-            .collect();
-
-        let mut contents: Vec<Value> = Vec::new();
-        if !system_parts.is_empty() {
-            // Gemini 无 system role，注入为首条对话
-            contents.push(json!({"role": "user", "parts": [{"text": system_parts.join("\n")}]}));
-            contents.push(json!({"role": "model", "parts": [{"text": "Understood."}]}));
-        }
-        for m in messages.iter().filter(|m| m.role != "system") {
-            let role = if m.role == "assistant" {
-                "model"
-            } else {
-                "user"
-            };
-            let text = match &m.content {
-                ChatContent::Text(t) => t.clone(),
-                ChatContent::Parts(parts) => parts
-                    .iter()
-                    .filter_map(|p| {
-                        if let ContentPart::Text { text } = p {
-                            Some(text.clone())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-            };
-            contents.push(json!({"role": role, "parts": [{"text": text}]}));
-        }
+        let contents = gemini_contents(messages)?;
 
         let url = format!(
             "{}/v1beta/models/{}:generateContent?key={}",
@@ -906,18 +956,14 @@ pub fn build_vision_content(text_prompt: &str, image_base64: Option<&str>) -> Ch
     match image_base64 {
         None => ChatContent::Text(text_prompt.to_string()),
         Some(b64) => {
-            // 判断格式（默认 png）
-            let data_url = if b64.starts_with("data:") {
-                b64.to_string()
-            } else {
-                format!("data:image/png;base64,{b64}")
-            };
             ChatContent::Parts(vec![
                 ContentPart::Text {
                     text: text_prompt.to_string(),
                 },
                 ContentPart::ImageUrl {
-                    image_url: ImageUrl { url: data_url },
+                    image_url: ImageUrl {
+                        url: normalize_image_data_url(b64),
+                    },
                 },
             ])
         }
@@ -1198,28 +1244,13 @@ async fn stream_anthropic(
         })
         .collect();
 
-    let system_text: String = messages
-        .iter()
-        .filter(|m| m.role == "system")
-        .map(|m| match &m.content {
-            ChatContent::Text(t) => t.clone(),
-            _ => String::new(),
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    let non_system: Vec<Value> = messages
-        .iter()
-        .filter(|m| m.role != "system")
-        .map(|m| {
-            let role = if m.role == "assistant" { "assistant" } else { "user" };
-            let text = match &m.content {
-                ChatContent::Text(t) => t.clone(),
-                _ => String::new(),
-            };
-            json!({"role": role, "content": [{"type": "text", "text": text}]})
-        })
-        .collect();
+    let (system_text, non_system) = match anthropic_messages(&messages) {
+        Ok(parts) => parts,
+        Err(error) => {
+            let _ = tx.send(AiChatDelta::Error(error));
+            return;
+        }
+    };
 
     let mut body = json!({
         "model": model,
@@ -1376,31 +1407,13 @@ async fn stream_gemini(
     messages: Vec<ChatMessage>,
     tx: tokio::sync::mpsc::UnboundedSender<AiChatDelta>,
 ) {
-    let system_parts: Vec<String> = messages
-        .iter()
-        .filter(|m| m.role == "system")
-        .map(|m| match &m.content {
-            ChatContent::Text(t) => t.clone(),
-            _ => String::new(),
-        })
-        .collect();
-    let mut contents: Vec<Value> = Vec::new();
-    if !system_parts.is_empty() {
-        contents.push(json!({"role": "user", "parts": [{"text": system_parts.join("\n")}]}));
-        contents.push(json!({"role": "model", "parts": [{"text": "Understood."}]}));
-    }
-    for m in messages.iter().filter(|m| m.role != "system") {
-        let role = if m.role == "assistant" { "model" } else { "user" };
-        let text = match &m.content {
-            ChatContent::Text(t) => t.clone(),
-            ChatContent::Parts(parts) => parts
-                .iter()
-                .filter_map(|p| if let ContentPart::Text { text } = p { Some(text.clone()) } else { None })
-                .collect::<Vec<_>>()
-                .join("\n"),
-        };
-        contents.push(json!({"role": role, "parts": [{"text": text}]}));
-    }
+    let contents = match gemini_contents(&messages) {
+        Ok(contents) => contents,
+        Err(error) => {
+            let _ = tx.send(AiChatDelta::Error(error));
+            return;
+        }
+    };
 
     let url = format!(
         "{}/v1beta/models/{}:streamGenerateContent?alt=sse&key={}",
@@ -1484,5 +1497,85 @@ async fn stream_gemini(
 
     if let Err(e) = result {
         let _ = tx.send(AiChatDelta::Error(e));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_vision_content_preserves_existing_data_url_mime() {
+        let content = build_vision_content(
+            "look",
+            Some("data:image/jpeg;base64,ZmFrZS1kYXRh"),
+        );
+
+        let ChatContent::Parts(parts) = content else {
+            panic!("expected parts");
+        };
+        assert!(matches!(
+            &parts[1],
+            ContentPart::ImageUrl { image_url }
+                if image_url.url == "data:image/jpeg;base64,ZmFrZS1kYXRh"
+        ));
+    }
+
+    #[test]
+    fn anthropic_messages_emit_tool_result_with_image_blocks() {
+        let assistant = ChatMessage {
+            role: "assistant".into(),
+            content: ChatContent::Text("calling tool".into()),
+            tool_calls: Some(vec![json!({
+                "id": "tool_1",
+                "type": "function",
+                "function": {
+                    "name": "cdp_screenshot",
+                    "arguments": "{\"format\":\"jpeg\"}"
+                }
+            })]),
+            tool_call_id: None,
+            name: None,
+        };
+        let tool = ChatMessage::tool_result_with_image(
+            "tool_1",
+            "/tmp/shot.jpg",
+            "data:image/jpeg;base64,ZmFrZS1pbWFnZQ==",
+        );
+
+        let (_system, messages) = anthropic_messages(&[assistant, tool]).expect("anthropic");
+
+        assert_eq!(messages[0]["role"], "assistant");
+        assert_eq!(messages[0]["content"][1]["type"], "tool_use");
+        assert_eq!(messages[0]["content"][1]["id"], "tool_1");
+        assert_eq!(messages[1]["role"], "user");
+        assert_eq!(messages[1]["content"][0]["type"], "tool_result");
+        assert_eq!(
+            messages[1]["content"][0]["content"][1]["source"]["media_type"],
+            "image/jpeg"
+        );
+    }
+
+    #[test]
+    fn gemini_contents_emit_inline_data_for_images() {
+        let messages = vec![ChatMessage::with_content(
+            "user",
+            ChatContent::Parts(vec![
+                ContentPart::Text {
+                    text: "describe".into(),
+                },
+                ContentPart::ImageUrl {
+                    image_url: ImageUrl {
+                        url: "data:image/jpeg;base64,ZmFrZS1pbWFnZQ==".into(),
+                    },
+                },
+            ]),
+        )];
+
+        let contents = gemini_contents(&messages).expect("gemini");
+
+        assert_eq!(contents[0]["role"], "user");
+        assert_eq!(contents[0]["parts"][0]["text"], "describe");
+        assert_eq!(contents[0]["parts"][1]["inlineData"]["mimeType"], "image/jpeg");
     }
 }

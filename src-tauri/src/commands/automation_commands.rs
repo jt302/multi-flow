@@ -2236,7 +2236,10 @@ pub async fn execute_step(
                     .call("Page.captureScreenshot", json!({ "format": "png" }))
                     .await
                 {
-                    Ok(resp) => resp.get("data").and_then(|d| d.as_str()).map(String::from),
+                    Ok(resp) => resp
+                        .get("data")
+                        .and_then(|d| d.as_str())
+                        .map(prepare_model_screenshot_data_url),
                     Err(_) => None,
                 }
             } else {
@@ -2603,7 +2606,10 @@ pub async fn execute_step(
                     .call("Page.captureScreenshot", json!({ "format": "png" }))
                     .await
                 {
-                    Ok(resp) => resp.get("data").and_then(|d| d.as_str()).map(String::from),
+                    Ok(resp) => resp
+                        .get("data")
+                        .and_then(|d| d.as_str())
+                        .map(prepare_model_screenshot_data_url),
                     Err(_) => None,
                 }
             } else {
@@ -6237,6 +6243,15 @@ fn base64_decode(s: &str) -> Result<Vec<u8>, String> {
     base64::engine::general_purpose::STANDARD
         .decode(s)
         .map_err(|e| format!("base64 decode: {e}"))
+}
+
+fn prepare_model_screenshot_data_url(image_base64: &str) -> String {
+    crate::services::model_image_service::prepare_image_for_model_from_base64(
+        image_base64,
+        Some("image/png"),
+    )
+    .map(|prepared| prepared.data_url)
+    .unwrap_or_else(|_| format!("data:image/png;base64,{image_base64}"))
 }
 
 /// 发送 Magic Controller HTTP 请求，尝试多个路径并重试

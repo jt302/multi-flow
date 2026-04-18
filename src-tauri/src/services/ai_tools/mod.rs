@@ -21,6 +21,7 @@ use crate::models::RunLogEntry;
 use crate::models::ScriptStep;
 use crate::services::automation_cdp_client::CdpClient;
 use crate::services::automation_interpolation::RunVariables;
+use crate::services::model_image_service::prepare_image_for_model_from_bytes;
 
 // ─── 核心类型 ─────────────────────────────────────────────────────────────
 
@@ -487,11 +488,20 @@ impl ToolRegistry {
         );
 
         if is_screenshot_tool {
-            // 尝试读取截图文件并转为 base64
+            // 原图继续落盘；发给模型前再生成轻量版本。
             if let Some(ref file_path) = output {
                 if let Ok(bytes) = std::fs::read(file_path) {
-                    let b64 = base64_encode(&bytes);
-                    return Ok(ToolResult::with_image(output, b64, step_vars));
+                    let mime_hint = mime_hint_from_path(file_path);
+                    let model_image = prepare_image_for_model_from_bytes(&bytes, mime_hint)
+                        .map(|prepared| prepared.data_url)
+                        .unwrap_or_else(|_| {
+                            format!(
+                                "data:{};base64,{}",
+                                mime_hint.unwrap_or("image/png"),
+                                base64_encode(&bytes)
+                            )
+                        });
+                    return Ok(ToolResult::with_image(output, model_image, step_vars));
                 }
             }
         }
@@ -504,6 +514,19 @@ impl ToolRegistry {
 fn base64_encode(data: &[u8]) -> String {
     use base64::Engine;
     base64::engine::general_purpose::STANDARD.encode(data)
+}
+
+fn mime_hint_from_path(path: &str) -> Option<&'static str> {
+    let ext = std::path::Path::new(path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_ascii_lowercase());
+
+    match ext.as_deref() {
+        Some("jpg") | Some("jpeg") => Some("image/jpeg"),
+        Some("png") => Some("image/png"),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
