@@ -55,38 +55,27 @@ function PlatformOptionCard({
 		<Button
 			type="button"
 			variant="outline"
+			aria-pressed={selected}
 			className={cn(
-				'h-auto cursor-pointer justify-start rounded-xl border px-3 py-3 text-left whitespace-normal shadow-none transition-colors',
+				'h-auto min-h-[52px] cursor-pointer justify-start rounded-lg border px-2 py-1.5 text-left whitespace-normal shadow-none transition-[border-color,background-color,color,transform] hover:-translate-y-0.5',
 				selected
-					? 'border-primary/35 bg-primary/65 text-slate-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:bg-primary/18 hover:text-slate-50 dark:border-primary/30 dark:bg-primary/12 dark:hover:bg-primary/16 dark:hover:text-slate-50'
-					: 'bg-background text-foreground hover:border-primary/25 hover:bg-accent/40 hover:text-foreground',
+					? 'border-primary/30 bg-primary/8 text-foreground hover:border-primary/40 hover:bg-primary/10'
+					: 'border-border/70 bg-background text-foreground hover:border-primary/20 hover:bg-accent/30 hover:text-foreground',
 			)}
 			onClick={onSelect}
 		>
-			<div className="flex w-full min-w-0 items-start gap-3">
-				<div
+			<div className="flex w-full min-w-0 items-center gap-1.5">
+				<PlatformGlyph
+					meta={value}
+					size="xl"
 					className={cn(
-						'relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border',
-						selected
-							? 'border-white/15 bg-white/10 text-slate-50'
-							: `${value.badgeClass} border-border/60`,
+						'transition-transform duration-200',
+						selected ? 'scale-[1.01]' : 'opacity-90',
 					)}
-				>
-					<PlatformGlyph meta={value} size="lg" forceLight={selected} />
-				</div>
-				<div className="min-w-0 space-y-1">
-					<p className="min-w-0 break-words text-base font-semibold leading-none">
-						{value.label}
-					</p>
-					<p
-						className={cn(
-							'text-xs leading-5',
-							selected ? 'text-slate-50/75' : 'text-muted-foreground',
-						)}
-					>
-						{value.hint}
-					</p>
-				</div>
+				/>
+				<p className="min-w-0 break-words text-sm font-semibold leading-4 text-foreground">
+					{value.label}
+				</p>
 			</div>
 		</Button>
 	);
@@ -210,7 +199,7 @@ export function BasicSettingsSection({
 					<p className="mb-1 text-xs text-muted-foreground">
 						{t('basic.simulatedPlatform')}
 					</p>
-					<div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+					<div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2">
 						{PLATFORM_OPTIONS.map((item) => (
 							<PlatformOptionCard
 								key={item.value}

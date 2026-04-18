@@ -5,7 +5,7 @@ import type { PlatformVisualMeta } from '@/entities/profile/lib/platform-meta';
 
 type PlatformMarkProps = {
 	meta: PlatformVisualMeta;
-	size?: 'sm' | 'md' | 'lg';
+	size?: 'sm' | 'md' | 'lg' | 'xl';
 	className?: string;
 };
 
@@ -25,11 +25,16 @@ const SIZE_STYLES = {
 		icon: 20,
 		image: 'h-5 w-5',
 	},
+	xl: {
+		wrapper: 'h-14 w-14 rounded-2xl',
+		icon: 28,
+		image: 'h-7 w-7',
+	},
 } as const;
 
 type PlatformGlyphProps = {
 	meta: PlatformVisualMeta;
-	size?: 'sm' | 'md' | 'lg';
+	size?: 'sm' | 'md' | 'lg' | 'xl';
 	className?: string;
 	forceLight?: boolean;
 };
