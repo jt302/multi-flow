@@ -26,6 +26,8 @@ import { WindowBatchActionsCard } from '@/features/window-session/ui/window-batc
 import { WindowStatesCard } from '@/features/window-session/ui/window-states-card';
 import { useWindowSyncStore, windowSyncStore } from '@/store/window-sync-store';
 import { useSyncManagerStore } from '@/store/sync-manager-store';
+import { computeArrangePreview } from '@/features/window-session/lib/arrange-preview';
+import { ArrangePreview } from '@/features/window-session/ui/arrange-preview';
 import {
 	arrangeWindowsFormSchema,
 	syncTextFormSchema,
@@ -79,7 +81,7 @@ const batchActionFormSchema = z.object({
 		}),
 });
 
-type ArrangeWindowsFormValues = z.infer<typeof arrangeWindowsFormSchema>;
+type ArrangeWindowsFormValues = z.input<typeof arrangeWindowsFormSchema>;
 
 export function BrowserControlRoutePage() {
 	const { t } = useTranslation(['window', 'common']);
@@ -98,8 +100,14 @@ export function BrowserControlRoutePage() {
 	const selectedProfileIds = useWindowSyncStore((s) => s.selectedProfileIds);
 	const arrangeMode = useWindowSyncStore((s) => s.arrangeMode);
 	const arrangeGap = useWindowSyncStore((s) => s.arrangeGap);
+	const arrangeTemplates = useWindowSyncStore((s) => s.arrangeTemplates);
 	const setArrangeMode = useWindowSyncStore((s) => s.setArrangeMode);
 	const setGap = useWindowSyncStore((s) => s.setGap);
+	const saveArrangeTemplate = useWindowSyncStore((s) => s.saveArrangeTemplate);
+	const deleteArrangeTemplate = useWindowSyncStore((s) => s.deleteArrangeTemplate);
+
+	const [templateNameInput, setTemplateNameInput] = useState('');
+	const [showSaveTemplate, setShowSaveTemplate] = useState(false);
 
 	const activeSyncSession = sessionPayload?.session ?? null;
 
@@ -217,10 +225,24 @@ export function BrowserControlRoutePage() {
 		resolver: zodResolver(arrangeWindowsFormSchema),
 		defaultValues: {
 			monitorId: displayMonitors[0]?.id ?? '',
-			mode: arrangeMode,
-			gap: arrangeGap,
+			mode: (arrangeMode as 'grid' | 'cascade' | 'main_with_sidebar') ?? 'grid',
+			rows: undefined,
+			columns: undefined,
+			gapX: arrangeGap,
+			gapY: arrangeGap,
+			paddingTop: 12,
+			paddingRight: 12,
+			paddingBottom: 12,
+			paddingLeft: 12,
+			lastRowAlign: 'stretch',
+			flow: 'row_major',
 			width: 1280,
 			height: 800,
+			cascadeStep: 32,
+			mainRatio: 0.66,
+			mainPosition: 'left',
+			order: 'selection',
+			chromeDecorationCompensation: 'auto',
 		},
 	});
 	const syncTextForm = useForm({
@@ -422,20 +444,83 @@ export function BrowserControlRoutePage() {
 								</CardTitle>
 							</CardHeader>
 							<CardContent className="min-w-0 space-y-3">
+								{/* 布局预览 */}
+								{(() => {
+									const watchedValues = arrangeForm.watch();
+									const selectedMonitor = displayMonitors.find(
+										(m) => m.id === watchedValues.monitorId,
+									);
+									const workArea = selectedMonitor?.workArea;
+									if (!workArea || selectedRunningIds.length === 0) return null;
+
+									const previewBounds = computeArrangePreview({
+										workArea,
+										n: selectedRunningIds.length,
+										mode: watchedValues.mode as 'grid' | 'cascade' | 'main_with_sidebar',
+										rows: typeof watchedValues.rows === 'number' ? watchedValues.rows : undefined,
+										columns: typeof watchedValues.columns === 'number' ? watchedValues.columns : undefined,
+										gapX: watchedValues.gapX as number ?? 16,
+										gapY: watchedValues.gapY as number ?? 16,
+										padding: {
+											top: watchedValues.paddingTop as number ?? 12,
+											right: watchedValues.paddingRight as number ?? 12,
+											bottom: watchedValues.paddingBottom as number ?? 12,
+											left: watchedValues.paddingLeft as number ?? 12,
+										},
+										lastRowAlign: watchedValues.lastRowAlign,
+										flow: watchedValues.flow,
+										width: watchedValues.width as number ?? 1280,
+										height: watchedValues.height as number ?? 800,
+										cascadeStep: watchedValues.cascadeStep as number ?? 32,
+										mainRatio: watchedValues.mainRatio as number ?? 0.66,
+										mainPosition: watchedValues.mainPosition,
+									});
+
+									return (
+										<div className="flex justify-center">
+											<ArrangePreview
+												workArea={workArea}
+												bounds={previewBounds}
+												canvasWidth={240}
+												canvasHeight={140}
+												className="rounded border border-border/40"
+											/>
+										</div>
+									);
+								})()}
+
 								<form
 									className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
 									onSubmit={arrangeForm.handleSubmit(
-										(values) =>
+										(values) => {
+											const mode = values.mode as 'grid' | 'cascade' | 'main_with_sidebar';
 											void runAction(() =>
 												syncActions.arrangeWindows({
 													profileIds: selectedRunningIds,
 													monitorId: values.monitorId,
-													mode: values.mode,
-													gap: values.gap,
-													width: values.width,
-													height: values.height,
+													mode,
+													gapX: values.gapX,
+													gapY: values.gapY,
+													padding: {
+														top: values.paddingTop ?? 12,
+														right: values.paddingRight ?? 12,
+														bottom: values.paddingBottom ?? 12,
+														left: values.paddingLeft ?? 12,
+													},
+													rows: values.rows === 'auto' ? undefined : values.rows as number | undefined,
+													columns: values.columns === 'auto' ? undefined : values.columns as number | undefined,
+													lastRowAlign: values.lastRowAlign,
+													flow: values.flow,
+													width: values.width ?? undefined,
+													height: values.height ?? undefined,
+													cascadeStep: values.cascadeStep,
+													mainRatio: values.mainRatio,
+													mainPosition: values.mainPosition,
+													order: values.order,
+													chromeDecorationCompensation: values.chromeDecorationCompensation,
 												}),
-											),
+											);
+										}
 									)}
 								>
 									<div className="min-w-0 space-y-1 md:col-span-2">
@@ -444,22 +529,14 @@ export function BrowserControlRoutePage() {
 											control={arrangeForm.control}
 											name="monitorId"
 											render={({ field }) => (
-												<Select
-													value={field.value}
-													onValueChange={field.onChange}
-												>
+												<Select value={field.value} onValueChange={field.onChange}>
 													<SelectTrigger className="cursor-pointer w-full">
-														<SelectValue
-															placeholder={t('arrange.selectMonitor')}
-														/>
+														<SelectValue placeholder={t('arrange.selectMonitor')} />
 													</SelectTrigger>
 													<SelectContent>
 														{displayMonitors.map((m) => (
 															<SelectItem key={m.id} value={m.id}>
-																{formatDisplayMonitorOptionLabel(
-																	m,
-																	t,
-																)}
+																{formatDisplayMonitorOptionLabel(m, t)}
 															</SelectItem>
 														))}
 													</SelectContent>
@@ -467,7 +544,7 @@ export function BrowserControlRoutePage() {
 											)}
 										/>
 									</div>
-									<div className="min-w-0 space-y-1">
+									<div className="min-w-0 space-y-1 md:col-span-2">
 										<Label>{t('arrange.arrangeMode')}</Label>
 										<Controller
 											control={arrangeForm.control}
@@ -484,35 +561,110 @@ export function BrowserControlRoutePage() {
 														<SelectValue />
 													</SelectTrigger>
 													<SelectContent>
-														<SelectItem value="grid">
-															{t('arrange.grid')}
-														</SelectItem>
-														<SelectItem value="cascade">
-															{t('arrange.cascade')}
-														</SelectItem>
+														<SelectItem value="grid">{t('arrange.grid')}</SelectItem>
+														<SelectItem value="cascade">{t('arrange.cascade')}</SelectItem>
+														<SelectItem value="main_with_sidebar">{t('arrange.mainWithSidebar')}</SelectItem>
 													</SelectContent>
 												</Select>
 											)}
 										/>
 									</div>
+
+									{/* grid 模式：行列 + 快捷预设 */}
+									{arrangeForm.watch('mode') === 'grid' && (<>
+										<div className="min-w-0 space-y-1">
+											<Label>{t('arrange.rows')}</Label>
+											<Input
+												type="number"
+												min={1}
+												placeholder={t('arrange.auto')}
+												{...arrangeForm.register('rows')}
+											/>
+										</div>
+										<div className="min-w-0 space-y-1">
+											<Label>{t('arrange.columns')}</Label>
+											<Input
+												type="number"
+												min={1}
+												placeholder={t('arrange.auto')}
+												{...arrangeForm.register('columns')}
+											/>
+										</div>
+										<div className="md:col-span-2 flex gap-2 flex-wrap">
+											<Button type="button" variant="outline" size="sm" className="cursor-pointer"
+												onClick={() => { arrangeForm.setValue('rows', 1 as unknown as 'auto'); arrangeForm.setValue('columns', undefined); }}>
+												{t('arrange.preset.singleRow')}
+											</Button>
+											<Button type="button" variant="outline" size="sm" className="cursor-pointer"
+												onClick={() => { arrangeForm.setValue('rows', undefined); arrangeForm.setValue('columns', 1 as unknown as 'auto'); }}>
+												{t('arrange.preset.singleCol')}
+											</Button>
+											<Button type="button" variant="outline" size="sm" className="cursor-pointer"
+												onClick={() => { arrangeForm.setValue('rows', undefined); arrangeForm.setValue('columns', undefined); }}>
+												{t('arrange.preset.auto')}
+											</Button>
+										</div>
+									</>)}
+
+									{/* cascade 模式：宽高步长 */}
+									{arrangeForm.watch('mode') === 'cascade' && (<>
+										<div className="min-w-0 space-y-1">
+											<Label>{t('arrange.width')}</Label>
+											<Input type="number" {...arrangeForm.register('width')} />
+										</div>
+										<div className="min-w-0 space-y-1">
+											<Label>{t('arrange.height')}</Label>
+											<Input type="number" {...arrangeForm.register('height')} />
+										</div>
+										<div className="min-w-0 space-y-1">
+											<Label>{t('arrange.cascadeStep')}</Label>
+											<Input type="number" min={8} {...arrangeForm.register('cascadeStep')} />
+										</div>
+									</>)}
+
+									{/* mainWithSidebar 模式 */}
+									{arrangeForm.watch('mode') === 'main_with_sidebar' && (<>
+										<div className="min-w-0 space-y-1">
+											<Label>{t('arrange.mainRatio')}</Label>
+											<Input type="number" step={0.05} min={0.2} max={0.9} {...arrangeForm.register('mainRatio')} />
+										</div>
+										<div className="min-w-0 space-y-1">
+											<Label>{t('arrange.mainPosition')}</Label>
+											<Controller
+												control={arrangeForm.control}
+												name="mainPosition"
+												render={({ field }) => (
+													<Select value={field.value} onValueChange={field.onChange}>
+														<SelectTrigger className="cursor-pointer w-full"><SelectValue /></SelectTrigger>
+														<SelectContent>
+															<SelectItem value="left">{t('arrange.posLeft')}</SelectItem>
+															<SelectItem value="right">{t('arrange.posRight')}</SelectItem>
+															<SelectItem value="top">{t('arrange.posTop')}</SelectItem>
+															<SelectItem value="bottom">{t('arrange.posBottom')}</SelectItem>
+														</SelectContent>
+													</Select>
+												)}
+											/>
+										</div>
+									</>)}
+
+									{/* 通用：独立横纵间距 */}
 									<div className="min-w-0 space-y-1">
-										<Label>{t('arrange.windowGap')}</Label>
+										<Label>{t('arrange.gapX')}</Label>
 										<Input
 											type="number"
-											{...arrangeForm.register('gap', {
+											min={0}
+											{...arrangeForm.register('gapX', {
 												onChange: (e) => setGap(Number(e.target.value || 0)),
 											})}
 										/>
 									</div>
 									<div className="min-w-0 space-y-1">
-										<Label>{t('arrange.width')}</Label>
-										<Input type="number" {...arrangeForm.register('width')} />
+										<Label>{t('arrange.gapY')}</Label>
+										<Input type="number" min={0} {...arrangeForm.register('gapY')} />
 									</div>
-									<div className="min-w-0 space-y-1">
-										<Label>{t('arrange.height')}</Label>
-										<Input type="number" {...arrangeForm.register('height')} />
-									</div>
-									<div className="md:col-span-2">
+
+									<div className="md:col-span-2 flex gap-2 flex-wrap">
 										<Button
 											type="submit"
 											className="cursor-pointer"
@@ -520,6 +672,102 @@ export function BrowserControlRoutePage() {
 										>
 											{t('arrange.arrangeNow')}
 										</Button>
+										<Button
+											type="button"
+											variant="outline"
+											className="cursor-pointer"
+											onClick={() => void runAction(() => syncActions.restoreLastArrangement())}
+										>
+											{t('arrange.undoLast')}
+										</Button>
+									</div>
+
+									{/* 模板保存 */}
+									<div className="md:col-span-2 border-t border-border/40 pt-3 space-y-2">
+										{showSaveTemplate ? (
+											<div className="flex gap-2 items-center">
+												<Input
+													className="flex-1"
+													placeholder={t('template.namePlaceholder')}
+													value={templateNameInput}
+													onChange={(e) => setTemplateNameInput(e.target.value)}
+												/>
+												<Button
+													type="button"
+													size="sm"
+													className="cursor-pointer"
+													onClick={() => {
+														if (!templateNameInput.trim()) return;
+														const values = arrangeForm.getValues();
+														saveArrangeTemplate(templateNameInput.trim(), values as unknown as Record<string, unknown>);
+														setTemplateNameInput('');
+														setShowSaveTemplate(false);
+													}}
+												>
+													{t('template.save')}
+												</Button>
+												<Button
+													type="button"
+													size="sm"
+													variant="ghost"
+													className="cursor-pointer"
+													onClick={() => { setShowSaveTemplate(false); setTemplateNameInput(''); }}
+												>
+													{t('template.cancel')}
+												</Button>
+											</div>
+										) : (
+											<div className="flex gap-2 flex-wrap items-center">
+												<Button
+													type="button"
+													variant="ghost"
+													size="sm"
+													className="cursor-pointer text-xs"
+													onClick={() => setShowSaveTemplate(true)}
+												>
+													{t('template.saveTemplate')}
+												</Button>
+												{arrangeTemplates.length > 0 && (
+													<Select
+														onValueChange={(id) => {
+															const tmpl = arrangeTemplates.find((t) => t.id === id);
+															if (!tmpl) return;
+															const payload = tmpl.payload as Record<string, unknown>;
+															Object.entries(payload).forEach(([key, val]) => {
+																arrangeForm.setValue(key as Parameters<typeof arrangeForm.setValue>[0], val as never);
+															});
+														}}
+													>
+														<SelectTrigger className="cursor-pointer h-7 text-xs w-auto min-w-[120px]">
+															<SelectValue placeholder={t('template.loadTemplate')} />
+														</SelectTrigger>
+														<SelectContent>
+															{arrangeTemplates.map((tmpl) => (
+																<SelectItem key={tmpl.id} value={tmpl.id} className="text-xs">
+																	{tmpl.name}
+																</SelectItem>
+															))}
+														</SelectContent>
+													</Select>
+												)}
+												{arrangeTemplates.length > 0 && (
+													<Select
+														onValueChange={(id) => deleteArrangeTemplate(id)}
+													>
+														<SelectTrigger className="cursor-pointer h-7 text-xs w-auto min-w-[80px] text-destructive border-destructive/30">
+															<SelectValue placeholder={t('template.delete')} />
+														</SelectTrigger>
+														<SelectContent>
+															{arrangeTemplates.map((tmpl) => (
+																<SelectItem key={tmpl.id} value={tmpl.id} className="text-xs text-destructive">
+																	{tmpl.name}
+																</SelectItem>
+															))}
+														</SelectContent>
+													</Select>
+												)}
+											</div>
+										)}
 									</div>
 								</form>
 							</CardContent>
