@@ -1511,8 +1511,10 @@ fn run_app_init(handle: AppHandle) -> Result<(), Box<dyn std::error::Error + Sen
     // splash 关闭和主窗口显示统一由 show_main_window 命令处理，避免两步之间的空档
     thread::sleep(Duration::from_millis(400));
     INIT_COMPLETE.store(true, Ordering::Release);
+    logger::info("main_window_init", "mark init-complete");
     // 通知主窗口（React 可能已就绪在等待，也可能还未就绪会自行 poll）
     if let Some(main) = handle.get_webview_window(MAIN_WINDOW_LABEL) {
+        logger::info("main_window_init", "emit splashscreen://init-complete");
         let _ = main.emit("splashscreen://init-complete", ());
     }
 

@@ -9,6 +9,36 @@ import { installInputSelectAllHotkey } from '@/shared/lib/hotkeys/install-input-
 import { installWindowHotkeys } from '@/shared/lib/hotkeys/install-window-hotkeys';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+
+// 诊断探针：带时间戳的轻量 logger（仅 dev 阶段使用）
+const diag = (event: string, data?: Record<string, unknown>) =>
+	console.log(`[diag:startup] t=${performance.now().toFixed(1)} ${event}`, data ?? '');
+
+diag('module-evaluated', { readyState: document.readyState, visibility: document.visibilityState });
+
+// 捕获 document 层 mousedown（capture=true 最先触发），判定假设 A：
+// 若首次点击 sidebar 连此日志都没打，说明 Cocoa 在激活窗口时吞了 mousedown
+document.addEventListener('mousedown', (e) => {
+	const target = e.composedPath()[0] as HTMLElement | undefined;
+	diag('document-mousedown-capture', {
+		tagName: (e.target as HTMLElement).tagName,
+		className: target?.className?.toString?.()?.slice(0, 60) ?? '',
+		x: e.clientX,
+		y: e.clientY,
+	});
+}, { capture: true });
+
+document.addEventListener('visibilitychange', () => {
+	diag('visibility-change', { state: document.visibilityState });
+});
+window.addEventListener('focus', () => diag('window-focus'));
+window.addEventListener('blur', () => diag('window-blur'));
+
+// 监听 Tauri 窗口焦点变化
+getCurrentWindow().onFocusChanged(({ payload: focused }) => {
+	diag('tauri-focus-changed', { focused });
+}).catch(() => {/* 非 Tauri 环境忽略 */});
 
 installInputSelectAllHotkey();
 installWindowHotkeys();
@@ -26,10 +56,12 @@ function renderApp() {
 }
 
 async function syncInitialAppLanguage() {
+	diag('lang-sync-start');
 	try {
 		const saved = await invoke<string | null>('read_app_language');
 		if (saved) {
 			await i18n.changeLanguage(normalizeAppLanguage(saved));
+			diag('lang-sync-end', { lang: i18n.resolvedLanguage });
 			return;
 		}
 
@@ -37,29 +69,46 @@ async function syncInitialAppLanguage() {
 			locale: normalizeAppLanguage(i18n.resolvedLanguage ?? i18n.language),
 		});
 		await i18n.changeLanguage(normalizeAppLanguage(locale));
-	} catch {
+		diag('lang-sync-end', { lang: i18n.resolvedLanguage });
+	} catch (e) {
+		diag('lang-sync-fail', { error: String(e) });
 		// 非 Tauri 环境（浏览器预览等）忽略
 	}
 }
 
 async function waitAndShowMainWindow() {
+	diag('wait-show-enter');
 	try {
 		const done = await invoke<boolean>('is_init_complete');
+		diag('is-init-complete-result', { done });
 		if (done) {
+			diag('invoke-show-start', { path: 'fast' });
 			await invoke('show_main_window');
+			diag('invoke-show-end', { path: 'fast' });
 		} else {
+			diag('listener-register-start');
 			const unlisten = await listen('splashscreen://init-complete', async () => {
+				diag('init-complete-received');
 				unlisten();
+				diag('invoke-show-start', { path: 'event' });
 				await invoke('show_main_window');
+				diag('invoke-show-end', { path: 'event' });
 			});
+			diag('listener-registered');
 		}
-	} catch {
+	} catch (e) {
+		diag('wait-show-fail', { error: String(e) });
 		// 非 Tauri 环境（浏览器预览等）忽略
 	}
 }
 
 (async () => {
 	await syncInitialAppLanguage();
+	diag('render-start');
 	renderApp();
+	diag('render-called');
+	// 预热 dashboard chunk（首屏必然跳转到 /dashboard，并行加载避免首次点击触发 Suspense fallback）
+	void import('@/pages/dashboard');
+	diag('wait-show-schedule');
 	await waitAndShowMainWindow();
 })();

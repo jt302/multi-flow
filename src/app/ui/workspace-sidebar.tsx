@@ -128,17 +128,20 @@ export function WorkspaceSidebar({
 											!collapsed && expandable ? expanded : undefined
 										}
 										onClick={() => {
+											console.log(`[diag:startup] t=${performance.now().toFixed(1)} sidebar-button-click`, { itemId: item.id, expandable, hasCollapsedMenu, activeNav });
 											if (hasCollapsedMenu) {
 												return;
 											}
 
 											if (expandable) {
+												console.log(`[diag:startup] t=${performance.now().toFixed(1)} sidebar-expand-toggle`, { itemId: item.id });
 												setExpandedNavIds((current) =>
 													resolveNextExpandedNavIds(current, item.id),
 												);
 												return;
 											}
 
+											console.log(`[diag:startup] t=${performance.now().toFixed(1)} sidebar-nav-change`, { itemId: item.id });
 											onNavChange(item.id);
 										}}
 										tooltip={hasCollapsedMenu ? undefined : item.label}
@@ -200,7 +203,7 @@ export function WorkspaceSidebar({
 														return (
 															<DropdownMenuItem
 																key={child.path}
-																onSelect={() => onNavigate(child.path)}
+																onSelect={() => { console.log(`[diag:startup] t=${performance.now().toFixed(1)} sidebar-dropdown-select`, { path: child.path }); onNavigate(child.path); }}
 															>
 																<ChildIcon className="size-4" />
 																<span>{child.label}</span>
@@ -221,7 +224,7 @@ export function WorkspaceSidebar({
 															<SidebarMenuSubButton
 																type="button"
 																isActive={activePath === child.path}
-																onClick={() => onNavigate(child.path)}
+																onClick={() => { console.log(`[diag:startup] t=${performance.now().toFixed(1)} sidebar-sub-click`, { path: child.path, isActive: activePath === child.path }); onNavigate(child.path); }}
 																className="cursor-pointer"
 															>
 																<ChildIcon className="size-3.5" />
