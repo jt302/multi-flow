@@ -8,7 +8,6 @@ import { QueryProvider } from '@/app/providers/query-provider';
 import { installInputSelectAllHotkey } from '@/shared/lib/hotkeys/install-input-select-all-hotkey';
 import { installWindowHotkeys } from '@/shared/lib/hotkeys/install-window-hotkeys';
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
 // 诊断探针：带时间戳的轻量 logger（仅 dev 阶段使用）
@@ -79,22 +78,19 @@ async function syncInitialAppLanguage() {
 async function waitAndShowMainWindow() {
 	diag('wait-show-enter');
 	try {
-		const done = await invoke<boolean>('is_init_complete');
-		diag('is-init-complete-result', { done });
-		if (done) {
-			diag('invoke-show-start', { path: 'fast' });
-			await invoke('show_main_window');
-			diag('invoke-show-end', { path: 'fast' });
-		} else {
-			diag('listener-register-start');
-			const unlisten = await listen('splashscreen://init-complete', async () => {
-				diag('init-complete-received');
-				unlisten();
-				diag('invoke-show-start', { path: 'event' });
+		// 用轮询代替 event listen：Tauri 对 visible=false 的 hidden window 投递 event 不可靠，
+		// is_init_complete 是普通 invoke（request-response），不受影响
+		for (let attempt = 0; attempt < 100; attempt++) {
+			const done = await invoke<boolean>('is_init_complete');
+			if (done) {
+				diag('is-init-complete-result', { done: true, attempt });
+				diag('invoke-show-start', { path: 'poll' });
 				await invoke('show_main_window');
-				diag('invoke-show-end', { path: 'event' });
-			});
-			diag('listener-registered');
+				diag('invoke-show-end', { path: 'poll' });
+				return;
+			}
+			if (attempt === 0) diag('is-init-complete-result', { done: false, attempt });
+			await new Promise<void>((r) => setTimeout(r, 100));
 		}
 	} catch (e) {
 		diag('wait-show-fail', { error: String(e) });

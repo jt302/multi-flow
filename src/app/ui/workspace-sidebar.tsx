@@ -127,7 +127,9 @@ export function WorkspaceSidebar({
 										aria-expanded={
 											!collapsed && expandable ? expanded : undefined
 										}
-										onClick={() => {
+										onPointerDown={() => {
+											// 用 onPointerDown 代替 onClick：
+											// macOS 激活窗口时 click 被 Cocoa 吞，但 pointerdown(mousedown) 会传递到 webview
 											console.log(`[diag:startup] t=${performance.now().toFixed(1)} sidebar-button-click`, { itemId: item.id, expandable, hasCollapsedMenu, activeNav });
 											if (hasCollapsedMenu) {
 												return;
@@ -224,7 +226,7 @@ export function WorkspaceSidebar({
 															<SidebarMenuSubButton
 																type="button"
 																isActive={activePath === child.path}
-																onClick={() => { console.log(`[diag:startup] t=${performance.now().toFixed(1)} sidebar-sub-click`, { path: child.path, isActive: activePath === child.path }); onNavigate(child.path); }}
+																onPointerDown={() => { console.log(`[diag:startup] t=${performance.now().toFixed(1)} sidebar-sub-click`, { path: child.path, isActive: activePath === child.path }); onNavigate(child.path); }}
 																className="cursor-pointer"
 															>
 																<ChildIcon className="size-3.5" />
