@@ -6,12 +6,20 @@ import type { WindowArrangeMode } from '@/entities/window-session/model/types';
 
 export type WindowSyncConfigTab = 'window' | 'tab' | 'text';
 
+export type ArrangeTemplate = {
+	id: string;
+	name: string;
+	payload: Record<string, unknown>;
+	createdAt: number;
+};
+
 export type WindowSyncStoreState = {
 	selectedProfileIds: string[];
 	masterProfileId: string | null;
 	activeConfigTab: WindowSyncConfigTab;
 	arrangeMode: WindowArrangeMode;
 	arrangeGap: number;
+	arrangeTemplates: ArrangeTemplate[];
 };
 
 type WindowSyncStoreActions = {
@@ -22,6 +30,8 @@ type WindowSyncStoreActions = {
 	setActiveConfigTab: (tab: WindowSyncConfigTab) => void;
 	setArrangeMode: (mode: WindowArrangeMode) => void;
 	setGap: (gap: number) => void;
+	saveArrangeTemplate: (name: string, payload: Record<string, unknown>) => void;
+	deleteArrangeTemplate: (id: string) => void;
 };
 
 export type WindowSyncStore = WindowSyncStoreState & WindowSyncStoreActions;
@@ -32,6 +42,7 @@ export const WINDOW_SYNC_INITIAL_STATE: WindowSyncStoreState = {
 	activeConfigTab: 'window',
 	arrangeMode: 'grid',
 	arrangeGap: 16,
+	arrangeTemplates: [],
 };
 
 function resolveMasterProfileId(selectedProfileIds: string[], masterProfileId: string | null) {
@@ -79,6 +90,17 @@ export function createWindowSyncStore(initialState?: Partial<WindowSyncStoreStat
 		setActiveConfigTab: (activeConfigTab) => set({ activeConfigTab }),
 		setArrangeMode: (arrangeMode) => set({ arrangeMode }),
 		setGap: (arrangeGap) => set({ arrangeGap }),
+		saveArrangeTemplate: (name, payload) =>
+			set((state) => ({
+				arrangeTemplates: [
+					...state.arrangeTemplates,
+					{ id: Date.now().toString(), name, payload, createdAt: Date.now() },
+				],
+			})),
+		deleteArrangeTemplate: (id) =>
+			set((state) => ({
+				arrangeTemplates: state.arrangeTemplates.filter((t) => t.id !== id),
+			})),
 	}));
 }
 
@@ -120,10 +142,27 @@ export const windowSyncStore = createStore<WindowSyncStore>()(
 			setActiveConfigTab: (activeConfigTab) => set({ activeConfigTab }),
 			setArrangeMode: (arrangeMode) => set({ arrangeMode }),
 			setGap: (arrangeGap) => set({ arrangeGap }),
+			saveArrangeTemplate: (name, payload) =>
+				set((state) => ({
+					arrangeTemplates: [
+						...state.arrangeTemplates,
+						{ id: Date.now().toString(), name, payload, createdAt: Date.now() },
+					],
+				})),
+			deleteArrangeTemplate: (id) =>
+				set((state) => ({
+					arrangeTemplates: state.arrangeTemplates.filter((t) => t.id !== id),
+				})),
 		}),
 		{
 			name: 'mf-window-sync-store',
-			partialize: (state) => ({ selectedProfileIds: state.selectedProfileIds, masterProfileId: state.masterProfileId }),
+			partialize: (state) => ({
+				selectedProfileIds: state.selectedProfileIds,
+				masterProfileId: state.masterProfileId,
+				arrangeMode: state.arrangeMode,
+				arrangeGap: state.arrangeGap,
+				arrangeTemplates: state.arrangeTemplates,
+			}),
 		},
 	),
 );

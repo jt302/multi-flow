@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import {
 	arrangeProfileWindows,
+	restoreLastArrangement,
 	batchRestoreProfileWindows,
 	batchSetProfileWindowBounds,
 	broadcastSyncText,
@@ -127,6 +128,21 @@ export function useWindowSyncActions({
 		}
 	};
 
+	const restoreLastArrangementAction = async () => {
+		try {
+			const result = await restoreLastArrangement();
+			await refreshAll();
+			if (result.failedCount > 0) {
+				toast.warning(t('syncActions.restoreResult', { success: result.successCount, fail: result.failedCount }));
+			} else {
+				toast.success(t('syncActions.restoreResultShort', { success: result.successCount, total: result.total }));
+			}
+		} catch (error) {
+			toast.error(t('syncActions.restoreFailed'));
+			throw error;
+		}
+	};
+
 	return {
 		startSync,
 		stopSync,
@@ -135,5 +151,6 @@ export function useWindowSyncActions({
 		restoreWindows,
 		applyUniformBounds,
 		arrangeWindows,
+		restoreLastArrangement: restoreLastArrangementAction,
 	};
 }
