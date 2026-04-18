@@ -199,8 +199,6 @@ impl ChatExecutionService {
         } else {
             vec![]
         };
-        messages.insert(0, ChatMessage::system(&system_prompt_text));
-
         // 4. 获取工具定义（含 MCP 工具）
         // 基于 skill allowed_tools 构建有效过滤器
         let mut effective_filter_owned;
@@ -267,6 +265,9 @@ impl ChatExecutionService {
             }
         }
 
+        // system prompt 已收集完毕（skills + mcp_resources 均已 push_str）→ 插入 messages[0]
+        messages.insert(0, ChatMessage::system(&system_prompt_text));
+
         // 合并已启用的 MCP 工具（过滤 session 级别禁用的 server）
         {
             let mcp_manager = app.state::<crate::state::AppState>().mcp_manager.clone();
@@ -317,8 +318,14 @@ impl ChatExecutionService {
         let mut round: u32 = 0;
         // 重复操作检测：记录最近 10 次 (tool_name, args_json)
         let mut recent_tool_calls: VecDeque<(String, String)> = VecDeque::with_capacity(10);
+        // 失败升级计数器
+        let mut consecutive_tool_failures: HashMap<String, u32> = HashMap::new();
+        let mut error_signature_repeats: HashMap<String, u32> = HashMap::new();
+        let mut consecutive_empty_rounds: u32 = 0;
+        let mut escalation_injected = false;
         loop {
             round += 1;
+            escalation_injected = false;
 
             // 检查取消（循环开始时）
             {
@@ -614,6 +621,12 @@ impl ChatExecutionService {
                     let raw_tool_calls: Vec<Value> =
                         calls.iter().map(|c| c.raw.clone()).collect();
                     let tool_calls_str = serde_json::to_string(&raw_tool_calls).ok();
+                    // 空轮计数器：calls 为空则计数，有工具调用则清零
+                    if calls.is_empty() {
+                        consecutive_empty_rounds += 1;
+                    } else {
+                        consecutive_empty_rounds = 0;
+                    }
                     let asst_msg = chat_service
                         .add_message_with_id(
                             &stream_msg_id, session_id, "assistant",
@@ -776,6 +789,21 @@ impl ChatExecutionService {
                             }
                         };
 
+                        // 维护失败计数器
+                        if tool_status == "failed" {
+                            *consecutive_tool_failures
+                                .entry(tool_call.name.clone())
+                                .or_insert(0) += 1;
+                            let sig = format!(
+                                "{}:{}",
+                                tool_call.name,
+                                &result_text[..result_text.len().min(120)]
+                            );
+                            *error_signature_repeats.entry(sig).or_insert(0) += 1;
+                        } else {
+                            consecutive_tool_failures.remove(&tool_call.name);
+                        }
+
                         let duration_ms = tool_start.elapsed().as_millis() as i64;
                         logger::info(
                             "ai-chat",
@@ -901,6 +929,73 @@ impl ChatExecutionService {
                                 break; // break 内层 for tool_call in &calls
                             }
                         }
+
+                        // 失败升级检测：工具连续失败或同一错误重复超限，注入决策 prompt（不 break）
+                        if !escalation_injected {
+                            use crate::services::agent_limits::{
+                                MAX_CONSECUTIVE_TOOL_FAILURES, MAX_SAME_ERROR_REPEATS,
+                            };
+                            let fail_count = consecutive_tool_failures
+                                .get(&tool_call.name)
+                                .copied()
+                                .unwrap_or(0);
+                            if fail_count >= MAX_CONSECUTIVE_TOOL_FAILURES {
+                                let prefix = format!("{}:", tool_call.name);
+                                let last_errors: Vec<String> = error_signature_repeats
+                                    .keys()
+                                    .filter(|k| k.starts_with(&prefix))
+                                    .map(|k| k[prefix.len()..].to_string())
+                                    .take(3)
+                                    .collect();
+                                let prompt = crate::services::agent_limits::build_escalation_prompt(
+                                    &tool_call.name,
+                                    fail_count,
+                                    &last_errors,
+                                    locale,
+                                );
+                                messages.push(ChatMessage::system(&prompt));
+                                escalation_injected = true;
+                                consecutive_tool_failures.remove(&tool_call.name);
+                                let prefix_owned = prefix;
+                                error_signature_repeats
+                                    .retain(|k, _| !k.starts_with(&prefix_owned));
+                            } else {
+                                // 检查是否有同一错误重复次数超限
+                                let repeating_key = error_signature_repeats
+                                    .iter()
+                                    .find(|(_, &v)| v >= MAX_SAME_ERROR_REPEATS)
+                                    .map(|(k, _)| k.clone());
+                                if let Some(sig) = repeating_key {
+                                    let colon = sig.find(':').unwrap_or(sig.len());
+                                    let repeated_tool = sig[..colon].to_string();
+                                    let error_snippet = sig[colon + 1..].to_string();
+                                    let prompt = crate::services::agent_limits::build_escalation_prompt(
+                                        &repeated_tool,
+                                        MAX_SAME_ERROR_REPEATS,
+                                        &[error_snippet],
+                                        locale,
+                                    );
+                                    messages.push(ChatMessage::system(&prompt));
+                                    escalation_injected = true;
+                                    let prefix = format!("{repeated_tool}:");
+                                    error_signature_repeats.retain(|k, _| !k.starts_with(&prefix));
+                                }
+                            }
+                        }
+                    }
+
+                    // 空轮升级检测：tool_calls 路径中 calls 为空，连续超限时注入提示
+                    if !escalation_injected
+                        && consecutive_empty_rounds
+                            >= crate::services::agent_limits::MAX_CONSECUTIVE_EMPTY_ROUNDS
+                    {
+                        let prompt = crate::services::agent_limits::build_empty_rounds_prompt(
+                            consecutive_empty_rounds,
+                            locale,
+                        );
+                        messages.push(ChatMessage::system(&prompt));
+                        escalation_injected = true;
+                        consecutive_empty_rounds = 0;
                     }
 
                     // 内层工具循环取消或完成后，退出外层轮次循环

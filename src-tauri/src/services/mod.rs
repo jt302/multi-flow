@@ -1,3 +1,4 @@
+pub mod agent_limits;
 pub mod ai_prompts;
 pub mod automation_context;
 pub mod ai_service;

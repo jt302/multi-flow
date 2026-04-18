@@ -60,8 +60,10 @@ const BASE_CAPTCHA_CHAT_ZH: &str = "\
 - 如果未配置求解服务或自动求解失败：通过 `dialog_message` 通知用户需要人工介入处理验证码，暂停当前操作等待用户处理完成
 - `captcha_*` 工具只有在页面实际离开验证码/风控阻塞状态时，才算处理成功
 - 拿到 token、写入隐藏字段或触发回调，不等于页面已经通过验证
-- 如果验证码仍未通过，必须明确说明当前被验证码阻塞，不能表述成“已完成”
-- 未经用户明确同意，不要因为验证码失败就擅自切换到 DuckDuckGo 或其他替代站点";
+- 如果验证码仍未通过，必须明确说明当前被验证码阻塞，不能表述成已完成
+- 未经用户明确同意，不要因为验证码失败就擅自切换到 DuckDuckGo 或其他替代站点
+- 在调用 captcha_solve 前先准确识别验证码类型（slider != reCAPTCHA != hCaptcha）
+- 如果验证码连续失败 3 次，停止自动化并向用户报告阻碍；不要继续重试";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // English (en) system prompts
@@ -130,25 +132,62 @@ const BASE_CAPTCHA_CHAT_EN: &str = "\
 - Identify the captcha type accurately before calling captcha_solve (slider ≠ reCAPTCHA ≠ hCaptcha)
 - If captcha fails 3 consecutive times, stop automation and report the blockage to the user; do not keep retrying";
 
-const BASE_ANTI_LOOP_ZH: &str = "\
-【防循环与自我评估】
-- 同一操作（相同工具+相同参数）失败或无效 2 次后，必须切换到完全不同的方法
-- 每执行 5 轮工具调用，简要回顾当前进展，确认是否朝目标前进
-- 如果发现页面截图或内容与上次完全相同，说明操作没有效果，立即换策略
-- 遇到搜索框有残留/乱码内容时，用 cdp_execute_js 清空后再重新输入，或直接通过 URL 访问目标页面
-- 区分导航链接与筛选控件：电商网站的筛选通常是复选框或标签按钮，点击后要截图确认筛选状态是否生效
-- 同一目标已尝试 3 种不同方法均失败时，通过 `dialog_message` 向用户说明具体遇到的阻碍并申请人工介入，暂停当前操作等待用户指示，不要继续猜测
-- 遇到任何无法自动解决的问题（权限不足、登录过期、网络异常、页面异常等），立即通过 `dialog_message` 通知用户并申请人工介入";
+fn anti_loop_rules(locale: &str) -> String {
+    use crate::services::agent_limits::{
+        MAX_CONSECUTIVE_EMPTY_ROUNDS, MAX_CONSECUTIVE_TOOL_FAILURES, MAX_SAME_ERROR_REPEATS,
+    };
+    if locale.starts_with("en") {
+        format!(
+            "[Anti-Loop & Self-Assessment]\n\
+             - If the same action (same tool + same arguments) fails or has no effect twice in a row, \
+             switch to a completely different approach\n\
+             - Every 5 tool-calling rounds, briefly review current progress and verify you are moving toward the goal\n\
+             - If page screenshots or content are identical to the previous step, the action had no effect — change strategy immediately\n\
+             - When a search box contains residual or garbled text, clear it via cdp_execute_js before typing, or navigate directly via URL\n\
+             - Distinguish navigation links from filter controls: e-commerce filters are usually checkboxes or tag buttons; \
+             take a screenshot after clicking to confirm the filter was applied\n\
+             - If {MAX_CONSECUTIVE_TOOL_FAILURES} different approaches to the same goal have all failed, use `dialog_message` to report \
+             the specific blocker to the user and request manual intervention; pause and wait instead of continuing to guess\n\
+             - If the same error repeats {MAX_SAME_ERROR_REPEATS} times, escalate immediately via the appropriate dialog_* tool\n\
+             - If {MAX_CONSECUTIVE_EMPTY_ROUNDS} consecutive rounds produce no output, report your status immediately\n\
+             - When encountering any problem that cannot be resolved automatically (insufficient permissions, expired login, \
+             network errors, page anomalies, etc.), immediately use `dialog_message` to notify the user and request manual intervention"
+        )
+    } else {
+        format!(
+            "【防循环与自我评估】\n\
+             - 同一操作（相同工具+相同参数）失败或无效 2 次后，必须切换到完全不同的方法\n\
+             - 每执行 5 轮工具调用，简要回顾当前进展，确认是否朝目标前进\n\
+             - 如果发现页面截图或内容与上次完全相同，说明操作没有效果，立即换策略\n\
+             - 遇到搜索框有残留/乱码内容时，用 cdp_execute_js 清空后再重新输入，或直接通过 URL 访问目标页面\n\
+             - 区分导航链接与筛选控件：电商网站的筛选通常是复选框或标签按钮，点击后要截图确认筛选状态是否生效\n\
+             - 同一目标已尝试 {MAX_CONSECUTIVE_TOOL_FAILURES} 种不同方法均失败时，通过 `dialog_message` 向用户说明具体阻碍并申请人工介入，暂停等待用户指示\n\
+             - 同一错误重复 {MAX_SAME_ERROR_REPEATS} 次时，立即通过合适的 dialog_* 工具升级处理\n\
+             - 连续 {MAX_CONSECUTIVE_EMPTY_ROUNDS} 轮无任何产出时，立即汇报当前状态\n\
+             - 遇到任何无法自动解决的问题（权限不足、登录过期、网络异常、页面异常等），立即通过 `dialog_message` 通知用户并申请人工介入"
+        )
+    }
+}
 
-const BASE_ANTI_LOOP_EN: &str = "\
-[Anti-Loop & Self-Assessment]
-- If the same action (same tool + same arguments) fails or has no effect twice in a row, switch to a completely different approach
-- Every 5 tool-calling rounds, briefly review current progress and verify you are moving toward the goal
-- If page screenshots or content are identical to the previous step, the action had no effect — change strategy immediately
-- When a search box contains residual or garbled text, clear it via cdp_execute_js before typing, or navigate directly via URL
-- Distinguish navigation links from filter controls: e-commerce filters are usually checkboxes or tag buttons; take a screenshot after clicking to confirm the filter was applied
-- If 3 different approaches to the same goal have all failed, use `dialog_message` to report the specific blocker to the user and request manual intervention; pause the current operation and wait for user guidance instead of continuing to guess
-- When encountering any problem that cannot be resolved automatically (insufficient permissions, expired login, network errors, page anomalies, etc.), immediately use `dialog_message` to notify the user and request manual intervention";
+fn escalation_decision_tree(locale: &str) -> &'static str {
+    if locale.starts_with("en") {
+        "[Escalation Decision Tree]\n\
+         When you must escalate to human intervention, choose by error type:\n\
+         - Auth/login → dialog_confirm\n\
+         - Captcha/anti-bot → dialog_image\n\
+         - Network/timeout → dialog_countdown (auto_proceed=true)\n\
+         - Intent unclear → dialog_input or dialog_select\n\
+         - Completely blocked → dialog_toast(persistent=true, actions=[{\"label\":\"I'll handle it\",\"value\":\"takeover\"},{\"label\":\"Abort\",\"value\":\"abort\"}])"
+    } else {
+        "【升级决策树】\n\
+         当必须升级人工介入时，按错误类型选对应 dialog_*：\n\
+         - 权限/登录 → dialog_confirm\n\
+         - 验证码/反爬 → dialog_image\n\
+         - 网络/超时 → dialog_countdown（auto_proceed=true）\n\
+         - 意图不清 → dialog_input 或 dialog_select\n\
+         - 彻底阻塞 → dialog_toast(persistent=true, actions=[{\"label\":\"我来处理\",\"value\":\"takeover\"},{\"label\":\"放弃\",\"value\":\"abort\"}])"
+    }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Helper functions
@@ -469,11 +508,9 @@ fn build_chat_base_context(categories: &[String], locale: &str) -> String {
         BASE_CAPTCHA_CHAT_ZH
     });
     ctx.push_str("\n\n");
-    ctx.push_str(if en {
-        BASE_ANTI_LOOP_EN
-    } else {
-        BASE_ANTI_LOOP_ZH
-    });
+    ctx.push_str(&anti_loop_rules(locale));
+    ctx.push_str("\n\n");
+    ctx.push_str(escalation_decision_tree(locale));
     ctx
 }
 
@@ -556,5 +593,47 @@ mod tests {
         assert!(prompt.contains("captcha_*"));
         assert!(prompt.contains("不等于页面已经通过验证"));
         assert!(prompt.contains("DuckDuckGo"));
+    }
+
+    #[test]
+    fn chat_prompt_zh_includes_decision_tree() {
+        let prompt = build_chat_system_prompt(None, None, &[], "zh", None, None);
+        assert!(prompt.contains("dialog_confirm"));
+        assert!(prompt.contains("dialog_image"));
+        assert!(prompt.contains("dialog_countdown"));
+        assert!(prompt.contains("dialog_toast"));
+        assert!(prompt.contains("升级决策树"));
+    }
+
+    #[test]
+    fn chat_prompt_en_includes_decision_tree() {
+        let prompt = build_chat_system_prompt(None, None, &[], "en", None, None);
+        assert!(prompt.contains("dialog_confirm"));
+        assert!(prompt.contains("dialog_image"));
+        assert!(prompt.contains("dialog_countdown"));
+        assert!(prompt.contains("Escalation Decision Tree"));
+    }
+
+    #[test]
+    fn anti_loop_rules_zh_uses_constants() {
+        let rules = anti_loop_rules("zh");
+        assert!(rules.contains('3'), "ZH anti-loop rules should mention threshold 3");
+        assert!(rules.contains('2'), "ZH anti-loop rules should mention threshold 2");
+    }
+
+    #[test]
+    fn anti_loop_rules_en_uses_constants() {
+        let rules = anti_loop_rules("en");
+        assert!(rules.contains('3'), "EN anti-loop rules should mention threshold 3");
+        assert!(rules.contains('2'), "EN anti-loop rules should mention threshold 2");
+    }
+
+    #[test]
+    fn captcha_zh_aligned_with_en() {
+        let zh = build_chat_system_prompt(None, None, &[], "zh", None, None);
+        let en = build_chat_system_prompt(None, None, &[], "en", None, None);
+        // Both should mention 3 consecutive failures for captcha
+        assert!(zh.contains("连续失败 3 次") || zh.contains("3 次"));
+        assert!(en.contains("3 consecutive times"));
     }
 }
