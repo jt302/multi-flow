@@ -295,6 +295,7 @@ pub fn run() {
             commands::profile_commands::batch_open_profiles,
             commands::profile_commands::batch_close_profiles,
             commands::profile_commands::get_local_api_server_status,
+            commands::profile_commands::host_locale_suggestion,
             commands::proxy_commands::create_proxy,
             commands::proxy_commands::update_proxy,
             commands::proxy_commands::list_proxies,
@@ -1013,6 +1014,13 @@ pub(crate) fn show_main_window_if_needed(app: &AppHandle, source: &str) {
     if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
         let _ = window.show();
         let _ = window.set_focus();
+
+        // 延迟再 set_focus 一次，避免 macOS window-activation click 吞掉 webview 首次 mousedown
+        let window_clone = window.clone();
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+            let _ = window_clone.set_focus();
+        });
     }
 
     logger::info("main_window", format!("show main window via {source}"));
@@ -1476,6 +1484,15 @@ fn run_app_init(handle: AppHandle) -> Result<(), Box<dyn std::error::Error + Sen
         });
     }
 
+    // 预热本机 IP 地理缓存，使首次打开档案时能立即用到建议值
+    {
+        let locale_handle = handle.clone();
+        tauri::async_runtime::spawn(async move {
+            let state = locale_handle.state::<state::AppState>();
+            state.host_locale_service.warm_up().await;
+        });
+    }
+
     emit_splash("menu", 80);
     setup_native_menu(&handle, None).map_err(
         |err| -> Box<dyn std::error::Error + Send + Sync> {
@@ -1510,7 +1527,7 @@ fn run_app_init(handle: AppHandle) -> Result<(), Box<dyn std::error::Error + Sen
     let _ = thread::Builder::new()
         .name("multi-flow-main-window-init-fallback".to_string())
         .spawn(move || {
-            thread::sleep(Duration::from_secs(3));
+            thread::sleep(Duration::from_secs(5));
             show_main_window_if_needed(&fallback_handle, "init-fallback");
         });
 
