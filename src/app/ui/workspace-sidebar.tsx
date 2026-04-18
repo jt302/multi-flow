@@ -1,4 +1,5 @@
-import { ChevronRight, Cpu } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
+import LogoIcon from '@/assets/icon/icon-white.svg?react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -51,17 +52,21 @@ export function WorkspaceSidebar({
 	const { state } = useSidebar();
 	const collapsed = state === 'collapsed';
 	const { t, i18n } = useTranslation('nav');
-	const navItems = useMemo(() => getWorkspaceNavItems(), [i18n.resolvedLanguage]);
-	const [expandedNavIds, setExpandedNavIds] =
-		useState<ExpandableWorkspaceNavId[]>(() => {
-			const autoExpanded = findAutoExpandedNavId(navItems, activePath);
-			if (autoExpanded) {
-				return [autoExpanded];
-			}
+	const navItems = useMemo(
+		() => getWorkspaceNavItems(),
+		[i18n.resolvedLanguage],
+	);
+	const [expandedNavIds, setExpandedNavIds] = useState<
+		ExpandableWorkspaceNavId[]
+	>(() => {
+		const autoExpanded = findAutoExpandedNavId(navItems, activePath);
+		if (autoExpanded) {
+			return [autoExpanded];
+		}
 
-			const activeItem = navItems.find((item) => item.id === activeNav);
-			return activeItem && isExpandableNavItem(activeItem) ? [activeItem.id] : [];
-		});
+		const activeItem = navItems.find((item) => item.id === activeNav);
+		return activeItem && isExpandableNavItem(activeItem) ? [activeItem.id] : [];
+	});
 
 	useEffect(() => {
 		const autoExpanded = findAutoExpandedNavId(navItems, activePath);
@@ -70,7 +75,10 @@ export function WorkspaceSidebar({
 			activeItem && isExpandableNavItem(activeItem) ? activeItem.id : null;
 
 		setExpandedNavIds((current) =>
-			mergeExpandedNavIds(mergeExpandedNavIds(current, autoExpanded), activeExpandableId),
+			mergeExpandedNavIds(
+				mergeExpandedNavIds(current, autoExpanded),
+				activeExpandableId,
+			),
 		);
 	}, [activeNav, activePath, navItems]);
 
@@ -78,16 +86,12 @@ export function WorkspaceSidebar({
 		<>
 			<SidebarHeader className={cn('p-3 pb-2', collapsed && 'px-0 pt-2 pb-1')}>
 				{collapsed ? (
-					<div className="mx-auto grid size-11 shrink-0 place-items-center rounded-2xl border border-sidebar-border/40 bg-sidebar-accent/30 shadow-sm transition-all duration-300">
-						<div className="grid size-8 shrink-0 place-items-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
-							<Cpu className="size-3.5" />
-						</div>
+					<div className="mx-auto grid size-12 shrink-0 place-items-center rounded-2xl border border-sidebar-border/40 bg-sidebar-accent/30 shadow-sm transition-all duration-300">
+						<LogoIcon className="size-11" />
 					</div>
 				) : (
-					<div className="flex items-center gap-3 rounded-2xl border border-sidebar-border/40 bg-sidebar-accent/30 p-2.5 shadow-sm transition-all duration-300">
-						<div className="grid size-9 place-items-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
-							<Cpu className="size-4" />
-						</div>
+					<div className="flex items-center gap-2 rounded-2xl border border-sidebar-border/40 bg-sidebar-accent/30 p-2.5 shadow-sm transition-all duration-300">
+						<LogoIcon className="size-11" />
 						<div className="min-w-0">
 							<p className="text-[10px] uppercase tracking-[0.2em] text-sidebar-foreground/65">
 								multi-flow
@@ -120,7 +124,9 @@ export function WorkspaceSidebar({
 										variant={active ? 'outline' : 'default'}
 										isActive={active}
 										aria-label={item.label}
-										aria-expanded={!collapsed && expandable ? expanded : undefined}
+										aria-expanded={
+											!collapsed && expandable ? expanded : undefined
+										}
 										onClick={() => {
 											if (hasCollapsedMenu) {
 												return;

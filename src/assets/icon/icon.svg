@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- Background gradient -->
+    <linearGradient id="bg" x1="100" y1="100" x2="924" y2="924" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#0D1117"/>
+      <stop offset="100%" stop-color="#1A1040"/>
+    </linearGradient>
+
+    <!-- Stream gradients: x range matches new path 197→827 -->
+    <linearGradient id="g1" x1="197" y1="0" x2="827" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#93C5FD"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="197" y1="0" x2="827" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#D8B4FE"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="g3" x1="197" y1="0" x2="827" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#FBCFE8"/>
+      <stop offset="100%" stop-color="#DB2777"/>
+    </linearGradient>
+
+    <!-- Glow filters with generous region & layered blur for halo effect -->
+    <filter id="glow1" x="-30%" y="-300%" width="160%" height="700%">
+      <feGaussianBlur stdDeviation="18" result="b1"/>
+      <feGaussianBlur stdDeviation="8"  in="SourceGraphic" result="b2"/>
+      <feMerge>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glow2" x="-30%" y="-300%" width="160%" height="700%">
+      <feGaussianBlur stdDeviation="18" result="b1"/>
+      <feGaussianBlur stdDeviation="8"  in="SourceGraphic" result="b2"/>
+      <feMerge>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glow3" x="-30%" y="-300%" width="160%" height="700%">
+      <feGaussianBlur stdDeviation="18" result="b1"/>
+      <feGaussianBlur stdDeviation="8"  in="SourceGraphic" result="b2"/>
+      <feMerge>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- macOS standard icon grid:
+       Canvas 1024×1024, squircle inset 100px → main area 824×824 centered.
+       Corner radius 184 ≈ 824 × 0.2237 (Apple's squircle ratio).
+       The 100px transparent padding on all sides eliminates white-edge artifacts
+       and matches the visual weight of Finder/Safari/Music icons. -->
+  <rect x="100" y="100" width="824" height="824" rx="184" fill="url(#bg)"/>
+
+  <g>
+    <!-- Three flowing streams scaled to fit inside the 824×824 squircle.
+         Original coords × 0.805, then +100 offset.
+         Vertical centers: 335 / 512 / 689 (spacing 177px).
+         Arc depth ±44px, stroke-width 62px. -->
+
+    <!-- Stream 1 – Blue, arcs upward -->
+    <path d="M 197,335 C 382,291 642,291 827,335"
+          fill="none" stroke="url(#g1)" stroke-width="62" stroke-linecap="round"
+          filter="url(#glow1)"/>
+
+    <!-- Stream 2 – Purple, arcs downward -->
+    <path d="M 197,512 C 382,556 642,556 827,512"
+          fill="none" stroke="url(#g2)" stroke-width="62" stroke-linecap="round"
+          filter="url(#glow2)"/>
+
+    <!-- Stream 3 – Pink, arcs upward -->
+    <path d="M 197,689 C 382,645 642,645 827,689"
+          fill="none" stroke="url(#g3)" stroke-width="62" stroke-linecap="round"
+          filter="url(#glow3)"/>
+  </g>
+</svg>
