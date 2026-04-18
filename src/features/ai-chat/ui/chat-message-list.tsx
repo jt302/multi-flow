@@ -1,5 +1,5 @@
 import { memo, useMemo, useRef, useState } from 'react';
-import { Check, Copy, X } from 'lucide-react';
+import { Check, Copy, X, TriangleAlert, StopCircle } from 'lucide-react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import Lightbox from 'yet-another-react-lightbox';
 import Zoom from 'yet-another-react-lightbox/plugins/zoom';
@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { MarkdownRenderer } from '@/shared/ui/markdown-renderer';
 
 import type { ChatMessageRecord } from '@/entities/chat/model/types';
+import type { TerminalState } from '@/store/chat-store';
 import { GenerationProgress } from './generation-progress';
 import { ThinkingBlock } from './thinking-block';
 import { ToolCallCard } from './tool-call-card';
@@ -18,9 +19,13 @@ import './chat-message-list-lightbox.css';
 type Props = {
 	messages: ChatMessageRecord[];
 	isGenerating: boolean;
+	terminalState?: TerminalState;
+	terminalError?: string | null;
+	sessionId?: string | null;
+	onContinue?: () => void;
 };
 
-export function ChatMessageList({ messages, isGenerating }: Props) {
+export function ChatMessageList({ messages, isGenerating, terminalState, terminalError, onContinue }: Props) {
 	const { t } = useTranslation('chat');
 	const virtuosoRef = useRef<VirtuosoHandle>(null);
 	const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
@@ -94,7 +99,9 @@ export function ChatMessageList({ messages, isGenerating }: Props) {
 					Header: () => <div className="h-2" />,
 					Footer: () => isGenerating
 						? <div className="px-4 pb-2 max-w-5xl mx-auto w-full"><GenerationProgress /></div>
-						: <div className="h-2" />,
+						: terminalState && terminalState !== 'success'
+							? <div className="px-4 pb-3 max-w-5xl mx-auto w-full"><TerminalNotice state={terminalState} error={terminalError} onContinue={onContinue} /></div>
+							: <div className="h-2" />,
 				}}
 			/>
 			{lightboxEl}
@@ -244,3 +251,51 @@ const MessageItem = memo(function MessageItem({ message, onImageClick }: { messa
 
 	return null;
 });
+
+function TerminalNotice({ state, error, onContinue }: { state: TerminalState; error?: string | null; onContinue?: () => void }) {
+	const { t } = useTranslation('chat');
+
+	if (state === 'stalled' || state === 'max_rounds') {
+		const title = state === 'stalled' ? t('terminal.stalled.title') : t('terminal.maxRounds.title');
+		const desc = state === 'stalled' ? t('terminal.stalled.description') : t('terminal.maxRounds.description');
+		return (
+			<div className="flex items-start gap-3 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm dark:border-yellow-900/50 dark:bg-yellow-950/30">
+				<TriangleAlert className="mt-0.5 size-4 shrink-0 text-yellow-600 dark:text-yellow-400" />
+				<div className="min-w-0 flex-1">
+					<p className="font-medium text-yellow-800 dark:text-yellow-300">{title}</p>
+					<p className="mt-0.5 text-yellow-700 dark:text-yellow-400/80">{desc}</p>
+				</div>
+				{onContinue && (
+					<button
+						onClick={onContinue}
+						className="cursor-pointer shrink-0 rounded-md border border-yellow-300 bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-800 hover:bg-yellow-200 transition-colors dark:border-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300 dark:hover:bg-yellow-900"
+					>
+						{t('terminal.continue')}
+					</button>
+				)}
+			</div>
+		);
+	}
+
+	if (state === 'error') {
+		return (
+			<div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm dark:border-red-900/50 dark:bg-red-950/30">
+				<StopCircle className="mt-0.5 size-4 shrink-0 text-red-600 dark:text-red-400" />
+				<div className="min-w-0 flex-1">
+					<p className="font-medium text-red-800 dark:text-red-300">{t('terminal.error.title')}</p>
+					{error && <p className="mt-0.5 text-red-700 dark:text-red-400/80 break-words">{error}</p>}
+				</div>
+				{onContinue && (
+					<button
+						onClick={onContinue}
+						className="cursor-pointer shrink-0 rounded-md border border-red-300 bg-red-100 px-3 py-1 text-xs font-medium text-red-800 hover:bg-red-200 transition-colors dark:border-red-800 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900"
+					>
+						{t('terminal.retry')}
+					</button>
+				)}
+			</div>
+		);
+	}
+
+	return null;
+}

@@ -6,13 +6,16 @@ pub const MAX_CONSECUTIVE_TOOL_FAILURES: u32 = 3;
 pub const MAX_SAME_ERROR_REPEATS: u32 = 3;
 /// 连续空转轮次超过此数值时注入升级提示
 pub const MAX_CONSECUTIVE_EMPTY_ROUNDS: u32 = 2;
+/// 连续工具调用但未产出任何 assistant 文本超过此轮次时，注入一次说明提醒
+pub const MAX_ROUNDS_WITHOUT_ASSISTANT_TEXT: u32 = 12;
 
 /// 用于 ai_prompts 注入的阈值摘要（中文）
 pub fn format_zh() -> String {
     format!(
         "同一工具连续失败 {MAX_CONSECUTIVE_TOOL_FAILURES} 次 / \
          同一错误重复 {MAX_SAME_ERROR_REPEATS} 次 / \
-         连续 {MAX_CONSECUTIVE_EMPTY_ROUNDS} 轮无产出 → 系统将注入升级提示，要求选择 dialog_*"
+         连续 {MAX_CONSECUTIVE_EMPTY_ROUNDS} 轮无产出 → 系统将注入升级提示，要求选择 dialog_* \
+         / 连续 {MAX_ROUNDS_WITHOUT_ASSISTANT_TEXT} 轮只调工具不出文本 → 系统将注入说明提醒"
     )
 }
 
@@ -22,7 +25,9 @@ pub fn format_en() -> String {
         "Same tool fails {MAX_CONSECUTIVE_TOOL_FAILURES} consecutive times / \
          same error repeats {MAX_SAME_ERROR_REPEATS} times / \
          {MAX_CONSECUTIVE_EMPTY_ROUNDS} consecutive empty rounds → \
-         system will inject an escalation prompt requiring a dialog_* call"
+         system will inject an escalation prompt requiring a dialog_* call \
+         / {MAX_ROUNDS_WITHOUT_ASSISTANT_TEXT} consecutive rounds with tools but no assistant text → \
+         system will inject a progress-report nudge"
     )
 }
 
@@ -120,6 +125,65 @@ pub fn build_empty_rounds_prompt(count: u32, locale: &str) -> String {
              \n\
              不允许继续沉默。"
         )
+    }
+}
+
+/// 构建"长时间只调工具不出文本"说明提醒（注入到 messages 让 LLM 给出进度说明）
+pub fn build_no_text_nudge_prompt(rounds: u32, locale: &str) -> String {
+    let en = locale.starts_with("en");
+    if en {
+        format!(
+            "⚠ Progress update required: you have called tools for {rounds} consecutive rounds \
+             without producing any assistant text visible to the user.\n\
+             \n\
+             Please pause and write a short status update in the same language as the user:\n\
+             - What have you accomplished so far?\n\
+             - What is the current state of the page/task?\n\
+             - What is your next step?\n\
+             - Are you blocked by anything?\n\
+             \n\
+             After the update, you may continue with tool calls."
+        )
+    } else {
+        format!(
+            "⚠ 进度说明要求：你已连续 {rounds} 轮调用工具但未向用户输出任何文字说明。\n\
+             \n\
+             请暂停并用中文写一段简短的进度说明：\n\
+             - 已完成了哪些步骤？\n\
+             - 当前页面/任务处于什么状态？\n\
+             - 下一步计划做什么？\n\
+             - 是否遇到了障碍？\n\
+             \n\
+             说明完成后，可以继续调用工具。"
+        )
+    }
+}
+
+/// 构建空文本自救提示（模型返回空回复时注入，要求给出总结）
+pub fn build_empty_text_recovery_prompt(locale: &str) -> String {
+    let en = locale.starts_with("en");
+    if en {
+        "⚠ You just returned an empty response. This is not allowed.\n\
+         \n\
+         Please immediately write a response that includes:\n\
+         - A summary of what you have done so far\n\
+         - The current state of the page or task\n\
+         - What the user needs to do next (if anything)\n\
+         - If you are blocked, clearly state why and call a dialog_* tool\n\
+         \n\
+         Do not return an empty response again."
+            .to_string()
+    } else {
+        "⚠ 你刚才返回了空回复，这是不允许的。\n\
+         \n\
+         请立即给出一段回复，内容包括：\n\
+         - 你已经完成了哪些步骤\n\
+         - 当前页面/任务处于什么状态\n\
+         - 还需要用户做什么（如有）\n\
+         - 如果遇到了障碍，请明确说明并调用 dialog_* 工具\n\
+         \n\
+         不允许再次返回空回复。"
+            .to_string()
     }
 }
 

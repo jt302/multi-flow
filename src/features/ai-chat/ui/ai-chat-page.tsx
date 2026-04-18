@@ -8,6 +8,7 @@ import {
 	sendChatMessage,
 	stopChatGeneration,
 	updateChatSession,
+	regenerateChatMessage,
 } from '@/entities/chat/api/chat-api';
 import type { ChatMessageRecord } from '@/entities/chat/model/types';
 import { usePersistentLayout } from '@/shared/hooks/use-persistent-layout';
@@ -49,6 +50,8 @@ const sessionsQuery = useChatSessionsQuery();
 	const isGenerating = useChatStore((s) => s.isGenerating);
 	const liveMessages = useChatStore((s) => s.liveMessages);
 	const contextUsed = useChatStore((s) => s.contextUsed);
+	const terminalState = useChatStore((s) => s.terminalState);
+	const terminalError = useChatStore((s) => s.terminalError);
 	const hydratedSession = sessions.find((s) => s.id === hydratedSessionId) ?? null;
 	const listActiveSessionId = hydratedSessionId ?? persistedSessionId;
 
@@ -171,6 +174,16 @@ const sessionsQuery = useChatSessionsQuery();
 		}
 	}, [hydratedSessionId]);
 
+	const handleContinue = useCallback(async () => {
+		if (!hydratedSessionId || isGenerating) return;
+		chatStore.getState().startGeneration();
+		try {
+			await regenerateChatMessage(hydratedSessionId);
+		} catch {
+			chatStore.getState().finishGeneration();
+		}
+	}, [hydratedSessionId, isGenerating]);
+
 	const handleDelete = useCallback((id: string) => {
 		deleteSession.mutate(id);
 		if (persistedSessionId === id || hydratedSessionId === id) {
@@ -199,6 +212,10 @@ const sessionsQuery = useChatSessionsQuery();
 								key={hydratedSessionId}
 								messages={allMessages}
 								isGenerating={isGenerating}
+								terminalState={terminalState}
+								terminalError={terminalError}
+								sessionId={hydratedSessionId}
+								onContinue={handleContinue}
 							/>
 							<ChatInputBar
 								onSubmit={handleSubmit}

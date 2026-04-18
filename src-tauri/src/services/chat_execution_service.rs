@@ -305,8 +305,8 @@ impl ChatExecutionService {
         let empty_vars = RunVariables::new();
         let mut logs: Vec<RunLogEntry> = Vec::new();
 
-        // 6. Tool calling 循环（默认最多 50 轮，用户可随时取消）
-        const MAX_ROUNDS: u32 = u32::MAX;
+        // 6. Tool calling 循环（最多 100 轮兜底，用户可随时取消）
+        const MAX_ROUNDS: u32 = 100;
         let generation_start = std::time::Instant::now();
         let mut cumulative_prompt_tokens: i32 = 0;
         let mut cumulative_completion_tokens: i32 = 0;
@@ -323,6 +323,11 @@ impl ChatExecutionService {
         let mut error_signature_repeats: HashMap<String, u32> = HashMap::new();
         let mut consecutive_empty_rounds: u32 = 0;
         let mut escalation_injected = false;
+        // 连续工具调用但未产出 assistant 文本的轮次计数
+        let mut rounds_since_last_text: u32 = 0;
+        let mut assistant_text_nudge_injected = false;
+        // 空文本自救：仅允许 1 次注入恢复提示
+        let mut empty_text_recovery_attempted = false;
         loop {
             round += 1;
             escalation_injected = false;
@@ -334,6 +339,36 @@ impl ChatExecutionService {
                     cancelled = true;
                     break;
                 }
+            }
+
+            // 硬上限：超过 MAX_ROUNDS 轮时强制停止
+            if round > MAX_ROUNDS {
+                let stop_text = format!(
+                    "⚠ 已达到最大轮次（{}），自动停止。当前任务可能未完成，请检查页面后决定是否继续。",
+                    MAX_ROUNDS
+                );
+                let maxrounds_msg_id = uuid::Uuid::new_v4().to_string();
+                let msg = chat_service
+                    .add_message_with_id(
+                        &maxrounds_msg_id, session_id, "assistant",
+                        Some(stop_text.clone()),
+                        None, None, None, None, None, None, None, None, None,
+                    )
+                    .await
+                    .map_err(|e| e.to_string())?;
+                let refreshed_msg = chat_service.get_message(&msg.id).await.unwrap_or(msg);
+                emit_message(app, session_id, &refreshed_msg);
+                emit_phase(
+                    app, session_id, "max_rounds_reached", round, None, None,
+                    generation_start.elapsed().as_millis() as u64,
+                    Some(cumulative_prompt_tokens),
+                    Some(cumulative_completion_tokens),
+                    Some(last_ctx_used),
+                    Some(last_ctx_limit),
+                    MAX_ROUNDS,
+                );
+                completed = true;
+                break;
             }
 
             emit_phase(
@@ -560,6 +595,58 @@ impl ChatExecutionService {
                         } else {
                             (None, text_buf.clone())
                         };
+
+                    // 空回复处理：先自救一次，第二次则发 stalled 信号
+                    if final_text.trim().is_empty() {
+                        if !empty_text_recovery_attempted {
+                            empty_text_recovery_attempted = true;
+                            let recovery_prompt = crate::services::agent_limits::build_empty_text_recovery_prompt(locale);
+                            messages.push(ChatMessage::system(&recovery_prompt));
+                            logger::info(
+                                "ai-chat",
+                                format!(
+                                    "Empty text reply, injecting recovery prompt (session={})",
+                                    session_id
+                                ),
+                            );
+                            continue; // 再跑一轮
+                        }
+                        // 自救失败：stalled
+                        let stall_text = "⚠ AI 多次返回空回复，已自动停止。可以点击「继续」让我重试，或者直接描述下一步操作。".to_string();
+                        let stall_msg = chat_service
+                            .add_message_with_id(
+                                &format!("{}-stalled", stream_msg_id), session_id, "assistant",
+                                Some(stall_text.clone()),
+                                None, None, None, None, None, None, None, None, None,
+                            )
+                            .await
+                            .map_err(|e| e.to_string())?;
+                        let refreshed_stall = chat_service.get_message(&stall_msg.id).await.unwrap_or(stall_msg);
+                        emit_message(app, session_id, &refreshed_stall);
+                        logger::info(
+                            "ai-chat",
+                            format!(
+                                "Generation stalled: rounds={} tokens={}/{} (session={})",
+                                round,
+                                cumulative_prompt_tokens,
+                                cumulative_completion_tokens,
+                                session_id
+                            ),
+                        );
+                        emit_phase(
+                            app, session_id, "stalled", round, None, None,
+                            generation_start.elapsed().as_millis() as u64,
+                            Some(cumulative_prompt_tokens),
+                            Some(cumulative_completion_tokens),
+                            Some(last_ctx_used),
+                            Some(last_ctx_limit),
+                            MAX_ROUNDS,
+                        );
+                        completed = true;
+                        break;
+                    }
+
+                    // 正常文本回复
                     let thinking_tokens = thinking_text.as_ref().map(|t| {
                         crate::services::token_counter::TokenCounter::count_text(t) as i32
                     });
@@ -589,8 +676,8 @@ impl ChatExecutionService {
                     logger::info(
                         "ai-chat",
                         format!(
-                            "Generation done: rounds={} tokens={}/{} (session={})",
-                            round + 1,
+                            "Generation done: rounds={} tokens={}/{} reason=normal (session={})",
+                            round,
                             cumulative_prompt_tokens,
                             cumulative_completion_tokens,
                             session_id
@@ -651,6 +738,8 @@ impl ChatExecutionService {
                     } else {
                         consecutive_empty_rounds = 0;
                     }
+                    // 无文本计数：进入工具分支即代表本轮没有 assistant 文本
+                    rounds_since_last_text += 1;
                     let asst_msg = chat_service
                         .add_message_with_id(
                             &stream_msg_id, session_id, "assistant",
@@ -1075,6 +1164,19 @@ impl ChatExecutionService {
                         messages.push(ChatMessage::system(&prompt));
                         escalation_injected = true;
                         consecutive_empty_rounds = 0;
+                    }
+
+                    // 无文本说明检测：连续 N 轮只调工具但不给用户文字说明，注入进度提醒（仅一次）
+                    if !assistant_text_nudge_injected
+                        && rounds_since_last_text
+                            >= crate::services::agent_limits::MAX_ROUNDS_WITHOUT_ASSISTANT_TEXT
+                    {
+                        let prompt = crate::services::agent_limits::build_no_text_nudge_prompt(
+                            rounds_since_last_text,
+                            locale,
+                        );
+                        messages.push(ChatMessage::system(&prompt));
+                        assistant_text_nudge_injected = true;
                     }
 
                     // 内层工具循环取消或完成后，退出外层轮次循环
