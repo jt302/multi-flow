@@ -7,6 +7,7 @@
 /// profile 启动时调用 `get_cached()` 同步获取（不阻塞）。
 use std::env;
 use std::net::IpAddr;
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -21,6 +22,7 @@ const IPINFO_TOKEN_ENV: &str = "MULTI_FLOW_IPINFO_TOKEN";
 const IPINFO_URL_ENV: &str = "MULTI_FLOW_IPINFO_URL";
 const DEFAULT_IPINFO_JSON_URL: &str = "https://ipinfo.io/json";
 const DEFAULT_IPINFO_LITE_URL: &str = "https://api.ipinfo.io/lite/me";
+const DEFAULT_IPAPI_JSON_URL: &str = "https://ipapi.co/json";
 
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -36,12 +38,21 @@ pub struct HostLocaleSuggestion {
 }
 
 #[derive(Debug, Deserialize)]
-struct IpInfoFullResponse {
+struct IpInfoResponse {
     ip: Option<String>,
     country: Option<String>,
+    #[serde(rename = "country_code")]
+    country_code: Option<String>,
     /// "lat,lon" 格式
     loc: Option<String>,
+    latitude: Option<f64>,
+    longitude: Option<f64>,
     timezone: Option<String>,
+}
+
+struct HostLocaleEndpoint {
+    url: String,
+    source: &'static str,
 }
 
 struct CacheState {
@@ -134,52 +145,81 @@ async fn fetch_host_locale() -> HostLocaleSuggestion {
 }
 
 async fn try_fetch_host_locale() -> Result<HostLocaleSuggestion, String> {
-    let client = Client::builder()
-        .timeout(FETCH_TIMEOUT)
-        .no_proxy() // 硬要求：不走任何系统代理，查的是本机真实出口
-        .build()
-        .map_err(|e| format!("build client failed: {e}"))?;
+    let mut errors: Vec<String> = Vec::new();
 
-    for url in resolve_host_locale_urls() {
-        match fetch_ipinfo_response(&client, &url).await {
-            Ok(resp) => {
-                let country = resp.country.as_deref().and_then(trim_str).map(str::to_uppercase);
-                let language = country
-                    .as_deref()
-                    .and_then(default_language_for_country);
-                let timezone = resp
-                    .timezone
-                    .as_deref()
-                    .and_then(trim_str)
-                    .map(str::to_string)
-                    .or_else(|| country.as_deref().and_then(default_timezone_for_country));
-                let (latitude, longitude) = parse_loc(resp.loc.as_deref());
-                return Ok(HostLocaleSuggestion {
-                    exit_ip: resp.ip.as_deref().and_then(trim_str).map(str::to_string),
-                    country,
-                    language,
-                    timezone,
-                    latitude,
-                    longitude,
-                    source: "ipinfo".to_string(),
-                });
+    let endpoints = resolve_host_locale_urls();
+    if endpoints.is_empty() {
+        return Err("no host locale query url configured".to_string());
+    }
+
+    let direct_client = Client::builder()
+        .timeout(FETCH_TIMEOUT)
+        .no_proxy()
+        .build()
+        .map_err(|e| format!("build direct client failed: {e}"))?;
+    let proxy_client = Client::builder()
+        .timeout(FETCH_TIMEOUT)
+        .build()
+        .map_err(|e| format!("build proxy client failed: {e}"))?;
+
+    for endpoint in endpoints {
+        let mut attempted_with_proxy = false;
+
+        for (label, client) in [
+            ("direct", &direct_client),
+            ("system_proxy", &proxy_client),
+        ] {
+            match fetch_host_locale_response(client, &endpoint.url).await {
+                Ok(resp) => match build_host_locale_suggestion(resp, endpoint.source) {
+                    Ok(suggestion) => {
+                        if label == "system_proxy" {
+                            crate::logger::warn(
+                                "host_locale",
+                                format!(
+                                    "系统代理路径获取到 host locale，来源 {}",
+                                    endpoint.source
+                                ),
+                            );
+                        }
+                        return Ok(suggestion);
+                    }
+                    Err(err) => {
+                        let msg = format!(
+                            "{} response format invalid via {}: {}",
+                            endpoint.source, label, err
+                        );
+                        errors.push(msg.clone());
+                        crate::logger::warn("host_locale", msg);
+                    }
+                },
+                Err(err) => {
+                    attempted_with_proxy = true;
+                    let msg = format!(
+                        "{} 请求失败 via {} url={} err={}",
+                        endpoint.source, label, endpoint.url, err
+                    );
+                    errors.push(msg.clone());
+                    crate::logger::warn("host_locale", msg);
+                }
             }
-            Err(err) => {
-                crate::logger::warn(
-                    "host_locale",
-                    format!("ipinfo 请求失败 url={url} err={err}"),
-                );
+
+            if !attempted_with_proxy && label == "direct" {
+                // 直连失败后再尝试走系统代理，避免 no_proxy 场景下全量失败
+                continue;
             }
         }
     }
 
-    Err("所有 IP 地理查询 URL 均失败".to_string())
+    Err(format!(
+        "所有 IP 地理查询 URL 均失败: {}",
+        errors.join(" ; ")
+    ))
 }
 
-async fn fetch_ipinfo_response(
+async fn fetch_host_locale_response(
     client: &Client,
     url: &str,
-) -> Result<IpInfoFullResponse, String> {
+) -> Result<IpInfoResponse, String> {
     let response = client
         .get(url)
         .header("Accept", "application/json")
@@ -192,7 +232,7 @@ async fn fetch_ipinfo_response(
     let body = response.text().await.map_err(|e| e.to_string())?;
 
     // 尝试完整响应解析
-    if let Ok(parsed) = serde_json::from_str::<IpInfoFullResponse>(&body) {
+    if let Ok(parsed) = serde_json::from_str::<IpInfoResponse>(&body) {
         if parsed.ip.as_deref().and_then(trim_str).and_then(|ip| ip.parse::<IpAddr>().ok()).is_some() {
             return Ok(parsed);
         }
@@ -201,29 +241,123 @@ async fn fetch_ipinfo_response(
     // 纯 IP 文本响应（ipify / ip.sb / ifconfig.me 等）
     let ip_str = body.lines().next().and_then(trim_str).ok_or("empty response")?;
     ip_str.parse::<IpAddr>().map_err(|e| e.to_string())?;
-    Ok(IpInfoFullResponse {
+    Ok(IpInfoResponse {
         ip: Some(ip_str.to_string()),
         country: None,
         loc: None,
+        country_code: None,
+        latitude: None,
+        longitude: None,
         timezone: None,
     })
 }
 
-fn resolve_host_locale_urls() -> Vec<String> {
-    let mut urls = Vec::new();
+fn resolve_host_locale_urls() -> Vec<HostLocaleEndpoint> {
+    let mut endpoints = Vec::new();
+    let mut seen_urls = HashSet::new();
 
     if let Ok(custom) = env::var(IPINFO_URL_ENV) {
         if let Some(v) = trim_str(&custom) {
-            urls.push(v.to_string());
+            push_host_locale_endpoint(
+                &mut endpoints,
+                &mut seen_urls,
+                v.to_string(),
+                "ipinfo",
+            );
         }
     }
     if let Ok(token) = env::var(IPINFO_TOKEN_ENV) {
         if let Some(v) = trim_str(&token) {
-            urls.push(format!("{DEFAULT_IPINFO_LITE_URL}?token={v}"));
+            push_host_locale_endpoint(
+                &mut endpoints,
+                &mut seen_urls,
+                format!("{DEFAULT_IPINFO_LITE_URL}?token={v}"),
+                "ipinfo",
+            );
         }
     }
-    urls.push(DEFAULT_IPINFO_JSON_URL.to_string());
-    urls
+    push_host_locale_endpoint(
+        &mut endpoints,
+        &mut seen_urls,
+        DEFAULT_IPINFO_JSON_URL.to_string(),
+        "ipinfo",
+    );
+    push_host_locale_endpoint(
+        &mut endpoints,
+        &mut seen_urls,
+        DEFAULT_IPAPI_JSON_URL.to_string(),
+        "ipapi",
+    );
+    endpoints
+}
+
+fn build_host_locale_suggestion(
+    response: IpInfoResponse,
+    source: &str,
+) -> Result<HostLocaleSuggestion, String> {
+    let exit_ip = response
+        .ip
+        .as_deref()
+        .and_then(trim_str)
+        .and_then(|ip| ip.parse::<IpAddr>().ok())
+        .map(|value| value.to_string());
+
+    let country = response
+        .country
+        .as_deref()
+        .and_then(trim_str)
+        .map(str::to_uppercase)
+        .or_else(|| {
+            response
+                .country_code
+                .as_deref()
+                .and_then(trim_str)
+                .map(str::to_uppercase)
+        });
+
+    let exit_ip = match exit_ip {
+        Some(value) => value,
+        None => return Err("missing valid ip value".to_string()),
+    };
+
+    let language = country
+        .as_deref()
+        .and_then(default_language_for_country);
+    let timezone = response
+        .timezone
+        .as_deref()
+        .and_then(trim_str)
+        .map(str::to_string)
+        .or_else(|| country.as_deref().and_then(default_timezone_for_country));
+    let (latitude, longitude) = parse_coordinates(&response);
+
+    Ok(HostLocaleSuggestion {
+        exit_ip: Some(exit_ip),
+        country,
+        language,
+        timezone,
+        latitude,
+        longitude,
+        source: source.to_string(),
+    })
+}
+
+fn parse_coordinates(response: &IpInfoResponse) -> (Option<f64>, Option<f64>) {
+    if response.latitude.is_some() || response.longitude.is_some() {
+        return (response.latitude, response.longitude);
+    }
+    parse_loc(response.loc.as_deref())
+}
+
+fn push_host_locale_endpoint(
+    endpoints: &mut Vec<HostLocaleEndpoint>,
+    seen_urls: &mut HashSet<String>,
+    url: String,
+    source: &'static str,
+) {
+    if seen_urls.insert(url.clone()) {
+        endpoints.push(HostLocaleEndpoint { url, source });
+    }
 }
 
 fn parse_loc(loc: Option<&str>) -> (Option<f64>, Option<f64>) {
