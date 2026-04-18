@@ -598,11 +598,11 @@ export function AiDialogModal() {
 		return (
 			<Dialog open onOpenChange={() => {}}>
 				<DialogContent
-					className="max-w-2xl"
+					className="grid max-h-[85vh] w-[min(96vw,1200px)] max-w-none grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-0"
 					onInteractOutside={(e) => e.preventDefault()}
 					onEscapeKeyDown={(e) => e.preventDefault()}
 				>
-					<DialogHeader>
+					<DialogHeader className="gap-2 px-6 pt-6">
 						<DialogTitle className="flex items-center gap-2">
 							{icon}
 							{request.title ?? t('data')}
@@ -613,54 +613,59 @@ export function AiDialogModal() {
 							</DialogDescription>
 						)}
 					</DialogHeader>
-					<ScrollArea style={{ maxHeight: maxH }}>
-						<Table>
-							<TableHeader>
-								<TableRow>
-									{isSelectable && <TableHead className="w-10" />}
-									{columns.map((col) => (
-										<TableHead
-											key={col.key}
-											style={{ width: col.width, textAlign: col.align ?? 'left' }}
-										>
-											{col.label}
-										</TableHead>
-									))}
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{rows.map((row, idx) => (
-									<TableRow
-										key={idx}
-										className={
-											isSelectable
-												? 'cursor-pointer hover:bg-muted'
-												: undefined
-										}
-										onClick={isSelectable ? () => toggleRow(idx) : undefined}
-									>
-										{isSelectable && (
-											<TableCell>
-												<Checkbox
-													checked={selectedRows.includes(idx)}
-													onCheckedChange={() => toggleRow(idx)}
-												/>
-											</TableCell>
-										)}
-										{columns.map((col) => (
-											<TableCell
-												key={col.key}
-												style={{ textAlign: col.align ?? 'left' }}
+					<div className="min-h-0 overflow-y-auto px-6" style={{ maxHeight: maxH }}>
+						<div className="w-full overflow-x-auto pb-4">
+							<div className="w-max min-w-full">
+								<Table className="w-max min-w-full">
+									<TableHeader>
+										<TableRow>
+											{isSelectable && <TableHead className="w-10" />}
+											{columns.map((col) => (
+												<TableHead
+													key={col.key}
+													style={{ width: col.width, textAlign: col.align ?? 'left' }}
+												>
+													{col.label}
+												</TableHead>
+											))}
+										</TableRow>
+									</TableHeader>
+									<TableBody>
+										{rows.map((row, idx) => (
+											<TableRow
+												key={idx}
+												className={
+													isSelectable
+														? 'cursor-pointer hover:bg-muted'
+														: undefined
+												}
+												onClick={isSelectable ? () => toggleRow(idx) : undefined}
 											>
-												{String(row[col.key] ?? '')}
-											</TableCell>
+												{isSelectable && (
+													<TableCell>
+														<Checkbox
+															checked={selectedRows.includes(idx)}
+															onCheckedChange={() => toggleRow(idx)}
+														/>
+													</TableCell>
+												)}
+												{columns.map((col) => (
+													<TableCell
+														key={col.key}
+														className="max-w-[240px] break-words whitespace-normal align-top"
+														style={{ textAlign: col.align ?? 'left' }}
+													>
+														{String(row[col.key] ?? '')}
+													</TableCell>
+												))}
+											</TableRow>
 										))}
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					</ScrollArea>
-					<DialogFooter>
+									</TableBody>
+								</Table>
+							</div>
+						</div>
+					</div>
+					<DialogFooter className="border-t bg-background px-6 py-4">
 						<Button
 							variant="outline"
 							onClick={handleCancel}

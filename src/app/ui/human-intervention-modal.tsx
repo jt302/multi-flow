@@ -275,28 +275,42 @@ export function HumanInterventionModal() {
 
 		return (
 			<Dialog open onOpenChange={() => {}}>
-				<DialogContent className="max-w-2xl" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-					<DialogHeader><DialogTitle><TitleWithProfile>{title}</TitleWithProfile></DialogTitle></DialogHeader>
+				<DialogContent
+					className="flex max-h-[85vh] w-[min(96vw,1200px)] max-w-none flex-col overflow-hidden"
+					onInteractOutside={(e) => e.preventDefault()}
+					onEscapeKeyDown={(e) => e.preventDefault()}
+				>
+					<DialogHeader className="shrink-0">
+						<DialogTitle><TitleWithProfile>{title}</TitleWithProfile></DialogTitle>
+					</DialogHeader>
 					{message && <p className="text-sm text-foreground whitespace-pre-wrap">{message}</p>}
-					<ScrollArea style={{ maxHeight: maxH }}>
-						<Table>
-							<TableHeader>
-								<TableRow>
-									{isSelectable && <TableHead className="w-10" />}
-									{columns.map((col) => <TableHead key={col.key} style={{ width: col.width, textAlign: col.align ?? 'left' }}>{col.label}</TableHead>)}
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{rows.map((row, idx) => (
-									<TableRow key={idx} className={isSelectable ? 'cursor-pointer hover:bg-muted' : undefined} onClick={isSelectable ? () => toggleRow(idx) : undefined}>
-										{isSelectable && <TableCell><Checkbox checked={selectedRows.includes(idx)} onCheckedChange={() => toggleRow(idx)} /></TableCell>}
-										{columns.map((col) => <TableCell key={col.key} style={{ textAlign: col.align ?? 'left' }}>{String(row[col.key] ?? '')}</TableCell>)}
+					<ScrollArea className="min-h-0 w-full flex-1" style={{ maxHeight: maxH }}>
+						<div className="w-full overflow-x-auto">
+							<div className="w-max min-w-full">
+								<Table className="w-max min-w-full">
+								<TableHeader>
+									<TableRow>
+										{isSelectable && <TableHead className="w-10" />}
+										{columns.map((col) => <TableHead key={col.key} style={{ width: col.width, textAlign: col.align ?? 'left' }}>{col.label}</TableHead>)}
 									</TableRow>
-								))}
-							</TableBody>
-						</Table>
+								</TableHeader>
+								<TableBody>
+									{rows.map((row, idx) => (
+										<TableRow key={idx} className={isSelectable ? 'cursor-pointer hover:bg-muted' : undefined} onClick={isSelectable ? () => toggleRow(idx) : undefined}>
+											{isSelectable && <TableCell><Checkbox checked={selectedRows.includes(idx)} onCheckedChange={() => toggleRow(idx)} /></TableCell>}
+											{columns.map((col) => (
+												<TableCell key={col.key} className="max-w-[240px] break-words whitespace-normal align-top" style={{ textAlign: col.align ?? 'left' }}>
+													{String(row[col.key] ?? '')}
+												</TableCell>
+											))}
+										</TableRow>
+									))}
+								</TableBody>
+								</Table>
+							</div>
+						</div>
 					</ScrollArea>
-					<DialogFooter>
+					<DialogFooter className="shrink-0">
 						<Button variant="outline" onClick={handleCancel} disabled={submitting} className="cursor-pointer">{t('cancelRun')}</Button>
 						<Button onClick={() => handleResume(JSON.stringify(selectedRows))} disabled={submitting} className="cursor-pointer">{t('ok')}</Button>
 					</DialogFooter>
