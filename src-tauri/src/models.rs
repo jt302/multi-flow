@@ -620,7 +620,7 @@ pub struct WindowTab {
     pub active: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WindowBounds {
     pub x: i32,
@@ -724,8 +724,8 @@ pub enum MainPosition {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ChromeDecorationCompensation {
-    #[default]
     Auto,
+    #[default]
     Off,
 }
 

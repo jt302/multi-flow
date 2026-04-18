@@ -271,6 +271,7 @@ mod tests {
             sync_manager_service: Mutex::new(SyncManagerService::new_mock(None, None)),
             mcp_manager: std::sync::Arc::new(crate::services::mcp::McpManager::from_db(db.clone())),
             require_real_engine: false,
+            last_arrangement_snapshot: Mutex::new(Vec::new()),
         }
     }
 

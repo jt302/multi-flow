@@ -495,7 +495,8 @@ fn build_grid_bounds(
     let cell_w = ((rect.width - (cols as i32 - 1) * gap_x) / cols as i32).max(0);
     let cell_h = ((rect.height - (rows as i32 - 1) * gap_y) / rows as i32).max(0);
 
-    // 实际下发给 Magic 的尺寸 = cell - delta（Chromium 会把外框撑到 cell 大）
+    // 实际下发给 Magic 的尺寸 = cell - delta
+    // 步长也用 target_*，保证视觉间距严格等于 gap（与 delta 无关）
     let target_w = (cell_w - delta_w).max(MIN_WINDOW_W);
     let target_h = (cell_h - delta_h).max(MIN_WINDOW_H);
 
@@ -522,7 +523,7 @@ fn build_grid_bounds(
 
         out.push(WindowBounds {
             x: rect.x + x_off,
-            y: rect.y + row as i32 * (cell_h + gap_y),
+            y: rect.y + row as i32 * (target_h + gap_y),
             width: w_i,
             height: target_h,
         });
@@ -590,13 +591,15 @@ fn build_main_sidebar_bounds(
                 width: (main_w - delta_w).max(MIN_WINDOW_W),
                 height: (rect.height - delta_h).max(MIN_WINDOW_H),
             });
-            // 侧边
+            // 侧边：步长用 target_side_h，保证视觉间距严格等于 gap_y
+            let target_side_h = (side_h - delta_h).max(MIN_WINDOW_H);
+            let target_side_w = (side_w - delta_w).max(MIN_WINDOW_W);
             for i in 0..sidebars {
                 out.push(WindowBounds {
                     x: side_x,
-                    y: rect.y + i as i32 * (side_h + gap_y),
-                    width: (side_w - delta_w).max(MIN_WINDOW_W),
-                    height: (side_h - delta_h).max(MIN_WINDOW_H),
+                    y: rect.y + i as i32 * (target_side_h + gap_y),
+                    width: target_side_w,
+                    height: target_side_h,
                 });
             }
         }
@@ -616,13 +619,15 @@ fn build_main_sidebar_bounds(
                 width: (rect.width - delta_w).max(MIN_WINDOW_W),
                 height: (main_h - delta_h).max(MIN_WINDOW_H),
             });
-            // 侧边
+            // 侧边：步长用 target_side_w，保证视觉间距严格等于 gap_x
+            let target_side_w = (side_w - delta_w).max(MIN_WINDOW_W);
+            let target_side_h = (side_h - delta_h).max(MIN_WINDOW_H);
             for i in 0..sidebars {
                 out.push(WindowBounds {
-                    x: rect.x + i as i32 * (side_w + gap_x),
+                    x: rect.x + i as i32 * (target_side_w + gap_x),
                     y: side_y,
-                    width: (side_w - delta_w).max(MIN_WINDOW_W),
-                    height: (side_h - delta_h).max(MIN_WINDOW_H),
+                    width: target_side_w,
+                    height: target_side_h,
                 });
             }
         }
@@ -888,7 +893,7 @@ mod tests {
 
     #[test]
     fn grid_decoration_delta_compensated() {
-        // delta_h=28 means Chromium adds 28px, so we send (cell_h - 28)
+        // delta_h=28: we send height=(cell_h - 28); y step uses target_h so visual gap == gap_y
         let rect = make_rect(1800, 1080);
         let (rows, cols) = (3u32, 3u32);
         let cell_h = (1080 - 2 * 16) / 3; // gap_y=16
@@ -898,8 +903,8 @@ mod tests {
         ).expect("grid ok");
         let expected_h = (cell_h - 28).max(MIN_WINDOW_H);
         assert_eq!(bounds[0].height, expected_h);
-        // y step should be cell_h (gap_y added to cell before delta)
-        assert_eq!(bounds[3].y, cell_h + 16);
+        // y step should be target_h + gap_y (visual gap equals gap_y regardless of delta)
+        assert_eq!(bounds[3].y, expected_h + 16);
     }
 
     #[test]
