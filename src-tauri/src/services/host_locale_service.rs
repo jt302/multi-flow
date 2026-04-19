@@ -21,6 +21,9 @@ use serde::Deserialize;
 use crate::services::locale_catalog::{default_language_for_country, default_timezone_for_country};
 
 const CACHE_TTL: Duration = Duration::from_secs(15 * 60);
+/// 启动路径专用的短 TTL：避免批量启动 profile 短时间内重复打上游 ipinfo 触发 429，
+/// 同时保证 VPN/Wi-Fi 切换后只需等待 3 分钟就能反映到下一次 profile 启动。
+const LAUNCH_REFRESH_TTL: Duration = Duration::from_secs(3 * 60);
 const FETCH_TIMEOUT: Duration = Duration::from_millis(1500);
 const IPINFO_TOKEN_ENV: &str = "MULTI_FLOW_IPINFO_TOKEN";
 const IPINFO_URL_ENV: &str = "MULTI_FLOW_IPINFO_URL";
@@ -155,6 +158,44 @@ impl HostLocaleService {
         guard.fetched_at = Some(Instant::now());
         guard.value = Some(result.clone());
         Some(result)
+    }
+
+    /// Profile 启动关键路径专用：
+    /// 1. 若上次 fetch 在 `LAUNCH_REFRESH_TTL`(3 分钟) 内 → 直接复用缓存值，避免批量启动触发上游 429；
+    /// 2. 否则同步拉取最新 IP 对应的 locale；
+    /// 3. 拉取失败（包括 429）→ 回退到缓存旧值，同时刷新 `fetched_at` 作为失败退避，
+    ///    3 分钟内后续启动直接复用，不会反复打上游。
+    pub fn refresh_for_launch(&self) -> Option<HostLocaleSuggestion> {
+        {
+            let guard = self.inner.lock().unwrap_or_else(|p| p.into_inner());
+            if let Some(fetched_at) = guard.fetched_at {
+                if fetched_at.elapsed() < LAUNCH_REFRESH_TTL {
+                    if let Some(cached) = guard.value.clone() {
+                        return Some(cached);
+                    }
+                }
+            }
+        }
+
+        let geoip_db_path = (self.geoip_db_path)();
+        let fresh = crate::runtime_compat::block_on_compat(
+            fetch_host_locale(geoip_db_path.as_deref()),
+        );
+
+        if fresh.source == "none" && fresh.exit_ip.is_none() {
+            crate::logger::warn(
+                "host_locale",
+                "refresh_for_launch: fetch failed, backing off for LAUNCH_REFRESH_TTL".to_string(),
+            );
+            let mut guard = self.inner.lock().unwrap_or_else(|p| p.into_inner());
+            guard.fetched_at = Some(Instant::now());
+            return guard.value.clone();
+        }
+
+        let mut guard = self.inner.lock().unwrap_or_else(|p| p.into_inner());
+        guard.fetched_at = Some(Instant::now());
+        guard.value = Some(fresh.clone());
+        Some(fresh)
     }
 }
 
@@ -489,5 +530,31 @@ mod tests {
         let endpoints = resolve_host_locale_urls();
         let has_ipapi = endpoints.iter().any(|e| e.source == "ipapi");
         assert!(!has_ipapi, "ipapi 渠道应已被移除");
+    }
+
+    #[test]
+    fn test_refresh_for_launch_reuses_cache_within_short_ttl() {
+        // 模拟：上一次 fetch 在 3 分钟内 → 不应触发任何网络请求，直接复用缓存值。
+        // 这是 429 防退避机制的核心：批量启动 profile 不会重复打上游 ipinfo。
+        let svc = HostLocaleService::new(|| None);
+        {
+            let mut guard = svc.inner.lock().unwrap();
+            guard.fetched_at = Some(Instant::now());
+            guard.value = Some(HostLocaleSuggestion {
+                exit_ip: Some("1.2.3.4".to_string()),
+                country: Some("JP".to_string()),
+                language: Some("ja".to_string()),
+                timezone: Some("Asia/Tokyo".to_string()),
+                latitude: None,
+                longitude: None,
+                source: "ipinfo".to_string(),
+            });
+        }
+
+        let got = svc.refresh_for_launch();
+        assert!(got.is_some());
+        let got = got.unwrap();
+        assert_eq!(got.timezone.as_deref(), Some("Asia/Tokyo"));
+        assert_eq!(got.source, "ipinfo");
     }
 }

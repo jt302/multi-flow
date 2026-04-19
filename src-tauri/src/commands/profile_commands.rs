@@ -1648,7 +1648,7 @@ pub(crate) fn do_open_profile(
     let host_locale = if locale_mode == crate::models::LocaleMode::Auto
         && effective_bound_proxy.is_none()
     {
-        state.host_locale_service.get_or_refresh()
+        state.host_locale_service.refresh_for_launch()
     } else {
         None
     };
