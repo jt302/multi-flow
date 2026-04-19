@@ -5,6 +5,7 @@ export const queryKeys = {
 	proxies: ['proxies'] as const,
 	resources: ['resources'] as const,
 	devicePresets: ['device-presets'] as const,
+	devicePresetRefCount: (presetId: string) => ['device-preset-ref-count', presetId] as const,
 	windowStates: ['window-states'] as const,
 	syncTargets: ['sync-targets'] as const,
 	displayMonitors: ['display-monitors'] as const,

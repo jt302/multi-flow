@@ -22,7 +22,7 @@ use crate::models::{
     ProfileDevicePreset, ProfileFingerprintSnapshot, ProfileFingerprintSource,
     ProfilePluginSelection, ProfileRuntimeDetails, ProfileSettings, Proxy,
     ReadProfileCookiesResponse, SaveProfileDevicePresetRequest, SetProfileGroupRequest,
-    UpdateProfileVisualRequest, WebRtcMode,
+    UpdateDevicePresetOutcome, UpdateProfileVisualRequest, WebRtcMode,
 };
 use crate::runtime_guard;
 use crate::services::device_preset_service::DevicePresetService;
@@ -1236,13 +1236,42 @@ pub fn update_profile_device_preset(
     state: State<'_, AppState>,
     preset_id: String,
     payload: SaveProfileDevicePresetRequest,
-) -> Result<ProfileDevicePreset, String> {
-    let service = state
+    sync_to_profiles: Option<bool>,
+) -> Result<UpdateDevicePresetOutcome, String> {
+    let device_svc = state
         .device_preset_service
         .lock()
         .map_err(|_| "device preset service lock poisoned".to_string())?;
-    service
+    let preset = device_svc
         .update_preset(&preset_id, payload)
+        .map_err(error_to_string)?;
+
+    let synced_count = if sync_to_profiles.unwrap_or(false) {
+        let profile_svc = state
+            .profile_service
+            .lock()
+            .map_err(|_| "profile service lock poisoned".to_string())?;
+        profile_svc
+            .sync_preset_to_profiles(&preset_id, &device_svc)
+            .map_err(error_to_string)?
+    } else {
+        0
+    };
+
+    Ok(UpdateDevicePresetOutcome { preset, synced_count })
+}
+
+#[tauri::command]
+pub fn count_profile_device_preset_references(
+    state: State<'_, AppState>,
+    preset_id: String,
+) -> Result<usize, String> {
+    let profile_svc = state
+        .profile_service
+        .lock()
+        .map_err(|_| "profile service lock poisoned".to_string())?;
+    profile_svc
+        .count_profiles_using_preset(&preset_id)
         .map_err(error_to_string)
 }
 

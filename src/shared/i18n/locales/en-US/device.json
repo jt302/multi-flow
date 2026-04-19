@@ -8,7 +8,12 @@
 		"emptyHint": "Click 'Add Device Preset' in the top right to create your first one",
 		"deleteTitle": "Delete Device Preset",
 		"deleteDesc": "Are you sure you want to delete '{{name}}'? Profiles using this preset will lose their device configuration. This action cannot be undone.",
-		"confirmDelete": "Confirm Delete"
+		"confirmDelete": "Confirm Delete",
+		"syncTitle": "Sync to Linked Profiles",
+		"syncDesc": "This preset is used by {{count}} profile(s). Sync these changes to them?",
+		"syncOption": "Sync to {{count}} profile(s) (only preset-derived fields; fingerprint seed, language, and timezone are preserved)",
+		"syncConfirm": "Save",
+		"syncedToast": "Preset updated and synced to {{count}} profile(s)"
 	},
 	"form": {
 		"name": "Device Name",

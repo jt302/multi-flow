@@ -8,7 +8,12 @@
 		"emptyHint": "点击右上角「新增机型预设」创建第一个",
 		"deleteTitle": "删除机型预设",
 		"deleteDesc": "确定要删除「{{name}}」吗？已关联此预设的环境将失去机型配置，此操作无法撤销。",
-		"confirmDelete": "确认删除"
+		"confirmDelete": "确认删除",
+		"syncTitle": "同步到引用环境",
+		"syncDesc": "该预设被 {{count}} 个环境引用。是否将这次修改同步到这些环境？",
+		"syncOption": "同步到 {{count}} 个环境（仅更新预设关联参数，不修改指纹种子和语言时区）",
+		"syncConfirm": "保存",
+		"syncedToast": "已更新预设，已同步到 {{count}} 个环境"
 	},
 	"form": {
 		"name": "机型名称",

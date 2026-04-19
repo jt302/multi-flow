@@ -134,7 +134,11 @@ function toPayload(values: DevicePresetFormValues): SaveProfileDevicePresetPaylo
 type UseDevicePresetEditorOptions = {
 	devicePresets: ProfileDevicePresetItem[];
 	onCreateDevicePreset: (payload: SaveProfileDevicePresetPayload) => Promise<void>;
-	onUpdateDevicePreset: (presetId: string, payload: SaveProfileDevicePresetPayload) => Promise<void>;
+	onUpdateDevicePreset: (
+		presetId: string,
+		payload: SaveProfileDevicePresetPayload,
+		options?: { syncToProfiles?: boolean },
+	) => Promise<void>;
 	onRefreshDevicePresets: () => Promise<void>;
 	t: (key: string) => string;
 };
@@ -172,17 +176,18 @@ export function useDevicePresetEditor({
 		form.reset(getDefaultPresetValues());
 	};
 
-	const handleSavePreset = form.handleSubmit(async (values) => {
-		const payload = toPayload(values);
-		if (activePreset) {
-			await onUpdateDevicePreset(activePreset.id, payload);
-			return;
-		}
+	const handleSavePreset = (options?: { syncToProfiles?: boolean }) =>
+		form.handleSubmit(async (values) => {
+			const payload = toPayload(values);
+			if (activePreset) {
+				await onUpdateDevicePreset(activePreset.id, payload, options);
+				return;
+			}
 
-		await onCreateDevicePreset(payload);
-		await onRefreshDevicePresets();
-		resetPresetEditor();
-	});
+			await onCreateDevicePreset(payload);
+			await onRefreshDevicePresets();
+			resetPresetEditor();
+		});
 
 	return {
 		form,

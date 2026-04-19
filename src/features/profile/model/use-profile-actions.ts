@@ -90,11 +90,18 @@ export function useProfileActions({
 	const updateDevicePreset = async (
 		presetId: string,
 		payload: SaveProfileDevicePresetPayload,
+		options?: { syncToProfiles?: boolean },
 	) => {
 		try {
-			await updateProfileDevicePresetApi(presetId, payload);
+			const outcome = await updateProfileDevicePresetApi(presetId, payload, options);
 			await Promise.all([refreshDevicePresets(), refreshProfilesAndBindings()]);
-			toast.success(i18n.t('profile:devicePresetUpdated'));
+			if (outcome.syncedCount > 0) {
+				toast.success(
+					i18n.t('device:page.syncedToast', { count: outcome.syncedCount }),
+				);
+			} else {
+				toast.success(i18n.t('profile:devicePresetUpdated'));
+			}
 		} catch (error) {
 			toast.error(i18n.t('profile:updateDevicePresetFailed'));
 			throw error;

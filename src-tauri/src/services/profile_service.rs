@@ -417,6 +417,103 @@ impl ProfileService {
         })
     }
 
+    /// 统计所有活跃 profile 中引用了指定预设的数量。
+    /// device_preset_id 嵌在 settings_json，无法 SQL 过滤，需全量反序列化后在 Rust 侧匹配。
+    pub fn count_profiles_using_preset(&self, preset_id: &str) -> AppResult<usize> {
+        let all = self.db_query(
+            profile::Entity::find()
+                .filter(profile::Column::Lifecycle.eq(LIFECYCLE_ACTIVE))
+                .all(&self.db),
+        )?;
+        let count = all
+            .iter()
+            .filter(|m| profile_references_preset(m, preset_id))
+            .count();
+        Ok(count)
+    }
+
+    /// 把预设的最新参数（仅预设派生字段）同步到所有引用该预设的活跃 profile。
+    /// 保留每个 profile 的 fingerprint_seed / language / timezone / font list。
+    /// 单条失败不中断整批，记录 warn log 后继续。
+    pub fn sync_preset_to_profiles(
+        &self,
+        preset_id: &str,
+        device_preset_service: &DevicePresetService,
+    ) -> AppResult<usize> {
+        let all = self.db_query(
+            profile::Entity::find()
+                .filter(profile::Column::Lifecycle.eq(LIFECYCLE_ACTIVE))
+                .all(&self.db),
+        )?;
+
+        let mut synced = 0usize;
+        for model in all {
+            if !profile_references_preset(&model, preset_id) {
+                continue;
+            }
+            let mut settings = match parse_settings_json(model.settings_json.clone()) {
+                Some(s) => s,
+                None => continue,
+            };
+            let platform = settings
+                .fingerprint
+                .as_ref()
+                .and_then(|f| f.fingerprint_source.as_ref())
+                .and_then(|s| s.platform.as_deref())
+                .or_else(|| settings.basic.as_ref().and_then(|b| b.platform.as_deref()))
+                .unwrap_or("macos")
+                .to_string();
+            let preset_spec = match device_preset_service.resolve_preset(&platform, Some(preset_id)) {
+                Ok(p) => p,
+                Err(e) => {
+                    crate::logger::warn(
+                        "sync_preset",
+                        format!("profile {}: resolve_preset failed: {e}", model.id),
+                    );
+                    continue;
+                }
+            };
+
+            let fingerprint = settings.fingerprint.get_or_insert_with(Default::default);
+            let snapshot = fingerprint.fingerprint_snapshot.get_or_insert_with(Default::default);
+            let seed = snapshot.fingerprint_seed;
+            let browser_version = snapshot
+                .browser_version
+                .clone()
+                .or_else(|| {
+                    settings
+                        .basic
+                        .as_ref()
+                        .and_then(|b| b.browser_version.clone())
+                })
+                .unwrap_or_else(|| fingerprint_catalog::DEFAULT_BROWSER_VERSION.to_string());
+            fingerprint_catalog::merge_preset_into_snapshot(snapshot, &preset_spec, &browser_version, seed);
+
+            let settings_json = match serde_json::to_string(&settings) {
+                Ok(s) => s,
+                Err(e) => {
+                    crate::logger::warn(
+                        "sync_preset",
+                        format!("profile {}: serialize failed: {e}", model.id),
+                    );
+                    continue;
+                }
+            };
+            let mut active: profile::ActiveModel = model.into();
+            active.settings_json = Set(Some(settings_json));
+            active.updated_at = Set(now_ts());
+            if let Err(e) = self.db_query(active.update(&self.db)) {
+                crate::logger::warn(
+                    "sync_preset",
+                    format!("profile update failed: {e}"),
+                );
+                continue;
+            }
+            synced += 1;
+        }
+        Ok(synced)
+    }
+
     fn db_query<T, F>(&self, future: F) -> AppResult<T>
     where
         F: Future<Output = Result<T, sea_orm::DbErr>>,
@@ -1273,6 +1370,26 @@ fn normalize_page_size(page_size: u64) -> u64 {
         return DEFAULT_PAGE_SIZE;
     }
     page_size.min(MAX_PAGE_SIZE)
+}
+
+fn profile_references_preset(model: &profile::Model, preset_id: &str) -> bool {
+    let Some(settings) = parse_settings_json(model.settings_json.clone()) else {
+        return false;
+    };
+    let fp_source_match = settings
+        .fingerprint
+        .as_ref()
+        .and_then(|f| f.fingerprint_source.as_ref())
+        .and_then(|s| s.device_preset_id.as_deref())
+        .map(|id| id == preset_id)
+        .unwrap_or(false);
+    let basic_match = settings
+        .basic
+        .as_ref()
+        .and_then(|b| b.device_preset_id.as_deref())
+        .map(|id| id == preset_id)
+        .unwrap_or(false);
+    fp_source_match || basic_match
 }
 
 #[cfg(test)]

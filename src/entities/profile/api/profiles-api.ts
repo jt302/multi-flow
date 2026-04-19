@@ -149,14 +149,25 @@ export async function createProfileDevicePreset(
 	});
 }
 
+export type UpdateDevicePresetOutcome = {
+	preset: ProfileDevicePresetItem;
+	syncedCount: number;
+};
+
 export async function updateProfileDevicePreset(
 	presetId: string,
 	payload: SaveProfileDevicePresetPayload,
-): Promise<ProfileDevicePresetItem> {
-	return tauriInvoke<ProfileDevicePresetItem>('update_profile_device_preset', {
+	options?: { syncToProfiles?: boolean },
+): Promise<UpdateDevicePresetOutcome> {
+	return tauriInvoke<UpdateDevicePresetOutcome>('update_profile_device_preset', {
 		presetId,
 		payload,
+		syncToProfiles: options?.syncToProfiles ?? false,
 	});
+}
+
+export async function countProfilesByDevicePreset(presetId: string): Promise<number> {
+	return tauriInvoke<number>('count_profile_device_preset_references', { presetId });
 }
 
 export async function deleteProfileDevicePreset(presetId: string): Promise<void> {

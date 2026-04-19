@@ -697,6 +697,41 @@ fn build_accept_languages(language: &str) -> String {
     }
 }
 
+/// 把预设派生字段合并到已有快照，只更新与预设直接关联的字段。
+/// 明确保留：fingerprint_seed / language / accept_languages / time_zone / custom_font_list。
+pub fn merge_preset_into_snapshot(
+    snapshot: &mut ProfileFingerprintSnapshot,
+    preset: &FingerprintPresetSpec,
+    browser_version: &str,
+    fingerprint_seed: Option<u32>,
+) {
+    let version = browser_version.trim();
+    let version = if version.is_empty() {
+        DEFAULT_BROWSER_VERSION
+    } else {
+        version
+    };
+    let variant = resolve_variant(preset, version, fingerprint_seed, FingerprintStrategy::Template);
+
+    snapshot.preset_label = Some(preset.label.clone());
+    snapshot.platform = Some(preset.platform.clone());
+    snapshot.platform_version = Some(preset.platform_version.clone());
+    snapshot.custom_platform = Some(preset.custom_platform.clone());
+    snapshot.form_factor = Some(preset.form_factor.clone());
+    snapshot.mobile = Some(preset.mobile);
+    snapshot.user_agent = Some(variant.user_agent_template.replace("{version}", version));
+    snapshot.custom_ua_metadata = Some(build_ua_metadata(preset, version));
+    snapshot.custom_gl_vendor = Some(variant.gl_vendor.clone());
+    snapshot.custom_gl_renderer = Some(variant.gl_renderer.clone());
+    snapshot.custom_cpu_cores = Some(variant.custom_cpu_cores);
+    snapshot.custom_ram_gb = Some(variant.custom_ram_gb.min(MAX_FINGERPRINT_RAM_GB));
+    snapshot.custom_touch_points = preset.touch_points;
+    snapshot.window_width = Some(preset.viewport_width);
+    snapshot.window_height = Some(preset.viewport_height);
+    snapshot.device_scale_factor = Some(preset.device_scale_factor);
+    // fingerprint_seed / language / accept_languages / time_zone / custom_font_list 不碰
+}
+
 fn trim_to_option(input: &str) -> Option<String> {
     let value = input.trim();
     if value.is_empty() {
@@ -743,5 +778,63 @@ mod tests {
             .custom_font_list
             .as_ref()
             .is_some_and(|items| items.iter().any(|item| item == "Roboto")));
+    }
+
+    #[test]
+    fn merge_preset_into_snapshot_updates_preset_fields() {
+        let source = ProfileFingerprintSource {
+            platform: Some("macos".to_string()),
+            device_preset_id: Some("macos_macbook_pro_14".to_string()),
+            browser_version: Some("144.0.7559.97".to_string()),
+            strategy: Some(FingerprintStrategy::Template),
+            seed_policy: Some(FingerprintSeedPolicy::Fixed),
+            catalog_version: None,
+        };
+        let mut snapshot =
+            resolve_fingerprint_snapshot(&source, Some("zh-CN"), Some("Asia/Shanghai"), Some(12345))
+                .expect("initial snapshot");
+
+        assert_eq!(snapshot.fingerprint_seed, Some(12345));
+        assert_eq!(snapshot.language.as_deref(), Some("zh-CN"));
+        assert_eq!(snapshot.time_zone.as_deref(), Some("Asia/Shanghai"));
+
+        // 构造一个修改了 GL 信息的新预设 spec（不走 DB，直接手造）
+        let modified_preset = FingerprintPresetSpec {
+            id: "macos_macbook_pro_14".to_string(),
+            label: "MacBook Pro 14 Custom".to_string(),
+            platform: "macos".to_string(),
+            platform_version: "15.0.0".to_string(),
+            viewport_width: 1512,
+            viewport_height: 982,
+            device_scale_factor: 2.0,
+            touch_points: None,
+            custom_platform: "MacIntel".to_string(),
+            arch: "arm".to_string(),
+            bitness: "64".to_string(),
+            mobile: false,
+            form_factor: "Desktop".to_string(),
+            variants: vec![FingerprintVariantSpec {
+                user_agent_template:
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0) AppleWebKit/537.36 Chrome/{version} Safari/537.36".to_string(),
+                gl_vendor: "Google Inc. (Apple)".to_string(),
+                gl_renderer: "ANGLE (Apple, ANGLE Metal Renderer: Apple M3)".to_string(),
+                custom_cpu_cores: 10,
+                custom_ram_gb: 8,
+            }],
+        };
+
+        merge_preset_into_snapshot(&mut snapshot, &modified_preset, "144.0.7559.97", Some(12345));
+
+        // 预设派生字段应已更新
+        assert_eq!(snapshot.custom_gl_vendor.as_deref(), Some("Google Inc. (Apple)"));
+        assert_eq!(snapshot.custom_gl_renderer.as_deref(), Some("ANGLE (Apple, ANGLE Metal Renderer: Apple M3)"));
+        assert_eq!(snapshot.platform_version.as_deref(), Some("15.0.0"));
+        assert_eq!(snapshot.preset_label.as_deref(), Some("MacBook Pro 14 Custom"));
+        assert_eq!(snapshot.custom_cpu_cores, Some(10));
+
+        // 不属于预设管辖的字段必须保留原值
+        assert_eq!(snapshot.fingerprint_seed, Some(12345), "fingerprint_seed 不能被修改");
+        assert_eq!(snapshot.language.as_deref(), Some("zh-CN"), "language 不能被修改");
+        assert_eq!(snapshot.time_zone.as_deref(), Some("Asia/Shanghai"), "time_zone 不能被修改");
     }
 }

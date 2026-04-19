@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 
 import { getPlatformMeta } from '@/entities/profile/lib/platform-meta';
 import { PlatformGlyph } from '@/entities/profile/ui/platform-mark';
@@ -9,23 +9,21 @@ import {
 	Badge,
 	Button,
 	Card,
+	Checkbox,
 	Dialog,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
+	Label,
 	ScrollArea,
 } from '@/components/ui';
 import type {
 	ProfileDevicePresetItem,
 	SaveProfileDevicePresetPayload,
 } from '@/entities/profile/model/types';
+import { useDevicePresetRefCountQuery } from '@/entities/profile/model/use-device-preset-ref-count-query';
 import { useDevicePresetEditor } from '@/features/device-presets/model/use-device-preset-editor';
 import { DevicePresetForm } from '@/features/device-presets/ui/device-preset-form';
 
@@ -37,6 +35,7 @@ type DevicePresetsPageProps = {
 	onUpdateDevicePreset: (
 		presetId: string,
 		payload: SaveProfileDevicePresetPayload,
+		options?: { syncToProfiles?: boolean },
 	) => Promise<void>;
 	onDeleteDevicePreset: (presetId: string) => Promise<void>;
 	onRefreshDevicePresets: () => Promise<void>;
@@ -53,6 +52,9 @@ export function DevicePresetsPage({
 	const [deleteTarget, setDeleteTarget] =
 		useState<ProfileDevicePresetItem | null>(null);
 	const [deleting, setDeleting] = useState(false);
+	const [syncConfirmOpen, setSyncConfirmOpen] = useState(false);
+	const [syncChecked, setSyncChecked] = useState(true);
+	const [saving, setSaving] = useState(false);
 	const { t } = useTranslation(['device', 'common']);
 
 	const {
@@ -68,6 +70,8 @@ export function DevicePresetsPage({
 		onRefreshDevicePresets,
 		t,
 	});
+
+	const { data: refCount = 0 } = useDevicePresetRefCountQuery(activePreset?.id);
 
 	function openCreate() {
 		resetPresetEditor();
@@ -85,8 +89,24 @@ export function DevicePresetsPage({
 	}
 
 	async function handleFormSubmit() {
-		await handleSavePreset();
+		if (activePreset && refCount > 0) {
+			setSyncChecked(true);
+			setSyncConfirmOpen(true);
+			return;
+		}
+		await handleSavePreset()();
 		setFormOpen(false);
+	}
+
+	async function handleSyncConfirm() {
+		setSaving(true);
+		try {
+			await handleSavePreset({ syncToProfiles: syncChecked })();
+			setSyncConfirmOpen(false);
+			setFormOpen(false);
+		} finally {
+			setSaving(false);
+		}
 	}
 
 	async function confirmDelete() {
@@ -166,35 +186,26 @@ export function DevicePresetsPage({
 									</div>
 									</div>
 
-									<DropdownMenu>
-										<DropdownMenuTrigger asChild>
-											<Button
-												type="button"
-												variant="ghost"
-												size="icon-sm"
-												className="flex-shrink-0 ml-2 cursor-pointer"
-											>
-												<MoreHorizontal className="h-4 w-4" />
-											</Button>
-										</DropdownMenuTrigger>
-										<DropdownMenuContent align="end">
-											<DropdownMenuItem
-												className="cursor-pointer"
-												onClick={() => openEdit(preset)}
-											>
-												<Pencil className="h-3.5 w-3.5 mr-2" />
-												{t('common:edit')}
-											</DropdownMenuItem>
-											<DropdownMenuSeparator />
-											<DropdownMenuItem
-												className="cursor-pointer text-destructive focus:text-destructive"
-												onClick={() => setDeleteTarget(preset)}
-											>
-												<Trash2 className="h-3.5 w-3.5 mr-2" />
-												{t('common:delete')}
-											</DropdownMenuItem>
-										</DropdownMenuContent>
-									</DropdownMenu>
+									<div className="flex items-center gap-1 flex-shrink-0 ml-2">
+										<Button
+											type="button"
+											variant="ghost"
+											size="icon-sm"
+											className="cursor-pointer"
+											onClick={() => openEdit(preset)}
+										>
+											<Pencil className="h-3.5 w-3.5" />
+										</Button>
+										<Button
+											type="button"
+											variant="ghost"
+											size="icon-sm"
+											className="cursor-pointer text-destructive hover:text-destructive"
+											onClick={() => setDeleteTarget(preset)}
+										>
+											<Trash2 className="h-3.5 w-3.5" />
+										</Button>
+									</div>
 								</div>
 							))}
 						</div>
@@ -223,6 +234,51 @@ export function DevicePresetsPage({
 							void handleFormSubmit();
 						}}
 					/>
+				</DialogContent>
+			</Dialog>
+
+			{/* Sync Confirm Dialog */}
+			<Dialog
+				open={syncConfirmOpen}
+				onOpenChange={(v) => {
+					if (!v) setSyncConfirmOpen(false);
+				}}
+			>
+				<DialogContent className="max-w-md">
+					<DialogHeader>
+						<DialogTitle>{t('page.syncTitle')}</DialogTitle>
+						<DialogDescription>
+							{t('page.syncDesc', { count: refCount })}
+						</DialogDescription>
+					</DialogHeader>
+					<div className="flex items-center gap-2 py-2">
+						<Checkbox
+							id="sync-profiles"
+							checked={syncChecked}
+							onCheckedChange={(v) => setSyncChecked(v === true)}
+						/>
+						<Label htmlFor="sync-profiles" className="cursor-pointer text-sm">
+							{t('page.syncOption', { count: refCount })}
+						</Label>
+					</div>
+					<DialogFooter className="gap-2">
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setSyncConfirmOpen(false)}
+							className="cursor-pointer"
+						>
+							{t('common:cancel')}
+						</Button>
+						<Button
+							type="button"
+							disabled={saving}
+							onClick={() => { void handleSyncConfirm(); }}
+							className="cursor-pointer"
+						>
+							{t('page.syncConfirm')}
+						</Button>
+					</DialogFooter>
 				</DialogContent>
 			</Dialog>
 

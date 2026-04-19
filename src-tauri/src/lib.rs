@@ -292,6 +292,7 @@ pub fn run() {
             commands::profile_commands::create_profile_device_preset,
             commands::profile_commands::update_profile_device_preset,
             commands::profile_commands::delete_profile_device_preset,
+            commands::profile_commands::count_profile_device_preset_references,
             commands::profile_commands::batch_open_profiles,
             commands::profile_commands::batch_close_profiles,
             commands::profile_commands::get_local_api_server_status,

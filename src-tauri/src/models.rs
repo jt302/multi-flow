@@ -135,6 +135,13 @@ pub struct SaveProfileDevicePresetRequest {
     pub custom_ram_gb: u32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateDevicePresetOutcome {
+    pub preset: ProfileDevicePreset,
+    pub synced_count: usize,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum UserAgentMode {
