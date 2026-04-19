@@ -272,7 +272,16 @@
 		"title": "代理配置",
 		"desc": "创建环境时直接绑定代理",
 		"noProxy": "不绑定代理",
-		"proxyHint": "选择代理后会自动带入建议语言、时区和地理位置；手动修改后不再被覆盖。"
+		"proxyHint": "选择代理后会自动带入建议语言、时区和地理位置；手动修改后不再被覆盖。",
+		"exitIp": "出口 IP",
+		"geo": "地区",
+		"coords": "坐标",
+		"checkStatus": "检测状态",
+		"notChecked": "未检测",
+		"statusOk": "可用",
+		"statusError": "不可用",
+		"statusUnknown": "未检测",
+		"statusUnsupported": "不支持检测"
 	},
 	"list": {
 		"title": "环境列表",

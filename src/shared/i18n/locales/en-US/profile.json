@@ -305,7 +305,16 @@
 		"title": "Proxy Settings",
 		"desc": "Bind a proxy when creating the profile",
 		"noProxy": "No Proxy",
-		"proxyHint": "After selecting a proxy, suggested language, timezone and geolocation will be auto-filled; manual edits won't be overwritten."
+		"proxyHint": "After selecting a proxy, suggested language, timezone and geolocation will be auto-filled; manual edits won't be overwritten.",
+		"exitIp": "Exit IP",
+		"geo": "Region",
+		"coords": "Coordinates",
+		"checkStatus": "Check Status",
+		"notChecked": "Not Checked",
+		"statusOk": "Healthy",
+		"statusError": "Failed",
+		"statusUnknown": "Not Checked",
+		"statusUnsupported": "Unsupported"
 	},
 	"backgroundColor": {
 		"title": "Modify Browser Background Color",
