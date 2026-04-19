@@ -3,11 +3,15 @@
 /// 使用 `.no_proxy()` reqwest 客户端直连 ipinfo.io，不走任何系统代理，
 /// 确保查询的是本机出口 IP 而非代理出口。
 ///
+/// 时区通过本地 GeoLite2-City.mmdb 查询（精度优于 IP 情报服务返回的粗粒度字段）。
+/// 若 mmdb 未就绪，则回退到国家级默认时区。
+///
 /// 结果缓存 15 分钟（进程内）。App 启动时调用 `warm_up()` 预热，
 /// profile 启动时调用 `get_cached()` 同步获取（不阻塞）。
 use std::env;
 use std::net::IpAddr;
 use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -22,7 +26,6 @@ const IPINFO_TOKEN_ENV: &str = "MULTI_FLOW_IPINFO_TOKEN";
 const IPINFO_URL_ENV: &str = "MULTI_FLOW_IPINFO_URL";
 const DEFAULT_IPINFO_JSON_URL: &str = "https://ipinfo.io/json";
 const DEFAULT_IPINFO_LITE_URL: &str = "https://api.ipinfo.io/lite/me";
-const DEFAULT_IPAPI_JSON_URL: &str = "https://ipapi.co/json";
 
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -43,11 +46,22 @@ struct IpInfoResponse {
     country: Option<String>,
     #[serde(rename = "country_code")]
     country_code: Option<String>,
-    /// "lat,lon" 格式
+    /// "lat,lon" 格式（ipinfo 端点）
     loc: Option<String>,
     latitude: Option<f64>,
     longitude: Option<f64>,
     timezone: Option<String>,
+}
+
+/// GeoLite2-City mmdb 中的轻量时区结构（只提取 location.time_zone）
+#[derive(Debug, Deserialize)]
+struct GeoIpCityTimezone {
+    location: Option<GeoIpLocationTimezone>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GeoIpLocationTimezone {
+    time_zone: Option<String>,
 }
 
 struct HostLocaleEndpoint {
@@ -64,16 +78,19 @@ struct CacheState {
 #[derive(Clone)]
 pub struct HostLocaleService {
     inner: Arc<Mutex<CacheState>>,
+    /// 延迟获取 GeoLite2-City.mmdb 路径的解析器；None 表示 mmdb 不可用
+    geoip_db_path: Arc<dyn Fn() -> Option<PathBuf> + Send + Sync>,
 }
 
 impl HostLocaleService {
-    pub fn new() -> Self {
+    pub fn new(geoip_db_path: impl Fn() -> Option<PathBuf> + Send + Sync + 'static) -> Self {
         Self {
             inner: Arc::new(Mutex::new(CacheState {
                 value: None,
                 fetched_at: None,
                 in_flight: false,
             })),
+            geoip_db_path: Arc::new(geoip_db_path),
         }
     }
 
@@ -105,7 +122,8 @@ impl HostLocaleService {
             guard.in_flight = true;
         }
 
-        let result = fetch_host_locale().await;
+        let geoip_db_path = (self.geoip_db_path)();
+        let result = fetch_host_locale(geoip_db_path.as_deref()).await;
 
         let mut guard = self.inner.lock().unwrap_or_else(|p| p.into_inner());
         guard.in_flight = false;
@@ -115,7 +133,8 @@ impl HostLocaleService {
 
     /// 立即发起查询（忽略缓存），用于 Tauri command 强制刷新。
     pub async fn fetch_now(&self) -> HostLocaleSuggestion {
-        let result = fetch_host_locale().await;
+        let geoip_db_path = (self.geoip_db_path)();
+        let result = fetch_host_locale(geoip_db_path.as_deref()).await;
         let mut guard = self.inner.lock().unwrap_or_else(|p| p.into_inner());
         guard.fetched_at = Some(Instant::now());
         guard.value = Some(result.clone());
@@ -123,8 +142,8 @@ impl HostLocaleService {
     }
 }
 
-async fn fetch_host_locale() -> HostLocaleSuggestion {
-    match try_fetch_host_locale().await {
+async fn fetch_host_locale(geoip_db_path: Option<&Path>) -> HostLocaleSuggestion {
+    match try_fetch_host_locale(geoip_db_path).await {
         Ok(suggestion) => suggestion,
         Err(err) => {
             crate::logger::warn(
@@ -144,7 +163,7 @@ async fn fetch_host_locale() -> HostLocaleSuggestion {
     }
 }
 
-async fn try_fetch_host_locale() -> Result<HostLocaleSuggestion, String> {
+async fn try_fetch_host_locale(geoip_db_path: Option<&Path>) -> Result<HostLocaleSuggestion, String> {
     let mut errors: Vec<String> = Vec::new();
 
     let endpoints = resolve_host_locale_urls();
@@ -170,7 +189,7 @@ async fn try_fetch_host_locale() -> Result<HostLocaleSuggestion, String> {
             ("system_proxy", &proxy_client),
         ] {
             match fetch_host_locale_response(client, &endpoint.url).await {
-                Ok(resp) => match build_host_locale_suggestion(resp, endpoint.source) {
+                Ok(resp) => match build_host_locale_suggestion(resp, endpoint.source, geoip_db_path) {
                     Ok(suggestion) => {
                         if label == "system_proxy" {
                             crate::logger::warn(
@@ -282,18 +301,13 @@ fn resolve_host_locale_urls() -> Vec<HostLocaleEndpoint> {
         DEFAULT_IPINFO_JSON_URL.to_string(),
         "ipinfo",
     );
-    push_host_locale_endpoint(
-        &mut endpoints,
-        &mut seen_urls,
-        DEFAULT_IPAPI_JSON_URL.to_string(),
-        "ipapi",
-    );
     endpoints
 }
 
 fn build_host_locale_suggestion(
     response: IpInfoResponse,
     source: &str,
+    geoip_db_path: Option<&Path>,
 ) -> Result<HostLocaleSuggestion, String> {
     let exit_ip = response
         .ip
@@ -323,12 +337,26 @@ fn build_host_locale_suggestion(
     let language = country
         .as_deref()
         .and_then(default_language_for_country);
-    let timezone = response
-        .timezone
-        .as_deref()
-        .and_then(trim_str)
-        .map(str::to_string)
+
+    // 时区优先通过 GeoLite2-City.mmdb 精确查询（city 级别）；
+    // mmdb 未就绪或查询失败时回退到国家级默认时区。
+    // 不使用 IP 情报服务返回的 timezone 字段（精度不可靠，可能定位到错误州）。
+    let mmdb_timezone = exit_ip
+        .parse::<IpAddr>()
+        .ok()
+        .and_then(|ip| geoip_db_path.and_then(|db| lookup_timezone_via_mmdb(db, ip)));
+    let timezone = mmdb_timezone
+        .clone()
         .or_else(|| country.as_deref().and_then(default_timezone_for_country));
+
+    crate::logger::info(
+        "host_locale",
+        format!(
+            "resolved suggestion ip={} country={:?} mmdb_timezone={:?} final_timezone={:?} source={}",
+            exit_ip, country, mmdb_timezone, timezone, source
+        ),
+    );
+
     let (latitude, longitude) = parse_coordinates(&response);
 
     Ok(HostLocaleSuggestion {
@@ -340,6 +368,27 @@ fn build_host_locale_suggestion(
         longitude,
         source: source.to_string(),
     })
+}
+
+/// 用 GeoLite2-City mmdb 查询 IP 的 IANA 时区字符串
+fn lookup_timezone_via_mmdb(db_path: &Path, ip: IpAddr) -> Option<String> {
+    let reader = maxminddb::Reader::open_readfile(db_path)
+        .map_err(|e| {
+            crate::logger::warn(
+                "host_locale",
+                format!("无法打开 GeoLite2-City mmdb: {e}"),
+            );
+        })
+        .ok()?;
+    let record: Option<GeoIpCityTimezone> = reader.lookup(ip)
+        .map_err(|e| {
+            crate::logger::warn(
+                "host_locale",
+                format!("mmdb 时区查询失败 ip={ip}: {e}"),
+            );
+        })
+        .ok()?;
+    record?.location?.time_zone
 }
 
 fn parse_coordinates(response: &IpInfoResponse) -> (Option<f64>, Option<f64>) {
@@ -374,4 +423,55 @@ fn parse_loc(loc: Option<&str>) -> (Option<f64>, Option<f64>) {
 fn trim_str(s: &str) -> Option<&str> {
     let trimmed = s.trim();
     if trimmed.is_empty() { None } else { Some(trimmed) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_response(ip: &str, country: &str, timezone: &str) -> IpInfoResponse {
+        IpInfoResponse {
+            ip: Some(ip.to_string()),
+            country: Some(country.to_string()),
+            country_code: None,
+            loc: None,
+            latitude: None,
+            longitude: None,
+            timezone: Some(timezone.to_string()),
+        }
+    }
+
+    #[test]
+    fn test_mmdb_timezone_overrides_api_timezone() {
+        // 模拟 ipinfo 返回错误时区（Chicago），mmdb 应给出正确时区
+        // 此测试在 mmdb 不可用时退化为国家默认（America/New_York），
+        // 核心验证 response.timezone 字段完全被忽略
+        let resp = make_response("1.2.3.4", "US", "America/Chicago");
+        let suggestion = build_host_locale_suggestion(resp, "ipinfo", None).unwrap();
+        // 无 mmdb 时回退到国家默认
+        assert_eq!(suggestion.timezone.as_deref(), Some("America/New_York"));
+        // 确认 ipinfo 返回的 "America/Chicago" 未被采用
+        assert_ne!(suggestion.timezone.as_deref(), Some("America/Chicago"));
+    }
+
+    #[test]
+    fn test_missing_ip_returns_err() {
+        let resp = IpInfoResponse {
+            ip: None,
+            country: Some("US".to_string()),
+            country_code: None,
+            loc: None,
+            latitude: None,
+            longitude: None,
+            timezone: None,
+        };
+        assert!(build_host_locale_suggestion(resp, "ipinfo", None).is_err());
+    }
+
+    #[test]
+    fn test_resolve_host_locale_urls_no_ipapi() {
+        let endpoints = resolve_host_locale_urls();
+        let has_ipapi = endpoints.iter().any(|e| e.source == "ipapi");
+        assert!(!has_ipapi, "ipapi 渠道应已被移除");
+    }
 }

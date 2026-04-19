@@ -159,6 +159,7 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
     let engine_session_service = EngineSessionService::from_db(db.clone());
     let proxy_service = ProxyService::from_db(db.clone());
     let resource_service = ResourceService::from_app_handle(app)?;
+    let resource_service_for_locale = resource_service.clone();
     let engine_manager = build_engine_manager(app)?;
     let local_api_server = LocalApiServer::new(DEFAULT_PROXY_DAEMON_BIND_ADDRESS);
     let chromium_magic_adapter_service = ChromiumMagicAdapterService::new();
@@ -191,7 +192,9 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
         mcp_manager,
         require_real_engine: true,
         last_arrangement_snapshot: Mutex::new(Vec::new()),
-        host_locale_service: Arc::new(HostLocaleService::new()),
+        host_locale_service: Arc::new(HostLocaleService::new(move || {
+            resource_service_for_locale.resolve_geoip_database_path()
+        })),
     };
     let affected = runtime_guard::reconcile_runtime_state(&app_state)?;
     logger::info(

@@ -273,7 +273,7 @@ mod tests {
             require_real_engine: false,
             last_arrangement_snapshot: Mutex::new(Vec::new()),
             host_locale_service: std::sync::Arc::new(
-                crate::services::host_locale_service::HostLocaleService::new(),
+                crate::services::host_locale_service::HostLocaleService::new(|| None),
             ),
         }
     }
