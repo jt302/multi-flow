@@ -15,6 +15,7 @@ import { useProfileCreateForm } from '../model/use-profile-create-form';
 import { AdvancedSettingsSection } from './advanced-settings-section';
 import { BasicSettingsSection } from './basic-settings-section';
 import { FingerprintSettingsSection } from './fingerprint-settings-section';
+import { LocaleSettingsSection } from './locale-settings-section';
 import { FormErrorList } from './form-error-list';
 import { PluginsSettingsSection } from './plugins-settings-section';
 import { ProxySettingsSection } from './proxy-settings-section';
@@ -51,7 +52,6 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 		regenerateCustomDeviceName,
 		regenerateCustomMacAddress,
 		markProxyFieldManual,
-		restoreProxySuggestedValues,
 		onFormSubmit,
 		values,
 	} = useProfileCreateForm(props);
@@ -105,6 +105,14 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 								resourceStatusLabel={resourceStatusLabel}
 							/>
 
+								<LocaleSettingsSection
+									form={form}
+									localeMode={values.localeMode}
+									languageSource={values.proxySuggestionSource.language}
+									timezoneSource={values.proxySuggestionSource.timezoneId}
+									onMarkManual={markProxyFieldManual}
+								/>
+
 								<FingerprintSettingsSection
 									form={form}
 									deviceNameMode={values.deviceNameMode}
@@ -116,14 +124,6 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 									randomFingerprint={values.randomFingerprint}
 									fingerprintSeed={values.fingerprintSeed}
 									availableFontFamiliesCount={fontFamiliesQuery.data?.length ?? 0}
-									languageSource={values.proxySuggestionSource.language}
-									timezoneSource={values.proxySuggestionSource.timezoneId}
-									onMarkManual={markProxyFieldManual}
-									onRestoreProxySuggestions={restoreProxySuggestedValues}
-									hasProxySuggestions={Boolean(
-										values.selectedProxy?.effectiveLanguage ||
-										values.selectedProxy?.effectiveTimezone,
-									)}
 								onRegenerateFonts={() => {
 									void regenerateFontList().catch((error) => {
 											const message = error instanceof Error ? error.message : t('create.fontListRegenerateFailed');

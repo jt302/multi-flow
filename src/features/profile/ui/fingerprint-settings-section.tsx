@@ -34,11 +34,6 @@ type FingerprintSettingsSectionProps = {
 	onRegenerateFingerprintSeed: () => void;
 	onRegenerateCustomDeviceName: () => void;
 	onRegenerateCustomMacAddress: () => void;
-	languageSource: string;
-	timezoneSource: string;
-	onMarkManual: (field: 'language' | 'timezoneId') => void;
-	onRestoreProxySuggestions: () => void;
-	hasProxySuggestions: boolean;
 };
 
 export function FingerprintSettingsSection({
@@ -56,16 +51,9 @@ export function FingerprintSettingsSection({
 	onRegenerateFingerprintSeed,
 	onRegenerateCustomDeviceName,
 	onRegenerateCustomMacAddress,
-	languageSource,
-	timezoneSource,
-	onMarkManual,
-	onRestoreProxySuggestions,
-	hasProxySuggestions,
 }: FingerprintSettingsSectionProps) {
 	const { register, setValue } = form;
 	const { t } = useTranslation(['profile', 'common']);
-	const languageId = 'profile-language';
-	const timezoneId = 'profile-timezone';
 	const customFontListId = 'profile-custom-font-list';
 	const deviceNameModeId = 'profile-device-name-mode';
 	const customDeviceNameId = 'profile-custom-device-name';
@@ -84,67 +72,7 @@ export function FingerprintSettingsSection({
 				title={t('fingerprint.title')}
 				description={t('fingerprint.desc')}
 			/>
-			{hasProxySuggestions ? (
-				<div className="mb-3 flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-					<p>{t('fingerprint.proxyDefaultHint')}</p>
-					<Button
-						type="button"
-						size="sm"
-						variant="outline"
-						className="cursor-pointer"
-						onClick={onRestoreProxySuggestions}
-					>
-						{t('fingerprint.restoreProxyDefault')}
-					</Button>
-				</div>
-			) : null}
 			<div className="grid gap-3 md:grid-cols-2">
-				<div>
-					<label
-						htmlFor={languageId}
-						className="mb-1 block text-xs text-muted-foreground"
-					>
-						{t('fingerprint.language')}
-					</label>
-					<Input
-						id={languageId}
-						{...register('language', {
-							onChange: () => onMarkManual('language'),
-						})}
-						placeholder={t('fingerprint.languagePlaceholder')}
-					/>
-					<p className="mt-1 text-[11px] text-muted-foreground">
-						{t('fingerprint.sourceLabel')}{' '}
-						{languageSource === 'proxy'
-							? t('fingerprint.sourceProxy')
-							: languageSource === 'manual'
-								? t('fingerprint.sourceManual')
-								: t('common:notSet')}
-					</p>
-				</div>
-				<div>
-					<label
-						htmlFor={timezoneId}
-						className="mb-1 block text-xs text-muted-foreground"
-					>
-						{t('fingerprint.timezone')}
-					</label>
-					<Input
-						id={timezoneId}
-						{...register('timezoneId', {
-							onChange: () => onMarkManual('timezoneId'),
-						})}
-						placeholder={t('fingerprint.timezonePlaceholder')}
-					/>
-					<p className="mt-1 text-[11px] text-muted-foreground">
-						{t('fingerprint.sourceLabel')}{' '}
-						{timezoneSource === 'proxy'
-							? t('fingerprint.sourceProxy')
-							: timezoneSource === 'manual'
-								? t('fingerprint.sourceManual')
-								: t('common:notSet')}
-					</p>
-				</div>
 				<div className="md:col-span-2">
 					<div className="mb-1 flex items-center justify-between gap-2">
 						<label

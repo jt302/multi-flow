@@ -140,6 +140,22 @@ impl HostLocaleService {
         guard.value = Some(result.clone());
         result
     }
+
+    /// 返回缓存值（若有效），否则同步发起一次查询并写入缓存。
+    /// 用于 profile 启动时：Auto 模式无代理时确保 host locale 就绪。
+    pub fn get_or_refresh(&self) -> Option<HostLocaleSuggestion> {
+        if let Some(cached) = self.get_cached() {
+            return Some(cached);
+        }
+        let geoip_db_path = (self.geoip_db_path)();
+        let result = crate::runtime_compat::block_on_compat(
+            fetch_host_locale(geoip_db_path.as_deref()),
+        );
+        let mut guard = self.inner.lock().unwrap_or_else(|p| p.into_inner());
+        guard.fetched_at = Some(Instant::now());
+        guard.value = Some(result.clone());
+        Some(result)
+    }
 }
 
 async fn fetch_host_locale(geoip_db_path: Option<&Path>) -> HostLocaleSuggestion {

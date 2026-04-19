@@ -167,6 +167,28 @@
 		"randomSeed": "随机 Seed",
 		"randomSeedOnStart": "启动时随机 fingerprint-seed（不随机整套指纹）"
 	},
+	"locale": {
+		"title": "语言与时区",
+		"desc": "控制 Chromium 的语言偏好与时区",
+		"modeLabel": "设置方式",
+		"modeAuto": "跟随 IP（代理优先，无代理则本机）",
+		"modeManual": "手动设置",
+		"modeAutoHint": "启动时自动从 IP 地理信息获取，无需手动填写。",
+		"language": "主语言",
+		"languagePlaceholder": "如 zh-CN / en-US",
+		"languageRequired": "手动模式下语言不能为空",
+		"timezone": "时区",
+		"timezoneSearch": "搜索时区...",
+		"timezoneNotFound": "未找到匹配时区",
+		"timezonePlaceholder": "选择时区",
+		"timezoneRequired": "手动模式下时区不能为空",
+		"invalidTimezone": "请选择有效的 IANA 时区",
+		"sourceLabel": "来源:",
+		"sourceProxy": "代理 IP",
+		"sourceHost": "本机 IP",
+		"sourceManual": "手动设置",
+		"sourceEmpty": "未设置"
+	},
 	"time": {
 		"notStarted": "未启动",
 		"justNow": "刚刚",

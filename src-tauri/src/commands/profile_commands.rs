@@ -1603,15 +1603,63 @@ pub(crate) fn do_open_profile(
         profile_snapshot.settings.as_ref(),
         &engine_manager,
     )?;
+    let locale_mode = profile_snapshot
+        .settings
+        .as_ref()
+        .and_then(|s| s.locale_mode)
+        .unwrap_or(crate::models::LocaleMode::Auto);
+
+    // Auto 模式 + 有代理：若代理 effective locale 缺失则触发一次轻量 GeoIP 查询并持久化
+    let refreshed_proxy: Option<crate::models::Proxy> =
+        if locale_mode == crate::models::LocaleMode::Auto {
+            if let (Some(proxy), Some(ref db_path)) =
+                (bound_proxy.as_ref(), geoip_database.as_ref())
+            {
+                if proxy.effective_language.is_none() && proxy.effective_timezone.is_none() {
+                    match state
+                        .lock_proxy_service()
+                        .ensure_proxy_locale_fresh(&proxy.id, db_path)
+                    {
+                        Ok(fresh) => Some(fresh),
+                        Err(err) => {
+                            logger::warn(
+                                "profile_cmd",
+                                format!(
+                                    "proxy locale refresh failed, falling back to host locale: {err}"
+                                ),
+                            );
+                            None
+                        }
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+    let effective_bound_proxy = refreshed_proxy.as_ref().or(bound_proxy.as_ref());
+
     let device_preset_service = state.lock_device_preset_service();
-    let host_locale = state.host_locale_service.get_cached();
+    // Auto 模式 + 无代理：若缓存过期则同步刷新 host locale
+    let host_locale = if locale_mode == crate::models::LocaleMode::Auto
+        && effective_bound_proxy.is_none()
+    {
+        state.host_locale_service.get_or_refresh()
+    } else {
+        None
+    };
+
     let mut launch_options = resolve_launch_options(
         &device_preset_service,
         profile_id,
         &profile_snapshot.name,
         profile_snapshot.settings.as_ref(),
         merged_options,
-        bound_proxy.as_ref(),
+        effective_bound_proxy,
         daemon_proxy_server.clone(),
         geoip_database,
         Some(resolved_browser_version.as_str()),
@@ -1763,29 +1811,42 @@ fn resolve_launch_options(
     let custom_font_list = runtime_snapshot.custom_font_list.clone();
     let custom_cpu_cores = runtime_snapshot.custom_cpu_cores;
     let custom_ram_gb = runtime_snapshot.custom_ram_gb;
-    // 回退链：snapshot → proxy → host IP（仅无代理时）
-    let language = runtime_snapshot
-        .language
-        .clone()
-        .or_else(|| bound_proxy.and_then(default_language_from_proxy))
-        .or_else(|| {
-            if bound_proxy.is_none() {
-                host_locale.as_ref().and_then(|h| h.language.clone())
-            } else {
-                None
-            }
-        });
-    let timezone_id = runtime_snapshot
-        .time_zone
-        .clone()
-        .or_else(|| bound_proxy.and_then(default_timezone_from_proxy))
-        .or_else(|| {
-            if bound_proxy.is_none() {
-                host_locale.as_ref().and_then(|h| h.timezone.clone())
-            } else {
-                None
-            }
-        });
+    let locale_mode_for_launch = profile_settings
+        .and_then(|s| s.locale_mode)
+        .unwrap_or(crate::models::LocaleMode::Auto);
+
+    // Manual 模式：直接使用 snapshot 字段，不做任何 fallback
+    // Auto 模式：回退链 snapshot → proxy → host IP（仅无代理时）
+    let language = if locale_mode_for_launch == crate::models::LocaleMode::Manual {
+        runtime_snapshot.language.clone()
+    } else {
+        runtime_snapshot
+            .language
+            .clone()
+            .or_else(|| bound_proxy.and_then(default_language_from_proxy))
+            .or_else(|| {
+                if bound_proxy.is_none() {
+                    host_locale.as_ref().and_then(|h| h.language.clone())
+                } else {
+                    None
+                }
+            })
+    };
+    let timezone_id = if locale_mode_for_launch == crate::models::LocaleMode::Manual {
+        runtime_snapshot.time_zone.clone()
+    } else {
+        runtime_snapshot
+            .time_zone
+            .clone()
+            .or_else(|| bound_proxy.and_then(default_timezone_from_proxy))
+            .or_else(|| {
+                if bound_proxy.is_none() {
+                    host_locale.as_ref().and_then(|h| h.timezone.clone())
+                } else {
+                    None
+                }
+            })
+    };
     // 把回退结果写回 snapshot，使 append_snapshot_args 能生成 --custom-main-language 等 flag
     if runtime_snapshot.language.is_none() {
         if let Some(ref lang) = language {

@@ -1,5 +1,6 @@
 import { z } from 'zod/v3';
 import i18next from 'i18next';
+import { TIMEZONE_SET } from '@/shared/lib/timezone-list';
 import type {
 	CookieStateFile,
 	ProfileDevicePresetItem,
@@ -29,8 +30,12 @@ export const profileFormSchema = z
 		browserBgColorMode: z.enum(['inherit', 'custom', 'none']),
 		toolbarLabelMode: z.enum(['inherit', 'id_only', 'group_name_and_id']),
 		proxyId: z.string(),
+		localeMode: z.enum(['auto', 'manual']),
 		language: z.string(),
-		timezoneId: z.string(),
+		timezoneId: z.string().refine(
+			(v) => v === '' || TIMEZONE_SET.has(v),
+			() => ({ message: i18next.t('profile:locale.invalidTimezone') }),
+		),
 		customFontListText: z.string(),
 		deviceNameMode: z.enum(['real', 'custom']),
 		customDeviceName: z.string(),
@@ -61,6 +66,22 @@ export const profileFormSchema = z
 		fingerprintSeed: z.number().int().nonnegative().nullable(),
 	})
 	.superRefine((values, ctx) => {
+		if (values.localeMode === 'manual') {
+			if (!values.language.trim()) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: i18next.t('profile:locale.languageRequired'),
+					path: ['language'],
+				});
+			}
+			if (!values.timezoneId.trim()) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: i18next.t('profile:locale.timezoneRequired'),
+					path: ['timezoneId'],
+				});
+			}
+		}
 		const startupUrls = parseStartupUrls(values.startupUrls);
 		for (const startupUrl of startupUrls) {
 			try {

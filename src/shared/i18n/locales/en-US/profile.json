@@ -167,6 +167,28 @@
 		"randomSeed": "Random Seed",
 		"randomSeedOnStart": "Random fingerprint-seed on startup (not full fingerprint randomization)"
 	},
+	"locale": {
+		"title": "Language & Timezone",
+		"desc": "Controls Chromium language preference and timezone",
+		"modeLabel": "Mode",
+		"modeAuto": "Follow IP (proxy first, host IP if no proxy)",
+		"modeManual": "Manual",
+		"modeAutoHint": "Auto-filled from IP geolocation on startup.",
+		"language": "Language",
+		"languagePlaceholder": "e.g. zh-CN / en-US",
+		"languageRequired": "Language is required in manual mode",
+		"timezone": "Timezone",
+		"timezoneSearch": "Search timezone...",
+		"timezoneNotFound": "No timezone found",
+		"timezonePlaceholder": "Select timezone",
+		"timezoneRequired": "Timezone is required in manual mode",
+		"invalidTimezone": "Please select a valid IANA timezone",
+		"sourceLabel": "Source:",
+		"sourceProxy": "Proxy IP",
+		"sourceHost": "Host IP",
+		"sourceManual": "Manual",
+		"sourceEmpty": "Not set"
+	},
 	"time": {
 		"notStarted": "Not Started",
 		"justNow": "Just now",

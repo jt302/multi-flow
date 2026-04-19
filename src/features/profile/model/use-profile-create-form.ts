@@ -172,6 +172,7 @@ export function useProfileCreateForm({
 					? 'inherit'
 					: 'id_only'),
 			proxyId: initialProxyId ?? '__none__',
+			localeMode: (initialProfile?.settings?.localeMode as 'auto' | 'manual' | undefined) ?? 'auto',
 			language: initialFingerprint?.fingerprintSnapshot?.language ?? '',
 			timezoneId: initialFingerprint?.fingerprintSnapshot?.timeZone ?? '',
 			customFontListText:
@@ -217,6 +218,7 @@ export function useProfileCreateForm({
 
 	const { getValues, setValue, watch, handleSubmit } = form;
 
+	const localeMode = watch('localeMode');
 	const browserKind = watch('browserKind');
 	const browserVersion = watch('browserVersion');
 	const browserBgColor = watch('browserBgColor');
@@ -256,7 +258,7 @@ export function useProfileCreateForm({
 	const { data: hostLocaleSuggestion } = useQuery({
 		queryKey: ['host-locale-suggestion'],
 		queryFn: fetchHostLocaleSuggestion,
-		enabled: !proxyId || proxyId === '__none__',
+		enabled: localeMode === 'auto' && (!proxyId || proxyId === '__none__'),
 		staleTime: 5 * 60_000,
 		retry: false,
 	});
@@ -669,6 +671,7 @@ export function useProfileCreateForm({
 			note: values.note.trim() || undefined,
 			proxyId: values.proxyId === '__none__' ? undefined : values.proxyId,
 			settings: {
+				localeMode: values.localeMode,
 				basic: {
 					browserKind: values.browserKind,
 					browserVersion: values.browserVersion,
@@ -794,6 +797,7 @@ export function useProfileCreateForm({
 			autoAllowGeolocation: watch('autoAllowGeolocation'),
 			proxySuggestionSource,
 			selectedProxy,
+			localeMode,
 			name: watch('name'),
 			headless: watch('headless'),
 			disableImages: watch('disableImages'),

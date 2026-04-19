@@ -460,6 +460,23 @@ impl ProxyService {
         })
     }
 
+    /// Profile Auto 模式启动时，若代理 effective locale 字段为空则触发一次轻量
+    /// GeoIP 查询（只做出口 IP + mmdb，跳过 target site 探测）并持久化结果。
+    /// 若代理字段已就绪则直接返回；若查询失败则返回 Err（调用方降级到 host_locale）。
+    pub fn ensure_proxy_locale_fresh(
+        &self,
+        proxy_id: &str,
+        geoip_database_path: &Path,
+    ) -> AppResult<Proxy> {
+        let stored = self.find_proxy_model(proxy_id)?;
+        if stored.effective_language.is_some() && stored.effective_timezone.is_some() {
+            return Ok(to_api_proxy(stored));
+        }
+        self.check_proxy_with(proxy_id, |p| {
+            locale_only_proxy_check(p, geoip_database_path)
+        })
+    }
+
     fn check_proxy_with<F>(&self, proxy_id: &str, checker: F) -> AppResult<Proxy>
     where
         F: FnOnce(&proxy::Model) -> AppResult<ProxyCheckSnapshot>,
@@ -1101,6 +1118,47 @@ fn parse_import_line(line: &str) -> AppResult<ParsedImportLine> {
         }),
         _ => Err(AppError::Validation(format!("invalid proxy line: {line}"))),
     }
+}
+
+/// 仅查询出口 IP + GeoLite2 以获取 locale 建议，跳过连通性和 target site 探测。
+fn locale_only_proxy_check(
+    stored: &proxy::Model,
+    geoip_database_path: &Path,
+) -> AppResult<ProxyCheckSnapshot> {
+    if stored.protocol == "ssh" {
+        return Err(crate::error::AppError::Validation(
+            "SSH 代理不支持自动 locale 检测".to_string(),
+        ));
+    }
+    let exit_ip = lookup_exit_ip_through_proxy(stored)?;
+    let geo = lookup_geoip_city(geoip_database_path, &exit_ip)?;
+    let country = geo
+        .country
+        .as_ref()
+        .and_then(|c| c.iso_code.clone())
+        .and_then(trim_to_option_ref);
+    let latitude = geo.location.as_ref().and_then(|l| l.latitude);
+    let longitude = geo.location.as_ref().and_then(|l| l.longitude);
+    let suggested_timezone = geo
+        .location
+        .as_ref()
+        .and_then(|l| l.time_zone.clone())
+        .or_else(|| country.as_deref().and_then(default_timezone_from_country));
+    let suggested_language = country.as_deref().and_then(default_language_from_country);
+    Ok(ProxyCheckSnapshot {
+        check_status: CHECK_STATUS_OK.to_string(),
+        check_message: None,
+        target_site_checks: None,
+        exit_ip: Some(exit_ip),
+        country,
+        region: None,
+        city: None,
+        latitude,
+        longitude,
+        geo_accuracy_meters: None,
+        suggested_language,
+        suggested_timezone,
+    })
 }
 
 fn lookup_exit_ip_through_proxy(stored: &proxy::Model) -> AppResult<String> {

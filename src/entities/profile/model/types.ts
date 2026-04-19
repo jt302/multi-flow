@@ -182,6 +182,7 @@ export type ProfileSettings = {
 	basic?: ProfileBasicSettings;
 	fingerprint?: ProfileFingerprintSettings;
 	advanced?: ProfileAdvancedSettings;
+	localeMode?: 'auto' | 'manual';
 };
 
 export type ProfileItem = {

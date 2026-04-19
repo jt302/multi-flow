@@ -39,12 +39,24 @@ pub struct CreateProfileRequest {
     pub settings: Option<ProfileSettings>,
 }
 
+/// 语言/时区的设置模式
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum LocaleMode {
+    /// 跟随 IP：有代理则跟代理出口 IP，无代理则跟本机 IP
+    #[default]
+    Auto,
+    /// 手动设置：直接使用 fingerprint.language / timezone_id，不再 fallback
+    Manual,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileSettings {
     pub basic: Option<ProfileBasicSettings>,
     pub fingerprint: Option<ProfileFingerprintSettings>,
     pub advanced: Option<ProfileAdvancedSettings>,
+    pub locale_mode: Option<LocaleMode>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
