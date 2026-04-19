@@ -63,20 +63,25 @@ struct PresetDefinition {
     variants: &'static [FingerprintVariant],
 }
 
+// macOS Chrome 的 UA 字符串自 Chrome 101 起冻结为 `Mac OS X 10_15_7`（User-Agent Reduction），
+// 真实 OS 版本应通过 UA-CH `Sec-CH-UA-Platform-Version` 暴露，二者协同才符合 BrowserScan 等检测站
+// 对"标准 Chrome 行为"的白名单期待。Vendor/Renderer 必须用 Chrome 在 macOS 上的 ANGLE Metal 长串
+// 格式（`Google Inc. (Apple)` + `ANGLE (Apple, ANGLE Metal Renderer: …, Unspecified Version)`），
+// 不能写成 Safari 风格的短串（`Apple` / `Apple M3`），否则 UA 与 WebGL 自相矛盾。
 const MACOS_MACBOOK_PRO_VARIANTS: &[FingerprintVariant] = &[
     FingerprintVariant {
         user_agent_template:
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36",
-        gl_vendor: "Apple",
-        gl_renderer: "Apple M3",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36",
+        gl_vendor: "Google Inc. (Apple)",
+        gl_renderer: "ANGLE (Apple, ANGLE Metal Renderer: Apple M3, Unspecified Version)",
         custom_cpu_cores: 8,
         custom_ram_gb: 18,
     },
     FingerprintVariant {
         user_agent_template:
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36",
-        gl_vendor: "Apple",
-        gl_renderer: "Apple M2 Pro",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36",
+        gl_vendor: "Google Inc. (Apple)",
+        gl_renderer: "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Pro, Unspecified Version)",
         custom_cpu_cores: 10,
         custom_ram_gb: 16,
     },
@@ -220,7 +225,7 @@ const PRESETS: &[PresetDefinition] = &[
         id: "macos_macbook_pro_14",
         label: "MacBook Pro 14",
         platform: "macos",
-        platform_version: "14.0.0",
+        platform_version: "15.6.1",
         viewport_width: 1512,
         viewport_height: 982,
         device_scale_factor: 2.0,
@@ -655,13 +660,21 @@ fn resolve_seed_value(
 }
 
 fn build_ua_metadata(preset: &FingerprintPresetSpec, version: &str) -> String {
-    let chrome_major = version
+    let full_version = version.trim();
+    let chrome_major = full_version
         .split('.')
         .next()
         .filter(|value| !value.trim().is_empty())
         .unwrap_or("144");
+    // BrowserScan 等检测站会比对 UA 字符串里的 Chrome 版本与 UA-CH `uaFullVersion` /
+    // `fullVersionList` 是否完全一致。Chrome 官方桌面端 UA 现行是完整四段，故必须把
+    // `Sec-CH-UA-Full-Version-List` 与 `Sec-CH-UA-Full-Version` 同步下发。
+    // `Not?A_Brand:99.0.0.0` 是 Chrome 124+ GREASE 占位品牌，固定写值即可。
     format!(
-        "platform={}|platform_version={}|arch={}|bitness={}|mobile={}|brands=Google Chrome:{},Chromium:{}|form_factors={}",
+        "platform={}|platform_version={}|arch={}|bitness={}|mobile={}|\
+         brands=Google Chrome:{},Chromium:{},Not?A_Brand:99|\
+         full_version_list=Google Chrome:{},Chromium:{},Not?A_Brand:99.0.0.0|\
+         ua_full_version={}|model=|wow64=0|form_factors={}",
         render_metadata_platform(&preset.platform),
         preset.platform_version,
         preset.arch,
@@ -669,6 +682,9 @@ fn build_ua_metadata(preset: &FingerprintPresetSpec, version: &str) -> String {
         if preset.mobile { "1" } else { "0" },
         chrome_major,
         chrome_major,
+        full_version,
+        full_version,
+        full_version,
         preset.form_factor,
     )
 }
