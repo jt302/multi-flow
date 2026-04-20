@@ -258,7 +258,7 @@ export function createCanvasStore(
 						const previousNode = prevNodeById.get(oldId) as
 							| Node<StepNodeData>
 							| undefined;
-						return buildStepCanvasNode(
+						const node = buildStepCanvasNode(
 							nextFlatSteps[newIndex],
 							newIndex,
 							remappedPositions[`step-${newIndex}`] ??
@@ -266,6 +266,10 @@ export function createCanvasStore(
 								{ x: 120, y: newIndex * 120 + 60 },
 							liveStatusesRef[newIndex],
 						);
+						if (previousNode?.selected) {
+							node.selected = true;
+						}
+						return node;
 					});
 
 					return {

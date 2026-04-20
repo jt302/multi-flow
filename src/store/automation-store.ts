@@ -1,6 +1,7 @@
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 import { persist } from 'zustand/middleware';
+import { useShallow } from 'zustand/react/shallow';
 
 import type {
 	AiDialogFormField,
@@ -407,24 +408,30 @@ export function useActiveRunForScript(scriptId: string | null): RunState | null 
 }
 
 export function useRunsByScript(scriptId: string | null): RunState[] {
-	return useAutomationStore((s) => {
-		if (!scriptId) return [];
-		return Object.values(s.runs).filter((r) => r.scriptId === scriptId);
-	});
+	return useAutomationStore(
+		useShallow((s) => {
+			if (!scriptId) return [];
+			return Object.values(s.runs).filter((r) => r.scriptId === scriptId);
+		}),
+	);
 }
 
 export function useRunsByBatch(batchId: string | null): RunState[] {
-	return useAutomationStore((s) => {
-		if (!batchId) return [];
-		return (s.batches[batchId] ?? [])
-			.map((id) => s.runs[id])
-			.filter(Boolean) as RunState[];
-	});
+	return useAutomationStore(
+		useShallow((s) => {
+			if (!batchId) return [];
+			return (s.batches[batchId] ?? [])
+				.map((id) => s.runs[id])
+				.filter(Boolean) as RunState[];
+		}),
+	);
 }
 
 export function useRunsByProfile(profileId: string | null): RunState[] {
-	return useAutomationStore((s) => {
-		if (!profileId) return [];
-		return Object.values(s.runs).filter((r) => r.profileId === profileId);
-	});
+	return useAutomationStore(
+		useShallow((s) => {
+			if (!profileId) return [];
+			return Object.values(s.runs).filter((r) => r.profileId === profileId);
+		}),
+	);
 }

@@ -24,6 +24,9 @@ export function AutomationCanvasRoutePage() {
 		scriptId ?? null,
 	);
 
+	// 必须在所有条件返回之前调用，避免违反 React Hooks 规则
+	const scriptRuns = useRunsByScript(scriptId ?? null);
+
 	const script = scripts.find((s) => s.id === scriptId);
 
 	if (isLoading) {
@@ -46,9 +49,6 @@ export function AutomationCanvasRoutePage() {
 	const isRunning =
 		belongsToThisScript &&
 		(liveRunStatus === 'running' || liveRunStatus === 'waiting_human');
-
-	// 计算各 step 的并发 profile 数（多个 profile 同时跑同一 script 时）
-	const scriptRuns = useRunsByScript(scriptId ?? null);
 	const concurrentCounts: Record<number, number> = {};
 	for (const run of scriptRuns) {
 		if (run.liveRunStatus !== 'running' && run.liveRunStatus !== 'waiting_human') continue;
