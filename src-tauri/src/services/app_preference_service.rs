@@ -74,7 +74,7 @@ impl Default for AppPreferencesFile {
             plugin_download_proxy_id: None,
             ai_provider: None,
             ai_configs: Vec::new(),
-            chromium_logging_enabled: true,
+            chromium_logging_enabled: false,
             captcha_solver_configs: Vec::new(),
             ai_chat_global_prompt: None,
             tool_confirmation_overrides: HashMap::new(),
