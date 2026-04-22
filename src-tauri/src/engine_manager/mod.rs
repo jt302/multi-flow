@@ -2335,6 +2335,114 @@ fn profile_window_state(profile_id: &str, record: &SessionRecord) -> ProfileWind
     }
 }
 
+/// WebSocket 订阅 Chromium sync.event 事件，转发到 Tauri 前端。
+/// 当 Chromium 退出（magic server 不再存活）时自动退出循环。
+pub(crate) async fn subscribe_chromium_events(
+    app: tauri::AppHandle,
+    profile_id: String,
+    magic_port: u16,
+) {
+    use futures_util::{SinkExt, StreamExt};
+    use tauri::Emitter;
+    use tokio_tungstenite::tungstenite::Message as WsMsg;
+
+    let url = format!("ws://127.0.0.1:{magic_port}/");
+    let mut backoff_ms = 500u64;
+
+    loop {
+        match tokio_tungstenite::connect_async(&url).await {
+            Ok((ws_stream, _)) => {
+                backoff_ms = 500;
+                let (mut tx, mut rx) = ws_stream.split();
+
+                let subscribe =
+                    serde_json::json!({"type": "sync.subscribe_events"}).to_string();
+                if tx.send(WsMsg::Text(subscribe.into())).await.is_err() {
+                    logger::warn(
+                        "engine_manager.ws",
+                        format!("ws subscribe send failed profile_id={profile_id}"),
+                    );
+                    break;
+                }
+                logger::info(
+                    "engine_manager.ws",
+                    format!(
+                        "ws events subscribed profile_id={profile_id} magic_port={magic_port}"
+                    ),
+                );
+
+                while let Some(msg) = rx.next().await {
+                    match msg {
+                        Ok(WsMsg::Text(text)) => {
+                            let Ok(value) =
+                                serde_json::from_str::<serde_json::Value>(text.as_str())
+                            else {
+                                continue;
+                            };
+                            if value.get("type").and_then(|v| v.as_str())
+                                != Some("sync.event")
+                            {
+                                continue;
+                            }
+                            let Some(payload) = value.get("payload") else {
+                                continue;
+                            };
+                            let event_type = payload
+                                .get("event_type")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("");
+
+                            let mut enriched = payload.clone();
+                            if let Some(obj) = enriched.as_object_mut() {
+                                obj.insert(
+                                    "profile_id".to_string(),
+                                    serde_json::Value::String(profile_id.clone()),
+                                );
+                            }
+
+                            if event_type.starts_with("bookmark.") {
+                                let _ = app.emit("chromium_bookmark_event", &enriched);
+                            } else if event_type.starts_with("window.")
+                                || event_type.starts_with("tab.")
+                            {
+                                let _ = app.emit("chromium_window_event", &enriched);
+                            }
+                        }
+                        Ok(WsMsg::Close(_)) | Err(_) => break,
+                        _ => {}
+                    }
+                }
+
+                logger::info(
+                    "engine_manager.ws",
+                    format!("ws connection dropped profile_id={profile_id}"),
+                );
+            }
+            Err(err) => {
+                logger::warn(
+                    "engine_manager.ws",
+                    format!(
+                        "ws connect failed profile_id={profile_id} magic_port={magic_port}: {err}"
+                    ),
+                );
+            }
+        }
+
+        if !is_magic_server_alive(magic_port) {
+            logger::info(
+                "engine_manager.ws",
+                format!(
+                    "magic server down, stopping ws subscription profile_id={profile_id}"
+                ),
+            );
+            break;
+        }
+
+        tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
+        backoff_ms = (backoff_ms * 2).min(10_000);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

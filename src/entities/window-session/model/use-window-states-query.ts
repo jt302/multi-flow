@@ -8,6 +8,6 @@ export function useWindowStatesQuery() {
 	return useQuery<ProfileWindowStateItem[]>({
 		queryKey: queryKeys.windowStates,
 		queryFn: listOpenProfileWindows,
-		refetchInterval: 5000,
+		refetchInterval: 30_000,
 	});
 }

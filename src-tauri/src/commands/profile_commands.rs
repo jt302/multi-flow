@@ -1736,6 +1736,18 @@ pub(crate) fn do_open_profile(
         let profile_id_bg = profile_id.to_string();
         let background_color = launch_options.background_color.clone();
         let toolbar_text = launch_options.toolbar_text.clone();
+        // Start WebSocket event subscription for real Chromium sessions.
+        if let Some(magic_port) = session.magic_port {
+            let app_ws = app.clone();
+            let profile_id_ws = profile_id.to_string();
+            tauri::async_runtime::spawn(
+                crate::engine_manager::subscribe_chromium_events(
+                    app_ws,
+                    profile_id_ws,
+                    magic_port,
+                ),
+            );
+        }
         std::thread::spawn(move || {
             let state = app.state::<AppState>();
             let _ = state.lock_engine_manager().apply_profile_visual_overrides(
