@@ -309,7 +309,10 @@ fn gemini_parts_from_content(content: &ChatContent) -> Result<Vec<Value>, String
     }
 }
 
-fn gemini_contents(messages: &[ChatMessage]) -> Result<Vec<Value>, String> {
+/// 返回 (contents, system_instruction)。
+/// system_instruction 对应 Gemini v1beta 的原生 systemInstruction 字段，
+/// 避免把系统提示塞进 user/model fake 对话轮次影响 2.5 系模型输出。
+fn gemini_contents(messages: &[ChatMessage]) -> Result<(Vec<Value>, Option<Value>), String> {
     let system_text = messages
         .iter()
         .filter(|message| message.role == "system")
@@ -317,12 +320,13 @@ fn gemini_contents(messages: &[ChatMessage]) -> Result<Vec<Value>, String> {
         .collect::<Vec<_>>()
         .join("\n");
 
-    let mut contents = Vec::new();
-    if !system_text.is_empty() {
-        contents.push(json!({ "role": "user", "parts": [{ "text": system_text }] }));
-        contents.push(json!({ "role": "model", "parts": [{ "text": "Understood." }] }));
-    }
+    let system_instruction = if system_text.is_empty() {
+        None
+    } else {
+        Some(json!({ "parts": [{ "text": system_text }] }))
+    };
 
+    let mut contents = Vec::new();
     for message in messages.iter().filter(|message| message.role != "system") {
         let role = if message.role == "assistant" {
             "model"
@@ -335,7 +339,7 @@ fn gemini_contents(messages: &[ChatMessage]) -> Result<Vec<Value>, String> {
         }));
     }
 
-    Ok(contents)
+    Ok((contents, system_instruction))
 }
 
 const MAX_AI_RETRIES: u32 = 5;
@@ -833,7 +837,7 @@ impl AiService {
         model: &str,
         messages: &[ChatMessage],
     ) -> Result<String, String> {
-        let contents = gemini_contents(messages)?;
+        let (contents, system_instruction) = gemini_contents(messages)?;
 
         let url = format!(
             "{}/v1beta/models/{}:generateContent?key={}",
@@ -841,7 +845,10 @@ impl AiService {
             model,
             api_key
         );
-        let body = json!({"contents": contents});
+        let mut body = json!({"contents": contents});
+        if let Some(sys) = system_instruction {
+            body["systemInstruction"] = sys;
+        }
 
         let text = {
             let mut last_err = String::new();
@@ -1407,8 +1414,8 @@ async fn stream_gemini(
     messages: Vec<ChatMessage>,
     tx: tokio::sync::mpsc::UnboundedSender<AiChatDelta>,
 ) {
-    let contents = match gemini_contents(&messages) {
-        Ok(contents) => contents,
+    let (contents, system_instruction) = match gemini_contents(&messages) {
+        Ok(v) => v,
         Err(error) => {
             let _ = tx.send(AiChatDelta::Error(error));
             return;
@@ -1421,7 +1428,10 @@ async fn stream_gemini(
         model,
         api_key
     );
-    let body = json!({"contents": contents});
+    let mut body = json!({"contents": contents});
+    if let Some(sys) = system_instruction {
+        body["systemInstruction"] = sys;
+    }
 
     let resp = match http
         .post(&url)
@@ -1439,6 +1449,10 @@ async fn stream_gemini(
     if !resp.status().is_success() {
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
+        crate::logger::warn(
+            "ai-chat",
+            format!("Gemini stream HTTP {status}: {body}"),
+        );
         let _ = tx.send(AiChatDelta::Error(format!("Gemini API error {status}: {body}")));
         return;
     }

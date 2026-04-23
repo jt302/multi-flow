@@ -1,4 +1,4 @@
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { PanelLeft } from 'lucide-react';
@@ -51,7 +51,6 @@ const sessionsQuery = useChatSessionsQuery();
 	const [isRestoringSession, setIsRestoringSession] = useState(
 		() => !!chatStore.getState().activeSessionId,
 	);
-	const restoreFrameRef = useRef<number | null>(null);
 	const isGenerating = useChatStore((s) => s.isGenerating);
 	const liveMessages = useChatStore((s) => s.liveMessages);
 	const contextUsed = useChatStore((s) => s.contextUsed);
@@ -76,29 +75,12 @@ const sessionsQuery = useChatSessionsQuery();
 	const deleteSession = useDeleteChatSession();
 
 	const activateSession = useCallback((id: string | null) => {
-		if (restoreFrameRef.current != null) {
-			cancelAnimationFrame(restoreFrameRef.current);
-			restoreFrameRef.current = null;
-		}
 		setHydratedSessionId(id);
 		setIsRestoringSession(false);
 		chatStore.getState().setActiveSession(id);
 	}, []);
 
 	useEffect(() => {
-		return () => {
-			if (restoreFrameRef.current != null) {
-				cancelAnimationFrame(restoreFrameRef.current);
-			}
-		};
-	}, []);
-
-	useEffect(() => {
-		if (restoreFrameRef.current != null) {
-			cancelAnimationFrame(restoreFrameRef.current);
-			restoreFrameRef.current = null;
-		}
-
 		if (!persistedSessionId) {
 			setHydratedSessionId(null);
 			setIsRestoringSession(false);
@@ -125,13 +107,11 @@ const sessionsQuery = useChatSessionsQuery();
 			return;
 		}
 
-		setIsRestoringSession(true);
-		restoreFrameRef.current = requestAnimationFrame(() => {
-			startTransition(() => {
-				setHydratedSessionId(persistedSessionId);
-				setIsRestoringSession(false);
-			});
-			restoreFrameRef.current = null;
+		// rAF + effect 依赖变更之间有竞态（Strict Mode 下 effect 二次运行会取消 rAF），
+		// startTransition 单独已足够保证低优先级延迟更新。
+		startTransition(() => {
+			setHydratedSessionId(persistedSessionId);
+			setIsRestoringSession(false);
 		});
 	}, [hydratedSessionId, persistedSessionId, sessions, sessionsQuery.isLoading]);
 
