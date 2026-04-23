@@ -16,16 +16,37 @@
 		"noDescription": "No description available",
 		"crxPath": "CRX: {{path}}",
 		"updateStatus": "Update Status: {{status}} / Latest Version {{version}}",
+		"latestVersionUnknown": "Unknown",
+		"updateStatuses": {
+			"unknown": "Not checked",
+			"upToDate": "Up to date",
+			"updateAvailable": "Update available",
+			"error": "Check failed"
+		},
+		"updateCheckToast": {
+			"unknown": "No plugin update information was returned",
+			"upToDate": "Plugin is already up to date",
+			"updateAvailable": "Plugin update available: {{version}}",
+			"error": "Plugin update check failed"
+		},
+		"updatePackageToast": {
+			"updated": "Plugin updated to {{version}}",
+			"stillUpdateAvailable": "Plugin downloaded, but a newer version is still detected: {{latestVersion}}",
+			"statusUnknown": "Plugin downloaded, update status unknown",
+			"statusCheckFailed": "Plugin downloaded, but update status check failed"
+		},
+		"updatePluginActions": {
+			"update": "Update Plugin",
+			"redownload": "Redownload",
+			"checkAndUpdate": "Check and Update"
+		},
 		"openInStore": "Open in Store",
 		"checkUpdate": "Check Update",
-		"updatePlugin": "Update Plugin",
 		"installToProfiles": "Install to Profiles",
 		"installToAll": "Install to All Profiles",
 		"uninstall": "Uninstall",
 		"empty": "No downloaded plugins yet.",
 		"iconAlt": "{{name}} icon",
-		"updateStatusRefreshed": "Plugin update status refreshed",
-		"pluginUpdated": "Plugin updated",
 		"pluginUninstalled": "Plugin uninstalled"
 	},
 	"install": {

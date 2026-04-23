@@ -57,6 +57,12 @@ import {
 import type { PluginPackage } from '@/entities/plugin/model/types';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 import { getWorkspaceSections } from '@/app/model/workspace-sections';
+import {
+	getPluginUpdateActionLabelKey,
+	getPluginUpdateCheckToastKey,
+	getPluginUpdatePackageToastKey,
+	getPluginUpdateStatusLabelKey,
+} from '@/features/plugin/model/plugin-update-status';
 
 type PluginsPageProps = {
 	profiles: ProfileItem[];
@@ -273,6 +279,71 @@ export function PluginsPage({
 		}
 	};
 
+	const handleCheckUpdate = async (plugin: PluginPackage) => {
+		setBusyPackageId(plugin.packageId);
+		try {
+			const updatedPlugin = await checkPluginUpdate(
+				plugin.packageId,
+				downloadProxyId,
+			);
+			await refreshAll();
+			const toastText = t(
+				getPluginUpdateCheckToastKey(updatedPlugin.updateStatus),
+				{
+					version:
+						updatedPlugin.latestVersion ??
+						t('library.latestVersionUnknown'),
+				},
+			);
+			if (updatedPlugin.updateStatus === 'error') {
+				toast.warning(toastText);
+			} else {
+				toast.success(toastText);
+			}
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : t('toast.operationFailed'),
+			);
+		} finally {
+			setBusyPackageId(null);
+		}
+	};
+
+	const handleUpdatePlugin = async (plugin: PluginPackage) => {
+		setBusyPackageId(plugin.packageId);
+		try {
+			const updatedPlugin = await updatePluginPackage(
+				plugin.packageId,
+				downloadProxyId,
+			);
+			await refreshAll();
+			const toastText = t(
+				getPluginUpdatePackageToastKey(updatedPlugin.updateStatus),
+				{
+					version: updatedPlugin.version,
+					latestVersion:
+						updatedPlugin.latestVersion ??
+						t('library.latestVersionUnknown'),
+				},
+			);
+			if (
+				updatedPlugin.updateStatus === 'error' ||
+				updatedPlugin.updateStatus === 'unknown' ||
+				updatedPlugin.updateStatus === 'update_available'
+			) {
+				toast.warning(toastText);
+			} else {
+				toast.success(toastText);
+			}
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : t('toast.operationFailed'),
+			);
+		} finally {
+			setBusyPackageId(null);
+		}
+	};
+
 	return (
 		<div className="flex flex-col gap-3 h-full min-h-0">
 			<ActiveSectionCard
@@ -382,8 +453,12 @@ export function PluginsPage({
 										</p>
 										<p className="mt-1 text-[11px] text-muted-foreground">
 											{t('library.updateStatus', {
-												status: plugin.updateStatus ?? 'unknown',
-												version: plugin.latestVersion,
+												status: t(
+													getPluginUpdateStatusLabelKey(plugin.updateStatus),
+												),
+												version:
+													plugin.latestVersion ??
+													t('library.latestVersionUnknown'),
 											})}
 										</p>
 									</div>
@@ -406,14 +481,7 @@ export function PluginsPage({
 										size="sm"
 										className="cursor-pointer"
 										disabled={busyPackageId === plugin.packageId}
-										onClick={() =>
-											void runPackageAction(
-												plugin.packageId,
-												() =>
-													checkPluginUpdate(plugin.packageId, downloadProxyId),
-												t('library.updateStatusRefreshed'),
-											)
-										}
+										onClick={() => void handleCheckUpdate(plugin)}
 									>
 										<Icon icon={RefreshCcw} size={12} />
 										{t('library.checkUpdate')}
@@ -424,20 +492,10 @@ export function PluginsPage({
 										size="sm"
 										className="cursor-pointer"
 										disabled={busyPackageId === plugin.packageId}
-										onClick={() =>
-											void runPackageAction(
-												plugin.packageId,
-												() =>
-													updatePluginPackage(
-														plugin.packageId,
-														downloadProxyId,
-													),
-												t('library.pluginUpdated'),
-											)
-										}
+										onClick={() => void handleUpdatePlugin(plugin)}
 									>
 										<Icon icon={PackageCheck} size={12} />
-										{t('library.updatePlugin')}
+										{t(getPluginUpdateActionLabelKey(plugin.updateStatus))}
 									</Button>
 									<Button
 										type="button"

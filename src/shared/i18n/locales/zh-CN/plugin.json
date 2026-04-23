@@ -16,16 +16,37 @@
 		"noDescription": "暂无描述",
 		"crxPath": "CRX: {{path}}",
 		"updateStatus": "更新状态: {{status}} / 最新版本 {{version}}",
+		"latestVersionUnknown": "未知",
+		"updateStatuses": {
+			"unknown": "未检查",
+			"upToDate": "已是最新",
+			"updateAvailable": "有新版本",
+			"error": "检查失败"
+		},
+		"updateCheckToast": {
+			"unknown": "未获取到插件更新信息",
+			"upToDate": "插件已是最新版本",
+			"updateAvailable": "发现插件新版本：{{version}}",
+			"error": "插件更新检查失败"
+		},
+		"updatePackageToast": {
+			"updated": "插件已更新到 {{version}}",
+			"stillUpdateAvailable": "插件已下载，但仍检测到新版本：{{latestVersion}}",
+			"statusUnknown": "插件已下载，更新状态未知",
+			"statusCheckFailed": "插件已下载，但更新状态检查失败"
+		},
+		"updatePluginActions": {
+			"update": "更新插件",
+			"redownload": "重新下载",
+			"checkAndUpdate": "检查并更新"
+		},
 		"openInStore": "在商店中打开",
 		"checkUpdate": "检查更新",
-		"updatePlugin": "更新插件",
 		"installToProfiles": "安装到环境",
 		"installToAll": "安装到所有环境",
 		"uninstall": "卸载",
 		"empty": "还没有已下载插件。",
 		"iconAlt": "{{name}} 图标",
-		"updateStatusRefreshed": "插件更新状态已刷新",
-		"pluginUpdated": "插件已更新",
 		"pluginUninstalled": "插件已卸载"
 	},
 	"install": {
