@@ -267,11 +267,13 @@ mod tests {
             proxy_service: Mutex::new(proxy_service),
             resource_service: Mutex::new(resource_service),
             active_resource_downloads: Mutex::new(std::collections::HashMap::new()),
+            active_plugin_downloads: Mutex::new(std::collections::HashMap::new()),
             engine_manager: Mutex::new(EngineManager::new()),
             local_api_server: Mutex::new(local_api_server),
             chromium_magic_adapter_service: Mutex::new(ChromiumMagicAdapterService::new()),
             sync_manager_service: Mutex::new(SyncManagerService::new_mock(None, None)),
             mcp_manager: std::sync::Arc::new(crate::services::mcp::McpManager::from_db(db.clone())),
+            bookmark_template_service: Mutex::new(crate::services::bookmark_template_service::BookmarkTemplateService::from_db(db.clone())),
             require_real_engine: false,
             last_arrangement_snapshot: Mutex::new(Vec::new()),
             host_locale_service: std::sync::Arc::new(

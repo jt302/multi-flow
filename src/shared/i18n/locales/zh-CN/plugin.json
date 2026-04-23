@@ -78,6 +78,12 @@
 		"installed": "插件已写入 {{count}} 个环境",
 		"restartNotice": "运行中的环境需要重启后，插件变更才会生效",
 		"installFailed": "安装插件失败",
+		"downloadStarting": "正在准备插件下载...",
+		"downloadProgress": "正在下载插件...",
+		"downloadProgressPercent": "正在下载插件 {{percent}}%",
+		"downloadProcessing": "正在处理插件...",
+		"downloadCompleted": "插件下载完成",
+		"downloadFailed": "插件下载失败",
 		"readProxyPrefFailed": "读取插件下载代理偏好失败",
 		"saveProxyPrefFailed": "保存插件下载代理偏好失败"
 	}

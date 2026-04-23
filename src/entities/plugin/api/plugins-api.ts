@@ -5,6 +5,39 @@ import type {
 	PluginPackage,
 } from '@/entities/plugin/model/types';
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
+import { listen } from '@tauri-apps/api/event';
+
+export type PluginDownloadProgressEvent = {
+	taskId: string;
+	extensionId: string;
+	packageId?: string | null;
+	stage: 'start' | 'download' | 'process' | 'done' | 'error' | string;
+	downloadedBytes: number;
+	totalBytes: number | null;
+	percent: number | null;
+	message: string;
+	updatedAt?: number;
+};
+
+export type PluginDownloadProgressSnapshot = PluginDownloadProgressEvent & {
+	updatedAt: number;
+};
+
+export function createPluginTaskId(prefix: string): string {
+	return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export async function listenAllPluginProgress(
+	onProgress: (progress: PluginDownloadProgressEvent) => void,
+) {
+	return listen<PluginDownloadProgressEvent>('plugin_download_progress', (event) => {
+		onProgress(event.payload);
+	});
+}
+
+export async function getActivePluginDownloads(): Promise<PluginDownloadProgressSnapshot[]> {
+	return tauriInvoke<PluginDownloadProgressSnapshot[]>('get_active_plugin_downloads');
+}
 
 export async function listPluginPackages(): Promise<PluginPackage[]> {
 	return tauriInvoke<PluginPackage[]>('list_plugin_packages');
@@ -26,8 +59,10 @@ export async function downloadPluginByExtensionId(
 	extensionId: string,
 	proxyId?: string | null,
 ): Promise<PluginPackage> {
+	const taskId = createPluginTaskId(`plugin-download-${extensionId.trim()}`);
 	return tauriInvoke<PluginPackage>('download_plugin_by_extension_id', {
 		payload: { extensionId: extensionId.trim(), proxyId: proxyId?.trim() || null },
+		taskId,
 	});
 }
 
@@ -45,9 +80,11 @@ export async function updatePluginPackage(
 	packageId: string,
 	proxyId?: string | null,
 ): Promise<PluginPackage> {
+	const taskId = createPluginTaskId(`plugin-update-${packageId}`);
 	return tauriInvoke<PluginPackage>('update_plugin_package', {
 		packageId,
 		proxyId: proxyId?.trim() || null,
+		taskId,
 	});
 }
 

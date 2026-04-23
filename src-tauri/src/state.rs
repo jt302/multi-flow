@@ -12,25 +12,27 @@ use crate::engine_manager::EngineManager;
 use crate::error::AppResult;
 use crate::local_api_server::{LocalApiServer, DEFAULT_PROXY_DAEMON_BIND_ADDRESS};
 use crate::logger;
+use crate::models::{
+    ArrangementSnapshotItem, PluginDownloadProgressSnapshot, ResourceProgressSnapshot,
+};
 use crate::runtime_guard;
 use crate::services::ai_tools::dialog_tools::AiDialogResponse;
-use crate::models::{ArrangementSnapshotItem, ResourceProgressSnapshot};
-use crate::services::automation_context::ActiveRunRegistry;
 use crate::services::app_preference_service::AppPreferenceService;
+use crate::services::automation_context::ActiveRunRegistry;
 use crate::services::automation_service::AutomationService;
+use crate::services::bookmark_template_service::BookmarkTemplateService;
 use crate::services::chat_service::ChatService;
 use crate::services::chromium_magic_adapter_service::ChromiumMagicAdapterService;
 use crate::services::device_preset_service::DevicePresetService;
 use crate::services::engine_session_service::EngineSessionService;
+use crate::services::host_locale_service::HostLocaleService;
+use crate::services::mcp::McpManager;
 use crate::services::plugin_package_service::PluginPackageService;
 use crate::services::profile_group_service::ProfileGroupService;
 use crate::services::profile_service::ProfileService;
 use crate::services::proxy_service::ProxyService;
 use crate::services::resource_service::ResourceService;
-use crate::services::mcp::McpManager;
-use crate::services::bookmark_template_service::BookmarkTemplateService;
 use crate::services::sync_manager_service::SyncManagerService;
-use crate::services::host_locale_service::HostLocaleService;
 
 const DEV_APP_DATA_DIR_NAME: &str = "dev";
 
@@ -61,6 +63,8 @@ pub struct AppState {
     /// 进行中的资源下载任务快照：task_id → 最新进度。
     /// 用于前端组件重新挂载或 webview 刷新后恢复下载状态。
     pub active_resource_downloads: Mutex<HashMap<String, ResourceProgressSnapshot>>,
+    /// 进行中的插件下载任务快照：task_id → 最新进度。
+    pub active_plugin_downloads: Mutex<HashMap<String, PluginDownloadProgressSnapshot>>,
     pub engine_manager: Mutex<EngineManager>,
     pub local_api_server: Mutex<LocalApiServer>,
     pub chromium_magic_adapter_service: Mutex<ChromiumMagicAdapterService>,
@@ -196,6 +200,7 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
         proxy_service: Mutex::new(proxy_service),
         resource_service: Mutex::new(resource_service),
         active_resource_downloads: Mutex::new(HashMap::new()),
+        active_plugin_downloads: Mutex::new(HashMap::new()),
         engine_manager: Mutex::new(engine_manager),
         local_api_server: Mutex::new(local_api_server),
         chromium_magic_adapter_service: Mutex::new(chromium_magic_adapter_service),
@@ -250,11 +255,11 @@ fn cleanup_rpa_artifacts_dir(app: &AppHandle) -> AppResult<()> {
 pub fn resolve_app_data_dir(app: &AppHandle) -> AppResult<PathBuf> {
     Ok(resolve_runtime_app_data_dir(
         app.path()
-        .app_local_data_dir()
-        .or_else(|_| app.path().app_data_dir())
-        .map_err(|err| {
-            crate::error::AppError::Validation(format!("failed to resolve app data dir: {err}"))
-        })?,
+            .app_local_data_dir()
+            .or_else(|_| app.path().app_data_dir())
+            .map_err(|err| {
+                crate::error::AppError::Validation(format!("failed to resolve app data dir: {err}"))
+            })?,
         cfg!(debug_assertions),
     ))
 }
@@ -309,6 +314,9 @@ mod tests {
             resolve_runtime_app_data_dir(base_dir.clone(), true),
             base_dir.join("dev")
         );
-        assert_eq!(resolve_runtime_app_data_dir(base_dir.clone(), false), base_dir);
+        assert_eq!(
+            resolve_runtime_app_data_dir(base_dir.clone(), false),
+            base_dir
+        );
     }
 }

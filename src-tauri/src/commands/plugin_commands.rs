@@ -7,7 +7,7 @@ use reqwest::blocking::Client;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::{Proxy as ReqwestProxy, Url};
 use serde_json::Value;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager, State};
 use zip::ZipArchive;
 
 use crate::error::AppError;
@@ -15,7 +15,8 @@ use crate::logger;
 use crate::models::{
     BatchProfileActionItem, BatchProfileActionResponse, CreateProfileRequest,
     DownloadPluginByExtensionIdRequest, InstallPluginToProfilesRequest, PluginDownloadPreference,
-    PluginPackage, ProfileAdvancedSettings, ProfilePluginSelection, UpdateProfilePluginsRequest,
+    PluginDownloadProgressSnapshot, PluginPackage, ProfileAdvancedSettings, ProfilePluginSelection,
+    UpdateProfilePluginsRequest,
 };
 use crate::state::{resolve_app_data_dir, AppState};
 
@@ -31,6 +32,7 @@ const UPDATE_STATUS_AVAILABLE: &str = "update_available";
 const UPDATE_STATUS_ERROR: &str = "error";
 const PLUGIN_CONNECT_TIMEOUT_SECS: u64 = 8;
 const PLUGIN_DOWNLOAD_TIMEOUT_SECS: u64 = 30;
+const PLUGIN_PROGRESS_EVENT: &str = "plugin_download_progress";
 
 #[derive(Debug, Clone)]
 struct PluginProxyConfig {
@@ -45,6 +47,13 @@ struct PluginProxyConfig {
 #[derive(Debug)]
 struct DownloadedPluginPackage {
     package: PluginPackage,
+}
+
+#[derive(Clone)]
+struct PluginProgressContext {
+    app: AppHandle,
+    task_id: String,
+    extension_id: String,
 }
 
 #[derive(Debug)]
@@ -81,6 +90,17 @@ pub async fn list_plugin_packages(app: AppHandle) -> Result<Vec<PluginPackage>, 
     })
     .await
     .map_err(|err| format!("list plugin packages task join failed: {err}"))?
+}
+
+#[tauri::command]
+pub fn get_active_plugin_downloads(
+    state: State<'_, AppState>,
+) -> Result<Vec<PluginDownloadProgressSnapshot>, String> {
+    let guard = state
+        .active_plugin_downloads
+        .lock()
+        .map_err(|_| "active plugin downloads lock poisoned".to_string())?;
+    Ok(guard.values().cloned().collect())
 }
 
 #[tauri::command]
@@ -154,11 +174,12 @@ fn update_plugin_download_preference_inner(
 pub async fn download_plugin_by_extension_id(
     app: AppHandle,
     payload: DownloadPluginByExtensionIdRequest,
+    task_id: Option<String>,
 ) -> Result<PluginPackage, String> {
     let app_handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let state = app_handle.state::<AppState>();
-        download_plugin_by_extension_id_inner(&app_handle, &state, payload)
+        download_plugin_by_extension_id_inner(&app_handle, &state, payload, task_id)
     })
     .await
     .map_err(|err| format!("插件下载任务执行失败: {err}"))?
@@ -168,9 +189,15 @@ fn download_plugin_by_extension_id_inner(
     app: &AppHandle,
     state: &AppState,
     payload: DownloadPluginByExtensionIdRequest,
+    task_id: Option<String>,
 ) -> Result<PluginPackage, String> {
     let extension_id = normalize_extension_id(&payload.extension_id)?;
     let proxy = resolve_plugin_proxy(state, payload.proxy_id)?;
+    let progress = PluginProgressContext {
+        app: app.clone(),
+        task_id: task_id.unwrap_or_else(|| format!("plugin-download-{}", crate::models::now_ts())),
+        extension_id: extension_id.clone(),
+    };
     logger::info(
         "plugin_cmd",
         format!(
@@ -181,8 +208,29 @@ fn download_plugin_by_extension_id_inner(
                 .unwrap_or("direct")
         ),
     );
-    let downloaded =
-        download_and_store_plugin_package(app, state, &extension_id, None, proxy.as_ref())?;
+    let downloaded = match download_and_store_plugin_package(
+        app,
+        state,
+        &extension_id,
+        None,
+        proxy.as_ref(),
+        Some(&progress),
+    ) {
+        Ok(value) => value,
+        Err(err) => {
+            emit_plugin_progress(
+                app,
+                &progress.task_id,
+                &extension_id,
+                None,
+                "error",
+                0,
+                None,
+                &err,
+            );
+            return Err(err);
+        }
+    };
     rewrite_profiles_referencing_package(&state, &downloaded.package.package_id)?;
     logger::info(
         "plugin_cmd",
@@ -267,11 +315,12 @@ pub async fn update_plugin_package(
     app: AppHandle,
     package_id: String,
     proxy_id: Option<String>,
+    task_id: Option<String>,
 ) -> Result<PluginPackage, String> {
     let app_handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let state = app_handle.state::<AppState>();
-        update_plugin_package_inner(&app_handle, &state, package_id, proxy_id)
+        update_plugin_package_inner(&app_handle, &state, package_id, proxy_id, task_id)
     })
     .await
     .map_err(|err| format!("插件更新任务执行失败: {err}"))?
@@ -282,6 +331,7 @@ fn update_plugin_package_inner(
     state: &AppState,
     package_id: String,
     proxy_id: Option<String>,
+    task_id: Option<String>,
 ) -> Result<PluginPackage, String> {
     let proxy = resolve_plugin_proxy(state, proxy_id)?;
     let package = {
@@ -291,18 +341,55 @@ fn update_plugin_package_inner(
             .map_err(|_| "plugin package service lock poisoned".to_string())?;
         service.get_package(&package_id).map_err(error_to_string)?
     };
+    let progress = PluginProgressContext {
+        app: app.clone(),
+        task_id: task_id.unwrap_or_else(|| format!("plugin-update-{}", crate::models::now_ts())),
+        extension_id: package.extension_id.clone(),
+    };
     let update = fetch_plugin_update_check(&package.extension_id, proxy.as_ref())?;
-    let codebase = update
+    let codebase_result = update
         .codebase
         .as_deref()
-        .ok_or_else(|| "插件更新检查未返回可下载地址".to_string())?;
-    let downloaded = download_and_store_plugin_package(
+        .ok_or_else(|| "插件更新检查未返回可下载地址".to_string());
+    let codebase = match codebase_result {
+        Ok(value) => value,
+        Err(err) => {
+            emit_plugin_progress(
+                app,
+                &progress.task_id,
+                &package.extension_id,
+                Some(&package.package_id),
+                "error",
+                0,
+                None,
+                &err,
+            );
+            return Err(err);
+        }
+    };
+    let downloaded = match download_and_store_plugin_package(
         app,
         state,
         &package.extension_id,
         Some(codebase),
         proxy.as_ref(),
-    )?;
+        Some(&progress),
+    ) {
+        Ok(value) => value,
+        Err(err) => {
+            emit_plugin_progress(
+                app,
+                &progress.task_id,
+                &package.extension_id,
+                Some(&package.package_id),
+                "error",
+                0,
+                None,
+                &err,
+            );
+            return Err(err);
+        }
+    };
     rewrite_profiles_referencing_package(&state, &downloaded.package.package_id)?;
     Ok(downloaded.package)
 }
@@ -494,6 +581,7 @@ fn download_and_store_plugin_package(
     extension_id: &str,
     codebase_override: Option<&str>,
     proxy: Option<&PluginProxyConfig>,
+    progress: Option<&PluginProgressContext>,
 ) -> Result<DownloadedPluginPackage, String> {
     let existing_package = {
         let service = state
@@ -508,6 +596,18 @@ fn download_and_store_plugin_package(
         .as_ref()
         .map(|item| item.package_id.clone())
         .unwrap_or_else(|| format!("pkg_{extension_id}"));
+    if let Some(progress) = progress {
+        emit_plugin_progress(
+            &progress.app,
+            &progress.task_id,
+            &progress.extension_id,
+            Some(&package_id),
+            "start",
+            0,
+            None,
+            "Starting download",
+        );
+    }
     let package_dir = resolve_plugin_package_dir(app, &package_id)?;
     fs::create_dir_all(&package_dir)
         .map_err(|err| format!("create plugin package directory failed: {err}"))?;
@@ -516,7 +616,34 @@ fn download_and_store_plugin_package(
         Some(value) => value.to_string(),
         None => fetch_plugin_download_url(extension_id, proxy)?,
     };
-    let bytes = download_binary(&codebase, proxy)?;
+    let bytes = if let Some(progress) = progress {
+        download_binary_with_progress(&codebase, proxy, |downloaded, total| {
+            emit_plugin_progress(
+                &progress.app,
+                &progress.task_id,
+                &progress.extension_id,
+                Some(&package_id),
+                "download",
+                downloaded,
+                total,
+                "Downloading",
+            );
+        })?
+    } else {
+        download_binary(&codebase, proxy)?
+    };
+    if let Some(progress) = progress {
+        emit_plugin_progress(
+            &progress.app,
+            &progress.task_id,
+            &progress.extension_id,
+            Some(&package_id),
+            "process",
+            bytes.len() as u64,
+            Some(bytes.len() as u64),
+            "Processing",
+        );
+    }
     let parsed = parse_downloaded_plugin(extension_id, &bytes)?;
 
     let crx_path = package_dir.join(format!("{extension_id}.crx"));
@@ -612,6 +739,19 @@ fn download_and_store_plugin_package(
             extension_id, saved.package_id, saved.version
         ),
     );
+
+    if let Some(progress) = progress {
+        emit_plugin_progress(
+            &progress.app,
+            &progress.task_id,
+            &progress.extension_id,
+            Some(&saved.package_id),
+            "done",
+            bytes.len() as u64,
+            Some(bytes.len() as u64),
+            "Done",
+        );
+    }
 
     Ok(DownloadedPluginPackage { package: saved })
 }
@@ -765,6 +905,50 @@ fn download_binary(url: &str, proxy: Option<&PluginProxyConfig>) -> Result<Vec<u
     Ok(bytes)
 }
 
+fn download_binary_with_progress<F>(
+    url: &str,
+    proxy: Option<&PluginProxyConfig>,
+    mut on_progress: F,
+) -> Result<Vec<u8>, String>
+where
+    F: FnMut(u64, Option<u64>),
+{
+    logger::info(
+        "plugin_cmd",
+        format!(
+            "download_plugin_binary proxy_id={} url={url}",
+            proxy
+                .as_ref()
+                .map(|item| item.proxy_id.as_str())
+                .unwrap_or("direct")
+        ),
+    );
+    let mut response = http_client(proxy)?
+        .get(url)
+        .send()
+        .and_then(|result| result.error_for_status())
+        .map_err(|err| map_plugin_http_error("下载插件文件", err))?;
+    let total = response.content_length();
+    let mut bytes = Vec::new();
+    let mut downloaded = 0_u64;
+    let mut buffer = [0_u8; 64 * 1024];
+
+    on_progress(downloaded, total);
+    loop {
+        let read = response
+            .read(&mut buffer)
+            .map_err(|err| format!("read plugin download response failed: {err}"))?;
+        if read == 0 {
+            break;
+        }
+        bytes.extend_from_slice(&buffer[..read]);
+        downloaded += read as u64;
+        on_progress(downloaded, total);
+    }
+
+    Ok(bytes)
+}
+
 fn download_store_icon(
     package_dir: &Path,
     icon_url: &str,
@@ -803,6 +987,50 @@ fn map_plugin_http_error(action: &str, err: reqwest::Error) -> String {
         return format!("{action}失败，当前无法连接 Chrome Web Store，请检查网络或代理后重试");
     }
     format!("{action}失败: {err}")
+}
+
+fn emit_plugin_progress(
+    app: &AppHandle,
+    task_id: &str,
+    extension_id: &str,
+    package_id: Option<&str>,
+    stage: &str,
+    downloaded_bytes: u64,
+    total_bytes: Option<u64>,
+    message: &str,
+) {
+    let percent = total_bytes.and_then(|total| {
+        if total == 0 {
+            None
+        } else {
+            Some(((downloaded_bytes as f64 / total as f64) * 100.0).min(100.0))
+        }
+    });
+    let snapshot = PluginDownloadProgressSnapshot {
+        task_id: task_id.to_string(),
+        extension_id: extension_id.to_string(),
+        package_id: package_id.map(str::to_string),
+        stage: stage.to_string(),
+        downloaded_bytes,
+        total_bytes,
+        percent,
+        message: message.to_string(),
+        updated_at: crate::models::now_ts(),
+    };
+
+    let state = app.state::<AppState>();
+    if let Ok(mut guard) = state.active_plugin_downloads.lock() {
+        match stage {
+            "done" | "error" => {
+                guard.remove(task_id);
+            }
+            _ => {
+                guard.insert(task_id.to_string(), snapshot.clone());
+            }
+        }
+    }
+
+    let _ = app.emit(PLUGIN_PROGRESS_EVENT, snapshot);
 }
 
 fn parse_store_listing_metadata(html: &str) -> StoreListingMetadata {

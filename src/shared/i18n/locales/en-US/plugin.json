@@ -78,6 +78,12 @@
 		"installed": "Plugin written to {{count}} profiles",
 		"restartNotice": "Running profiles need restart for plugin changes to take effect",
 		"installFailed": "Failed to install plugin",
+		"downloadStarting": "Preparing plugin download...",
+		"downloadProgress": "Downloading plugin...",
+		"downloadProgressPercent": "Downloading plugin {{percent}}%",
+		"downloadProcessing": "Processing plugin...",
+		"downloadCompleted": "Plugin download completed",
+		"downloadFailed": "Plugin download failed",
 		"readProxyPrefFailed": "Failed to read plugin download proxy preference",
 		"saveProxyPrefFailed": "Failed to save plugin download proxy preference"
 	}

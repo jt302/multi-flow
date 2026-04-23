@@ -3,6 +3,7 @@ export const queryKeys = {
 	profiles: ['profiles'] as const,
 	profileRuntimeDetails: (profileId: string | null) => ['profile-runtime-details', profileId] as const,
 	proxies: ['proxies'] as const,
+	pluginPackages: ['plugin-packages'] as const,
 	resources: ['resources'] as const,
 	devicePresets: ['device-presets'] as const,
 	devicePresetRefCount: (presetId: string) => ['device-preset-ref-count', presetId] as const,

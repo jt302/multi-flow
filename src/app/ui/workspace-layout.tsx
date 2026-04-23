@@ -12,6 +12,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { resolveNavFromPath, resolvePathFromNav } from '@/app/workspace-routes';
 import { buildWorkspaceLayoutOutletContext } from '@/app/model/workspace-layout-context';
 import { ResourceDownloadListener } from './resource-download-listener';
+import { PluginDownloadListener } from './plugin-download-listener';
 import type {
 	NavId,
 	WorkspaceOutletContext,
@@ -252,6 +253,7 @@ export function WorkspaceLayout() {
 				</div>
 				<Toaster theme={toasterTheme} />
 				<ResourceDownloadListener />
+				<PluginDownloadListener />
 			</div>
 		</SidebarProvider>
 	);

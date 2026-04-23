@@ -891,7 +891,12 @@ fn default_edge_inset() -> i32 {
 
 impl Default for EdgeInsets {
     fn default() -> Self {
-        Self { top: 12, right: 12, bottom: 12, left: 12 }
+        Self {
+            top: 12,
+            right: 12,
+            bottom: 12,
+            left: 12,
+        }
     }
 }
 
@@ -1189,6 +1194,20 @@ pub struct ResourceActivateResponse {
 pub struct ResourceProgressSnapshot {
     pub task_id: String,
     pub resource_id: String,
+    pub stage: String,
+    pub downloaded_bytes: u64,
+    pub total_bytes: Option<u64>,
+    pub percent: Option<f64>,
+    pub message: String,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginDownloadProgressSnapshot {
+    pub task_id: String,
+    pub extension_id: String,
+    pub package_id: Option<String>,
     pub stage: String,
     pub downloaded_bytes: u64,
     pub total_bytes: Option<u64>,

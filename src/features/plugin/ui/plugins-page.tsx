@@ -53,10 +53,14 @@ import {
 	uninstallPluginPackage,
 	updatePluginDownloadPreference,
 	updatePluginPackage,
+	type PluginDownloadProgressEvent,
 } from '@/entities/plugin/api/plugins-api';
 import type { PluginPackage } from '@/entities/plugin/model/types';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 import { getWorkspaceSections } from '@/app/model/workspace-sections';
+import { queryKeys } from '@/shared/config/query-keys';
+import { formatBytes } from '@/shared/lib/format';
+import { usePluginDownloadStore } from '@/store/plugin-download-store';
 import {
 	getPluginUpdateActionLabelKey,
 	getPluginUpdateCheckToastKey,
@@ -100,14 +104,19 @@ export function PluginsPage({
 	const preferenceHydratedRef = useRef(false);
 
 	const pluginPackagesQuery = useQuery({
-		queryKey: ['plugin-packages'],
+		queryKey: queryKeys.pluginPackages,
 		queryFn: listPluginPackages,
 	});
+	const pluginDownloadByExtensionId = usePluginDownloadStore(
+		(state) => state.byExtensionId,
+	);
 	const proxiesQuery = useProxiesQuery();
 	const downloadProxyId =
 		selectedDownloadProxyId === DIRECT_DOWNLOAD_PROXY_VALUE
 			? null
 			: selectedDownloadProxyId;
+	const activeInputDownload =
+		pluginDownloadByExtensionId[extensionIdInput.trim()] ?? null;
 	const availableProxies = useMemo(
 		() =>
 			(proxiesQuery.data ?? []).filter((item) => item.lifecycle === 'active'),
@@ -385,14 +394,22 @@ export function PluginsPage({
 							type="button"
 							className="w-full cursor-pointer md:w-auto"
 							onClick={() => void handleDownload()}
-							disabled={downloadPending}
+							disabled={downloadPending || Boolean(activeInputDownload)}
 						>
 							<Icon icon={Download} size={14} />
-							{downloadPending
+							{downloadPending || activeInputDownload
 								? t('downloadCrx.downloading')
 								: t('downloadCrx.download')}
 						</Button>
 					</div>
+					{activeInputDownload ? (
+						<PluginProgressBlock
+							percent={activeInputDownload.percent}
+							downloadedBytes={activeInputDownload.downloadedBytes}
+							totalBytes={activeInputDownload.totalBytes}
+							stage={activeInputDownload.stage}
+						/>
+					) : null}
 					<p className="text-xs text-muted-foreground">
 						{t('downloadCrx.proxyHint')}
 					</p>
@@ -415,140 +432,36 @@ export function PluginsPage({
 						</p>
 					) : null}
 					{(pluginPackagesQuery.data ?? []).map((plugin) => (
-						<div
+						<PluginPackageCard
 							key={plugin.packageId}
-							className="rounded-xl border border-border/70 bg-muted/20 p-3"
-						>
-							<div className="flex flex-wrap items-start justify-between gap-3">
-								<div className="flex min-w-0 flex-1 items-start gap-3">
-									<div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-background/80">
-										{getPluginIconSrc(plugin.iconPath) ? (
-											<img
-												src={getPluginIconSrc(plugin.iconPath) ?? undefined}
-												alt={t('library.iconAlt', { name: plugin.name })}
-												className="h-full w-full object-cover"
-											/>
-										) : (
-											<Icon
-												icon={Puzzle}
-												size={20}
-												className="text-muted-foreground"
-											/>
-										)}
-									</div>
-									<div className="min-w-0 flex-1">
-										<div className="flex flex-wrap items-center gap-2">
-											<p className="font-medium text-foreground">
-												{plugin.name}
-											</p>
-											<Badge variant="outline">v{plugin.version}</Badge>
-											<Badge variant="secondary">{plugin.extensionId}</Badge>
-											<Badge variant="outline">{plugin.sourceType}</Badge>
-										</div>
-										<p className="mt-1 text-sm text-muted-foreground">
-											{plugin.description?.trim() || t('library.noDescription')}
-										</p>
-										<p className="mt-2 text-[11px] text-muted-foreground">
-											{t('library.crxPath', { path: plugin.crxPath })}
-										</p>
-										<p className="mt-1 text-[11px] text-muted-foreground">
-											{t('library.updateStatus', {
-												status: t(
-													getPluginUpdateStatusLabelKey(plugin.updateStatus),
-												),
-												version:
-													plugin.latestVersion ??
-													t('library.latestVersionUnknown'),
-											})}
-										</p>
-									</div>
-								</div>
-								<div className="flex flex-wrap items-center gap-2">
-									<Button
-										type="button"
-										variant="outline"
-										size="sm"
-										className="cursor-pointer"
-										disabled={!plugin.storeUrl?.trim()}
-										onClick={() => void openPluginStore(plugin)}
-									>
-										<Icon icon={ExternalLink} size={12} />
-										{t('library.openInStore')}
-									</Button>
-									<Button
-										type="button"
-										variant="outline"
-										size="sm"
-										className="cursor-pointer"
-										disabled={busyPackageId === plugin.packageId}
-										onClick={() => void handleCheckUpdate(plugin)}
-									>
-										<Icon icon={RefreshCcw} size={12} />
-										{t('library.checkUpdate')}
-									</Button>
-									<Button
-										type="button"
-										variant="outline"
-										size="sm"
-										className="cursor-pointer"
-										disabled={busyPackageId === plugin.packageId}
-										onClick={() => void handleUpdatePlugin(plugin)}
-									>
-										<Icon icon={PackageCheck} size={12} />
-										{t(getPluginUpdateActionLabelKey(plugin.updateStatus))}
-									</Button>
-									<Button
-										type="button"
-										variant="outline"
-										size="sm"
-										className="cursor-pointer"
-										disabled={busyPackageId === plugin.packageId}
-										onClick={() => {
-											setInstallDialogPackage(plugin);
-											setSelectedProfileIds([]);
-											setFilters(DEFAULT_FILTERS);
-										}}
-									>
-										<Icon icon={Puzzle} size={12} />
-										{t('library.installToProfiles')}
-									</Button>
-									<Button
-										type="button"
-										variant="outline"
-										size="sm"
-										className="cursor-pointer"
-										disabled={busyPackageId === plugin.packageId}
-										onClick={() =>
-											void installToTargets(
-												plugin.packageId,
-												profiles
-													.filter((item) => item.lifecycle === 'active')
-													.map((item) => item.id),
-											)
-										}
-									>
-										{t('library.installToAll')}
-									</Button>
-									<Button
-										type="button"
-										variant="destructive"
-										size="sm"
-										className="cursor-pointer"
-										disabled={busyPackageId === plugin.packageId}
-										onClick={() =>
-											void runPackageAction(
-												plugin.packageId,
-												() => uninstallPluginPackage(plugin.packageId),
-												t('library.pluginUninstalled'),
-											)
-										}
-									>
-										<Icon icon={Trash2} size={12} />
-										{t('library.uninstall')}
-									</Button>
-								</div>
-							</div>
-						</div>
+							plugin={plugin}
+							progress={pluginDownloadByExtensionId[plugin.extensionId] ?? null}
+							busyPackageId={busyPackageId}
+							getPluginIconSrc={getPluginIconSrc}
+							onOpenPluginStore={openPluginStore}
+							onCheckUpdate={handleCheckUpdate}
+							onUpdatePlugin={handleUpdatePlugin}
+							onInstallToProfiles={() => {
+								setInstallDialogPackage(plugin);
+								setSelectedProfileIds([]);
+								setFilters(DEFAULT_FILTERS);
+							}}
+							onInstallToAll={() =>
+								void installToTargets(
+									plugin.packageId,
+									profiles
+										.filter((item) => item.lifecycle === 'active')
+										.map((item) => item.id),
+								)
+							}
+							onUninstall={() =>
+								void runPackageAction(
+									plugin.packageId,
+									() => uninstallPluginPackage(plugin.packageId),
+									t('library.pluginUninstalled'),
+								)
+							}
+						/>
 					))}
 					{!pluginPackagesQuery.isLoading &&
 					(pluginPackagesQuery.data?.length ?? 0) === 0 ? (
@@ -741,6 +654,200 @@ export function PluginsPage({
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+		</div>
+	);
+}
+
+type PluginProgressBlockProps = {
+	stage: string;
+	percent: number | null;
+	downloadedBytes: number;
+	totalBytes: number | null;
+};
+
+function PluginProgressBlock({
+	stage,
+	percent,
+	downloadedBytes,
+	totalBytes,
+}: PluginProgressBlockProps) {
+	const { t } = useTranslation(['plugin']);
+	const stageLabel =
+		stage === 'download'
+			? t('toast.downloadProgress')
+			: stage === 'process'
+				? t('toast.downloadProcessing')
+				: t('toast.downloadStarting');
+
+	return (
+		<div className="mt-2 space-y-1">
+			<div className="flex items-center justify-between text-[11px] text-muted-foreground">
+				<span>{stageLabel}</span>
+				<span>{percent === null ? '--' : `${Math.floor(percent)}%`}</span>
+			</div>
+			<div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+				<div
+					className="h-full bg-primary transition-all"
+					style={{
+						width: `${Math.max(3, Math.min(100, percent ?? 0))}%`,
+					}}
+				/>
+			</div>
+			<p className="text-[11px] text-muted-foreground">
+				{formatBytes(downloadedBytes)} / {formatBytes(totalBytes)}
+			</p>
+		</div>
+	);
+}
+
+type PluginPackageCardProps = {
+	plugin: PluginPackage;
+	progress: PluginDownloadProgressEvent | null;
+	busyPackageId: string | null;
+	getPluginIconSrc: (iconPath?: string | null) => string | null;
+	onOpenPluginStore: (plugin: PluginPackage) => void;
+	onCheckUpdate: (plugin: PluginPackage) => void;
+	onUpdatePlugin: (plugin: PluginPackage) => void;
+	onInstallToProfiles: () => void;
+	onInstallToAll: () => void;
+	onUninstall: () => void;
+};
+
+function PluginPackageCard({
+	plugin,
+	progress,
+	busyPackageId,
+	getPluginIconSrc,
+	onOpenPluginStore,
+	onCheckUpdate,
+	onUpdatePlugin,
+	onInstallToProfiles,
+	onInstallToAll,
+	onUninstall,
+}: PluginPackageCardProps) {
+	const { t } = useTranslation(['plugin']);
+	const iconSrc = getPluginIconSrc(plugin.iconPath);
+	const busy = busyPackageId === plugin.packageId || Boolean(progress);
+
+	return (
+		<div className="rounded-xl border border-border/70 bg-muted/20 p-3">
+			<div className="flex flex-wrap items-start justify-between gap-3">
+				<div className="flex min-w-0 flex-1 items-start gap-3">
+					<div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-background/80">
+						{iconSrc ? (
+							<img
+								src={iconSrc}
+								alt={t('library.iconAlt', { name: plugin.name })}
+								className="h-full w-full object-cover"
+							/>
+						) : (
+							<Icon
+								icon={Puzzle}
+								size={20}
+								className="text-muted-foreground"
+							/>
+						)}
+					</div>
+					<div className="min-w-0 flex-1">
+						<div className="flex flex-wrap items-center gap-2">
+							<p className="font-medium text-foreground">{plugin.name}</p>
+							<Badge variant="outline">v{plugin.version}</Badge>
+							<Badge variant="secondary">{plugin.extensionId}</Badge>
+							<Badge variant="outline">{plugin.sourceType}</Badge>
+						</div>
+						<p className="mt-1 text-sm text-muted-foreground">
+							{plugin.description?.trim() || t('library.noDescription')}
+						</p>
+						<p className="mt-2 text-[11px] text-muted-foreground">
+							{t('library.crxPath', { path: plugin.crxPath })}
+						</p>
+						<p className="mt-1 text-[11px] text-muted-foreground">
+							{t('library.updateStatus', {
+								status: t(getPluginUpdateStatusLabelKey(plugin.updateStatus)),
+								version:
+									plugin.latestVersion ?? t('library.latestVersionUnknown'),
+							})}
+						</p>
+						{progress ? (
+							<PluginProgressBlock
+								stage={progress.stage}
+								percent={progress.percent}
+								downloadedBytes={progress.downloadedBytes}
+								totalBytes={progress.totalBytes}
+							/>
+						) : null}
+					</div>
+				</div>
+				<div className="flex flex-wrap items-center gap-2">
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="cursor-pointer"
+						disabled={!plugin.storeUrl?.trim()}
+						onClick={() => onOpenPluginStore(plugin)}
+					>
+						<Icon icon={ExternalLink} size={12} />
+						{t('library.openInStore')}
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="cursor-pointer"
+						disabled={busy}
+						onClick={() => onCheckUpdate(plugin)}
+					>
+						<Icon icon={RefreshCcw} size={12} />
+						{t('library.checkUpdate')}
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="cursor-pointer"
+						disabled={busy}
+						onClick={() => onUpdatePlugin(plugin)}
+					>
+						<Icon icon={PackageCheck} size={12} />
+						{progress
+							? t('downloadCrx.downloading')
+							: t(getPluginUpdateActionLabelKey(plugin.updateStatus))}
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="cursor-pointer"
+						disabled={busy}
+						onClick={onInstallToProfiles}
+					>
+						<Icon icon={Puzzle} size={12} />
+						{t('library.installToProfiles')}
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="cursor-pointer"
+						disabled={busy}
+						onClick={onInstallToAll}
+					>
+						{t('library.installToAll')}
+					</Button>
+					<Button
+						type="button"
+						variant="destructive"
+						size="sm"
+						className="cursor-pointer"
+						disabled={busy}
+						onClick={onUninstall}
+					>
+						<Icon icon={Trash2} size={12} />
+						{t('library.uninstall')}
+					</Button>
+				</div>
+			</div>
 		</div>
 	);
 }

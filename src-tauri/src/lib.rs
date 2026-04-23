@@ -339,6 +339,7 @@ pub fn run() {
             commands::log_commands::open_log_panel_window,
             commands::log_commands::export_backend_logs,
             commands::plugin_commands::list_plugin_packages,
+            commands::plugin_commands::get_active_plugin_downloads,
             commands::plugin_commands::read_plugin_download_preference,
             commands::plugin_commands::update_plugin_download_preference,
             commands::plugin_commands::download_plugin_by_extension_id,
