@@ -35,6 +35,7 @@ import type { ResourceProgressState } from '@/entities/resource/model/types';
 type ProfileActionsDeps = {
 	setActionState: (profileId: string, state: ProfileActionState | null) => void;
 	withProfileActionLock: (profileId: string, action: () => Promise<void>) => Promise<void>;
+	suppressRunningRecovery: (profileIds: string[]) => void;
 	setResourceProgress: (state: ResourceProgressState | null | ((prev: ResourceProgressState | null) => ResourceProgressState | null)) => void;
 	refreshProfilesAndBindings: () => Promise<void>;
 	refreshGroups: () => Promise<void>;
@@ -46,6 +47,7 @@ type ProfileActionsDeps = {
 export function useProfileActions({
 	setActionState,
 	withProfileActionLock,
+	suppressRunningRecovery,
 	setResourceProgress,
 	refreshProfilesAndBindings,
 	refreshGroups,
@@ -224,6 +226,7 @@ export function useProfileActions({
 	const closeProfile = async (profileId: string) => {
 		await withProfileActionLock(profileId, async () => {
 			setActionState(profileId, 'closing');
+			suppressRunningRecovery([profileId]);
 			try {
 				await closeProfileApi(profileId);
 				await Promise.all([refreshProfilesAndBindings(), refreshWindows()]);
@@ -363,6 +366,7 @@ export function useProfileActions({
 			} satisfies BatchProfileActionResponse;
 		}
 		try {
+			suppressRunningRecovery(profileIds);
 			const result = await batchCloseProfilesApi(profileIds);
 			await Promise.all([refreshProfilesAndBindings(), refreshWindows()]);
 			if (result.failedCount > 0) {

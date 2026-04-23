@@ -11,6 +11,7 @@ export function DevicePresetsRoutePage() {
 	const profileActions = useProfileActions({
 		setActionState: () => {},
 		withProfileActionLock: async (_profileId, action) => action(),
+		suppressRunningRecovery: () => {},
 		setResourceProgress: () => {},
 		refreshProfilesAndBindings,
 		refreshGroups: async () => {},

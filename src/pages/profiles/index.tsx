@@ -22,6 +22,7 @@ export function ProfilesRoutePage() {
 	>({});
 	const [, setResourceProgress] = useState<ResourceProgressState | null>(null);
 	const profileActionLocksRef = useRef<Set<string>>(new Set());
+	const profileCloseSuppressionRef = useRef<Map<string, number>>(new Map());
 	const windowActionLocksRef = useRef<Set<string>>(new Set());
 	const profileActionStatesRef = useRef<Record<string, ProfileActionState>>({});
 	const groupsQuery = useGroupsQuery();
@@ -104,16 +105,25 @@ export function ProfilesRoutePage() {
 		[],
 	);
 
+	const suppressRunningRecovery = useCallback((profileIds: string[]) => {
+		const suppressedUntil = Date.now() + 6000;
+		for (const profileId of profileIds) {
+			profileCloseSuppressionRef.current.set(profileId, suppressedUntil);
+		}
+	}, []);
+
 	useProfileRunningRecovery({
 		profiles,
 		profileActionStatesRef,
 		profileActionLocksRef,
+		profileCloseSuppressionRef,
 		setActionState,
 	});
 
 	const profileActions = useProfileActions({
 		setActionState,
 		withProfileActionLock,
+		suppressRunningRecovery,
 		setResourceProgress,
 		refreshProfilesAndBindings,
 		refreshGroups,
