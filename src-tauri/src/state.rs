@@ -28,6 +28,7 @@ use crate::services::profile_service::ProfileService;
 use crate::services::proxy_service::ProxyService;
 use crate::services::resource_service::ResourceService;
 use crate::services::mcp::McpManager;
+use crate::services::bookmark_template_service::BookmarkTemplateService;
 use crate::services::sync_manager_service::SyncManagerService;
 use crate::services::host_locale_service::HostLocaleService;
 
@@ -66,6 +67,7 @@ pub struct AppState {
     pub sync_manager_service: Mutex<SyncManagerService>,
     /// MCP 服务器管理器（Arc 而非 Mutex，因为内部已有 tokio::sync::Mutex）
     pub mcp_manager: std::sync::Arc<McpManager>,
+    pub bookmark_template_service: Mutex<BookmarkTemplateService>,
     pub require_real_engine: bool,
     /// 上一次窗口排布前的 bounds 快照，供"撤销上次"使用
     pub last_arrangement_snapshot: Mutex<Vec<ArrangementSnapshotItem>>,
@@ -127,6 +129,14 @@ impl AppState {
     pub fn lock_sync_manager_service(&self) -> MutexGuard<'_, SyncManagerService> {
         recover_lock(&self.sync_manager_service, "state", "sync manager service")
     }
+
+    pub fn lock_bookmark_template_service(&self) -> MutexGuard<'_, BookmarkTemplateService> {
+        recover_lock(
+            &self.bookmark_template_service,
+            "state",
+            "bookmark template service",
+        )
+    }
 }
 
 fn recover_lock<'a, T>(
@@ -148,6 +158,7 @@ fn recover_lock<'a, T>(
 
 pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
     let db = db::init_database(app)?;
+    let bookmark_template_service = BookmarkTemplateService::from_db(db.clone());
     let chat_service = ChatService::from_db(db.clone());
     let automation_service = AutomationService::from_db(db.clone());
     let mcp_manager = std::sync::Arc::new(McpManager::from_db(db.clone()));
@@ -189,6 +200,7 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
         local_api_server: Mutex::new(local_api_server),
         chromium_magic_adapter_service: Mutex::new(chromium_magic_adapter_service),
         sync_manager_service: Mutex::new(sync_manager_service),
+        bookmark_template_service: Mutex::new(bookmark_template_service),
         mcp_manager,
         require_real_engine: true,
         last_arrangement_snapshot: Mutex::new(Vec::new()),

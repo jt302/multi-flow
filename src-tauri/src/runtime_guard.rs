@@ -246,7 +246,9 @@ mod tests {
         local_api_server.mark_started();
 
         AppState {
-            active_runs: std::sync::Arc::new(crate::services::automation_context::ActiveRunRegistry::new()),
+            active_runs: std::sync::Arc::new(
+                crate::services::automation_context::ActiveRunRegistry::new(),
+            ),
             active_run_channels: Mutex::new(std::collections::HashMap::new()),
             cancel_tokens: Mutex::new(std::collections::HashMap::new()),
             ai_dialog_channels: Mutex::new(std::collections::HashMap::new()),

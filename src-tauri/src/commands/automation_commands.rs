@@ -6243,7 +6243,7 @@ fn prepare_model_screenshot_data_url(image_base64: &str) -> String {
 }
 
 /// 发送 Magic Controller HTTP 请求，尝试多个路径并重试
-async fn magic_post(
+pub(crate) async fn magic_post(
     http_client: &reqwest::Client,
     port: u16,
     payload: serde_json::Value,

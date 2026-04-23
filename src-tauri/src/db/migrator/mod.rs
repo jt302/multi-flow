@@ -33,6 +33,7 @@ mod m20260417_000030_add_profile_group_visuals;
 mod m20260417_000031_chat_sessions_skills;
 mod m20260417_000032_create_mcp_servers;
 mod m20260417_000033_chat_sessions_mcp_filter;
+mod m20260420_000034_create_bookmark_tables;
 
 use sea_orm_migration::prelude::*;
 
@@ -77,6 +78,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260417_000031_chat_sessions_skills::Migration),
             Box::new(m20260417_000032_create_mcp_servers::Migration),
             Box::new(m20260417_000033_chat_sessions_mcp_filter::Migration),
+            Box::new(m20260420_000034_create_bookmark_tables::Migration),
         ]
     }
 }

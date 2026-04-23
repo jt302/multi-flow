@@ -1,3 +1,4 @@
+pub mod bookmark_template_service;
 pub mod locale_catalog;
 pub mod host_locale_service;
 pub mod agent_limits;

@@ -9,7 +9,7 @@ import i18next from 'i18next';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod/v3';
-import { AppWindow, LayoutList, Monitor, Send, Type } from 'lucide-react';
+import { AppWindow, Bookmark, LayoutList, Monitor, Send, Type } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 
 import { getWorkspaceSections } from '@/app/model/workspace-sections';
@@ -33,6 +33,7 @@ import {
 	syncTextFormSchema,
 	windowBoundsBatchFormSchema,
 } from '@/features/window-session/model/window-sync-forms';
+import { BookmarkTab } from '@/widgets/browser-control/ui/bookmark-tab';
 import type { WorkspaceOutletContext } from '@/app/model/workspace-types';
 import { NAV_PATHS } from '@/app/workspace-routes';
 import {
@@ -370,6 +371,13 @@ export function BrowserControlRoutePage() {
 					>
 						<Type className="h-3 w-3" />
 						{t('page.textInput')}
+					</TabsTrigger>
+					<TabsTrigger
+						value="bookmark"
+						className="text-xs h-7 px-3 cursor-pointer gap-1.5"
+					>
+						<Bookmark className="h-3 w-3" />
+						{t('page.bookmarks', { defaultValue: '书签' })}
 					</TabsTrigger>
 				</TabsList>
 
@@ -870,6 +878,10 @@ export function BrowserControlRoutePage() {
 							</form>
 						</CardContent>
 					</Card>
+				</TabsContent>
+
+				<TabsContent value="bookmark" className="mt-3 min-h-[480px] flex flex-col">
+					<BookmarkTab profiles={profilesQuery.data ?? []} />
 				</TabsContent>
 			</Tabs>
 

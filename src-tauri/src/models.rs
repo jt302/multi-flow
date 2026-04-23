@@ -542,6 +542,120 @@ pub struct ExtensionStateFile {
     pub managed_extensions: Vec<ManagedExtension>,
 }
 
+// ── Bookmark types ───────────────────────────────────────────────────────────
+
+/// A single node in the bookmark state file format (matches --bookmark-state-file schema).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BookmarkStateNode {
+    pub bookmark_id: String,
+    #[serde(rename = "type")]
+    pub node_type: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub children: Option<Vec<BookmarkStateNode>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct BookmarkStateRoots {
+    #[serde(default)]
+    pub bookmark_bar: Vec<BookmarkStateNode>,
+    #[serde(default)]
+    pub other: Vec<BookmarkStateNode>,
+    #[serde(default)]
+    pub mobile: Vec<BookmarkStateNode>,
+}
+
+/// Bookmark state file — written to disk and passed via --bookmark-state-file.
+/// `export_bookmark_state` returns this same structure.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BookmarkStateFile {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub environment_id: Option<String>,
+    pub roots: BookmarkStateRoots,
+}
+
+/// A unified bookmark node for the frontend. When is_live=true, node_id is set
+/// and CRUD operations are available. When is_live=false (snapshot), node_id is
+/// None and only bookmark_id is available.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BookmarkDisplayNode {
+    /// Primary identifier: node_id when live, bookmark_id when snapshot.
+    pub id: String,
+    pub node_id: Option<String>,
+    pub bookmark_id: Option<String>,
+    #[serde(rename = "type")]
+    pub node_type: String,
+    pub title: String,
+    pub url: Option<String>,
+    pub children: Option<Vec<BookmarkDisplayNode>>,
+    pub parent_id: Option<String>,
+    pub index: Option<u32>,
+    pub managed: Option<bool>,
+    pub root: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct BookmarkDisplayRoots {
+    pub bookmark_bar: Vec<BookmarkDisplayNode>,
+    pub other: Vec<BookmarkDisplayNode>,
+    pub mobile: Vec<BookmarkDisplayNode>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetProfileBookmarksResponse {
+    pub profile_id: String,
+    pub is_live: bool,
+    pub snapshot_at: Option<i64>,
+    pub roots: BookmarkDisplayRoots,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateProfileBookmarkRequest {
+    pub profile_id: String,
+    pub parent_id: String,
+    pub title: String,
+    pub url: Option<String>,
+    pub index: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateProfileBookmarkRequest {
+    pub profile_id: String,
+    pub node_id: String,
+    pub title: Option<String>,
+    pub url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MoveProfileBookmarkRequest {
+    pub profile_id: String,
+    pub node_id: String,
+    pub new_parent_id: String,
+    pub index: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportBookmarksRequest {
+    pub profile_id: String,
+    /// BookmarkStateFile JSON string.
+    pub state_json: String,
+    /// "mount_as_folder" | "merge" | "replace"
+    pub strategy: String,
+    /// Folder title when strategy="mount_as_folder"
+    pub folder_title: Option<String>,
+}
+
+// ── End bookmark types ───────────────────────────────────────────────────────
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DownloadPluginByExtensionIdRequest {
@@ -2737,6 +2851,87 @@ pub struct AutomationNotificationEvent {
     pub profile_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub batch_id: Option<String>,
+}
+
+// ── Bookmark Template types (Phase 3/4/5) ───────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BookmarkTemplateItem {
+    pub id: i64,
+    pub name: String,
+    pub description: Option<String>,
+    pub tags: Option<String>,
+    pub tree_json: String,
+    pub version: i64,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateBookmarkTemplateRequest {
+    pub name: String,
+    pub description: Option<String>,
+    pub tags: Option<String>,
+    pub tree_json: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateBookmarkTemplateRequest {
+    pub id: i64,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub tags: Option<String>,
+    pub tree_json: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApplyBookmarkTemplateRequest {
+    pub template_id: i64,
+    pub profile_ids: Vec<String>,
+    pub strategy: String,
+    pub folder_title: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BookmarkTemplateSubscription {
+    pub id: i64,
+    pub template_id: i64,
+    pub profile_id: String,
+    pub sync_mode: String,
+    pub strategy: String,
+    pub applied_version: Option<i64>,
+    pub applied_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubscribeTemplateRequest {
+    pub template_id: i64,
+    pub profile_id: String,
+    pub sync_mode: String,
+    pub strategy: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BookmarkDiffEntry {
+    pub title: String,
+    pub url: Option<String>,
+    pub path: String,
+    pub node_type: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BookmarkDiffResult {
+    pub added: Vec<BookmarkDiffEntry>,
+    pub removed: Vec<BookmarkDiffEntry>,
+    pub modified: Vec<BookmarkDiffEntry>,
 }
 
 #[cfg(test)]

@@ -23,4 +23,12 @@ export const queryKeys = {
 	mcpServers: ['mcp-servers'] as const,
 	mcpServer: (id: string) => ['mcp-servers', id] as const,
 	mcpTools: (serverId: string) => ['mcp-tools', serverId] as const,
+	bookmarks: {
+		byProfile: (profileId: string) => ['bookmarks', 'by-profile', profileId] as const,
+		templates: ['bookmark-templates'] as const,
+		subscriptionsByTemplate: (templateId: number) =>
+			['bookmark-subscriptions', 'by-template', templateId] as const,
+		subscriptionsByProfile: (profileId: string) =>
+			['bookmark-subscriptions', 'by-profile', profileId] as const,
+	},
 };

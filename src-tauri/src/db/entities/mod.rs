@@ -1,5 +1,7 @@
 pub mod automation_run;
 pub mod automation_script;
+pub mod bookmark_template;
+pub mod bookmark_template_subscription;
 pub mod chat_message;
 pub mod chat_session;
 pub mod device_preset;

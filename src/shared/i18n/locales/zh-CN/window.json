@@ -15,6 +15,7 @@
 		"windowManagement": "窗口管理",
 		"tabManagement": "标签页管理",
 		"textInput": "文本输入",
+		"bookmarks": "书签",
 		"recentSyncErrors": "最近同步错误",
 		"noSyncErrors": "暂无同步错误",
 		"recentProbeErrors": "最近 probe 错误",
