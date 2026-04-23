@@ -1,4 +1,5 @@
 import { Plus, Save } from 'lucide-react';
+import { useEffect } from 'react';
 import { Controller, type UseFormReturn } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
@@ -19,6 +20,7 @@ import {
 	SelectValue,
 	Textarea,
 } from '@/components/ui';
+import { useChromiumVersionsQuery } from '@/entities/chromium-version/model/use-chromium-versions-query';
 import type { ProfileDevicePresetItem } from '@/entities/profile/model/types';
 import {
 	ARCH_OPTIONS,
@@ -46,8 +48,29 @@ export function DevicePresetForm({
 	const {
 		register,
 		control,
+		setValue,
+		watch,
 		formState: { errors, isSubmitting },
 	} = form;
+
+	const platform = watch('platform');
+	const browserVersion = watch('browserVersion');
+	const userAgentTemplate = watch('userAgentTemplate');
+	const { data: chromiumVersions = [] } = useChromiumVersionsQuery(platform);
+
+	const uaPreview = (() => {
+		const major = (browserVersion ?? '').split('.')[0] || '0';
+		return (userAgentTemplate ?? '').replace(/\{version\}/g, `${major}.0.0.0`);
+	})();
+
+	// When platform changes or catalog first loads, auto-set version if current is not in catalog
+	useEffect(() => {
+		if (chromiumVersions.length === 0) return;
+		const inCatalog = chromiumVersions.some((v) => v.version === browserVersion);
+		if (!inCatalog) {
+			setValue('browserVersion', chromiumVersions[0].version, { shouldDirty: true });
+		}
+	}, [platform, chromiumVersions, browserVersion, setValue]);
 
 	return (
 		<Card className="border-border/70 bg-background/55 p-4">
@@ -113,6 +136,37 @@ export function DevicePresetForm({
 									</Select>
 								)}
 							/>
+						</div>
+						<div>
+							<p className="mb-1 text-xs text-muted-foreground">
+								{t('form.browserVersion')}
+							</p>
+							<Controller
+								control={control}
+								name="browserVersion"
+								render={({ field }) => (
+									<Select value={field.value} onValueChange={field.onChange}>
+										<SelectTrigger className="w-full">
+											<SelectValue placeholder={t('form.selectBrowserVersion')} />
+										</SelectTrigger>
+										<SelectContent>
+											{chromiumVersions.map((v) => (
+												<SelectItem key={v.version} value={v.version}>
+													Chrome {v.major} · {v.version}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								)}
+							/>
+							<p className="mt-1 text-[11px] text-muted-foreground">
+								{t('form.browserVersionHint')}
+							</p>
+							{errors.browserVersion ? (
+								<p className="mt-1 text-xs text-destructive">
+									{errors.browserVersion.message}
+								</p>
+							) : null}
 						</div>
 						<div>
 							<p className="mb-1 text-xs text-muted-foreground">
@@ -325,6 +379,15 @@ export function DevicePresetForm({
 								{errors.userAgentTemplate.message}
 							</p>
 						) : null}
+						<p className="mt-3 mb-1 text-xs text-muted-foreground">
+							{t('form.uaPreview')}
+						</p>
+						<div className="rounded-md border border-border/50 bg-muted/40 p-2 font-mono text-[11px] leading-relaxed break-all text-muted-foreground">
+							{uaPreview}
+						</div>
+						<p className="mt-1 text-[11px] text-muted-foreground">
+							{t('form.uaPreviewHint')}
+						</p>
 					</div>
 
 					<div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-3">

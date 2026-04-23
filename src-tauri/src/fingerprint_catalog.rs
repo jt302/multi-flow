@@ -32,6 +32,7 @@ pub struct FingerprintPresetSpec {
     pub bitness: String,
     pub mobile: bool,
     pub form_factor: String,
+    pub browser_version: String,
     pub variants: Vec<FingerprintVariantSpec>,
 }
 
@@ -59,6 +60,7 @@ struct PresetDefinition {
     bitness: &'static str,
     mobile: bool,
     form_factor: &'static str,
+    browser_version: &'static str,
     variants: &'static [FingerprintVariant],
 }
 
@@ -234,6 +236,7 @@ const PRESETS: &[PresetDefinition] = &[
         bitness: "64",
         mobile: false,
         form_factor: "Desktop",
+        browser_version: "147.0.7727.117",
         variants: MACOS_MACBOOK_PRO_VARIANTS,
     },
     PresetDefinition {
@@ -250,6 +253,7 @@ const PRESETS: &[PresetDefinition] = &[
         bitness: "64",
         mobile: false,
         form_factor: "Desktop",
+        browser_version: "147.0.7727.117",
         variants: WINDOWS_DESKTOP_VARIANTS,
     },
     PresetDefinition {
@@ -266,6 +270,7 @@ const PRESETS: &[PresetDefinition] = &[
         bitness: "64",
         mobile: false,
         form_factor: "Desktop",
+        browser_version: "147.0.7727.116",
         variants: LINUX_DESKTOP_VARIANTS,
     },
     PresetDefinition {
@@ -282,6 +287,7 @@ const PRESETS: &[PresetDefinition] = &[
         bitness: "64",
         mobile: true,
         form_factor: "Mobile",
+        browser_version: "148.0.7778.49",
         variants: ANDROID_PIXEL_8_VARIANTS,
     },
     PresetDefinition {
@@ -298,6 +304,7 @@ const PRESETS: &[PresetDefinition] = &[
         bitness: "64",
         mobile: true,
         form_factor: "Mobile",
+        browser_version: "148.0.7778.49",
         variants: ANDROID_S24_ULTRA_VARIANTS,
     },
     PresetDefinition {
@@ -314,6 +321,7 @@ const PRESETS: &[PresetDefinition] = &[
         bitness: "64",
         mobile: true,
         form_factor: "Mobile",
+        browser_version: "148.0.7778.47",
         variants: IOS_IPHONE_15_PRO_VARIANTS,
     },
     PresetDefinition {
@@ -330,6 +338,7 @@ const PRESETS: &[PresetDefinition] = &[
         bitness: "64",
         mobile: true,
         form_factor: "Mobile",
+        browser_version: "148.0.7778.47",
         variants: IOS_IPHONE_15_PRO_MAX_VARIANTS,
     },
     PresetDefinition {
@@ -346,6 +355,7 @@ const PRESETS: &[PresetDefinition] = &[
         bitness: "64",
         mobile: true,
         form_factor: "Tablet",
+        browser_version: "148.0.7778.47",
         variants: IOS_IPAD_AIR_VARIANTS,
     },
 ];
@@ -408,6 +418,7 @@ fn to_owned_preset(preset: &PresetDefinition) -> FingerprintPresetSpec {
         bitness: preset.bitness.to_string(),
         mobile: preset.mobile,
         form_factor: preset.form_factor.to_string(),
+        browser_version: preset.browser_version.to_string(),
         variants: preset
             .variants
             .iter()
@@ -453,6 +464,7 @@ pub fn preset_to_device_preset(preset: &FingerprintPresetSpec) -> ProfileDeviceP
         custom_gl_renderer: primary_variant.gl_renderer,
         custom_cpu_cores: primary_variant.custom_cpu_cores,
         custom_ram_gb: primary_variant.custom_ram_gb.min(MAX_FINGERPRINT_RAM_GB),
+        browser_version: preset.browser_version.clone(),
     }
 }
 
@@ -504,6 +516,7 @@ pub fn resolve_fingerprint_snapshot_from_preset(
         .browser_version
         .as_deref()
         .and_then(trim_to_option)
+        .or_else(|| trim_to_option(&preset.browser_version))
         .unwrap_or_else(|| crate::chromium_version_catalog::latest_for(&preset.platform).version.to_string());
     let strategy = source
         .strategy
@@ -523,7 +536,7 @@ pub fn resolve_fingerprint_snapshot_from_preset(
         user_agent: Some(
             variant
                 .user_agent_template
-                .replace("{version}", version.trim()),
+                .replace("{version}", &major_only_version(version.trim())),
         ),
         custom_ua_metadata: Some(build_ua_metadata(preset, version.trim())),
         custom_platform: Some(preset.custom_platform.clone()),
@@ -553,6 +566,7 @@ pub fn normalize_source(
     source: Option<&ProfileFingerprintSource>,
     platform: Option<&str>,
     browser_version: Option<&str>,
+    preset_browser_version: Option<&str>,
     device_preset_id: Option<&str>,
     random_fingerprint: bool,
 ) -> ProfileFingerprintSource {
@@ -575,6 +589,7 @@ pub fn normalize_source(
                 .and_then(|value| value.browser_version.as_deref())
                 .and_then(trim_to_option)
         })
+        .or_else(|| preset_browser_version.and_then(trim_to_option))
         .unwrap_or_else(|| {
             crate::chromium_version_catalog::latest_for(normalized_platform).version.to_string()
         });
@@ -656,6 +671,17 @@ fn resolve_seed_value(
     }
 }
 
+// Chrome UA Reduction (101+): UA header uses MAJOR.0.0.0; Sec-CH-UA-Full-Version keeps the full four-part version.
+fn major_only_version(version: &str) -> String {
+    let major = version
+        .trim()
+        .split('.')
+        .next()
+        .filter(|s| !s.trim().is_empty() && s.chars().all(|c| c.is_ascii_digit()))
+        .unwrap_or("0");
+    format!("{major}.0.0.0")
+}
+
 fn build_ua_metadata(preset: &FingerprintPresetSpec, version: &str) -> String {
     let full_version = version.trim();
     let default_major = crate::chromium_version_catalog::latest_for(&preset.platform)
@@ -721,9 +747,16 @@ pub fn merge_preset_into_snapshot(
     browser_version: &str,
     fingerprint_seed: Option<u32>,
 ) {
-    let default_version = crate::chromium_version_catalog::latest_for(&preset.platform).version;
+    let catalog_version = crate::chromium_version_catalog::latest_for(&preset.platform).version;
     let version = browser_version.trim();
-    let version = if version.is_empty() { default_version } else { version };
+    let preset_version = preset.browser_version.trim();
+    let version = if !version.is_empty() {
+        version
+    } else if !preset_version.is_empty() {
+        preset_version
+    } else {
+        catalog_version
+    };
     let variant = resolve_variant(preset, version, fingerprint_seed, FingerprintStrategy::Template);
 
     snapshot.preset_label = Some(preset.label.clone());
@@ -732,7 +765,7 @@ pub fn merge_preset_into_snapshot(
     snapshot.custom_platform = Some(preset.custom_platform.clone());
     snapshot.form_factor = Some(preset.form_factor.clone());
     snapshot.mobile = Some(preset.mobile);
-    snapshot.user_agent = Some(variant.user_agent_template.replace("{version}", version));
+    snapshot.user_agent = Some(variant.user_agent_template.replace("{version}", &major_only_version(version)));
     snapshot.custom_ua_metadata = Some(build_ua_metadata(preset, version));
     snapshot.custom_gl_vendor = Some(variant.gl_vendor.clone());
     snapshot.custom_gl_renderer = Some(variant.gl_renderer.clone());
@@ -828,6 +861,7 @@ mod tests {
             bitness: "64".to_string(),
             mobile: false,
             form_factor: "Desktop".to_string(),
+            browser_version: "147.0.7727.117".to_string(),
             variants: vec![FingerprintVariantSpec {
                 user_agent_template:
                     "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0) AppleWebKit/537.36 Chrome/{version} Safari/537.36".to_string(),
@@ -851,5 +885,14 @@ mod tests {
         assert_eq!(snapshot.fingerprint_seed, Some(12345), "fingerprint_seed 不能被修改");
         assert_eq!(snapshot.language.as_deref(), Some("zh-CN"), "language 不能被修改");
         assert_eq!(snapshot.time_zone.as_deref(), Some("Asia/Shanghai"), "time_zone 不能被修改");
+    }
+
+    #[test]
+    fn major_only_version_returns_reduced_form() {
+        assert_eq!(major_only_version("147.0.7727.117"), "147.0.0.0");
+        assert_eq!(major_only_version("148"), "148.0.0.0");
+        assert_eq!(major_only_version(""), "0.0.0.0");
+        assert_eq!(major_only_version("   "), "0.0.0.0");
+        assert_eq!(major_only_version(".5.6"), "0.0.0.0");
     }
 }

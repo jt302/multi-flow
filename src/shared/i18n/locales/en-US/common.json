@@ -413,7 +413,8 @@
 			"glRendererRequired": "GL Renderer is required",
 			"cpuCoresMin": "CPU cores must be greater than 0",
 			"memoryMin": "Memory must be greater than 0",
-			"memoryMax": "Memory max is 8 GB"
+			"memoryMax": "Memory max is 8 GB",
+			"browserVersionRequired": "Chromium spoof version is required"
 		}
 	},
 	"profileGroupSelector": {

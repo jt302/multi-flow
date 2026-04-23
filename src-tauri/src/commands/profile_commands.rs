@@ -1519,12 +1519,31 @@ pub(crate) fn do_open_profile(
         (profile_snapshot, fingerprint_seed)
     };
 
-    let preferred_chromium_version = profile_snapshot
+    let profile_browser_version = profile_snapshot
         .settings
         .as_ref()
         .and_then(|settings| settings.basic.as_ref())
         .and_then(|basic| basic.browser_version.as_deref())
         .and_then(trim_str_to_option);
+    // Precedence: profile.browser_version → preset.browser_version → host latest → catalog latest
+    let preset_browser_version: Option<String> = {
+        let device_preset_id = profile_snapshot
+            .settings
+            .as_ref()
+            .and_then(|settings| settings.basic.as_ref())
+            .and_then(|basic| basic.device_preset_id.as_deref())
+            .and_then(trim_str_to_option);
+        if profile_browser_version.is_none() {
+            let preset_service = state.lock_device_preset_service();
+            device_preset_id
+                .as_deref()
+                .and_then(|id| preset_service.get_preset_spec_by_key(id))
+                .and_then(|spec| trim_str_to_option(&spec.browser_version).map(|s| s.to_string()))
+        } else {
+            None
+        }
+    };
+    let preferred_chromium_version = profile_browser_version.or(preset_browser_version);
     let (resource_id, resolved_browser_version, chromium_executable) = {
         let resource_service = state.lock_resource_service();
         let resolved_browser_version = preferred_chromium_version
@@ -2439,6 +2458,10 @@ fn resolve_runtime_fingerprint_snapshot(
         }
     }
 
+    let preset_id_for_ver = basic.and_then(|item| item.device_preset_id.as_deref());
+    let preset_ver_owned = preset_id_for_ver
+        .and_then(|id| device_preset_service.get_preset_spec_by_key(id))
+        .map(|spec| spec.browser_version);
     let source = fingerprint
         .and_then(|settings| settings.fingerprint_source.as_ref())
         .cloned()
@@ -2448,7 +2471,8 @@ fn resolve_runtime_fingerprint_snapshot(
                 basic.and_then(|item| item.platform.as_deref()),
                 resolved_browser_version
                     .or_else(|| basic.and_then(|item| item.browser_version.as_deref())),
-                basic.and_then(|item| item.device_preset_id.as_deref()),
+                preset_ver_owned.as_deref(),
+                preset_id_for_ver,
                 profile_settings
                     .and_then(|settings| settings.advanced.as_ref())
                     .and_then(|settings| settings.random_fingerprint)

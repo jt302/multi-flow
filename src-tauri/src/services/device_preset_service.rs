@@ -72,6 +72,7 @@ impl DevicePresetService {
             custom_gl_renderer: Set(normalized.custom_gl_renderer),
             custom_cpu_cores: Set(normalized.custom_cpu_cores as i32),
             custom_ram_gb: Set(normalized.custom_ram_gb as i32),
+            browser_version: Set(normalized.browser_version),
             created_at: Set(now),
             updated_at: Set(now),
             ..Default::default()
@@ -116,6 +117,7 @@ impl DevicePresetService {
         active_model.custom_gl_renderer = Set(normalized.custom_gl_renderer);
         active_model.custom_cpu_cores = Set(normalized.custom_cpu_cores as i32);
         active_model.custom_ram_gb = Set(normalized.custom_ram_gb as i32);
+        active_model.browser_version = Set(normalized.browser_version);
         active_model.updated_at = Set(now_ts());
 
         let updated = self.db_query(active_model.update(&self.db))?;
@@ -156,6 +158,13 @@ impl DevicePresetService {
         Err(AppError::Validation(format!(
             "no fingerprint preset for platform {normalized_platform}"
         )))
+    }
+
+    pub fn get_preset_spec_by_key(&self, preset_id: &str) -> Option<FingerprintPresetSpec> {
+        self.find_preset_by_key(preset_id)
+            .ok()
+            .flatten()
+            .map(|model| to_preset_spec(&model))
     }
 
     fn find_preset_model(&self, preset_id: &str) -> AppResult<device_preset::Model> {
@@ -202,6 +211,7 @@ impl DevicePresetService {
                     .custom_ram_gb
                     .min(fingerprint_catalog::MAX_FINGERPRINT_RAM_GB)
                     as i32),
+                browser_version: Set(preset.browser_version.clone()),
                 created_at: Set(now),
                 updated_at: Set(now),
                 ..Default::default()
@@ -239,6 +249,7 @@ struct NormalizedPresetPayload {
     custom_gl_renderer: String,
     custom_cpu_cores: u32,
     custom_ram_gb: u32,
+    browser_version: String,
 }
 
 fn normalize_payload(
@@ -295,6 +306,21 @@ fn normalize_payload(
             "device preset ram gb must be greater than 0".to_string(),
         ));
     }
+    let browser_version = trim_owned(payload.browser_version).ok_or_else(|| {
+        AppError::Validation("device preset browserVersion is required".to_string())
+    })?;
+    // Validate version is in the platform catalog; unknown versions are still stored but warned.
+    let normalized_platform_str = fingerprint_catalog::normalize_platform(Some(&platform))
+        .unwrap_or("macos");
+    if !crate::chromium_version_catalog::contains(normalized_platform_str, &browser_version) {
+        crate::logger::warn(
+            "device_preset",
+            format!(
+                "browser_version '{}' not in catalog for platform '{}'",
+                browser_version, normalized_platform_str
+            ),
+        );
+    }
 
     Ok(NormalizedPresetPayload {
         label,
@@ -316,6 +342,7 @@ fn normalize_payload(
         custom_ram_gb: payload
             .custom_ram_gb
             .min(fingerprint_catalog::MAX_FINGERPRINT_RAM_GB),
+        browser_version,
     })
 }
 
@@ -339,6 +366,7 @@ fn to_api_preset(model: &device_preset::Model) -> ProfileDevicePreset {
         custom_gl_renderer: model.custom_gl_renderer.clone(),
         custom_cpu_cores: model.custom_cpu_cores.max(1) as u32,
         custom_ram_gb: model.custom_ram_gb.max(1) as u32,
+        browser_version: model.browser_version.clone(),
     }
 }
 
@@ -357,6 +385,7 @@ fn to_preset_spec(model: &device_preset::Model) -> FingerprintPresetSpec {
         bitness: model.bitness.clone(),
         mobile: model.mobile,
         form_factor: model.form_factor.clone(),
+        browser_version: model.browser_version.clone(),
         variants: vec![FingerprintVariantSpec {
             user_agent_template: model.user_agent_template.clone(),
             gl_vendor: model.custom_gl_vendor.clone(),
@@ -423,6 +452,7 @@ mod tests {
                 custom_gl_renderer: "Adreno 750".to_string(),
                 custom_cpu_cores: 8,
                 custom_ram_gb: 8,
+                browser_version: "148.0.7778.49".to_string(),
             })
             .expect("create preset");
 
@@ -473,6 +503,7 @@ mod tests {
                 custom_gl_renderer: "Adreno".to_string(),
                 custom_cpu_cores: 8,
                 custom_ram_gb: 12,
+                browser_version: "148.0.7778.49".to_string(),
             })
             .expect("create preset");
 
@@ -509,6 +540,7 @@ mod tests {
                 custom_gl_renderer: "ANGLE (Intel Iris Xe)".to_string(),
                 custom_cpu_cores: 8,
                 custom_ram_gb: 16,
+                browser_version: "147.0.7727.117".to_string(),
             })
             .expect("create preset");
 

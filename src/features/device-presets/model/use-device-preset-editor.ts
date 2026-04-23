@@ -36,6 +36,7 @@ export const createDevicePresetSchema = (t: (key: string) => string) =>
 			.int()
 			.min(1, t('common:validation.devicePreset.memoryMin'))
 			.max(8, t('common:validation.devicePreset.memoryMax')),
+		browserVersion: z.string().trim().min(1, t('common:validation.devicePreset.browserVersionRequired')),
 	});
 
 export type DevicePresetFormValues = z.infer<ReturnType<typeof createDevicePresetSchema>>;
@@ -84,6 +85,7 @@ function getDefaultPresetValues(): DevicePresetFormValues {
 		customGlRenderer: 'Apple M3',
 		customCpuCores: 8,
 		customRamGb: 8,
+		browserVersion: '',
 	};
 }
 
@@ -106,6 +108,7 @@ function mapPresetToFormValues(preset: ProfileDevicePresetItem): DevicePresetFor
 		customGlRenderer: preset.customGlRenderer,
 		customCpuCores: preset.customCpuCores,
 		customRamGb: preset.customRamGb,
+		browserVersion: preset.browserVersion,
 	};
 }
 
@@ -128,6 +131,7 @@ function toPayload(values: DevicePresetFormValues): SaveProfileDevicePresetPaylo
 		customGlRenderer: values.customGlRenderer.trim(),
 		customCpuCores: values.customCpuCores,
 		customRamGb: values.customRamGb,
+		browserVersion: values.browserVersion.trim(),
 	};
 }
 

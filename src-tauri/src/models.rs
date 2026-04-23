@@ -111,6 +111,7 @@ pub struct ProfileDevicePreset {
     pub custom_gl_renderer: String,
     pub custom_cpu_cores: u32,
     pub custom_ram_gb: u32,
+    pub browser_version: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -133,6 +134,7 @@ pub struct SaveProfileDevicePresetRequest {
     pub custom_gl_renderer: String,
     pub custom_cpu_cores: u32,
     pub custom_ram_gb: u32,
+    pub browser_version: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

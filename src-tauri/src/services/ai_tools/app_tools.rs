@@ -550,6 +550,7 @@ fn parse_device_preset_request(args: &Value) -> Result<SaveProfileDevicePresetRe
         custom_gl_renderer: require_str(args, "custom_gl_renderer")?,
         custom_cpu_cores: require_u32(args, "custom_cpu_cores")?,
         custom_ram_gb: require_u32(args, "custom_ram_gb")?,
+        browser_version: require_str(args, "browser_version").unwrap_or_default(),
     })
 }
 

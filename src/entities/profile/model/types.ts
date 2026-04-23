@@ -86,6 +86,7 @@ export type ProfileDevicePresetItem = {
 	customGlRenderer: string;
 	customCpuCores: number;
 	customRamGb: number;
+	browserVersion: string;
 };
 
 export type SaveProfileDevicePresetPayload = {
@@ -106,6 +107,7 @@ export type SaveProfileDevicePresetPayload = {
 	customGlRenderer: string;
 	customCpuCores: number;
 	customRamGb: number;
+	browserVersion: string;
 };
 
 export type ProfileFingerprintSource = {

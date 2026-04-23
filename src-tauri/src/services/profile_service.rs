@@ -977,6 +977,14 @@ fn hydrate_strong_fingerprint_settings(
         .unwrap_or(FontListMode::Preset);
 
     let device_preset_service = DevicePresetService::from_db(db.clone());
+    let preset_id_for_version = basic.device_preset_id.as_deref().or_else(|| {
+        previous
+            .and_then(|value| value.basic.as_ref())
+            .and_then(|value| value.device_preset_id.as_deref())
+    });
+    let preset_browser_version_owned = preset_id_for_version
+        .and_then(|id| device_preset_service.get_preset_spec_by_key(id))
+        .map(|spec| spec.browser_version);
     let resolved_source = fingerprint_catalog::normalize_source(
         fingerprint.fingerprint_source.as_ref().or(previous_source),
         Some(platform.as_str()),
@@ -985,11 +993,8 @@ fn hydrate_strong_fingerprint_settings(
                 .and_then(|value| value.basic.as_ref())
                 .and_then(|value| value.browser_version.as_deref())
         }),
-        basic.device_preset_id.as_deref().or_else(|| {
-            previous
-                .and_then(|value| value.basic.as_ref())
-                .and_then(|value| value.device_preset_id.as_deref())
-        }),
+        preset_browser_version_owned.as_deref(),
+        preset_id_for_version,
         random_fingerprint,
     );
 

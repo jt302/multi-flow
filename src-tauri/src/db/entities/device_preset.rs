@@ -23,6 +23,7 @@ pub struct Model {
     pub custom_gl_renderer: String,
     pub custom_cpu_cores: i32,
     pub custom_ram_gb: i32,
+    pub browser_version: String,
     pub created_at: i64,
     pub updated_at: i64,
 }

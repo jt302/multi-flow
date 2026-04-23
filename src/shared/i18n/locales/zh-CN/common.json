@@ -419,7 +419,8 @@
 			"glRendererRequired": "GL Renderer 不能为空",
 			"cpuCoresMin": "CPU 核心数必须大于 0",
 			"memoryMin": "内存必须大于 0",
-			"memoryMax": "内存最大为 8 GB"
+			"memoryMax": "内存最大为 8 GB",
+			"browserVersionRequired": "Chromium 伪装版本不能为空"
 		}
 	},
 	"profileGroupSelector": {

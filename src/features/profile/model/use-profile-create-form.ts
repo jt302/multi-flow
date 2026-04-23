@@ -426,8 +426,12 @@ export function useProfileCreateForm({
 			shouldDirty: true,
 			shouldValidate: true,
 		});
+		// Sync browser version from preset when user switches presets (no profile-level override yet)
+		if (!getValues('browserVersion') && selectedDevicePreset.browserVersion) {
+			setValue('browserVersion', selectedDevicePreset.browserVersion, { shouldDirty: true });
+		}
 		lastAppliedResolutionPresetId.current = selectedDevicePreset.id;
-	}, [initialResolutionOverride, selectedDevicePreset, setValue]);
+	}, [initialResolutionOverride, selectedDevicePreset, setValue, getValues]);
 
 	const fontFamiliesQuery = useQuery({
 		queryKey: ['profile-font-families', platform],
