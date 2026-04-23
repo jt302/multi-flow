@@ -2991,6 +2991,7 @@ Chromium 实际接收的仍是这些注入结果：
 | `--cookie-state-file`                  | 启动时加载受管理 Cookie 目标状态 JSON 文件                 | `--cookie-state-file=/Users/tt/app_data/environments/env_001/runtime/cookie-state.json`                                        |
 | `--bookmark-state-file`                | 启动时加载受管理书签目标状态 JSON 文件                     | `--bookmark-state-file=/Users/tt/app_data/environments/env_001/runtime/bookmark-state.json`                                    |
 | `--enable-port-scan-protection`        | 启用普通网页端口扫描保护                                   | `--enable-port-scan-protection`                                                                                                |
+| `--enable-dns-leak-protection`         | 启用代理场景 DNS 泄露防护                                  | `--proxy-server=socks5://127.0.0.1:1080 --enable-dns-leak-protection`                                                          |
 | `--enable-automation-detection-shield` | 启用自动化检测隔绝                                         | `--enable-automation-detection-shield`                                                                                         |
 | `--enable-do-not-track`                | 启动时为当前 profile 开启 Do Not Track                     | `--enable-do-not-track`                                                                                                        |
 | `--window-size`                        | 窗口尺寸                                                   | `--window-size=393,852`                                                                                                        |
@@ -3018,6 +3019,10 @@ Chromium 实际接收的仍是这些注入结果：
 - `enable-port-scan-protection` 默认关闭；开启后只对 `http/https` 普通网页上下文生效
 - `enable-port-scan-protection` 当前会直接阻断普通网页到私网/loopback 的 PNA 请求、`ws/wss` 本地端口探测，并收紧普通网页的 Direct Sockets / WebRTC 本地网络探测能力
 - `enable-port-scan-protection` 当前不影响 `chrome://`、`devtools://`、`chrome-extension://`、IWA 和浏览器内部受信页面
+- `enable-dns-leak-protection` 默认关闭；没有代理时不改变 DNS 行为
+- `enable-dns-leak-protection` 有代理时会注入 `MAP * ^NOTFOUND`，普通目标域名不能走本机 DNS
+- 如果代理 host 是域名，会自动 `EXCLUDE` 该代理域名；如需尽量零本机 DNS，推荐代理写 IP
+- 与 `--host-resolver-rules` 同时存在时，DNS 防护规则排在前面
 - `custom-image-loading-mode` 默认关闭；当前支持 `block` 和 `max-area`
 - `custom-image-loading-mode=block` 时，会阻断普通 `http/https` 网页上下文中的图片子资源请求；不影响 `chrome://`、`chrome-extension://`、favicon 和浏览器内部资源
 - `custom-image-loading-mode=max-area` 时，必须同时传入正整数 `custom-image-max-area`；按图片固有像素面积 `width * height` 判定，超过阈值则阻断
@@ -3168,6 +3173,31 @@ platform=Windows|platform_version=13.0.0|arch=x86|bitness=64|mobile=0|brands=Goo
 - 这是 Chromium 可控范围内的探测防护，不是系统级 100% 阻断
 - 当前不提供 allowlist，也不提供运行时开关
 - 当前仓库的 `start.py` 可通过环境变量 `CHROMIUM_ENABLE_PORT_SCAN_PROTECTION=1` 透传这个参数
+
+#### `--enable-dns-leak-protection`
+
+该参数用于在启用代理时阻断网页目标域名走本机 DNS。
+
+推荐示例：
+
+```text
+--proxy-server=socks5://127.0.0.1:1080
+--enable-dns-leak-protection
+```
+
+当前行为：
+
+- 没有代理时不生效
+- 有代理时默认注入 `MAP * ^NOTFOUND`
+- 代理 host 是域名时，自动追加 `EXCLUDE <proxy-host>`，只允许本机解析代理域名
+- 代理 host 是 IP 时不需要本机 DNS，直接阻断其他本机 DNS
+- 已有 `--host-resolver-rules` 会保留，但排在防护规则之后
+
+边界说明：
+
+- 主要面向固定代理；不覆盖 PAC 动态切换后的全部代理 host
+- 为避免泄露，代理不可用或目标必须本机解析时，页面访问会失败
+- Multi-Flow 绑定代理启动 Chromium 时，推荐传 `socks5://IP:PORT` 并同时追加该开关
 
 #### `--custom-gl-vendor` / `--custom-gl-renderer`
 

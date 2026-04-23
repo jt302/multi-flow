@@ -80,6 +80,7 @@
   - `ProfileBasicSettings.startupUrls` 支持多个默认打开 URL；启动时会按列表顺序直接追加到 Chromium 启动参数中
   - `OpenProfileOptions` 不再承载 `UA / CPU / RAM / 字体` 这类强关联指纹覆盖；这组参数统一由 `fingerprintSnapshot` 生成
   - 自动读取 Profile 绑定代理并注入 `--proxy-server`
+  - 绑定固定代理时建议同时注入 `--enable-dns-leak-protection`，避免网页目标域名走本机 DNS；代理地址优先使用 IP
   - 代理资产已升级为“代理画像”模型：
     - 检测阶段会写入 `exitIp / country / region / city / latitude / longitude / suggestedLanguage / suggestedTimezone`
     - 代理可分别配置语言 / 时区来源：`ip` 或 `custom`
@@ -148,7 +149,7 @@
     - 启动时若状态文件存在且合法，会注入 `--extension-state-file`
     - 插件安装/卸载/更新只改环境配置和本地状态文件；运行中的环境需要重启后生效
   - 每个环境目录除 `user-data` 外，额外创建 `cache-data` 并注入独立 `--disk-cache-dir`
-  - 默认在代理场景启用 WebRTC `disable_non_proxied_udp` 策略
+  - 默认在代理场景启用 WebRTC `disable_non_proxied_udp` 策略；DNS 防泄露依赖 Chromium `--enable-dns-leak-protection`
   - 启动时按当前宿主系统 + `browserVersion` 解析资源：
     - 已安装则直接启动
     - 未安装则自动下载并安装该版本后继续启动
