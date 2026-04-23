@@ -111,7 +111,9 @@
 		"redownload": "Re-download",
 		"downloadGeoDb": "Download GEO DB",
 		"installed": "Installed",
-		"notInstalled": "Not Installed"
+		"notInstalled": "Not Installed",
+		"redownloadConfirmTitle": "Re-download Chromium?",
+		"redownloadConfirmDesc": "Chromium {{version}} will be fetched from the cloud and replace the local install. Close any running profiles using this version first."
 	},
 	"language": {
 		"title": "Interface Language",

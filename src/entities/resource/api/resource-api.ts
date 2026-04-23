@@ -98,12 +98,20 @@ export async function listResources(): Promise<ResourceItem[]> {
 	return response.items.map(mapResource);
 }
 
-export async function installChromiumResource(resourceId: string): Promise<void> {
+export type InstallChromiumOptions = {
+	force?: boolean;
+};
+
+export async function installChromiumResource(
+	resourceId: string,
+	options: InstallChromiumOptions = {},
+): Promise<void> {
+	const force = options.force ?? false;
 	const taskId = createResourceTaskId(`install-${resourceId}`);
 	await tauriInvoke('install_chromium_resource', {
 		resourceId,
-		forceDownload: false,
-		forceInstall: false,
+		forceDownload: force,
+		forceInstall: force,
 		activate: true,
 		taskId,
 	});
@@ -112,15 +120,17 @@ export async function installChromiumResource(resourceId: string): Promise<void>
 export async function installChromiumResourceWithProgress(
 	resourceId: string,
 	onProgress: (progress: ResourceDownloadProgressEvent) => void,
+	options: InstallChromiumOptions = {},
 ): Promise<void> {
+	const force = options.force ?? false;
 	const taskId = createResourceTaskId(`install-${resourceId}`);
 	const unlisten = await listenResourceProgress(taskId, resourceId, onProgress);
 
 	try {
 		await tauriInvoke('install_chromium_resource', {
 			resourceId,
-			forceDownload: false,
-			forceInstall: false,
+			forceDownload: force,
+			forceInstall: force,
 			activate: true,
 			taskId,
 		});

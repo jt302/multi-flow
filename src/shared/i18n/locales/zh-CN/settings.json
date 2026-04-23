@@ -111,7 +111,9 @@
 		"notInstalled": "未安装",
 		"geoDbDesc": "用于代理出口画像、自动语言/时区建议和环境地理位置联动。",
 		"redownload": "重新下载",
-		"downloadGeoDb": "下载 GEO 库"
+		"downloadGeoDb": "下载 GEO 库",
+		"redownloadConfirmTitle": "重新下载 Chromium？",
+		"redownloadConfirmDesc": "将从云端重新拉取 Chromium {{version}} 并覆盖本地安装。请先关闭所有使用该版本的运行环境。"
 	},
 	"language": {
 		"title": "界面语言",

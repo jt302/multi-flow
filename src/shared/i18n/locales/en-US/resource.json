@@ -1,5 +1,7 @@
 {
 	"downloadingBrowser": "Downloading browser...",
+	"redownloadingBrowser": "Re-downloading browser...",
+	"browserRedownloaded": "Browser updated",
 	"browserDownloading": "Downloading browser...",
 	"browserDownloadingPercent": "Downloading browser {{percent}}%",
 	"browserInstalling": "Installing browser...",

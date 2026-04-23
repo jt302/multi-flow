@@ -5,6 +5,7 @@ import {
 	activateChromiumVersion as activateChromiumVersionApi,
 	downloadResourceWithProgress,
 	installChromiumResourceWithProgress,
+	type InstallChromiumOptions,
 } from '@/entities/resource/api/resource-api';
 
 type ResourceActionsDeps = {
@@ -23,43 +24,56 @@ type ResourceActionsDeps = {
  * 分别由当前活跃的 action 调用 / 持久 store 驱动，互不耦合。
  */
 export function useResourceActions({ refreshResources }: ResourceActionsDeps) {
-	const installChromium = async (resourceId: string) => {
-		const toastId = toast.loading(i18n.t('resource:downloadingBrowser'));
+	const installChromium = async (
+		resourceId: string,
+		options: InstallChromiumOptions = {},
+	) => {
+		const force = options.force ?? false;
+		const toastId = toast.loading(
+			i18n.t(force ? 'resource:redownloadingBrowser' : 'resource:downloadingBrowser'),
+		);
 		let lastShownPercent = -1;
 		try {
-			await installChromiumResourceWithProgress(resourceId, (progress) => {
-				if (progress.stage === 'download') {
-					const percent =
-						progress.percent === null ? null : Math.floor(progress.percent);
-					if (percent !== null && percent <= lastShownPercent) {
+			await installChromiumResourceWithProgress(
+				resourceId,
+				(progress) => {
+					if (progress.stage === 'download') {
+						const percent =
+							progress.percent === null ? null : Math.floor(progress.percent);
+						if (percent !== null && percent <= lastShownPercent) {
+							return;
+						}
+						if (percent !== null) {
+							lastShownPercent = percent;
+							toast.loading(
+								i18n.t('resource:browserDownloadingPercent', { percent }),
+								{ id: toastId },
+							);
+						} else {
+							toast.loading(i18n.t('resource:browserDownloading'), {
+								id: toastId,
+							});
+						}
 						return;
 					}
-					if (percent !== null) {
-						lastShownPercent = percent;
-						toast.loading(
-							i18n.t('resource:browserDownloadingPercent', { percent }),
+					if (progress.stage === 'install') {
+						toast.loading(i18n.t('resource:browserInstalling'), { id: toastId });
+						return;
+					}
+					if (progress.stage === 'error') {
+						toast.error(
+							progress.message || i18n.t('resource:browserInstallFailed'),
 							{ id: toastId },
 						);
-					} else {
-						toast.loading(i18n.t('resource:browserDownloading'), {
-							id: toastId,
-						});
 					}
-					return;
-				}
-				if (progress.stage === 'install') {
-					toast.loading(i18n.t('resource:browserInstalling'), { id: toastId });
-					return;
-				}
-				if (progress.stage === 'error') {
-					toast.error(
-						progress.message || i18n.t('resource:browserInstallFailed'),
-						{ id: toastId },
-					);
-				}
-			});
+				},
+				{ force },
+			);
 			await refreshResources();
-			toast.success(i18n.t('resource:browserInstalled'), { id: toastId });
+			toast.success(
+				i18n.t(force ? 'resource:browserRedownloaded' : 'resource:browserInstalled'),
+				{ id: toastId },
+			);
 		} catch (error) {
 			const errorMessage =
 				error instanceof Error ? error.message : i18n.t('resource:installFailed');

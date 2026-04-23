@@ -32,6 +32,9 @@ export type SettingsPageProps = {
 	onDeleteCustomPreset: (value: CustomThemePreset) => void;
 	resources: ResourceItem[];
 	onRefreshResources: () => Promise<void>;
-	onInstallChromium: (resourceId: string) => Promise<void>;
+	onInstallChromium: (
+		resourceId: string,
+		options?: { force?: boolean },
+	) => Promise<void>;
 	onDownloadResource: (resourceId: string, label?: string) => Promise<void>;
 };

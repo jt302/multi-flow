@@ -1,5 +1,7 @@
 {
 	"downloadingBrowser": "正在下载浏览器...",
+	"redownloadingBrowser": "正在重新下载浏览器...",
+	"browserRedownloaded": "浏览器已更新",
 	"browserDownloading": "正在下载浏览器...",
 	"browserDownloadingPercent": "正在下载浏览器 {{percent}}%",
 	"browserInstalling": "正在安装浏览器...",

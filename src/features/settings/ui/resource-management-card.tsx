@@ -1,7 +1,22 @@
-import { Download, RefreshCw } from 'lucide-react';
+import { Download, RefreshCw, RotateCw } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Badge, Button, Card, CardTitle, Icon } from '@/components/ui';
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	Badge,
+	Button,
+	Card,
+	CardTitle,
+	Icon,
+} from '@/components/ui';
 import type { ResourceItem } from '@/entities/resource/model/types';
 import { formatBytes } from '@/shared/lib/format';
 import { useResourceDownloadProgress } from '@/store/resource-download-store';
@@ -11,7 +26,10 @@ type ResourceManagementCardProps = {
 	geoItems: ResourceItem[];
 	pendingKey: string;
 	onRefreshResources: () => void;
-	onInstallChromium: (resourceId: string) => void;
+	onInstallChromium: (
+		resourceId: string,
+		options?: { force?: boolean },
+	) => void;
 	onDownloadResource: (resourceId: string, label?: string) => void;
 };
 
@@ -72,6 +90,9 @@ export function ResourceManagementCard({
 	onDownloadResource,
 }: ResourceManagementCardProps) {
 	const { t } = useTranslation(['settings', 'common']);
+	const [redownloadTarget, setRedownloadTarget] = useState<ResourceItem | null>(
+		null,
+	);
 	return (
 		<Card className="p-4">
 			<div className="mb-2 flex items-center justify-between gap-3">
@@ -123,7 +144,18 @@ export function ResourceManagementCard({
 								</div>
 							</div>
 							<div className="mt-2 flex items-center gap-2">
-								{!item.installed && (
+								{item.installed ? (
+									<Button
+										type="button"
+										size="sm"
+										variant="outline"
+										disabled={Boolean(pendingKey)}
+										onClick={() => setRedownloadTarget(item)}
+									>
+										<Icon icon={RotateCw} size={12} />
+										{t('settings:resource.redownload')}
+									</Button>
+								) : (
 									<Button
 										type="button"
 										size="sm"
@@ -189,6 +221,46 @@ export function ResourceManagementCard({
 					</div>
 				))}
 			</div>
+			<AlertDialog
+				open={redownloadTarget !== null}
+				onOpenChange={(open) => {
+					if (!open) setRedownloadTarget(null);
+				}}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>
+							{t('settings:resource.redownloadConfirmTitle')}
+						</AlertDialogTitle>
+						<AlertDialogDescription>
+							{t('settings:resource.redownloadConfirmDesc', {
+								version: redownloadTarget?.version ?? '',
+							})}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel asChild>
+							<Button type="button" variant="ghost" className="cursor-pointer">
+								{t('common:cancel')}
+							</Button>
+						</AlertDialogCancel>
+						<AlertDialogAction asChild>
+							<Button
+								type="button"
+								className="cursor-pointer"
+								onClick={() => {
+									const target = redownloadTarget;
+									setRedownloadTarget(null);
+									if (target) onInstallChromium(target.id, { force: true });
+								}}
+							>
+								<Icon icon={RotateCw} size={12} />
+								{t('settings:resource.redownload')}
+							</Button>
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</Card>
 	);
 }

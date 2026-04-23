@@ -100,9 +100,12 @@ export function SettingsPage({
 							onRefreshResources={() => {
 								void runAction('refresh-resources', onRefreshResources);
 							}}
-							onInstallChromium={(resourceId) => {
-								void runAction(`install-${resourceId}`, () =>
-									onInstallChromium(resourceId),
+							onInstallChromium={(resourceId, options) => {
+								const actionKey = options?.force
+									? `redownload-${resourceId}`
+									: `install-${resourceId}`;
+								void runAction(actionKey, () =>
+									onInstallChromium(resourceId, options),
 								);
 							}}
 							onDownloadResource={(resourceId, label) => {
