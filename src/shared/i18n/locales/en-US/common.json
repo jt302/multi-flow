@@ -329,7 +329,7 @@
 	"clearGroup": "Clear Group",
 	"batchOpen": "Batch Open",
 	"batchClose": "Batch Close",
-	"stopAllRunning": "Stop All Running",
+	"stopAllRunning": "Stop All",
 	"placeholder": {
 		"search": "Search...",
 		"searchScript": "Search scripts...",

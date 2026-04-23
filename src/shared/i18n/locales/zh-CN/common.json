@@ -335,7 +335,7 @@
 	"clearGroup": "清空分组",
 	"batchOpen": "批量启动",
 	"batchClose": "批量关闭",
-	"stopAllRunning": "停止全部运行中",
+	"stopAllRunning": "一键停止",
 	"placeholder": {
 		"search": "搜索...",
 		"searchScript": "搜索脚本...",
