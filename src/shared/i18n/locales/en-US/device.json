@@ -4,6 +4,8 @@
 		"desc": "Manage device fingerprint presets available for profiles, selectable when creating profiles",
 		"addPreset": "Add Device Preset",
 		"editPreset": "Edit Device Preset",
+		"viewPreset": "View Device Preset",
+		"copyPreset": "Copy Device Preset",
 		"empty": "No device presets yet",
 		"emptyHint": "Click 'Add Device Preset' in the top right to create your first one",
 		"deleteTitle": "Delete Device Preset",
@@ -44,13 +46,16 @@
 		"uaTemplate": "UA Template",
 		"uaPreview": "UA Preview",
 		"uaPreviewHint": "Final User-Agent header. Sec-CH-UA-Full-Version still carries the full four-part version.",
+		"viewTitle": "View Device Preset",
 		"editTitle": "Edit Device Preset",
 		"createTitle": "Add Device Preset",
 		"cardDesc": "Maintain device preset parameters shared across profile creation, profile list display, and launch workflows.",
 		"editing": "Editing",
+		"readonly": "Read-only",
 		"pendingSave": "Pending Save",
 		"clearAndNew": "Clear & New",
 		"saveChanges": "Save Changes",
-		"saveNewPreset": "Save New Device"
+		"saveNewPreset": "Save New Device",
+		"copySuffix": "Copy"
 	}
 }

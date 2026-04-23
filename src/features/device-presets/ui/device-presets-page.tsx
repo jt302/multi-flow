@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Copy, Eye, Pencil, Plus, Trash2 } from 'lucide-react';
 
 import { getPlatformMeta } from '@/entities/profile/lib/platform-meta';
 import { PlatformGlyph } from '@/entities/profile/ui/platform-mark';
@@ -41,6 +41,8 @@ type DevicePresetsPageProps = {
 	onRefreshDevicePresets: () => Promise<void>;
 };
 
+type DevicePresetFormMode = 'create' | 'edit' | 'view';
+
 export function DevicePresetsPage({
 	devicePresets,
 	onCreateDevicePreset,
@@ -49,6 +51,7 @@ export function DevicePresetsPage({
 	onRefreshDevicePresets,
 }: DevicePresetsPageProps) {
 	const [formOpen, setFormOpen] = useState(false);
+	const [formMode, setFormMode] = useState<DevicePresetFormMode>('create');
 	const [deleteTarget, setDeleteTarget] =
 		useState<ProfileDevicePresetItem | null>(null);
 	const [deleting, setDeleting] = useState(false);
@@ -60,6 +63,7 @@ export function DevicePresetsPage({
 	const {
 		form,
 		activePreset,
+		copyPreset,
 		setActivePresetId,
 		resetPresetEditor,
 		handleSavePreset,
@@ -75,21 +79,44 @@ export function DevicePresetsPage({
 
 	function openCreate() {
 		resetPresetEditor();
+		setFormMode('create');
 		setFormOpen(true);
 	}
 
 	function openEdit(preset: ProfileDevicePresetItem) {
 		setActivePresetId(preset.id);
+		setFormMode('edit');
 		setFormOpen(true);
+	}
+
+	function openView(preset: ProfileDevicePresetItem) {
+		setActivePresetId(preset.id);
+		setFormMode('view');
+		setFormOpen(true);
+	}
+
+	function openCopy(preset: ProfileDevicePresetItem) {
+		copyPreset(preset, t('form.copySuffix'));
+		setFormMode('create');
+		setFormOpen(true);
+	}
+
+	function copyActivePreset() {
+		if (!activePreset) return;
+		openCopy(activePreset);
 	}
 
 	function handleFormReset() {
 		resetPresetEditor();
+		setFormMode('create');
 		setFormOpen(false);
 	}
 
 	async function handleFormSubmit() {
-		if (activePreset && refCount > 0) {
+		if (formMode === 'view') {
+			return;
+		}
+		if (formMode === 'edit' && activePreset && refCount > 0) {
 			setSyncChecked(true);
 			setSyncConfirmOpen(true);
 			return;
@@ -158,53 +185,97 @@ export function DevicePresetsPage({
 											className="!h-6 !w-6"
 										/>
 										<div className="min-w-0 flex-1">
-										<div className="flex items-center gap-2">
-											<p className="text-sm font-medium truncate">
-												{preset.label}
+											<div className="flex items-center gap-2">
+												<p className="text-sm font-medium truncate">
+													{preset.label}
+												</p>
+												<Badge
+													variant="outline"
+													className="text-xs flex-shrink-0"
+												>
+													{preset.formFactor}
+												</Badge>
+												{preset.mobile &&
+													preset.formFactor.trim().toLowerCase() !== 'mobile' && (
+														<Badge
+															variant="secondary"
+															className="text-xs flex-shrink-0"
+														>
+															{t('common:mobile')}
+														</Badge>
+													)}
+											</div>
+											<p className="text-xs text-muted-foreground mt-0.5">
+												{preset.platform} · {preset.viewportWidth}×
+												{preset.viewportHeight} · DPR {preset.deviceScaleFactor} ·{' '}
+												{preset.arch} {preset.bitness}-bit
 											</p>
-											<Badge
-												variant="outline"
-												className="text-xs flex-shrink-0"
-											>
-												{preset.formFactor}
-											</Badge>
-											{preset.mobile &&
-												preset.formFactor.trim().toLowerCase() !== 'mobile' && (
-													<Badge
-														variant="secondary"
-														className="text-xs flex-shrink-0"
-													>
-														{t('common:mobile')}
-													</Badge>
-												)}
 										</div>
-										<p className="text-xs text-muted-foreground mt-0.5">
-											{preset.platform} · {preset.viewportWidth}×
-											{preset.viewportHeight} · DPR {preset.deviceScaleFactor} ·{' '}
-											{preset.arch} {preset.bitness}-bit
-										</p>
-									</div>
 									</div>
 
 									<div className="flex items-center gap-1 flex-shrink-0 ml-2">
-										<Button
-											type="button"
-											variant="ghost"
-											size="icon-sm"
-											className="cursor-pointer"
-											onClick={() => openEdit(preset)}
-										>
-											<Pencil className="h-3.5 w-3.5" />
-										</Button>
-										<Button
-											type="button"
-											variant="ghost"
-											size="icon-sm"
-											className="cursor-pointer text-destructive hover:text-destructive"
-											onClick={() => setDeleteTarget(preset)}
-										>
-											<Trash2 className="h-3.5 w-3.5" />
-										</Button>
+										{!preset.isBuiltin ? (
+											<>
+												<Button
+													type="button"
+													variant="ghost"
+													size="icon-sm"
+													className="cursor-pointer"
+													onClick={() => openEdit(preset)}
+													aria-label={t('page.editPreset')}
+													title={t('page.editPreset')}
+												>
+													<Pencil className="h-3.5 w-3.5" />
+												</Button>
+												<Button
+													type="button"
+													variant="ghost"
+													size="icon-sm"
+													className="cursor-pointer"
+													onClick={() => openCopy(preset)}
+													aria-label={t('page.copyPreset')}
+													title={t('page.copyPreset')}
+												>
+													<Copy className="h-3.5 w-3.5" />
+												</Button>
+												<Button
+													type="button"
+													variant="ghost"
+													size="icon-sm"
+													className="cursor-pointer text-destructive hover:text-destructive"
+													onClick={() => setDeleteTarget(preset)}
+													aria-label={t('page.deleteTitle')}
+													title={t('page.deleteTitle')}
+												>
+													<Trash2 className="h-3.5 w-3.5" />
+												</Button>
+											</>
+										) : (
+											<>
+												<Button
+													type="button"
+													variant="ghost"
+													size="icon-sm"
+													className="cursor-pointer"
+													onClick={() => openView(preset)}
+													aria-label={t('page.viewPreset')}
+													title={t('page.viewPreset')}
+												>
+													<Eye className="h-3.5 w-3.5" />
+												</Button>
+												<Button
+													type="button"
+													variant="ghost"
+													size="icon-sm"
+													className="cursor-pointer"
+													onClick={() => openCopy(preset)}
+													aria-label={t('page.copyPreset')}
+													title={t('page.copyPreset')}
+												>
+													<Copy className="h-3.5 w-3.5" />
+												</Button>
+											</>
+										)}
 									</div>
 								</div>
 							))}
@@ -223,13 +294,19 @@ export function DevicePresetsPage({
 				<DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
 					<DialogHeader>
 						<DialogTitle>
-							{activePreset ? t('page.editPreset') : t('page.addPreset')}
+							{formMode === 'view'
+								? t('page.viewPreset')
+								: formMode === 'edit'
+									? t('page.editPreset')
+									: t('page.addPreset')}
 						</DialogTitle>
 					</DialogHeader>
 					<DevicePresetForm
 						form={form}
 						activePreset={activePreset}
+						readonly={formMode === 'view'}
 						onReset={handleFormReset}
+						onCopy={copyActivePreset}
 						onSubmit={() => {
 							void handleFormSubmit();
 						}}

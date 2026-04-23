@@ -69,7 +69,7 @@ function getDefaultPresetValues(): DevicePresetFormValues {
 	return {
 		label: '',
 		platform: 'macos',
-		platformVersion: '14.0.0',
+		platformVersion: '10.15.7',
 		viewportWidth: 1512,
 		viewportHeight: 982,
 		deviceScaleFactor: 2,
@@ -80,7 +80,7 @@ function getDefaultPresetValues(): DevicePresetFormValues {
 		mobile: false,
 		formFactor: 'Desktop',
 		userAgentTemplate:
-			'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36',
+			'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36',
 		customGlVendor: 'Apple',
 		customGlRenderer: 'Apple M3',
 		customCpuCores: 8,
@@ -180,6 +180,14 @@ export function useDevicePresetEditor({
 		form.reset(getDefaultPresetValues());
 	};
 
+	const copyPreset = (preset: ProfileDevicePresetItem, copySuffix: string) => {
+		setActivePresetId(null);
+		form.reset({
+			...mapPresetToFormValues(preset),
+			label: `${preset.label} ${copySuffix}`.trim(),
+		});
+	};
+
 	const handleSavePreset = (options?: { syncToProfiles?: boolean }) =>
 		form.handleSubmit(async (values) => {
 			const payload = toPayload(values);
@@ -198,6 +206,7 @@ export function useDevicePresetEditor({
 		activePreset,
 		activePresetId,
 		setActivePresetId,
+		copyPreset,
 		resetPresetEditor,
 		handleSavePreset,
 	};

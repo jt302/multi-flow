@@ -226,7 +226,7 @@ const PRESETS: &[PresetDefinition] = &[
         id: "macos_macbook_pro_14",
         label: "MacBook Pro 14",
         platform: "macos",
-        platform_version: "15.6.1",
+        platform_version: "10.15.7",
         viewport_width: 1512,
         viewport_height: 982,
         device_scale_factor: 2.0,
@@ -465,6 +465,7 @@ pub fn preset_to_device_preset(preset: &FingerprintPresetSpec) -> ProfileDeviceP
         custom_cpu_cores: primary_variant.custom_cpu_cores,
         custom_ram_gb: primary_variant.custom_ram_gb.min(MAX_FINGERPRINT_RAM_GB),
         browser_version: preset.browser_version.clone(),
+        is_builtin: true,
     }
 }
 

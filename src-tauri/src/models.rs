@@ -112,6 +112,7 @@ pub struct ProfileDevicePreset {
     pub custom_cpu_cores: u32,
     pub custom_ram_gb: u32,
     pub browser_version: String,
+    pub is_builtin: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

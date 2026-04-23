@@ -1,4 +1,4 @@
-import { Plus, Save } from 'lucide-react';
+import { Copy, Plus, Save } from 'lucide-react';
 import { useEffect } from 'react';
 import { Controller, type UseFormReturn } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -33,14 +33,18 @@ import {
 type DevicePresetFormProps = {
 	form: UseFormReturn<DevicePresetFormValues>;
 	activePreset: ProfileDevicePresetItem | null;
+	readonly?: boolean;
 	onReset: () => void;
+	onCopy?: () => void;
 	onSubmit: () => void;
 };
 
 export function DevicePresetForm({
 	form,
 	activePreset,
+	readonly = false,
 	onReset,
+	onCopy,
 	onSubmit,
 }: DevicePresetFormProps) {
 	const mobileCheckboxId = 'device-preset-mobile';
@@ -65,12 +69,13 @@ export function DevicePresetForm({
 
 	// When platform changes or catalog first loads, auto-set version if current is not in catalog
 	useEffect(() => {
+		if (readonly) return;
 		if (chromiumVersions.length === 0) return;
 		const inCatalog = chromiumVersions.some((v) => v.version === browserVersion);
 		if (!inCatalog) {
 			setValue('browserVersion', chromiumVersions[0].version, { shouldDirty: true });
 		}
-	}, [platform, chromiumVersions, browserVersion, setValue]);
+	}, [platform, readonly, chromiumVersions, browserVersion, setValue]);
 
 	return (
 		<Card className="border-border/70 bg-background/55 p-4">
@@ -78,13 +83,19 @@ export function DevicePresetForm({
 				<div className="flex items-center justify-between gap-3">
 					<div>
 						<CardTitle className="text-sm">
-							{activePreset ? t('form.editTitle') : t('form.createTitle')}
+							{readonly
+								? t('form.viewTitle')
+								: activePreset
+									? t('form.editTitle')
+									: t('form.createTitle')}
 						</CardTitle>
 						<p className="mt-1 text-xs text-muted-foreground">
 							{t('form.cardDesc')}
 						</p>
 					</div>
-					{activePreset ? (
+					{readonly ? (
+						<Badge variant="outline">{t('form.readonly')}</Badge>
+					) : activePreset ? (
 						<Badge variant="outline">{t('form.editing')}</Badge>
 					) : (
 						<Badge variant="secondary">{t('form.pendingSave')}</Badge>
@@ -106,6 +117,7 @@ export function DevicePresetForm({
 							</p>
 							<Input
 								{...register('label')}
+								disabled={readonly}
 								placeholder={t('form.namePlaceholder')}
 							/>
 							{errors.label ? (
@@ -122,7 +134,11 @@ export function DevicePresetForm({
 								control={control}
 								name="platform"
 								render={({ field }) => (
-									<Select value={field.value} onValueChange={field.onChange}>
+									<Select
+										value={field.value}
+										onValueChange={field.onChange}
+										disabled={readonly}
+									>
 										<SelectTrigger className="w-full">
 											<SelectValue placeholder={t('form.selectPlatform')} />
 										</SelectTrigger>
@@ -145,7 +161,11 @@ export function DevicePresetForm({
 								control={control}
 								name="browserVersion"
 								render={({ field }) => (
-									<Select value={field.value} onValueChange={field.onChange}>
+									<Select
+										value={field.value}
+										onValueChange={field.onChange}
+										disabled={readonly}
+									>
 										<SelectTrigger className="w-full">
 											<SelectValue placeholder={t('form.selectBrowserVersion')} />
 										</SelectTrigger>
@@ -174,6 +194,7 @@ export function DevicePresetForm({
 							</p>
 							<Input
 								{...register('platformVersion')}
+								disabled={readonly}
 								placeholder={t('form.platformVersionPlaceholder')}
 							/>
 						</div>
@@ -183,6 +204,7 @@ export function DevicePresetForm({
 							</p>
 							<Input
 								{...register('customPlatform')}
+								disabled={readonly}
 								placeholder={t('form.platformParamsPlaceholder')}
 							/>
 						</div>
@@ -196,6 +218,7 @@ export function DevicePresetForm({
 							<Input
 								type="number"
 								{...register('viewportWidth', { valueAsNumber: true })}
+								disabled={readonly}
 							/>
 						</div>
 						<div>
@@ -205,6 +228,7 @@ export function DevicePresetForm({
 							<Input
 								type="number"
 								{...register('viewportHeight', { valueAsNumber: true })}
+								disabled={readonly}
 							/>
 						</div>
 						<div>
@@ -215,6 +239,7 @@ export function DevicePresetForm({
 								type="number"
 								step="0.125"
 								{...register('deviceScaleFactor', { valueAsNumber: true })}
+								disabled={readonly}
 							/>
 						</div>
 						<div>
@@ -224,6 +249,7 @@ export function DevicePresetForm({
 							<Input
 								type="number"
 								{...register('touchPoints', { valueAsNumber: true })}
+								disabled={readonly}
 							/>
 						</div>
 					</div>
@@ -237,7 +263,11 @@ export function DevicePresetForm({
 								control={control}
 								name="arch"
 								render={({ field }) => (
-									<Select value={field.value} onValueChange={field.onChange}>
+									<Select
+										value={field.value}
+										onValueChange={field.onChange}
+										disabled={readonly}
+									>
 										<SelectTrigger className="w-full">
 											<SelectValue />
 										</SelectTrigger>
@@ -260,7 +290,11 @@ export function DevicePresetForm({
 								control={control}
 								name="bitness"
 								render={({ field }) => (
-									<Select value={field.value} onValueChange={field.onChange}>
+									<Select
+										value={field.value}
+										onValueChange={field.onChange}
+										disabled={readonly}
+									>
 										<SelectTrigger className="w-full">
 											<SelectValue />
 										</SelectTrigger>
@@ -283,7 +317,11 @@ export function DevicePresetForm({
 								control={control}
 								name="formFactor"
 								render={({ field }) => (
-									<Select value={field.value} onValueChange={field.onChange}>
+									<Select
+										value={field.value}
+										onValueChange={field.onChange}
+										disabled={readonly}
+									>
 										<SelectTrigger className="w-full">
 											<SelectValue />
 										</SelectTrigger>
@@ -310,6 +348,7 @@ export function DevicePresetForm({
 										<Checkbox
 											id={mobileCheckboxId}
 											checked={field.value}
+											disabled={readonly}
 											onCheckedChange={(checked) =>
 												field.onChange(Boolean(checked))
 											}
@@ -328,6 +367,7 @@ export function DevicePresetForm({
 							</p>
 							<Input
 								{...register('customGlVendor')}
+								disabled={readonly}
 								placeholder={t('form.glVendorPlaceholder')}
 							/>
 						</div>
@@ -337,6 +377,7 @@ export function DevicePresetForm({
 							</p>
 							<Input
 								{...register('customGlRenderer')}
+								disabled={readonly}
 								placeholder={t('form.glRendererPlaceholder')}
 							/>
 						</div>
@@ -347,6 +388,7 @@ export function DevicePresetForm({
 							<Input
 								type="number"
 								{...register('customCpuCores', { valueAsNumber: true })}
+								disabled={readonly}
 							/>
 						</div>
 						<div>
@@ -356,6 +398,7 @@ export function DevicePresetForm({
 							<Input
 								type="number"
 								{...register('customRamGb', { valueAsNumber: true })}
+								disabled={readonly}
 							/>
 							{errors.customRamGb ? (
 								<p className="mt-1 text-xs text-destructive">
@@ -372,6 +415,7 @@ export function DevicePresetForm({
 						<Textarea
 							rows={4}
 							{...register('userAgentTemplate')}
+							disabled={readonly}
 							placeholder="Mozilla/5.0 (...) Chrome/{version} Safari/537.36"
 						/>
 						{errors.userAgentTemplate ? (
@@ -391,13 +435,27 @@ export function DevicePresetForm({
 					</div>
 
 					<div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-3">
-						<Button type="button" variant="ghost" onClick={onReset}>
-							{t('form.clearAndNew')}
-						</Button>
-						<Button type="submit" disabled={isSubmitting}>
-							<Icon icon={activePreset ? Save : Plus} size={14} />
-							{activePreset ? t('form.saveChanges') : t('form.saveNewPreset')}
-						</Button>
+						{readonly ? (
+							<>
+								<Button type="button" variant="ghost" onClick={onReset}>
+									{t('common:close')}
+								</Button>
+								<Button type="button" onClick={onCopy}>
+									<Icon icon={Copy} size={14} />
+									{t('page.copyPreset')}
+								</Button>
+							</>
+						) : (
+							<>
+								<Button type="button" variant="ghost" onClick={onReset}>
+									{t('form.clearAndNew')}
+								</Button>
+								<Button type="submit" disabled={isSubmitting}>
+									<Icon icon={activePreset ? Save : Plus} size={14} />
+									{activePreset ? t('form.saveChanges') : t('form.saveNewPreset')}
+								</Button>
+							</>
+						)}
 					</div>
 				</form>
 			</CardContent>

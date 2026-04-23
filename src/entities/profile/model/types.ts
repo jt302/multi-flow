@@ -87,6 +87,7 @@ export type ProfileDevicePresetItem = {
 	customCpuCores: number;
 	customRamGb: number;
 	browserVersion: string;
+	isBuiltin: boolean;
 };
 
 export type SaveProfileDevicePresetPayload = {

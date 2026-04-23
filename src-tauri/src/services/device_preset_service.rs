@@ -10,6 +10,8 @@ use crate::error::{AppError, AppResult};
 use crate::fingerprint_catalog::{self, FingerprintPresetSpec, FingerprintVariantSpec};
 use crate::models::{now_ts, ProfileDevicePreset, SaveProfileDevicePresetRequest};
 
+const BUILTIN_MACOS_PRESET_ID: &str = "macos_macbook_pro_14";
+
 pub struct DevicePresetService {
     db: DatabaseConnection,
 }
@@ -85,6 +87,11 @@ impl DevicePresetService {
     }
 
     pub fn delete_preset(&self, preset_id: &str) -> AppResult<()> {
+        if is_builtin_preset_key(preset_id) {
+            return Err(AppError::Validation(
+                "built-in device presets cannot be deleted".to_string(),
+            ));
+        }
         let model = self.find_preset_model(preset_id)?;
         let active: device_preset::ActiveModel = model.into();
         self.db_query(active.delete(&self.db))?;
@@ -97,6 +104,11 @@ impl DevicePresetService {
         payload: SaveProfileDevicePresetRequest,
     ) -> AppResult<ProfileDevicePreset> {
         self.ensure_seeded()?;
+        if is_builtin_preset_key(preset_id) {
+            return Err(AppError::Validation(
+                "built-in device presets cannot be updated".to_string(),
+            ));
+        }
         let stored = self.find_preset_model(preset_id)?;
         let normalized = normalize_payload(payload)?;
         let mut active_model: device_preset::ActiveModel = stored.into();
@@ -183,7 +195,15 @@ impl DevicePresetService {
     fn ensure_seeded(&self) -> AppResult<()> {
         let now = now_ts();
         for preset in fingerprint_catalog::builtin_preset_definitions(None) {
-            if self.find_preset_by_key(&preset.id)?.is_some() {
+            if let Some(existing) = self.find_preset_by_key(&preset.id)? {
+                if preset.id == BUILTIN_MACOS_PRESET_ID
+                    && existing.platform_version != preset.platform_version
+                {
+                    let mut active_model: device_preset::ActiveModel = existing.into();
+                    active_model.platform_version = Set(preset.platform_version.clone());
+                    active_model.updated_at = Set(now);
+                    self.db_query(active_model.update(&self.db))?;
+                }
                 continue;
             }
             let primary_variant = preset.variants.first().cloned().ok_or_else(|| {
@@ -367,6 +387,7 @@ fn to_api_preset(model: &device_preset::Model) -> ProfileDevicePreset {
         custom_cpu_cores: model.custom_cpu_cores.max(1) as u32,
         custom_ram_gb: model.custom_ram_gb.max(1) as u32,
         browser_version: model.browser_version.clone(),
+        is_builtin: is_builtin_preset_key(&model.preset_key),
     }
 }
 
@@ -420,6 +441,12 @@ fn generate_preset_key() -> String {
         .map(|duration| duration.as_millis())
         .unwrap_or_default();
     format!("custom_dp_{millis}")
+}
+
+fn is_builtin_preset_key(preset_id: &str) -> bool {
+    fingerprint_catalog::builtin_preset_definitions(None)
+        .iter()
+        .any(|preset| preset.id == preset_id)
 }
 
 #[cfg(test)]
@@ -513,6 +540,55 @@ mod tests {
 
         assert!(items.iter().any(|item| item.id == "android_pixel_8"));
         assert!(items.iter().any(|item| item.label == "Custom Pixel"));
+    }
+
+    #[test]
+    fn builtin_macos_preset_is_readonly_and_uses_reduced_platform_version() {
+        let db = db::init_test_database().expect("init test db");
+        let service = DevicePresetService::from_db(db);
+
+        let preset = service
+            .get_preset("macos_macbook_pro_14")
+            .expect("get builtin macos preset");
+
+        assert_eq!(preset.platform_version, "10.15.7");
+        assert_eq!(preset.is_builtin, true);
+
+        let update_err = service
+            .update_preset(
+                "macos_macbook_pro_14",
+                SaveProfileDevicePresetRequest {
+                    label: "Edited Mac".to_string(),
+                    platform: "macos".to_string(),
+                    platform_version: "10.15.7".to_string(),
+                    viewport_width: 1512,
+                    viewport_height: 982,
+                    device_scale_factor: 2.0,
+                    touch_points: 0,
+                    custom_platform: "MacIntel".to_string(),
+                    arch: "arm".to_string(),
+                    bitness: "64".to_string(),
+                    mobile: false,
+                    form_factor: "Desktop".to_string(),
+                    user_agent_template:
+                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36"
+                            .to_string(),
+                    custom_gl_vendor: "Google Inc. (Apple)".to_string(),
+                    custom_gl_renderer:
+                        "ANGLE (Apple, ANGLE Metal Renderer: Apple M3, Unspecified Version)"
+                            .to_string(),
+                    custom_cpu_cores: 8,
+                    custom_ram_gb: 8,
+                    browser_version: "147.0.7727.117".to_string(),
+                },
+            )
+            .expect_err("builtin update should fail");
+        assert!(matches!(update_err, AppError::Validation(_)));
+
+        let delete_err = service
+            .delete_preset("macos_macbook_pro_14")
+            .expect_err("builtin delete should fail");
+        assert!(matches!(delete_err, AppError::Validation(_)));
     }
 
     #[test]
