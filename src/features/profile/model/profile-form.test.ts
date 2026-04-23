@@ -33,6 +33,7 @@ function buildFormValues(overrides: Record<string, unknown> = {}) {
 		browserBgColorMode: 'custom',
 		toolbarLabelMode: 'id_only',
 		proxyId: '',
+		localeMode: 'auto',
 		language: '',
 		timezoneId: '',
 		customFontListText: 'Arial\nHelvetica',
@@ -45,6 +46,10 @@ function buildFormValues(overrides: Record<string, unknown> = {}) {
 		webrtcIpOverride: '',
 		headless: false,
 		disableImages: false,
+		portScanProtection: false,
+		automationDetectionShield: false,
+		imageLoadingMode: 'off',
+		imageMaxArea: null,
 		randomFingerprint: false,
 		customLaunchArgsText: '',
 		cookieStateJson: '',
@@ -123,6 +128,39 @@ test('profile form schema rejects non http startup urls in multi line input', ()
 		return;
 	}
 	assert.equal(result.error.issues[0]?.path[0], 'startupUrls');
+});
+
+test('profile form schema keeps chromium protection and image loading settings', () => {
+	const result = profileFormSchema.safeParse(
+		buildFormValues({
+			portScanProtection: true,
+			automationDetectionShield: true,
+			imageLoadingMode: 'max-area',
+			imageMaxArea: 4096,
+		}),
+	);
+	assert.equal(result.success, true);
+	if (!result.success) {
+		return;
+	}
+	assert.equal(result.data.portScanProtection, true);
+	assert.equal(result.data.automationDetectionShield, true);
+	assert.equal(result.data.imageLoadingMode, 'max-area');
+	assert.equal(result.data.imageMaxArea, 4096);
+});
+
+test('profile form schema requires positive image max area for max-area mode', () => {
+	const result = profileFormSchema.safeParse(
+		buildFormValues({
+			imageLoadingMode: 'max-area',
+			imageMaxArea: null,
+		}),
+	);
+	assert.equal(result.success, false);
+	if (result.success) {
+		return;
+	}
+	assert.equal(result.error.issues[0]?.path[0], 'imageMaxArea');
 });
 
 test('resolveInitialWebRtcMode defaults new profiles to follow_ip but preserves legacy real', () => {

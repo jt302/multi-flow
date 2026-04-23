@@ -46,6 +46,10 @@ export const profileFormSchema = z
 		webrtcIpOverride: z.string(),
 		headless: z.boolean(),
 		disableImages: z.boolean(),
+		portScanProtection: z.boolean(),
+		automationDetectionShield: z.boolean(),
+		imageLoadingMode: z.enum(['off', 'block', 'max-area']),
+		imageMaxArea: z.number().int().positive(i18next.t('validation:imageMaxAreaPositive')).nullable(),
 		randomFingerprint: z.boolean(),
 		customLaunchArgsText: z.string(),
 		cookieStateJson: z.string(),
@@ -169,6 +173,14 @@ export const profileFormSchema = z
 					path: ['cookieStateJson'],
 				});
 			}
+		}
+
+		if (values.imageLoadingMode === 'max-area' && values.imageMaxArea === null) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: i18next.t('validation:imageMaxAreaRequired'),
+				path: ['imageMaxArea'],
+			});
 		}
 
 		const fontList = values.customFontListText

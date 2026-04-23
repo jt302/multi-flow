@@ -1992,21 +1992,40 @@ fn resolve_launch_options(
     if options.do_not_track_enabled.unwrap_or(false) {
         extra_args.push("--enable-do-not-track".to_string());
     }
+    if proxy_server.is_some() {
+        extra_args.push("--enable-dns-leak-protection".to_string());
+    }
     if options.port_scan_protection.unwrap_or(false) {
         extra_args.push("--enable-port-scan-protection".to_string());
     }
     if options.automation_detection_shield.unwrap_or(false) {
         extra_args.push("--enable-automation-detection-shield".to_string());
     }
-    if let Some(mode) = options
+    let image_loading_mode = options
         .image_loading_mode
         .as_deref()
         .and_then(trim_str_to_option)
-    {
-        extra_args.push(format!("--custom-image-loading-mode={mode}"));
-        if mode == "max-area" {
-            if let Some(max_area) = options.image_max_area {
+        .or_else(|| options.disable_images.unwrap_or(false).then(|| "block".to_string()));
+    if let Some(mode) = image_loading_mode {
+        match mode.as_str() {
+            "off" => {}
+            "block" => extra_args.push("--custom-image-loading-mode=block".to_string()),
+            "max-area" => {
+                let max_area = options.image_max_area.ok_or_else(|| {
+                    format!("validation failed: image max area is required for {profile_id}")
+                })?;
+                if max_area == 0 {
+                    return Err(format!(
+                        "validation failed: image max area must be positive for {profile_id}"
+                    ));
+                }
+                extra_args.push("--custom-image-loading-mode=max-area".to_string());
                 extra_args.push(format!("--custom-image-max-area={max_area}"));
+            }
+            _ => {
+                return Err(format!(
+                    "validation failed: unsupported image loading mode for {profile_id}: {mode}"
+                ));
             }
         }
     }
@@ -2069,7 +2088,7 @@ fn resolve_launch_options(
         proxy_server,
         web_rtc_policy: None,
         headless: options.headless.unwrap_or(false),
-        disable_images: options.disable_images.unwrap_or(false),
+        disable_images: false,
         toolbar_text: toolbar_text.clone(),
         background_color,
         custom_cpu_cores,
@@ -2361,6 +2380,10 @@ fn merge_open_options(
             merged.geolocation = advanced.geolocation.clone();
             merged.headless = advanced.headless;
             merged.disable_images = advanced.disable_images;
+            merged.port_scan_protection = advanced.port_scan_protection;
+            merged.automation_detection_shield = advanced.automation_detection_shield;
+            merged.image_loading_mode = advanced.image_loading_mode.clone();
+            merged.image_max_area = advanced.image_max_area;
             merged.custom_launch_args = advanced.custom_launch_args.clone();
             merged.fingerprint_seed = advanced.fixed_fingerprint_seed;
         }
@@ -2416,6 +2439,18 @@ fn merge_open_options(
         }
         if overrides.disable_images.is_some() {
             merged.disable_images = overrides.disable_images;
+        }
+        if overrides.port_scan_protection.is_some() {
+            merged.port_scan_protection = overrides.port_scan_protection;
+        }
+        if overrides.automation_detection_shield.is_some() {
+            merged.automation_detection_shield = overrides.automation_detection_shield;
+        }
+        if overrides.image_loading_mode.is_some() {
+            merged.image_loading_mode = overrides.image_loading_mode;
+        }
+        if overrides.image_max_area.is_some() {
+            merged.image_max_area = overrides.image_max_area;
         }
         if overrides.custom_launch_args.is_some() {
             merged.custom_launch_args = overrides.custom_launch_args;
@@ -3965,6 +4000,131 @@ mod tests {
     }
 
     #[test]
+    fn resolve_launch_options_enables_dns_leak_protection_when_proxy_bound() {
+        let preset_service = new_test_device_preset_service();
+        let proxy = Proxy {
+            id: "px_000001".to_string(),
+            name: "proxy-us".to_string(),
+            protocol: "socks5".to_string(),
+            host: "127.0.0.1".to_string(),
+            port: 1080,
+            username: None,
+            password: None,
+            country: Some("US".to_string()),
+            region: None,
+            city: None,
+            provider: None,
+            note: None,
+            check_status: Some("ok".to_string()),
+            check_message: None,
+            last_checked_at: None,
+            exit_ip: Some("203.0.113.10".to_string()),
+            latitude: Some(37.7749),
+            longitude: Some(-122.4194),
+            geo_accuracy_meters: Some(20.0),
+            suggested_language: Some("en-US".to_string()),
+            suggested_timezone: Some("America/Los_Angeles".to_string()),
+            language_source: Some("ip".to_string()),
+            custom_language: None,
+            effective_language: Some("en-US".to_string()),
+            timezone_source: Some("ip".to_string()),
+            custom_timezone: None,
+            effective_timezone: Some("America/Los_Angeles".to_string()),
+            target_site_checks: None,
+            expires_at: None,
+            lifecycle: ProxyLifecycle::Active,
+            created_at: 1,
+            updated_at: 1,
+            deleted_at: None,
+        };
+
+        let resolved = resolve_launch_options(
+            &preset_service,
+            "pf_000001",
+            "test-profile",
+            None,
+            OpenProfileOptions::default(),
+            Some(&proxy),
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("resolve launch options");
+
+        assert_eq!(
+            resolved.proxy_server.as_deref(),
+            Some("socks5://127.0.0.1:1080")
+        );
+        assert!(resolved
+            .extra_args
+            .iter()
+            .any(|arg| arg == "--enable-dns-leak-protection"));
+    }
+
+    #[test]
+    fn resolve_launch_options_maps_legacy_disable_images_to_custom_image_block() {
+        let preset_service = new_test_device_preset_service();
+        let options: OpenProfileOptions = serde_json::from_value(json!({
+            "disableImages": true
+        }))
+        .expect("deserialize open options");
+
+        let resolved = resolve_launch_options(
+            &preset_service,
+            "pf_000001",
+            "test-profile",
+            None,
+            options,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("resolve launch options");
+
+        assert_eq!(resolved.disable_images, false);
+        assert!(resolved
+            .extra_args
+            .iter()
+            .any(|arg| arg == "--custom-image-loading-mode=block"));
+    }
+
+    #[test]
+    fn resolve_launch_options_adds_image_max_area_switches() {
+        let preset_service = new_test_device_preset_service();
+        let options: OpenProfileOptions = serde_json::from_value(json!({
+            "imageLoadingMode": "max-area",
+            "imageMaxArea": 4096
+        }))
+        .expect("deserialize open options");
+
+        let resolved = resolve_launch_options(
+            &preset_service,
+            "pf_000001",
+            "test-profile",
+            None,
+            options,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("resolve launch options");
+
+        assert!(resolved
+            .extra_args
+            .iter()
+            .any(|arg| arg == "--custom-image-loading-mode=max-area"));
+        assert!(resolved
+            .extra_args
+            .iter()
+            .any(|arg| arg == "--custom-image-max-area=4096"));
+    }
+
+    #[test]
     fn resolve_launch_options_adds_custom_device_identity_switches() {
         let preset_service = new_test_device_preset_service();
         let options: OpenProfileOptions = serde_json::from_value(json!({
@@ -4213,7 +4373,7 @@ mod tests {
         assert!(options
             .user_agent
             .as_deref()
-            .is_some_and(|value| value.contains("Chrome/144.0.7559.97")));
+            .is_some_and(|value| value.contains("Chrome/144.0.0.0")));
         assert_eq!(options.language.as_deref(), Some("de-DE"));
         assert_eq!(options.timezone_id.as_deref(), Some("Europe/Berlin"));
         assert_eq!(options.custom_cpu_cores, Some(12));
@@ -4451,14 +4611,15 @@ mod tests {
             .iter()
             .any(|item| item.starts_with("--force-device-scale-factor=")));
         assert!(options.extra_args.iter().any(|item| {
-            item.starts_with(
-                "--custom-ua-metadata=platform=Android|platform_version=14.0.0|arch=arm|bitness=64|mobile=1|brands=Google Chrome:144,Chromium:144|form_factors=Mobile",
-            )
+            item.starts_with("--custom-ua-metadata=platform=Android|platform_version=14.0.0|arch=arm|bitness=64|mobile=1")
+                && item.contains("brands=Google Chrome:144,Chromium:144,Not?A_Brand:99")
+                && item.contains("ua_full_version=144.0.7559.97")
+                && item.ends_with("form_factors=Mobile")
         }));
         assert_eq!(
             options.user_agent.as_deref(),
             Some(
-                "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.7559.97 Mobile Safari/537.36"
+                "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Mobile Safari/537.36"
             )
         );
         assert!(options
@@ -4529,14 +4690,15 @@ mod tests {
             .iter()
             .any(|item| item.starts_with("--force-device-scale-factor=")));
         assert!(options.extra_args.iter().any(|item| {
-            item.starts_with(
-                "--custom-ua-metadata=platform=iOS|platform_version=17.0.0|arch=arm|bitness=64|mobile=1|brands=Google Chrome:144,Chromium:144|form_factors=Mobile",
-            )
+            item.starts_with("--custom-ua-metadata=platform=iOS|platform_version=17.0.0|arch=arm|bitness=64|mobile=1")
+                && item.contains("brands=Google Chrome:144,Chromium:144,Not?A_Brand:99")
+                && item.contains("ua_full_version=144.0.7559.97")
+                && item.ends_with("form_factors=Mobile")
         }));
         assert_eq!(
             options.user_agent.as_deref(),
             Some(
-                "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/144.0.7559.97 Mobile/15E148 Safari/604.1"
+                "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/144.0.0.0 Mobile/15E148 Safari/604.1"
             )
         );
         assert!(options

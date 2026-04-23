@@ -161,7 +161,9 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 									cookieStateError={values.runtimeCookieStateError}
 									geolocationMode={values.geolocationMode}
 									headless={values.headless}
-									disableImages={values.disableImages}
+									portScanProtection={values.portScanProtection}
+									automationDetectionShield={values.automationDetectionShield}
+									imageLoadingMode={values.imageLoadingMode}
 									autoAllowGeolocation={values.autoAllowGeolocation}
 									geolocationSource={values.proxySuggestionSource.geolocation}
 									hasProxyGeolocation={Boolean(

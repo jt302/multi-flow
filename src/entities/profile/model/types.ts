@@ -166,6 +166,10 @@ export type ProfileFingerprintSettings = {
 export type ProfileAdvancedSettings = {
 	headless?: boolean;
 	disableImages?: boolean;
+	portScanProtection?: boolean;
+	automationDetectionShield?: boolean;
+	imageLoadingMode?: 'off' | 'block' | 'max-area';
+	imageMaxArea?: number | null;
 	cookieStateJson?: string;
 	pluginSelections?: ProfilePluginSelection[];
 	geolocationMode?: 'off' | 'ip' | 'custom';

@@ -127,8 +127,6 @@ export const STEP_KINDS: StepKindDef[] = [
 	{ value: 'magic_get_managed_extensions', label: 'magic_get_managed_extensions', group: 'extension' },
 	{ value: 'magic_trigger_extension_action', label: 'magic_trigger_extension_action', group: 'extension' },
 	{ value: 'magic_close_extension_popup', label: 'magic_close_extension_popup', group: 'extension' },
-	{ value: 'magic_enable_extension', label: 'magic_enable_extension', group: 'extension' },
-	{ value: 'magic_disable_extension', label: 'magic_disable_extension', group: 'extension' },
 	// 同步模式
 	{ value: 'magic_toggle_sync_mode', label: 'magic_toggle_sync_mode', group: 'sync' },
 	{ value: 'magic_get_sync_mode', label: 'magic_get_sync_mode', group: 'sync' },
@@ -469,7 +467,7 @@ export const PALETTE_GROUPS: { label: string; kinds: string[] }[] = [
 	{
 		label: 'extension',
 		kinds: ['magic_get_managed_extensions', 'magic_trigger_extension_action',
-			'magic_close_extension_popup', 'magic_enable_extension', 'magic_disable_extension'],
+			'magic_close_extension_popup'],
 	},
 	{
 		label: 'app',

@@ -1551,7 +1551,7 @@ pub struct ToolResult {
 
 ---
 
-#### 扩展管理（5 个）
+#### 扩展管理（3 个，新脚本推荐）
 
 ##### `magic_get_managed_extensions`
 
@@ -1590,29 +1590,7 @@ pub struct ToolResult {
 
 ---
 
-##### `magic_enable_extension`
-
-启用浏览器扩展（运行时生效，不持久化）。
-
-| 参数           | 类型   | 必需 | 描述         |
-| -------------- | ------ | ---- | ------------ |
-| `extension_id` | string | ✅   | 32 位扩展 ID |
-
-**返回值**: 无
-
----
-
-##### `magic_disable_extension`
-
-禁用浏览器扩展（运行时生效，不持久化）。
-
-| 参数           | 类型   | 必需 | 描述         |
-| -------------- | ------ | ---- | ------------ |
-| `extension_id` | string | ✅   | 32 位扩展 ID |
-
-**返回值**: 无
-
----
+兼容旧脚本：`magic_enable_extension` / `magic_disable_extension` 仍可被历史自动化执行，但已从新建工具定义中移除。新脚本应通过环境插件配置和 `extension-state-file` 管理扩展启用状态。
 
 #### 同步控制（4 个）
 

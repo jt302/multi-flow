@@ -34,7 +34,9 @@ type AdvancedSettingsSectionProps = {
 	cookieStateError?: string | null;
 	geolocationMode: 'off' | 'ip' | 'custom';
 	headless: boolean;
-	disableImages: boolean;
+	portScanProtection: boolean;
+	automationDetectionShield: boolean;
+	imageLoadingMode: 'off' | 'block' | 'max-area';
 	autoAllowGeolocation: boolean;
 	geolocationSource: string;
 	hasProxyGeolocation: boolean;
@@ -48,7 +50,9 @@ export function AdvancedSettingsSection({
 	cookieStateError = null,
 	geolocationMode,
 	headless,
-	disableImages,
+	portScanProtection,
+	automationDetectionShield,
+	imageLoadingMode,
 	autoAllowGeolocation,
 	geolocationSource,
 	hasProxyGeolocation,
@@ -60,6 +64,10 @@ export function AdvancedSettingsSection({
 	const [mergeError, setMergeError] = useState<string | null>(null);
 	const headlessId = 'profile-headless';
 	const disableImagesId = 'profile-disable-images';
+	const portScanProtectionId = 'profile-port-scan-protection';
+	const automationDetectionShieldId = 'profile-automation-detection-shield';
+	const imageLoadingModeId = 'profile-image-loading-mode';
+	const imageMaxAreaId = 'profile-image-max-area';
 	const autoAllowGeolocationId = 'profile-auto-allow-geolocation';
 	const geolocationModeId = 'profile-geolocation-mode';
 	const launchArgsId = 'profile-custom-launch-args';
@@ -101,16 +109,110 @@ export function AdvancedSettingsSection({
 				>
 					<Checkbox
 						id={disableImagesId}
-						checked={disableImages}
+						checked={imageLoadingMode === 'block'}
 						className="cursor-pointer"
 						onCheckedChange={(checked) =>
-							setValue('disableImages', checked === true, {
-								shouldDirty: true,
-							})
+							setValue(
+								'imageLoadingMode',
+								checked === true ? 'block' : 'off',
+								{
+									shouldDirty: true,
+									shouldValidate: true,
+								},
+							)
 						}
 					/>
 					{t('advanced.disableImages')}
 				</label>
+				<label
+					htmlFor={portScanProtectionId}
+					className="flex items-center gap-2 text-sm"
+				>
+					<Checkbox
+						id={portScanProtectionId}
+						checked={portScanProtection}
+						className="cursor-pointer"
+						onCheckedChange={(checked) =>
+							setValue('portScanProtection', checked === true, {
+								shouldDirty: true,
+							})
+						}
+					/>
+					{t('advanced.portScanProtection')}
+				</label>
+				<label
+					htmlFor={automationDetectionShieldId}
+					className="flex items-center gap-2 text-sm"
+				>
+					<Checkbox
+						id={automationDetectionShieldId}
+						checked={automationDetectionShield}
+						className="cursor-pointer"
+						onCheckedChange={(checked) =>
+							setValue('automationDetectionShield', checked === true, {
+								shouldDirty: true,
+							})
+						}
+					/>
+					{t('advanced.automationDetectionShield')}
+				</label>
+				<div className="grid gap-3 md:grid-cols-2">
+					<div className="space-y-2">
+						<label
+							htmlFor={imageLoadingModeId}
+							className="block text-xs text-muted-foreground"
+						>
+							{t('advanced.imageLoadingMode')}
+						</label>
+						<Select
+							value={imageLoadingMode}
+							onValueChange={(value) =>
+								setValue(
+									'imageLoadingMode',
+									value as 'off' | 'block' | 'max-area',
+									{
+										shouldDirty: true,
+										shouldValidate: true,
+									},
+								)
+							}
+						>
+							<SelectTrigger
+								id={imageLoadingModeId}
+								className="w-full cursor-pointer"
+							>
+								<SelectValue placeholder={t('advanced.selectImageLoadingMode')} />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="off">{t('common:disabled')}</SelectItem>
+								<SelectItem value="block">{t('advanced.imageLoadingBlock')}</SelectItem>
+								<SelectItem value="max-area">{t('advanced.imageLoadingMaxArea')}</SelectItem>
+							</SelectContent>
+						</Select>
+					</div>
+					{imageLoadingMode === 'max-area' ? (
+						<div>
+							<label
+								htmlFor={imageMaxAreaId}
+								className="mb-1 block text-xs text-muted-foreground"
+							>
+								{t('advanced.imageMaxArea')}
+							</label>
+							<Input
+								id={imageMaxAreaId}
+								type="number"
+								min={1}
+								{...register('imageMaxArea', {
+									setValueAs: (value) => {
+										const nextValue = Number(value);
+										return value === '' || Number.isNaN(nextValue) ? null : nextValue;
+									},
+								})}
+								placeholder="4096"
+							/>
+						</div>
+					) : null}
+				</div>
 				<div className="space-y-2">
 					<label
 						htmlFor={geolocationModeId}

@@ -183,7 +183,13 @@ export function useProfileCreateForm({
 			),
 			webrtcIpOverride: initialFingerprint?.webrtcIpOverride ?? '',
 			headless: initialAdvanced?.headless ?? false,
-			disableImages: initialAdvanced?.disableImages ?? false,
+			disableImages: false,
+			portScanProtection: initialAdvanced?.portScanProtection ?? false,
+			automationDetectionShield: initialAdvanced?.automationDetectionShield ?? false,
+			imageLoadingMode:
+				initialAdvanced?.imageLoadingMode ??
+				(initialAdvanced?.disableImages ? 'block' : 'off'),
+			imageMaxArea: initialAdvanced?.imageMaxArea ?? null,
 			randomFingerprint: initialAdvanced?.randomFingerprint ?? false,
 			customLaunchArgsText: initialAdvanced?.customLaunchArgs?.join('\n') ?? '',
 			cookieStateJson: initialCookieStateJson,
@@ -721,7 +727,14 @@ export function useProfileCreateForm({
 				},
 				advanced: {
 					headless: values.headless,
-					disableImages: values.disableImages,
+					disableImages: undefined,
+					portScanProtection: values.portScanProtection,
+					automationDetectionShield: values.automationDetectionShield,
+					imageLoadingMode: values.imageLoadingMode,
+					imageMaxArea:
+						values.imageLoadingMode === 'max-area'
+							? values.imageMaxArea ?? undefined
+							: undefined,
 					geolocationMode: values.geolocationMode,
 					autoAllowGeolocation: values.autoAllowGeolocation,
 					customLaunchArgs: customLaunchArgs.length ? customLaunchArgs : undefined,
@@ -805,6 +818,10 @@ export function useProfileCreateForm({
 			name: watch('name'),
 			headless: watch('headless'),
 			disableImages: watch('disableImages'),
+			portScanProtection: watch('portScanProtection'),
+			automationDetectionShield: watch('automationDetectionShield'),
+			imageLoadingMode: watch('imageLoadingMode'),
+			imageMaxArea: watch('imageMaxArea'),
 			runtimeCookieStateLoading: runtimeCookieStateQuery.isLoading,
 			runtimeCookieStateError:
 				runtimeCookieStateQuery.error instanceof Error

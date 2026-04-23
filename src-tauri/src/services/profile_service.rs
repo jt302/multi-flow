@@ -1720,7 +1720,7 @@ mod tests {
         assert!(snapshot
             .user_agent
             .as_deref()
-            .is_some_and(|value| value.contains("Chrome/144.0.7559.97")));
+            .is_some_and(|value| value.contains("Chrome/144.0.0.0")));
     }
 
     #[test]

@@ -1280,7 +1280,7 @@ fn magic_tools() -> Vec<Value> {
                 "required": ["mode"]
             }),
         ),
-        // ── 扩展管理 (5) ──
+        // ── 扩展管理 (3) ──
         tool(
             "magic_get_managed_extensions",
             "获取所有已安装的浏览器扩展信息",
@@ -1311,28 +1311,6 @@ fn magic_tools() -> Vec<Value> {
                 "properties": {
                     "browser_id": { "type": "integer", "description": "浏览器 ID（可选）" }
                 }
-            }),
-        ),
-        tool(
-            "magic_enable_extension",
-            "启用浏览器扩展（运行时生效，不持久化）",
-            json!({
-                "type": "object",
-                "properties": {
-                    "extension_id": { "type": "string", "description": "32位扩展 ID" }
-                },
-                "required": ["extension_id"]
-            }),
-        ),
-        tool(
-            "magic_disable_extension",
-            "禁用浏览器扩展（运行时生效，不持久化）",
-            json!({
-                "type": "object",
-                "properties": {
-                    "extension_id": { "type": "string", "description": "32位扩展 ID" }
-                },
-                "required": ["extension_id"]
             }),
         ),
         // ── 同步控制 (4) ──

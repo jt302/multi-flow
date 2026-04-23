@@ -195,8 +195,7 @@
 需要控制扩展？
 ├─ 列表 → magic_get_managed_extensions
 ├─ 触发操作 → magic_trigger_extension_action
-├─ 关闭弹窗 → magic_close_extension_popup
-├─ 启用/禁用 → magic_enable_extension / magic_disable_extension
+└─ 关闭弹窗 → magic_close_extension_popup
 
 需要窗口同步？
 ├─ 切换模式 → magic_toggle_sync_mode
@@ -699,7 +698,7 @@ magic_create_bookmark_folder(title="工作")
 
 ### 场景 I: 扩展管理
 
-**场景描述**：需要查看、启用、禁用浏览器扩展，或触发扩展的功能。
+**场景描述**：需要查看浏览器扩展，或触发扩展的工具栏功能。
 
 **常用工具**：
 
@@ -708,8 +707,6 @@ magic_create_bookmark_folder(title="工作")
 | `magic_get_managed_extensions`   | 获取已安装的扩展列表 | 无                      |
 | `magic_trigger_extension_action` | 触发扩展图标动作     | `extension_id`          |
 | `magic_close_extension_popup`    | 关闭扩展弹窗         | 无（可选 `browser_id`） |
-| `magic_enable_extension`         | 启用扩展             | `extension_id`          |
-| `magic_disable_extension`        | 禁用扩展             | `extension_id`          |
 
 **典型组合**：
 
@@ -717,7 +714,6 @@ magic_create_bookmark_folder(title="工作")
 
 ```
 magic_get_managed_extensions()             ← 获取扩展列表找到 extension_id
-  → magic_enable_extension(extension_id="xxx")
   → magic_trigger_extension_action(extension_id="xxx")
   → cdp_screenshot()                       ← 查看扩展弹窗
 ```
@@ -725,7 +721,7 @@ magic_get_managed_extensions()             ← 获取扩展列表找到 extensio
 **注意事项**：
 
 - `extension_id` 是 32 位的扩展唯一标识符（如 `nkbihfbeogaeaoehlefnkodbefgpgknn`），先通过 `magic_get_managed_extensions` 获取。
-- `magic_enable_extension` 和 `magic_disable_extension` 是运行时生效，不持久化到浏览器配置。
+- `magic_enable_extension` 和 `magic_disable_extension` 已废弃，不要在新脚本中使用；扩展启用状态应通过环境插件配置和 `extension-state-file` 管理。
 - `magic_trigger_extension_action` 模拟点击浏览器工具栏上的扩展图标。
 
 ---
@@ -959,15 +955,15 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 42  | `magic_export_cookie_state` | 导出 Cookie 状态       |
 | 43  | `magic_import_cookies`      | 批量导入 Cookie        |
 
-**扩展管理（5 个）**
+**扩展管理（3 个，新脚本推荐）**
 
 | #   | 工具名                           | 说明                         |
 | --- | -------------------------------- | ---------------------------- |
 | 44  | `magic_get_managed_extensions`   | 获取已安装的扩展列表         |
 | 45  | `magic_trigger_extension_action` | 触发扩展图标动作             |
 | 46  | `magic_close_extension_popup`    | 关闭扩展弹窗                 |
-| 47  | `magic_enable_extension`         | 启用扩展（运行时，不持久化） |
-| 48  | `magic_disable_extension`        | 禁用扩展（运行时，不持久化） |
+
+兼容旧脚本：`magic_enable_extension` / `magic_disable_extension` 仍可被历史自动化执行，但已从新建工具列表移除。
 
 **同步控制（4 个）**
 

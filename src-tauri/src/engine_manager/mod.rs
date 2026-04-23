@@ -1722,9 +1722,7 @@ fn build_chromium_launch_args(
     if options.headless {
         args.push("--headless=new".to_string());
     }
-    if options.disable_images {
-        args.push("--blink-settings=imagesEnabled=false".to_string());
-    }
+    let _ = options.disable_images;
     if let Some(toolbar_text) = options
         .toolbar_text
         .as_ref()
@@ -2779,6 +2777,29 @@ mod tests {
         assert!(
             !args.iter().any(|arg| arg.starts_with("--geoip-database=")),
             "geoip-database should be absent from chromium args: {args:?}"
+        );
+    }
+
+    #[test]
+    fn build_chromium_launch_args_never_uses_legacy_disable_images_switch() {
+        let options = EngineLaunchOptions {
+            disable_images: true,
+            ..Default::default()
+        };
+        let args = build_chromium_launch_args(
+            &PathBuf::from("/tmp/multi-flow-tests/user-data"),
+            &PathBuf::from("/tmp/multi-flow-tests/cache-data"),
+            19222,
+            19322,
+            &options,
+        )
+        .expect("build args");
+
+        assert!(
+            !args
+                .iter()
+                .any(|arg| arg == "--blink-settings=imagesEnabled=false"),
+            "legacy disable-images switch should be absent: {args:?}"
         );
     }
 

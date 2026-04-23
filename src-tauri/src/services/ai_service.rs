@@ -1626,7 +1626,7 @@ mod tests {
             ]),
         )];
 
-        let contents = gemini_contents(&messages).expect("gemini");
+        let (contents, _system_instruction) = gemini_contents(&messages).expect("gemini");
 
         assert_eq!(contents[0]["role"], "user");
         assert_eq!(contents[0]["parts"][0]["text"], "describe");

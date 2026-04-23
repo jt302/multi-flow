@@ -254,6 +254,10 @@ pub struct ProfilePluginSelection {
 pub struct ProfileAdvancedSettings {
     pub headless: Option<bool>,
     pub disable_images: Option<bool>,
+    pub port_scan_protection: Option<bool>,
+    pub automation_detection_shield: Option<bool>,
+    pub image_loading_mode: Option<String>,
+    pub image_max_area: Option<u32>,
     pub cookie_state_json: Option<String>,
     pub plugin_selections: Option<Vec<ProfilePluginSelection>>,
     pub geolocation_mode: Option<GeolocationMode>,
