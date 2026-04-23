@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use super::model_image_service::split_data_url;
 use super::app_preference_service::AiProviderConfig;
+use super::model_image_service::split_data_url;
 
 fn default_base_url(provider: &str) -> &'static str {
     match provider {
@@ -121,10 +121,19 @@ pub enum AiChatResult {
 /// 流式 AI 增量事件（用于 SSE 解析）
 pub enum AiChatDelta {
     TextDelta(String),
-    ToolCallStart { index: usize, id: String, name: String },
-    ToolCallArgsDelta { index: usize, delta: String },
+    ToolCallStart {
+        index: usize,
+        id: String,
+        name: String,
+    },
+    ToolCallArgsDelta {
+        index: usize,
+        delta: String,
+    },
     Usage(TokenUsage),
-    Done { finish_reason: String },
+    Done {
+        finish_reason: String,
+    },
     Error(String),
 }
 
@@ -933,8 +942,14 @@ impl AiService {
         let base_url = base_url.trim_end_matches('/').to_string();
         let api_key = config.api_key.clone().unwrap_or_default();
         let model = match provider.as_str() {
-            "anthropic" => config.model.clone().unwrap_or_else(|| "claude-opus-4-5".into()),
-            "gemini" => config.model.clone().unwrap_or_else(|| "gemini-2.0-flash".into()),
+            "anthropic" => config
+                .model
+                .clone()
+                .unwrap_or_else(|| "claude-opus-4-5".into()),
+            "gemini" => config
+                .model
+                .clone()
+                .unwrap_or_else(|| "gemini-2.0-flash".into()),
             _ => config.model.clone().unwrap_or_else(|| "gpt-4o".into()),
         };
         // 流式请求使用无响应 timeout 的 client（只设 connect timeout）
@@ -949,8 +964,7 @@ impl AiService {
                 }
                 "gemini" => stream_gemini(http, &base_url, &api_key, &model, messages, tx).await,
                 _ => {
-                    stream_openai_like(http, &base_url, &api_key, &model, messages, tools, tx)
-                        .await
+                    stream_openai_like(http, &base_url, &api_key, &model, messages, tools, tx).await
                 }
             }
         });
@@ -962,18 +976,16 @@ impl AiService {
 pub fn build_vision_content(text_prompt: &str, image_base64: Option<&str>) -> ChatContent {
     match image_base64 {
         None => ChatContent::Text(text_prompt.to_string()),
-        Some(b64) => {
-            ChatContent::Parts(vec![
-                ContentPart::Text {
-                    text: text_prompt.to_string(),
+        Some(b64) => ChatContent::Parts(vec![
+            ContentPart::Text {
+                text: text_prompt.to_string(),
+            },
+            ContentPart::ImageUrl {
+                image_url: ImageUrl {
+                    url: normalize_image_data_url(b64),
                 },
-                ContentPart::ImageUrl {
-                    image_url: ImageUrl {
-                        url: normalize_image_data_url(b64),
-                    },
-                },
-            ])
-        }
+            },
+        ]),
     }
 }
 
@@ -1084,16 +1096,30 @@ fn process_openai_sse_chunk(
         if let Some(tcs) = delta.get("tool_calls").and_then(|v| v.as_array()) {
             for tc in tcs {
                 let index = tc.get("index").and_then(|i| i.as_u64()).unwrap_or(0) as usize;
-                let id = tc.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let id = tc
+                    .get("id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
                 let func = tc.get("function").cloned().unwrap_or(Value::Null);
-                let name = func.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                let args_delta =
-                    func.get("arguments").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let name = func
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let args_delta = func
+                    .get("arguments")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
                 if !id.is_empty() && !name.is_empty() {
                     let _ = tx.send(AiChatDelta::ToolCallStart { index, id, name });
                 }
                 if !args_delta.is_empty() {
-                    let _ = tx.send(AiChatDelta::ToolCallArgsDelta { index, delta: args_delta });
+                    let _ = tx.send(AiChatDelta::ToolCallArgsDelta {
+                        index,
+                        delta: args_delta,
+                    });
                 }
             }
         }
@@ -1105,7 +1131,9 @@ fn process_openai_sse_chunk(
                 if usage.prompt_tokens.is_some() || usage.completion_tokens.is_some() {
                     let _ = tx.send(AiChatDelta::Usage(usage));
                 }
-                let _ = tx.send(AiChatDelta::Done { finish_reason: fr.to_string() });
+                let _ = tx.send(AiChatDelta::Done {
+                    finish_reason: fr.to_string(),
+                });
             }
         }
     }
@@ -1282,7 +1310,9 @@ async fn stream_anthropic(
         .await
     {
         Err(e) => {
-            let _ = tx.send(AiChatDelta::Error(format!("Anthropic stream request failed: {e}")));
+            let _ = tx.send(AiChatDelta::Error(format!(
+                "Anthropic stream request failed: {e}"
+            )));
             return;
         }
         Ok(r) => r,
@@ -1290,7 +1320,9 @@ async fn stream_anthropic(
     if !resp.status().is_success() {
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
-        let _ = tx.send(AiChatDelta::Error(format!("Anthropic API error {status}: {body}")));
+        let _ = tx.send(AiChatDelta::Error(format!(
+            "Anthropic API error {status}: {body}"
+        )));
         return;
     }
 
@@ -1312,7 +1344,11 @@ async fn stream_anthropic(
             "content_block_start" => {
                 let index = parsed.get("index").and_then(|i| i.as_u64()).unwrap_or(0);
                 let block = parsed.get("content_block").cloned().unwrap_or(Value::Null);
-                let btype = block.get("type").and_then(|t| t.as_str()).unwrap_or("").to_string();
+                let btype = block
+                    .get("type")
+                    .and_then(|t| t.as_str())
+                    .unwrap_or("")
+                    .to_string();
                 if btype == "tool_use" {
                     let id = block
                         .get("id")
@@ -1346,9 +1382,7 @@ async fn stream_anthropic(
                         }
                     }
                     "input_json_delta" => {
-                        if let Some(partial) =
-                            delta.get("partial_json").and_then(|v| v.as_str())
-                        {
+                        if let Some(partial) = delta.get("partial_json").and_then(|v| v.as_str()) {
                             if !partial.is_empty() {
                                 let _ = tx_clone.send(AiChatDelta::ToolCallArgsDelta {
                                     index: index as usize,
@@ -1362,27 +1396,34 @@ async fn stream_anthropic(
             }
             "message_delta" => {
                 let delta = parsed.get("delta").cloned().unwrap_or(Value::Null);
-                let stop_reason =
-                    delta.get("stop_reason").and_then(|v| v.as_str()).unwrap_or("end_turn");
+                let stop_reason = delta
+                    .get("stop_reason")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("end_turn");
                 // 提取 usage
                 if let Some(usage_val) = parsed.get("usage") {
-                    let output_tokens =
-                        usage_val.get("output_tokens").and_then(|v| v.as_i64()).map(|v| v as i32);
+                    let output_tokens = usage_val
+                        .get("output_tokens")
+                        .and_then(|v| v.as_i64())
+                        .map(|v| v as i32);
                     let _ = tx_clone.send(AiChatDelta::Usage(TokenUsage {
                         prompt_tokens: None,
                         completion_tokens: output_tokens,
                     }));
                 }
-                let finish_reason = if stop_reason == "tool_use" { "tool_calls" } else { "stop" };
-                let _ =
-                    tx_clone.send(AiChatDelta::Done { finish_reason: finish_reason.to_string() });
+                let finish_reason = if stop_reason == "tool_use" {
+                    "tool_calls"
+                } else {
+                    "stop"
+                };
+                let _ = tx_clone.send(AiChatDelta::Done {
+                    finish_reason: finish_reason.to_string(),
+                });
                 return true; // 流结束
             }
             "message_start" => {
                 // 提取 input_tokens
-                if let Some(usage_val) =
-                    parsed.get("message").and_then(|m| m.get("usage"))
-                {
+                if let Some(usage_val) = parsed.get("message").and_then(|m| m.get("usage")) {
                     let input_tokens = usage_val
                         .get("input_tokens")
                         .and_then(|v| v.as_i64())
@@ -1441,7 +1482,9 @@ async fn stream_gemini(
         .await
     {
         Err(e) => {
-            let _ = tx.send(AiChatDelta::Error(format!("Gemini stream request failed: {e}")));
+            let _ = tx.send(AiChatDelta::Error(format!(
+                "Gemini stream request failed: {e}"
+            )));
             return;
         }
         Ok(r) => r,
@@ -1449,11 +1492,10 @@ async fn stream_gemini(
     if !resp.status().is_success() {
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
-        crate::logger::warn(
-            "ai-chat",
-            format!("Gemini stream HTTP {status}: {body}"),
-        );
-        let _ = tx.send(AiChatDelta::Error(format!("Gemini API error {status}: {body}")));
+        crate::logger::warn("ai-chat", format!("Gemini stream HTTP {status}: {body}"));
+        let _ = tx.send(AiChatDelta::Error(format!(
+            "Gemini API error {status}: {body}"
+        )));
         return;
     }
 
@@ -1498,8 +1540,9 @@ async fn stream_gemini(
                             };
                         }
                         let _ = tx_clone.send(AiChatDelta::Usage(last_usage.clone()));
-                        let _ = tx_clone
-                            .send(AiChatDelta::Done { finish_reason: "stop".to_string() });
+                        let _ = tx_clone.send(AiChatDelta::Done {
+                            finish_reason: "stop".to_string(),
+                        });
                         return true;
                     }
                 }
@@ -1520,10 +1563,7 @@ mod tests {
 
     #[test]
     fn build_vision_content_preserves_existing_data_url_mime() {
-        let content = build_vision_content(
-            "look",
-            Some("data:image/jpeg;base64,ZmFrZS1kYXRh"),
-        );
+        let content = build_vision_content("look", Some("data:image/jpeg;base64,ZmFrZS1kYXRh"));
 
         let ChatContent::Parts(parts) = content else {
             panic!("expected parts");
@@ -1590,6 +1630,9 @@ mod tests {
 
         assert_eq!(contents[0]["role"], "user");
         assert_eq!(contents[0]["parts"][0]["text"], "describe");
-        assert_eq!(contents[0]["parts"][1]["inlineData"]["mimeType"], "image/jpeg");
+        assert_eq!(
+            contents[0]["parts"][1]["inlineData"]["mimeType"],
+            "image/jpeg"
+        );
     }
 }
