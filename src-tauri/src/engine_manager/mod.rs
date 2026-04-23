@@ -2400,12 +2400,32 @@ pub(crate) async fn subscribe_chromium_events(
                                 );
                             }
 
-                            if event_type.starts_with("bookmark.") {
-                                let _ = app.emit("chromium_bookmark_event", &enriched);
-                            } else if event_type.starts_with("window.")
-                                || event_type.starts_with("tab.")
-                            {
-                                let _ = app.emit("chromium_window_event", &enriched);
+                            match event_type.split('.').next() {
+                                Some("window") | Some("tab") => {
+                                    let _ = app.emit("chromium_window_event", &enriched);
+                                }
+                                Some("bookmark") => {
+                                    let _ = app.emit("chromium_bookmark_event", &enriched);
+                                }
+                                Some("download") => {
+                                    let _ = app.emit("chromium_download_event", &enriched);
+                                }
+                                Some("extension") => {
+                                    let _ = app.emit("chromium_extension_event", &enriched);
+                                }
+                                Some("renderer") => {
+                                    let _ = app.emit("chromium_renderer_event", &enriched);
+                                }
+                                Some("media") => {
+                                    let _ = app.emit("chromium_media_event", &enriched);
+                                }
+                                Some("network") => {
+                                    let _ = app.emit("chromium_network_event", &enriched);
+                                }
+                                Some("browser") | Some("profile") => {
+                                    let _ = app.emit("chromium_lifecycle_event", &enriched);
+                                }
+                                _ => {}
                             }
                         }
                         Ok(WsMsg::Close(_)) | Err(_) => break,

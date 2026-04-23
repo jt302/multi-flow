@@ -488,6 +488,7 @@ multi-flow 端的应对策略（V2，`engine_manager/mod.rs`）：
 3. **`shutdown_chromium_process` 三道守卫（V1，保留）**：用户手动点停止时，Guard A `try_wait()` 检测进程是否已退出，Guard B `is_magic_server_alive`（TCP）检测端口是否死，Guard C `count_magic_windows` 检测窗口数是否为 0——只有确认有窗口时才发 `safe_quit`。
 
 未来在 Chromium 侧可通过以下方式根治：
+
 - 启动时传 `--keep-alive-for-test` 保留空壳态下的 NSApp（使 `safe_quit` 有窗口可操作）；
 - 或在 magic handler 的所有命令分支加 `BrowserList` 空壳判定，返回特殊错误码而非 PostTask 到主线程。
 
@@ -2467,6 +2468,133 @@ WebSocket 主要用于同步功能。
 	}
 }
 ```
+
+### 6.3 浏览器生命周期事件推送
+
+订阅 `sync.subscribe_events` 后，除了鼠标/键盘同步事件，还会收到浏览器的窗口、Tab、书签、下载、扩展、网络等生命周期推送，格式统一复用 `sync.event` 外层包装，通过 `payload.event_type` 前缀区分：
+
+```json
+{
+  "type": "sync.event",
+  "payload": {
+    "event_type": "window.opened",
+    "ts_ms": 1745318400123,
+    "data": { ... }
+  }
+}
+```
+
+#### 事件前缀与推荐 Tauri emit 名称
+
+| event_type 前缀           | 含义                                | 推荐 Tauri emit 名称       |
+| ------------------------- | ----------------------------------- | -------------------------- |
+| `window.*`                | 浏览器窗口开/关/激活                | `chromium_window_event`    |
+| `tab.*`                   | Tab 增删移动/切换/导航/favicon 更新 | `chromium_window_event`    |
+| `bookmark.*`              | 书签增删改序                        | `chromium_bookmark_event`  |
+| `download.*`              | 下载创建/进度/完成/中断             | `chromium_download_event`  |
+| `extension.*`             | 扩展安装/卸载/启用/禁用             | `chromium_extension_event` |
+| `renderer.*`              | 渲染进程崩溃/无响应                 | `chromium_renderer_event`  |
+| `media.*`                 | 全屏进入/退出                       | `chromium_media_event`     |
+| `network.*`               | 网络连接状态变化                    | `chromium_network_event`   |
+| `browser.*` / `profile.*` | 浏览器就绪/Profile 关闭             | `chromium_lifecycle_event` |
+
+#### 完整 event_type 清单
+
+**窗口事件**
+
+| event_type         | 触发时机         | data 字段                                                       |
+| ------------------ | ---------------- | --------------------------------------------------------------- |
+| `window.opened`    | 新浏览器窗口创建 | `session_id`, `type`(normal/popup/app/devtools), `is_incognito` |
+| `window.closed`    | 浏览器窗口关闭   | `session_id`                                                    |
+| `window.activated` | 窗口获得焦点     | `session_id`                                                    |
+
+**Tab 事件**
+
+| event_type            | 触发时机                         | data 字段                                                     |
+| --------------------- | -------------------------------- | ------------------------------------------------------------- |
+| `tab.added`           | 新 Tab 打开                      | `window_session_id`, `index`, `url`, `title`                  |
+| `tab.removed`         | Tab 关闭                         | `window_session_id`, `index`, `tab_session_id`(可选)          |
+| `tab.moved`           | Tab 拖动重排                     | `window_session_id`, `from_index`, `to_index`, `url`, `title` |
+| `tab.activated`       | 切换到某 Tab                     | `window_session_id`, `index`, `url`, `title`                  |
+| `tab.pinned_changed`  | Tab 固定/取消固定                | `window_session_id`, `index`, `is_pinned`, `url`, `title`     |
+| `tab.navigated`       | Tab URL/标题变化（仅 kAll 类型） | `window_session_id`, `index`, `url`, `title`                  |
+| `tab.favicon_updated` | Tab favicon 候选列表更新         | `window_session_id`, `index`, `url`                           |
+
+**书签事件**
+
+| event_type             | 触发时机         | data 字段                                                             |
+| ---------------------- | ---------------- | --------------------------------------------------------------------- |
+| `bookmark.added`       | 新建书签或文件夹 | `parent_id`, `index`, `node{id,type,title,url?,date_added_ms}`        |
+| `bookmark.removed`     | 删除书签或文件夹 | `parent_id`, `index`, `node_id`, `url`(书签才有)                      |
+| `bookmark.moved`       | 拖动/重排        | `node_id`, `old_parent_id`, `old_index`, `new_parent_id`, `new_index` |
+| `bookmark.changed`     | 标题或 URL 修改  | `node_id`, `title`, `url`(书签才有)                                   |
+| `bookmark.reordered`   | 文件夹内整体重排 | `parent_id`, `new_order`([id...])                                     |
+| `bookmark.all_removed` | 清除所有用户书签 | _(空)_                                                                |
+
+**下载事件**
+
+| event_type             | 触发时机     | data 字段                                             |
+| ---------------------- | ------------ | ----------------------------------------------------- |
+| `download.created`     | 新建下载任务 | `download_id`, `url`, `filename`, `total_bytes`       |
+| `download.updated`     | 下载进度更新 | `download_id`, `bytes_so_far`, `total_bytes`, `state` |
+| `download.completed`   | 下载完成     | `download_id`, `target_path`, `total_bytes`           |
+| `download.interrupted` | 下载中断     | `download_id`, `error`, `bytes_so_far`, `total_bytes` |
+
+**扩展事件**
+
+| event_type              | 触发时机              | data 字段                 |
+| ----------------------- | --------------------- | ------------------------- |
+| `extension.enabled`     | 扩展加载（启用）      | `id`, `name`              |
+| `extension.disabled`    | 扩展卸载（禁用/停用） | `id`, `name`, `reason`    |
+| `extension.installed`   | 扩展安装或更新        | `id`, `name`, `is_update` |
+| `extension.uninstalled` | 扩展卸载（永久删除）  | `id`, `name`, `reason`    |
+
+**渲染进程健康事件**
+
+| event_type         | 触发时机       | data 字段                                              |
+| ------------------ | -------------- | ------------------------------------------------------ |
+| `renderer.crashed` | 渲染进程崩溃   | `window_session_id`, `index`, `url`, `title`, `status` |
+| `renderer.hung`    | 渲染进程无响应 | `window_session_id`, `index`, `url`, `title`           |
+
+**媒体/全屏事件**
+
+| event_type                 | 触发时机     | data 字段                                    |
+| -------------------------- | ------------ | -------------------------------------------- |
+| `media.fullscreen_entered` | Tab 进入全屏 | `window_session_id`, `index`, `url`, `title` |
+| `media.fullscreen_exited`  | Tab 退出全屏 | `window_session_id`, `index`, `url`, `title` |
+
+**网络事件**
+
+| event_type                     | 触发时机         | data 字段                                                           |
+| ------------------------------ | ---------------- | ------------------------------------------------------------------- |
+| `network.connectivity_changed` | 网络连接状态变化 | `connection_type`(none/wifi/ethernet/2g/3g/4g/5g/bluetooth/unknown) |
+
+**生命周期事件**
+
+| event_type                   | 触发时机                       | data 字段 |
+| ---------------------------- | ------------------------------ | --------- |
+| `browser.ready`              | 第一个窗口可见、控制端口已绑定 | `port`    |
+| `profile.shutdown_initiated` | 浏览器进程开始关闭             | _(空)_    |
+
+#### 在 multi-flow 中接入
+
+Rust sidecar（`engine_manager::subscribe_chromium_events`）连接 WebSocket 后发送 `sync.subscribe_events`，按 `payload.event_type` 前缀分发到 Tauri emit：
+
+```rust
+match event_type.split('.').next() {
+    Some("window") | Some("tab") => app.emit("chromium_window_event", payload),
+    Some("bookmark")             => app.emit("chromium_bookmark_event", payload),
+    Some("download")             => app.emit("chromium_download_event", payload),
+    Some("extension")            => app.emit("chromium_extension_event", payload),
+    Some("renderer")             => app.emit("chromium_renderer_event", payload),
+    Some("media")                => app.emit("chromium_media_event", payload),
+    Some("network")              => app.emit("chromium_network_event", payload),
+    Some("browser") | Some("profile") => app.emit("chromium_lifecycle_event", payload),
+    _ => {}
+}
+```
+
+前端用 Tauri `listen()` 接收后，调用 `queryClient.invalidateQueries(...)` 或做 optimistic 更新，替代 5s 轮询。
 
 ## 7. 同步事件字段定义
 

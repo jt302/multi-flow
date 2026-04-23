@@ -1,0 +1,25 @@
+{
+  "downloads": {
+    "title": "Downloads",
+    "empty": "No downloads",
+    "clearCompleted": "Clear completed",
+    "profileLabel": "Profile",
+    "stateInProgress": "Downloading",
+    "stateComplete": "Complete",
+    "stateInterrupted": "Interrupted"
+  },
+  "toast": {
+    "downloadCompleted": "Download complete: {{filename}}",
+    "downloadInterrupted": "Download interrupted: {{filename}}",
+    "rendererCrashed": "Renderer crashed ({{profile}}): {{title}}",
+    "rendererHung": "Renderer not responding ({{profile}}): {{title}}",
+    "networkOffline": "Profile {{profile}} is offline",
+    "networkRestored": "Profile {{profile}} network restored",
+    "browserReady": "Profile {{profile}} is ready",
+    "browserShuttingDown": "Profile {{profile}} is shutting down"
+  },
+  "offline": {
+    "badge": "Offline",
+    "tooltip": "Offline profiles: {{profiles}}"
+  }
+}

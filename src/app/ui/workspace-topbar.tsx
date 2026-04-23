@@ -2,6 +2,9 @@ import { Logs, MonitorCog, MoonStar, Search, Sun } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { DownloadsPopover } from '@/widgets/downloads/ui/downloads-popover';
+import { OfflineBadge } from '@/widgets/downloads/ui/offline-badge';
+
 import { cn } from '@/lib/utils';
 
 import { getWorkspaceSections } from '@/app/model/workspace-sections';
@@ -86,6 +89,8 @@ export function WorkspaceTopbar({
 						/>
 						{t('nav:searchCommand')}
 					</Button>
+					<OfflineBadge />
+					<DownloadsPopover />
 					<Button
 						type="button"
 						variant="secondary"
