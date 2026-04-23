@@ -1,4 +1,4 @@
-import { Suspense, useState, type CSSProperties } from 'react';
+import { Component, Suspense, useState, type CSSProperties, type ErrorInfo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -25,6 +25,51 @@ import {
 import { WorkspaceSidebar } from './workspace-sidebar';
 import { WorkspaceTopbar } from './workspace-topbar';
 import { normalizeCustomThemePreset } from '@/entities/theme/model/custom-presets';
+
+class RouteErrorBoundary extends Component<
+	{ children: ReactNode; pathname: string },
+	{ error: Error | null }
+> {
+	state: { error: Error | null } = { error: null };
+
+	static getDerivedStateFromError(error: Error) {
+		return { error };
+	}
+
+	componentDidCatch(error: Error, info: ErrorInfo) {
+		console.error('[RouteErrorBoundary]', error, info.componentStack);
+	}
+
+	componentDidUpdate(prevProps: { pathname: string }) {
+		if (prevProps.pathname !== this.props.pathname && this.state.error) {
+			this.setState({ error: null });
+		}
+	}
+
+	render() {
+		const { error } = this.state;
+		if (error) {
+			return (
+				<div className="flex h-full items-center justify-center p-6">
+					<div className="max-w-lg space-y-3 rounded-lg border border-destructive/40 bg-destructive/5 p-5">
+						<p className="text-sm font-semibold text-destructive">页面渲染出错</p>
+						<p className="font-mono text-xs text-destructive/80 break-all">
+							{error.message}
+						</p>
+						<button
+							type="button"
+							className="rounded bg-destructive px-3 py-1.5 text-xs text-destructive-foreground cursor-pointer hover:opacity-90"
+							onClick={() => this.setState({ error: null })}
+						>
+							重试
+						</button>
+					</div>
+				</div>
+			);
+		}
+		return this.props.children;
+	}
+}
 
 function resolveActiveNav(pathname: string): NavId {
 	return resolveNavFromPath(pathname) ?? 'dashboard';
@@ -195,9 +240,11 @@ export function WorkspaceLayout() {
 						>
 							<div className="flex-1 min-h-0 overflow-y-auto">
 								<RouteContainer key={location.pathname} pathname={location.pathname}>
-									<Suspense fallback={<RouteSuspenseFallback pathname={location.pathname} />}>
-										<Outlet context={outletContext} />
-									</Suspense>
+									<RouteErrorBoundary pathname={location.pathname}>
+										<Suspense fallback={<RouteSuspenseFallback pathname={location.pathname} />}>
+											<Outlet context={outletContext} />
+										</Suspense>
+									</RouteErrorBoundary>
 								</RouteContainer>
 							</div>
 						</Card>
