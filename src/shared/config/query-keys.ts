@@ -23,6 +23,9 @@ export const queryKeys = {
 	mcpServers: ['mcp-servers'] as const,
 	mcpServer: (id: string) => ['mcp-servers', id] as const,
 	mcpTools: (serverId: string) => ['mcp-tools', serverId] as const,
+	chromiumVersions: {
+		byPlatform: (platform: string) => ['chromium-versions', platform] as const,
+	},
 	bookmarks: {
 		byProfile: (profileId: string) => ['bookmarks', 'by-profile', profileId] as const,
 		templates: ['bookmark-templates'] as const,

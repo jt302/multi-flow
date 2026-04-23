@@ -6,7 +6,6 @@ use crate::models::{
 };
 
 pub const FINGERPRINT_CATALOG_VERSION: &str = "2026.03.08";
-pub const DEFAULT_BROWSER_VERSION: &str = "144.0.7559.97";
 pub const MAX_FINGERPRINT_RAM_GB: u32 = 8;
 
 #[derive(Debug, Clone)]
@@ -356,10 +355,6 @@ pub fn catalog_version() -> &'static str {
     FINGERPRINT_CATALOG_VERSION
 }
 
-pub fn default_browser_version() -> &'static str {
-    DEFAULT_BROWSER_VERSION
-}
-
 pub fn normalize_platform(platform: Option<&str>) -> Option<&'static str> {
     let value = platform
         .map(|item| item.trim().to_ascii_lowercase())
@@ -509,7 +504,7 @@ pub fn resolve_fingerprint_snapshot_from_preset(
         .browser_version
         .as_deref()
         .and_then(trim_to_option)
-        .unwrap_or_else(|| DEFAULT_BROWSER_VERSION.to_string());
+        .unwrap_or_else(|| crate::chromium_version_catalog::latest_for(&preset.platform).version.to_string());
     let strategy = source
         .strategy
         .clone()
@@ -580,7 +575,9 @@ pub fn normalize_source(
                 .and_then(|value| value.browser_version.as_deref())
                 .and_then(trim_to_option)
         })
-        .unwrap_or_else(|| DEFAULT_BROWSER_VERSION.to_string());
+        .unwrap_or_else(|| {
+            crate::chromium_version_catalog::latest_for(normalized_platform).version.to_string()
+        });
     let strategy = if random_fingerprint {
         FingerprintStrategy::RandomBundle
     } else {
@@ -661,11 +658,14 @@ fn resolve_seed_value(
 
 fn build_ua_metadata(preset: &FingerprintPresetSpec, version: &str) -> String {
     let full_version = version.trim();
+    let default_major = crate::chromium_version_catalog::latest_for(&preset.platform)
+        .major
+        .to_string();
     let chrome_major = full_version
         .split('.')
         .next()
         .filter(|value| !value.trim().is_empty())
-        .unwrap_or("144");
+        .unwrap_or(&default_major);
     // BrowserScan 等检测站会比对 UA 字符串里的 Chrome 版本与 UA-CH `uaFullVersion` /
     // `fullVersionList` 是否完全一致。Chrome 官方桌面端 UA 现行是完整四段，故必须把
     // `Sec-CH-UA-Full-Version-List` 与 `Sec-CH-UA-Full-Version` 同步下发。
@@ -721,12 +721,9 @@ pub fn merge_preset_into_snapshot(
     browser_version: &str,
     fingerprint_seed: Option<u32>,
 ) {
+    let default_version = crate::chromium_version_catalog::latest_for(&preset.platform).version;
     let version = browser_version.trim();
-    let version = if version.is_empty() {
-        DEFAULT_BROWSER_VERSION
-    } else {
-        version
-    };
+    let version = if version.is_empty() { default_version } else { version };
     let variant = resolve_variant(preset, version, fingerprint_seed, FingerprintStrategy::Template);
 
     snapshot.preset_label = Some(preset.label.clone());
@@ -768,6 +765,8 @@ fn stable_seed(seed_hint: &str) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    const TEST_BROWSER_VERSION: &str = "144.0.7559.97";
+
     use crate::models::{FingerprintSeedPolicy, FingerprintStrategy, ProfileFingerprintSource};
 
     #[test]

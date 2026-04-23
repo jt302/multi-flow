@@ -58,6 +58,7 @@ struct CloseConfirmDialogText {
     cancel_label: &'static str,
 }
 
+mod chromium_version_catalog;
 mod commands;
 mod db;
 mod engine_manager;
@@ -399,6 +400,8 @@ pub fn run() {
             commands::mcp_commands::list_all_mcp_tools,
             commands::mcp_commands::call_mcp_tool,
             commands::mcp_commands::discover_mcp_oauth,
+            commands::chromium_version_commands::list_chromium_versions_for_platform,
+            commands::chromium_version_commands::latest_chromium_version_for_platform,
         ])
         .plugin(
             TauriPluginBuilder::<tauri::Wry, ()>::new("mcp-lifecycle")

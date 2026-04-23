@@ -1535,7 +1535,10 @@ pub(crate) fn do_open_profile(
                     .ok()
                     .flatten()
             })
-            .unwrap_or_else(|| fingerprint_catalog::default_browser_version().to_string());
+            .unwrap_or_else(|| {
+                // Use host platform (macOS) as fallback since this path runs on the host.
+                crate::chromium_version_catalog::latest_for("macos").version.to_string()
+            });
         // 在 debug 模式下，优先使用开发者配置的自定义 Chromium 路径
         #[cfg(debug_assertions)]
         let dev_override: Option<std::path::PathBuf> = {
@@ -2947,6 +2950,7 @@ pub async fn host_locale_suggestion(
 mod tests {
     use std::sync::Mutex;
     use std::time::{SystemTime, UNIX_EPOCH};
+    const TEST_BROWSER_VERSION: &str = "144.0.7559.97";
 
     use sea_orm::ConnectionTrait;
     use serde_json::json;

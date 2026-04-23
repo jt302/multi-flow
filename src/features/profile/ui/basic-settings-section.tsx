@@ -13,6 +13,7 @@ import type { GroupItem } from '@/entities/group/model/types';
 import type { ProfileDevicePresetItem } from '@/entities/profile/model/types';
 import { PlatformGlyph } from '@/entities/profile/ui/platform-mark';
 import type { ResourceItem } from '@/entities/resource/model/types';
+import type { ChromiumVersionEntry } from '@/entities/chromium-version/model/types';
 import { PLATFORM_OPTIONS } from '@/entities/profile/lib/platform-meta';
 import { cn } from '@/lib/utils';
 import type { UseFormReturn } from 'react-hook-form';
@@ -26,7 +27,7 @@ type BasicSettingsSectionProps = {
 	form: UseFormReturn<ProfileFormValues>;
 	groups: GroupItem[];
 	hostPlatform: string;
-	hostChromiumVersions: ResourceItem[];
+	hostChromiumVersions: ChromiumVersionEntry[];
 	selectedResource?: ResourceItem;
 	devicePresets: ProfileDevicePresetItem[];
 	devicePresetsLoading: boolean;
@@ -182,17 +183,14 @@ export function BasicSettingsSection({
 						</SelectTrigger>
 						<SelectContent>
 							{hostChromiumVersions.map((item) => (
-								<SelectItem key={item.id} value={item.version}>
-									{item.version} ·{' '}
-									{item.installed
-										? t('common:installed')
-										: t('common:notDownloaded')}
+								<SelectItem key={item.version} value={item.version}>
+									Chrome {item.major} · {item.version}
 								</SelectItem>
 							))}
 						</SelectContent>
 					</Select>
 					<p className="mt-1 text-[11px] text-muted-foreground">
-						{t('basic.onlyHostVersions')}
+						{t('basic.chromiumVersionHint')}
 					</p>
 				</div>
 				<div className="md:col-span-2">

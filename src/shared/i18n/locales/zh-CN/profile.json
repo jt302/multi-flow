@@ -82,6 +82,7 @@
 		"browserVersion": "浏览器版本",
 		"selectVersion": "选择浏览器版本",
 		"onlyHostVersions": "仅展示当前宿主系统可运行的 Chromium 版本。",
+		"chromiumVersionHint": "此为 UA / Sec-CH-UA 伪装版本，决定网站看到的 Chrome 版本号，与实际运行的 Chromium 本体独立。",
 		"simulatedPlatform": "模拟平台",
 		"devicePreset": "设备预设",
 		"selectDevicePreset": "选择设备预设",

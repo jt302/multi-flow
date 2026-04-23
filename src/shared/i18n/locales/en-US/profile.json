@@ -82,6 +82,7 @@
 		"browserVersion": "Browser Version",
 		"selectVersion": "Select Browser Version",
 		"onlyHostVersions": "Only showing Chromium versions available for current host system.",
+		"chromiumVersionHint": "UA / Sec-CH-UA spoof version — determines the Chrome version websites see. Independent of the actual Chromium binary installed.",
 		"simulatedPlatform": "Simulated Platform",
 		"devicePreset": "Device Preset",
 		"selectDevicePreset": "Select Device Preset",

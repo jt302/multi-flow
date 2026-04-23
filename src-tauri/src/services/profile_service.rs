@@ -486,7 +486,11 @@ impl ProfileService {
                         .as_ref()
                         .and_then(|b| b.browser_version.clone())
                 })
-                .unwrap_or_else(|| fingerprint_catalog::DEFAULT_BROWSER_VERSION.to_string());
+                .unwrap_or_else(|| {
+                    crate::chromium_version_catalog::latest_for(&preset_spec.platform)
+                        .version
+                        .to_string()
+                });
             fingerprint_catalog::merge_preset_into_snapshot(snapshot, &preset_spec, &browser_version, seed);
 
             let settings_json = match serde_json::to_string(&settings) {
@@ -1395,6 +1399,7 @@ fn profile_references_preset(model: &profile::Model, preset_id: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    const TEST_BROWSER_VERSION: &str = "144.0.7559.97";
     use crate::db;
     use crate::models::{
         CreateProfileGroupRequest, CreateProfileRequest, ProfileBasicSettings,

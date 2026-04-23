@@ -21,13 +21,13 @@ import type { GroupItem } from '@/entities/group/model/types';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import type { ResourceItem } from '@/entities/resource/model/types';
 import { detectClientPlatform } from '@/shared/lib/platform';
+import { useChromiumVersionsQuery } from '@/entities/chromium-version/model/use-chromium-versions-query';
 
 import { fetchHostLocaleSuggestion } from '@/entities/host-locale/api';
 import {
 	applyProxySuggestionValue,
 	buildFingerprintSource,
 	buildResolutionValuesFromPreset,
-	compareVersions,
 	dedupeProfilePluginSelections,
 	generateRandomCustomDeviceName,
 	generateRandomCustomMacAddress,
@@ -138,15 +138,8 @@ export function useProfileCreateForm({
 		);
 	});
 
-	const hostChromiumVersions = useMemo(() => {
-		return resources
-			.filter((item) => item.kind === 'chromium' && item.platform === hostPlatform)
-			.slice()
-			.sort((left, right) => compareVersions(left.version, right.version));
-	}, [hostPlatform, resources]);
-	const latestHostVersion = hostChromiumVersions[0]?.version ?? '';
 	const defaultPlatform = initialBasic?.platform ?? detectClientPlatform();
-	const defaultBrowserVersion = initialBasic?.browserVersion ?? latestHostVersion;
+	const defaultBrowserVersion = initialBasic?.browserVersion ?? '';
 
 	const form = useForm<ProfileFormValues>({
 		resolver: zodResolver(profileFormSchema),
@@ -267,10 +260,22 @@ export function useProfileCreateForm({
 		[selectedProxy, hostLocaleSuggestion],
 	);
 
+	// Catalog versions for the simulated platform (UA spoofing), reactive to platform changes.
+	const chromiumVersionsQuery = useChromiumVersionsQuery(platform ?? defaultPlatform);
+	const hostChromiumVersions = chromiumVersionsQuery.data ?? [];
+
+	// Binary install status uses actual downloaded resources, independent of UA spoof version.
 	const selectedResource = useMemo(
-		() => hostChromiumVersions.find((item) => item.version === browserVersion),
-		[browserVersion, hostChromiumVersions],
+		() => resources.find((item) => item.kind === 'chromium' && item.platform === hostPlatform && item.version === browserVersion),
+		[browserVersion, resources, hostPlatform],
 	);
+
+	// Set default browserVersion once catalog loads if none was set yet.
+	useEffect(() => {
+		if (!getValues('browserVersion') && hostChromiumVersions[0]?.version) {
+			setValue('browserVersion', hostChromiumVersions[0].version, { shouldDirty: false });
+		}
+	}, [hostChromiumVersions, getValues, setValue]);
 
 	useEffect(() => {
 		const isHostSuggestion = !selectedProxy;
@@ -342,21 +347,16 @@ export function useProfileCreateForm({
 		setValue('timezoneId', proxySuggestedValues.timezoneId, { shouldDirty: false, shouldValidate: true });
 	}, [proxySuggestedValues, setValue]);
 
+	const latestCatalogVersion = hostChromiumVersions[0]?.version ?? '';
 	useEffect(() => {
-		if (
-			browserVersion &&
-			hostChromiumVersions.some((item) => item.version === browserVersion)
-		) {
+		if (browserVersion || !latestCatalogVersion) {
 			return;
 		}
-		if (!latestHostVersion) {
-			return;
-		}
-		setValue('browserVersion', latestHostVersion, {
-			shouldDirty: !browserVersion,
+		setValue('browserVersion', latestCatalogVersion, {
+			shouldDirty: false,
 			shouldValidate: true,
 		});
-	}, [browserVersion, hostChromiumVersions, latestHostVersion, setValue]);
+	}, [browserVersion, latestCatalogVersion, setValue]);
 
 	const devicePresetsQuery = useQuery({
 		queryKey: ['device-presets', platform, browserVersion],
