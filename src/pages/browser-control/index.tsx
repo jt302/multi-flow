@@ -12,7 +12,7 @@ import { z } from 'zod/v3';
 import { AppWindow, Bookmark, LayoutList, Monitor, Send, Type } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 
-import { getWorkspaceSections } from '@/app/model/workspace-sections';
+import { getWorkspaceSection } from '@/app/model/workspace-sections';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
 import { formatDisplayMonitorOptionLabel } from '@/entities/window-session/model/display-monitor-label';
@@ -57,7 +57,7 @@ import {
 	Textarea,
 } from '@/components/ui';
 
-const section = getWorkspaceSections()['browser-control'];
+const section = getWorkspaceSection('browser-control');
 
 const batchActionFormSchema = z.object({
 	targetUrl: z

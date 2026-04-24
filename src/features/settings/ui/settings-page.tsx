@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
-import { getWorkspaceSections } from '@/app/model/workspace-sections';
+import { getWorkspaceSection } from '@/app/model/workspace-sections';
 import type { SettingsPageProps } from '@/features/settings/model/types';
 import {
 	getSettingsTabs,
@@ -37,7 +37,7 @@ export function SettingsPage({
 	onDownloadResource,
 }: SettingsPageProps) {
 	const { t } = useTranslation('settings');
-	const section = getWorkspaceSections().settings;
+	const section = getWorkspaceSection('settings');
 	const [pendingKey, setPendingKey] = useState('');
 	const activeTabItem =
 		getSettingsTabs().find((tab) => tab.id === activeTab) ?? getSettingsTabs()[0];

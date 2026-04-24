@@ -7,7 +7,7 @@ import {
 	Sparkles,
 } from 'lucide-react';
 
-import { getWorkspaceSections } from '@/app/model/workspace-sections';
+import { getWorkspaceSection } from '@/app/model/workspace-sections';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 import {
 	Badge,
@@ -39,7 +39,7 @@ export function WindowsPage({
 	onRestartSync,
 }: WindowsPageProps) {
 	const { t } = useTranslation('window');
-	const section = getWorkspaceSections().windows;
+	const section = getWorkspaceSection('windows');
 	const [syncActionPending, setSyncActionPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const selectedProfileIds = useWindowSyncStore(

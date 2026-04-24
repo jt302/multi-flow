@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
-import { getWorkspaceSections } from '@/app/model/workspace-sections';
+import { getWorkspaceSection } from '@/app/model/workspace-sections';
 import { DataSection } from '@/components/common';
 import type {
 	ProxyPageProps,
@@ -33,7 +33,7 @@ export function ProxyPage({
 	onRefreshProxies,
 }: ProxyPageProps) {
 	const { t } = useTranslation(['proxy', 'common']);
-	const section = getWorkspaceSections().proxy;
+	const section = getWorkspaceSection('proxy');
 	const {
 		store,
 		pending,

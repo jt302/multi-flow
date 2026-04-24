@@ -18,7 +18,7 @@ import {
 import { DataSection, EmptyState } from '@/components/common';
 import type { GroupItem } from '@/entities/group/model/types';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
-import { getWorkspaceSections } from '@/app/model/workspace-sections';
+import { getWorkspaceSection } from '@/app/model/workspace-sections';
 import { useGroupManagementStore } from '@/store/group-management-store';
 import type { GroupsPageProps } from '@/features/group/model/types';
 import { GroupDeleteAlertDialog } from './group-delete-alert-dialog';
@@ -33,7 +33,7 @@ export function GroupsPage({
 }: GroupsPageProps) {
 	const { t } = useTranslation('group');
 	const isMobile = useIsMobile();
-	const section = getWorkspaceSections().groups;
+	const section = getWorkspaceSection('groups');
 	const searchKeyword = useGroupManagementStore((state) => state.searchKeyword);
 	const isFormOpen = useGroupManagementStore((state) => state.isFormOpen);
 	const editingGroupId = useGroupManagementStore(

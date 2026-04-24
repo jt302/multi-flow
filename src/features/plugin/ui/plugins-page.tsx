@@ -57,7 +57,7 @@ import {
 } from '@/entities/plugin/api/plugins-api';
 import type { PluginPackage } from '@/entities/plugin/model/types';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
-import { getWorkspaceSections } from '@/app/model/workspace-sections';
+import { getWorkspaceSection } from '@/app/model/workspace-sections';
 import { queryKeys } from '@/shared/config/query-keys';
 import { formatBytes } from '@/shared/lib/format';
 import { usePluginDownloadStore } from '@/store/plugin-download-store';
@@ -89,7 +89,7 @@ export function PluginsPage({
 	onRefreshProfiles,
 }: PluginsPageProps) {
 	const { t } = useTranslation(['plugin', 'common']);
-	const section = getWorkspaceSections().plugins;
+	const section = getWorkspaceSection('plugins');
 	const [extensionIdInput, setExtensionIdInput] = useState('');
 	const [downloadPending, setDownloadPending] = useState(false);
 	const [busyPackageId, setBusyPackageId] = useState<string | null>(null);

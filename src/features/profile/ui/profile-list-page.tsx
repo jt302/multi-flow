@@ -12,7 +12,7 @@ import { Button, Icon } from '@/components/ui';
 import { filterProfiles } from '@/entities/profile/lib/profile-list';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
-import { getWorkspaceSections } from '@/app/model/workspace-sections';
+import { getWorkspaceSection } from '@/app/model/workspace-sections';
 import { useProfileListStore } from '@/store/profile-list-store';
 import type { ProfileListPageProps } from '../model/profile-list-types';
 import { ProfileListStats } from './profile-list-stats';
@@ -48,7 +48,7 @@ export function ProfileListPage({
 	const { t } = useTranslation('profile');
 	const { t: tNav } = useTranslation('nav');
 	const { t: tCommon } = useTranslation('common');
-	const section = getWorkspaceSections().profiles;
+	const section = getWorkspaceSection('profiles');
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [stopAllRunningDialogOpen, setStopAllRunningDialogOpen] =
 		useState(false);
