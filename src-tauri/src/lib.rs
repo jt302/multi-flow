@@ -24,7 +24,7 @@ use crate::state::resolve_app_data_dir;
 const MENU_ID_OPEN_DATA_DIR: &str = "open_data_dir";
 const MENU_ID_OPEN_DEVTOOLS: &str = "open_devtools";
 const MENU_ID_OPEN_LOG_PANEL: &str = "open_log_panel";
-const MENU_ID_RELOAD_MAIN_WINDOW: &str = "reload_main_window";
+const MENU_ID_RELOAD_WINDOW: &str = "reload_window";
 const MAIN_WINDOW_LABEL: &str = "main";
 const MAIN_WINDOW_STATE_FILENAME: &str = "main-window-state.json";
 const PLUGIN_WINDOW_STATE_FILENAME: &str = ".window-state.json";
@@ -109,11 +109,11 @@ pub fn run() {
         )
         .on_menu_event(|app, event| {
             if event.id().as_ref() == MENU_ID_OPEN_DEVTOOLS {
-                open_main_window_devtools(app);
+                open_focused_window_devtools(app);
                 return;
             }
-            if event.id().as_ref() == MENU_ID_RELOAD_MAIN_WINDOW {
-                reload_main_window(app);
+            if event.id().as_ref() == MENU_ID_RELOAD_WINDOW {
+                reload_focused_window(app);
                 return;
             }
             if event.id().as_ref() == MENU_ID_OPEN_DATA_DIR {
@@ -445,8 +445,8 @@ fn install_cmd_w_local_monitor(app: &AppHandle) {
                 | (NSEventModifierFlags::Option.0);
             // 仅 Cmd，无其他修饰键
             if flags.0 & cmd != 0 && flags.0 & extras == 0 {
-                if let Some(w) = app_handle.get_webview_window(MAIN_WINDOW_LABEL) {
-                    let _ = w.minimize();
+                if let Some(w) = focused_webview_window(&app_handle) {
+                    handle_cmd_w_window(w);
                 }
                 return std::ptr::null_mut(); // 消费事件，不继续传递
             }
@@ -649,7 +649,7 @@ pub(crate) fn setup_native_menu(
                 .build(app)?,
         )
         .item(
-            &MenuItemBuilder::with_id(MENU_ID_RELOAD_MAIN_WINDOW, translations.reload)
+            &MenuItemBuilder::with_id(MENU_ID_RELOAD_WINDOW, translations.reload)
                 .build(app)?,
         )
         .build()?;
@@ -809,39 +809,55 @@ fn open_data_dir(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn open_main_window_devtools(app: &AppHandle) {
-    let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) else {
+fn focused_webview_window(app: &AppHandle) -> Option<WebviewWindow> {
+    app.webview_windows()
+        .into_values()
+        .find(|window| window.is_focused().unwrap_or(false))
+        .or_else(|| app.get_webview_window(MAIN_WINDOW_LABEL))
+}
+
+fn handle_cmd_w_window(window: WebviewWindow) {
+    if window.label() == MAIN_WINDOW_LABEL {
+        let _ = window.minimize();
+    } else {
+        let _ = window.close();
+    }
+}
+
+fn open_focused_window_devtools(app: &AppHandle) {
+    let Some(window) = focused_webview_window(app) else {
         logger::warn(
             "menu",
-            format!("open devtools requested but window={MAIN_WINDOW_LABEL} not found"),
+            "open devtools requested but no webview window was found".to_string(),
         );
         return;
     };
 
     logger::info(
         "menu",
-        format!("open devtools requested for window={MAIN_WINDOW_LABEL}"),
+        format!("open devtools requested for window={}", window.label()),
     );
     window.open_devtools();
 }
 
-fn reload_main_window(app: &AppHandle) {
-    let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) else {
+fn reload_focused_window(app: &AppHandle) {
+    let Some(window) = focused_webview_window(app) else {
         logger::warn(
             "menu",
-            format!("reload requested but window={MAIN_WINDOW_LABEL} not found"),
+            "reload requested but no webview window was found".to_string(),
         );
         return;
     };
 
+    let label = window.label().to_string();
     logger::info(
         "menu",
-        format!("reload requested for window={MAIN_WINDOW_LABEL}"),
+        format!("reload requested for window={label}"),
     );
     if let Err(err) = window.reload() {
         logger::warn(
             "menu",
-            format!("reload failed for window={MAIN_WINDOW_LABEL}: {err}"),
+            format!("reload failed for window={label}: {err}"),
         );
     }
 }
