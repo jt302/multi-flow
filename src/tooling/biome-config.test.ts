@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
