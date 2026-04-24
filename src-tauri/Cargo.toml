@@ -31,7 +31,7 @@ uuid = { version = "1", features = ["v4"] }
 sea-orm = { version = "1", default-features = false, features = ["macros", "runtime-tokio-rustls", "sqlx-sqlite"] }
 sea-orm-migration = { version = "1", default-features = false, features = ["runtime-tokio-rustls", "sqlx-sqlite"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "socks", "blocking", "stream"] }
-maxminddb = "0.26"
+maxminddb = "0.27"
 chromiumoxide = "0.9.1"
 chromiumoxide_cdp = "0.9.1"
 futures-util = "0.3"
@@ -41,7 +41,7 @@ chrono = "0.4"
 cron = "0.15"
 tokio = { version = "1", features = ["net", "time", "sync", "process"] }
 tokio-tungstenite = { version = "0.28", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
-tauri-plugin-dialog = "2.6.0"
+tauri-plugin-dialog = "2.7.0"
 tauri-plugin-window-state = "2"
 zip = "2"
 base64 = "0.22"

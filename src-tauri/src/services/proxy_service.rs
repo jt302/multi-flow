@@ -1496,8 +1496,10 @@ fn lookup_geoip_city(geoip_database_path: &Path, exit_ip: &str) -> AppResult<Geo
         .parse::<IpAddr>()
         .map_err(|err| AppError::Validation(format!("invalid exit ip {exit_ip}: {err}")))?;
     let record = reader
-        .lookup::<GeoIpCityRecord>(address)
-        .map_err(|err| AppError::Validation(format!("geoip lookup failed: {err}")))?;
+        .lookup(address)
+        .map_err(|err| AppError::Validation(format!("geoip lookup failed: {err}")))?
+        .decode::<GeoIpCityRecord>()
+        .map_err(|err| AppError::Validation(format!("geoip decode failed: {err}")))?;
     record.ok_or_else(|| AppError::Validation(format!("geoip record missing for ip: {exit_ip}")))
 }
 

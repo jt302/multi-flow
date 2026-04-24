@@ -444,6 +444,14 @@ fn lookup_timezone_via_mmdb(db_path: &Path, ip: IpAddr) -> Option<String> {
                 format!("mmdb 时区查询失败 ip={ip}: {e}"),
             );
         })
+        .and_then(|lookup| {
+            lookup.decode::<GeoIpCityTimezone>().map_err(|e| {
+                crate::logger::warn(
+                    "host_locale",
+                    format!("mmdb 时区解码失败 ip={ip}: {e}"),
+                );
+            })
+        })
         .ok()?;
     record?.location?.time_zone
 }
