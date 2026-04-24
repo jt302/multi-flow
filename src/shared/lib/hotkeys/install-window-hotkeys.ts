@@ -18,6 +18,11 @@ export function installWindowHotkeys() {
 			return;
 		}
 		event.preventDefault();
-		void getCurrentWindow().minimize();
+		const currentWindow = getCurrentWindow();
+		if (currentWindow.label === 'main') {
+			void currentWindow.minimize();
+		} else {
+			void currentWindow.close();
+		}
 	});
 }
