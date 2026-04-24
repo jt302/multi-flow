@@ -28,6 +28,17 @@ function extractFunctionBody(source: string, fnName: string): string {
 	throw new Error(`failed to extract function body for ${fnName}`);
 }
 
+function extractFunctionSignature(source: string, fnName: string): string {
+	const signature = new RegExp(`pub(?: async)? fn ${fnName}\\s*\\(`);
+	const signatureMatch = signature.exec(source);
+	assert.notEqual(signatureMatch, null, `expected to find function ${fnName}`);
+
+	const startIndex = signatureMatch!.index;
+	const bodyIndex = source.indexOf('{', startIndex);
+	assert.notEqual(bodyIndex, -1, `expected ${fnName} to have a body`);
+	return source.slice(startIndex, bodyIndex);
+}
+
 test('reload bootstrap commands avoid inline runtime reconciliation', () => {
 	const profileCommands = readFileSync(
 		new URL('./profile_commands.rs', import.meta.url),
@@ -51,6 +62,37 @@ test('reload bootstrap commands avoid inline runtime reconciliation', () => {
 	assert.equal(
 		listOpenProfileWindowsBody.includes('runtime_guard::reconcile_runtime_state'),
 		false,
+	);
+});
+
+test('profile launch commands offload blocking startup work from the invoke path', () => {
+	const profileCommands = readFileSync(
+		new URL('./profile_commands.rs', import.meta.url),
+		'utf8',
+	);
+	const openProfileSignature = extractFunctionSignature(profileCommands, 'open_profile');
+	const batchOpenProfilesSignature = extractFunctionSignature(
+		profileCommands,
+		'batch_open_profiles',
+	);
+	const openProfileBody = extractFunctionBody(profileCommands, 'open_profile');
+	const batchOpenProfilesBody = extractFunctionBody(profileCommands, 'batch_open_profiles');
+
+	assert.equal(profileCommands.includes('pub async fn open_profile('), true);
+	assert.equal(profileCommands.includes('pub async fn batch_open_profiles('), true);
+	assert.equal(openProfileSignature.includes("state: State<'_, AppState>,"), false);
+	assert.equal(batchOpenProfilesSignature.includes("state: State<'_, AppState>,"), false);
+
+	assert.equal(openProfileBody.includes('spawn_blocking'), true);
+	assert.equal(batchOpenProfilesBody.includes('spawn_blocking'), true);
+	assert.equal(
+		openProfileBody.indexOf('spawn_blocking') < openProfileBody.indexOf('do_open_profile'),
+		true,
+	);
+	assert.equal(
+		batchOpenProfilesBody.indexOf('spawn_blocking') <
+			batchOpenProfilesBody.indexOf('do_open_profile'),
+		true,
 	);
 });
 

@@ -205,9 +205,8 @@ pub async fn list_profiles(
 }
 
 #[tauri::command]
-pub fn open_profile(
+pub async fn open_profile(
     app: AppHandle,
-    state: State<'_, AppState>,
     profile_id: String,
     options: Option<OpenProfileOptions>,
     task_id: Option<String>,
@@ -219,7 +218,12 @@ pub fn open_profile(
             options.is_some()
         ),
     );
-    do_open_profile(&state, Some(&app), task_id.as_deref(), &profile_id, options)
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        do_open_profile(&state, Some(&app), task_id.as_deref(), &profile_id, options)
+    })
+    .await
+    .map_err(|err| format!("open profile task join failed: {err}"))?
 }
 
 #[tauri::command]
@@ -1312,9 +1316,8 @@ fn build_profile_runtime_details(
 }
 
 #[tauri::command]
-pub fn batch_open_profiles(
+pub async fn batch_open_profiles(
     app: AppHandle,
-    state: State<'_, AppState>,
     payload: BatchProfileActionRequest,
     task_id_prefix: Option<String>,
 ) -> Result<BatchProfileActionResponse, String> {
@@ -1325,61 +1328,66 @@ pub fn batch_open_profiles(
             payload.profile_ids.len()
         ),
     );
-    let mut items = Vec::with_capacity(payload.profile_ids.len());
-    let mut success_count = 0usize;
-    let task_prefix =
-        task_id_prefix.unwrap_or_else(|| format!("batch-open-{}", crate::models::now_ts()));
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let mut items = Vec::with_capacity(payload.profile_ids.len());
+        let mut success_count = 0usize;
+        let task_prefix =
+            task_id_prefix.unwrap_or_else(|| format!("batch-open-{}", crate::models::now_ts()));
 
-    for profile_id in payload.profile_ids {
-        let task_id = format!("{task_prefix}-{profile_id}");
-        match do_open_profile(
-            &state,
-            Some(&app),
-            Some(task_id.as_str()),
-            &profile_id,
-            None,
-        ) {
-            Ok(_) => {
-                success_count += 1;
-                logger::info(
-                    "profile_cmd",
-                    format!("batch_open_profiles item success profile_id={profile_id}"),
-                );
-                items.push(BatchProfileActionItem {
-                    profile_id,
-                    ok: true,
-                    message: "opened".to_string(),
-                });
-            }
-            Err(err) => {
-                logger::warn(
-                    "profile_cmd",
-                    format!("batch_open_profiles item failed profile_id={profile_id}: {err}"),
-                );
-                items.push(BatchProfileActionItem {
-                    profile_id,
-                    ok: false,
-                    message: err,
-                });
+        for profile_id in payload.profile_ids {
+            let task_id = format!("{task_prefix}-{profile_id}");
+            match do_open_profile(
+                &state,
+                Some(&app),
+                Some(task_id.as_str()),
+                &profile_id,
+                None,
+            ) {
+                Ok(_) => {
+                    success_count += 1;
+                    logger::info(
+                        "profile_cmd",
+                        format!("batch_open_profiles item success profile_id={profile_id}"),
+                    );
+                    items.push(BatchProfileActionItem {
+                        profile_id,
+                        ok: true,
+                        message: "opened".to_string(),
+                    });
+                }
+                Err(err) => {
+                    logger::warn(
+                        "profile_cmd",
+                        format!("batch_open_profiles item failed profile_id={profile_id}: {err}"),
+                    );
+                    items.push(BatchProfileActionItem {
+                        profile_id,
+                        ok: false,
+                        message: err,
+                    });
+                }
             }
         }
-    }
 
-    let total = items.len();
-    let response = BatchProfileActionResponse {
-        total,
-        success_count,
-        failed_count: total.saturating_sub(success_count),
-        items,
-    };
-    logger::info(
-        "profile_cmd",
-        format!(
-            "batch_open_profiles finished total={} success={} failed={}",
-            response.total, response.success_count, response.failed_count
-        ),
-    );
-    Ok(response)
+        let total = items.len();
+        let response = BatchProfileActionResponse {
+            total,
+            success_count,
+            failed_count: total.saturating_sub(success_count),
+            items,
+        };
+        logger::info(
+            "profile_cmd",
+            format!(
+                "batch_open_profiles finished total={} success={} failed={}",
+                response.total, response.success_count, response.failed_count
+            ),
+        );
+        Ok(response)
+    })
+    .await
+    .map_err(|err| format!("batch open profiles task join failed: {err}"))?
 }
 
 #[tauri::command]
