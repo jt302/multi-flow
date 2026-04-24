@@ -9,15 +9,15 @@ export function installWindowHotkeys() {
 	scopedWindow.__multiFlowWindowHotkeysBound = true;
 
 	document.addEventListener('keydown', (event) => {
-		const isCloseWindow =
+		const isMinimizeWindow =
 			(event.metaKey || event.ctrlKey) &&
 			!event.shiftKey &&
 			!event.altKey &&
 			event.key.toLowerCase() === 'w';
-		if (!isCloseWindow) {
+		if (!isMinimizeWindow) {
 			return;
 		}
 		event.preventDefault();
-		void getCurrentWindow().close();
+		void getCurrentWindow().minimize();
 	});
 }
