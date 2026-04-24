@@ -279,7 +279,7 @@ export function WorkspaceLayout() {
 							data-mobile-layout={isMobile ? 'true' : 'false'}
 						>
 							<div className="flex-1 min-h-0 overflow-y-auto mf-scrollbar">
-								<RouteContainer key={location.pathname} pathname={location.pathname}>
+								<RouteContainer pathname={location.pathname}>
 									<RouteErrorBoundary pathname={location.pathname}>
 										<Suspense fallback={<RouteSuspenseFallback pathname={location.pathname} />}>
 											<Outlet context={outletContext} />

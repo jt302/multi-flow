@@ -30,3 +30,13 @@ test('workspace layout memoizes navigation handlers and outlet context', () => {
 	assert.equal(source.includes('buildWorkspaceLayoutOutletContext({'), true);
 	assert.equal(source.includes('onNavigate: handleNavigate'), true);
 });
+
+test('workspace chrome avoids route-child rerender fanout', () => {
+	const layoutSource = readFileSync(new URL('./workspace-layout.tsx', import.meta.url), 'utf8');
+	const topbarSource = readFileSync(new URL('./workspace-topbar.tsx', import.meta.url), 'utf8');
+	const footerSource = readFileSync(new URL('./sidebar-footer-status.tsx', import.meta.url), 'utf8');
+
+	assert.equal(layoutSource.includes('key={location.pathname}'), false);
+	assert.equal(topbarSource.includes('memo(function WorkspaceTopbar'), true);
+	assert.equal(footerSource.includes('memo(function SidebarFooterStatus'), true);
+});

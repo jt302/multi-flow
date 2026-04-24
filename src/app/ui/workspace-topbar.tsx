@@ -1,5 +1,5 @@
 import { Logs, MonitorCog, MoonStar, Search, Sun } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DownloadsPopover } from '@/widgets/downloads/ui/downloads-popover';
@@ -32,7 +32,7 @@ type WorkspaceTopbarProps = {
 	onNavigate: (path: string) => void;
 };
 
-export function WorkspaceTopbar({
+export const WorkspaceTopbar = memo(function WorkspaceTopbar({
 	activeNav,
 	themeMode,
 	onThemeModeChange,
@@ -183,4 +183,4 @@ export function WorkspaceTopbar({
 			</CommandDialog>
 		</>
 	);
-}
+});

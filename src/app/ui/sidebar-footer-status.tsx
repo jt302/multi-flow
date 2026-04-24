@@ -1,4 +1,5 @@
 // src/app/ui/sidebar-footer-status.tsx
+import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -8,6 +9,8 @@ import { useProxiesQuery } from '@/entities/proxy/model/use-proxies-query';
 import { useSyncManagerStore } from '@/store/sync-manager-store';
 import { useAutomationStore } from '@/store/automation-store';
 import { cn } from '@/lib/utils';
+import type { ProfileItem } from '@/entities/profile/model/types';
+import type { ProxyItem } from '@/entities/proxy/model/types';
 
 // ── Derived badge values ────────────────────────────────────────────────────
 
@@ -16,21 +19,60 @@ type BadgeState = {
   variant: 'default' | 'secondary' | 'destructive' | 'warning';
 };
 
+type BrowserBadgeStats = {
+	running: number;
+};
+
+type ProxyBadgeStats = {
+	ok: number;
+	total: number;
+};
+
+const EMPTY_BROWSER_BADGE_STATS: BrowserBadgeStats = { running: 0 };
+const EMPTY_PROXY_BADGE_STATS: ProxyBadgeStats = { ok: 0, total: 0 };
+
+function selectBrowserBadgeStats(items: ProfileItem[]): BrowserBadgeStats {
+	return items.reduce<BrowserBadgeStats>(
+		(stats, item) => {
+			if (item.lifecycle === 'active' && item.running) {
+				stats.running += 1;
+			}
+			return stats;
+		},
+		{ running: 0 },
+	);
+}
+
+function selectProxyBadgeStats(items: ProxyItem[]): ProxyBadgeStats {
+	return items.reduce<ProxyBadgeStats>(
+		(stats, item) => {
+			stats.total += 1;
+			if (item.checkStatus === 'ok') {
+				stats.ok += 1;
+			}
+			return stats;
+		},
+		{ ok: 0, total: 0 },
+	);
+}
+
 function useBrowserBadge(): BadgeState {
   const { t } = useTranslation('nav');
-  const { data: profiles = [] } = useProfilesQuery();
-  const managedProfiles = profiles.filter((p) => p.lifecycle === 'active');
-  const running = managedProfiles.filter((p) => p.running).length;
+  const { data: stats = EMPTY_BROWSER_BADGE_STATS } = useProfilesQuery({
+    select: selectBrowserBadgeStats,
+  });
+  const running = stats.running;
   if (running > 0) return { label: t('sidebar.status.browserRunning', { count: running }), variant: 'default' };
   return { label: t('sidebar.status.browserIdle'), variant: 'secondary' };
 }
 
 function useProxyBadge(): BadgeState {
   const { t } = useTranslation('nav');
-  const { data: proxies = [] } = useProxiesQuery();
-  if (proxies.length === 0) return { label: t('sidebar.status.proxyNone'), variant: 'secondary' };
-  const ok = proxies.filter((p) => p.checkStatus === 'ok').length;
-  const total = proxies.length;
+  const { data: stats = EMPTY_PROXY_BADGE_STATS } = useProxiesQuery({
+    select: selectProxyBadgeStats,
+  });
+  const { ok, total } = stats;
+  if (total === 0) return { label: t('sidebar.status.proxyNone'), variant: 'secondary' };
   if (ok === total) return { label: t('sidebar.status.proxyAllOk'), variant: 'default' };
   if (ok === 0) return { label: t('sidebar.status.proxyAllFail'), variant: 'destructive' };
   return { label: t('sidebar.status.proxySome', { ok, total }), variant: 'warning' };
@@ -72,7 +114,7 @@ function variantToColor(variant: BadgeState['variant']): string {
 
 // ── Main component ──────────────────────────────────────────────────────────
 
-export function SidebarFooterStatus() {
+export const SidebarFooterStatus = memo(function SidebarFooterStatus() {
   const { t } = useTranslation('nav');
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
@@ -142,4 +184,4 @@ export function SidebarFooterStatus() {
       </CardContent>
     </Card>
   );
-}
+});

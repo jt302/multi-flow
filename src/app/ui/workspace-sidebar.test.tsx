@@ -160,6 +160,15 @@ test('sidebar footer status card keeps top and bottom spacing aligned with horiz
 	assert.equal(file.includes('CardContent className="flex flex-col gap-0.5 px-0 py-0"'), true);
 });
 
+test('sidebar footer status subscribes to derived counts instead of full lists', () => {
+	const file = readFileSync(new URL('./sidebar-footer-status.tsx', import.meta.url), 'utf8');
+
+	assert.equal(file.includes('select: selectBrowserBadgeStats'), true);
+	assert.equal(file.includes('select: selectProxyBadgeStats'), true);
+	assert.equal(file.includes('profiles.filter'), false);
+	assert.equal(file.includes('proxies.filter'), false);
+});
+
 test('workspace sidebar keeps multiple expandable sections open instead of single-open accordion state', () => {
 	const file = readFileSync(new URL('./workspace-sidebar.tsx', import.meta.url), 'utf8');
 
