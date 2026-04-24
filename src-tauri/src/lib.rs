@@ -181,7 +181,7 @@ pub fn run() {
             let splash_url = tauri::WebviewUrl::App("splashscreen.html".into());
             WebviewWindowBuilder::new(app, "splashscreen", splash_url)
                 .title("Multi Flow")
-                .inner_size(400.0, 280.0)
+                .inner_size(424.0, 304.0)
                 .resizable(false)
                 .decorations(false)
                 .transparent(true)
