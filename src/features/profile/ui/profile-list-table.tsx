@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -101,6 +102,18 @@ export function ProfileListTable({
 	onErrorReset,
 }: ProfileListTableProps) {
 	const { t } = useTranslation('profile');
+	const selectedProfileIdSet = useMemo(
+		() => new Set(selectedProfileIds),
+		[selectedProfileIds],
+	);
+	const handleQuickEditChange = useCallback(
+		(value: { profileId: string; field: QuickEditField } | null) => {
+			onQuickEditChange(value);
+			onErrorReset();
+		},
+		[onErrorReset, onQuickEditChange],
+	);
+
 	return (
 		<div className="overflow-hidden rounded-xl border border-border/70">
 			{profiles.length === 0 ? (
@@ -153,17 +166,12 @@ export function ProfileListTable({
 									groups={groups}
 									index={index}
 									total={profiles.length}
-									selected={selectedProfileIds.includes(item.id)}
-									onSelectedChange={(checked) =>
-										onToggleProfile(item.id, checked)
-									}
+									selected={selectedProfileIdSet.has(item.id)}
+									onToggleProfile={onToggleProfile}
 									actionState={profileActionStates[item.id]}
 									boundProxy={boundProxy}
-									quickEdit={quickEdit}
-									onQuickEditChange={(value) => {
-										onQuickEditChange(value);
-										onErrorReset();
-									}}
+									isVisualEditing={quickEdit?.profileId === item.id && quickEdit.field === 'visual'}
+									onQuickEditChange={handleQuickEditChange}
 									onRunAction={onRunAction}
 									onViewProfile={onViewProfile}
 									onCreateClick={onEditProfile}
@@ -173,7 +181,7 @@ export function ProfileListTable({
 									onSetProfileGroup={onSetProfileGroup}
 									onFocusProfileWindow={onFocusProfileWindow}
 									onDuplicateProfile={onDuplicateProfile}
-								onDeleteProfile={onDeleteProfile}
+									onDeleteProfile={onDeleteProfile}
 									onRestoreProfile={onRestoreProfile}
 									onReadProfileCookies={onReadProfileCookies}
 									onExportProfileCookies={onExportProfileCookies}

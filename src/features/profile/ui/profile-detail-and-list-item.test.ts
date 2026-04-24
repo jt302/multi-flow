@@ -27,6 +27,20 @@ test('profile list table includes a dedicated group column', () => {
 	assert.equal(file.includes("t('list.group')"), true);
 });
 
+test('profile list rows use stable parent props for memoized rendering', () => {
+	const itemFile = readFileSync(new URL('./profile-list-item.tsx', import.meta.url), 'utf8');
+	const tableFile = readFileSync(new URL('./profile-list-table.tsx', import.meta.url), 'utf8');
+	const pageFile = readFileSync(new URL('./profile-list-page.tsx', import.meta.url), 'utf8');
+
+	assert.equal(itemFile.includes('memo(function ProfileListItem'), true);
+	assert.equal(itemFile.includes('isVisualEditing: boolean;'), true);
+	assert.equal(tableFile.includes('selectedProfileIdSet'), true);
+	assert.equal(tableFile.includes('onSelectedChange={(checked)'), false);
+	assert.equal(tableFile.includes('onQuickEditChange={(value)'), false);
+	assert.equal(pageFile.includes('const onErrorReset = useCallback('), true);
+	assert.equal(pageFile.includes('const runAction = useCallback('), true);
+});
+
 test('profile list item separates numeric id from chromium label display', () => {
 	const file = readFileSync(new URL('./profile-list-item.tsx', import.meta.url), 'utf8');
 

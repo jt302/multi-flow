@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Plus, RefreshCw } from 'lucide-react';
@@ -94,7 +94,7 @@ export function ProfileListPage({
 		(state) => state.setBatchOpenResult,
 	);
 
-	const onErrorReset = () => setError(null);
+	const onErrorReset = useCallback(() => setError(null), [setError]);
 
 	useEffect(() => {
 		reset();
@@ -185,7 +185,7 @@ export function ProfileListPage({
 	).length;
 	const runningCount = filteredProfiles.filter((item) => item.running).length;
 
-	const runAction = async (action: () => Promise<void>) => {
+	const runAction = useCallback(async (action: () => Promise<void>) => {
 		setError(null);
 		try {
 			await action();
@@ -194,7 +194,7 @@ export function ProfileListPage({
 				err instanceof Error ? err.message : t('errors.operationFailed'),
 			);
 		}
-	};
+	}, [setError, t]);
 
 	const runBatchAction = async <T,>(
 		actionName: ProfileBatchAction,

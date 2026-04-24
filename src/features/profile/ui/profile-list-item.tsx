@@ -15,7 +15,7 @@ import {
 	Trash2,
 	Wrench,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { save } from '@tauri-apps/plugin-dialog';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -81,10 +81,10 @@ type ProfileListItemProps = {
 	index: number;
 	total: number;
 	selected: boolean;
-	onSelectedChange: (checked: boolean) => void;
+	onToggleProfile: (profileId: string, checked: boolean) => void;
 	actionState?: ProfileActionState;
 	boundProxy?: ProxyItem;
-	quickEdit: { profileId: string; field: QuickEditField } | null;
+	isVisualEditing: boolean;
 	onQuickEditChange: (value: { profileId: string; field: QuickEditField } | null) => void;
 	onRunAction: (action: () => Promise<void>) => Promise<void>;
 	onViewProfile: (profileId: string) => void;
@@ -206,16 +206,16 @@ async function selectCookieExportPath(profileName: string, scope: string) {
 	return Array.isArray(selected) ? selected[0] ?? null : selected;
 }
 
-export function ProfileListItem({
+export const ProfileListItem = memo(function ProfileListItem({
 	item,
 	groups,
 	index,
 	total,
 	selected,
-	onSelectedChange,
+	onToggleProfile,
 	actionState,
 	boundProxy,
-	quickEdit,
+	isVisualEditing,
 	onQuickEditChange,
 	onRunAction,
 	onViewProfile,
@@ -235,7 +235,7 @@ export function ProfileListItem({
 	const { t } = useTranslation(['profile', 'common']);
 	const actionPending = Boolean(actionState);
 	const runLabel = resolveRunningLabel(item.running, actionState, t);
-	const platformMeta = resolvePlatformMeta(item);
+	const platformMeta = useMemo(() => resolvePlatformMeta(item), [item]);
 	const currentBg = item.resolvedBrowserBgColor || null;
 	const currentToolbarText = item.resolvedToolbarText ?? String(item.numericId);
 	const noteNotFilled = t('profile:note.notFilled');
@@ -249,21 +249,32 @@ export function ProfileListItem({
 		item.settings?.fingerprint?.fingerprintSnapshot?.presetLabel?.trim() ||
 		item.settings?.basic?.devicePresetId?.trim() ||
 		presetNotSet;
-	const browserVersionMeta = resolveBrowserVersionMeta(item);
+	const browserVersionMeta = useMemo(
+		() => resolveBrowserVersionMeta(item),
+		[item, t],
+	);
 	const toolbarTextTrimmed = currentToolbarText.trim();
 	const showToolbarText = Boolean(toolbarTextTrimmed);
-	const proxyFlag = boundProxy ? resolveCountryFlag(boundProxy.country) : null;
-	const unknownCountry = t('common:unknownCountry');
-	const unknownRegion = t('common:unknownRegion');
-	const proxyLocation = boundProxy
-		? `${boundProxy.country?.trim() || unknownCountry} / ${boundProxy.region?.trim() || unknownRegion}`
-		: t('profile:proxy.notBound');
-	const proxyIp = resolveProxyExitIp(boundProxy, t);
-	const proxyType = boundProxy ? boundProxy.protocol.toUpperCase() : t('profile:proxy.notBound');
-	const proxyConnectivity = resolveProxyConnectivity(boundProxy, t);
+	const proxyMeta = useMemo(() => {
+		const unknownCountry = t('common:unknownCountry');
+		const unknownRegion = t('common:unknownRegion');
+		const notBound = t('profile:proxy.notBound');
+
+		return {
+			flag: boundProxy ? resolveCountryFlag(boundProxy.country) : null,
+			location: boundProxy
+				? `${boundProxy.country?.trim() || unknownCountry} / ${boundProxy.region?.trim() || unknownRegion}`
+				: notBound,
+			ip: resolveProxyExitIp(boundProxy, t),
+			type: boundProxy ? boundProxy.protocol.toUpperCase() : notBound,
+			connectivity: resolveProxyConnectivity(boundProxy, t),
+		};
+	}, [boundProxy, t]);
 	const editConfigDisabled = actionPending || item.running;
-	const isVisualEditing = quickEdit?.profileId === item.id && quickEdit.field === 'visual';
-	const currentGroup = groups.find((group) => group.name === item.group);
+	const currentGroup = useMemo(
+		() => groups.find((group) => group.name === item.group),
+		[groups, item.group],
+	);
 	const inheritedToolbarMode = currentGroup?.toolbarLabelMode ?? 'id_only';
 	const inheritedBgColor = currentGroup?.browserBgColor ?? null;
 	const initialToolbarLabelMode =
@@ -307,6 +318,10 @@ export function ProfileListItem({
 		queryFn: () => readProfilePlugins(item.id),
 		enabled: pluginDialogOpen,
 	});
+	const handleSelectedChange = useCallback(
+		(checked: boolean) => onToggleProfile(item.id, checked),
+		[item.id, onToggleProfile],
+	);
 
 	useEffect(() => {
 		if (!pluginDialogOpen || !profilePluginsQuery.data) {
@@ -413,16 +428,16 @@ export function ProfileListItem({
 	return (
 		<>
 			<TableRow className={cn('group relative transition-all duration-300 hover:bg-muted/30 hover:shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)]', index === total - 1 && 'border-b-0')}>
-				<TableCell className="w-[86px] align-top">
-					<div className="grid grid-cols-[1rem_2.25rem] items-center justify-center gap-2 pt-1">
-						<Checkbox
-							checked={selected}
-							disabled={item.lifecycle !== 'active'}
-							onCheckedChange={(checked) => onSelectedChange(checked === true)}
-						/>
-						<PlatformMark meta={platformMeta} size="sm" />
-					</div>
-				</TableCell>
+					<TableCell className="w-[86px] align-top">
+						<div className="grid grid-cols-[1rem_2.25rem] items-center justify-center gap-2 pt-1">
+							<Checkbox
+								checked={selected}
+								disabled={item.lifecycle !== 'active'}
+								onCheckedChange={(checked) => handleSelectedChange(checked === true)}
+							/>
+							<PlatformMark meta={platformMeta} size="sm" />
+						</div>
+					</TableCell>
 
 				<TableCell className="align-top">
 					<div className="min-w-0">
@@ -474,17 +489,17 @@ export function ProfileListItem({
 				<TableCell className="align-top">
 					<div className="space-y-1">
 						<p className="flex items-center gap-2 text-xs font-medium">
-							{proxyFlag ? (
-								<span className="text-base leading-none">{proxyFlag}</span>
+							{proxyMeta.flag ? (
+								<span className="text-base leading-none">{proxyMeta.flag}</span>
 							) : (
 								<Icon icon={Globe} size={14} className="text-muted-foreground" />
 							)}
-							<span className="truncate">{proxyLocation}</span>
+							<span className="truncate">{proxyMeta.location}</span>
 						</p>
-						<p className="truncate text-[11px] text-muted-foreground">{t('profile:proxy.ip')}: {proxyIp}</p>
-						<p className="truncate text-[11px] text-muted-foreground">{t('profile:proxy.type')}: {proxyType}</p>
-						<p className={cn('truncate text-[11px] font-medium', proxyConnectivity.toneClassName)}>
-							{t('profile:proxy.connectivity')}: {proxyConnectivity.label}
+						<p className="truncate text-[11px] text-muted-foreground">{t('profile:proxy.ip')}: {proxyMeta.ip}</p>
+						<p className="truncate text-[11px] text-muted-foreground">{t('profile:proxy.type')}: {proxyMeta.type}</p>
+						<p className={cn('truncate text-[11px] font-medium', proxyMeta.connectivity.toneClassName)}>
+							{t('profile:proxy.connectivity')}: {proxyMeta.connectivity.label}
 						</p>
 					</div>
 				</TableCell>
@@ -1020,4 +1035,4 @@ export function ProfileListItem({
 			</Dialog>
 		</>
 	);
-}
+});
