@@ -388,7 +388,7 @@ export function useCanvasState(
 				const removedIndices = new Set(
 					removeChanges
 						.map((c) => parseInt(c.id.replace('step-', ''), 10))
-						.filter((i) => !isNaN(i)),
+						.filter((i) => !Number.isNaN(i)),
 				);
 				if (removedIndices.size > 0) {
 					// 取消防抖保存，获取最新 steps（含未保存的属性编辑）
@@ -429,7 +429,7 @@ export function useCanvasState(
 						.filter((e) => !deletedIds.has(e.target))
 						.map((e) => {
 							const ti = parseInt(e.target.replace('step-', ''), 10);
-							if (isNaN(ti)) return e;
+							if (Number.isNaN(ti)) return e;
 							const tShift = sortedRemoved.filter((ri) => ri < ti).length;
 							const newTi = tShift > 0 ? ti - tShift : ti;
 							return { ...e, id: `e-start-step-${newTi}`, target: `step-${newTi}` };
@@ -443,7 +443,7 @@ export function useCanvasState(
 					for (const idx of removedIndices) delete newPos[`step-${idx}`];
 					const existingKeys = Object.keys(newPos)
 						.map((k) => parseInt(k.replace('step-', ''), 10))
-						.filter((n) => !isNaN(n))
+						.filter((n) => !Number.isNaN(n))
 						.sort((a, b) => b - a); // 从大到小，防止覆盖
 					for (const j of existingKeys) {
 						const shift = sortedRemoved.filter((ri) => ri < j).length;
@@ -460,7 +460,7 @@ export function useCanvasState(
 						const afterRemove = applyNodeChanges(changes, prev) as Node[];
 						return afterRemove.map((n) => {
 							const i = parseInt(n.id.replace('step-', ''), 10);
-							if (isNaN(i)) return n;
+							if (Number.isNaN(i)) return n;
 							const shift = sortedRemoved.filter((ri) => ri < i).length;
 							if (shift === 0) return n;
 							return {
@@ -572,7 +572,7 @@ export function useCanvasState(
 	// ── 节点/面板点击 ──────────────────────────────────────────────────────────
 	const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
 		const idx = parseInt(node.id.replace('step-', ''), 10);
-		setSelectedIndex(isNaN(idx) ? null : idx);
+		setSelectedIndex(Number.isNaN(idx) ? null : idx);
 	}, []);
 
 	const onPaneClick = useCallback(() => setSelectedIndex(null), []);

@@ -1,26 +1,34 @@
 const ALL_TIMEZONES: string[] = (() => {
 	try {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		return (Intl as any).supportedValuesOf('timeZone') as string[];
+		const supportedValuesOf = (
+			Intl as typeof Intl & {
+				supportedValuesOf?: (key: 'timeZone') => string[];
+			}
+		).supportedValuesOf;
+		const timeZones = supportedValuesOf?.('timeZone');
+		if (timeZones?.length) {
+			return timeZones;
+		}
 	} catch {
-		return [
-			'UTC',
-			'America/New_York',
-			'America/Chicago',
-			'America/Denver',
-			'America/Los_Angeles',
-			'Europe/London',
-			'Europe/Paris',
-			'Europe/Berlin',
-			'Asia/Shanghai',
-			'Asia/Tokyo',
-			'Asia/Seoul',
-			'Asia/Singapore',
-			'Asia/Kolkata',
-			'Australia/Sydney',
-			'Pacific/Auckland',
-		];
+		// 回退到下方内置常用时区列表。
 	}
+	return [
+		'UTC',
+		'America/New_York',
+		'America/Chicago',
+		'America/Denver',
+		'America/Los_Angeles',
+		'Europe/London',
+		'Europe/Paris',
+		'Europe/Berlin',
+		'Asia/Shanghai',
+		'Asia/Tokyo',
+		'Asia/Seoul',
+		'Asia/Singapore',
+		'Asia/Kolkata',
+		'Australia/Sydney',
+		'Pacific/Auckland',
+	];
 })();
 
 export const TIMEZONE_LIST: string[] = ALL_TIMEZONES;

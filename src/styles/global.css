@@ -250,11 +250,11 @@
 }
 
 /* React Flow MiniMap 暗色适配 */
-.dark .react-flow__minimap {
-	background: var(--card);
-}
 .react-flow__minimap {
 	border-radius: 8px;
 	border: 1px solid var(--border);
 	box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
+}
+.dark .react-flow__minimap {
+	background: var(--card);
 }

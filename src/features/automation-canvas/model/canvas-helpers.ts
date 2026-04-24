@@ -176,7 +176,7 @@ export function topologySortSteps(
 	for (const edge of edges) {
 		const si = parseInt(edge.source.replace('step-', ''), 10);
 		const ti = parseInt(edge.target.replace('step-', ''), 10);
-		if (isNaN(si) || isNaN(ti) || si >= n || ti >= n) continue;
+		if (Number.isNaN(si) || Number.isNaN(ti) || si >= n || ti >= n) continue;
 		adj.get(si)?.push(ti);
 		inDegree.set(ti, (inDegree.get(ti) ?? 0) + 1);
 	}
@@ -372,7 +372,7 @@ function buildHandleEdgeMap(edges: Edge[], n: number): HandleEdgeMap {
 	for (const edge of edges) {
 		const si = parseInt(edge.source.replace('step-', ''), 10);
 		const ti = parseInt(edge.target.replace('step-', ''), 10);
-		if (isNaN(si) || isNaN(ti) || si >= n || ti >= n) continue;
+		if (Number.isNaN(si) || Number.isNaN(ti) || si >= n || ti >= n) continue;
 		if (!map.has(si)) map.set(si, new Map());
 		const handle = edge.sourceHandle ?? null;
 		const byHandle = map.get(si)!;
@@ -469,7 +469,7 @@ function getConfirmBranchCount(
 ): number {
 	let maxHandleIndex = -1;
 	for (const handle of handles?.keys() ?? []) {
-		if (!handle || !handle.startsWith('btn_')) continue;
+		if (!handle?.startsWith('btn_')) continue;
 		const rawIndex = Number.parseInt(handle.slice(4), 10);
 		if (!Number.isNaN(rawIndex)) {
 			maxHandleIndex = Math.max(maxHandleIndex, rawIndex);

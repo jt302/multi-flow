@@ -1,6 +1,6 @@
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { createContext, memo, useContext, useMemo } from 'react';
-import type { Components } from 'react-markdown';
+import type { Components, Options as ReactMarkdownOptions } from 'react-markdown';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import remarkGfm from 'remark-gfm';
@@ -18,8 +18,9 @@ export const MarkdownCtx = createContext<MarkdownCtxValue>({});
 // ── 模块级稳定引用（绝不移入组件内部）────────────────────────────────────────
 // 每次引用变化都会触发 ReactMarkdown 重初始化整个 unified pipeline
 const REMARK_PLUGINS = [remarkGfm];
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const REHYPE_PLUGINS: any[] = [[rehypeHighlight, { detect: true, ignoreMissing: true }]];
+const REHYPE_PLUGINS: NonNullable<ReactMarkdownOptions['rehypePlugins']> = [
+	[rehypeHighlight, { detect: true, ignoreMissing: true }],
+];
 
 // ────────────────────────────────────────────────────────────────────────────
 // 链接组件：用 tauri-opener 打开外链，降级到 window.open

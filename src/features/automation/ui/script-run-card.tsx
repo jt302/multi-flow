@@ -173,7 +173,7 @@ export function RunDetailView({ run, expanded = false }: RunDetailViewProps) {
 			const fileName = `run-${ts}.log`;
 			const result = await exportBackendLogs(lines, fileName);
 			toast.success(t('common:exportSucceeded', { count: result.lineCount, path: result.path }));
-		} catch (err) {
+		} catch {
 			toast.error(t('common:exportFailed'));
 		} finally {
 			setExporting(false);

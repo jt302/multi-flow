@@ -60,7 +60,6 @@ function formatWebRtcModeLabel(value: string | undefined) {
 			return i18next.t('common:replace');
 		case 'disable':
 			return i18next.t('common:disable');
-		case 'real':
 		default:
 			return i18next.t('common:realNoOverride');
 	}
@@ -123,7 +122,7 @@ export function ProfileDetailPage({
 	const openDir = async (path: string) => {
 		try {
 			await revealItemInDir(path);
-		} catch (error) {
+		} catch {
 			try {
 				await openPath(path);
 			} catch {
@@ -139,7 +138,7 @@ export function ProfileDetailPage({
 			await runtimeDetailsQuery.refetch();
 			setConfirmClearCacheOpen(false);
 			toast.success(t('detail.cacheCleaned'));
-		} catch (error) {
+		} catch {
 			toast.error(t('detail.cacheCleanFailed'));
 		} finally {
 			setClearingCache(false);

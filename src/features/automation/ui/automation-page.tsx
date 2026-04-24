@@ -162,14 +162,13 @@ export function AutomationPage() {
 			toast.error(t('page.noValidSteps'));
 			return;
 		}
-		const normalizedDelay =
-			delayConfig && delayConfig.enabled
-				? {
-						enabled: true,
-						minSeconds: Math.max(0, Math.min(delayConfig.minSeconds, delayConfig.maxSeconds)),
-						maxSeconds: Math.max(delayConfig.minSeconds, delayConfig.maxSeconds),
-					}
-				: null;
+		const normalizedDelay = delayConfig?.enabled
+			? {
+					enabled: true,
+					minSeconds: Math.max(0, Math.min(delayConfig.minSeconds, delayConfig.maxSeconds)),
+					maxSeconds: Math.max(delayConfig.minSeconds, delayConfig.maxSeconds),
+				}
+			: null;
 
 		// 持久化延迟配置到脚本设置
 		if (delayConfig) {

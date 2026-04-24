@@ -65,14 +65,13 @@ export function AutomationCanvasRoutePage() {
 			liveStepResults={belongsToThisScript ? liveStepResults : []}
 			concurrentCounts={Object.keys(concurrentCounts).length > 0 ? concurrentCounts : undefined}
 			onRun={(profileIds, initialVars, delayConfig) => {
-				const normalizedDelay =
-					delayConfig && delayConfig.enabled
-						? {
-								enabled: true,
-								minSeconds: Math.max(0, Math.min(delayConfig.minSeconds, delayConfig.maxSeconds)),
-								maxSeconds: Math.max(delayConfig.minSeconds, delayConfig.maxSeconds),
-							}
-						: null;
+				const normalizedDelay = delayConfig?.enabled
+					? {
+							enabled: true,
+							minSeconds: Math.max(0, Math.min(delayConfig.minSeconds, delayConfig.maxSeconds)),
+							maxSeconds: Math.max(delayConfig.minSeconds, delayConfig.maxSeconds),
+						}
+					: null;
 				const batchId = profileIds.length > 1 ? crypto.randomUUID() : null;
 				return void Promise.all(
 					profileIds.map((profileId) =>
