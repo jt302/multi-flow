@@ -7,7 +7,7 @@ import { OfflineBadge } from '@/widgets/downloads/ui/offline-badge';
 
 import { cn } from '@/lib/utils';
 
-import { getWorkspaceSections } from '@/app/model/workspace-sections';
+import { getWorkspaceSection } from '@/app/model/workspace-sections';
 import { getWorkspaceNavItems } from '@/app/model/workspace-nav-items';
 import { resolvePathFromNav } from '@/app/workspace-routes';
 import type { NavId } from '@/app/model/workspace-types';
@@ -39,9 +39,12 @@ export function WorkspaceTopbar({
 	onOpenLogPanel,
 	onNavigate,
 }: WorkspaceTopbarProps) {
-	const { t } = useTranslation('common');
+	const { t, i18n } = useTranslation('common');
 	const [commandOpen, setCommandOpen] = useState(false);
-	const section = getWorkspaceSections()[activeNav];
+	const section = useMemo(
+		() => getWorkspaceSection(activeNav),
+		[activeNav, i18n.resolvedLanguage],
+	);
 
 	const navCommands = useMemo(
 		() =>
@@ -49,7 +52,7 @@ export function WorkspaceTopbar({
 				label: item.label,
 				path: resolvePathFromNav(item.id),
 			})),
-		[],
+		[i18n.resolvedLanguage],
 	);
 
 	useEffect(() => {

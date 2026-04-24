@@ -20,3 +20,13 @@ test('workspace layout keeps outlet container full-height for page-level flex la
 	assert.equal(alertDialogSource.includes('w-[calc(100vw-1rem)]'), true);
 	assert.equal(alertDialogSource.includes('max-h-[calc(100vh-1rem)]'), true);
 });
+
+test('workspace layout memoizes navigation handlers and outlet context', () => {
+	const source = readFileSync(new URL('./workspace-layout.tsx', import.meta.url), 'utf8');
+
+	assert.equal(source.includes('const handleNavigate = useCallback('), true);
+	assert.equal(source.includes('const handleSidebarNavChange = useCallback('), true);
+	assert.equal(source.includes('const outletContext = useMemo('), true);
+	assert.equal(source.includes('buildWorkspaceLayoutOutletContext({'), true);
+	assert.equal(source.includes('onNavigate: handleNavigate'), true);
+});

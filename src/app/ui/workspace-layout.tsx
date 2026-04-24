@@ -1,4 +1,13 @@
-import { Component, Suspense, useState, type CSSProperties, type ErrorInfo, type ReactNode } from 'react';
+import {
+	Component,
+	Suspense,
+	useCallback,
+	useMemo,
+	useState,
+	type CSSProperties,
+	type ErrorInfo,
+	type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -13,10 +22,7 @@ import { resolveNavFromPath, resolvePathFromNav } from '@/app/workspace-routes';
 import { buildWorkspaceLayoutOutletContext } from '@/app/model/workspace-layout-context';
 import { ResourceDownloadListener } from './resource-download-listener';
 import { PluginDownloadListener } from './plugin-download-listener';
-import type {
-	NavId,
-	WorkspaceOutletContext,
-} from '@/app/model/workspace-types';
+import type { NavId } from '@/app/model/workspace-types';
 import { useWorkspaceNavigationStore } from '@/store/workspace-navigation-store';
 import {
 	persistSidebarOpen,
@@ -129,70 +135,105 @@ export function WorkspaceLayout() {
 	);
 
 	const toasterTheme = resolveSonnerTheme(themeState.resolvedMode);
-	const handleOpenLogPanel = () => {
+	const handleNavigate = useCallback(
+		(path: string) => {
+			navigate(path);
+		},
+		[navigate],
+	);
+	const handleSidebarNavChange = useCallback(
+		(nav: NavId) => {
+			handleNavigate(resolvePathFromNav(nav));
+		},
+		[handleNavigate],
+	);
+	const handleSidebarOpenChange = useCallback((open: boolean) => {
+		setSidebarOpen(open);
+		persistSidebarOpen(open);
+	}, []);
+	const handleOpenLogPanel = useCallback(() => {
 		void (async () => {
 			try {
 				await openLogPanelWindow();
 			} catch {
 				toast.error(t('openLogPanelFailed'));
-				navigate('/logs');
+				handleNavigate('/logs');
 			}
 		})();
-	};
+	}, [handleNavigate, t]);
 
-	const outletContext: WorkspaceOutletContext =
-		buildWorkspaceLayoutOutletContext({
+	const outletContext = useMemo(
+		() =>
+			buildWorkspaceLayoutOutletContext({
+				activeNav,
+				theme: {
+					resolvedMode: themeState.resolvedMode,
+					useCustomColor: themeState.useCustomColor,
+					preset: themeState.preset,
+					customColor: themeState.customColor,
+					customPresets: themeState.customPresets,
+					themeMode: themeState.themeMode,
+					setThemeMode: themeState.setThemeMode,
+					onPresetChange: (nextPreset) => {
+						themeState.setUseCustomColor(false);
+						themeState.setPreset(nextPreset);
+					},
+					onCustomColorChange: (value) => {
+						themeState.setUseCustomColor(true);
+						themeState.setCustomColor(value);
+					},
+					onToggleCustomColor: () =>
+						themeState.setUseCustomColor((prev) => !prev),
+					onAddCustomPreset: () => {
+						const normalized = normalizeCustomThemePreset(themeState.customColor);
+						if (!normalized) {
+							return;
+						}
+
+						themeState.addCustomPreset(normalized);
+					},
+					onApplyCustomPreset: (value) => {
+						themeState.setCustomColor(value);
+						themeState.setUseCustomColor(true);
+					},
+					onDeleteCustomPreset: (value) => {
+						themeState.removeCustomPreset(value);
+					},
+				},
+				navigation: {
+					pathname: location.pathname,
+					intent: profileNavigationIntent,
+					onConsumeNavigationIntent: clearProfileNavigationIntent,
+					onSetProfileNavigationIntent: setProfileNavigationIntent,
+					onNavigate: handleNavigate,
+				},
+			}),
+		[
 			activeNav,
-			theme: {
-				resolvedMode: themeState.resolvedMode,
-				useCustomColor: themeState.useCustomColor,
-				preset: themeState.preset,
-				customColor: themeState.customColor,
-				customPresets: themeState.customPresets,
-				themeMode: themeState.themeMode,
-				setThemeMode: themeState.setThemeMode,
-				onPresetChange: (nextPreset) => {
-					themeState.setUseCustomColor(false);
-					themeState.setPreset(nextPreset);
-				},
-				onCustomColorChange: (value) => {
-					themeState.setUseCustomColor(true);
-					themeState.setCustomColor(value);
-				},
-				onToggleCustomColor: () =>
-					themeState.setUseCustomColor((prev) => !prev),
-				onAddCustomPreset: () => {
-					const normalized = normalizeCustomThemePreset(themeState.customColor);
-					if (!normalized) {
-						return;
-					}
-
-					themeState.addCustomPreset(normalized);
-				},
-				onApplyCustomPreset: (value) => {
-					themeState.setCustomColor(value);
-					themeState.setUseCustomColor(true);
-				},
-				onDeleteCustomPreset: (value) => {
-					themeState.removeCustomPreset(value);
-				},
-			},
-			navigation: {
-				pathname: location.pathname,
-				intent: profileNavigationIntent,
-				onConsumeNavigationIntent: clearProfileNavigationIntent,
-				onSetProfileNavigationIntent: setProfileNavigationIntent,
-				onNavigate: (path) => navigate(path),
-			},
-		});
+			clearProfileNavigationIntent,
+			handleNavigate,
+			location.pathname,
+			profileNavigationIntent,
+			setProfileNavigationIntent,
+			themeState.addCustomPreset,
+			themeState.customColor,
+			themeState.customPresets,
+			themeState.preset,
+			themeState.removeCustomPreset,
+			themeState.resolvedMode,
+			themeState.setCustomColor,
+			themeState.setPreset,
+			themeState.setThemeMode,
+			themeState.setUseCustomColor,
+			themeState.themeMode,
+			themeState.useCustomColor,
+		],
+	);
 
 	return (
 		<SidebarProvider
 			open={sidebarOpen}
-			onOpenChange={(open) => {
-				setSidebarOpen(open);
-				persistSidebarOpen(open);
-			}}
+			onOpenChange={handleSidebarOpenChange}
 			style={
 				{
 					'--sidebar-width': '15rem',
@@ -218,23 +259,20 @@ export function WorkspaceLayout() {
 						<WorkspaceSidebar
 							activeNav={activeNav}
 							activePath={location.pathname}
-							onNavChange={(nav) => {
-								const path = resolvePathFromNav(nav);
-								navigate(path);
-							}}
-							onNavigate={(path) => navigate(path)}
+							onNavChange={handleSidebarNavChange}
+							onNavigate={handleNavigate}
 						/>
 					</Sidebar>
 
 					<section className="flex min-h-0 min-w-0 flex-1 basis-0 flex-col gap-2 sm:gap-4 bg-transparent pl-0 sm:pl-1 md:pl-2">
 						<Card className="w-full shrink-0 border-border/40 bg-card/60 px-3 py-2 sm:px-4 sm:py-2.5 backdrop-blur-3xl shadow-sm transition-all duration-300">
-							<WorkspaceTopbar
-								activeNav={activeNav}
-								themeMode={themeState.themeMode}
-								onThemeModeChange={themeState.setThemeMode}
-								onOpenLogPanel={handleOpenLogPanel}
-								onNavigate={(path) => navigate(path)}
-							/>
+								<WorkspaceTopbar
+									activeNav={activeNav}
+									themeMode={themeState.themeMode}
+									onThemeModeChange={themeState.setThemeMode}
+									onOpenLogPanel={handleOpenLogPanel}
+									onNavigate={handleNavigate}
+								/>
 						</Card>
 						<Card
 							className="min-h-0 w-full flex-1 overflow-hidden flex flex-col border-border/40 bg-card/60 p-0 backdrop-blur-3xl shadow-md transition-all duration-300"

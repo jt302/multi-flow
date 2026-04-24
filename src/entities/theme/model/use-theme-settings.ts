@@ -1,5 +1,5 @@
 import { setTheme as setNativeAppTheme } from '@tauri-apps/api/app';
-import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 
 import type {
 	CustomThemePreset,
@@ -207,6 +207,13 @@ export function useThemeSettings() {
 		root.style.setProperty('--ring-dark', mixHex(activePalette.dark, '#0B1220', 0.35));
 	}, [activePalette, customColor, customPresets, preset, themeMode, useCustomColor]);
 
+	const handleAddCustomPreset = useCallback((value: string) => {
+		setCustomPresets((current) => addCustomThemePreset(current, value));
+	}, []);
+	const handleRemoveCustomPreset = useCallback((value: string) => {
+		setCustomPresets((current) => removeCustomThemePreset(current, value));
+	}, []);
+
 	return {
 		themeMode,
 		setThemeMode,
@@ -217,10 +224,8 @@ export function useThemeSettings() {
 		useCustomColor,
 		setUseCustomColor,
 		customPresets,
-		addCustomPreset: (value: string) =>
-			setCustomPresets((current) => addCustomThemePreset(current, value)),
-		removeCustomPreset: (value: string) =>
-			setCustomPresets((current) => removeCustomThemePreset(current, value)),
+		addCustomPreset: handleAddCustomPreset,
+		removeCustomPreset: handleRemoveCustomPreset,
 		resolvedMode,
 	};
 }
