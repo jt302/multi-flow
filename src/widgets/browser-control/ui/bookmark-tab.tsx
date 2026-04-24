@@ -210,8 +210,15 @@ export function BookmarkTab({ profiles }: BookmarkTabProps) {
 					<div className="w-[60%] min-w-0 border-r border-border/60 overflow-hidden flex flex-col">
 						{bookmarksQuery.isLoading ? (
 							<div className="p-2 space-y-1">
-								{Array.from({ length: 6 }).map((_, i) => (
-									<Skeleton key={i} className="h-5 w-full" />
+								{[
+									'bookmark-skeleton-1',
+									'bookmark-skeleton-2',
+									'bookmark-skeleton-3',
+									'bookmark-skeleton-4',
+									'bookmark-skeleton-5',
+									'bookmark-skeleton-6',
+								].map((key) => (
+									<Skeleton key={key} className="h-5 w-full" />
 								))}
 							</div>
 						) : bookmarksQuery.isError ? (

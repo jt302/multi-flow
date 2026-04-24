@@ -228,6 +228,7 @@ export function ScriptDetailPanel({
 			</div>
 
 			{/* 拖拽分隔线（双击切换 50/50 与默认高度） */}
+			{/* biome-ignore lint/a11y/noStaticElementInteractions: 这里是拖拽调整大小的手柄，不是点击按钮。 */}
 			<div
 				className="h-1.5 border-t border-b cursor-row-resize bg-muted/30 hover:bg-muted/60 transition-colors shrink-0 flex items-center justify-center"
 				onMouseDown={handleDividerMouseDown}

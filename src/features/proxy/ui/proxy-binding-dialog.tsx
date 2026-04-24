@@ -79,10 +79,6 @@ export function ProxyBindingDialog({
 		() => profiles.filter((item) => item.lifecycle === 'active'),
 		[profiles],
 	);
-	const activeProxyIds = useMemo(
-		() => activeProxies.map((item) => item.id).join(','),
-		[activeProxies],
-	);
 	const selectedProfileId = watch('profileId');
 	const selectedProxyId = watch('proxyId');
 	const boundRows = activeProfiles
@@ -125,7 +121,7 @@ export function ProxyBindingDialog({
 			}
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [open, activeProxyIds, initialProxyId, selectedProxyId, setValue]);
+	}, [open, initialProxyId, selectedProxyId, setValue, activeProxies[0]?.id, activeProxies.some]);
 
 	return (
 		<>

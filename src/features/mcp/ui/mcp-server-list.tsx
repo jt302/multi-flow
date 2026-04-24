@@ -71,9 +71,18 @@ export function McpServerList({ servers, isLoading, selectedId, onSelect }: Prop
 					const summaryIsError = Boolean(server.lastError?.trim());
 
 					return (
+						// biome-ignore lint/a11y/useSemanticElements: 卡片内有 Switch，不能用 button 包整卡。
 						<div
 							key={server.id}
+							role="button"
 							onClick={() => onSelect(server)}
+							tabIndex={0}
+							onKeyDown={(event) => {
+								if (event.key === 'Enter' || event.key === ' ') {
+									event.preventDefault();
+									onSelect(server);
+								}
+							}}
 							className={cn(
 								'rounded-xl border border-border/70 bg-card px-4 py-4 transition-colors hover:bg-accent/30',
 								selectedId === server.id && 'border-primary/35 bg-accent/40',
@@ -124,7 +133,7 @@ export function McpServerList({ servers, isLoading, selectedId, onSelect }: Prop
 									) : null}
 								</div>
 								<div className="flex items-center gap-2">
-									<div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+									<div className="flex items-center gap-2">
 										<span className="text-xs text-muted-foreground">{t('mcp.fieldEnabled')}</span>
 										<Switch
 											checked={server.enabled}

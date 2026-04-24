@@ -44,7 +44,7 @@ export function LocaleSettingsSection({
 			<SectionTitle title={t('locale.title')} description={t('locale.desc')} />
 
 			<div className="mb-3">
-				<label className="mb-1 block text-xs text-muted-foreground">{t('locale.modeLabel')}</label>
+				<div className="mb-1 block text-xs text-muted-foreground">{t('locale.modeLabel')}</div>
 				<Select
 					value={localeMode}
 					onValueChange={(value) =>
@@ -69,8 +69,14 @@ export function LocaleSettingsSection({
 
 			<div className="grid gap-3 md:grid-cols-2">
 				<div>
-					<label className="mb-1 block text-xs text-muted-foreground">{t('locale.language')}</label>
+					<label
+						htmlFor="profile-language-input"
+						className="mb-1 block text-xs text-muted-foreground"
+					>
+						{t('locale.language')}
+					</label>
 					<Input
+						id="profile-language-input"
 						{...register('language', {
 							onChange: () => !isAuto && onMarkManual('language'),
 						})}
@@ -86,7 +92,7 @@ export function LocaleSettingsSection({
 				</div>
 
 				<div>
-					<label className="mb-1 block text-xs text-muted-foreground">{t('locale.timezone')}</label>
+					<div className="mb-1 block text-xs text-muted-foreground">{t('locale.timezone')}</div>
 					{isAuto ? (
 						<Input
 							value={timezoneId}

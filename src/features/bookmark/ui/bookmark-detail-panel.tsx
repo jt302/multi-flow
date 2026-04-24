@@ -42,7 +42,7 @@ export function BookmarkDetailPanel({
 		setEditing(false);
 		setEditTitle(node?.title ?? '');
 		setEditUrl(node?.url ?? '');
-	}, [node?.id]);
+	}, [node?.url, node?.title]);
 
 	if (!node) {
 		return (

@@ -62,7 +62,7 @@ export const ChatHeader = memo(function ChatHeader({ session }: Props) {
 		setPromptDraft(session.systemPrompt ?? '');
 		setPromptOpen(false);
 		setIsEditingTitle(false);
-	}, [session.id]);
+	}, [session.systemPrompt]);
 
 	const doUpdate = (payload: UpdateChatSessionRequest) => {
 		updateSession.mutate({ sessionId: session.id, payload });

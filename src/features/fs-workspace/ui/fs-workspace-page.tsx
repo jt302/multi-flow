@@ -185,7 +185,8 @@ export function FsWorkspacePage() {
 			</div>
 			<div className="flex-1 overflow-auto">
 				{roots.map((root) => (
-					<div
+					<button
+						type="button"
 						key={root.id}
 						onClick={() => {
 							setSelectedRoot(root);
@@ -193,7 +194,7 @@ export function FsWorkspacePage() {
 							setRootsSheetOpen(false);
 						}}
 						className={cn(
-							'cursor-pointer border-b px-3 py-2.5 hover:bg-accent/50',
+							'w-full cursor-pointer border-b px-3 py-2.5 text-left hover:bg-accent/50',
 							selectedRoot?.id === root.id && 'bg-accent',
 						)}
 					>
@@ -204,7 +205,7 @@ export function FsWorkspacePage() {
 						{!root.allowWrite && (
 							<div className="mt-0.5 text-xs text-amber-600">{t('fileSystem.readOnly')}</div>
 						)}
-					</div>
+					</button>
 				))}
 			</div>
 		</div>
@@ -256,14 +257,24 @@ export function FsWorkspacePage() {
 					<div className="p-4 text-sm text-muted-foreground">{t('fileSystem.loading')}</div>
 				)}
 				{entries.map((entry) => (
+					// biome-ignore lint/a11y/useSemanticElements: 行内有删除按钮，不能用 button 包整行。
 					<div
 						key={entry.relPath}
+						role="button"
 						onClick={() => {
 							setSelectedEntryPath(entry.relPath);
 							setSelectedEntryIsDir(entry.isDir);
 						}}
 						onDoubleClick={() => {
 							if (entry.isDir) navigateTo(entry.relPath);
+						}}
+						tabIndex={0}
+						onKeyDown={(event) => {
+							if (event.key === 'Enter') {
+								setSelectedEntryPath(entry.relPath);
+								setSelectedEntryIsDir(entry.isDir);
+								if (entry.isDir) navigateTo(entry.relPath);
+							}
 						}}
 						className={cn(
 							'group flex cursor-pointer items-center gap-2 border-b px-3 py-2 hover:bg-accent/50',

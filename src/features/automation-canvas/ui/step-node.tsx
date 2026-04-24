@@ -126,18 +126,16 @@ export const StepNodeComponent = memo(function StepNodeComponent({
 				</div>
 			)}
 			{sourceHandles.length > 0 ? (
-				<>
-					{sourceHandles.map((handle) => (
-						<Handle
-							key={`${handle.id ?? 'default'}-${handle.left ?? 'center'}-${handle.hidden ? 'hidden' : 'visible'}`}
-							type="source"
-							position={Position.Bottom}
-							id={handle.id ?? undefined}
-							style={resolveHandleStyle(handle)}
-							className={HANDLE_CLS}
-						/>
-					))}
-				</>
+				sourceHandles.map((handle) => (
+					<Handle
+						key={`${handle.id ?? 'default'}-${handle.left ?? 'center'}-${handle.hidden ? 'hidden' : 'visible'}`}
+						type="source"
+						position={Position.Bottom}
+						id={handle.id ?? undefined}
+						style={resolveHandleStyle(handle)}
+						className={HANDLE_CLS}
+					/>
+				))
 			) : isTerminal ? null : (
 				<>
 					<div className="flex justify-between mt-1.5 text-[9px] text-muted-foreground select-none">

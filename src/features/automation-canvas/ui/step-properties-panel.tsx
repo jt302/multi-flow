@@ -60,21 +60,21 @@ export function StepPropertiesPanel({
 		...allSteps.slice(0, stepIndex).flatMap((stepItem, i) => {
 			const stepRecord = stepItem as Record<string, unknown>;
 			const results: { name: string; source: string }[] = [];
-			if (typeof stepRecord['output_key'] === 'string' && stepRecord['output_key']) {
+			if (typeof stepRecord.output_key === 'string' && stepRecord.output_key) {
 				results.push({
-					name: stepRecord['output_key'] as string,
+					name: stepRecord.output_key as string,
 					source: t('common:stepsCount', { count: i + 1 }),
 				});
 			}
-			if (typeof stepRecord['output_key_base64'] === 'string' && stepRecord['output_key_base64']) {
+			if (typeof stepRecord.output_key_base64 === 'string' && stepRecord.output_key_base64) {
 				results.push({
-					name: stepRecord['output_key_base64'] as string,
+					name: stepRecord.output_key_base64 as string,
 					source: t('common:stepsCount', { count: i + 1 }),
 				});
 			}
-			if (typeof stepRecord['iter_var'] === 'string' && stepRecord['iter_var']) {
+			if (typeof stepRecord.iter_var === 'string' && stepRecord.iter_var) {
 				results.push({
-					name: stepRecord['iter_var'] as string,
+					name: stepRecord.iter_var as string,
 					source: t('common:stepsCount', { count: i + 1 }),
 				});
 			}
@@ -131,9 +131,9 @@ export function StepPropertiesPanel({
 						<div className="text-xs text-muted-foreground px-2 py-1 font-medium">
 							{t('automation:properties.selectVar')}
 						</div>
-						{availableVars.map((v, i) => (
+						{availableVars.map((v) => (
 							<button
-								key={`${v.name}-${v.source}-${i}`}
+								key={`${v.name}-${v.source}`}
 								type="button"
 								className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent cursor-pointer flex items-center justify-between gap-2"
 								onClick={() => insertVar(v.name)}
@@ -191,7 +191,7 @@ export function StepPropertiesPanel({
 
 	/** 选择器字段（CSS/XPath/Text 三种类型） */
 	function sf(label = t('automation:properties.selector'), optional = false) {
-		const sType = String(s['selector_type'] ?? 'css');
+		const sType = String(s.selector_type ?? 'css');
 		const placeholder =
 			sType === 'xpath'
 				? '//div[@id="main"]'
@@ -218,7 +218,7 @@ export function StepPropertiesPanel({
 						</SelectContent>
 					</Select>
 					<Input
-						value={String(s['selector'] ?? '')}
+						value={String(s.selector ?? '')}
 						onChange={(e) => onUpdate({ ...step, selector: e.target.value } as ScriptStep)}
 						placeholder={placeholder}
 						className="h-8 text-xs font-mono flex-1"
@@ -313,7 +313,7 @@ export function StepPropertiesPanel({
 		fields.push(sf(t('automation:properties.selectorOptional'), true));
 	} else if (kind === 'cdp_screenshot') {
 		fields.push(outputKeyField('output_key_file_path', t('automation:fields.filePathVar')));
-		const pathValue = String(s['output_path'] ?? '');
+		const pathValue = String(s.output_path ?? '');
 		fields.push(
 			<div key="output_path" className="space-y-1">
 				<Label className="text-xs">{t('automation:fields.savePath')}</Label>
@@ -365,7 +365,7 @@ export function StepPropertiesPanel({
 		fields.push(sf());
 		fields.push(tf('files.0', t('automation:fields.filePath')));
 	} else if (kind === 'cdp_download_file') {
-		const dlPathValue = String(s['download_path'] ?? '');
+		const dlPathValue = String(s.download_path ?? '');
 		fields.push(
 			<div key="download_path" className="space-y-1">
 				<Label className="text-xs">{t('automation:fields.downloadDir')}</Label>
@@ -399,7 +399,7 @@ export function StepPropertiesPanel({
 			</div>,
 		);
 	} else if (kind === 'cdp_clipboard') {
-		const clipAction = String(s['action'] ?? 'copy');
+		const clipAction = String(s.action ?? 'copy');
 		fields.push(
 			<div key="action" className="space-y-1">
 				<Label className="text-xs">{t('automation:action')}</Label>
@@ -420,7 +420,7 @@ export function StepPropertiesPanel({
 		);
 	} else if (kind === 'cdp_execute_js') {
 		fields.push(tf('expression', t('automation:fields.jsCode'), true));
-		const jsFilePath = String(s['file_path'] ?? '');
+		const jsFilePath = String(s.file_path ?? '');
 		fields.push(
 			<div key="file_path" className="space-y-1">
 				<Label className="text-xs">{t('automation:fields.jsFilePath')}</Label>
@@ -458,7 +458,7 @@ export function StepPropertiesPanel({
 		fields.push(okf());
 	} else if (kind === 'cdp_input_text') {
 		fields.push(sf());
-		const textSrc = String(s['text_source'] ?? 'inline');
+		const textSrc = String(s.text_source ?? 'inline');
 		fields.push(
 			<div key="text_source" className="space-y-1">
 				<Label className="text-xs">{t('automation:fields.textSource')}</Label>
@@ -480,7 +480,7 @@ export function StepPropertiesPanel({
 		if (textSrc === 'inline') {
 			fields.push(tf('text', t('automation:fields.inputText'), true));
 		} else if (textSrc === 'file') {
-			const filePath = String(s['file_path'] ?? '');
+			const filePath = String(s.file_path ?? '');
 			fields.push(
 				<div key="file_path" className="space-y-1">
 					<Label className="text-xs">{t('automation:fields.textFilePath')}</Label>
@@ -521,7 +521,7 @@ export function StepPropertiesPanel({
 			fields.push(tf('var_name', t('automation:fields.varName')));
 		}
 	} else if (kind === 'cdp_press_key') {
-		const keyVal = String(s['key'] ?? 'Enter');
+		const keyVal = String(s.key ?? 'Enter');
 		fields.push(
 			<div key="key" className="space-y-1">
 				<Label className="text-xs">{t('automation:fields.keyPress')}</Label>
@@ -549,7 +549,7 @@ export function StepPropertiesPanel({
 			</div>,
 		);
 	} else if (kind === 'cdp_shortcut') {
-		const mods = (s['modifiers'] as string[] | undefined) ?? [];
+		const mods = (s.modifiers as string[] | undefined) ?? [];
 		const toggleMod = (mod: string) => {
 			const newMods = mods.includes(mod) ? mods.filter((m: string) => m !== mod) : [...mods, mod];
 			onUpdate({ ...step, modifiers: newMods } as ScriptStep);
@@ -583,7 +583,7 @@ export function StepPropertiesPanel({
 		fields.push(sf());
 		fields.push(tf('value', t('automation:fields.setValue')));
 	} else if (kind === 'cdp_reload') {
-		const ignoreCache = Boolean(s['ignore_cache'] ?? false);
+		const ignoreCache = Boolean(s.ignore_cache ?? false);
 		fields.push(
 			<div key="ignore_cache" className="flex items-center gap-2">
 				<input
@@ -601,7 +601,7 @@ export function StepPropertiesPanel({
 
 		fields.push(okf());
 		fields.push(nf('timeout_ms', t('automation:properties.timeoutMsZero')));
-		const onTimeout = String(s['on_timeout'] ?? 'continue');
+		const onTimeout = String(s.on_timeout ?? 'continue');
 
 		fields.push(
 			<div key="on_timeout" className="space-y-1">
@@ -626,7 +626,7 @@ export function StepPropertiesPanel({
 		);
 	} else if (kind === 'print') {
 		fields.push(tf('text', t('automation:fields.printText'), true));
-		const lvl = String(s['level'] ?? 'info');
+		const lvl = String(s.level ?? 'info');
 		fields.push(
 			<div key="level" className="space-y-1">
 				<Label className="text-xs">{t('automation:fields.logLevel')}</Label>
@@ -654,7 +654,7 @@ export function StepPropertiesPanel({
 	} else if (kind === 'condition') {
 		fields.push(tf('condition_expr', t('common:conditionExpr')));
 	} else if (kind === 'loop') {
-		const loopMode = String(s['mode'] ?? 'count');
+		const loopMode = String(s.mode ?? 'count');
 		fields.push(
 			<div key="mode" className="space-y-1">
 				<Label className="text-xs">{t('common:loopMode')}</Label>
@@ -686,7 +686,7 @@ export function StepPropertiesPanel({
 	} else if (kind === 'ai_agent') {
 		fields.push(tf('prompt', t('automation:fields.prompt'), true));
 		fields.push(tf('system_prompt', t('automation:fields.systemPrompt'), true));
-		const outputFormat = String(s['output_format'] ?? 'text');
+		const outputFormat = String(s.output_format ?? 'text');
 		fields.push(
 			<div key="output_format" className="space-y-1">
 				<Label className="text-xs">{t('automation:fields.outputFormat')}</Label>
@@ -712,7 +712,7 @@ export function StepPropertiesPanel({
 		fields.push(okf());
 	} else if (kind === 'ai_judge') {
 		fields.push(tf('prompt', t('automation:fields.judgePrompt'), true));
-		const outputMode = String(s['output_mode'] ?? 'boolean');
+		const outputMode = String(s.output_mode ?? 'boolean');
 		fields.push(
 			<div key="output_mode" className="space-y-1">
 				<Label className="text-xs">{t('automation:fields.outputMode')}</Label>
@@ -751,7 +751,7 @@ export function StepPropertiesPanel({
 		fields.push(nf('height', t('automation:properties.height')));
 	} else if (kind === 'magic_capture_app_shell') {
 		fields.push(outputKeyField('output_key_file_path', t('automation:fields.filePathVar')));
-		const appShellPathValue = String(s['output_path'] ?? '');
+		const appShellPathValue = String(s.output_path ?? '');
 		fields.push(
 			<div key="output_path" className="space-y-1">
 				<Label className="text-xs">{t('automation:fields.savePath')}</Label>
@@ -797,7 +797,7 @@ export function StepPropertiesPanel({
 		fields.push(tf('message', t('automation:properties.message'), true));
 		// 动态按钮列表编辑器
 
-		const buttons = (s['buttons'] as DialogButton[] | undefined) ?? [
+		const buttons = (s.buttons as DialogButton[] | undefined) ?? [
 			{ text: t('common:confirm'), value: 'confirm', variant: 'default' },
 			{ text: t('common:cancel'), value: 'cancel', variant: 'outline' },
 		];
@@ -806,7 +806,10 @@ export function StepPropertiesPanel({
 				<Label className="text-xs">{t('automation:properties.buttonList')}</Label>
 				<div className="space-y-1.5">
 					{buttons.map((btn: DialogButton, i: number) => (
-						<div key={i} className="flex gap-1 items-center">
+						<div
+							key={`${btn.value || btn.text || 'button'}-${btn.variant ?? 'default'}`}
+							className="flex gap-1 items-center"
+						>
 							<Input
 								value={btn.text}
 								onChange={(e) => {
@@ -894,13 +897,13 @@ export function StepPropertiesPanel({
 		fields.push(tf('title', t('common:title')));
 		fields.push(tf('message', t('automation:properties.description'), true));
 		// 动态选项列表编辑器
-		const options = (s['options'] as string[] | undefined) ?? [];
+		const options = (s.options as string[] | undefined) ?? [];
 		fields.push(
 			<div key="options" className="space-y-1">
 				<Label className="text-xs">{t('automation:properties.optionList')}</Label>
 				<div className="space-y-1.5">
 					{options.map((opt: string, i: number) => (
-						<div key={i} className="flex gap-1">
+						<div key={opt || 'empty-option'} className="flex gap-1">
 							<Input
 								value={opt}
 								onChange={(e) => {
@@ -941,7 +944,7 @@ export function StepPropertiesPanel({
 			<div key="multi_select" className="flex items-center gap-2">
 				<input
 					type="checkbox"
-					checked={Boolean(s['multi_select'] ?? false)}
+					checked={Boolean(s.multi_select ?? false)}
 					onChange={(e) => onUpdate({ ...step, multi_select: e.target.checked } as ScriptStep)}
 					className="h-3.5 w-3.5 cursor-pointer"
 				/>
@@ -953,7 +956,7 @@ export function StepPropertiesPanel({
 	} else if (kind === 'notification') {
 		fields.push(tf('title', t('common:title')));
 		fields.push(tf('body', t('common:body'), true));
-		const level = String(s['level'] ?? 'info');
+		const level = String(s.level ?? 'info');
 		fields.push(
 			<div key="level" className="space-y-1">
 				<Label className="text-xs">{t('common:level')}</Label>
@@ -980,7 +983,7 @@ export function StepPropertiesPanel({
 		);
 		fields.push(nf('duration_ms', t('automation:properties.durationMs')));
 	} else if (kind === 'cdp_handle_dialog') {
-		const action = String(s['action'] ?? 'accept');
+		const action = String(s.action ?? 'accept');
 		fields.push(
 			<div key="action" className="space-y-1">
 				<Label className="text-xs">{t('automation:action')}</Label>
@@ -1019,7 +1022,7 @@ export function StepPropertiesPanel({
 			<div key="pierce" className="flex items-center gap-2">
 				<input
 					type="checkbox"
-					checked={Boolean(s['pierce'])}
+					checked={Boolean(s.pierce)}
 					className="cursor-pointer"
 					onChange={(e) => onUpdate({ ...step, pierce: e.target.checked } as ScriptStep)}
 				/>

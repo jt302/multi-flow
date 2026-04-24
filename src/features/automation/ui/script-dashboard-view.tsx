@@ -33,10 +33,19 @@ export function ScriptDashboardView({ scripts, onSelect, onNew }: Props) {
 		<div className="flex-1 overflow-y-auto p-5">
 			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
 				{scripts.map((script) => (
+					// biome-ignore lint/a11y/useSemanticElements: 卡片内有独立操作按钮，不能用 button 包整卡。
 					<div
 						key={script.id}
+						role="button"
 						className="rounded-lg border bg-card p-4 flex flex-col gap-2 hover:shadow-sm transition-shadow cursor-pointer"
 						onClick={() => onSelect(script.id)}
+						tabIndex={0}
+						onKeyDown={(event) => {
+							if (event.key === 'Enter' || event.key === ' ') {
+								event.preventDefault();
+								onSelect(script.id);
+							}
+						}}
 					>
 						{/* 卡片标题 */}
 						<div className="flex items-start justify-between gap-2">
@@ -57,7 +66,7 @@ export function ScriptDashboardView({ scripts, onSelect, onNew }: Props) {
 							</Badge>
 							{(script.associatedProfileIds?.length ?? 0) > 0 && (
 								<Badge variant="outline" className="text-xs h-5">
-									{script.associatedProfileIds!.length} {t('dashboard.profiles')}
+									{script.associatedProfileIds?.length} {t('dashboard.profiles')}
 								</Badge>
 							)}
 						</div>

@@ -101,8 +101,12 @@ export function GeneralSettingsPlaceholder() {
 					<CardTitle className="text-base">{t('general.title')}</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-4">
-					<label className="flex items-start gap-3 cursor-pointer">
+					<label
+						htmlFor="chromium-logging-enabled"
+						className="flex items-start gap-3 cursor-pointer"
+					>
 						<Checkbox
+							id="chromium-logging-enabled"
 							checked={loggingEnabled}
 							onCheckedChange={(checked) => toggleLogging.mutate(!!checked)}
 							disabled={loggingQuery.isLoading || toggleLogging.isPending}

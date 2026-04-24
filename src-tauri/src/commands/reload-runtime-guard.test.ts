@@ -7,7 +7,7 @@ function extractFunctionBody(source: string, fnName: string): string {
 	const signatureMatch = signature.exec(source);
 	assert.notEqual(signatureMatch, null, `expected to find function ${fnName}`);
 
-	const startIndex = source.indexOf('{', signatureMatch!.index);
+	const startIndex = source.indexOf('{', signatureMatch?.index);
 	assert.notEqual(startIndex, -1, `expected ${fnName} to have a body`);
 
 	let depth = 0;
@@ -33,7 +33,7 @@ function extractFunctionSignature(source: string, fnName: string): string {
 	const signatureMatch = signature.exec(source);
 	assert.notEqual(signatureMatch, null, `expected to find function ${fnName}`);
 
-	const startIndex = signatureMatch!.index;
+	const startIndex = signatureMatch?.index;
 	const bodyIndex = source.indexOf('{', startIndex);
 	assert.notEqual(bodyIndex, -1, `expected ${fnName} to have a body`);
 	return source.slice(startIndex, bodyIndex);

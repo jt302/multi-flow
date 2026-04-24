@@ -50,14 +50,17 @@ export function PluginsSettingsSection({
 			<div className="space-y-2">
 				{packages.map((pkg) => {
 					const selected = isSelected(pluginSelections, pkg.packageId);
+					const selectId = `plugin-package-${pkg.packageId}`;
+					const enabledId = `plugin-package-enabled-${pkg.packageId}`;
 					return (
 						<div
 							key={pkg.packageId}
 							className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3"
 						>
 							<div className="flex flex-wrap items-start justify-between gap-3">
-								<label className="flex min-w-0 flex-1 items-start gap-3 text-sm">
+								<label htmlFor={selectId} className="flex min-w-0 flex-1 items-start gap-3 text-sm">
 									<Checkbox
+										id={selectId}
 										checked={Boolean(selected)}
 										className="mt-0.5 cursor-pointer"
 										onCheckedChange={(checked) => {
@@ -85,8 +88,12 @@ export function PluginsSettingsSection({
 									</div>
 								</label>
 								<div className="flex items-center gap-2">
-									<label className="flex items-center gap-2 text-xs text-muted-foreground">
+									<label
+										htmlFor={enabledId}
+										className="flex items-center gap-2 text-xs text-muted-foreground"
+									>
 										<Checkbox
+											id={enabledId}
 											checked={selected?.enabled ?? false}
 											disabled={!selected}
 											className="cursor-pointer"

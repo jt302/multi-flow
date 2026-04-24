@@ -43,7 +43,7 @@ export function ProfileBatchGroupDialog({
 			return;
 		}
 		onValueChange(groupOptions[0]);
-	}, [groupOptions, onOpenChange, onValueChange, open, value]);
+	}, [groupOptions, onValueChange, open, value]);
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>

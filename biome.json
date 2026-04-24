@@ -29,33 +29,7 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true,
-			"a11y": {
-				"noLabelWithoutControl": "off",
-				"noRedundantAlt": "off",
-				"noStaticElementInteractions": "off",
-				"useFocusableInteractive": "off",
-				"useKeyWithClickEvents": "off",
-				"useSemanticElements": "off"
-			},
-			"complexity": {
-				"noUselessFragments": "off",
-				"useLiteralKeys": "off"
-			},
-			"correctness": {
-				"useExhaustiveDependencies": "off"
-			},
-			"style": {
-				"noNonNullAssertion": "off",
-				"useTemplate": "off"
-			},
-			"suspicious": {
-				"noArrayIndexKey": "off",
-				"noControlCharactersInRegex": "off",
-				"noDocumentCookie": "off",
-				"noThenProperty": "off",
-				"useIterableCallbackReturn": "off"
-			}
+			"recommended": true
 		}
 	},
 	"assist": {

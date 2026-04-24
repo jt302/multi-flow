@@ -152,7 +152,7 @@ export function createSyncManagerStore(options: CreateStoreOptions = {}) {
 					if (registeredTargets.length > 0) {
 						await Promise.all(
 							registeredTargets.map((item) =>
-								client!.request('instances.upsert', {
+								client?.request('instances.upsert', {
 									id: item.profileId,
 									host: item.host,
 									port: item.magicSocketServerPort,
@@ -206,7 +206,7 @@ export function createSyncManagerStore(options: CreateStoreOptions = {}) {
 					targets
 						.filter((item) => item.magicSocketServerPort !== null)
 						.map((item) =>
-							client!.request('instances.upsert', {
+							client?.request('instances.upsert', {
 								id: item.profileId,
 								host: item.host,
 								port: item.magicSocketServerPort,
@@ -218,7 +218,7 @@ export function createSyncManagerStore(options: CreateStoreOptions = {}) {
 				await Promise.all(
 					[...previousIds]
 						.filter((id) => !nextIds.has(id))
-						.map((id) => client!.request('instances.remove', { id })),
+						.map((id) => client?.request('instances.remove', { id })),
 				);
 
 				const probeIds = targets
@@ -242,7 +242,7 @@ export function createSyncManagerStore(options: CreateStoreOptions = {}) {
 				const ids = [...new Set(instanceIds.filter(Boolean))];
 				await Promise.all(
 					ids.map(async (id) => {
-						const payload = (await client!.request('instances.probe', { id })) as {
+						const payload = (await client?.request('instances.probe', { id })) as {
 							instance?: unknown;
 							error?: string | null;
 						};

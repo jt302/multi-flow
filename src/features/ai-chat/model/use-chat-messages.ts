@@ -6,7 +6,7 @@ import { queryKeys } from '@/shared/config/query-keys';
 export function useChatMessagesQuery(sessionId: string | null) {
 	return useQuery({
 		queryKey: queryKeys.chatMessages(sessionId ?? ''),
-		queryFn: () => listChatMessages(sessionId!),
+		queryFn: () => listChatMessages(sessionId ?? ''),
 		enabled: !!sessionId,
 	});
 }

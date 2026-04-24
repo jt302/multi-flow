@@ -36,6 +36,7 @@ export const ChatSessionList = memo(function ChatSessionList({
 			<div className="flex-1 overflow-y-auto overflow-x-hidden">
 				<div className="p-2 space-y-1 w-full">
 					{sessions.map((s) => (
+						// biome-ignore lint/a11y/useSemanticElements: 行内有删除按钮，不能用 button 包整行。
 						<div
 							key={s.id}
 							role="button"

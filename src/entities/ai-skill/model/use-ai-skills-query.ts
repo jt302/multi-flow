@@ -13,7 +13,7 @@ export function useAiSkillsQuery() {
 export function useAiSkillQuery(slug: string | null) {
 	return useQuery({
 		queryKey: queryKeys.aiSkill(slug ?? ''),
-		queryFn: () => aiSkillApi.read(slug!),
+		queryFn: () => aiSkillApi.read(slug ?? ''),
 		enabled: !!slug,
 	});
 }

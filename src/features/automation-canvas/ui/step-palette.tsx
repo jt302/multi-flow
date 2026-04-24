@@ -61,7 +61,7 @@ function StepToolPopover({ kind }: { kind: string }) {
 			<div className="px-4 py-3 border-b">
 				<div className="flex items-center gap-2 mb-1">
 					<span
-						className={`inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded ${GROUP_COLORS[groupKey] ?? GROUP_COLORS['通用']}`}
+						className={`inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded ${GROUP_COLORS[groupKey] ?? GROUP_COLORS.通用}`}
 					>
 						{groupLabel}
 					</span>
@@ -310,7 +310,7 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 										<ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
 									)}
 									<span
-										className={`inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded ${GROUP_COLORS[group.label] ?? GROUP_COLORS['通用']}`}
+										className={`inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded ${GROUP_COLORS[group.label] ?? GROUP_COLORS.通用}`}
 									>
 										{displayLabel}
 									</span>

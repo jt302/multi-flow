@@ -73,7 +73,7 @@ export function AiChatSettingsCard() {
 			<CardContent className="space-y-4">
 				{/* 默认 AI 模型 */}
 				<div className="space-y-2">
-					<label className="text-sm font-medium">{t('aiChatSettings.defaultModel')}</label>
+					<div className="text-sm font-medium">{t('aiChatSettings.defaultModel')}</div>
 					<Select
 						value={defaultConfigId ?? '__none__'}
 						disabled={!hasConfigs}
@@ -107,7 +107,7 @@ export function AiChatSettingsCard() {
 
 				{/* 连接测试 */}
 				<div className="space-y-2">
-					<label className="text-sm font-medium">{t('aiChatSettings.connectionTest')}</label>
+					<div className="text-sm font-medium">{t('aiChatSettings.connectionTest')}</div>
 					<div className="flex items-center gap-2">
 						<Select
 							value={selectedConfigId}
@@ -186,7 +186,7 @@ export function AiChatSettingsCard() {
 				{/* 模型能力 */}
 				{modelCap && (
 					<div className="space-y-2">
-						<label className="text-sm font-medium">{t('aiChatSettings.modelCapabilities')}</label>
+						<div className="text-sm font-medium">{t('aiChatSettings.modelCapabilities')}</div>
 						<div className="flex flex-wrap gap-2 text-xs">
 							<span className="rounded bg-muted px-2 py-1 tabular-nums">
 								{formatContextWindow(modelCap.contextWindow)} ctx

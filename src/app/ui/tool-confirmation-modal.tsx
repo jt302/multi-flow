@@ -74,7 +74,7 @@ export function ToolConfirmationModal() {
 	const formatArgs = (args: Record<string, unknown>): string => {
 		try {
 			const str = JSON.stringify(args, null, 2);
-			return str.length > 2000 ? str.slice(0, 2000) + '...' : str;
+			return str.length > 2000 ? `${str.slice(0, 2000)}...` : str;
 		} catch {
 			return String(args);
 		}

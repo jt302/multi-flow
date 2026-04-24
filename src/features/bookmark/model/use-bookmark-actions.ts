@@ -33,8 +33,18 @@ export function useBookmarkActions(profileId: string | null) {
 	});
 
 	const createFolder = useMutation({
-		mutationFn: ({ parentId, title, index }: { parentId: string; title: string; index?: number }) =>
-			createProfileBookmarkFolder(profileId!, parentId, title, index),
+		mutationFn: ({
+			parentId,
+			title,
+			index,
+		}: {
+			parentId: string;
+			title: string;
+			index?: number;
+		}) => {
+			if (!profileId) throw new Error(t('errors.saveFailed'));
+			return createProfileBookmarkFolder(profileId, parentId, title, index);
+		},
 		onSuccess: invalidate,
 		onError: () => t('errors.saveFailed'),
 	});
@@ -46,7 +56,10 @@ export function useBookmarkActions(profileId: string | null) {
 	});
 
 	const removeBookmark = useMutation({
-		mutationFn: (nodeId: string) => removeProfileBookmark(profileId!, nodeId),
+		mutationFn: (nodeId: string) => {
+			if (!profileId) throw new Error(t('errors.deleteFailed'));
+			return removeProfileBookmark(profileId, nodeId);
+		},
 		onSuccess: invalidate,
 		onError: () => t('errors.deleteFailed'),
 	});

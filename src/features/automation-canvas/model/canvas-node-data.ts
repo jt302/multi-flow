@@ -64,12 +64,13 @@ function buildSourceHandlePresentation(step: ScriptStep): SourceHandlePresentati
 	}
 
 	if (step.kind === 'confirm_dialog' && step.buttons && step.buttons.length > 0) {
+		const buttons = step.buttons;
 		return {
-			footerLabels: step.buttons.map((button) => button.text),
+			footerLabels: buttons.map((button) => button.text),
 			sourceHandles: [
-				...step.buttons.map((_, index) => ({
+				...buttons.map((_, index) => ({
 					id: `btn_${index}`,
-					left: `${((index + 1) / (step.buttons!.length + 1)) * 100}%`,
+					left: `${((index + 1) / (buttons.length + 1)) * 100}%`,
 				})),
 				{ id: null, hidden: true },
 			],

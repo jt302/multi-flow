@@ -62,6 +62,12 @@ const WIDTH_MAP: Record<string, string> = {
 	xl: 'max-w-xl',
 };
 
+function getDialogTableRowKey(row: Record<string, unknown>, columns: { key: string }[]) {
+	const explicitKey = row.id ?? row.key ?? row.value ?? row.name;
+	if (explicitKey != null) return String(explicitKey);
+	return columns.map((col) => `${col.key}:${String(row[col.key] ?? '')}`).join('|');
+}
+
 export function AiDialogModal() {
 	const { t } = useTranslation('common');
 	const [request, setRequest] = useState<AiDialogRequest | null>(null);
@@ -79,152 +85,80 @@ export function AiDialogModal() {
 	const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 	const unlistenRef = useRef<(() => void) | null>(null);
 
-	useEffect(() => {
-		let mounted = true;
-
-		listenAiDialogRequest((req) => {
-			if (!mounted) return;
-			// 文件类弹窗直接用原生对话框处理
-			if (
-				req.dialogType === 'save_file' ||
-				req.dialogType === 'open_file' ||
-				req.dialogType === 'select_folder'
-			) {
-				handleNativeFileDialog(req);
-				return;
-			}
-			// toast 类弹窗用 sonner 处理
-			if (req.dialogType === 'toast') {
-				handleToast(req);
-				return;
-			}
-			// 初始化状态
-			setInputValue(req.defaultValue ?? '');
-			setSelectedOptions([]);
-			setSelectedRows([]);
-			setFormErrors({});
-			setSubmitting(false);
-			// form 默认值
-			if (req.dialogType === 'form' && req.fields) {
-				const defaults: Record<string, string> = {};
-				for (const f of req.fields) {
-					defaults[f.name] = f.defaultValue ?? '';
-				}
-				setFormValues(defaults);
-			}
-			// countdown 初始化
-			if (req.dialogType === 'countdown' && req.seconds) {
-				setCountdown(req.seconds);
-			}
-			setRequest(req);
-		}).then((unlisten) => {
-			if (mounted) {
-				unlistenRef.current = unlisten;
-			} else {
-				unlisten();
-			}
-		});
-
-		return () => {
-			mounted = false;
-			unlistenRef.current?.();
-		};
-	}, []);
-
-	// countdown 定时器
-	useEffect(() => {
-		if (request?.dialogType !== 'countdown' || countdown <= 0) return;
-
-		countdownRef.current = setInterval(() => {
-			setCountdown((prev) => {
-				if (prev <= 1) {
-					if (countdownRef.current) clearInterval(countdownRef.current);
-					// 自动执行
-					if (request?.autoProceed) {
-						handleConfirm();
-					}
-					return 0;
-				}
-				return prev - 1;
-			});
-		}, 1000);
-
-		return () => {
-			if (countdownRef.current) clearInterval(countdownRef.current);
-		};
-	}, [request?.dialogType, request?.requestId]);
-
 	/** 原生文件对话框 */
-	async function handleNativeFileDialog(req: AiDialogRequest) {
-		try {
-			if (req.dialogType === 'save_file') {
-				const filters = req.filters?.map((f) => ({
-					name: f.name,
-					extensions: f.extensions,
-				}));
-				const path = await save({
-					title: req.title ?? t('saveFile'),
-					defaultPath: req.defaultName,
-					filters,
-				});
+	const handleNativeFileDialog = useCallback(
+		async (req: AiDialogRequest) => {
+			try {
+				if (req.dialogType === 'save_file') {
+					const filters = req.filters?.map((f) => ({
+						name: f.name,
+						extensions: f.extensions,
+					}));
+					const path = await save({
+						title: req.title ?? t('saveFile'),
+						defaultPath: req.defaultName,
+						filters,
+					});
+					await submitAiDialogResponse({
+						requestId: req.requestId,
+						confirmed: !!path,
+						value: path ?? undefined,
+					});
+				} else if (req.dialogType === 'open_file') {
+					const filters = req.filters?.map((f) => ({
+						name: f.name,
+						extensions: f.extensions,
+					}));
+					const result = await open({
+						title: req.title ?? t('openFile'),
+						multiple: req.multiple ?? false,
+						filters,
+					});
+					if (result) {
+						const value = Array.isArray(result) ? result.join('\n') : result;
+						await submitAiDialogResponse({
+							requestId: req.requestId,
+							confirmed: true,
+							value,
+						});
+					} else {
+						await submitAiDialogResponse({
+							requestId: req.requestId,
+							confirmed: false,
+						});
+					}
+				} else if (req.dialogType === 'select_folder') {
+					const result = await open({
+						title: req.title ?? t('selectFolder'),
+						directory: true,
+						multiple: req.multiple ?? false,
+					});
+					if (result) {
+						const value = Array.isArray(result) ? result.join('\n') : result;
+						await submitAiDialogResponse({
+							requestId: req.requestId,
+							confirmed: true,
+							value,
+						});
+					} else {
+						await submitAiDialogResponse({
+							requestId: req.requestId,
+							confirmed: false,
+						});
+					}
+				}
+			} catch {
 				await submitAiDialogResponse({
 					requestId: req.requestId,
-					confirmed: !!path,
-					value: path ?? undefined,
+					confirmed: false,
 				});
-			} else if (req.dialogType === 'open_file') {
-				const filters = req.filters?.map((f) => ({
-					name: f.name,
-					extensions: f.extensions,
-				}));
-				const result = await open({
-					title: req.title ?? t('openFile'),
-					multiple: req.multiple ?? false,
-					filters,
-				});
-				if (result) {
-					const value = Array.isArray(result) ? result.join('\n') : result;
-					await submitAiDialogResponse({
-						requestId: req.requestId,
-						confirmed: true,
-						value,
-					});
-				} else {
-					await submitAiDialogResponse({
-						requestId: req.requestId,
-						confirmed: false,
-					});
-				}
-			} else if (req.dialogType === 'select_folder') {
-				const result = await open({
-					title: req.title ?? t('selectFolder'),
-					directory: true,
-					multiple: req.multiple ?? false,
-				});
-				if (result) {
-					const value = Array.isArray(result) ? result.join('\n') : result;
-					await submitAiDialogResponse({
-						requestId: req.requestId,
-						confirmed: true,
-						value,
-					});
-				} else {
-					await submitAiDialogResponse({
-						requestId: req.requestId,
-						confirmed: false,
-					});
-				}
 			}
-		} catch {
-			await submitAiDialogResponse({
-				requestId: req.requestId,
-				confirmed: false,
-			});
-		}
-	}
+		},
+		[t],
+	);
 
 	/** toast 弹窗处理 */
-	function handleToast(req: AiDialogRequest) {
+	const handleToast = useCallback((req: AiDialogRequest) => {
 		const actions = req.actions;
 		const hasActions = actions && actions.length > 0;
 
@@ -284,7 +218,59 @@ export function AiDialogModal() {
 				});
 			},
 		});
-	}
+	}, []);
+
+	useEffect(() => {
+		let mounted = true;
+
+		listenAiDialogRequest((req) => {
+			if (!mounted) return;
+			// 文件类弹窗直接用原生对话框处理
+			if (
+				req.dialogType === 'save_file' ||
+				req.dialogType === 'open_file' ||
+				req.dialogType === 'select_folder'
+			) {
+				handleNativeFileDialog(req);
+				return;
+			}
+			// toast 类弹窗用 sonner 处理
+			if (req.dialogType === 'toast') {
+				handleToast(req);
+				return;
+			}
+			// 初始化状态
+			setInputValue(req.defaultValue ?? '');
+			setSelectedOptions([]);
+			setSelectedRows([]);
+			setFormErrors({});
+			setSubmitting(false);
+			// form 默认值
+			if (req.dialogType === 'form' && req.fields) {
+				const defaults: Record<string, string> = {};
+				for (const f of req.fields) {
+					defaults[f.name] = f.defaultValue ?? '';
+				}
+				setFormValues(defaults);
+			}
+			// countdown 初始化
+			if (req.dialogType === 'countdown' && req.seconds) {
+				setCountdown(req.seconds);
+			}
+			setRequest(req);
+		}).then((unlisten) => {
+			if (mounted) {
+				unlistenRef.current = unlisten;
+			} else {
+				unlisten();
+			}
+		});
+
+		return () => {
+			mounted = false;
+			unlistenRef.current?.();
+		};
+	}, [handleNativeFileDialog, handleToast]);
 
 	const handleConfirm = useCallback(async () => {
 		if (!request) return;
@@ -353,6 +339,29 @@ export function AiDialogModal() {
 			if (countdownRef.current) clearInterval(countdownRef.current);
 		}
 	}, [request, inputValue, selectedOptions, formValues, selectedRows, t]);
+
+	// countdown 定时器
+	useEffect(() => {
+		if (request?.dialogType !== 'countdown' || countdown <= 0) return;
+
+		countdownRef.current = setInterval(() => {
+			setCountdown((prev) => {
+				if (prev <= 1) {
+					if (countdownRef.current) clearInterval(countdownRef.current);
+					// 自动执行
+					if (request?.autoProceed) {
+						handleConfirm();
+					}
+					return 0;
+				}
+				return prev - 1;
+			});
+		}, 1000);
+
+		return () => {
+			if (countdownRef.current) clearInterval(countdownRef.current);
+		};
+	}, [request?.dialogType, handleConfirm, request?.autoProceed, countdown]);
 
 	async function handleCancel() {
 		if (!request) return;
@@ -468,25 +477,30 @@ export function AiDialogModal() {
 					</DialogHeader>
 					<ScrollArea className="max-h-60">
 						<div className="space-y-1 py-2">
-							{options.map((opt) => (
-								<label
-									key={opt.value}
-									className="flex items-start gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-muted"
-								>
-									<Checkbox
-										checked={selectedOptions.includes(opt.value)}
-										onCheckedChange={() => toggleOption(opt.value)}
-										disabled={submitting}
-										className="mt-0.5"
-									/>
-									<div className="flex-1 min-w-0">
-										<span className="text-sm">{opt.label}</span>
-										{opt.description && (
-											<p className="text-xs text-muted-foreground">{opt.description}</p>
-										)}
-									</div>
-								</label>
-							))}
+							{options.map((opt) => {
+								const optionId = `ai-dialog-option-${request.requestId}-${opt.value}`;
+								return (
+									<label
+										key={opt.value}
+										htmlFor={optionId}
+										className="flex items-start gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-muted"
+									>
+										<Checkbox
+											id={optionId}
+											checked={selectedOptions.includes(opt.value)}
+											onCheckedChange={() => toggleOption(opt.value)}
+											disabled={submitting}
+											className="mt-0.5"
+										/>
+										<div className="flex-1 min-w-0">
+											<span className="text-sm">{opt.label}</span>
+											{opt.description && (
+												<p className="text-xs text-muted-foreground">{opt.description}</p>
+											)}
+										</div>
+									</label>
+								);
+							})}
 						</div>
 					</ScrollArea>
 					<DialogFooter>
@@ -620,7 +634,7 @@ export function AiDialogModal() {
 									<TableBody>
 										{rows.map((row, idx) => (
 											<TableRow
-												key={idx}
+												key={getDialogTableRowKey(row, columns)}
 												className={isSelectable ? 'cursor-pointer hover:bg-muted' : undefined}
 												onClick={isSelectable ? () => toggleRow(idx) : undefined}
 											>
@@ -697,7 +711,7 @@ export function AiDialogModal() {
 					<div className="flex justify-center py-2">
 						<img
 							src={imageSrc}
-							alt="dialog image"
+							alt="dialog preview"
 							className="max-h-80 max-w-full rounded object-contain"
 						/>
 					</div>

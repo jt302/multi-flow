@@ -40,7 +40,9 @@ export function useAutomationActions(activeScriptId: string | null) {
 
 	useEffect(() => {
 		return () => {
-			unlistenRef.current.forEach((u) => u());
+			unlistenRef.current.forEach((u) => {
+				u();
+			});
 		};
 	}, []);
 
@@ -105,7 +107,9 @@ export function useAutomationActions(activeScriptId: string | null) {
 			);
 			automationStore.getState().upsertRun(runId, scriptId, stepTotal);
 
-			unlistenRef.current.forEach((u) => u());
+			unlistenRef.current.forEach((u) => {
+				u();
+			});
 			unlistenRef.current = [];
 
 			unlistenRef.current = await registerRunListeners(runId, activeScriptId, queryClient);
@@ -131,7 +135,9 @@ export function useAutomationActions(activeScriptId: string | null) {
 			const runId = await runAutomationScriptDebug(scriptId, profileId, initialVars);
 			automationStore.getState().upsertRun(runId, scriptId, stepTotal);
 
-			unlistenRef.current.forEach((u) => u());
+			unlistenRef.current.forEach((u) => {
+				u();
+			});
 			unlistenRef.current = [];
 
 			unlistenRef.current = await registerRunListeners(runId, activeScriptId, queryClient);

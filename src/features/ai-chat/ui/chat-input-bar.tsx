@@ -44,7 +44,7 @@ export const ChatInputBar = memo(function ChatInputBar({
 
 	useEffect(() => {
 		adjustHeight();
-	}, [value, adjustHeight]);
+	}, [adjustHeight]);
 
 	const handleSend = useCallback(() => {
 		if (isGenerating) return;

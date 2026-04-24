@@ -50,8 +50,8 @@ export function WorkspaceSidebar({
 }: WorkspaceSidebarProps) {
 	const { state } = useSidebar();
 	const collapsed = state === 'collapsed';
-	const { t, i18n } = useTranslation('nav');
-	const navItems = useMemo(() => getWorkspaceNavItems(), [i18n.resolvedLanguage]);
+	const { t } = useTranslation('nav');
+	const navItems = useMemo(() => getWorkspaceNavItems(), []);
 	const [expandedNavIds, setExpandedNavIds] = useState<ExpandableWorkspaceNavId[]>(() => {
 		const autoExpanded = findAutoExpandedNavId(navItems, activePath);
 		if (autoExpanded) {

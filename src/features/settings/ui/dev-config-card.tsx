@@ -35,7 +35,7 @@ export function DevConfigCard() {
 			toast.success(t('dev.saved'));
 		},
 		onError: (err) => {
-			toast.error(t('dev.saveFailed') + ': ' + String(err));
+			toast.error(`${t('dev.saveFailed')}: ${String(err)}`);
 		},
 	});
 

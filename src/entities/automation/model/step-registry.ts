@@ -2354,92 +2354,90 @@ export const STEP_TOOL_INFO: Record<string, StepToolInfo> = {
 export function getStepSummaryText(step: ScriptStep): string {
 	const s = step as Record<string, unknown>;
 	if (step.kind === 'cdp_wait_for_page_load')
-		return i18next.t('automation:stepSummaries.timeout', { ms: String(s['timeout_ms'] ?? 30000) });
+		return i18next.t('automation:stepSummaries.timeout', { ms: String(s.timeout_ms ?? 30000) });
 	if (step.kind === 'cdp_go_back' || step.kind === 'cdp_go_forward')
-		return i18next.t('automation:stepSummaries.steps', { count: String(s['steps'] ?? 1) });
-	if (step.kind === 'cdp_clipboard') return String(s['action'] ?? 'copy');
-	if (step.kind === 'cdp_input_text') return String(s['text_source'] ?? 'inline');
-	if (step.kind === 'cdp_press_key') return String(s['key'] ?? '');
+		return i18next.t('automation:stepSummaries.steps', { count: String(s.steps ?? 1) });
+	if (step.kind === 'cdp_clipboard') return String(s.action ?? 'copy');
+	if (step.kind === 'cdp_input_text') return String(s.text_source ?? 'inline');
+	if (step.kind === 'cdp_press_key') return String(s.key ?? '');
 	if (step.kind === 'cdp_shortcut') {
-		const mods = ((s['modifiers'] as string[] | undefined) ?? []).join('+');
-		return mods ? `${mods}+${String(s['key'] ?? '')}` : String(s['key'] ?? '');
+		const mods = ((s.modifiers as string[] | undefined) ?? []).join('+');
+		return mods ? `${mods}+${String(s.key ?? '')}` : String(s.key ?? '');
 	}
-	if (step.kind === 'form_dialog') return String(s['title'] ?? '').slice(0, 40) || 'Form';
-	if (step.kind === 'table_dialog') return String(s['title'] ?? '').slice(0, 40) || 'Table';
-	if (step.kind === 'image_dialog') return String(s['title'] ?? '').slice(0, 40) || 'Image';
+	if (step.kind === 'form_dialog') return String(s.title ?? '').slice(0, 40) || 'Form';
+	if (step.kind === 'table_dialog') return String(s.title ?? '').slice(0, 40) || 'Table';
+	if (step.kind === 'image_dialog') return String(s.title ?? '').slice(0, 40) || 'Image';
 	if (step.kind === 'countdown_dialog') {
-		const sec = String(s['seconds'] ?? 10);
-		const msg = String(s['message'] ?? '').slice(0, 30);
+		const sec = String(s.seconds ?? 10);
+		const msg = String(s.message ?? '').slice(0, 30);
 		return msg ? `${msg} (${sec}s)` : `${sec}s`;
 	}
 	if (step.kind === 'markdown_dialog')
-		return String(s['title'] ?? '').slice(0, 40) || String(s['content'] ?? '').slice(0, 40);
+		return String(s.title ?? '').slice(0, 40) || String(s.content ?? '').slice(0, 40);
 	if (step.kind === 'confirm_dialog')
-		return String(s['title'] ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.confirm');
+		return String(s.title ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.confirm');
 	if (step.kind === 'end')
-		return String(s['message'] ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.end');
+		return String(s.message ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.end');
 	if (step.kind === 'select_dialog')
-		return String(s['title'] ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.select');
+		return String(s.title ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.select');
 	if (step.kind === 'notification')
-		return String(s['title'] ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.notify');
-	if (step.kind === 'cdp_handle_dialog') return String(s['action'] ?? 'accept');
+		return String(s.title ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.notify');
+	if (step.kind === 'cdp_handle_dialog') return String(s.action ?? 'accept');
 	if (step.kind === 'cdp_get_document')
-		return i18next.t('automation:stepSummaries.depth', { depth: String(s['depth'] ?? 1) });
+		return i18next.t('automation:stepSummaries.depth', { depth: String(s.depth ?? 1) });
 	if (step.kind === 'cdp_get_full_ax_tree')
-		return s['depth']
-			? i18next.t('automation:stepSummaries.depth', { depth: String(s['depth']) })
+		return s.depth
+			? i18next.t('automation:stepSummaries.depth', { depth: String(s.depth) })
 			: i18next.t('automation:stepSummaries.full');
 	if (step.kind === 'cdp_get_window_for_target')
 		return (
-			String(s['target_id'] ?? '').slice(0, 30) ||
-			i18next.t('automation:stepSummaries.currentTarget')
+			String(s.target_id ?? '').slice(0, 30) || i18next.t('automation:stepSummaries.currentTarget')
 		);
-	if (step.kind === 'cdp_download_file') return String(s['download_path'] ?? '').slice(0, 40);
+	if (step.kind === 'cdp_download_file') return String(s.download_path ?? '').slice(0, 40);
 	if (step.kind === 'cdp_execute_js')
-		return (String(s['file_path'] ?? '') || String(s['expression'] ?? '')).slice(0, 40);
+		return (String(s.file_path ?? '') || String(s.expression ?? '')).slice(0, 40);
 	if (step.kind === 'print')
-		return String(s['text'] ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.empty');
+		return String(s.text ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.empty');
 	if (step.kind === 'magic_enable_extension' || step.kind === 'magic_disable_extension')
-		return String(s['extension_id'] ?? '').slice(0, 40);
-	if (step.kind === 'cdp_set_cookie') return String(s['name'] ?? '').slice(0, 40);
-	if (step.kind === 'cdp_delete_cookies') return String(s['name'] ?? '').slice(0, 40);
+		return String(s.extension_id ?? '').slice(0, 40);
+	if (step.kind === 'cdp_set_cookie') return String(s.name ?? '').slice(0, 40);
+	if (step.kind === 'cdp_delete_cookies') return String(s.name ?? '').slice(0, 40);
 	if (step.kind === 'cdp_set_local_storage' || step.kind === 'cdp_get_local_storage')
-		return String(s['key'] ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.all');
+		return String(s.key ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.all');
 	if (step.kind === 'cdp_get_session_storage')
-		return String(s['key'] ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.all');
+		return String(s.key ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.all');
 	if (step.kind === 'cdp_wait_for_navigation')
-		return i18next.t('automation:stepSummaries.timeout', { ms: String(s['timeout_ms'] ?? 30000) });
-	if (step.kind === 'cdp_emulate_device') return `${String(s['width'])}×${String(s['height'])}`;
-	if (step.kind === 'cdp_set_geolocation')
-		return `${String(s['latitude'])},${String(s['longitude'])}`;
-	if (step.kind === 'cdp_set_user_agent') return String(s['user_agent'] ?? '').slice(0, 40);
-	if (step.kind === 'cdp_mouse_move') return `(${String(s['x'])}, ${String(s['y'])})`;
-	if (step.kind === 'cdp_select_option') return String(s['value'] ?? '').slice(0, 40);
+		return i18next.t('automation:stepSummaries.timeout', { ms: String(s.timeout_ms ?? 30000) });
+	if (step.kind === 'cdp_emulate_device') return `${String(s.width)}×${String(s.height)}`;
+	if (step.kind === 'cdp_set_geolocation') return `${String(s.latitude)},${String(s.longitude)}`;
+	if (step.kind === 'cdp_set_user_agent') return String(s.user_agent ?? '').slice(0, 40);
+	if (step.kind === 'cdp_mouse_move') return `(${String(s.x)}, ${String(s.y)})`;
+	if (step.kind === 'cdp_select_option') return String(s.value ?? '').slice(0, 40);
 	if (step.kind === 'cdp_check_checkbox')
-		return s['checked'] === false
+		return s.checked === false
 			? i18next.t('automation:stepSummaries.unchecked')
 			: i18next.t('automation:stepSummaries.checked');
 	if (step.kind === 'cdp_block_urls')
-		return String(((s['patterns'] as string[]) ?? []).join(', ')).slice(0, 40);
-	if (step.kind === 'cdp_pdf') return String(s['path'] ?? '').slice(0, 40) || 'PDF';
+		return String(((s.patterns as string[]) ?? []).join(', ')).slice(0, 40);
+	if (step.kind === 'cdp_pdf') return String(s.path ?? '').slice(0, 40) || 'PDF';
 	if (step.kind === 'cdp_intercept_request')
-		return `${String(s['action'])} ${String(s['url_pattern'] ?? '')}`.slice(0, 40);
+		return `${String(s.action)} ${String(s.url_pattern ?? '')}`.slice(0, 40);
 	if (step.kind === 'cdp_get_console_logs')
-		return s['level'] ? String(s['level']) : i18next.t('automation:stepSummaries.all');
+		return s.level ? String(s.level) : i18next.t('automation:stepSummaries.all');
 	if (step.kind === 'cdp_get_network_requests')
-		return String(s['url_pattern'] ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.all');
-	if (step.kind === 'app_run_script') return String(s['script_id'] ?? '').slice(0, 40);
-	if (step.kind === 'captcha_solve') return String(s['captcha_type'] ?? 'auto');
-	if (step.kind === 'captcha_inject_token') return String(s['type'] ?? '');
+		return String(s.url_pattern ?? '').slice(0, 40) || i18next.t('automation:stepSummaries.all');
+	if (step.kind === 'app_run_script') return String(s.script_id ?? '').slice(0, 40);
+	if (step.kind === 'captcha_solve') return String(s.captcha_type ?? 'auto');
+	if (step.kind === 'captcha_inject_token') return String(s.type ?? '');
 	if (step.kind === 'captcha_solve_and_inject')
-		return s['auto_submit']
+		return s.auto_submit
 			? i18next.t('automation:stepSummaries.autoSubmit')
 			: i18next.t('automation:stepSummaries.injectOnly');
-	if (s['url']) return String(s['url']).slice(0, 40);
-	if (s['prompt']) return String(s['prompt']).slice(0, 40);
-	if (s['expression']) return String(s['expression']).slice(0, 40);
-	if (s['selector']) return String(s['selector']).slice(0, 40);
-	if (s['message']) return String(s['message']).slice(0, 40);
-	if (s['ms'] !== undefined) return `${String(s['ms'])}ms`;
+	if (s.url) return String(s.url).slice(0, 40);
+	if (s.prompt) return String(s.prompt).slice(0, 40);
+	if (s.expression) return String(s.expression).slice(0, 40);
+	if (s.selector) return String(s.selector).slice(0, 40);
+	if (s.message) return String(s.message).slice(0, 40);
+	if (s.ms !== undefined) return `${String(s.ms)}ms`;
 	return '';
 }

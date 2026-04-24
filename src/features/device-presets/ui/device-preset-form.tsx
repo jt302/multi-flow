@@ -75,7 +75,7 @@ export function DevicePresetForm({
 		if (!inCatalog) {
 			setValue('browserVersion', chromiumVersions[0].version, { shouldDirty: true });
 		}
-	}, [platform, readonly, chromiumVersions, browserVersion, setValue]);
+	}, [readonly, chromiumVersions, browserVersion, setValue]);
 
 	return (
 		<Card className="border-border/70 bg-background/55 p-4">

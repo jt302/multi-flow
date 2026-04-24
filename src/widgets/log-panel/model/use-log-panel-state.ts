@@ -210,14 +210,14 @@ export function useLogPanelState() {
 				unlisten();
 			}
 		};
-	}, []);
+	}, [t]);
 
 	useEffect(() => {
 		if (!state.autoScroll || !listRef.current) {
 			return;
 		}
 		listRef.current.scrollTop = listRef.current.scrollHeight;
-	}, [state.autoScroll, state.logs]);
+	}, [state.autoScroll]);
 
 	const filteredLogs = useMemo(() => {
 		return filterBackendLogs(state.logs, {
@@ -262,7 +262,7 @@ export function useLogPanelState() {
 		} finally {
 			dispatch({ type: 'set_opening_window', value: false });
 		}
-	}, [state.openingWindow]);
+	}, [state.openingWindow, t]);
 
 	const exportCurrent = useCallback(async () => {
 		if (state.exporting) {
@@ -282,7 +282,7 @@ export function useLogPanelState() {
 		} finally {
 			dispatch({ type: 'set_exporting', value: false });
 		}
-	}, [filteredLogs, state.exporting]);
+	}, [filteredLogs, state.exporting, t]);
 
 	return {
 		listRef,

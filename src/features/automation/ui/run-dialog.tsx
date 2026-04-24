@@ -72,7 +72,13 @@ export function RunDialog({
 			setSelectedIds([]);
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- 只在 open 变化时触发
-	}, [open]);
+	}, [
+		open,
+		scriptSettings?.delayConfig,
+		defaultVars,
+		associatedProfileIds.length,
+		associatedProfileIds,
+	]);
 
 	function addVar() {
 		setVarEntries((prev) => [...prev, { key: '', value: '' }]);
@@ -208,7 +214,10 @@ export function RunDialog({
 						{(varsOpen || varEntries.length > 0) && varEntries.length > 0 && (
 							<div className="space-y-1.5">
 								{varEntries.map((entry, i) => (
-									<div key={i} className="flex items-center gap-1.5">
+									<div
+										key={`${entry.key || 'var'}-${entry.value || 'empty'}`}
+										className="flex items-center gap-1.5"
+									>
 										<Input
 											placeholder={t('runDialog.vars.keyPlaceholder')}
 											value={entry.key}

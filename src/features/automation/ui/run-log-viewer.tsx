@@ -201,7 +201,7 @@ export function RunLogViewer({ logs, expanded = false }: Props) {
 							const detailsExpanded = expandedDetails.has(index);
 							return (
 								<div
-									key={`${entry.timestamp}-${index}`}
+									key={`${entry.timestamp}-${entry.level}-${entry.message}-${entry.details ?? ''}`}
 									className="px-3 py-2 border-b border-border/50 last:border-b-0"
 								>
 									<div className="flex items-start gap-2">
@@ -234,9 +234,9 @@ export function RunLogViewer({ logs, expanded = false }: Props) {
 											</button>
 										)}
 									</div>
-									{hasDetails && (
+									{entry.details && (
 										<StepDetails
-											details={entry.details!}
+											details={entry.details}
 											expanded={detailsExpanded}
 											expandedContainer={expanded}
 										/>

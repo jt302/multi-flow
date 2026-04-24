@@ -15,13 +15,9 @@ export function ScriptListItem({ script, isSelected, onClick }: Props) {
 	const flowEntryState = resolveScriptFlowEntryState(script);
 
 	return (
-		<div
-			role="button"
-			tabIndex={0}
+		<button
+			type="button"
 			onClick={onClick}
-			onKeyDown={(e) => {
-				if (e.key === 'Enter' || e.key === ' ') onClick();
-			}}
 			className={cn(
 				'group w-full min-w-0 overflow-hidden text-left rounded-lg px-3 py-2 text-sm transition-colors cursor-pointer',
 				isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted',
@@ -36,8 +32,8 @@ export function ScriptListItem({ script, isSelected, onClick }: Props) {
 				{flowEntryState.orphanedStepCount > 0 &&
 					` · ${t('detail.orphanedShort', { count: flowEntryState.orphanedStepCount })}`}
 				{(script.associatedProfileIds?.length ?? 0) > 0 &&
-					` · ${t('detail.profilesShort', { count: script.associatedProfileIds!.length })}`}
+					` · ${t('detail.profilesShort', { count: script.associatedProfileIds?.length })}`}
 			</div>
-		</div>
+		</button>
 	);
 }

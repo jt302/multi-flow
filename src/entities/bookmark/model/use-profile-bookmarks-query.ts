@@ -7,7 +7,7 @@ import { queryKeys } from '@/shared/config/query-keys';
 export function useProfileBookmarksQuery(profileId: string | null) {
 	return useQuery<GetProfileBookmarksResponse>({
 		queryKey: queryKeys.bookmarks.byProfile(profileId ?? ''),
-		queryFn: () => getProfileBookmarks(profileId!),
+		queryFn: () => getProfileBookmarks(profileId ?? ''),
 		enabled: !!profileId,
 		staleTime: 5000,
 	});

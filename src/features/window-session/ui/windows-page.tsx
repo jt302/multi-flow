@@ -141,7 +141,7 @@ export function WindowsPage({
 				item.boundWindowToken !== null ||
 				item.coordinateMode !== null,
 		);
-	}, [profileNameMap, sessionPayload?.master, sessionPayload?.slaves]);
+	}, [profileNameMap, sessionPayload?.master, sessionPayload?.slaves, t]);
 
 	const recentProbeErrors = useMemo(
 		() =>

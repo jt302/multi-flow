@@ -170,6 +170,11 @@ const MessageItem = memo(function MessageItem({
 }) {
 	const { t } = useTranslation('chat');
 	if (message.role === 'user') {
+		const imageSrc = message.imageBase64
+			? message.imageBase64.startsWith('data:')
+				? message.imageBase64
+				: `data:image/png;base64,${message.imageBase64}`
+			: null;
 		return (
 			<div className="flex justify-end items-end gap-1 group">
 				{message.contentText && (
@@ -179,25 +184,20 @@ const MessageItem = memo(function MessageItem({
 					/>
 				)}
 				<div className="max-w-[75%] rounded-2xl bg-primary px-4 py-2.5 text-sm text-primary-foreground break-words whitespace-pre-wrap space-y-2">
-					{message.imageBase64 && (
-						<img
-							src={
-								message.imageBase64.startsWith('data:')
-									? message.imageBase64
-									: `data:image/png;base64,${message.imageBase64}`
-							}
-							alt="user upload"
-							className="max-w-full rounded-lg object-contain max-h-64 cursor-pointer"
-							loading="lazy"
-							decoding="async"
-							onClick={() =>
-								onImageClick(
-									message.imageBase64!.startsWith('data:')
-										? message.imageBase64!
-										: `data:image/png;base64,${message.imageBase64}`,
-								)
-							}
-						/>
+					{imageSrc && (
+						<button
+							type="button"
+							className="block max-w-full cursor-pointer"
+							onClick={() => onImageClick(imageSrc)}
+						>
+							<img
+								src={imageSrc}
+								alt="user upload"
+								className="max-h-64 max-w-full rounded-lg object-contain"
+								loading="lazy"
+								decoding="async"
+							/>
+						</button>
 					)}
 					{message.contentText && <span>{message.contentText}</span>}
 				</div>

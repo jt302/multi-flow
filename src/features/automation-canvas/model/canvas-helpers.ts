@@ -192,7 +192,8 @@ export function topologySortSteps(
 	while (queue.length > 0) {
 		// 取最小 index 的根节点（保证稳定排序）
 		queue.sort((a, b) => a - b);
-		const cur = queue.shift()!;
+		const cur = queue.shift();
+		if (cur == null) break;
 		order.push(cur);
 		visited.add(cur);
 		for (const next of adj.get(cur) ?? []) {
@@ -211,7 +212,9 @@ export function topologySortSteps(
 
 	// 构建映射和重排数组
 	const indexMap = new Map<number, number>();
-	finalOrder.forEach((oldIdx, newIdx) => indexMap.set(oldIdx, newIdx));
+	finalOrder.forEach((oldIdx, newIdx) => {
+		indexMap.set(oldIdx, newIdx);
+	});
 	const reorderedSteps = finalOrder.map((i) => steps[i]);
 
 	return { reorderedSteps, indexMap, orphanedCount: unvisited.length };
@@ -373,9 +376,12 @@ function buildHandleEdgeMap(edges: Edge[], n: number): HandleEdgeMap {
 		const si = parseInt(edge.source.replace('step-', ''), 10);
 		const ti = parseInt(edge.target.replace('step-', ''), 10);
 		if (Number.isNaN(si) || Number.isNaN(ti) || si >= n || ti >= n) continue;
-		if (!map.has(si)) map.set(si, new Map());
+		let byHandle = map.get(si);
+		if (!byHandle) {
+			byHandle = new Map();
+			map.set(si, byHandle);
+		}
 		const handle = edge.sourceHandle ?? null;
-		const byHandle = map.get(si)!;
 		const targets = byHandle.get(handle) ?? [];
 		targets.push(ti);
 		targets.sort((a, b) => a - b);
@@ -402,7 +408,8 @@ function distanceFrom(start: number, edgeMap: HandleEdgeMap): Map<number, number
 	distances.set(start, 0);
 
 	while (queue.length > 0) {
-		const cur = queue.shift()!;
+		const cur = queue.shift();
+		if (cur == null) break;
 		const curDist = distances.get(cur) ?? 0;
 		const handles = edgeMap.get(cur);
 		if (!handles) continue;

@@ -54,10 +54,10 @@ export function SettingsPage({
 	onInstallChromium,
 	onDownloadResource,
 }: SettingsPageProps) {
-	const { t, i18n } = useTranslation('settings');
+	const { t } = useTranslation('settings');
 	const section = getWorkspaceSection('settings');
 	const [pendingKey, setPendingKey] = useState('');
-	const settingsTabs = useMemo(() => getSettingsTabs(), [i18n.resolvedLanguage]);
+	const settingsTabs = useMemo(() => getSettingsTabs(), []);
 	const activeTabItem = settingsTabs.find((tab) => tab.id === activeTab) ?? settingsTabs[0];
 
 	const chromiumItems = useMemo(

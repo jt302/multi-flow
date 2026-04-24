@@ -7,7 +7,7 @@ import { queryKeys } from '@/shared/config/query-keys';
 export function useAutomationRunsQuery(scriptId: string | null) {
 	return useQuery<AutomationRun[]>({
 		queryKey: queryKeys.automationRuns(scriptId ?? ''),
-		queryFn: () => listAutomationRuns(scriptId!),
+		queryFn: () => listAutomationRuns(scriptId ?? ''),
 		enabled: scriptId !== null,
 	});
 }

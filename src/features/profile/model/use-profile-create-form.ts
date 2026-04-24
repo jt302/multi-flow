@@ -452,7 +452,10 @@ export function useProfileCreateForm({
 	const runtimeCookieStateLoaded = useRef(false);
 	const runtimeCookieStateQuery = useQuery({
 		queryKey: ['profile-cookie-state', initialProfile?.id],
-		queryFn: () => readProfileCookies(initialProfile!.id),
+		queryFn: () => {
+			if (!initialProfile?.id) throw new Error('profile id is required');
+			return readProfileCookies(initialProfile.id);
+		},
 		enabled: mode === 'edit' && Boolean(initialProfile?.id),
 	});
 
@@ -481,7 +484,10 @@ export function useProfileCreateForm({
 	const runtimePluginSelectionsLoaded = useRef(false);
 	const runtimePluginSelectionsQuery = useQuery({
 		queryKey: ['profile-plugins', initialProfile?.id],
-		queryFn: () => readProfilePlugins(initialProfile!.id),
+		queryFn: () => {
+			if (!initialProfile?.id) throw new Error('profile id is required');
+			return readProfilePlugins(initialProfile.id);
+		},
 		enabled: mode === 'edit' && Boolean(initialProfile?.id),
 	});
 

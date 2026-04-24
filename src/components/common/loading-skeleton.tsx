@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { Skeleton } from '@/components/ui';
 
 import { cn } from '@/lib/utils';
@@ -8,10 +10,15 @@ type LoadingSkeletonProps = {
 };
 
 export function LoadingSkeleton({ rows = 4, className }: LoadingSkeletonProps) {
+	const skeletonKeys = useMemo(
+		() => Array.from({ length: rows }, (_unused, rowNumber) => `loading-skeleton-row-${rowNumber}`),
+		[rows],
+	);
+
 	return (
 		<div className={cn('flex flex-col gap-2', className)}>
-			{Array.from({ length: rows }).map((_, index) => (
-				<Skeleton key={index} className="h-10 w-full" />
+			{skeletonKeys.map((rowKey) => (
+				<Skeleton key={rowKey} className="h-10 w-full" />
 			))}
 		</div>
 	);

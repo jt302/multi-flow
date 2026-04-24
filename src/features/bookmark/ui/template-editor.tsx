@@ -64,7 +64,7 @@ export function TemplateEditor({
 		setDescription(template.description ?? '');
 		setTags(template.tags ?? '');
 		setTreeJson(template.treeJson);
-	}, [template.id, template.name, template.description, template.tags, template.treeJson]);
+	}, [template.name, template.description, template.tags, template.treeJson]);
 
 	// 查询模板订阅数量
 	const subscriptionsQuery = useTemplateSubscriptionsQuery(template.id);

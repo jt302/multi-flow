@@ -148,7 +148,7 @@ export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPage
 		return () => {
 			cancelled = true;
 		};
-	}, []);
+	}, [t]);
 
 	const handleDownloadProxyChange = (value: string) => {
 		const previousValue = selectedDownloadProxyId;

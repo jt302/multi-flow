@@ -269,6 +269,7 @@ function StepPropertiesSidebarHost({
 
 	return (
 		<>
+			{/* biome-ignore lint/a11y/noStaticElementInteractions: 这里是拖拽调整大小的手柄，不是点击按钮。 */}
 			<div
 				className="w-px cursor-col-resize bg-border hover:bg-primary/40 active:bg-primary/60 transition-colors flex-shrink-0"
 				onMouseDown={(event) => {
@@ -444,6 +445,7 @@ function InnerCanvas({
 	);
 
 	return (
+		// biome-ignore lint/a11y/noStaticElementInteractions: 画布根节点需要接收编辑器快捷键。
 		<div className="flex flex-col h-screen outline-none" tabIndex={-1} onKeyDown={handleKeyDown}>
 			<CanvasToolbarHost
 				canvasStore={canvasStore}
@@ -527,7 +529,7 @@ export function AutomationCanvasPage({
 	onDebugRun,
 	onCancel,
 }: Props) {
-	const canvasStore = useMemo(() => createCanvasStore(script), [script.id]);
+	const canvasStore = useMemo(() => createCanvasStore(script), [script.id, script]);
 
 	useEffect(() => {
 		const liveStatuses: Record<number, string> = {};

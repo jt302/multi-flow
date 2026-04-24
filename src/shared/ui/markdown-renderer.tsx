@@ -100,7 +100,6 @@ function MdTable({ children, ...rest }: React.ComponentPropsWithoutRef<'table'>)
 function MdImage({ src, alt, ...rest }: React.ComponentPropsWithoutRef<'img'>) {
 	const { onImageClick } = useContext(MarkdownCtx);
 	return (
-		// eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
 		<img
 			{...rest}
 			src={src}
@@ -108,7 +107,16 @@ function MdImage({ src, alt, ...rest }: React.ComponentPropsWithoutRef<'img'>) {
 			loading="lazy"
 			decoding="async"
 			className={cn('rounded-lg max-h-80 object-contain', onImageClick && 'cursor-zoom-in')}
+			role={onImageClick ? 'button' : undefined}
+			tabIndex={onImageClick ? 0 : undefined}
 			onClick={() => src && onImageClick?.(src)}
+			onKeyDown={(event) => {
+				if (!src || !onImageClick) return;
+				if (event.key === 'Enter' || event.key === ' ') {
+					event.preventDefault();
+					onImageClick(src);
+				}
+			}}
 		/>
 	);
 }
@@ -141,7 +149,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
 	const displayText = useMemo(() => {
 		if (!streaming) return content;
 		const fences = (content.match(/^```|^~~~/gm) ?? []).length;
-		return fences % 2 !== 0 ? content + '\n```' : content;
+		return fences % 2 !== 0 ? `${content}\n\`\`\`` : content;
 	}, [content, streaming]);
 
 	// context value 稳定引用，仅在依赖变化时重建

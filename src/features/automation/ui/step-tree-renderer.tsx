@@ -74,19 +74,21 @@ function getStepKindLabel(kind: string): string {
 
 // ─── 颜色配置 ─────────────────────────────────────────────────────────────────
 
-const BRANCH_BORDER: Record<string, string> = {
-	then: 'border-l-blue-400',
-	else: 'border-l-orange-400',
-	body: 'border-l-green-400',
-	btn: 'border-l-purple-400',
-};
+type BranchType = 'then' | 'else' | 'body' | 'btn';
 
-const BRANCH_LABEL_COLOR: Record<string, string> = {
-	then: 'text-blue-500',
-	else: 'text-orange-500',
-	body: 'text-green-600',
-	btn: 'text-purple-500',
-};
+const BRANCH_BORDER = new Map<BranchType, string>([
+	['then', 'border-l-blue-400'],
+	['else', 'border-l-orange-400'],
+	['body', 'border-l-green-400'],
+	['btn', 'border-l-purple-400'],
+]);
+
+const BRANCH_LABEL_COLOR = new Map<BranchType, string>([
+	['then', 'text-blue-500'],
+	['else', 'text-orange-500'],
+	['body', 'text-green-600'],
+	['btn', 'text-purple-500'],
+]);
 
 const STATUS_COLORS: Record<string, string> = {
 	success: 'text-green-500',
@@ -115,7 +117,7 @@ export function buildResultMap(results: StepResult[]): ResultMap {
 
 type BranchGroupProps = {
 	label: string;
-	branchType: 'then' | 'else' | 'body' | 'btn';
+	branchType: BranchType;
 	steps: ScriptStep[];
 	resultMap: ResultMap;
 	/** 父步骤在 resultMap 中的路径前缀，如 [2] */
@@ -133,8 +135,8 @@ function BranchGroup({
 	hasExecuted,
 }: BranchGroupProps) {
 	const [expanded, setExpanded] = useState(hasExecuted);
-	const borderCls = BRANCH_BORDER[branchType] ?? BRANCH_BORDER.btn;
-	const labelCls = BRANCH_LABEL_COLOR[branchType] ?? BRANCH_LABEL_COLOR.btn;
+	const borderCls = BRANCH_BORDER.get(branchType) ?? 'border-l-purple-400';
+	const labelCls = BRANCH_LABEL_COLOR.get(branchType) ?? 'text-purple-500';
 	const { t } = useTranslation(['automation', 'common']);
 
 	return (
@@ -195,8 +197,11 @@ function AiDetailPanel({ detail }: { detail: AiExecutionDetail }) {
 					{detail.thinking}
 				</div>
 			)}
-			{detail.toolCalls?.map((tc, i) => (
-				<div key={`${tc.name}-${i}`} className="flex items-start gap-1.5 py-0.5">
+			{detail.toolCalls?.map((tc) => (
+				<div
+					key={`${tc.name}-${tc.status}-${tc.durationMs ?? 'pending'}-${tc.result ?? ''}`}
+					className="flex items-start gap-1.5 py-0.5"
+				>
 					{tc.status === 'executing' ? (
 						<Loader2 className="h-3 w-3 animate-spin text-blue-500 mt-0.5 shrink-0" />
 					) : tc.status === 'completed' ? (
@@ -237,16 +242,17 @@ function StepRow({ step, result }: StepRowProps) {
 					</span>
 					<StepSummary step={step} />
 					{result?.output && (
-						<p
-							className="text-xs text-muted-foreground mt-0.5 truncate cursor-pointer hover:text-foreground"
+						<button
+							type="button"
+							className="block max-w-full truncate text-left text-xs text-muted-foreground mt-0.5 cursor-pointer hover:text-foreground"
 							title={result.output}
 							onClick={() => {
-								void navigator.clipboard.writeText(result.output!);
+								if (result.output) void navigator.clipboard.writeText(result.output);
 							}}
 						>
 							{result.output.slice(0, 120)}
 							{result.output.length > 120 ? '…' : ''}
-						</p>
+						</button>
 					)}
 				</div>
 				{result && (
@@ -292,7 +298,7 @@ export function StepTreeRenderer({ steps, resultMap, pathPrefix = [] }: Props) {
 					});
 
 					return (
-						<div key={i}>
+						<div key={pathKey}>
 							<StepRow step={step} result={result} />
 							<div>
 								<BranchGroup
@@ -326,7 +332,7 @@ export function StepTreeRenderer({ steps, resultMap, pathPrefix = [] }: Props) {
 				) {
 					const buttons = step.buttons ?? [];
 					return (
-						<div key={i}>
+						<div key={pathKey}>
 							<StepRow step={step} result={result} />
 							<div className="ml-2">
 								{step.button_branches.map((branch, bi) => {
@@ -337,7 +343,7 @@ export function StepTreeRenderer({ steps, resultMap, pathPrefix = [] }: Props) {
 									});
 									return (
 										<BranchGroup
-											key={bi}
+											key={`${pathKey}-btn-${btnLabel}`}
 											label={btnLabel}
 											branchType="btn"
 											steps={branch}
@@ -359,7 +365,7 @@ export function StepTreeRenderer({ steps, resultMap, pathPrefix = [] }: Props) {
 						return resultMap.has(p);
 					});
 					return (
-						<div key={i}>
+						<div key={pathKey}>
 							<StepRow step={step} result={result} />
 							<div>
 								<BranchGroup
@@ -376,7 +382,7 @@ export function StepTreeRenderer({ steps, resultMap, pathPrefix = [] }: Props) {
 				}
 
 				// 普通步骤
-				return <StepRow key={i} step={step} result={result} />;
+				return <StepRow key={pathKey} step={step} result={result} />;
 			})}
 		</div>
 	);

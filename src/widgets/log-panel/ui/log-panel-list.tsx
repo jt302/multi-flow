@@ -18,7 +18,8 @@ type LogPanelListProps = {
 };
 
 /** Strip ANSI escape codes (colors, cursor, etc.) from sidecar stderr */
-const ANSI_RE = /\x1b\[[0-9;]*[A-Za-z]|\x1b\].*?\x07/g;
+const ANSI_PATTERN = String.raw`\x1b\[[0-9;]*[A-Za-z]|\x1b\].*?\x07`;
+const ANSI_RE = new RegExp(ANSI_PATTERN, 'g');
 function stripAnsi(s: string) {
 	return s.replace(ANSI_RE, '');
 }

@@ -65,8 +65,13 @@ export function TemplateList({
 			<div className="flex-1 min-h-0 overflow-y-auto">
 				{isLoading ? (
 					<div className="p-2 space-y-1.5">
-						{Array.from({ length: 4 }).map((_, i) => (
-							<Skeleton key={i} className="h-12 w-full" />
+						{[
+							'template-skeleton-1',
+							'template-skeleton-2',
+							'template-skeleton-3',
+							'template-skeleton-4',
+						].map((key) => (
+							<Skeleton key={key} className="h-12 w-full" />
 						))}
 					</div>
 				) : templates.length === 0 ? (
@@ -81,10 +86,8 @@ export function TemplateList({
 					<ul className="p-1.5 space-y-0.5">
 						{templates.map((tpl) => (
 							<li key={tpl.id} className="group flex items-start gap-1">
-								{/* 使用 div[role=button] 避免 button > button 嵌套错误 */}
-								<div
-									role="button"
-									tabIndex={0}
+								<button
+									type="button"
 									className={cn(
 										'flex-1 min-w-0 text-left rounded-md px-2.5 py-2 flex items-start gap-2 group transition-colors cursor-pointer',
 										selectedId === tpl.id
@@ -92,7 +95,6 @@ export function TemplateList({
 											: 'hover:bg-accent/50',
 									)}
 									onClick={() => onSelect(tpl)}
-									onKeyDown={(e) => e.key === 'Enter' && onSelect(tpl)}
 								>
 									<div className="flex-1 min-w-0">
 										<div className="flex items-center gap-1.5">
@@ -107,7 +109,7 @@ export function TemplateList({
 											</p>
 										)}
 									</div>
-								</div>
+								</button>
 								{/* 删除按钮提取到 li 同级，避免嵌套 */}
 								<button
 									type="button"

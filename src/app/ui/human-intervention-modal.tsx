@@ -34,6 +34,12 @@ import { ProfileBadge } from '@/entities/profile/ui/profile-badge';
 import { MarkdownRenderer } from '@/shared/ui/markdown-renderer';
 import { useAutomationStore } from '@/store/automation-store';
 
+function getHumanTableRowKey(row: Record<string, unknown>, columns: { key: string }[]) {
+	const explicitKey = row.id ?? row.key ?? row.value ?? row.name;
+	if (explicitKey != null) return String(explicitKey);
+	return columns.map((col) => `${col.key}:${String(row[col.key] ?? '')}`).join('|');
+}
+
 export function HumanInterventionModal() {
 	const [inputValue, setInputValue] = useState('');
 	const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
@@ -85,7 +91,9 @@ export function HumanInterventionModal() {
 
 		return () => {
 			mounted = false;
-			unlistenRefs.current.forEach((u) => u());
+			unlistenRefs.current.forEach((u) => {
+				u();
+			});
 		};
 	}, [onHumanRequired, onHumanDismissed]);
 
@@ -107,7 +115,12 @@ export function HumanInterventionModal() {
 		return () => {
 			if (countdownRef.current) clearInterval(countdownRef.current);
 		};
-	}, [humanIntervention?.dialogType, humanIntervention?.runId]);
+	}, [
+		humanIntervention?.dialogType,
+		humanIntervention?.runId,
+		humanIntervention?.autoProceed,
+		countdown,
+	]);
 
 	if (!humanIntervention) return null;
 
@@ -258,19 +271,24 @@ export function HumanInterventionModal() {
 						{message && <p className="text-sm text-foreground whitespace-pre-wrap">{message}</p>}
 						<ScrollArea className="max-h-60">
 							<div className="space-y-2">
-								{options.map((opt) => (
-									<label
-										key={opt}
-										className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-muted"
-									>
-										<Checkbox
-											checked={selectedOptions.includes(opt)}
-											onCheckedChange={() => toggleOption(opt)}
-											disabled={submitting}
-										/>
-										<span className="text-sm">{opt}</span>
-									</label>
-								))}
+								{options.map((opt) => {
+									const optionId = `human-option-${runId}-${opt}`;
+									return (
+										<label
+											key={opt}
+											htmlFor={optionId}
+											className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-muted"
+										>
+											<Checkbox
+												id={optionId}
+												checked={selectedOptions.includes(opt)}
+												onCheckedChange={() => toggleOption(opt)}
+												disabled={submitting}
+											/>
+											<span className="text-sm">{opt}</span>
+										</label>
+									);
+								})}
 							</div>
 						</ScrollArea>
 					</div>
@@ -418,7 +436,7 @@ export function HumanInterventionModal() {
 									<TableBody>
 										{rows.map((row, idx) => (
 											<TableRow
-												key={idx}
+												key={getHumanTableRowKey(row, columns)}
 												className={isSelectable ? 'cursor-pointer hover:bg-muted' : undefined}
 												onClick={isSelectable ? () => toggleRow(idx) : undefined}
 											>

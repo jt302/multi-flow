@@ -23,7 +23,7 @@ export function useBookmarkTemplatesQuery() {
 export function useTemplateSubscriptionsQuery(templateId: number | null) {
 	return useQuery<BookmarkTemplateSubscription[]>({
 		queryKey: queryKeys.bookmarks.subscriptionsByTemplate(templateId ?? 0),
-		queryFn: () => listTemplateSubscriptions(templateId!),
+		queryFn: () => listTemplateSubscriptions(templateId ?? 0),
 		enabled: templateId !== null,
 		staleTime: 10_000,
 	});

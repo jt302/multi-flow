@@ -114,7 +114,7 @@ export function useCanvasState(
 	// 当脚本ID或设置变化时同步 stepDelayMs
 	useEffect(() => {
 		setStepDelayMs(script.settings?.stepDelayMs ?? 0);
-	}, [script.id, script.settings?.stepDelayMs]);
+	}, [script.settings?.stepDelayMs]);
 
 	// 从 canvasPositionsJson 读取位置和边：
 	// - 有保存数据（新格式）：优先使用保存的边，与用户操作时的拓扑完全一致
@@ -315,7 +315,7 @@ export function useCanvasState(
 				setSaving(false);
 			}
 		},
-		[buildCanvasDataJson, buildNextSettings, liveStatuses, script.id, serializeControlFlowGraph],
+		[buildNextSettings, liveStatuses, script.id],
 	);
 
 	// ── 防抖保存管理 ─────────────────────────────────────────────────────────
@@ -377,7 +377,7 @@ export function useCanvasState(
 			window.removeEventListener('beforeunload', handleBeforeUnload);
 			handleBeforeUnload(); // React unmount 时也 flush
 		};
-	}, [script.id, steps, buildNextSettings, serializeControlFlowGraph]);
+	}, [script.id, steps, buildNextSettings]);
 
 	// ── 节点变化处理（含删除拦截） ─────────────────────────────────────────────
 	const onNodesChange = useCallback(

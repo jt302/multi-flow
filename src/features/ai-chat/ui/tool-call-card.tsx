@@ -104,7 +104,16 @@ export const ToolCallCard = memo(function ToolCallCard({
 								className={cn('max-w-full rounded border', onImageClick && 'cursor-zoom-in')}
 								loading="lazy"
 								decoding="async"
+								role={onImageClick ? 'button' : undefined}
+								tabIndex={onImageClick ? 0 : undefined}
 								onClick={() => onImageClick?.(imageSrc)}
+								onKeyDown={(event) => {
+									if (!onImageClick) return;
+									if (event.key === 'Enter' || event.key === ' ') {
+										event.preventDefault();
+										onImageClick(imageSrc);
+									}
+								}}
 							/>
 						)}
 						{message.toolResult && !imageSrc && (

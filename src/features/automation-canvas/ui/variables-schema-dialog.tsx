@@ -91,7 +91,10 @@ export function VariablesSchemaDialog({
 					{vars.length > 0 && (
 						<div className="space-y-1.5">
 							{vars.map((v, i) => (
-								<div key={i} className="flex items-center gap-1.5">
+								<div
+									key={`${v.name || 'var'}-${v.defaultValue || 'empty'}`}
+									className="flex items-center gap-1.5"
+								>
 									<Input
 										placeholder={t('variables.variableName')}
 										value={v.name}

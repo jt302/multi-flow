@@ -47,9 +47,18 @@ export function AiSkillList({ skills, isLoading, selectedSlug, onSelect, onDelet
 		<div className="h-full overflow-auto rounded-xl border border-border/70 bg-card p-3 shadow-sm">
 			<div className="space-y-2">
 				{skills.map((skill) => (
+					// biome-ignore lint/a11y/useSemanticElements: 卡片内有 Switch/Button，不能用 button 包整卡。
 					<div
 						key={skill.slug}
+						role="button"
 						onClick={() => onSelect(skill.slug)}
+						tabIndex={0}
+						onKeyDown={(event) => {
+							if (event.key === 'Enter' || event.key === ' ') {
+								event.preventDefault();
+								onSelect(skill.slug);
+							}
+						}}
 						className={cn(
 							'rounded-xl border border-border/70 bg-card px-4 py-4 transition-colors hover:bg-accent/30',
 							selectedSlug === skill.slug && 'border-primary/35 bg-accent/40',
@@ -89,10 +98,11 @@ export function AiSkillList({ skills, isLoading, selectedSlug, onSelect, onDelet
 								</div>
 							</div>
 							<div className="flex items-center gap-2">
-								<div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+								<div className="flex items-center gap-2">
 									<span className="text-xs text-muted-foreground">{t('skills.fieldEnabled')}</span>
 									<Switch
 										checked={skill.enabled}
+										onClick={(event) => event.stopPropagation()}
 										onCheckedChange={(checked) =>
 											updateMut.mutate({ slug: skill.slug, payload: { enabled: checked } })
 										}

@@ -165,10 +165,10 @@ test('sync manager store applies sidecar events into diagnostics state', async (
 		instance_id: 'pf_1',
 	});
 
-	assert.equal(store.getState().instances['pf_1']?.status, 'online');
-	assert.equal(store.getState().instances['pf_1']?.boundBrowserId, 123);
-	assert.equal(store.getState().instances['pf_1']?.boundWindowToken, '93217');
-	assert.equal(store.getState().instances['pf_1']?.coordinateMode, 'window_relative');
+	assert.equal(store.getState().instances.pf_1?.status, 'online');
+	assert.equal(store.getState().instances.pf_1?.boundBrowserId, 123);
+	assert.equal(store.getState().instances.pf_1?.boundWindowToken, '93217');
+	assert.equal(store.getState().instances.pf_1?.coordinateMode, 'window_relative');
 	assert.equal(store.getState().sessionPayload?.session?.sessionId, 'sync-1');
 	assert.equal(store.getState().recentWarnings[0]?.message, 'need reprobe');
 	assert.equal(
@@ -244,8 +244,8 @@ test('sync manager store persists probe payload error onto instance state', asyn
 
 	await store.getState().probeInstances(['pf_1']);
 
-	assert.equal(store.getState().instances['pf_1']?.status, 'offline');
-	assert.equal(store.getState().instances['pf_1']?.lastProbeError, 'sync.get_status failed');
+	assert.equal(store.getState().instances.pf_1?.status, 'offline');
+	assert.equal(store.getState().instances.pf_1?.lastProbeError, 'sync.get_status failed');
 });
 
 test('sync manager store starts sync directly without forcing probe', async () => {

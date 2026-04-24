@@ -7,8 +7,8 @@ type Step = AutomationScript['steps'][number];
 
 function selectorDisplay(item: Step) {
 	const s = item as Record<string, unknown>;
-	const t = s['selector_type'] as string | undefined;
-	const selector = String(s['selector'] ?? '');
+	const t = s.selector_type as string | undefined;
+	const selector = String(s.selector ?? '');
 	if (t && t !== 'css') {
 		return (
 			<>
@@ -243,7 +243,7 @@ export function StepSummary({ step }: { step: Step }) {
  */
 export function getStepSummaryText(step: Step): string {
 	const s = step as Record<string, unknown>;
-	const selector = String(s['selector'] ?? '');
+	const selector = String(s.selector ?? '');
 
 	switch (step.kind) {
 		case 'navigate':

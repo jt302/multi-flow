@@ -235,7 +235,7 @@ function ProxyDetailCard({ proxy, hint }: { proxy: ProxyItem; hint: string }) {
 				<InfoField label={t('proxySettings.exitIp')} value={ip} mono />
 				<InfoField
 					label={t('proxySettings.coords')}
-					value={hasCoords ? `${proxy.latitude!.toFixed(4)}, ${proxy.longitude!.toFixed(4)}` : ''}
+					value={hasCoords ? `${proxy.latitude?.toFixed(4)}, ${proxy.longitude?.toFixed(4)}` : ''}
 					mono
 				/>
 			</div>

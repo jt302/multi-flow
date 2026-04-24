@@ -277,7 +277,7 @@ export const ProfileListItem = memo(function ProfileListItem({
 		item.settings?.fingerprint?.fingerprintSnapshot?.presetLabel?.trim() ||
 		item.settings?.basic?.devicePresetId?.trim() ||
 		presetNotSet;
-	const browserVersionMeta = useMemo(() => resolveBrowserVersionMeta(item), [item, t]);
+	const browserVersionMeta = useMemo(() => resolveBrowserVersionMeta(item), [item]);
 	const toolbarTextTrimmed = currentToolbarText.trim();
 	const showToolbarText = Boolean(toolbarTextTrimmed);
 	const proxyMeta = useMemo(() => {

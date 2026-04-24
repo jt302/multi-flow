@@ -17,8 +17,11 @@ function DiffSection({ title, entries, colorClass, bgClass }: DiffSectionProps) 
 		<div className="space-y-1">
 			<p className={`text-xs font-medium ${colorClass}`}>{title}</p>
 			<ul className={`rounded-md border ${bgClass} divide-y divide-border/30`}>
-				{entries.map((entry, idx) => (
-					<li key={idx} className="px-2.5 py-1.5">
+				{entries.map((entry) => (
+					<li
+						key={`${entry.nodeType}-${entry.path}-${entry.title}-${entry.url ?? ''}`}
+						className="px-2.5 py-1.5"
+					>
 						<div className="flex items-start gap-2">
 							<div className="flex-1 min-w-0">
 								<p className="text-xs font-medium truncate">{entry.title}</p>

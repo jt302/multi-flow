@@ -86,7 +86,7 @@ export function ArrangePreview({
 				const fontSize = Math.min(12, Math.max(6, Math.min(b.width, b.height) * 0.3));
 
 				return (
-					<g key={i}>
+					<g key={`${label}-${b.x}-${b.y}-${b.width}-${b.height}`}>
 						<rect
 							x={b.x}
 							y={b.y}
@@ -109,7 +109,7 @@ export function ArrangePreview({
 								fill={color}
 								style={{ userSelect: 'none' }}
 							>
-								{label.length > 4 ? label.slice(0, 3) + '…' : label}
+								{label.length > 4 ? `${label.slice(0, 3)}…` : label}
 							</text>
 						)}
 					</g>

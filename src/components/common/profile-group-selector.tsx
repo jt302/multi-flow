@@ -196,31 +196,36 @@ export function ProfileGroupSelector({
 							</p>
 						) : (
 							<div className="space-y-0.5 pr-1">
-								{filteredProfiles.map((p) => (
-									<label
-										key={p.id}
-										className={cn(
-											'flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer',
-											disabled && 'opacity-50 pointer-events-none',
-										)}
-									>
-										<Checkbox
-											checked={selectedSet.has(p.id)}
-											onCheckedChange={() => toggleProfile(p.id)}
-											disabled={disabled}
-											className="cursor-pointer"
-										/>
-										<span className="text-xs truncate flex-1">{p.name}</span>
-										{p.group && (
-											<span className="text-[10px] text-muted-foreground truncate max-w-[80px]">
-												{p.group}
-											</span>
-										)}
-										{p.running && (
-											<span className="inline-block size-1.5 rounded-full bg-green-500 shrink-0" />
-										)}
-									</label>
-								))}
+								{filteredProfiles.map((p) => {
+									const checkboxId = `profile-group-selector-profile-${p.id}`;
+									return (
+										<label
+											key={p.id}
+											htmlFor={checkboxId}
+											className={cn(
+												'flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer',
+												disabled && 'opacity-50 pointer-events-none',
+											)}
+										>
+											<Checkbox
+												id={checkboxId}
+												checked={selectedSet.has(p.id)}
+												onCheckedChange={() => toggleProfile(p.id)}
+												disabled={disabled}
+												className="cursor-pointer"
+											/>
+											<span className="text-xs truncate flex-1">{p.name}</span>
+											{p.group && (
+												<span className="text-[10px] text-muted-foreground truncate max-w-[80px]">
+													{p.group}
+												</span>
+											)}
+											{p.running && (
+												<span className="inline-block size-1.5 rounded-full bg-green-500 shrink-0" />
+											)}
+										</label>
+									);
+								})}
 							</div>
 						)}
 					</ScrollArea>
@@ -238,15 +243,18 @@ export function ProfileGroupSelector({
 								{filteredGroups.map((g) => {
 									const state = getGroupCheckedState(g.name);
 									const count = groupProfileMap.get(g.name)?.length ?? 0;
+									const checkboxId = `profile-group-selector-group-${g.id}`;
 									return (
 										<label
 											key={g.id}
+											htmlFor={checkboxId}
 											className={cn(
 												'flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer',
 												disabled && 'opacity-50 pointer-events-none',
 											)}
 										>
 											<Checkbox
+												id={checkboxId}
 												checked={state === 'indeterminate' ? 'indeterminate' : state}
 												onCheckedChange={() => toggleGroup(g.name)}
 												disabled={disabled}

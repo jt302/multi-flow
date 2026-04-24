@@ -36,9 +36,9 @@ export const WorkspaceTopbar = memo(function WorkspaceTopbar({
 	onOpenLogPanel,
 	onNavigate,
 }: WorkspaceTopbarProps) {
-	const { t, i18n } = useTranslation('common');
+	const { t } = useTranslation('common');
 	const [commandOpen, setCommandOpen] = useState(false);
-	const section = useMemo(() => getWorkspaceSection(activeNav), [activeNav, i18n.resolvedLanguage]);
+	const section = useMemo(() => getWorkspaceSection(activeNav), [activeNav]);
 
 	const navCommands = useMemo(
 		() =>
@@ -46,7 +46,7 @@ export const WorkspaceTopbar = memo(function WorkspaceTopbar({
 				label: item.label,
 				path: resolvePathFromNav(item.id),
 			})),
-		[i18n.resolvedLanguage],
+		[],
 	);
 
 	useEffect(() => {

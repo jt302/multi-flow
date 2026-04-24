@@ -12,7 +12,7 @@ export function useMcpServersQuery() {
 export function useMcpServerQuery(id: string | null) {
 	return useQuery({
 		queryKey: queryKeys.mcpServer(id ?? ''),
-		queryFn: () => mcpApi.getServer(id!),
+		queryFn: () => mcpApi.getServer(id ?? ''),
 		enabled: !!id,
 	});
 }
@@ -20,7 +20,7 @@ export function useMcpServerQuery(id: string | null) {
 export function useMcpToolsQuery(serverId: string | null) {
 	return useQuery({
 		queryKey: queryKeys.mcpTools(serverId ?? ''),
-		queryFn: () => mcpApi.listTools(serverId!),
+		queryFn: () => mcpApi.listTools(serverId ?? ''),
 		enabled: !!serverId,
 		staleTime: 30_000,
 	});

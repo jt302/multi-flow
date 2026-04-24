@@ -161,7 +161,9 @@ export function BrowserControlRoutePage() {
 		const state = windowSyncStore.getState();
 		const current = state.selectedProfileIds;
 		if (allSelected) {
-			runningProfiles.forEach((p) => state.toggleProfile(p.id, false));
+			runningProfiles.forEach((p) => {
+				state.toggleProfile(p.id, false);
+			});
 		} else {
 			runningProfiles.forEach((p) => {
 				if (!current.includes(p.id)) {
