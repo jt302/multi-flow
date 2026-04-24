@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 import { getWorkspaceSection } from '@/app/model/workspace-sections';
@@ -61,6 +62,58 @@ export function ProxyPage({
 		onBatchDeleteProxies,
 		onCheckProxy,
 	});
+	const activeProxyIds = useMemo(
+		() => activeProxies.map((item) => item.id),
+		[activeProxies],
+	);
+	const setSelectedProxyIds = store.setSelectedProxyIds;
+	const toggleProxy = store.toggleProxy;
+	const setImportDialogOpen = store.setImportDialogOpen;
+	const openCreateDialog = store.openCreateDialog;
+	const openBindingDialog = store.openBindingDialog;
+	const openEditDialog = store.openEditDialog;
+	const setBatchEditDialogOpen = store.setBatchEditDialogOpen;
+	const setBatchDeleteDialogOpen = store.setBatchDeleteDialogOpen;
+	const setDeleteDialogProxyId = store.setDeleteDialogProxyId;
+	const handleSelectAll = useCallback(
+		(checked: boolean) => {
+			setSelectedProxyIds(checked ? activeProxyIds : []);
+		},
+		[activeProxyIds, setSelectedProxyIds],
+	);
+	const handleSelectProxy = useCallback(
+		(proxyId: string, checked: boolean) => {
+			toggleProxy(proxyId, checked);
+		},
+		[toggleProxy],
+	);
+	const handleOpenImport = useCallback(() => {
+		setImportDialogOpen(true);
+	}, [setImportDialogOpen]);
+	const handleOpenBatchEdit = useCallback(() => {
+		setBatchEditDialogOpen(true);
+	}, [setBatchEditDialogOpen]);
+	const handleOpenBatchDelete = useCallback(() => {
+		setBatchDeleteDialogOpen(true);
+	}, [setBatchDeleteDialogOpen]);
+	const handleBatchCheckClick = useCallback(() => {
+		void handleBatchCheck();
+	}, [handleBatchCheck]);
+	const handleRefresh = useCallback(() => {
+		void runNamedAction('refresh', onRefreshProxies);
+	}, [onRefreshProxies, runNamedAction]);
+	const handleCheckProxy = useCallback(
+		(proxyId: string) => {
+			void handleSingleCheck(proxyId);
+		},
+		[handleSingleCheck],
+	);
+	const handleRestoreProxy = useCallback(
+		(proxyId: string) => {
+			void runNamedAction('delete', () => onRestoreProxy(proxyId));
+		},
+		[onRestoreProxy, runNamedAction],
+	);
 
 	return (
 		<div className="flex flex-col gap-3 h-full min-h-0">
@@ -87,33 +140,19 @@ export function ProxyPage({
 					batchChecking={batchChecking}
 					refreshing={busyAction === 'refresh'}
 					rowActionDisabled={busyAction !== null}
-					onSelectAll={(checked) =>
-						store.setSelectedProxyIds(
-							checked ? activeProxies.map((item) => item.id) : [],
-						)
-					}
-					onSelectProxy={(proxyId, checked) =>
-						store.toggleProxy(proxyId, checked)
-					}
-					onOpenCreate={store.openCreateDialog}
-					onOpenImport={() => store.setImportDialogOpen(true)}
-					onOpenBinding={store.openBindingDialog}
-					onOpenEdit={store.openEditDialog}
-					onOpenBatchEdit={() => store.setBatchEditDialogOpen(true)}
-					onOpenBatchDelete={() => store.setBatchDeleteDialogOpen(true)}
-					onBatchCheck={() => {
-						void handleBatchCheck();
-					}}
-					onRefresh={() => {
-						void runNamedAction('refresh', onRefreshProxies);
-					}}
-					onCheckProxy={(proxyId) => {
-						void handleSingleCheck(proxyId);
-					}}
-					onRequestDelete={store.setDeleteDialogProxyId}
-					onRestoreProxy={(proxyId) => {
-						void runNamedAction('delete', () => onRestoreProxy(proxyId));
-					}}
+					onSelectAll={handleSelectAll}
+					onSelectProxy={handleSelectProxy}
+					onOpenCreate={openCreateDialog}
+					onOpenImport={handleOpenImport}
+					onOpenBinding={openBindingDialog}
+					onOpenEdit={openEditDialog}
+					onOpenBatchEdit={handleOpenBatchEdit}
+					onOpenBatchDelete={handleOpenBatchDelete}
+					onBatchCheck={handleBatchCheckClick}
+					onRefresh={handleRefresh}
+					onCheckProxy={handleCheckProxy}
+					onRequestDelete={setDeleteDialogProxyId}
+					onRestoreProxy={handleRestoreProxy}
 					boundCounts={boundCounts}
 				/>
 			</DataSection>
