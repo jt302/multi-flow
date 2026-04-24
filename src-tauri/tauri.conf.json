@@ -39,6 +39,7 @@
 	"bundle": {
 		"active": true,
 		"targets": ["app", "dmg"],
+		"licenseFile": "../LICENSE",
 		"resources": {
 			"../docs/default-skills": "default-skills"
 		},
@@ -49,6 +50,9 @@
 			"icons/128x128@2x.png",
 			"icons/icon.icns",
 			"icons/icon.ico"
-		]
+		],
+		"macOS": {
+			"hardenedRuntime": true
+		}
 	}
 }
