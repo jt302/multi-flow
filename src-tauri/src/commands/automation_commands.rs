@@ -2195,18 +2195,14 @@ pub async fn execute_step(
             max_steps,
             output_key,
             model_override,
-            tool_categories,
+            tool_categories: _,
         } => {
             let start_time = std::time::Instant::now();
             let user_prompt = vars.interpolate(prompt);
             let sys_prompt = system_prompt.as_ref().map(|s| vars.interpolate(s));
             let config = load_ai_config(app, script_ai_config, None, model_override.as_ref());
             let is_json = output_format == "json";
-            let filter = if tool_categories.is_empty() {
-                crate::services::ai_tools::ToolFilter::all()
-            } else {
-                crate::services::ai_tools::ToolFilter::with_categories(tool_categories.clone())
-            };
+            let filter = crate::services::ai_tools::ToolFilter::all();
             let tools = crate::services::ai_tools::ToolRegistry::definitions(&filter);
             let ai = AiService::new(http_client.clone());
 
@@ -2219,7 +2215,7 @@ pub async fn execute_step(
                 sys_prompt.as_deref(),
                 is_json,
                 output_key_map,
-                tool_categories,
+                &[],
                 locale,
             );
             messages.push(ChatMessage::system(&effective_system_prompt));
@@ -2573,25 +2569,21 @@ pub async fn execute_step(
             max_steps,
             model_override,
             output_key,
-            tool_categories,
+            tool_categories: _,
         } => {
             let start_time = std::time::Instant::now();
             let user_prompt = vars.interpolate(prompt);
             let config = load_ai_config(app, script_ai_config, None, model_override.as_ref());
-            let filter = if tool_categories.is_empty() {
-                crate::services::ai_tools::ToolFilter::all()
-            } else {
-                crate::services::ai_tools::ToolFilter::with_categories(tool_categories.clone())
-            };
+            let filter = crate::services::ai_tools::ToolFilter::all();
             let tools = crate::services::ai_tools::ToolRegistry::definitions(&filter);
             let ai = AiService::new(http_client.clone());
 
             let is_boolean = output_mode == "boolean";
             let locale = config.locale.as_deref().unwrap_or("zh");
             let system_prompt = if is_boolean {
-                crate::services::ai_prompts::judge_boolean_prompt(tool_categories, locale)
+                crate::services::ai_prompts::judge_boolean_prompt(&[], locale)
             } else {
-                crate::services::ai_prompts::judge_percentage_prompt(tool_categories, locale)
+                crate::services::ai_prompts::judge_percentage_prompt(&[], locale)
             };
 
             // 自动注入当前页面截图

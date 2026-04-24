@@ -335,57 +335,6 @@ export function StepPropertiesPanel({
 	/** output_key 字段快捷方式 */
 	const okf = () => outputKeyField('output_key', t('automation:properties.outputKey'));
 
-	/** AI 工具类别可选常量 */
-	const AI_TOOL_CATEGORIES = [
-		{ value: 'utility', label: t('automation:toolCategories.utility') },
-		{ value: 'cdp', label: t('automation:toolCategories.cdp') },
-		{ value: 'magic', label: t('automation:toolCategories.magic') },
-		{ value: 'app', label: t('automation:toolCategories.app') },
-		{ value: 'file', label: t('automation:toolCategories.file') },
-		{ value: 'dialog', label: t('automation:toolCategories.dialog') },
-	] as const;
-
-	/** AI 步骤工具类别筛选字段 */
-	const toolCategoriesField = () => {
-		const current: string[] =
-			((s as Record<string, unknown>)['tool_categories'] as string[]) ?? [];
-		return (
-			<div key="tool_categories" className="space-y-1.5">
-				<Label className="text-xs">{t('automation:toolCategories.available')}</Label>
-				<p className="text-[10px] text-muted-foreground">
-					{t('automation:toolCategories.allEnabledHint')}
-				</p>
-				<div className="grid grid-cols-2 gap-1.5">
-					{AI_TOOL_CATEGORIES.map(({ value, label }) => {
-						const checked = current.includes(value);
-						return (
-							<label
-								key={value}
-								className="flex items-center gap-1.5 text-xs cursor-pointer"
-							>
-								<input
-									type="checkbox"
-									checked={checked}
-									onChange={() => {
-										const next = checked
-											? current.filter((c) => c !== value)
-											: [...current, value];
-										onUpdate({
-											...step,
-											tool_categories: next,
-										} as ScriptStep);
-									}}
-									className="cursor-pointer"
-								/>
-								{label}
-							</label>
-						);
-					})}
-				</div>
-			</div>
-		);
-	};
-
 	// ── 根据 kind 构建字段列表 ─────────────────────────────────────────────────
 	const fields: React.ReactNode[] = [];
 
@@ -839,7 +788,6 @@ export function StepPropertiesPanel({
 		);
 		fields.push(nf('max_steps', t('automation:fields.maxRounds')));
 		fields.push(okf());
-		fields.push(toolCategoriesField());
 	} else if (kind === 'ai_judge') {
 		fields.push(tf('prompt', t('automation:fields.judgePrompt'), true));
 		const outputMode = String(s['output_mode'] ?? 'boolean');
@@ -874,7 +822,6 @@ export function StepPropertiesPanel({
 		);
 		fields.push(nf('max_steps', t('automation:fields.maxRounds')));
 		fields.push(okf());
-		fields.push(toolCategoriesField());
 	} else if (kind === 'magic_open_new_tab') {
 		fields.push(tf('url', t('automation:properties.url')));
 		fields.push(okf());
