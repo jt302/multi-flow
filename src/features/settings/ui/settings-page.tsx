@@ -37,6 +37,21 @@ const DevConfigCard = lazy(() =>
 	})),
 );
 
+function SettingsTabLoadingFallback({ label }: { label: string }) {
+	return (
+		<div
+			role="status"
+			aria-live="polite"
+			className="flex min-h-40 items-center justify-center rounded-xl border border-border/60 bg-muted/20"
+		>
+			<div className="flex items-center gap-2 text-sm text-muted-foreground">
+				<div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+				<span>{label}</span>
+			</div>
+		</div>
+	);
+}
+
 export function SettingsPage({
 	activeTab,
 	useCustomColor,
@@ -54,7 +69,7 @@ export function SettingsPage({
 	onInstallChromium,
 	onDownloadResource,
 }: SettingsPageProps) {
-	const { t } = useTranslation('settings');
+	const { t } = useTranslation(['settings', 'common']);
 	const section = getWorkspaceSection('settings');
 	const [pendingKey, setPendingKey] = useState('');
 	const settingsTabs = useMemo(() => getSettingsTabs(), []);
@@ -93,9 +108,7 @@ export function SettingsPage({
 
 			<ScrollArea className="min-h-0 min-w-0 w-full flex-1">
 				<div className="pr-1">
-					<Suspense
-						fallback={<div className="min-h-40 rounded-xl border border-border/60 bg-muted/20" />}
-					>
+					<Suspense fallback={<SettingsTabLoadingFallback label={t('common:loading')} />}>
 						{activeTab === 'general' && <GeneralSettingsPlaceholder />}
 
 						{activeTab === 'appearance' && (
