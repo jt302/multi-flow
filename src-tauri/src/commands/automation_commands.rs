@@ -1211,7 +1211,9 @@ pub async fn export_automation_script_to_file(
         svc.get_script(&script_id).map_err(|e| e.to_string())?
     };
     let json = serde_json::to_string_pretty(&script).map_err(|e| format!("序列化失败: {e}"))?;
-    std::fs::write(&file_path, json).map_err(|e| format!("写入文件失败: {e}"))?;
+    tokio::fs::write(&file_path, json)
+        .await
+        .map_err(|e| format!("写入文件失败: {e}"))?;
     Ok(())
 }
 

@@ -327,8 +327,8 @@ pub fn update_profile(
 }
 
 #[tauri::command]
-pub fn update_profile_visual(
-    state: State<'_, AppState>,
+pub async fn update_profile_visual(
+    app: AppHandle,
     profile_id: String,
     payload: UpdateProfileVisualRequest,
 ) -> Result<Profile, String> {
@@ -339,70 +339,95 @@ pub fn update_profile_visual(
             payload.browser_bg_color_mode, payload.browser_bg_color, payload.toolbar_label_mode
         ),
     );
-    let profile_service = state
-        .profile_service
-        .lock()
-        .map_err(|_| "profile service lock poisoned".to_string())?;
-    let profile = profile_service
-        .update_profile_visual(
-            &profile_id,
-            payload.browser_bg_color_mode,
-            payload.browser_bg_color.clone(),
-            payload.toolbar_label_mode,
-        )
-        .map_err(error_to_string)?;
-    drop(profile_service);
-
-    if profile.running {
-        let engine_manager = state
-            .engine_manager
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let profile_service = state
+            .profile_service
             .lock()
-            .map_err(|_| "engine manager lock poisoned".to_string())?;
-        engine_manager
-            .apply_profile_visual_overrides(
+            .map_err(|_| "profile service lock poisoned".to_string())?;
+        let profile = profile_service
+            .update_profile_visual(
                 &profile_id,
-                profile.resolved_browser_bg_color.clone(),
-                profile.resolved_toolbar_text.clone(),
+                payload.browser_bg_color_mode,
+                payload.browser_bg_color.clone(),
+                payload.toolbar_label_mode,
             )
             .map_err(error_to_string)?;
-    }
+        drop(profile_service);
 
-    Ok(profile)
+        if profile.running {
+            let engine_manager = state
+                .engine_manager
+                .lock()
+                .map_err(|_| "engine manager lock poisoned".to_string())?;
+            engine_manager
+                .apply_profile_visual_overrides(
+                    &profile_id,
+                    profile.resolved_browser_bg_color.clone(),
+                    profile.resolved_toolbar_text.clone(),
+                )
+                .map_err(error_to_string)?;
+        }
+
+        Ok(profile)
+    })
+    .await
+    .map_err(|err| format!("update profile visual task failed: {err}"))?
 }
 
 #[tauri::command]
-pub fn get_profile_runtime_details(
-    state: State<'_, AppState>,
+pub async fn get_profile_runtime_details(
+    app: AppHandle,
     profile_id: String,
 ) -> Result<ProfileRuntimeDetails, String> {
-    build_profile_runtime_details(&state, &profile_id)
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        build_profile_runtime_details(&state, &profile_id)
+    })
+    .await
+    .map_err(|err| format!("get profile runtime details task failed: {err}"))?
 }
 
 #[tauri::command]
-pub fn clear_profile_cache(
-    state: State<'_, AppState>,
+pub async fn clear_profile_cache(
+    app: AppHandle,
     profile_id: String,
 ) -> Result<ClearProfileCacheResponse, String> {
-    clear_profile_cache_inner(&state, &profile_id)
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        clear_profile_cache_inner(&state, &profile_id)
+    })
+    .await
+    .map_err(|err| format!("clear profile cache task failed: {err}"))?
 }
 
 #[tauri::command]
-pub fn read_profile_cookies(
-    state: State<'_, AppState>,
+pub async fn read_profile_cookies(
+    app: AppHandle,
     profile_id: String,
 ) -> Result<ReadProfileCookiesResponse, String> {
-    runtime_guard::reconcile_runtime_state(&state).map_err(error_to_string)?;
-    read_profile_cookies_inner(&state, &profile_id)
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        runtime_guard::reconcile_runtime_state(&state).map_err(error_to_string)?;
+        read_profile_cookies_inner(&state, &profile_id)
+    })
+    .await
+    .map_err(|err| format!("read profile cookies task failed: {err}"))?
 }
 
 #[tauri::command]
-pub fn export_profile_cookies(
-    state: State<'_, AppState>,
+pub async fn export_profile_cookies(
+    app: AppHandle,
     profile_id: String,
     payload: ExportProfileCookiesRequest,
 ) -> Result<ExportProfileCookiesResponse, String> {
-    runtime_guard::reconcile_runtime_state(&state).map_err(error_to_string)?;
-    export_profile_cookies_inner(&state, &profile_id, payload)
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        runtime_guard::reconcile_runtime_state(&state).map_err(error_to_string)?;
+        export_profile_cookies_inner(&state, &profile_id, payload)
+    })
+    .await
+    .map_err(|err| format!("export profile cookies task failed: {err}"))?
 }
 
 fn clear_profile_cache_inner(
