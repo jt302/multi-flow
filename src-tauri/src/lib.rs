@@ -825,6 +825,8 @@ fn handle_cmd_w_window(window: WebviewWindow) {
 }
 
 fn open_focused_window_devtools(app: &AppHandle) {
+    #[cfg(any(debug_assertions, feature = "devtools"))]
+    {
     let Some(window) = focused_webview_window(app) else {
         logger::warn(
             "menu",
@@ -838,6 +840,16 @@ fn open_focused_window_devtools(app: &AppHandle) {
         format!("open devtools requested for window={}", window.label()),
     );
     window.open_devtools();
+    }
+
+    #[cfg(not(any(debug_assertions, feature = "devtools")))]
+    {
+        let _ = app;
+        logger::warn(
+            "menu",
+            "open devtools requested but devtools are disabled in this build".to_string(),
+        );
+    }
 }
 
 fn reload_focused_window(app: &AppHandle) {
