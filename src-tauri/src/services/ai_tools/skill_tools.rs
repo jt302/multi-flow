@@ -102,13 +102,6 @@ pub async fn execute(
                 source,
                 source_type: args.get("sourceType").and_then(|v| v.as_str()).map(String::from),
                 slug_hint: args.get("slugHint").and_then(|v| v.as_str()).map(String::from),
-                enable_for_session: args.get("enableForSession").and_then(|v| v.as_bool()),
-                session_id: Some(
-                    args.get("sessionId")
-                        .and_then(|v| v.as_str())
-                        .map(String::from)
-                        .unwrap_or_else(|| ctx.run_id.to_string()),
-                ),
             };
             let state = ctx.app.state::<AppState>();
             let installed = crate::commands::ai_skill_commands::install_ai_skill_inner(

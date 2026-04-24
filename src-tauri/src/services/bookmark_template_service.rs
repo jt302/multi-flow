@@ -193,62 +193,6 @@ impl BookmarkTemplateService {
         Ok(models.into_iter().map(to_subscription).collect())
     }
 
-    /// 返回 sync_mode='auto' 且 applied_version < new_version 的 profile_id 列表
-    pub fn get_auto_sync_subscribers(
-        &self,
-        template_id: i64,
-        new_version: i64,
-    ) -> AppResult<Vec<String>> {
-        let models = self.db_query(
-            bookmark_template_subscription::Entity::find()
-                .filter(
-                    bookmark_template_subscription::Column::TemplateId
-                        .eq(template_id)
-                        .and(bookmark_template_subscription::Column::SyncMode.eq("auto")),
-                )
-                .all(&self.db),
-        )?;
-        let profile_ids = models
-            .into_iter()
-            .filter(|m| m.applied_version.map(|v| v < new_version).unwrap_or(true))
-            .map(|m| m.profile_id)
-            .collect();
-        Ok(profile_ids)
-    }
-
-    /// 标记 profile 已应用某版本
-    pub fn mark_applied(
-        &self,
-        template_id: i64,
-        profile_id: &str,
-        version: i64,
-    ) -> AppResult<()> {
-        let model = self
-            .db_query(
-                bookmark_template_subscription::Entity::find()
-                    .filter(
-                        bookmark_template_subscription::Column::TemplateId
-                            .eq(template_id)
-                            .and(
-                                bookmark_template_subscription::Column::ProfileId
-                                    .eq(profile_id),
-                            ),
-                    )
-                    .one(&self.db),
-            )?
-            .ok_or_else(|| {
-                AppError::NotFound(format!(
-                    "subscription not found: template={template_id} profile={profile_id}"
-                ))
-            })?;
-
-        let mut active: bookmark_template_subscription::ActiveModel = model.into();
-        active.applied_version = Set(Some(version));
-        active.applied_at = Set(Some(now_ts()));
-        self.db_query(active.update(&self.db))?;
-        Ok(())
-    }
-
     // ── 内部工具 ─────────────────────────────────────────────────────────────
 
     fn db_query<T, F>(&self, future: F) -> AppResult<T>

@@ -7,7 +7,7 @@
 /// 若 mmdb 未就绪，则回退到国家级默认时区。
 ///
 /// 结果缓存 15 分钟（进程内）。App 启动时调用 `warm_up()` 预热，
-/// profile 启动时调用 `get_cached()` 同步获取（不阻塞）。
+/// profile 启动时调用 `refresh_for_launch()` 同步获取（带短 TTL 退避）。
 use std::env;
 use std::net::IpAddr;
 use std::collections::HashSet;
@@ -97,17 +97,6 @@ impl HostLocaleService {
         }
     }
 
-    /// 同步获取缓存（不阻塞）。缓存有效则返回值，否则返回 None。
-    pub fn get_cached(&self) -> Option<HostLocaleSuggestion> {
-        let guard = self.inner.lock().unwrap_or_else(|p| p.into_inner());
-        let fetched_at = guard.fetched_at?;
-        if fetched_at.elapsed() < CACHE_TTL {
-            guard.value.clone()
-        } else {
-            None
-        }
-    }
-
     /// 异步预热：启动时调用，后台查询本机 IP 并写入缓存。
     /// 若已有 in-flight 请求则不重复发起。
     pub async fn warm_up(&self) {
@@ -144,22 +133,6 @@ impl HostLocaleService {
         result
     }
 
-    /// 返回缓存值（若有效），否则同步发起一次查询并写入缓存。
-    /// 用于 profile 启动时：Auto 模式无代理时确保 host locale 就绪。
-    pub fn get_or_refresh(&self) -> Option<HostLocaleSuggestion> {
-        if let Some(cached) = self.get_cached() {
-            return Some(cached);
-        }
-        let geoip_db_path = (self.geoip_db_path)();
-        let result = crate::runtime_compat::block_on_compat(
-            fetch_host_locale(geoip_db_path.as_deref()),
-        );
-        let mut guard = self.inner.lock().unwrap_or_else(|p| p.into_inner());
-        guard.fetched_at = Some(Instant::now());
-        guard.value = Some(result.clone());
-        Some(result)
-    }
-
     /// Profile 启动关键路径专用：
     /// 1. 若上次 fetch 在 `LAUNCH_REFRESH_TTL`(3 分钟) 内 → 直接复用缓存值，避免批量启动触发上游 429；
     /// 2. 否则同步拉取最新 IP 对应的 locale；
@@ -185,7 +158,7 @@ impl HostLocaleService {
         if fresh.source == "none" && fresh.exit_ip.is_none() {
             crate::logger::warn(
                 "host_locale",
-                "refresh_for_launch: fetch failed, backing off for LAUNCH_REFRESH_TTL".to_string(),
+                "refresh_for_launch: fetch failed, backing off for LAUNCH_REFRESH_TTL",
             );
             let mut guard = self.inner.lock().unwrap_or_else(|p| p.into_inner());
             guard.fetched_at = Some(Instant::now());
@@ -366,6 +339,7 @@ fn build_host_locale_suggestion(
     source: &str,
     geoip_db_path: Option<&Path>,
 ) -> Result<HostLocaleSuggestion, String> {
+    let _ignored_ipinfo_timezone = response.timezone.as_deref();
     let exit_ip = response
         .ip
         .as_deref()

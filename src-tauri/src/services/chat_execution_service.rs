@@ -322,7 +322,6 @@ impl ChatExecutionService {
         let mut consecutive_tool_failures: HashMap<String, u32> = HashMap::new();
         let mut error_signature_repeats: HashMap<String, u32> = HashMap::new();
         let mut consecutive_empty_rounds: u32 = 0;
-        let mut escalation_injected = false;
         // 连续工具调用但未产出 assistant 文本的轮次计数
         let mut rounds_since_last_text: u32 = 0;
         let mut assistant_text_nudge_injected = false;
@@ -330,7 +329,7 @@ impl ChatExecutionService {
         let mut empty_text_recovery_attempted = false;
         loop {
             round += 1;
-            escalation_injected = false;
+            let mut escalation_injected = false;
 
             // 检查取消（循环开始时）
             {
@@ -451,7 +450,7 @@ impl ChatExecutionService {
                         let recent: Vec<ChatMessage> = messages.split_off(compress_end - 1);
                         messages.clear();
                         messages.push(system_msg);
-                        messages.push(ChatMessage::system(&format!(
+                        messages.push(ChatMessage::system(format!(
                             "[Conversation Summary]\n{summary}"
                         )));
                         messages.extend(recent);
@@ -880,7 +879,7 @@ impl ChatExecutionService {
                                         {
                                             Ok(Ok(text)) => (text, None, "completed".to_string()),
                                             Ok(Err(e)) => (format!("mcp tool error: {e}"), None, "failed".to_string()),
-                                            Err(_) => (format!("MCP tool timed out after 60s"), None, "failed".to_string()),
+                                            Err(_) => ("MCP tool timed out after 60s".to_string(), None, "failed".to_string()),
                                         }
                                     }
                                     None => (
@@ -1162,7 +1161,6 @@ impl ChatExecutionService {
                             locale,
                         );
                         messages.push(ChatMessage::system(&prompt));
-                        escalation_injected = true;
                         consecutive_empty_rounds = 0;
                     }
 

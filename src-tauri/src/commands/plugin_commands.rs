@@ -231,7 +231,7 @@ fn download_plugin_by_extension_id_inner(
             return Err(err);
         }
     };
-    rewrite_profiles_referencing_package(&state, &downloaded.package.package_id)?;
+    rewrite_profiles_referencing_package(state, &downloaded.package.package_id)?;
     logger::info(
         "plugin_cmd",
         format!(
@@ -390,7 +390,7 @@ fn update_plugin_package_inner(
             return Err(err);
         }
     };
-    rewrite_profiles_referencing_package(&state, &downloaded.package.package_id)?;
+    rewrite_profiles_referencing_package(state, &downloaded.package.package_id)?;
     Ok(downloaded.package)
 }
 
@@ -421,7 +421,7 @@ fn uninstall_plugin_package_inner(
             .delete_package(&package_id)
             .map_err(error_to_string)?
     };
-    remove_package_from_all_profiles(&state, &removed.package_id)?;
+    remove_package_from_all_profiles(state, &removed.package_id)?;
     let package_dir = PathBuf::from(&removed.crx_path)
         .parent()
         .map(Path::to_path_buf)
@@ -458,7 +458,7 @@ fn install_plugin_to_profiles_inner(
     let mut success_count = 0usize;
     for profile_id in payload.profile_ids {
         match upsert_plugin_selection_for_profile(
-            &state,
+            state,
             &profile_id,
             ProfilePluginSelection {
                 package_id: package_id.to_string(),
@@ -514,7 +514,7 @@ fn read_profile_plugins_inner(
         service.get_profile(&profile_id).map_err(error_to_string)?
     };
     crate::commands::profile_commands::read_profile_plugin_selections_from_storage(
-        &state,
+        state,
         &profile_id,
         profile.settings.as_ref(),
     )
@@ -540,7 +540,7 @@ fn update_profile_plugins_inner(
     profile_id: String,
     payload: UpdateProfilePluginsRequest,
 ) -> Result<crate::models::Profile, String> {
-    validate_plugin_selections_exist(&state, &payload.selections)?;
+    validate_plugin_selections_exist(state, &payload.selections)?;
     let profile = {
         let profile_service = state
             .profile_service
@@ -568,7 +568,7 @@ fn update_profile_plugins_inner(
             .map_err(error_to_string)?
     };
     crate::commands::profile_commands::sync_profile_extension_state_from_settings_quietly(
-        &state,
+        state,
         &profile_id,
         profile.settings.as_ref(),
     );

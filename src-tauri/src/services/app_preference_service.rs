@@ -24,6 +24,7 @@ const PREFERENCES_FILE_NAME: &str = "app-preferences.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+#[derive(Default)]
 struct AppPreferencesFile {
     plugin_download_proxy_id: Option<String>,
     /// Legacy single AI provider config (kept for deserialization backward compat)
@@ -68,25 +69,6 @@ fn default_true() -> bool {
     true
 }
 
-impl Default for AppPreferencesFile {
-    fn default() -> Self {
-        Self {
-            plugin_download_proxy_id: None,
-            ai_provider: None,
-            ai_configs: Vec::new(),
-            chromium_logging_enabled: false,
-            captcha_solver_configs: Vec::new(),
-            ai_chat_global_prompt: None,
-            tool_confirmation_overrides: HashMap::new(),
-            default_ai_config_id: None,
-            dev_chromium_executable: None,
-            app_language: None,
-            global_default_startup_url: None,
-            fs_sandbox_root: None,
-            fs_external_whitelist: Vec::new(),
-        }
-    }
-}
 
 /// AI Provider 配置
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]

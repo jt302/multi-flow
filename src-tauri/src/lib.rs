@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+
 use std::collections::HashMap;
 use std::fs;
 use std::panic;
@@ -141,7 +143,7 @@ pub fn run() {
                         api.prevent_close();
                         let window_clone = window.clone();
                         let dialog = build_close_confirm_dialog_text(
-                            current_app_language(&window.app_handle()),
+                            current_app_language(window.app_handle()),
                             engine_count,
                             run_count,
                         );
@@ -168,8 +170,8 @@ pub fn run() {
             }
         })
         .setup(|app| {
-            logger::init(&app.handle())
-                .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))
+            logger::init(app.handle())
+                .map_err(std::io::Error::other)
                 .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })?;
             install_panic_hook();
             // NSEvent 本地监听器：在 WKWebView 拦截 Cmd+W 之前截获事件，触发 minimize
@@ -455,7 +457,7 @@ fn install_cmd_w_local_monitor(app: &AppHandle) {
     });
 
     let _monitor = unsafe {
-        NSEvent::addLocalMonitorForEventsMatchingMask_handler(NSEventMask::KeyDown, &*block)
+        NSEvent::addLocalMonitorForEventsMatchingMask_handler(NSEventMask::KeyDown, &block)
     };
     std::mem::forget(_monitor);
 }
@@ -830,7 +832,7 @@ fn open_focused_window_devtools(app: &AppHandle) {
         let Some(window) = focused_webview_window(app) else {
             logger::warn(
                 "menu",
-                "open devtools requested but no webview window was found".to_string(),
+                "open devtools requested but no webview window was found",
             );
             return;
         };
@@ -856,7 +858,7 @@ fn reload_focused_window(app: &AppHandle) {
     let Some(window) = focused_webview_window(app) else {
         logger::warn(
             "menu",
-            "reload requested but no webview window was found".to_string(),
+            "reload requested but no webview window was found",
         );
         return;
     };
@@ -893,6 +895,7 @@ fn trim_to_option(input: String) -> Option<String> {
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq)]
+#[derive(Default)]
 struct SavedMainWindowState {
     width: u32,
     height: u32,
@@ -904,19 +907,6 @@ struct SavedMainWindowState {
     monitor: Option<SavedMonitorSnapshot>,
 }
 
-impl Default for SavedMainWindowState {
-    fn default() -> Self {
-        Self {
-            width: 0,
-            height: 0,
-            x: 0,
-            y: 0,
-            maximized: false,
-            fullscreen: false,
-            monitor: None,
-        }
-    }
-}
 
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, PartialEq)]
 struct SavedMonitorSnapshot {
@@ -1386,6 +1376,99 @@ fn physical_to_logical(value: f64, scale_factor: f64) -> f64 {
     }
 }
 
+/// 在后台线程中执行应用初始化，避免阻塞主线程事件循环
+/// 主线程需要保持运转才能渲染闪屏窗口
+fn run_app_init(handle: AppHandle) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let emit_splash = |step: &str, progress: u8| {
+        let _ = handle.emit_to(
+            tauri::EventTarget::labeled("splashscreen"),
+            "splashscreen://progress",
+            serde_json::json!({ "step": step, "progress": progress }),
+        );
+    };
+
+    // 等待闪屏 JS listener 注册完毕再开始 emit，最多等 2 秒
+    for _ in 0..200 {
+        if SPLASH_READY.load(Ordering::Acquire) {
+            break;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+
+    emit_splash("start", 0);
+
+    emit_splash("database", 20);
+    let app_state = state::build_app_state(&handle)
+        .map_err(|err| -> Box<dyn std::error::Error + Send + Sync> { Box::new(err) })?;
+
+    emit_splash("proxy", 65);
+    start_proxy_daemon_sidecar(&handle, &app_state).map_err(
+        |err| -> Box<dyn std::error::Error + Send + Sync> {
+            Box::new(std::io::Error::other(err))
+        },
+    )?;
+    handle.manage(app_state);
+
+    // 启动后台任务：连接所有已启用的 MCP 服务器
+    {
+        let mcp_handle = handle.clone();
+        tauri::async_runtime::spawn(async move {
+            let state = mcp_handle.state::<state::AppState>();
+            state.mcp_manager.refresh_all_enabled().await;
+        });
+    }
+
+    // 预热本机 IP 地理缓存，使首次打开档案时能立即用到建议值
+    {
+        let locale_handle = handle.clone();
+        tauri::async_runtime::spawn(async move {
+            let state = locale_handle.state::<state::AppState>();
+            state.host_locale_service.warm_up().await;
+        });
+    }
+
+    emit_splash("menu", 80);
+    setup_native_menu(&handle, None).map_err(
+        |err| -> Box<dyn std::error::Error + Send + Sync> {
+            Box::new(std::io::Error::other(
+                err.to_string(),
+            ))
+        },
+    )?;
+    start_runtime_guard(handle.clone());
+
+    emit_splash("window", 90);
+    build_main_window(&handle).map_err(|err| -> Box<dyn std::error::Error + Send + Sync> {
+        Box::new(std::io::Error::other(
+            err.to_string(),
+        ))
+    })?;
+
+    emit_splash("ready", 100);
+
+    // 延迟 400ms 让进度条动画完成，然后通知主窗口 React 可以切换了
+    // splash 关闭和主窗口显示统一由 show_main_window 命令处理，避免两步之间的空档
+    thread::sleep(Duration::from_millis(400));
+    INIT_COMPLETE.store(true, Ordering::Release);
+    logger::info("main_window_init", "mark init-complete");
+    // 通知主窗口（React 可能已就绪在等待，也可能还未就绪会自行 poll）
+    if let Some(main) = handle.get_webview_window(MAIN_WINDOW_LABEL) {
+        logger::info("main_window_init", "emit splashscreen://init-complete");
+        let _ = main.emit("splashscreen://init-complete", ());
+    }
+
+    let fallback_handle = handle.clone();
+    let _ = thread::Builder::new()
+        .name("multi-flow-main-window-init-fallback".to_string())
+        .spawn(move || {
+            thread::sleep(Duration::from_secs(3));
+            show_main_window_if_needed(&fallback_handle, "init-fallback");
+        });
+
+    logger::info("app", "tauri setup completed");
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -1561,99 +1644,4 @@ mod tests {
             .as_nanos();
         std::env::temp_dir().join(format!("multi-flow-main-window-state-{nanos}.json"))
     }
-}
-
-/// 在后台线程中执行应用初始化，避免阻塞主线程事件循环
-/// 主线程需要保持运转才能渲染闪屏窗口
-fn run_app_init(handle: AppHandle) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let emit_splash = |step: &str, progress: u8| {
-        let _ = handle.emit_to(
-            tauri::EventTarget::labeled("splashscreen"),
-            "splashscreen://progress",
-            serde_json::json!({ "step": step, "progress": progress }),
-        );
-    };
-
-    // 等待闪屏 JS listener 注册完毕再开始 emit，最多等 2 秒
-    for _ in 0..200 {
-        if SPLASH_READY.load(Ordering::Acquire) {
-            break;
-        }
-        thread::sleep(Duration::from_millis(10));
-    }
-
-    emit_splash("start", 0);
-
-    emit_splash("database", 20);
-    let app_state = state::build_app_state(&handle)
-        .map_err(|err| -> Box<dyn std::error::Error + Send + Sync> { Box::new(err) })?;
-
-    emit_splash("proxy", 65);
-    start_proxy_daemon_sidecar(&handle, &app_state).map_err(
-        |err| -> Box<dyn std::error::Error + Send + Sync> {
-            Box::new(std::io::Error::new(std::io::ErrorKind::Other, err))
-        },
-    )?;
-    handle.manage(app_state);
-
-    // 启动后台任务：连接所有已启用的 MCP 服务器
-    {
-        let mcp_handle = handle.clone();
-        tauri::async_runtime::spawn(async move {
-            let state = mcp_handle.state::<state::AppState>();
-            state.mcp_manager.refresh_all_enabled().await;
-        });
-    }
-
-    // 预热本机 IP 地理缓存，使首次打开档案时能立即用到建议值
-    {
-        let locale_handle = handle.clone();
-        tauri::async_runtime::spawn(async move {
-            let state = locale_handle.state::<state::AppState>();
-            state.host_locale_service.warm_up().await;
-        });
-    }
-
-    emit_splash("menu", 80);
-    setup_native_menu(&handle, None).map_err(
-        |err| -> Box<dyn std::error::Error + Send + Sync> {
-            Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                err.to_string(),
-            ))
-        },
-    )?;
-    start_runtime_guard(handle.clone());
-
-    emit_splash("window", 90);
-    build_main_window(&handle).map_err(|err| -> Box<dyn std::error::Error + Send + Sync> {
-        Box::new(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            err.to_string(),
-        ))
-    })?;
-
-    emit_splash("ready", 100);
-
-    // 延迟 400ms 让进度条动画完成，然后通知主窗口 React 可以切换了
-    // splash 关闭和主窗口显示统一由 show_main_window 命令处理，避免两步之间的空档
-    thread::sleep(Duration::from_millis(400));
-    INIT_COMPLETE.store(true, Ordering::Release);
-    logger::info("main_window_init", "mark init-complete");
-    // 通知主窗口（React 可能已就绪在等待，也可能还未就绪会自行 poll）
-    if let Some(main) = handle.get_webview_window(MAIN_WINDOW_LABEL) {
-        logger::info("main_window_init", "emit splashscreen://init-complete");
-        let _ = main.emit("splashscreen://init-complete", ());
-    }
-
-    let fallback_handle = handle.clone();
-    let _ = thread::Builder::new()
-        .name("multi-flow-main-window-init-fallback".to_string())
-        .spawn(move || {
-            thread::sleep(Duration::from_secs(3));
-            show_main_window_if_needed(&fallback_handle, "init-fallback");
-        });
-
-    logger::info("app", "tauri setup completed");
-    Ok(())
 }

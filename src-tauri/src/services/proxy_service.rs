@@ -1312,7 +1312,7 @@ fn compose_proxy_check_message(
     };
 
     if let Some(warning) = target_warning {
-        message.push_str("；");
+        message.push('；');
         message.push_str(warning);
     }
     message

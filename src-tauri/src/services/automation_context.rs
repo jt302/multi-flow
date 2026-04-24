@@ -8,10 +8,14 @@ pub struct ActiveRunCtx {
     pub run_id: String,
     pub profile_id: String,
     pub profile_name: Option<String>,
+    #[allow(dead_code)]
     pub script_id: String,
+    #[allow(dead_code)]
     pub script_name: Option<String>,
+    #[allow(dead_code)]
     pub started_at: i64,
     pub batch_id: Option<String>,
+    #[allow(dead_code)]
     pub parent_run_id: Option<String>,
 }
 

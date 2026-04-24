@@ -546,8 +546,7 @@ fn rewrite_float_integers(value: &mut Value) {
                         if let Ok(u) = u64::try_from(f as u128) {
                             *value = Value::Number(u.into());
                         }
-                    } else if let Some(i) = serde_json::Number::from_f64(f as f64)
-                        .and_then(|_| Some(f as i64))
+                    } else if let Some(i) = serde_json::Number::from_f64(f).map(|_| f as i64)
                         .map(serde_json::Number::from)
                     {
                         *value = Value::Number(i);

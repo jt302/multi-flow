@@ -521,7 +521,6 @@ pub fn resolve_fingerprint_snapshot_from_preset(
         .unwrap_or_else(|| crate::chromium_version_catalog::latest_for(&preset.platform).version.to_string());
     let strategy = source
         .strategy
-        .clone()
         .unwrap_or(FingerprintStrategy::Template);
     let variant = resolve_variant(preset, &version, fingerprint_seed, strategy);
     let language = language_override.and_then(trim_to_option);
@@ -556,7 +555,7 @@ pub fn resolve_fingerprint_snapshot_from_preset(
         window_height: Some(preset.viewport_height),
         device_scale_factor: Some(preset.device_scale_factor),
         fingerprint_seed: resolve_seed_value(
-            source.seed_policy.clone(),
+            source.seed_policy,
             strategy,
             fingerprint_seed,
         ),
@@ -663,7 +662,7 @@ fn resolve_seed_value(
     strategy: FingerprintStrategy,
     fingerprint_seed: Option<u32>,
 ) -> Option<u32> {
-    match seed_policy.unwrap_or_else(|| match strategy {
+    match seed_policy.unwrap_or(match strategy {
         FingerprintStrategy::Template => FingerprintSeedPolicy::Fixed,
         FingerprintStrategy::RandomBundle => FingerprintSeedPolicy::PerLaunch,
     }) {
@@ -808,7 +807,7 @@ mod tests {
         let source = ProfileFingerprintSource {
             platform: Some("android".to_string()),
             device_preset_id: Some("android_pixel_8".to_string()),
-            browser_version: Some("144.0.7559.97".to_string()),
+            browser_version: Some(TEST_BROWSER_VERSION.to_string()),
             strategy: Some(FingerprintStrategy::RandomBundle),
             seed_policy: Some(FingerprintSeedPolicy::PerLaunch),
             catalog_version: Some(catalog_version().to_string()),
@@ -834,7 +833,7 @@ mod tests {
         let source = ProfileFingerprintSource {
             platform: Some("macos".to_string()),
             device_preset_id: Some("macos_macbook_pro_14".to_string()),
-            browser_version: Some("144.0.7559.97".to_string()),
+            browser_version: Some(TEST_BROWSER_VERSION.to_string()),
             strategy: Some(FingerprintStrategy::Template),
             seed_policy: Some(FingerprintSeedPolicy::Fixed),
             catalog_version: None,
@@ -873,7 +872,12 @@ mod tests {
             }],
         };
 
-        merge_preset_into_snapshot(&mut snapshot, &modified_preset, "144.0.7559.97", Some(12345));
+        merge_preset_into_snapshot(
+            &mut snapshot,
+            &modified_preset,
+            TEST_BROWSER_VERSION,
+            Some(12345),
+        );
 
         // 预设派生字段应已更新
         assert_eq!(snapshot.custom_gl_vendor.as_deref(), Some("Google Inc. (Apple)"));

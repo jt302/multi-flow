@@ -137,7 +137,6 @@ struct McpServerRuntime {
 }
 
 enum McpRuntimeTransport {
-    None,
     Stdio {
         child: tokio::process::Child,
         transport: StdioTransport,
@@ -352,7 +351,6 @@ impl McpManager {
             McpRuntimeTransport::Http(transport) => {
                 transport.call("resources/read", json!({ "uri": uri })).await
             }
-            McpRuntimeTransport::None => Err("No transport available".to_string()),
         }?;
 
         // resources/read 响应: { contents: [{ uri, text?, blob? }] }
@@ -705,7 +703,6 @@ impl McpManager {
                     )
                     .await
             }
-            McpRuntimeTransport::None => Err("No transport available".to_string()),
         }?;
 
         // 检查 tools/list_changed 通知并即时刷新工具缓存

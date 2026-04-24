@@ -1,13 +1,13 @@
 // Generated from uploaded fonts.rs after:
-/// - deduping exact duplicates
-/// - removing Windows-only / Linux-only entries
-/// - removing obvious placeholders / noise
-/// - supplementing Android AOSP family names and key iOS system families
-///
-/// Source baseline: /mnt/data/fonts.rs
-/// Original ALL_FONTS entries: 991
-/// Original unique exact names: 854
-/// Final mobile-focused names: 754
+// - deduping exact duplicates
+// - removing Windows-only / Linux-only entries
+// - removing obvious placeholders / noise
+// - supplementing Android AOSP family names and key iOS system families
+//
+// Source baseline: /mnt/data/fonts.rs
+// Original ALL_FONTS entries: 991
+// Original unique exact names: 854
+// Final mobile-focused names: 754
 
 /// Current AOSP/Android family names and aliases useful for Chromium mapping.
 pub const ANDROID_AOSP_FAMILY_NAMES: &[&str] = &[

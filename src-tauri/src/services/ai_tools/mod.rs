@@ -51,14 +51,6 @@ pub struct ToolResult {
 }
 
 impl ToolResult {
-    pub fn empty() -> Self {
-        Self {
-            text: None,
-            image_base64: None,
-            vars: HashMap::new(),
-        }
-    }
-
     pub fn text(s: impl Into<String>) -> Self {
         Self {
             text: Some(s.into()),

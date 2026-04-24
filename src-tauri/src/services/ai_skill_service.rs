@@ -3,8 +3,8 @@
 //! Skill 来源：
 //! - 内置：优先 {bundleResources}/default-skills/<slug>/SKILL.md，开发态回退 {repo}/docs/default-skills/<slug>/SKILL.md
 //! - 用户：{appData/fs}/.agents/skills/<slug>/SKILL.md
-//! frontmatter 格式（YAML）：name / slug / description / version / enabled / triggers / allowed_tools / model
-//! body（frontmatter 之后的 markdown）在调用时注入 system prompt
+//!   frontmatter 格式（YAML）：name / slug / description / version / enabled / triggers / allowed_tools / model
+//!   body（frontmatter 之后的 markdown）在调用时注入 system prompt
 
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -170,6 +170,7 @@ enum SkillSource {
 }
 
 impl AiSkillService {
+    #[cfg(test)]
     pub fn new(app_fs_root: PathBuf) -> Self {
         Self::new_with_builtin_roots(
             app_fs_root.join(".agents").join("skills"),
@@ -177,6 +178,7 @@ impl AiSkillService {
         )
     }
 
+    #[cfg(test)]
     fn new_with_roots(user_skills_root: PathBuf, built_in_skills_root: PathBuf) -> Self {
         Self::new_with_builtin_roots(user_skills_root, vec![built_in_skills_root])
     }
@@ -445,19 +447,6 @@ impl AiSkillService {
         all.into_iter().collect()
     }
 
-    /// 加载多个 skill 的 body，用于注入 system prompt（跳过 enabled=false 的 skill）
-    /// 已废弃：新代码应使用 load_skill_directory + load_skill 工具（progressive disclosure）
-    pub fn load_skill_bodies(&self, slugs: &[String]) -> Vec<(String, String)> {
-        slugs.iter().filter_map(|slug| {
-            self.read_skill(slug).ok().and_then(|full| {
-                if full.meta.enabled {
-                    Some((full.meta.name, full.body))
-                } else {
-                    None
-                }
-            })
-        }).collect()
-    }
 }
 
 // ─── 辅助函数 ──────────────────────────────────────────────────────────────
@@ -756,8 +745,8 @@ allowed_tools:
         let full = svc.read_skill("demo-skill").unwrap();
         assert_eq!(full.meta.slug, "demo-skill");
         assert_eq!(full.body, "body text");
-        assert_eq!(full.meta.built_in, false);
-        assert_eq!(full.meta.deletable, true);
+        assert!(!full.meta.built_in);
+        assert!(full.meta.deletable);
     }
 
     #[test]
@@ -783,12 +772,12 @@ allowed_tools:
 
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].name, "Built In Find");
-        assert_eq!(listed[0].built_in, true);
-        assert_eq!(listed[0].deletable, false);
+        assert!(listed[0].built_in);
+        assert!(!listed[0].deletable);
 
         let full = svc.read_skill("find-skills").unwrap();
         assert_eq!(full.body, "builtin body");
-        assert_eq!(full.meta.built_in, true);
+        assert!(full.meta.built_in);
     }
 
     #[test]

@@ -1,15 +1,15 @@
 // Generated from uploaded fonts.rs after:
-/// - reusing entries that can plausibly appear on Linux
-/// - supplementing Linux generic family aliases
-/// - supplementing official/common distro desktop fonts (GNOME, Ubuntu, Debian/Fedora packages)
-/// - keeping the list family-name oriented for Chromium/fontconfig style matching
-///
-/// Source baseline: /mnt/data/fonts.rs
-/// Original ALL_FONTS entries: 991
-/// Original unique exact names: 854
-/// Reused from uploaded list: 271
-/// Added Linux supplements/aliases: 27
-/// Final Linux-oriented names: 298
+// - reusing entries that can plausibly appear on Linux
+// - supplementing Linux generic family aliases
+// - supplementing official/common distro desktop fonts (GNOME, Ubuntu, Debian/Fedora packages)
+// - keeping the list family-name oriented for Chromium/fontconfig style matching
+//
+// Source baseline: /mnt/data/fonts.rs
+// Original ALL_FONTS entries: 991
+// Original unique exact names: 854
+// Reused from uploaded list: 271
+// Added Linux supplements/aliases: 27
+// Final Linux-oriented names: 298
 
 /// Generic family aliases commonly resolved by Linux/fontconfig/CSS stacks.
 pub const LINUX_GENERIC_ALIASES: &[&str] = &[

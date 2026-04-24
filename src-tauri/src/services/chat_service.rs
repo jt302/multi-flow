@@ -435,18 +435,6 @@ impl ChatService {
         Ok(to_api_message(model))
     }
 
-    /// 获取会话最后一条用户消息的 sort_order
-    pub async fn last_user_message_sort_order(&self, session_id: &str) -> AppResult<Option<i64>> {
-        let model = chat_message::Entity::find()
-            .filter(chat_message::Column::SessionId.eq(session_id))
-            .filter(chat_message::Column::Role.eq("user"))
-            .order_by_desc(chat_message::Column::SortOrder)
-            .one(&self.db)
-            .await
-            .map_err(AppError::from)?;
-        Ok(model.map(|m| m.sort_order))
-    }
-
     /// 持久化上下文压缩结果：
     /// 将较旧的 user/assistant/tool 消息标记为 is_active=0，
     /// 并在原位插入 AI 生成的摘要 system 消息。
@@ -690,7 +678,7 @@ fn normalize_chat_profile_binding(
     let mut normalized_ids = profile_ids
         .unwrap_or_default()
         .into_iter()
-        .filter_map(|id| non_empty_owned(id))
+        .filter_map(non_empty_owned)
         .fold(Vec::<String>::new(), |mut acc, id| {
             if !acc.iter().any(|existing| existing == &id) {
                 acc.push(id);
@@ -738,7 +726,7 @@ fn normalize_chat_profile_binding(
 }
 
 fn non_empty_str(input: &str) -> Option<&str> {
-    Some(input).map(str::trim).filter(|value| !value.is_empty())
+    Some(str::trim(input)).filter(|value| !value.is_empty())
 }
 
 fn non_empty_owned(input: String) -> Option<String> {

@@ -43,13 +43,13 @@ pub async fn list_sync_targets(app: AppHandle) -> Result<ListSyncTargetsResponse
 }
 
 fn list_sync_targets_inner(state: &AppState) -> Result<ListSyncTargetsResponse, String> {
-    if let Err(err) = runtime_guard::reconcile_runtime_state(&state) {
+    if let Err(err) = runtime_guard::reconcile_runtime_state(state) {
         logger::warn(
             "sync_cmd",
             format!("list_sync_targets reconcile failed: {err}"),
         );
     }
-    let states = collect_window_states(&state)?;
+    let states = collect_window_states(state)?;
     let profile_service = state.lock_profile_service();
     let engine_manager = state.lock_engine_manager();
 
@@ -231,8 +231,7 @@ pub fn arrange_profile_windows(
 
     // 计算初始 bounds（delta=0，无装饰补偿），用 DIP 工作区
     let initial_bounds =
-        compute_arranged_bounds(&dip_work_area, &payload, n, gap_x, gap_y, 0, 0)
-            .map_err(|e| e)?;
+        compute_arranged_bounds(&dip_work_area, &payload, n, gap_x, gap_y, 0, 0)?;
 
     // 装饰补偿：对第一个 profile 做 pre-set + read-back，推导 delta_h / delta_w
     // get_bounds 返回的是 DIP，和 dip_work_area 单位一致
@@ -260,8 +259,7 @@ pub fn arrange_profile_windows(
 
     // 用 delta 重新计算所有 bounds（补偿后），仍用 DIP 工作区
     let final_bounds =
-        compute_arranged_bounds(&dip_work_area, &payload, n, gap_x, gap_y, delta_w, delta_h)
-            .map_err(|e| e)?;
+        compute_arranged_bounds(&dip_work_area, &payload, n, gap_x, gap_y, delta_w, delta_h)?;
 
     let mut items = Vec::with_capacity(n);
     let mut success_count = 0usize;
@@ -779,8 +777,8 @@ mod tests {
         let second = ensure_sync_sidecar_started_inner(None, &state).expect("second ensure");
 
         assert_eq!(first.port, second.port);
-        assert_eq!(first.already_running, false);
-        assert_eq!(second.already_running, true);
+        assert!(!first.already_running);
+        assert!(second.already_running);
     }
 
     fn new_test_state() -> AppState {

@@ -150,7 +150,19 @@ pub async fn execute(args: Value, ctx: &mut ToolContext<'_>) -> Result<ToolResul
                 ));
             }
         }
-        RiskDecision::Allow { .. } => {}
+        RiskDecision::Allow { reason } => {
+            push_exec_log(
+                ctx,
+                "debug",
+                format!("exec command allowed: {}", req.command),
+                Some(json!({
+                    "command": req.command,
+                    "args": req.args,
+                    "cwd": cwd.display().to_string(),
+                    "reason": reason,
+                })),
+            );
+        }
     }
 
     let started_at = Instant::now();
@@ -540,7 +552,7 @@ fn classify_risk(command: &str, args: &[String], require_confirmation: bool) -> 
         };
     }
 
-    if command == "npx" && args.get(0).map(String::as_str) == Some("skills") && args.get(1).map(String::as_str) == Some("find") {
+    if command == "npx" && args.first().map(String::as_str) == Some("skills") && args.get(1).map(String::as_str) == Some("find") {
         return RiskDecision::Allow {
             reason: "Recognized read-only skills lookup".to_string(),
         };

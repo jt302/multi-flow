@@ -42,7 +42,7 @@ impl ProfileService {
         let settings = normalize_profile_settings(&self.db, req.settings, None)?;
         let settings_json = settings
             .as_ref()
-            .map(|value| serde_json::to_string(value))
+            .map(serde_json::to_string)
             .transpose()?;
 
         let now = now_ts();
@@ -92,7 +92,7 @@ impl ProfileService {
             normalize_profile_settings(&self.db, req.settings, previous_settings.as_ref())?;
         let settings_json = settings
             .as_ref()
-            .map(|value| serde_json::to_string(value))
+            .map(serde_json::to_string)
             .transpose()?;
         let mut active_model: profile::ActiveModel = stored.into();
         active_model.name = Set(name.to_string());
@@ -143,7 +143,7 @@ impl ProfileService {
         let normalized = normalize_profile_settings(&self.db, Some(settings), None)?;
         let settings_json = normalized
             .as_ref()
-            .map(|value| serde_json::to_string(value))
+            .map(serde_json::to_string)
             .transpose()?;
 
         let mut active_model: profile::ActiveModel = stored.into();
@@ -187,7 +187,7 @@ impl ProfileService {
         let normalized = normalize_profile_settings(&self.db, Some(settings), None)?;
         let settings_json = normalized
             .as_ref()
-            .map(|value| serde_json::to_string(value))
+            .map(serde_json::to_string)
             .transpose()?;
 
         let mut active_model: profile::ActiveModel = stored.into();
@@ -349,29 +349,6 @@ impl ProfileService {
         )?;
         self.db_query(profile::Entity::delete_by_id(stored.id).exec(&self.db))?;
         Ok(())
-    }
-
-    pub fn reset_running_profiles(&self) -> AppResult<usize> {
-        let running_profiles = self.db_query(
-            profile::Entity::find()
-                .filter(profile::Column::Running.eq(true))
-                .all(&self.db),
-        )?;
-        if running_profiles.is_empty() {
-            return Ok(0);
-        }
-
-        let now = now_ts();
-        let mut affected = 0usize;
-        for model in running_profiles {
-            let mut active_model: profile::ActiveModel = model.into();
-            active_model.running = Set(false);
-            active_model.updated_at = Set(now);
-            self.db_query(active_model.update(&self.db))?;
-            affected += 1;
-        }
-
-        Ok(affected)
     }
 
     fn ensure_active_group_name(&self, group_name: Option<String>) -> AppResult<Option<String>> {

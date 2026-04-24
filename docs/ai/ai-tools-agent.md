@@ -1110,4 +1110,4 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 3   | `skill_create`               | ⚠️ 创建新 skill（写磁盘）                     |
 | 4   | `skill_update`               | ⚠️ 更新已有 skill 的元数据或 body             |
 | 5   | `skill_delete`               | ⚠️ 删除用户 skill（默认内置 skill 不可删除）  |
-| 6   | `skill_install`              | ⚠️ 从 skills.sh / GitHub / SKILL.md 安装 skill 到 `fs/.agents/skills`；启用状态的 skill 会自动对 Agent 生效 |
+| 6   | `skill_install`              | ⚠️ 从 skills.sh / GitHub / SKILL.md 安装 skill 到 `fs/.agents/skills`；参数为 `source` / `sourceType` / `slugHint` |

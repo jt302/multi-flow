@@ -3,7 +3,9 @@
 //! 提供读写文件、列目录、检查存在性等基本操作，
 //! 带有大小限制和路径遍历保护。
 
+#[cfg(test)]
 use std::fs;
+#[cfg(test)]
 use std::path::{Component, Path, PathBuf};
 
 use serde_json::{json, Value};
@@ -11,6 +13,7 @@ use serde_json::{json, Value};
 use super::{ToolContext, ToolResult};
 
 /// 文件读取最大限制（10MB）
+#[cfg(test)]
 const MAX_READ_SIZE: u64 = 10 * 1024 * 1024;
 
 /// 执行 file_* 类工具
@@ -131,6 +134,7 @@ async fn handle_file_write_folder_desc(app: &tauri::AppHandle, root_id: &str, re
         .map_err(|e| e.to_string())
 }
 
+#[cfg(test)]
 fn execute_with_fs_root(name: &str, args: Value, fs_root: &Path) -> Result<ToolResult, String> {
     fs::create_dir_all(fs_root)
         .map_err(|e| format!("无法创建 fs 根目录 '{}': {}", fs_root.display(), e))?;
@@ -239,6 +243,7 @@ fn execute_with_fs_root(name: &str, args: Value, fs_root: &Path) -> Result<ToolR
     }
 }
 
+#[cfg(test)]
 fn resolve_fs_path(fs_root: &Path, path: &str) -> Result<PathBuf, String> {
     validate_path(path)?;
 
@@ -266,6 +271,7 @@ fn resolve_fs_path(fs_root: &Path, path: &str) -> Result<PathBuf, String> {
 // ─── 安全校验 ─────────────────────────────────────────────────────────
 
 /// 路径安全校验：阻止空路径和路径遍历
+#[cfg(test)]
 fn validate_path(path: &str) -> Result<(), String> {
     if path.is_empty() {
         return Err("路径不能为空，且必须是 app 内 fs 文件系统中的相对路径".to_string());
@@ -283,6 +289,7 @@ fn validate_path(path: &str) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(test)]
 fn has_windows_drive_prefix(path: &str) -> bool {
     let bytes = path.as_bytes();
     bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'

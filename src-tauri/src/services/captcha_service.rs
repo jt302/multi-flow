@@ -284,11 +284,6 @@ impl CaptchaService {
         })()"#
     }
 
-    /// Token 注入 JS（根据类型生成）
-    pub fn injection_js(captcha_type: &str, token: &str) -> String {
-        Self::injection_js_with_options(captcha_type, token, None, false)
-    }
-
     pub fn injection_js_with_options(
         captcha_type: &str,
         token: &str,

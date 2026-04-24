@@ -2897,9 +2897,7 @@ fn skill_tools() -> Vec<Value> {
                         "enum": ["auto", "url", "git"],
                         "description": "来源类型，默认 auto"
                     },
-                    "slugHint": { "type": "string", "description": "当仓库中存在多个 skill 时，用于辅助定位目标 skill（可选）" },
-                    "enableForSession": { "type": "boolean", "description": "兼容保留字段，当前已忽略" },
-                    "sessionId": { "type": "string", "description": "兼容保留字段，当前已忽略" }
+                    "slugHint": { "type": "string", "description": "当仓库中存在多个 skill 时，用于辅助定位目标 skill（可选）" }
                 },
                 "required": ["source"]
             }),

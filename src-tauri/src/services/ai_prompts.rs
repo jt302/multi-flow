@@ -279,11 +279,6 @@ fn build_base_context(categories: &[String], locale: &str) -> String {
     ctx
 }
 
-/// 兼容旧调用：返回包含全部工具类别的基础上下文（中文）
-pub fn base_context() -> String {
-    build_base_context(&[], "zh")
-}
-
 /// 构建 AiAgent 完整系统提示词
 pub fn build_agent_system_prompt(
     user_system_prompt: Option<&str>,

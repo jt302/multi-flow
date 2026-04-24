@@ -65,21 +65,6 @@ impl EngineSessionService {
         Ok(())
     }
 
-    pub fn clear_all(&self) -> AppResult<usize> {
-        let models = self.db_query(engine_session::Entity::find().all(&self.db))?;
-        if models.is_empty() {
-            return Ok(0);
-        }
-
-        let mut count = 0usize;
-        for model in models {
-            let active: engine_session::ActiveModel = model.into();
-            self.db_query(active.delete(&self.db))?;
-            count += 1;
-        }
-        Ok(count)
-    }
-
     fn find_model(&self, profile_pk: i64) -> AppResult<Option<engine_session::Model>> {
         self.db_query(
             engine_session::Entity::find()

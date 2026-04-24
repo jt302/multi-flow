@@ -783,7 +783,7 @@ pub async fn run_automation_script_debug(
             let kind = match &step {
                 ScriptStep::WaitForUser { .. } => None, // 已有等待，不重复插入
                 _ => Some(ScriptStep::WaitForUser {
-                    message: format!("调试暂停 — 步骤已执行。点击继续运行下一步。"),
+                    message: "调试暂停 — 步骤已执行。点击继续运行下一步。".to_string(),
                     input_label: None,
                     output_key: None,
                     timeout_ms: None,
@@ -2166,10 +2166,7 @@ pub async fn execute_step(
                     }
                 }
             } else {
-                match rx.await {
-                    Ok(input) => input,
-                    Err(_) => None,
-                }
+                rx.await.unwrap_or_default()
             };
             emit_human_dismissed(app, run_id);
             if user_input.is_none() && is_cancelled(app, run_id) {
@@ -2371,7 +2368,7 @@ pub async fn execute_step(
                                 round: round as usize + 1,
                                 max_rounds: *max_steps as usize,
                                 phase: "tool_calling".into(),
-                                thinking: Some(format!("{}", &assistant_text)),
+                                thinking: Some(assistant_text.to_string()),
                                 tool_calls: Some(pending_tool_details),
                             }),
                         );
@@ -4279,7 +4276,7 @@ pub async fn execute_step(
 
         ScriptStep::CdpPressKey { key } => {
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let key = vars.interpolate(&key);
+            let key = vars.interpolate(key);
             let (vk, code, text) = cdp_key_info(&key);
             let mut down = json!({ "type": "keyDown", "key": key, "windowsVirtualKeyCode": vk });
             if !code.is_empty() {
@@ -4299,7 +4296,7 @@ pub async fn execute_step(
 
         ScriptStep::CdpShortcut { modifiers, key } => {
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let key = vars.interpolate(&key);
+            let key = vars.interpolate(key);
             // 记录快捷键日志：用户输入和实际发送
             let user_input = if modifiers.is_empty() {
                 key.clone()
@@ -4365,7 +4362,7 @@ pub async fn execute_step(
             }
             // macOS 需要 commands 数组才能触发快捷键动作
             #[cfg(target_os = "macos")]
-            if let Some(cmds) = cdp_shortcut_commands(&modifiers, &key) {
+            if let Some(cmds) = cdp_shortcut_commands(modifiers, &key) {
                 main_down["commands"] = json!(cmds);
             }
             cdp.call("Input.dispatchKeyEvent", main_down).await?;
@@ -4477,10 +4474,7 @@ pub async fn execute_step(
                     }
                 }
             } else {
-                match rx.await {
-                    Ok(input) => input,
-                    Err(_) => None,
-                }
+                rx.await.unwrap_or_default()
             };
             emit_human_dismissed(app, run_id);
             if user_input.is_none() && is_cancelled(app, run_id) {
@@ -4555,10 +4549,7 @@ pub async fn execute_step(
                     }
                 }
             } else {
-                match rx.await {
-                    Ok(input) => input,
-                    Err(_) => None,
-                }
+                rx.await.unwrap_or_default()
             };
             emit_human_dismissed(app, run_id);
             if user_input.is_none() && is_cancelled(app, run_id) {
@@ -5634,9 +5625,9 @@ pub async fn execute_step(
         ScriptStep::CdpInterceptRequest {
             url_pattern,
             action,
-            headers,
-            body,
-            status,
+            headers: _,
+            body: _,
+            status: _,
         } => {
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
             let pattern = vars.interpolate(url_pattern);
@@ -5925,12 +5916,12 @@ pub async fn execute_step(
         ScriptStep::AppRunScript {
             script_id,
             profile_id,
-            initial_vars,
+            initial_vars: _,
             output_key,
         } => {
             let state = app.state::<crate::state::AppState>();
             let script_id_val = vars.interpolate(script_id);
-            let profile_id_val = profile_id.as_ref().map(|p| vars.interpolate(p));
+            let _profile_id_val = profile_id.as_ref().map(|p| vars.interpolate(p));
 
             // 查找脚本
             let svc = state.lock_automation_service();

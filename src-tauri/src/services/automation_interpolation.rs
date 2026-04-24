@@ -87,7 +87,7 @@ impl RunVariables {
     }
 }
 
-fn split_op<'a>(expr: &'a str, op: &str) -> Option<(String, String)> {
+fn split_op(expr: &str, op: &str) -> Option<(String, String)> {
     let pos = expr.find(op)?;
     // 确保不是更长运算符的子串（如 > 不误匹配 >=）
     let next_char = expr[pos + op.len()..].chars().next();

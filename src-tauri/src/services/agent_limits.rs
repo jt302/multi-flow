@@ -10,6 +10,7 @@ pub const MAX_CONSECUTIVE_EMPTY_ROUNDS: u32 = 2;
 pub const MAX_ROUNDS_WITHOUT_ASSISTANT_TEXT: u32 = 12;
 
 /// 用于 ai_prompts 注入的阈值摘要（中文）
+#[cfg(test)]
 pub fn format_zh() -> String {
     format!(
         "同一工具连续失败 {MAX_CONSECUTIVE_TOOL_FAILURES} 次 / \
@@ -20,6 +21,7 @@ pub fn format_zh() -> String {
 }
 
 /// 用于 ai_prompts 注入的阈值摘要（英文）
+#[cfg(test)]
 pub fn format_en() -> String {
     format!(
         "Same tool fails {MAX_CONSECUTIVE_TOOL_FAILURES} consecutive times / \

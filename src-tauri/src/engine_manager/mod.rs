@@ -1545,7 +1545,6 @@ impl EngineManager {
         if let Some(stdout) = child.stdout.take() {
             let profile_id = profile_id.to_string();
             let profile_name = profile_name.clone();
-            let logging_enabled = logging_enabled;
             tauri::async_runtime::spawn_blocking(move || {
                 let reader = BufReader::new(stdout);
                 for line in reader.split(b'\n') {
@@ -1578,7 +1577,6 @@ impl EngineManager {
         if let Some(stderr) = child.stderr.take() {
             let profile_id = profile_id.to_string();
             let profile_name = profile_name.clone();
-            let logging_enabled = logging_enabled;
             tauri::async_runtime::spawn_blocking(move || {
                 let reader = BufReader::new(stderr);
                 for line in reader.split(b'\n') {

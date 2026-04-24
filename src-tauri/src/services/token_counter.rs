@@ -24,7 +24,7 @@ impl TokenCounter {
         // 粗略: ascii 按 4:1, 非 ascii 按 2:1
         // 上面累加的 count 需要除以 4 得到 token
         // 实际: 非 ascii 每字符已 ×2 ，所以总和 / 4 ≈ token
-        (count + 3) / 4 // 向上取整
+        count.div_ceil(4) // 向上取整
     }
 
     /// 估算单条消息 token 数（含 role overhead）

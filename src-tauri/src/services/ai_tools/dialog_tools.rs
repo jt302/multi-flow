@@ -433,7 +433,7 @@ pub async fn execute(
             ))
         }
         "save_file" => {
-            if !response.confirmed || response.value.is_none() {
+            if !response.confirmed {
                 Ok(ToolResult::text(
                     json!({
                         "cancelled": true,
@@ -441,8 +441,7 @@ pub async fn execute(
                     })
                     .to_string(),
                 ))
-            } else {
-                let path = response.value.unwrap();
+            } else if let Some(path) = response.value {
                 // 如果提供了 content，自动写入
                 if let Some(content) = opt_str(&args, "content") {
                     std::fs::write(&path, &content)
@@ -452,6 +451,14 @@ pub async fn execute(
                     json!({
                         "cancelled": false,
                         "path": path
+                    })
+                    .to_string(),
+                ))
+            } else {
+                Ok(ToolResult::text(
+                    json!({
+                        "cancelled": true,
+                        "path": null
                     })
                     .to_string(),
                 ))

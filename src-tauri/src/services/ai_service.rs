@@ -1049,19 +1049,6 @@ pub fn extract_deepseek_thinking(text: &str) -> (Option<String>, String) {
     (None, text.to_string())
 }
 
-/// 从 Anthropic 响应中提取 thinking block
-pub fn extract_anthropic_thinking(parsed: &Value) -> Option<String> {
-    parsed
-        .get("content")
-        .and_then(|c| c.as_array())
-        .and_then(|arr| {
-            arr.iter()
-                .find(|block| block.get("type").and_then(|t| t.as_str()) == Some("thinking"))
-                .and_then(|block| block.get("thinking").and_then(|t| t.as_str()))
-                .map(|s| s.to_string())
-        })
-}
-
 // ─── 流式 provider 实现 ────────────────────────────────────────────────────
 
 /// 解析单个 OpenAI 兼容 SSE data chunk，向 tx 推送 AiChatDelta
@@ -1205,7 +1192,6 @@ async fn stream_openai_like(
     tools: Vec<Value>,
     tx: tokio::sync::mpsc::UnboundedSender<AiChatDelta>,
 ) {
-    use futures_util::StreamExt;
     let body = if !tools.is_empty() {
         json!({
             "model": model,

@@ -21,10 +21,11 @@ pnpm -s release:check
 pnpm -s test
 pnpm -s build
 cargo check --manifest-path src-tauri/Cargo.toml
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-`cargo fmt --check` and `cargo clippy --all-targets -- -D warnings` are not strict CI gates yet because the current tree has broad historical formatting drift and 111 clippy `-D warnings` errors. Do not add new warnings. Clean these incrementally in dedicated commits.
+`cargo fmt --check` is not a strict CI gate yet because the current tree has broad historical formatting drift. Do not add avoidable formatting churn; clean formatting in dedicated commits.
 
 ## Commit Style
 

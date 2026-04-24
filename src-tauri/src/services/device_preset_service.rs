@@ -552,7 +552,7 @@ mod tests {
             .expect("get builtin macos preset");
 
         assert_eq!(preset.platform_version, "10.15.7");
-        assert_eq!(preset.is_builtin, true);
+        assert!(preset.is_builtin);
 
         let update_err = service
             .update_preset(

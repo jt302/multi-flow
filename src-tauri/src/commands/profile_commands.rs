@@ -1632,7 +1632,7 @@ pub(crate) fn do_open_profile(
     if merged_options
         .startup_urls
         .as_ref()
-        .map_or(true, |v| v.is_empty())
+        .is_none_or(|v| v.is_empty())
         && merged_options.startup_url.is_none()
     {
         if let Ok(global_url) = state
@@ -1665,7 +1665,7 @@ pub(crate) fn do_open_profile(
     let refreshed_proxy: Option<crate::models::Proxy> = if locale_mode
         == crate::models::LocaleMode::Auto
     {
-        if let (Some(proxy), Some(ref db_path)) = (bound_proxy.as_ref(), geoip_database.as_ref()) {
+        if let (Some(proxy), Some(db_path)) = (bound_proxy.as_ref(), geoip_database.as_ref()) {
             if proxy.effective_language.is_none() && proxy.effective_timezone.is_none() {
                 match state
                     .lock_proxy_service()
@@ -2931,7 +2931,7 @@ fn normalize_startup_urls(
     let mut normalized = startup_urls
         .unwrap_or_default()
         .into_iter()
-        .filter_map(|value| trim_to_option(value))
+        .filter_map(trim_to_option)
         .collect::<Vec<_>>();
 
     if normalized.is_empty() {
@@ -3044,8 +3044,6 @@ mod tests {
     use std::sync::Mutex;
     use std::thread;
     use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-    const TEST_BROWSER_VERSION: &str = "144.0.7559.97";
-
     use sea_orm::ConnectionTrait;
     use serde_json::json;
 
@@ -3498,7 +3496,7 @@ mod tests {
         .expect("prepare cookie state file")
         .expect("cookie path");
 
-        assert!(path.ends_with(&format!("{profile_id}/cookies/cookie-state.json")));
+        assert!(path.ends_with(format!("{profile_id}/cookies/cookie-state.json")));
         let written = std::fs::read_to_string(&path).expect("read cookie state");
         assert!(written.contains("\"environment_id\": \"pf_cookie_migrate\""));
         assert!(written.contains("\"ck_legacy\""));
@@ -4254,7 +4252,7 @@ mod tests {
         )
         .expect("resolve launch options");
 
-        assert_eq!(resolved.disable_images, false);
+        assert!(!resolved.disable_images);
         assert!(resolved
             .extra_args
             .iter()

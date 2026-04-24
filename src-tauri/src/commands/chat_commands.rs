@@ -158,7 +158,7 @@ pub async fn send_chat_message(
     };
     // 无 profile 时排除需要浏览器的工具类别
     let has_profile =
-        profile_id.is_some() || profile_ids.as_ref().map_or(false, |ids| !ids.is_empty());
+        profile_id.is_some() || profile_ids.as_ref().is_some_and(|ids| !ids.is_empty());
     let tool_filter = if !has_profile {
         tool_filter.exclude(vec!["cdp".to_string(), "magic".to_string()])
     } else {
@@ -233,9 +233,7 @@ pub async fn regenerate_chat_message(
             .await
             .map_err(|e| e.to_string())?;
         let last_user = messages
-            .iter()
-            .filter(|m| m.role == "user")
-            .last()
+            .iter().rfind(|m| m.role == "user")
             .ok_or_else(|| "no user message found".to_string())?
             .clone();
         (

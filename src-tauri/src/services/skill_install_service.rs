@@ -20,8 +20,6 @@ pub struct InstallSkillRequest {
     pub source: String,
     pub source_type: Option<String>,
     pub slug_hint: Option<String>,
-    pub enable_for_session: Option<bool>,
-    pub session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -425,17 +423,15 @@ fn normalize_subdir(value: &str) -> Option<String> {
     }
 }
 
-fn github_api<T: for<'de> Deserialize<'de>>(builder: reqwest::RequestBuilder) -> impl std::future::Future<Output = AppResult<T>> {
-    async move {
-        let response = builder.send().await?;
-        if !response.status().is_success() {
-            return Err(AppError::Validation(format!(
-                "请求 GitHub 失败: HTTP {}",
-                response.status()
-            )));
-        }
-        response.json::<T>().await.map_err(AppError::from)
+async fn github_api<T: for<'de> Deserialize<'de>>(builder: reqwest::RequestBuilder) -> AppResult<T> {
+    let response = builder.send().await?;
+    if !response.status().is_success() {
+        return Err(AppError::Validation(format!(
+            "请求 GitHub 失败: HTTP {}",
+            response.status()
+        )));
     }
+    response.json::<T>().await.map_err(AppError::from)
 }
 
 async fn fetch_text(client: &Client, url: &str) -> AppResult<String> {
@@ -526,7 +522,7 @@ fn resolve_skill_dir(
         )));
     }
 
-    if skill_paths.iter().any(|path| *path == "SKILL.md") {
+    if skill_paths.contains(&"SKILL.md") {
         return Ok(String::new());
     }
 
@@ -703,8 +699,6 @@ mod tests {
             source: "acme/repo".to_string(),
             source_type: Some("git".to_string()),
             slug_hint: None,
-            enable_for_session: None,
-            session_id: None,
         };
 
         let result = svc.write_package(package, &req).unwrap();
@@ -727,7 +721,7 @@ mod tests {
     }
 
     #[test]
-    fn write_package_keeps_enabled_for_session_false_even_if_request_asks_for_it() {
+    fn write_package_keeps_enabled_for_session_false() {
         let tmp = tempfile::TempDir::new().unwrap();
         let svc = SkillInstallService::new(tmp.path().to_path_buf());
 
@@ -743,8 +737,6 @@ mod tests {
             source: "acme/repo".to_string(),
             source_type: Some("git".to_string()),
             slug_hint: None,
-            enable_for_session: Some(true),
-            session_id: Some("session-1".to_string()),
         };
 
         let result = svc.write_package(package, &req).unwrap();
