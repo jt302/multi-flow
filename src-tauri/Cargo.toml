@@ -12,6 +12,9 @@ edition = "2021"
 default = []
 devtools = ["tauri/devtools"]
 
+[package.metadata.cargo-machete]
+ignored = ["tauri-build"]
+
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
@@ -54,7 +57,6 @@ keyring = "3"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2 = "0.6"
 objc2-app-kit = { version = "0.3", features = ["NSEvent"] }
 block2 = "0.6"
 

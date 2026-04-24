@@ -34,7 +34,7 @@ Run:
 
 ```bash
 cargo audit
-pnpm audit --prod
+pnpm -s audit:frontend
 ```
 
 High or critical findings block release unless the finding is demonstrably unreachable and documented.

@@ -2590,7 +2590,6 @@ dependencies = [
  "image",
  "keyring",
  "maxminddb",
- "objc2",
  "objc2-app-kit",
  "open",
  "rand 0.8.5",

@@ -18,6 +18,7 @@ Run these before opening a PR:
 
 ```bash
 pnpm -s release:check
+pnpm -s audit:frontend
 pnpm -s test
 pnpm -s build
 cargo check --manifest-path src-tauri/Cargo.toml
@@ -25,6 +26,8 @@ cargo fmt --manifest-path src-tauri/Cargo.toml --check
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
+
+For Rust dependency cleanup, run `(cd src-tauri && cargo machete --with-metadata)` when `cargo-machete` is installed.
 
 ## Commit Style
 

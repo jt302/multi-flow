@@ -53,6 +53,9 @@ jobs:
       - name: Release metadata consistency
         run: pnpm -s release:check
 
+      - name: Frontend — dependency audit
+        run: pnpm -s audit:frontend
+
       - name: Frontend — node tests
         run: pnpm -s test
 
