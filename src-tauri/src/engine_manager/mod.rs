@@ -296,7 +296,7 @@ impl EngineManager {
                 debug_port,
                 magic_port,
             } => {
-                std::thread::spawn(move || {
+                tauri::async_runtime::spawn_blocking(move || {
                     shutdown_chromium_process(
                         &profile_id_owned,
                         &profile_name,
@@ -1546,7 +1546,7 @@ impl EngineManager {
             let profile_id = profile_id.to_string();
             let profile_name = profile_name.clone();
             let logging_enabled = logging_enabled;
-            std::thread::spawn(move || {
+            tauri::async_runtime::spawn_blocking(move || {
                 let reader = BufReader::new(stdout);
                 for line in reader.split(b'\n') {
                     match line {
@@ -1579,7 +1579,7 @@ impl EngineManager {
             let profile_id = profile_id.to_string();
             let profile_name = profile_name.clone();
             let logging_enabled = logging_enabled;
-            std::thread::spawn(move || {
+            tauri::async_runtime::spawn_blocking(move || {
                 let reader = BufReader::new(stderr);
                 for line in reader.split(b'\n') {
                     match line {

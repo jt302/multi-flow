@@ -490,7 +490,7 @@ impl ToolRegistry {
         if is_screenshot_tool {
             // 原图继续落盘；发给模型前再生成轻量版本。
             if let Some(ref file_path) = output {
-                if let Ok(bytes) = std::fs::read(file_path) {
+                if let Ok(bytes) = tokio::fs::read(file_path).await {
                     let mime_hint = mime_hint_from_path(file_path);
                     let model_image = prepare_image_for_model_from_bytes(&bytes, mime_hint)
                         .map(|prepared| prepared.data_url)

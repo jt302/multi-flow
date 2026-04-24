@@ -1742,7 +1742,7 @@ pub(crate) fn do_open_profile(
                 magic_port,
             ));
         }
-        std::thread::spawn(move || {
+        tauri::async_runtime::spawn_blocking(move || {
             let state = app.state::<AppState>();
             let _ = state.lock_engine_manager().apply_profile_visual_overrides(
                 &profile_id_bg,

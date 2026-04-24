@@ -6,9 +6,11 @@ use crate::state::resolve_app_data_dir;
 const LOG_PANEL_LABEL: &str = "log-panel";
 
 #[tauri::command]
-pub fn read_backend_logs(limit: Option<u64>) -> Result<Vec<BackendLogEvent>, String> {
+pub async fn read_backend_logs(limit: Option<u64>) -> Result<Vec<BackendLogEvent>, String> {
     let capped = limit.unwrap_or(400).clamp(1, 2000) as usize;
-    logger::read_recent_events(capped)
+    tauri::async_runtime::spawn_blocking(move || logger::read_recent_events(capped))
+        .await
+        .map_err(|err| format!("read backend logs task failed: {err}"))?
 }
 
 #[tauri::command]
@@ -52,30 +54,35 @@ pub struct ExportBackendLogsResponse {
 }
 
 #[tauri::command]
-pub fn export_backend_logs(
+pub async fn export_backend_logs(
     app: AppHandle,
     payload: ExportBackendLogsRequest,
 ) -> Result<ExportBackendLogsResponse, String> {
-    let data_dir = resolve_app_data_dir(&app).map_err(|err| err.to_string())?;
-    let export_dir = data_dir.join("logs").join("exports");
-    std::fs::create_dir_all(&export_dir)
-        .map_err(|err| format!("create export directory failed: {err}"))?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let data_dir = resolve_app_data_dir(&app).map_err(|err| err.to_string())?;
+        let export_dir = data_dir.join("logs").join("exports");
+        std::fs::create_dir_all(&export_dir)
+            .map_err(|err| format!("create export directory failed: {err}"))?;
 
-    let default_name = format!("backend-logs-{}.log", crate::models::now_ts());
-    let sanitized_name = sanitize_file_name(payload.file_name.as_deref().unwrap_or(&default_name));
-    let file_path = export_dir.join(sanitized_name);
-    let content = if payload.lines.is_empty() {
-        String::new()
-    } else {
-        format!("{}\n", payload.lines.join("\n"))
-    };
-    std::fs::write(&file_path, content)
-        .map_err(|err| format!("write export file failed: {err}"))?;
+        let default_name = format!("backend-logs-{}.log", crate::models::now_ts());
+        let sanitized_name =
+            sanitize_file_name(payload.file_name.as_deref().unwrap_or(&default_name));
+        let file_path = export_dir.join(sanitized_name);
+        let content = if payload.lines.is_empty() {
+            String::new()
+        } else {
+            format!("{}\n", payload.lines.join("\n"))
+        };
+        std::fs::write(&file_path, content)
+            .map_err(|err| format!("write export file failed: {err}"))?;
 
-    Ok(ExportBackendLogsResponse {
-        path: file_path.to_string_lossy().to_string(),
-        line_count: payload.lines.len(),
+        Ok(ExportBackendLogsResponse {
+            path: file_path.to_string_lossy().to_string(),
+            line_count: payload.lines.len(),
+        })
     })
+    .await
+    .map_err(|err| format!("export backend logs task failed: {err}"))?
 }
 
 fn sanitize_file_name(input: &str) -> String {
