@@ -8,7 +8,7 @@ use std::sync::Once;
 use std::thread;
 use std::time::Duration;
 
-use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, Submenu, SubmenuBuilder, WINDOW_SUBMENU_ID};
 use tauri::plugin::Builder as TauriPluginBuilder;
 use tauri::utils::config::WindowConfig;
 use tauri::{
@@ -48,6 +48,7 @@ struct NativeMenuTranslations {
     reload: &'static str,
     open_log_panel: &'static str,
     open_data_dir: &'static str,
+    minimize_window: &'static str,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -171,6 +172,9 @@ pub fn run() {
                 .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))
                 .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })?;
             install_panic_hook();
+            // NSEvent 本地监听器：在 WKWebView 拦截 Cmd+W 之前截获事件，触发 minimize
+            #[cfg(target_os = "macos")]
+            install_cmd_w_local_monitor(app.handle());
 
             // 通过 builder 创建闪屏窗口，确保 transparent/decorations 正确应用到原生 WKWebView
             // （config 方式有时无法正确设置 WKWebView.isOpaque = false，导致圆角处有白边）
@@ -420,6 +424,42 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
+/// 拦截 Cmd+W 并将其转为 minimize。
+/// WKWebView 在 performKeyEquivalent: 阶段提前消费 Cmd+W，导致任何 NSMenuItem 绑定均
+/// 无效。NSEvent 本地监听器优先于所有 window/view 接收事件，能可靠截获。
+#[cfg(target_os = "macos")]
+fn install_cmd_w_local_monitor(app: &AppHandle) {
+    use block2::RcBlock;
+    use objc2_app_kit::{NSEvent, NSEventMask, NSEventModifierFlags};
+    use std::ptr::NonNull;
+
+    let app_handle = app.clone();
+    let block = RcBlock::new(move |event: NonNull<NSEvent>| -> *mut NSEvent {
+        let event_ref = unsafe { event.as_ref() };
+        // keyCode 13 = 'w'（US 布局；非 US 布局同 keyCode 不变）
+        if event_ref.keyCode() == 13 {
+            let flags = event_ref.modifierFlags();
+            let cmd = NSEventModifierFlags::Command.0;
+            let extras = (NSEventModifierFlags::Shift.0)
+                | (NSEventModifierFlags::Control.0)
+                | (NSEventModifierFlags::Option.0);
+            // 仅 Cmd，无其他修饰键
+            if flags.0 & cmd != 0 && flags.0 & extras == 0 {
+                if let Some(w) = app_handle.get_webview_window(MAIN_WINDOW_LABEL) {
+                    let _ = w.minimize();
+                }
+                return std::ptr::null_mut(); // 消费事件，不继续传递
+            }
+        }
+        event.as_ptr()
+    });
+
+    let _monitor = unsafe {
+        NSEvent::addLocalMonitorForEventsMatchingMask_handler(NSEventMask::KeyDown, &*block)
+    };
+    std::mem::forget(_monitor);
+}
+
 fn install_panic_hook() {
     PANIC_HOOK_ONCE.call_once(|| {
         let default_hook = panic::take_hook();
@@ -483,20 +523,22 @@ fn native_menu_translations_for_locale(locale: &str) -> NativeMenuTranslations {
             edit_menu: "Edit",
             window_menu: "Window",
             tools_menu: "Tools",
-            open_devtools: "Open Developer Tools",
+            open_devtools: "Developer Tools",
             reload: "Reload",
             open_log_panel: "Log Panel",
-            open_data_dir: "Open Data Directory",
+            open_data_dir: "Data Directory",
+            minimize_window: "Minimize",
         }
     } else {
         NativeMenuTranslations {
             edit_menu: "编辑",
             window_menu: "窗口",
             tools_menu: "工具",
-            open_devtools: "打开开发者调试工具",
+            open_devtools: "开发者工具",
             reload: "刷新",
             open_log_panel: "日志面板",
-            open_data_dir: "打开数据目录",
+            open_data_dir: "数据目录",
+            minimize_window: "最小化",
         }
     }
 }
@@ -552,6 +594,29 @@ pub(crate) fn setup_native_menu(
         .unwrap_or_else(|| current_app_language(app));
     let translations = native_menu_translations_for_locale(locale);
 
+    // App submenu (macOS only).
+    // Cmd+W 由 NSEvent 本地监听器（install_cmd_w_local_monitor）拦截并直接 minimize，
+    // 不依赖菜单项绑定，从而绕过 WKWebView 对 Cmd+W 的内置拦截。
+    // minimize_window(Cmd+M) 放在此菜单作为补充快捷键。
+    #[cfg(target_os = "macos")]
+    let app_submenu = Submenu::with_items(
+        app,
+        "Multi-Flow",
+        true,
+        &[
+            &PredefinedMenuItem::about(app, Some("About Multi-Flow"), None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::services(app, Some("Services"))?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::hide(app, Some("Hide Multi-Flow"))?,
+            &PredefinedMenuItem::hide_others(app, Some("Hide Others"))?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::minimize(app, Some("Minimize"))?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::quit(app, Some("Quit Multi-Flow"))?,
+        ],
+    )?;
+
     let edit_submenu = SubmenuBuilder::new(app, translations.edit_menu)
         .undo()
         .redo()
@@ -561,10 +626,23 @@ pub(crate) fn setup_native_menu(
         .paste()
         .select_all()
         .build()?;
-    let window_submenu = SubmenuBuilder::new(app, translations.window_menu)
-        .close_window()
-        .minimize()
-        .build()?;
+
+    // "窗口"菜单承载：日志面板 / 数据目录
+    // 仍用 WINDOW_SUBMENU_ID，以便 Tauri 在 macOS 上通过 NSApp.setWindowsMenu 注册为
+    // 标准 Windows 菜单（影响 Cmd+` 切窗等系统级行为）。
+    let window_submenu = Submenu::with_id_and_items(
+        app,
+        WINDOW_SUBMENU_ID,
+        translations.window_menu,
+        true,
+        &[
+            &MenuItemBuilder::with_id(MENU_ID_OPEN_LOG_PANEL, translations.open_log_panel)
+                .build(app)?,
+            &MenuItemBuilder::with_id(MENU_ID_OPEN_DATA_DIR, translations.open_data_dir)
+                .build(app)?,
+        ],
+    )?;
+
     let tools_submenu = SubmenuBuilder::new(app, translations.tools_menu)
         .item(
             &MenuItemBuilder::with_id(MENU_ID_OPEN_DEVTOOLS, translations.open_devtools)
@@ -574,21 +652,18 @@ pub(crate) fn setup_native_menu(
             &MenuItemBuilder::with_id(MENU_ID_RELOAD_MAIN_WINDOW, translations.reload)
                 .build(app)?,
         )
-        .separator()
-        .item(
-            &MenuItemBuilder::with_id(MENU_ID_OPEN_LOG_PANEL, translations.open_log_panel)
-                .build(app)?,
-        )
-        .item(
-            &MenuItemBuilder::with_id(MENU_ID_OPEN_DATA_DIR, translations.open_data_dir)
-                .build(app)?,
-        )
         .build()?;
-    let menu = MenuBuilder::new(app)
-        .item(&edit_submenu)
-        .item(&window_submenu)
-        .item(&tools_submenu)
-        .build()?;
+
+    let menu = {
+        let builder = MenuBuilder::new(app);
+        #[cfg(target_os = "macos")]
+        let builder = builder.item(&app_submenu);
+        builder
+            .item(&edit_submenu)
+            .item(&window_submenu)
+            .item(&tools_submenu)
+            .build()?
+    };
     app.set_menu(menu)?;
     Ok(())
 }
@@ -1403,19 +1478,21 @@ mod tests {
         assert_eq!(zh.edit_menu, "编辑");
         assert_eq!(zh.window_menu, "窗口");
         assert_eq!(zh.tools_menu, "工具");
-        assert_eq!(zh.open_devtools, "打开开发者调试工具");
+        assert_eq!(zh.open_devtools, "开发者工具");
         assert_eq!(zh.reload, "刷新");
         assert_eq!(zh.open_log_panel, "日志面板");
-        assert_eq!(zh.open_data_dir, "打开数据目录");
+        assert_eq!(zh.open_data_dir, "数据目录");
+        assert_eq!(zh.minimize_window, "最小化");
 
         let en = native_menu_translations_for_locale("en-US");
         assert_eq!(en.edit_menu, "Edit");
         assert_eq!(en.window_menu, "Window");
         assert_eq!(en.tools_menu, "Tools");
-        assert_eq!(en.open_devtools, "Open Developer Tools");
+        assert_eq!(en.open_devtools, "Developer Tools");
         assert_eq!(en.reload, "Reload");
         assert_eq!(en.open_log_panel, "Log Panel");
-        assert_eq!(en.open_data_dir, "Open Data Directory");
+        assert_eq!(en.open_data_dir, "Data Directory");
+        assert_eq!(en.minimize_window, "Minimize");
     }
 
     #[test]
