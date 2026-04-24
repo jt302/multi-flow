@@ -61,3 +61,14 @@ block2 = "0.6"
 
 [dev-dependencies]
 tempfile = "3"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "abort"
+opt-level = "z"
+incremental = false
+
+[profile.dev]
+opt-level = 1
