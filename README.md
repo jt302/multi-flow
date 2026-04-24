@@ -95,6 +95,9 @@ Frontend entry points and routes mainly live in `src/app` and `src/pages`, with 
 
 ## Related Docs
 
+- [ARCHITECTURE.md](ARCHITECTURE.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [SECURITY.md](SECURITY.md)
 - [docs/release.md](docs/release.md)
 - [docs/ai/architecture.md](docs/ai/architecture.md)
 - [docs/ai/chromium.md](docs/ai/chromium.md)
