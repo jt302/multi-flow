@@ -69,7 +69,7 @@ pub fn create_profile(
         .map_err(error_to_string)?;
     drop(profile_service);
 
-    if let Some(proxy_id) = requested_proxy_id {
+    let profile = if let Some(proxy_id) = requested_proxy_id {
         let proxy_service = state
             .proxy_service
             .lock()
@@ -77,19 +77,23 @@ pub fn create_profile(
         proxy_service
             .bind_profile_proxy(&created.id, &proxy_id)
             .map_err(error_to_string)?;
-    }
-    sync_profile_cookie_state_from_settings_quietly(&state, &created.id, created.settings.as_ref());
+        drop(proxy_service);
+        refresh_profile_locale_for_bound_proxy(&state, &created.id, &proxy_id)?
+    } else {
+        refresh_profile_locale_for_unbound_profile(&state, &created.id)?
+    };
+    sync_profile_cookie_state_from_settings_quietly(&state, &profile.id, profile.settings.as_ref());
     sync_profile_extension_state_from_settings_quietly(
         &state,
-        &created.id,
-        created.settings.as_ref(),
+        &profile.id,
+        profile.settings.as_ref(),
     );
 
     logger::info(
         "profile_cmd",
-        format!("create_profile success profile_id={}", created.id),
+        format!("create_profile success profile_id={}", profile.id),
     );
-    Ok(created)
+    Ok(profile)
 }
 
 #[tauri::command]
@@ -285,7 +289,7 @@ pub fn update_profile(
         );
     }
     validate_plugin_selections_from_settings(&state, payload.settings.as_ref())?;
-    let updated = profile_service
+    let _updated = profile_service
         .update_profile(&profile_id, payload.clone())
         .map_err(error_to_string)?;
     drop(profile_service);
@@ -294,17 +298,23 @@ pub fn update_profile(
         .proxy_service
         .lock()
         .map_err(|_| "proxy service lock poisoned".to_string())?;
-    if let Some(proxy_id) = payload.proxy_id {
+    let updated = if let Some(proxy_id) = payload.proxy_id {
         if proxy_id.trim().is_empty() {
             unbind_profile_proxy_if_exists(&proxy_service, &profile_id)?;
+            drop(proxy_service);
+            refresh_profile_locale_for_unbound_profile(&state, &profile_id)?
         } else {
             proxy_service
                 .bind_profile_proxy(&profile_id, &proxy_id)
                 .map_err(error_to_string)?;
+            drop(proxy_service);
+            refresh_profile_locale_for_bound_proxy(&state, &profile_id, &proxy_id)?
         }
     } else {
         unbind_profile_proxy_if_exists(&proxy_service, &profile_id)?;
-    }
+        drop(proxy_service);
+        refresh_profile_locale_for_unbound_profile(&state, &profile_id)?
+    };
     sync_profile_cookie_state_from_settings_quietly(&state, &updated.id, updated.settings.as_ref());
     sync_profile_extension_state_from_settings_quietly(
         &state,
@@ -1830,6 +1840,65 @@ fn unbind_profile_proxy_if_exists(
     }
 }
 
+pub(crate) fn refresh_profile_locale_for_bound_proxy(
+    state: &AppState,
+    profile_id: &str,
+    proxy_id: &str,
+) -> Result<Profile, String> {
+    let geoip_database = state.lock_resource_service().resolve_geoip_database_path();
+    let proxy = {
+        let proxy_service = state.lock_proxy_service();
+        if let Some(geoip_database) = geoip_database {
+            match proxy_service.ensure_proxy_locale_fresh(proxy_id, &geoip_database) {
+                Ok(proxy) => proxy,
+                Err(err) => {
+                    logger::warn(
+                        "profile_cmd",
+                        format!(
+                            "proxy locale refresh failed during binding proxy_id={proxy_id}: {err}"
+                        ),
+                    );
+                    proxy_service.get_proxy(proxy_id).map_err(error_to_string)?
+                }
+            }
+        } else {
+            proxy_service.get_proxy(proxy_id).map_err(error_to_string)?
+        }
+    };
+
+    overwrite_profile_locale(
+        state,
+        profile_id,
+        proxy.effective_language,
+        proxy.effective_timezone,
+    )
+}
+
+pub(crate) fn refresh_profile_locale_for_unbound_profile(
+    state: &AppState,
+    profile_id: &str,
+) -> Result<Profile, String> {
+    let suggestion = state.host_locale_service.refresh_for_launch();
+    overwrite_profile_locale(
+        state,
+        profile_id,
+        suggestion.as_ref().and_then(|value| value.language.clone()),
+        suggestion.as_ref().and_then(|value| value.timezone.clone()),
+    )
+}
+
+fn overwrite_profile_locale(
+    state: &AppState,
+    profile_id: &str,
+    language: Option<String>,
+    timezone_id: Option<String>,
+) -> Result<Profile, String> {
+    state
+        .lock_profile_service()
+        .overwrite_profile_locale(profile_id, language, timezone_id)
+        .map_err(error_to_string)
+}
+
 fn resolve_launch_options(
     device_preset_service: &DevicePresetService,
     profile_id: &str,
@@ -3019,7 +3088,7 @@ mod tests {
     use crate::engine_manager::EngineManager;
     use crate::local_api_server::LocalApiServer;
     use crate::models::{
-        CookieStateFile, CreateProfileRequest, ExportProfileCookiesMode,
+        CookieStateFile, CreateProfileRequest, CreateProxyRequest, ExportProfileCookiesMode,
         ExportProfileCookiesRequest, GeolocationOverride, ManagedCookie, OpenProfileOptions,
         ProfileAdvancedSettings, ProfilePluginSelection, ProfileSettings, Proxy, ProxyLifecycle,
         SavePluginPackageInput, WebRtcMode,
@@ -3096,6 +3165,59 @@ mod tests {
     fn new_test_device_preset_service() -> DevicePresetService {
         let db = db::init_test_database().expect("init test db");
         DevicePresetService::from_db(db)
+    }
+
+    #[test]
+    fn bound_proxy_locale_refresh_overwrites_profile_locale() {
+        let state = new_test_state();
+        let profile = {
+            let profile_service = state.lock_profile_service();
+            profile_service
+                .create_profile(CreateProfileRequest {
+                    name: "locale-binding-target".to_string(),
+                    group: None,
+                    note: None,
+                    proxy_id: None,
+                    settings: None,
+                })
+                .expect("create profile")
+        };
+        let proxy = {
+            let proxy_service = state.lock_proxy_service();
+            let proxy = proxy_service
+                .create_proxy(CreateProxyRequest {
+                    name: "locale-proxy".to_string(),
+                    protocol: "http".to_string(),
+                    host: "127.0.0.1".to_string(),
+                    port: 8080,
+                    username: None,
+                    password: None,
+                    provider: None,
+                    note: None,
+                    expires_at: None,
+                    language_source: Some("custom".to_string()),
+                    custom_language: Some("de-DE".to_string()),
+                    timezone_source: Some("custom".to_string()),
+                    custom_timezone: Some("Europe/Berlin".to_string()),
+                })
+                .expect("create proxy");
+            proxy_service
+                .bind_profile_proxy(&profile.id, &proxy.id)
+                .expect("bind proxy");
+            proxy
+        };
+
+        let updated = refresh_profile_locale_for_bound_proxy(&state, &profile.id, &proxy.id)
+            .expect("refresh locale from proxy");
+        let snapshot = updated
+            .settings
+            .as_ref()
+            .and_then(|settings| settings.fingerprint.as_ref())
+            .and_then(|fingerprint| fingerprint.fingerprint_snapshot.as_ref())
+            .expect("fingerprint snapshot");
+
+        assert_eq!(snapshot.language.as_deref(), Some("de-DE"));
+        assert_eq!(snapshot.time_zone.as_deref(), Some("Europe/Berlin"));
     }
 
     #[test]

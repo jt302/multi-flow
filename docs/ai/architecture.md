@@ -85,6 +85,7 @@
     - 检测阶段会写入 `exitIp / country / region / city / latitude / longitude / suggestedLanguage / suggestedTimezone`
     - 代理可分别配置语言 / 时区来源：`ip` 或 `custom`
     - `suggestedLanguage / suggestedTimezone` 仅表示 GeoIP 建议值；`effectiveLanguage / effectiveTimezone` 才是环境继承与 Chromium 启动实际消费的默认值
+    - Profile 绑定代理时会优先刷新代理画像，并把代理 `effectiveLanguage / effectiveTimezone` 覆盖写回 Profile 指纹快照；解绑代理时重新获取宿主 IP 语言 / 时区并覆盖写回。运行中的 Profile 只更新持久化配置，下次启动生效。
     - `checkStatus` 与 `checkMessage` 用于区分 `ok / error / unsupported`
     - `expiresAt` 用于代理资产过期展示，不参与 Chromium 启动参数本身
   - 代理检测依赖 GeoIP 资源时，后端会自动确保 `GeoLite2-City.mmdb` 已下载；设置页同步展示该资源状态

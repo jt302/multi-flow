@@ -197,6 +197,38 @@ impl ProfileService {
         Ok(self.to_api_profile(updated))
     }
 
+    pub(crate) fn overwrite_profile_locale(
+        &self,
+        profile_id: &str,
+        language: Option<String>,
+        timezone_id: Option<String>,
+    ) -> AppResult<Profile> {
+        let stored = self.find_profile_model(profile_id)?;
+        if stored.lifecycle == LIFECYCLE_DELETED {
+            return Err(AppError::Conflict(format!(
+                "profile already deleted: {profile_id}"
+            )));
+        }
+
+        let language = language.and_then(trim_to_option);
+        let timezone_id = timezone_id.and_then(trim_to_option);
+        let mut settings = parse_settings_json(stored.settings_json.clone()).unwrap_or_default();
+        let fingerprint = settings.fingerprint.get_or_insert_with(Default::default);
+        fingerprint.language = language.clone();
+        fingerprint.timezone_id = timezone_id.clone();
+        let snapshot = fingerprint.fingerprint_snapshot.get_or_insert_with(Default::default);
+        snapshot.language = language.clone();
+        snapshot.accept_languages = language.as_deref().map(build_accept_languages);
+        snapshot.time_zone = timezone_id;
+
+        let settings_json = serde_json::to_string(&settings)?;
+        let mut active_model: profile::ActiveModel = stored.into();
+        active_model.settings_json = Set(Some(settings_json));
+        active_model.updated_at = Set(now_ts());
+        let updated = self.db_query(active_model.update(&self.db))?;
+        Ok(self.to_api_profile(updated))
+    }
+
     pub fn get_profile(&self, profile_id: &str) -> AppResult<Profile> {
         let model = self.find_profile_model(profile_id)?;
         Ok(self.to_api_profile(model))
@@ -1770,6 +1802,121 @@ mod tests {
             snapshot.custom_font_list.as_ref(),
             Some(&vec!["Arial".to_string(), "Helvetica".to_string()])
         );
+    }
+
+    #[test]
+    fn overwrite_profile_locale_updates_snapshot_and_legacy_fields() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProfileService::from_db(db);
+
+        let profile = service
+            .create_profile(CreateProfileRequest {
+                name: "locale-profile".to_string(),
+                group: None,
+                note: None,
+                proxy_id: None,
+                settings: Some(ProfileSettings {
+                    basic: Some(ProfileBasicSettings {
+                        platform: Some("macos".to_string()),
+                        browser_version: Some(TEST_BROWSER_VERSION.to_string()),
+                        device_preset_id: Some("macos_macbook_pro_14".to_string()),
+                        ..Default::default()
+                    }),
+                    fingerprint: Some(ProfileFingerprintSettings {
+                        fingerprint_source: Some(ProfileFingerprintSource {
+                            platform: Some("macos".to_string()),
+                            device_preset_id: Some("macos_macbook_pro_14".to_string()),
+                            browser_version: Some(TEST_BROWSER_VERSION.to_string()),
+                            ..Default::default()
+                        }),
+                        language: Some("zh-CN".to_string()),
+                        timezone_id: Some("Asia/Shanghai".to_string()),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+            })
+            .expect("create profile");
+
+        let updated = service
+            .overwrite_profile_locale(
+                &profile.id,
+                Some("de-DE".to_string()),
+                Some("Europe/Berlin".to_string()),
+            )
+            .expect("overwrite locale");
+        let fingerprint = updated
+            .settings
+            .as_ref()
+            .and_then(|settings| settings.fingerprint.as_ref())
+            .expect("fingerprint settings");
+        let snapshot = fingerprint
+            .fingerprint_snapshot
+            .as_ref()
+            .expect("fingerprint snapshot");
+
+        assert_eq!(fingerprint.language.as_deref(), Some("de-DE"));
+        assert_eq!(fingerprint.timezone_id.as_deref(), Some("Europe/Berlin"));
+        assert_eq!(snapshot.language.as_deref(), Some("de-DE"));
+        assert_eq!(snapshot.time_zone.as_deref(), Some("Europe/Berlin"));
+        assert_eq!(
+            snapshot.accept_languages.as_deref(),
+            Some("de-DE,de;q=0.9,en;q=0.8")
+        );
+    }
+
+    #[test]
+    fn overwrite_profile_locale_allows_running_profiles() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProfileService::from_db(db);
+
+        let profile = service
+            .create_profile(CreateProfileRequest {
+                name: "running-locale-profile".to_string(),
+                group: None,
+                note: None,
+                proxy_id: None,
+                settings: Some(ProfileSettings {
+                    basic: Some(ProfileBasicSettings {
+                        platform: Some("macos".to_string()),
+                        browser_version: Some(TEST_BROWSER_VERSION.to_string()),
+                        device_preset_id: Some("macos_macbook_pro_14".to_string()),
+                        ..Default::default()
+                    }),
+                    fingerprint: Some(ProfileFingerprintSettings {
+                        fingerprint_source: Some(ProfileFingerprintSource {
+                            platform: Some("macos".to_string()),
+                            device_preset_id: Some("macos_macbook_pro_14".to_string()),
+                            browser_version: Some(TEST_BROWSER_VERSION.to_string()),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+            })
+            .expect("create profile");
+        service
+            .mark_profile_running(&profile.id, true)
+            .expect("mark running");
+
+        let updated = service
+            .overwrite_profile_locale(
+                &profile.id,
+                Some("en-US".to_string()),
+                Some("America/New_York".to_string()),
+            )
+            .expect("overwrite running profile locale");
+
+        assert!(updated.running);
+        let snapshot = updated
+            .settings
+            .as_ref()
+            .and_then(|settings| settings.fingerprint.as_ref())
+            .and_then(|fingerprint| fingerprint.fingerprint_snapshot.as_ref())
+            .expect("fingerprint snapshot");
+        assert_eq!(snapshot.language.as_deref(), Some("en-US"));
+        assert_eq!(snapshot.time_zone.as_deref(), Some("America/New_York"));
     }
 
     #[test]

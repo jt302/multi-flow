@@ -2911,6 +2911,10 @@ curl -X POST http://127.0.0.1:9999/ \
 2. 代理的 `effectiveLanguage / effectiveTimezone`
 3. 如果代理没有生效值，再回退旧的国家码默认映射
 
+绑定代理会先刷新代理画像，再把 `effectiveLanguage / effectiveTimezone`
+覆盖写回 Profile 指纹快照；解绑代理会重新获取宿主 IP 对应语言 / 时区并写回。
+运行中的 Profile 不热更新，重启后使用新配置。
+
 代理内部区分：
 
 - `suggestedLanguage / suggestedTimezone`

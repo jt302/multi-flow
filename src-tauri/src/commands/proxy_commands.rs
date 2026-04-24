@@ -1,5 +1,8 @@
 use tauri::{AppHandle, Manager, State};
 
+use crate::commands::profile_commands::{
+    refresh_profile_locale_for_bound_proxy, refresh_profile_locale_for_unbound_profile,
+};
 use crate::error::AppError;
 use crate::logger;
 use crate::models::{
@@ -223,9 +226,12 @@ pub fn bind_profile_proxy(
         .proxy_service
         .lock()
         .map_err(|_| "proxy service lock poisoned".to_string())?;
-    proxy_service
+    let binding = proxy_service
         .bind_profile_proxy(&profile_id, &proxy_id)
-        .map_err(error_to_string)
+        .map_err(error_to_string)?;
+    drop(proxy_service);
+    refresh_profile_locale_for_bound_proxy(&state, &profile_id, &proxy_id)?;
+    Ok(binding)
 }
 
 #[tauri::command]
@@ -237,9 +243,12 @@ pub fn unbind_profile_proxy(
         .proxy_service
         .lock()
         .map_err(|_| "proxy service lock poisoned".to_string())?;
-    proxy_service
+    let binding = proxy_service
         .unbind_profile_proxy(&profile_id)
-        .map_err(error_to_string)
+        .map_err(error_to_string)?;
+    drop(proxy_service);
+    refresh_profile_locale_for_unbound_profile(&state, &profile_id)?;
+    Ok(binding)
 }
 
 #[tauri::command]
