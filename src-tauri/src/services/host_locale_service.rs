@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 /// 本机公网 IP 地理定位服务
 ///
 /// 使用 `.no_proxy()` reqwest 客户端直连 ipinfo.io，不走任何系统代理，
@@ -10,7 +11,6 @@
 /// profile 启动时调用 `refresh_for_launch()` 同步获取（带短 TTL 退避）。
 use std::env;
 use std::net::IpAddr;
-use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -151,9 +151,8 @@ impl HostLocaleService {
         }
 
         let geoip_db_path = (self.geoip_db_path)();
-        let fresh = crate::runtime_compat::block_on_compat(
-            fetch_host_locale(geoip_db_path.as_deref()),
-        );
+        let fresh =
+            crate::runtime_compat::block_on_compat(fetch_host_locale(geoip_db_path.as_deref()));
 
         if fresh.source == "none" && fresh.exit_ip.is_none() {
             crate::logger::warn(
@@ -193,7 +192,9 @@ async fn fetch_host_locale(geoip_db_path: Option<&Path>) -> HostLocaleSuggestion
     }
 }
 
-async fn try_fetch_host_locale(geoip_db_path: Option<&Path>) -> Result<HostLocaleSuggestion, String> {
+async fn try_fetch_host_locale(
+    geoip_db_path: Option<&Path>,
+) -> Result<HostLocaleSuggestion, String> {
     let mut errors: Vec<String> = Vec::new();
 
     let endpoints = resolve_host_locale_urls();
@@ -214,33 +215,32 @@ async fn try_fetch_host_locale(geoip_db_path: Option<&Path>) -> Result<HostLocal
     for endpoint in endpoints {
         let mut attempted_with_proxy = false;
 
-        for (label, client) in [
-            ("direct", &direct_client),
-            ("system_proxy", &proxy_client),
-        ] {
+        for (label, client) in [("direct", &direct_client), ("system_proxy", &proxy_client)] {
             match fetch_host_locale_response(client, &endpoint.url).await {
-                Ok(resp) => match build_host_locale_suggestion(resp, endpoint.source, geoip_db_path) {
-                    Ok(suggestion) => {
-                        if label == "system_proxy" {
-                            crate::logger::warn(
-                                "host_locale",
-                                format!(
-                                    "系统代理路径获取到 host locale，来源 {}",
-                                    endpoint.source
-                                ),
-                            );
+                Ok(resp) => {
+                    match build_host_locale_suggestion(resp, endpoint.source, geoip_db_path) {
+                        Ok(suggestion) => {
+                            if label == "system_proxy" {
+                                crate::logger::warn(
+                                    "host_locale",
+                                    format!(
+                                        "系统代理路径获取到 host locale，来源 {}",
+                                        endpoint.source
+                                    ),
+                                );
+                            }
+                            return Ok(suggestion);
                         }
-                        return Ok(suggestion);
+                        Err(err) => {
+                            let msg = format!(
+                                "{} response format invalid via {}: {}",
+                                endpoint.source, label, err
+                            );
+                            errors.push(msg.clone());
+                            crate::logger::warn("host_locale", msg);
+                        }
                     }
-                    Err(err) => {
-                        let msg = format!(
-                            "{} response format invalid via {}: {}",
-                            endpoint.source, label, err
-                        );
-                        errors.push(msg.clone());
-                        crate::logger::warn("host_locale", msg);
-                    }
-                },
+                }
                 Err(err) => {
                     attempted_with_proxy = true;
                     let msg = format!(
@@ -265,10 +265,7 @@ async fn try_fetch_host_locale(geoip_db_path: Option<&Path>) -> Result<HostLocal
     ))
 }
 
-async fn fetch_host_locale_response(
-    client: &Client,
-    url: &str,
-) -> Result<IpInfoResponse, String> {
+async fn fetch_host_locale_response(client: &Client, url: &str) -> Result<IpInfoResponse, String> {
     let response = client
         .get(url)
         .header("Accept", "application/json")
@@ -282,13 +279,23 @@ async fn fetch_host_locale_response(
 
     // 尝试完整响应解析
     if let Ok(parsed) = serde_json::from_str::<IpInfoResponse>(&body) {
-        if parsed.ip.as_deref().and_then(trim_str).and_then(|ip| ip.parse::<IpAddr>().ok()).is_some() {
+        if parsed
+            .ip
+            .as_deref()
+            .and_then(trim_str)
+            .and_then(|ip| ip.parse::<IpAddr>().ok())
+            .is_some()
+        {
             return Ok(parsed);
         }
     }
 
     // 纯 IP 文本响应（ipify / ip.sb / ifconfig.me 等）
-    let ip_str = body.lines().next().and_then(trim_str).ok_or("empty response")?;
+    let ip_str = body
+        .lines()
+        .next()
+        .and_then(trim_str)
+        .ok_or("empty response")?;
     ip_str.parse::<IpAddr>().map_err(|e| e.to_string())?;
     Ok(IpInfoResponse {
         ip: Some(ip_str.to_string()),
@@ -307,12 +314,7 @@ fn resolve_host_locale_urls() -> Vec<HostLocaleEndpoint> {
 
     if let Ok(custom) = env::var(IPINFO_URL_ENV) {
         if let Some(v) = trim_str(&custom) {
-            push_host_locale_endpoint(
-                &mut endpoints,
-                &mut seen_urls,
-                v.to_string(),
-                "ipinfo",
-            );
+            push_host_locale_endpoint(&mut endpoints, &mut seen_urls, v.to_string(), "ipinfo");
         }
     }
     if let Ok(token) = env::var(IPINFO_TOKEN_ENV) {
@@ -365,9 +367,7 @@ fn build_host_locale_suggestion(
         None => return Err("missing valid ip value".to_string()),
     };
 
-    let language = country
-        .as_deref()
-        .and_then(default_language_for_country);
+    let language = country.as_deref().and_then(default_language_for_country);
 
     // 时区优先通过 GeoLite2-City.mmdb 精确查询（city 级别）；
     // mmdb 未就绪或查询失败时回退到国家级默认时区。
@@ -405,25 +405,17 @@ fn build_host_locale_suggestion(
 fn lookup_timezone_via_mmdb(db_path: &Path, ip: IpAddr) -> Option<String> {
     let reader = maxminddb::Reader::open_readfile(db_path)
         .map_err(|e| {
-            crate::logger::warn(
-                "host_locale",
-                format!("无法打开 GeoLite2-City mmdb: {e}"),
-            );
+            crate::logger::warn("host_locale", format!("无法打开 GeoLite2-City mmdb: {e}"));
         })
         .ok()?;
-    let record: Option<GeoIpCityTimezone> = reader.lookup(ip)
+    let record: Option<GeoIpCityTimezone> = reader
+        .lookup(ip)
         .map_err(|e| {
-            crate::logger::warn(
-                "host_locale",
-                format!("mmdb 时区查询失败 ip={ip}: {e}"),
-            );
+            crate::logger::warn("host_locale", format!("mmdb 时区查询失败 ip={ip}: {e}"));
         })
         .and_then(|lookup| {
             lookup.decode::<GeoIpCityTimezone>().map_err(|e| {
-                crate::logger::warn(
-                    "host_locale",
-                    format!("mmdb 时区解码失败 ip={ip}: {e}"),
-                );
+                crate::logger::warn("host_locale", format!("mmdb 时区解码失败 ip={ip}: {e}"));
             })
         })
         .ok()?;
@@ -461,7 +453,11 @@ fn parse_loc(loc: Option<&str>) -> (Option<f64>, Option<f64>) {
 
 fn trim_str(s: &str) -> Option<&str> {
     let trimmed = s.trim();
-    if trimmed.is_empty() { None } else { Some(trimmed) }
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed)
+    }
 }
 
 #[cfg(test)]

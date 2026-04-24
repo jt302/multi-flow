@@ -1552,13 +1552,11 @@ pub(crate) fn do_open_profile(
                 .and_then(trim_str_to_option)
         })
         .unwrap_or_else(|| "macos".to_string());
-    let resolved_browser_version = preferred_spoof_browser_version
-        .clone()
-        .unwrap_or_else(|| {
-            crate::chromium_version_catalog::latest_for(&simulated_platform)
-                .version
-                .to_string()
-        });
+    let resolved_browser_version = preferred_spoof_browser_version.clone().unwrap_or_else(|| {
+        crate::chromium_version_catalog::latest_for(&simulated_platform)
+            .version
+            .to_string()
+    });
     let chromium_executable = {
         let resource_service = state.lock_resource_service();
         // 在 debug 模式下，优先使用开发者配置的自定义 Chromium 路径
@@ -1662,35 +1660,34 @@ pub(crate) fn do_open_profile(
         .unwrap_or(crate::models::LocaleMode::Auto);
 
     // Auto 模式 + 有代理：若代理 effective locale 缺失则触发一次轻量 GeoIP 查询并持久化
-    let refreshed_proxy: Option<crate::models::Proxy> = if locale_mode
-        == crate::models::LocaleMode::Auto
-    {
-        if let (Some(proxy), Some(db_path)) = (bound_proxy.as_ref(), geoip_database.as_ref()) {
-            if proxy.effective_language.is_none() && proxy.effective_timezone.is_none() {
-                match state
-                    .lock_proxy_service()
-                    .ensure_proxy_locale_fresh(&proxy.id, db_path)
-                {
-                    Ok(fresh) => Some(fresh),
-                    Err(err) => {
-                        logger::warn(
-                            "profile_cmd",
-                            format!(
+    let refreshed_proxy: Option<crate::models::Proxy> =
+        if locale_mode == crate::models::LocaleMode::Auto {
+            if let (Some(proxy), Some(db_path)) = (bound_proxy.as_ref(), geoip_database.as_ref()) {
+                if proxy.effective_language.is_none() && proxy.effective_timezone.is_none() {
+                    match state
+                        .lock_proxy_service()
+                        .ensure_proxy_locale_fresh(&proxy.id, db_path)
+                    {
+                        Ok(fresh) => Some(fresh),
+                        Err(err) => {
+                            logger::warn(
+                                "profile_cmd",
+                                format!(
                                 "proxy locale refresh failed, falling back to host locale: {err}"
                             ),
-                        );
-                        None
+                            );
+                            None
+                        }
                     }
+                } else {
+                    None
                 }
             } else {
                 None
             }
         } else {
             None
-        }
-    } else {
-        None
-    };
+        };
 
     let effective_bound_proxy = refreshed_proxy.as_ref().or(bound_proxy.as_ref());
 
@@ -3039,13 +3036,13 @@ pub async fn host_locale_suggestion(
 
 #[cfg(test)]
 mod tests {
+    use sea_orm::ConnectionTrait;
+    use serde_json::json;
     use std::io::{Read, Write};
     use std::net::TcpListener;
     use std::sync::Mutex;
     use std::thread;
     use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-    use sea_orm::ConnectionTrait;
-    use serde_json::json;
 
     use super::*;
     use crate::db;

@@ -1925,8 +1925,7 @@ fn execute_steps<'a>(
                             .unwrap_or_else(|e| e.into_inner());
                         guard.insert(run_id.to_string(), tx);
                     }
-                    let (profile_id, profile_name, batch_id) =
-                        resolve_run_ctx(app, run_id);
+                    let (profile_id, profile_name, batch_id) = resolve_run_ctx(app, run_id);
                     let _ = app.emit(
                         "automation_step_error_pause",
                         AutomationStepErrorPauseEvent {
@@ -4610,8 +4609,13 @@ pub async fn execute_step(
                     .insert(run_id.to_string(), tx);
             }
             let _ = app.emit_to("main", "automation_human_required", {
-                let mut evt =
-                    human_event_base(app, run_id, "form", message_str.unwrap_or_default(), step_index);
+                let mut evt = human_event_base(
+                    app,
+                    run_id,
+                    "form",
+                    message_str.unwrap_or_default(),
+                    step_index,
+                );
                 evt.title = Some(title);
                 evt.timeout_ms = *timeout_ms;
                 evt.fields = Some(fields.clone());
@@ -4673,8 +4677,13 @@ pub async fn execute_step(
                     .insert(run_id.to_string(), tx);
             }
             let _ = app.emit_to("main", "automation_human_required", {
-                let mut evt =
-                    human_event_base(app, run_id, "table", message_str.unwrap_or_default(), step_index);
+                let mut evt = human_event_base(
+                    app,
+                    run_id,
+                    "table",
+                    message_str.unwrap_or_default(),
+                    step_index,
+                );
                 evt.title = Some(title);
                 evt.timeout_ms = *timeout_ms;
                 evt.columns = Some(columns.clone());
@@ -4794,7 +4803,8 @@ pub async fn execute_step(
                     .insert(run_id.to_string(), tx);
             }
             let _ = app.emit_to("main", "automation_human_required", {
-                let mut evt = human_event_base(app, run_id, "countdown", message.clone(), step_index);
+                let mut evt =
+                    human_event_base(app, run_id, "countdown", message.clone(), step_index);
                 evt.title = title.clone();
                 evt.seconds = Some(*seconds);
                 evt.level = Some(level.clone());

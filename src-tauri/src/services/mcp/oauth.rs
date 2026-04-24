@@ -65,9 +65,12 @@ pub async fn wait_for_oauth_callback(port: u16, expected_state: String) -> Resul
                 if received_state != state_expected {
                     let mut lock = tx.lock().await;
                     if let Some(sender) = lock.take() {
-                        let _ = sender.send(Err("OAuth state mismatch (possible CSRF attack)".to_string()));
+                        let _ = sender.send(Err(
+                            "OAuth state mismatch (possible CSRF attack)".to_string()
+                        ));
                     }
-                    return "Authorization failed: state mismatch. You can close this window.".to_string();
+                    return "Authorization failed: state mismatch. You can close this window."
+                        .to_string();
                 }
                 if let Some(code) = params.get("code") {
                     let mut lock = tx.lock().await;
@@ -152,9 +155,7 @@ pub async fn exchange_code_for_token(
         now + secs
     });
 
-    let token_type = token_response["token_type"]
-        .as_str()
-        .map(|s| s.to_string());
+    let token_type = token_response["token_type"].as_str().map(|s| s.to_string());
 
     Ok(OAuthTokens {
         access_token,
@@ -214,9 +215,7 @@ pub async fn refresh_access_token(
         now + secs
     });
 
-    let token_type = token_response["token_type"]
-        .as_str()
-        .map(|s| s.to_string());
+    let token_type = token_response["token_type"].as_str().map(|s| s.to_string());
 
     Ok(OAuthTokens {
         access_token,
@@ -244,7 +243,8 @@ const KEYRING_SERVICE: &str = "io.multiflow.app.mcp";
 pub fn save_tokens_to_keychain(server_id: &str, tokens_json: &str) -> Result<(), String> {
     let entry = keyring::Entry::new(KEYRING_SERVICE, server_id)
         .map_err(|e| format!("Keychain 条目创建失败: {e}"))?;
-    entry.set_password(tokens_json)
+    entry
+        .set_password(tokens_json)
         .map_err(|e| format!("Keychain 写入失败: {e}"))
 }
 

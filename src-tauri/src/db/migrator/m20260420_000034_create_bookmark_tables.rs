@@ -26,9 +26,7 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(BookmarkTemplates::TreeJson)
                             .text()
                             .not_null()
-                            .default(
-                                r#"{"roots":{"bookmark_bar":[],"other":[],"mobile":[]}}"#,
-                            ),
+                            .default(r#"{"roots":{"bookmark_bar":[],"other":[],"mobile":[]}}"#),
                     )
                     .col(
                         ColumnDef::new(BookmarkTemplates::Version)
@@ -125,11 +123,7 @@ impl MigrationTrait for Migration {
             )
             .await?;
         manager
-            .drop_table(
-                Table::drop()
-                    .table(BookmarkTemplates::Table)
-                    .to_owned(),
-            )
+            .drop_table(Table::drop().table(BookmarkTemplates::Table).to_owned())
             .await?;
         Ok(())
     }

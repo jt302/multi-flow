@@ -55,7 +55,10 @@ pub async fn update_mcp_server(
 /// 删除 MCP 服务器
 #[command]
 pub async fn delete_mcp_server(app: AppHandle, id: String) -> Result<(), String> {
-    mcp(&app).delete_server(&id).await.map_err(|e| e.to_string())
+    mcp(&app)
+        .delete_server(&id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// 启用 MCP 服务器

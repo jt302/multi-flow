@@ -1,8 +1,10 @@
+pub mod ai_skill_commands;
 pub mod automation_canvas_commands;
-pub mod bookmark_commands;
 pub mod automation_commands;
-pub mod chromium_version_commands;
+pub mod bookmark_commands;
 pub mod chat_commands;
+pub mod chromium_version_commands;
+pub mod fs_workspace_commands;
 pub mod group_commands;
 pub mod log_commands;
 pub mod mcp_commands;
@@ -12,5 +14,3 @@ pub mod proxy_commands;
 pub mod resource_commands;
 pub mod sync_commands;
 pub mod window_commands;
-pub mod ai_skill_commands;
-pub mod fs_workspace_commands;

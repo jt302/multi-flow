@@ -196,9 +196,12 @@ pub async fn get_profile_bookmarks(
             .connect_timeout(std::time::Duration::from_secs(5))
             .build()
             .unwrap_or_default();
-        let body =
-            super::automation_commands::magic_post(&client, port, json!({ "cmd": "get_bookmarks" }))
-                .await?;
+        let body = super::automation_commands::magic_post(
+            &client,
+            port,
+            json!({ "cmd": "get_bookmarks" }),
+        )
+        .await?;
         let data = extract_magic_data(&body)?;
         return Ok(GetProfileBookmarksResponse {
             profile_id,
@@ -224,12 +227,7 @@ pub async fn get_profile_bookmarks(
                     .iter()
                     .map(state_node_to_display)
                     .collect(),
-                other: file
-                    .roots
-                    .other
-                    .iter()
-                    .map(state_node_to_display)
-                    .collect(),
+                other: file.roots.other.iter().map(state_node_to_display).collect(),
                 mobile: file
                     .roots
                     .mobile
@@ -406,7 +404,13 @@ pub async fn import_bookmarks_to_profile(
 
     if let Some(port) = get_magic_port(&state, &req.profile_id) {
         // Live path: apply via Magic Controller
-        apply_state_to_running_profile(port, &import_state, &req.strategy, req.folder_title.as_deref()).await
+        apply_state_to_running_profile(
+            port,
+            &import_state,
+            &req.strategy,
+            req.folder_title.as_deref(),
+        )
+        .await
     } else {
         // Offline path: write to bookmark-state.json (applied on next launch)
         let path = bookmark_state_path(&state, &req.profile_id)?;
@@ -444,7 +448,10 @@ pub async fn import_bookmarks_to_profile(
                             environment_id: Some(req.profile_id.clone()),
                             roots: Default::default(),
                         });
-                merged.roots.bookmark_bar.extend(import_state.roots.bookmark_bar);
+                merged
+                    .roots
+                    .bookmark_bar
+                    .extend(import_state.roots.bookmark_bar);
                 merged.roots.other.extend(import_state.roots.other);
                 merged.roots.mobile.extend(import_state.roots.mobile);
                 merged
@@ -536,9 +543,7 @@ fn create_nodes_recursive<'a>(
                     )
                     .await?;
                     let folder_data = extract_magic_data(&folder_body)?;
-                    if let Some(new_id) =
-                        folder_data.get("node_id").and_then(|v| v.as_str())
-                    {
+                    if let Some(new_id) = folder_data.get("node_id").and_then(|v| v.as_str()) {
                         if let Some(children) = &node.children {
                             create_nodes_recursive(client, port, new_id, children).await?;
                         }
@@ -846,8 +851,12 @@ pub async fn diff_template_with_profile(
                 .collect();
             let other: Vec<BookmarkDisplayNode> =
                 file.roots.other.iter().map(state_node_to_display).collect();
-            let mobile: Vec<BookmarkDisplayNode> =
-                file.roots.mobile.iter().map(state_node_to_display).collect();
+            let mobile: Vec<BookmarkDisplayNode> = file
+                .roots
+                .mobile
+                .iter()
+                .map(state_node_to_display)
+                .collect();
             flatten_display_nodes(&bm_bar, "", &mut profile_map);
             flatten_display_nodes(&other, "other", &mut profile_map);
             flatten_display_nodes(&mobile, "mobile", &mut profile_map);

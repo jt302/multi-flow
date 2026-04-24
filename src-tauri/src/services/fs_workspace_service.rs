@@ -5,8 +5,8 @@
 //! - 自定义沙箱根：用户在设置中指定的路径
 //! - 外部白名单目录：用户手动添加的外部目录（各自有 allowWrite 权限）
 
-use std::path::{Component, Path, PathBuf};
 use std::fs;
+use std::path::{Component, Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
 use serde::{Deserialize, Serialize};
@@ -104,7 +104,9 @@ impl FsWorkspaceService {
             let meta = entry.metadata()?;
             let is_dir = meta.is_dir();
             let size = if is_dir { None } else { Some(meta.len()) };
-            let modified_at = meta.modified().ok()
+            let modified_at = meta
+                .modified()
+                .ok()
                 .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
                 .map(|d| d.as_millis() as i64);
 
@@ -131,9 +133,7 @@ impl FsWorkspaceService {
         }
 
         // 目录优先，名称排序
-        entries.sort_by(|a, b| {
-            b.is_dir.cmp(&a.is_dir).then(a.name.cmp(&b.name))
-        });
+        entries.sort_by(|a, b| b.is_dir.cmp(&a.is_dir).then(a.name.cmp(&b.name)));
 
         Ok(entries)
     }
@@ -142,7 +142,9 @@ impl FsWorkspaceService {
     pub fn create_folder(&self, root_id: &str, rel_path: &str) -> AppResult<()> {
         let (root_path, allow_write) = self.get_root_base(root_id)?;
         if !allow_write {
-            return Err(AppError::Validation("该根目录为只读，不允许创建文件夹".to_string()));
+            return Err(AppError::Validation(
+                "该根目录为只读，不允许创建文件夹".to_string(),
+            ));
         }
         let target = self.safe_join(&root_path, rel_path)?;
         fs::create_dir_all(&target)?;
@@ -153,7 +155,9 @@ impl FsWorkspaceService {
     pub fn delete_entry(&self, root_id: &str, rel_path: &str) -> AppResult<()> {
         let (root_path, allow_write) = self.get_root_base(root_id)?;
         if !allow_write {
-            return Err(AppError::Validation("该根目录为只读，不允许删除".to_string()));
+            return Err(AppError::Validation(
+                "该根目录为只读，不允许删除".to_string(),
+            ));
         }
         let target = self.safe_join(&root_path, rel_path)?;
         // 禁止删除根目录本身
@@ -184,7 +188,9 @@ impl FsWorkspaceService {
     pub fn save_description(&self, root_id: &str, rel_path: &str, text: &str) -> AppResult<()> {
         let (root_path, allow_write) = self.get_root_base(root_id)?;
         if !allow_write {
-            return Err(AppError::Validation("该根目录为只读，不允许写入说明".to_string()));
+            return Err(AppError::Validation(
+                "该根目录为只读，不允许写入说明".to_string(),
+            ));
         }
         let dir = self.safe_join(&root_path, rel_path)?;
         if !dir.is_dir() {
@@ -209,7 +215,8 @@ impl FsWorkspaceService {
 
         let pref_svc = AppPreferenceService::from_app_handle(&self.app)?;
         let whitelist = pref_svc.get_fs_external_whitelist()?;
-        let entry = whitelist.into_iter()
+        let entry = whitelist
+            .into_iter()
             .find(|e| e.id == root_id)
             .ok_or_else(|| AppError::Validation(format!("未找到根目录: {root_id}")))?;
 
@@ -231,7 +238,9 @@ impl FsWorkspaceService {
         const MAX_READ: u64 = 10 * 1024 * 1024;
         if meta.len() > MAX_READ {
             return Err(AppError::Validation(format!(
-                "文件过大 ({} bytes，上限 {} bytes)", meta.len(), MAX_READ
+                "文件过大 ({} bytes，上限 {} bytes)",
+                meta.len(),
+                MAX_READ
             )));
         }
         fs::read_to_string(&target)
@@ -242,12 +251,16 @@ impl FsWorkspaceService {
     pub fn write_file(&self, root_id: &str, rel_path: &str, content: &str) -> AppResult<()> {
         let (root_path, allow_write) = self.get_root_base(root_id)?;
         if !allow_write {
-            return Err(AppError::Validation("该根目录为只读，不允许写入文件".to_string()));
+            return Err(AppError::Validation(
+                "该根目录为只读，不允许写入文件".to_string(),
+            ));
         }
         const MAX_WRITE: usize = 10 * 1024 * 1024;
         if content.len() > MAX_WRITE {
             return Err(AppError::Validation(format!(
-                "内容过大 ({} bytes，上限 {} bytes)", content.len(), MAX_WRITE
+                "内容过大 ({} bytes，上限 {} bytes)",
+                content.len(),
+                MAX_WRITE
             )));
         }
         let target = self.safe_join(&root_path, rel_path)?;
@@ -262,18 +275,24 @@ impl FsWorkspaceService {
     pub fn append_file(&self, root_id: &str, rel_path: &str, content: &str) -> AppResult<()> {
         let (root_path, allow_write) = self.get_root_base(root_id)?;
         if !allow_write {
-            return Err(AppError::Validation("该根目录为只读，不允许追加文件".to_string()));
+            return Err(AppError::Validation(
+                "该根目录为只读，不允许追加文件".to_string(),
+            ));
         }
         const MAX_WRITE: usize = 10 * 1024 * 1024;
         if content.len() > MAX_WRITE {
             return Err(AppError::Validation(format!(
-                "追加内容过大 ({} bytes，上限 {} bytes)", content.len(), MAX_WRITE
+                "追加内容过大 ({} bytes，上限 {} bytes)",
+                content.len(),
+                MAX_WRITE
             )));
         }
         let target = self.safe_join(&root_path, rel_path)?;
         use std::io::Write;
         let mut file = fs::OpenOptions::new()
-            .create(true).append(true).open(&target)
+            .create(true)
+            .append(true)
+            .open(&target)
             .map_err(|e| AppError::Validation(format!("打开 '{}' 失败: {e}", rel_path)))?;
         file.write_all(content.as_bytes())
             .map_err(|e| AppError::Validation(format!("追加 '{}' 失败: {e}", rel_path)))
@@ -333,7 +352,9 @@ impl FsWorkspaceService {
                 Component::Normal(part) => resolved.push(part),
                 Component::CurDir => {}
                 Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
-                    return Err(AppError::Validation("非法路径：禁止使用 .. 或绝对路径".to_string()));
+                    return Err(AppError::Validation(
+                        "非法路径：禁止使用 .. 或绝对路径".to_string(),
+                    ));
                 }
             }
         }
@@ -376,7 +397,9 @@ pub fn safe_join_path(root: &std::path::Path, rel: &str) -> AppResult<PathBuf> {
             Component::Normal(part) => resolved.push(part),
             Component::CurDir => {}
             Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
-                return Err(AppError::Validation("非法路径：禁止使用 .. 或绝对路径".to_string()));
+                return Err(AppError::Validation(
+                    "非法路径：禁止使用 .. 或绝对路径".to_string(),
+                ));
             }
         }
     }

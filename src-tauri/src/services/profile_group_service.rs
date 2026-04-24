@@ -33,9 +33,7 @@ impl ProfileGroupService {
             .and_then(trim_to_option)
             .map(normalize_hex_color)
             .transpose()?;
-        let toolbar_label_mode = req
-            .toolbar_label_mode
-            .unwrap_or(ToolbarLabelMode::IdOnly);
+        let toolbar_label_mode = req.toolbar_label_mode.unwrap_or(ToolbarLabelMode::IdOnly);
 
         let exists = self.db_query(
             profile_group::Entity::find()
@@ -104,9 +102,7 @@ impl ProfileGroupService {
             .and_then(trim_to_option)
             .map(normalize_hex_color)
             .transpose()?;
-        let toolbar_label_mode = req
-            .toolbar_label_mode
-            .unwrap_or(ToolbarLabelMode::IdOnly);
+        let toolbar_label_mode = req.toolbar_label_mode.unwrap_or(ToolbarLabelMode::IdOnly);
         let duplicate = self.db_query(
             profile_group::Entity::find()
                 .filter(profile_group::Column::Name.eq(name.clone()))
@@ -423,8 +419,8 @@ mod tests {
                     browser_bg_color: None,
                     toolbar_label_mode: None,
                 },
-        )
-        .expect_err("duplicate rename should fail");
+            )
+            .expect_err("duplicate rename should fail");
         assert!(duplicate_err.to_string().contains("group already exists"));
     }
 
@@ -451,7 +447,12 @@ mod tests {
         let listed = group_service.list_groups(false).expect("list groups");
         let serialized = serde_json::to_value(&listed.items[0]).expect("serialize group");
 
-        assert_eq!(serialized.get("browserBgColor").and_then(|value| value.as_str()), Some("#0F8A73"));
+        assert_eq!(
+            serialized
+                .get("browserBgColor")
+                .and_then(|value| value.as_str()),
+            Some("#0F8A73")
+        );
         assert_eq!(
             serialized
                 .get("toolbarLabelMode")

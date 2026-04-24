@@ -62,6 +62,9 @@ jobs:
       - name: Backend — cargo check
         run: cargo check --manifest-path src-tauri/Cargo.toml
 
+      - name: Backend — cargo fmt
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+
       - name: Backend — cargo clippy
         run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 

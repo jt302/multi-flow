@@ -181,14 +181,26 @@ pub enum ToolRiskLevel {
 pub fn tool_risk_level(tool_name: &str) -> ToolRiskLevel {
     match tool_name {
         // 危险工具 —— 破坏性操作
-        "app_delete_profile" | "app_delete_proxy" | "app_delete_group" | "app_stop_profile"
-        | "app_update_device_preset" | "app_delete_device_preset" | "magic_set_closed"
-        | "magic_safe_quit" | "file_write" | "file_append" | "file_mkdir"
-        | "file_str_replace" | "file_write_folder_desc" | "cdp_clear_storage"
-        | "cdp_delete_cookies" | "auto_delete_script"
-        | "skill_create" | "skill_update" | "skill_delete" | "skill_install" => {
-            ToolRiskLevel::Dangerous
-        }
+        "app_delete_profile"
+        | "app_delete_proxy"
+        | "app_delete_group"
+        | "app_stop_profile"
+        | "app_update_device_preset"
+        | "app_delete_device_preset"
+        | "magic_set_closed"
+        | "magic_safe_quit"
+        | "file_write"
+        | "file_append"
+        | "file_mkdir"
+        | "file_str_replace"
+        | "file_write_folder_desc"
+        | "cdp_clear_storage"
+        | "cdp_delete_cookies"
+        | "auto_delete_script"
+        | "skill_create"
+        | "skill_update"
+        | "skill_delete"
+        | "skill_install" => ToolRiskLevel::Dangerous,
 
         // 安全工具 —— 只读操作
         name if name.starts_with("app_list_")
@@ -298,7 +310,10 @@ impl ToolRegistry {
                     if !full.attachments.is_empty() {
                         output.push_str("\n\n---\n## Skill Attachments\n");
                         for att in &full.attachments {
-                            output.push_str(&format!("\n### {}\n\n```\n{}\n```\n", att.path, att.content));
+                            output.push_str(&format!(
+                                "\n### {}\n\n```\n{}\n```\n",
+                                att.path, att.content
+                            ));
                         }
                     }
                     Ok(ToolResult::text(output))

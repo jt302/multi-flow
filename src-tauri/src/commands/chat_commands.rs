@@ -93,7 +93,15 @@ pub async fn send_chat_message(
     image_base64: Option<String>,
 ) -> Result<(), String> {
     // 获取会话配置
-    let (profile_id, ai_config_id, system_prompt, tool_categories, profile_ids, active_profile_id, disabled_mcp_server_ids) = {
+    let (
+        profile_id,
+        ai_config_id,
+        system_prompt,
+        tool_categories,
+        profile_ids,
+        active_profile_id,
+        disabled_mcp_server_ids,
+    ) = {
         let chat_svc = state
             .chat_service
             .lock()
@@ -233,7 +241,8 @@ pub async fn regenerate_chat_message(
             .await
             .map_err(|e| e.to_string())?;
         let last_user = messages
-            .iter().rfind(|m| m.role == "user")
+            .iter()
+            .rfind(|m| m.role == "user")
             .ok_or_else(|| "no user message found".to_string())?
             .clone();
         (

@@ -28,12 +28,11 @@ pub async fn execute(
     args: Value,
     ctx: &mut ToolContext<'_>,
 ) -> Result<ToolResult, String> {
-    let svc = ai_skill_service::from_app(ctx.app)
-        .map_err(|e| format!("Skill service error: {e}"))?;
+    let svc =
+        ai_skill_service::from_app(ctx.app).map_err(|e| format!("Skill service error: {e}"))?;
 
     match name {
         // ── 只读操作 ─────────────────────────────────────────────────────────
-
         "skill_list" => {
             let metas = svc.list_skills().map_err(|e| e.to_string())?;
             Ok(ToolResult::text(
@@ -50,7 +49,6 @@ pub async fn execute(
         }
 
         // ── 写操作 ───────────────────────────────────────────────────────────
-
         "skill_create" => {
             let slug = require_str(&args, "slug")?.to_string();
             let name_val = require_str(&args, "name")?.to_string();
@@ -58,8 +56,14 @@ pub async fn execute(
             let req = CreateSkillRequest {
                 slug: slug.clone(),
                 name: name_val,
-                description: args.get("description").and_then(|v| v.as_str()).map(String::from),
-                version: args.get("version").and_then(|v| v.as_str()).map(String::from),
+                description: args
+                    .get("description")
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
+                version: args
+                    .get("version")
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
                 enabled: args.get("enabled").and_then(|v| v.as_bool()),
                 triggers: opt_str_vec(&args, "triggers"),
                 allowed_tools: opt_str_vec(&args, "allowedTools"),
@@ -76,8 +80,14 @@ pub async fn execute(
             let slug = require_str(&args, "slug")?;
             let req = UpdateSkillRequest {
                 name: args.get("name").and_then(|v| v.as_str()).map(String::from),
-                description: args.get("description").and_then(|v| v.as_str()).map(String::from),
-                version: args.get("version").and_then(|v| v.as_str()).map(String::from),
+                description: args
+                    .get("description")
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
+                version: args
+                    .get("version")
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
                 enabled: args.get("enabled").and_then(|v| v.as_bool()),
                 triggers: opt_str_vec(&args, "triggers"),
                 allowed_tools: opt_str_vec(&args, "allowedTools"),
@@ -100,8 +110,14 @@ pub async fn execute(
             let source = require_str(&args, "source")?.to_string();
             let payload = InstallSkillRequest {
                 source,
-                source_type: args.get("sourceType").and_then(|v| v.as_str()).map(String::from),
-                slug_hint: args.get("slugHint").and_then(|v| v.as_str()).map(String::from),
+                source_type: args
+                    .get("sourceType")
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
+                slug_hint: args
+                    .get("slugHint")
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
             };
             let state = ctx.app.state::<AppState>();
             let installed = crate::commands::ai_skill_commands::install_ai_skill_inner(

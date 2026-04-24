@@ -56,8 +56,8 @@ enum RiskDecision {
 }
 
 pub async fn execute(args: Value, ctx: &mut ToolContext<'_>) -> Result<ToolResult, String> {
-    let req: ExecCommandRequest = serde_json::from_value(args)
-        .map_err(|e| format!("exec_command args parse error: {e}"))?;
+    let req: ExecCommandRequest =
+        serde_json::from_value(args).map_err(|e| format!("exec_command args parse error: {e}"))?;
 
     validate_command_name(&req.command)?;
 
@@ -81,7 +81,8 @@ pub async fn execute(args: Value, ctx: &mut ToolContext<'_>) -> Result<ToolResul
     if req.check_runtime && !runtime.available {
         let install_suggestion = build_install_suggestion(&req.command);
         let locale = app_locale(ctx.app);
-        let _ = emit_missing_runtime_dialog(ctx, &req.command, &cwd, &install_suggestion, &locale).await;
+        let _ = emit_missing_runtime_dialog(ctx, &req.command, &cwd, &install_suggestion, &locale)
+            .await;
         push_exec_log(
             ctx,
             "warn",
@@ -253,7 +254,11 @@ pub async fn execute(args: Value, ctx: &mut ToolContext<'_>) -> Result<ToolResul
 
     push_exec_log(
         ctx,
-        if output.status.success() { "info" } else { "warn" },
+        if output.status.success() {
+            "info"
+        } else {
+            "warn"
+        },
         format!("exec command finished: {}", req.command),
         Some(json!({
             "command": req.command,
@@ -333,9 +338,7 @@ fn resolve_cwd_in_root(root: &Path, raw_cwd: Option<&str>) -> Result<PathBuf, St
             }
         })
         .map_err(|e| format!("failed to resolve cwd: {e}"))?;
-    let normalized_root = root
-        .canonicalize()
-        .unwrap_or(root.to_path_buf());
+    let normalized_root = root.canonicalize().unwrap_or(root.to_path_buf());
 
     if !normalized.starts_with(&normalized_root) {
         return Err(format!(
@@ -359,7 +362,11 @@ fn sanitize_env(env_map: HashMap<String, String>) -> Result<HashMap<String, Stri
 }
 
 fn is_allowed_env_key(key: &str) -> bool {
-    if key.is_empty() || !key.chars().all(|ch| ch.is_ascii_uppercase() || ch.is_ascii_digit() || ch == '_') {
+    if key.is_empty()
+        || !key
+            .chars()
+            .all(|ch| ch.is_ascii_uppercase() || ch.is_ascii_digit() || ch == '_')
+    {
         return false;
     }
     let deny_exact = [
@@ -434,12 +441,7 @@ fn find_command_in_path_var(command: &str, path_var: &std::ffi::OsStr) -> Option
 }
 
 async fn detect_version(path: &Path) -> Option<String> {
-    let attempts = [
-        vec!["--version"],
-        vec!["-V"],
-        vec!["-v"],
-        vec!["version"],
-    ];
+    let attempts = [vec!["--version"], vec!["-V"], vec!["-v"], vec!["version"]];
 
     for flags in attempts {
         let mut command = tokio::process::Command::new(path);
@@ -448,12 +450,17 @@ async fn detect_version(path: &Path) -> Option<String> {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .stdin(Stdio::null());
-        if let Ok(Ok(output)) = tokio::time::timeout(Duration::from_millis(VERSION_TIMEOUT_MS), command.output()).await {
+        if let Ok(Ok(output)) =
+            tokio::time::timeout(Duration::from_millis(VERSION_TIMEOUT_MS), command.output()).await
+        {
             let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
             let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
             let text = if !stdout.is_empty() { stdout } else { stderr };
             if !text.is_empty() {
-                return text.lines().find(|line| !line.trim().is_empty()).map(|line| line.trim().to_string());
+                return text
+                    .lines()
+                    .find(|line| !line.trim().is_empty())
+                    .map(|line| line.trim().to_string());
             }
         }
     }
@@ -466,7 +473,9 @@ fn build_install_suggestion(command: &str) -> String {
         "pnpm" => "Install pnpm globally, for example: npm install -g pnpm".to_string(),
         "bun" => "Install Bun from https://bun.sh/ or your package manager.".to_string(),
         "uv" => "Install uv from https://docs.astral.sh/uv/ or your package manager.".to_string(),
-        "python" | "python3" => "Install Python 3 and ensure the executable is on PATH.".to_string(),
+        "python" | "python3" => {
+            "Install Python 3 and ensure the executable is on PATH.".to_string()
+        }
         "pip" | "pip3" => "Install Python 3 with pip and ensure pip is on PATH.".to_string(),
         _ => format!("Install '{command}' and ensure it is available on PATH."),
     }
@@ -502,8 +511,10 @@ fn classify_risk(command: &str, args: &[String], require_confirmation: bool) -> 
         };
     }
 
-    if matches!(command, "sh" | "bash" | "zsh" | "fish" | "cmd" | "powershell" | "pwsh")
-        && matches!(first, "-c" | "-lc" | "/c" | "/k")
+    if matches!(
+        command,
+        "sh" | "bash" | "zsh" | "fish" | "cmd" | "powershell" | "pwsh"
+    ) && matches!(first, "-c" | "-lc" | "/c" | "/k")
     {
         return RiskDecision::Deny {
             reason: "Inline shell execution is blocked for exec_command".to_string(),
@@ -511,7 +522,9 @@ fn classify_risk(command: &str, args: &[String], require_confirmation: bool) -> 
     }
 
     if command == "rm"
-        && args.iter().any(|arg| arg == "-rf" || arg == "-fr" || arg == "--recursive" || arg == "--force")
+        && args
+            .iter()
+            .any(|arg| arg == "-rf" || arg == "-fr" || arg == "--recursive" || arg == "--force")
     {
         return RiskDecision::Deny {
             reason: "Recursive forced delete is blocked".to_string(),
@@ -552,13 +565,29 @@ fn classify_risk(command: &str, args: &[String], require_confirmation: bool) -> 
         };
     }
 
-    if command == "npx" && args.first().map(String::as_str) == Some("skills") && args.get(1).map(String::as_str) == Some("find") {
+    if command == "npx"
+        && args.first().map(String::as_str) == Some("skills")
+        && args.get(1).map(String::as_str) == Some("find")
+    {
         return RiskDecision::Allow {
             reason: "Recognized read-only skills lookup".to_string(),
         };
     }
 
-    if matches!(command, "pwd" | "ls" | "cat" | "rg" | "find" | "which" | "whereis" | "echo" | "uname" | "whoami" | "env") {
+    if matches!(
+        command,
+        "pwd"
+            | "ls"
+            | "cat"
+            | "rg"
+            | "find"
+            | "which"
+            | "whereis"
+            | "echo"
+            | "uname"
+            | "whoami"
+            | "env"
+    ) {
         return RiskDecision::Allow {
             reason: "Read-only query command".to_string(),
         };
@@ -574,10 +603,22 @@ fn is_package_manager_mutation(command: &str, args: &[String]) -> bool {
     match command {
         "npm" | "pnpm" | "yarn" | "bun" => matches!(
             first,
-            "install" | "i" | "add" | "remove" | "rm" | "uninstall" | "update" | "up" | "link" | "unlink"
+            "install"
+                | "i"
+                | "add"
+                | "remove"
+                | "rm"
+                | "uninstall"
+                | "update"
+                | "up"
+                | "link"
+                | "unlink"
         ),
         "uv" => matches!(
-            args.iter().map(String::as_str).collect::<Vec<_>>().as_slice(),
+            args.iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>()
+                .as_slice(),
             ["pip", "install", ..]
                 | ["pip", "sync", ..]
                 | ["tool", "install", ..]
@@ -593,7 +634,10 @@ fn is_package_manager_mutation(command: &str, args: &[String]) -> bool {
 }
 
 fn is_interpreter_execution(command: &str, args: &[String]) -> bool {
-    if !matches!(command, "python" | "python3" | "node" | "bun" | "ruby" | "perl" | "php") {
+    if !matches!(
+        command,
+        "python" | "python3" | "node" | "bun" | "ruby" | "perl" | "php"
+    ) {
         return false;
     }
     let first = args.first().map(String::as_str).unwrap_or_default();
@@ -700,12 +744,7 @@ fn runtime_to_json(runtime: &RuntimeProbe) -> Value {
     })
 }
 
-fn push_exec_log(
-    ctx: &mut ToolContext<'_>,
-    level: &str,
-    message: String,
-    details: Option<Value>,
-) {
+fn push_exec_log(ctx: &mut ToolContext<'_>, level: &str, message: String, details: Option<Value>) {
     ctx.logs.push(RunLogEntry {
         timestamp: chrono::Utc::now().timestamp_millis(),
         level: level.to_string(),
@@ -726,7 +765,11 @@ mod tests {
 
     #[test]
     fn exec_risk_classifier_allows_skills_lookup() {
-        let risk = classify_risk("npx", &["skills".into(), "find".into(), "react".into()], false);
+        let risk = classify_risk(
+            "npx",
+            &["skills".into(), "find".into(), "react".into()],
+            false,
+        );
         assert!(matches!(risk, RiskDecision::Allow { .. }));
     }
 
@@ -756,7 +799,9 @@ mod tests {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mut perms = std::fs::metadata(&bin_path).expect("metadata").permissions();
+            let mut perms = std::fs::metadata(&bin_path)
+                .expect("metadata")
+                .permissions();
             perms.set_mode(0o755);
             std::fs::set_permissions(&bin_path, perms).expect("chmod");
         }

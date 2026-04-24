@@ -40,10 +40,7 @@ impl ProfileService {
         }
         let group_name = self.ensure_active_group_name(req.group)?;
         let settings = normalize_profile_settings(&self.db, req.settings, None)?;
-        let settings_json = settings
-            .as_ref()
-            .map(serde_json::to_string)
-            .transpose()?;
+        let settings_json = settings.as_ref().map(serde_json::to_string).transpose()?;
 
         let now = now_ts();
         let profile_model = profile::ActiveModel {
@@ -90,10 +87,7 @@ impl ProfileService {
         let previous_settings = parse_settings_json(stored.settings_json.clone());
         let settings =
             normalize_profile_settings(&self.db, req.settings, previous_settings.as_ref())?;
-        let settings_json = settings
-            .as_ref()
-            .map(serde_json::to_string)
-            .transpose()?;
+        let settings_json = settings.as_ref().map(serde_json::to_string).transpose()?;
         let mut active_model: profile::ActiveModel = stored.into();
         active_model.name = Set(name.to_string());
         active_model.group_name = Set(group_name);
@@ -141,10 +135,7 @@ impl ProfileService {
         basic.toolbar_text = None;
 
         let normalized = normalize_profile_settings(&self.db, Some(settings), None)?;
-        let settings_json = normalized
-            .as_ref()
-            .map(serde_json::to_string)
-            .transpose()?;
+        let settings_json = normalized.as_ref().map(serde_json::to_string).transpose()?;
 
         let mut active_model: profile::ActiveModel = stored.into();
         active_model.settings_json = Set(settings_json);
@@ -185,10 +176,7 @@ impl ProfileService {
         advanced.fixed_fingerprint_seed = Some(seed);
 
         let normalized = normalize_profile_settings(&self.db, Some(settings), None)?;
-        let settings_json = normalized
-            .as_ref()
-            .map(serde_json::to_string)
-            .transpose()?;
+        let settings_json = normalized.as_ref().map(serde_json::to_string).transpose()?;
 
         let mut active_model: profile::ActiveModel = stored.into();
         active_model.settings_json = Set(settings_json);
@@ -216,7 +204,9 @@ impl ProfileService {
         let fingerprint = settings.fingerprint.get_or_insert_with(Default::default);
         fingerprint.language = language.clone();
         fingerprint.timezone_id = timezone_id.clone();
-        let snapshot = fingerprint.fingerprint_snapshot.get_or_insert_with(Default::default);
+        let snapshot = fingerprint
+            .fingerprint_snapshot
+            .get_or_insert_with(Default::default);
         snapshot.language = language.clone();
         snapshot.accept_languages = language.as_deref().map(build_accept_languages);
         snapshot.time_zone = timezone_id;
@@ -472,7 +462,8 @@ impl ProfileService {
                 .or_else(|| settings.basic.as_ref().and_then(|b| b.platform.as_deref()))
                 .unwrap_or("macos")
                 .to_string();
-            let preset_spec = match device_preset_service.resolve_preset(&platform, Some(preset_id)) {
+            let preset_spec = match device_preset_service.resolve_preset(&platform, Some(preset_id))
+            {
                 Ok(p) => p,
                 Err(e) => {
                     crate::logger::warn(
@@ -484,7 +475,9 @@ impl ProfileService {
             };
 
             let fingerprint = settings.fingerprint.get_or_insert_with(Default::default);
-            let snapshot = fingerprint.fingerprint_snapshot.get_or_insert_with(Default::default);
+            let snapshot = fingerprint
+                .fingerprint_snapshot
+                .get_or_insert_with(Default::default);
             let seed = snapshot.fingerprint_seed;
             let browser_version = snapshot
                 .browser_version
@@ -500,7 +493,12 @@ impl ProfileService {
                         .version
                         .to_string()
                 });
-            fingerprint_catalog::merge_preset_into_snapshot(snapshot, &preset_spec, &browser_version, seed);
+            fingerprint_catalog::merge_preset_into_snapshot(
+                snapshot,
+                &preset_spec,
+                &browser_version,
+                seed,
+            );
 
             let settings_json = match serde_json::to_string(&settings) {
                 Ok(s) => s,
@@ -516,10 +514,7 @@ impl ProfileService {
             active.settings_json = Set(Some(settings_json));
             active.updated_at = Set(now_ts());
             if let Err(e) = self.db_query(active.update(&self.db)) {
-                crate::logger::warn(
-                    "sync_preset",
-                    format!("profile update failed: {e}"),
-                );
+                crate::logger::warn("sync_preset", format!("profile update failed: {e}"));
                 continue;
             }
             synced += 1;
@@ -645,7 +640,9 @@ fn resolve_profile_visuals(
 
     let browser_bg_color = match resolve_effective_browser_bg_color_mode(basic) {
         BrowserBgColorMode::Custom => basic.and_then(|value| value.browser_bg_color.clone()),
-        BrowserBgColorMode::Inherit => group_defaults.and_then(|value| value.browser_bg_color.clone()),
+        BrowserBgColorMode::Inherit => {
+            group_defaults.and_then(|value| value.browser_bg_color.clone())
+        }
         BrowserBgColorMode::None => None,
     };
 
@@ -680,11 +677,16 @@ fn normalize_profile_settings(
             .and_then(trim_to_option)
             .map(normalize_hex_color)
             .transpose()?;
-        basic.browser_bg_color_mode =
-            normalize_browser_bg_color_mode(basic.browser_bg_color_mode, basic.browser_bg_color.is_some());
+        basic.browser_bg_color_mode = normalize_browser_bg_color_mode(
+            basic.browser_bg_color_mode,
+            basic.browser_bg_color.is_some(),
+        );
         basic.toolbar_label_mode = normalize_toolbar_label_mode(basic.toolbar_label_mode);
         basic.toolbar_text = basic.toolbar_text.take().and_then(trim_to_option);
-        if matches!(basic.browser_bg_color_mode, Some(BrowserBgColorMode::Inherit | BrowserBgColorMode::None)) {
+        if matches!(
+            basic.browser_bg_color_mode,
+            Some(BrowserBgColorMode::Inherit | BrowserBgColorMode::None)
+        ) {
             basic.browser_bg_color = None;
         }
         if basic.platform.is_none() {
@@ -1289,7 +1291,12 @@ fn normalize_toolbar_label_mode(mode: Option<ToolbarLabelMode>) -> Option<Toolba
 fn resolve_effective_browser_bg_color_mode(
     basic: Option<&crate::models::ProfileBasicSettings>,
 ) -> BrowserBgColorMode {
-    match basic.and_then(|value| normalize_browser_bg_color_mode(value.browser_bg_color_mode, value.browser_bg_color.is_some())) {
+    match basic.and_then(|value| {
+        normalize_browser_bg_color_mode(
+            value.browser_bg_color_mode,
+            value.browser_bg_color.is_some(),
+        )
+    }) {
         Some(mode) => mode,
         None => BrowserBgColorMode::Inherit,
     }
@@ -1651,7 +1658,12 @@ mod tests {
                 .expect("find inherited"),
         )
         .expect("serialize inherited");
-        assert_eq!(inherited_json.get("numericId").and_then(|value| value.as_i64()), Some(1));
+        assert_eq!(
+            inherited_json
+                .get("numericId")
+                .and_then(|value| value.as_i64()),
+            Some(1)
+        );
         assert_eq!(
             inherited_json
                 .get("resolvedToolbarText")
@@ -1673,14 +1685,21 @@ mod tests {
                 .expect("find custom"),
         )
         .expect("serialize custom");
-        assert_eq!(custom_json.get("numericId").and_then(|value| value.as_i64()), Some(2));
+        assert_eq!(
+            custom_json
+                .get("numericId")
+                .and_then(|value| value.as_i64()),
+            Some(2)
+        );
         assert_eq!(
             custom_json
                 .get("resolvedToolbarText")
                 .and_then(|value| value.as_str()),
             Some("2")
         );
-        assert!(custom_json.get("resolvedBrowserBgColor").is_some_and(|value| value.is_null()));
+        assert!(custom_json
+            .get("resolvedBrowserBgColor")
+            .is_some_and(|value| value.is_null()));
     }
 
     #[test]

@@ -121,15 +121,25 @@ mod tests {
 
     #[test]
     fn known_countries_return_language() {
-        for code in ["CN", "TW", "HK", "JP", "KR", "DE", "FR", "GB", "US", "CA", "AU", "SG"] {
-            assert!(default_language_for_country(code).is_some(), "missing language for {code}");
+        for code in [
+            "CN", "TW", "HK", "JP", "KR", "DE", "FR", "GB", "US", "CA", "AU", "SG",
+        ] {
+            assert!(
+                default_language_for_country(code).is_some(),
+                "missing language for {code}"
+            );
         }
     }
 
     #[test]
     fn known_countries_return_timezone() {
-        for code in ["CN", "TW", "HK", "JP", "KR", "DE", "FR", "GB", "US", "CA", "AU", "SG"] {
-            assert!(default_timezone_for_country(code).is_some(), "missing timezone for {code}");
+        for code in [
+            "CN", "TW", "HK", "JP", "KR", "DE", "FR", "GB", "US", "CA", "AU", "SG",
+        ] {
+            assert!(
+                default_timezone_for_country(code).is_some(),
+                "missing timezone for {code}"
+            );
         }
     }
 
@@ -141,7 +151,13 @@ mod tests {
 
     #[test]
     fn case_insensitive() {
-        assert_eq!(default_language_for_country("cn"), Some("zh-CN".to_string()));
-        assert_eq!(default_timezone_for_country("jp"), Some("Asia/Tokyo".to_string()));
+        assert_eq!(
+            default_language_for_country("cn"),
+            Some("zh-CN".to_string())
+        );
+        assert_eq!(
+            default_timezone_for_country("jp"),
+            Some("Asia/Tokyo".to_string())
+        );
     }
 }

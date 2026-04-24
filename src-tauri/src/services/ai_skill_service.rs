@@ -122,8 +122,9 @@ struct RawFrontmatter {
 
 /// 将 SKILL.md 内容解析为 SkillFull；slug 参数用于兜底
 pub fn parse_skill_file(slug: &str, content: &str) -> AppResult<SkillFull> {
-    let (fm_str, body) = split_frontmatter(content)
-        .ok_or_else(|| AppError::Validation("SKILL.md 缺少 YAML frontmatter（需以 --- 开头）".into()))?;
+    let (fm_str, body) = split_frontmatter(content).ok_or_else(|| {
+        AppError::Validation("SKILL.md 缺少 YAML frontmatter（需以 --- 开头）".into())
+    })?;
 
     let raw: RawFrontmatter = serde_yaml::from_str(fm_str)
         .map_err(|e| AppError::Validation(format!("frontmatter YAML 解析失败: {e}")))?;
@@ -142,17 +143,26 @@ pub fn parse_skill_file(slug: &str, content: &str) -> AppResult<SkillFull> {
         version: raw.version,
         enabled: raw.enabled.unwrap_or(true),
         triggers: raw.triggers.unwrap_or_default(),
-        allowed_tools: raw.allowed_tools.or(raw.allowed_tools_hyphen).unwrap_or_default(),
+        allowed_tools: raw
+            .allowed_tools
+            .or(raw.allowed_tools_hyphen)
+            .unwrap_or_default(),
         model: raw.model,
         built_in: false,
         deletable: true,
     };
 
-    Ok(SkillFull { meta, body: body.to_string(), attachments: vec![] })
+    Ok(SkillFull {
+        meta,
+        body: body.to_string(),
+        attachments: vec![],
+    })
 }
 
 fn is_valid_slug(s: &str) -> bool {
-    !s.is_empty() && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+    !s.is_empty()
+        && s.chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
 }
 
 // ─── AiSkillService ────────────────────────────────────────────────────────
@@ -183,7 +193,10 @@ impl AiSkillService {
         Self::new_with_builtin_roots(user_skills_root, vec![built_in_skills_root])
     }
 
-    fn new_with_builtin_roots(user_skills_root: PathBuf, built_in_skills_roots: Vec<PathBuf>) -> Self {
+    fn new_with_builtin_roots(
+        user_skills_root: PathBuf,
+        built_in_skills_roots: Vec<PathBuf>,
+    ) -> Self {
         Self {
             user_skills_root,
             built_in_skills_roots: dedupe_paths(built_in_skills_roots),
@@ -193,11 +206,15 @@ impl AiSkillService {
     fn validate_slug(&self, slug: &str) -> AppResult<()> {
         // traversal 保护：slug 不允许包含路径分隔符
         let p = PathBuf::from(slug);
-        if p.components().any(|c| matches!(c, Component::ParentDir | Component::RootDir)) {
+        if p.components()
+            .any(|c| matches!(c, Component::ParentDir | Component::RootDir))
+        {
             return Err(AppError::Validation(format!("非法 slug: {slug}")));
         }
         if !is_valid_slug(slug) {
-            return Err(AppError::Validation(format!("slug '{slug}' 只允许 [a-z0-9-]+")));
+            return Err(AppError::Validation(format!(
+                "slug '{slug}' 只允许 [a-z0-9-]+"
+            )));
         }
         Ok(())
     }
@@ -233,7 +250,8 @@ impl AiSkillService {
 
         let mut result = Vec::new();
         for entry in fs::read_dir(root)
-            .map_err(|e| AppError::Validation(format!("读取 skills 目录失败: {e}")))? {
+            .map_err(|e| AppError::Validation(format!("读取 skills 目录失败: {e}")))?
+        {
             let entry = entry.map_err(|e| AppError::Validation(format!("遍历目录失败: {e}")))?;
             let path = entry.path();
             if !path.is_dir() {
@@ -253,7 +271,9 @@ impl AiSkillService {
             }
             match self.read_skill_file(&slug, &skill_md, source) {
                 Ok(full) => result.push(full.meta),
-                Err(e) => crate::logger::warn("ai-skill", format!("跳过无法解析的 skill '{slug}': {e}")),
+                Err(e) => {
+                    crate::logger::warn("ai-skill", format!("跳过无法解析的 skill '{slug}': {e}"))
+                }
             }
         }
 
@@ -310,8 +330,14 @@ impl AiSkillService {
         Err(AppError::NotFound(format!("skill '{slug}' 不存在")))
     }
 
-    fn read_skill_file(&self, slug: &str, path: &PathBuf, source: SkillSource) -> AppResult<SkillFull> {
-        let meta = fs::metadata(path).map_err(|e| AppError::Validation(format!("读取文件元信息失败: {e}")))?;
+    fn read_skill_file(
+        &self,
+        slug: &str,
+        path: &PathBuf,
+        source: SkillSource,
+    ) -> AppResult<SkillFull> {
+        let meta = fs::metadata(path)
+            .map_err(|e| AppError::Validation(format!("读取文件元信息失败: {e}")))?;
         if meta.len() > MAX_SKILL_SIZE {
             return Err(AppError::Validation(format!(
                 "SKILL.md 超过最大限制 ({} bytes > {})",
@@ -335,7 +361,10 @@ impl AiSkillService {
             return Err(AppError::Validation(format!("slug '{}' 不合法", req.slug)));
         }
         if self.is_built_in_slug(&req.slug)? {
-            return Err(AppError::Validation(format!("skill '{}' 是默认 Skill，不允许覆盖", req.slug)));
+            return Err(AppError::Validation(format!(
+                "skill '{}' 是默认 Skill，不允许覆盖",
+                req.slug
+            )));
         }
         let dir = self.user_skills_root.join(&req.slug);
         if dir.exists() {
@@ -367,7 +396,9 @@ impl AiSkillService {
 
     pub fn update_skill(&self, slug: &str, req: UpdateSkillRequest) -> AppResult<SkillFull> {
         if self.is_built_in_slug(slug)? {
-            return Err(AppError::Validation(format!("skill '{slug}' 是默认 Skill，不允许编辑")));
+            return Err(AppError::Validation(format!(
+                "skill '{slug}' 是默认 Skill，不允许编辑"
+            )));
         }
         let existing = self.read_skill(slug)?;
         let meta = &existing.meta;
@@ -404,7 +435,9 @@ impl AiSkillService {
     pub fn delete_skill(&self, slug: &str) -> AppResult<()> {
         self.validate_slug(slug)?;
         if self.is_built_in_slug(slug)? {
-            return Err(AppError::Validation(format!("skill '{slug}' 是默认 Skill，不允许删除")));
+            return Err(AppError::Validation(format!(
+                "skill '{slug}' 是默认 Skill，不允许删除"
+            )));
         }
         let dir = self.user_skills_root.join(slug);
         if !dir.exists() {
@@ -416,15 +449,18 @@ impl AiSkillService {
 
     /// Progressive disclosure: 返回已启用 skill 的目录（slug + name + description），不含 body
     pub fn load_skill_directory(&self, slugs: &[String]) -> Vec<(String, String, Option<String>)> {
-        slugs.iter().filter_map(|slug| {
-            self.read_skill(slug).ok().and_then(|full| {
-                if full.meta.enabled {
-                    Some((full.meta.slug, full.meta.name, full.meta.description))
-                } else {
-                    None
-                }
+        slugs
+            .iter()
+            .filter_map(|slug| {
+                self.read_skill(slug).ok().and_then(|full| {
+                    if full.meta.enabled {
+                        Some((full.meta.slug, full.meta.name, full.meta.description))
+                    } else {
+                        None
+                    }
+                })
             })
-        }).collect()
+            .collect()
     }
 
     /// 收集所有已启用 skill 的 allowed_tools 并集（空表示无约束）
@@ -446,7 +482,6 @@ impl AiSkillService {
         all.insert("load_skill".to_string());
         all.into_iter().collect()
     }
-
 }
 
 // ─── 辅助函数 ──────────────────────────────────────────────────────────────
@@ -480,7 +515,10 @@ fn load_attachments(skill_dir: &std::path::Path) -> Vec<SkillAttachment> {
             if file_meta.len() > MAX_ATTACHMENT_SIZE {
                 crate::logger::warn(
                     "ai-skill",
-                    format!("附件 {:?} 超过单文件限制 {}B，跳过", path, MAX_ATTACHMENT_SIZE),
+                    format!(
+                        "附件 {:?} 超过单文件限制 {}B，跳过",
+                        path, MAX_ATTACHMENT_SIZE
+                    ),
                 );
                 continue;
             }
@@ -498,7 +536,10 @@ fn load_attachments(skill_dir: &std::path::Path) -> Vec<SkillAttachment> {
                 path.file_name().and_then(|n| n.to_str()).unwrap_or("")
             );
             total_size += file_meta.len();
-            attachments.push(SkillAttachment { path: rel_path, content });
+            attachments.push(SkillAttachment {
+                path: rel_path,
+                content,
+            });
         }
     }
     attachments
@@ -516,18 +557,28 @@ fn build_skill_content(
     body: &str,
 ) -> String {
     let mut fm = format!("---\nslug: {slug}\nname: {name}\n");
-    if let Some(d) = description { fm.push_str(&format!("description: {d}\n")); }
-    if let Some(v) = version { fm.push_str(&format!("version: {v}\n")); }
+    if let Some(d) = description {
+        fm.push_str(&format!("description: {d}\n"));
+    }
+    if let Some(v) = version {
+        fm.push_str(&format!("version: {v}\n"));
+    }
     fm.push_str(&format!("enabled: {enabled}\n"));
     if !triggers.is_empty() {
         fm.push_str("triggers:\n");
-        for t in triggers { fm.push_str(&format!("  - {t}\n")); }
+        for t in triggers {
+            fm.push_str(&format!("  - {t}\n"));
+        }
     }
     if !allowed_tools.is_empty() {
         fm.push_str("allowed_tools:\n");
-        for t in allowed_tools { fm.push_str(&format!("  - {t}\n")); }
+        for t in allowed_tools {
+            fm.push_str(&format!("  - {t}\n"));
+        }
     }
-    if let Some(m) = model { fm.push_str(&format!("model: {m}\n")); }
+    if let Some(m) = model {
+        fm.push_str(&format!("model: {m}\n"));
+    }
     fm.push_str("---\n");
     if !body.is_empty() {
         fm.push('\n');
@@ -693,12 +744,12 @@ allowed_tools:
         std::fs::create_dir_all(&scripts).unwrap();
         std::fs::write(scripts.join("run.sh"), "echo hi").unwrap();
 
-        let svc = AiSkillService::new_with_roots(
-            tmp.path().join("user"),
-            tmp.path().join("builtins"),
-        );
+        let svc =
+            AiSkillService::new_with_roots(tmp.path().join("user"), tmp.path().join("builtins"));
         // 直接调内部方法（为测试构造路径）
-        let full = svc.read_skill_file("dummy", &skill_md, SkillSource::User).unwrap();
+        let full = svc
+            .read_skill_file("dummy", &skill_md, SkillSource::User)
+            .unwrap();
         assert_eq!(full.attachments.len(), 1);
         assert_eq!(full.attachments[0].path, "scripts/run.sh");
     }
@@ -708,7 +759,10 @@ allowed_tools:
         let tmp = tempfile::TempDir::new().unwrap();
         let svc = AiSkillService::new(tmp.path().to_path_buf());
 
-        assert_eq!(svc.user_skills_root, tmp.path().join(".agents").join("skills"));
+        assert_eq!(
+            svc.user_skills_root,
+            tmp.path().join(".agents").join("skills")
+        );
         assert_eq!(svc.built_in_skills_roots.len(), 1);
         assert!(svc.built_in_skills_roots[0].ends_with("docs/default-skills"));
     }
@@ -793,7 +847,9 @@ allowed_tools:
         .unwrap();
         let svc = AiSkillService::new_with_roots(user_root, built_in_root);
 
-        let err = svc.delete_skill("find-skills").expect_err("built-in delete should fail");
+        let err = svc
+            .delete_skill("find-skills")
+            .expect_err("built-in delete should fail");
         assert!(matches!(err, AppError::Validation(message) if message.contains("不允许删除")));
     }
 
@@ -886,7 +942,10 @@ allowed_tools:
         let listed = svc.list_skills().unwrap();
 
         assert_eq!(
-            listed.iter().map(|skill| skill.slug.as_str()).collect::<Vec<_>>(),
+            listed
+                .iter()
+                .map(|skill| skill.slug.as_str())
+                .collect::<Vec<_>>(),
             vec!["mmm-built-in", "nnn-built-in", "aaa-user", "zzz-user"]
         );
         assert!(listed[0].built_in);
@@ -914,10 +973,7 @@ allowed_tools:
         )
         .unwrap();
 
-        let svc = AiSkillService::new_with_builtin_roots(
-            user_root,
-            vec![bundled_root, repo_root],
-        );
+        let svc = AiSkillService::new_with_builtin_roots(user_root, vec![bundled_root, repo_root]);
         let full = svc.read_skill("find-skills").unwrap();
 
         assert_eq!(full.meta.name, "Bundled Find");

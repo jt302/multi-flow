@@ -234,15 +234,25 @@ impl ChatExecutionService {
             let filtered_resources: Vec<_> = if disabled_mcp_server_ids.is_empty() {
                 resources
             } else {
-                resources.into_iter().filter(|r| !disabled_mcp_server_ids.contains(&r.server_id)).collect()
+                resources
+                    .into_iter()
+                    .filter(|r| !disabled_mcp_server_ids.contains(&r.server_id))
+                    .collect()
             };
             if !filtered_resources.is_empty() {
                 system_prompt_text.push_str("\n\n<mcp_resources>\nThe following MCP resources are available. Use the `read_mcp_resource` tool to read their content.\n");
                 for r in &filtered_resources {
                     let desc = r.description.as_deref().unwrap_or("");
-                    system_prompt_text.push_str(&format!("- **{}** (`{}`, server: `{}`){}\n",
-                        r.name, r.uri, r.server_id,
-                        if desc.is_empty() { String::new() } else { format!(": {desc}") }
+                    system_prompt_text.push_str(&format!(
+                        "- **{}** (`{}`, server: `{}`){}\n",
+                        r.name,
+                        r.uri,
+                        r.server_id,
+                        if desc.is_empty() {
+                            String::new()
+                        } else {
+                            format!(": {desc}")
+                        }
                     ));
                 }
                 system_prompt_text.push_str("</mcp_resources>");
@@ -349,16 +359,31 @@ impl ChatExecutionService {
                 let maxrounds_msg_id = uuid::Uuid::new_v4().to_string();
                 let msg = chat_service
                     .add_message_with_id(
-                        &maxrounds_msg_id, session_id, "assistant",
+                        &maxrounds_msg_id,
+                        session_id,
+                        "assistant",
                         Some(stop_text.clone()),
-                        None, None, None, None, None, None, None, None, None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
                     )
                     .await
                     .map_err(|e| e.to_string())?;
                 let refreshed_msg = chat_service.get_message(&msg.id).await.unwrap_or(msg);
                 emit_message(app, session_id, &refreshed_msg);
                 emit_phase(
-                    app, session_id, "max_rounds_reached", round, None, None,
+                    app,
+                    session_id,
+                    "max_rounds_reached",
+                    round,
+                    None,
+                    None,
                     generation_start.elapsed().as_millis() as u64,
                     Some(cumulative_prompt_tokens),
                     Some(cumulative_completion_tokens),
@@ -506,30 +531,46 @@ impl ChatExecutionService {
                             || last_emit.elapsed() >= std::time::Duration::from_millis(24);
                         if should_flush {
                             emit_message_delta(
-                                app, session_id, &stream_msg_id, "text", Some(&delta_buf), None, None,
+                                app,
+                                session_id,
+                                &stream_msg_id,
+                                "text",
+                                Some(&delta_buf),
+                                None,
+                                None,
                             );
                             delta_buf.clear();
                             last_emit = std::time::Instant::now();
                         }
                     }
-                    crate::services::ai_service::AiChatDelta::ToolCallStart {
-                        index, id, name,
-                    } => {
+                    crate::services::ai_service::AiChatDelta::ToolCallStart { index, id, name } => {
                         // 工具调用前先 flush 剩余文本 delta
                         if !delta_buf.is_empty() {
                             emit_message_delta(
-                                app, session_id, &stream_msg_id, "text", Some(&delta_buf), None, None,
+                                app,
+                                session_id,
+                                &stream_msg_id,
+                                "text",
+                                Some(&delta_buf),
+                                None,
+                                None,
                             );
                             delta_buf.clear();
                         }
                         tool_calls_buf.insert(index, (id, name.clone(), String::new()));
                         emit_message_delta(
-                            app, session_id, &stream_msg_id, "tool_start", None,
-                            Some(index as u32), Some(&name),
+                            app,
+                            session_id,
+                            &stream_msg_id,
+                            "tool_start",
+                            None,
+                            Some(index as u32),
+                            Some(&name),
                         );
                     }
                     crate::services::ai_service::AiChatDelta::ToolCallArgsDelta {
-                        index, delta,
+                        index,
+                        delta,
                     } => {
                         if let Some(entry) = tool_calls_buf.get_mut(&index) {
                             entry.2.push_str(&delta);
@@ -557,7 +598,13 @@ impl ChatExecutionService {
             // flush 剩余 delta（取消时不 emit，避免生成结束后出现幽灵更新）
             if !cancelled && !delta_buf.is_empty() {
                 emit_message_delta(
-                    app, session_id, &stream_msg_id, "text", Some(&delta_buf), None, None,
+                    app,
+                    session_id,
+                    &stream_msg_id,
+                    "text",
+                    Some(&delta_buf),
+                    None,
+                    None,
                 );
             }
 
@@ -570,12 +617,27 @@ impl ChatExecutionService {
                     let user_msg = format!("⚠ AI 请求失败: {err_msg}");
                     let _ = chat_service
                         .add_message(
-                            session_id, "system", Some(user_msg),
-                            None, None, None, None, None, None, None, None, None,
+                            session_id,
+                            "system",
+                            Some(user_msg),
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
                         )
                         .await;
                     emit_phase(
-                        app, session_id, "error", round, None, Some(err_msg),
+                        app,
+                        session_id,
+                        "error",
+                        round,
+                        None,
+                        Some(err_msg),
                         generation_start.elapsed().as_millis() as u64,
                         Some(cumulative_prompt_tokens),
                         Some(cumulative_completion_tokens),
@@ -599,7 +661,10 @@ impl ChatExecutionService {
                     if final_text.trim().is_empty() {
                         if !empty_text_recovery_attempted {
                             empty_text_recovery_attempted = true;
-                            let recovery_prompt = crate::services::agent_limits::build_empty_text_recovery_prompt(locale);
+                            let recovery_prompt =
+                                crate::services::agent_limits::build_empty_text_recovery_prompt(
+                                    locale,
+                                );
                             messages.push(ChatMessage::system(&recovery_prompt));
                             logger::info(
                                 "ai-chat",
@@ -614,13 +679,26 @@ impl ChatExecutionService {
                         let stall_text = "⚠ AI 多次返回空回复，已自动停止。可以点击「继续」让我重试，或者直接描述下一步操作。".to_string();
                         let stall_msg = chat_service
                             .add_message_with_id(
-                                &format!("{}-stalled", stream_msg_id), session_id, "assistant",
+                                &format!("{}-stalled", stream_msg_id),
+                                session_id,
+                                "assistant",
                                 Some(stall_text.clone()),
-                                None, None, None, None, None, None, None, None, None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
                             )
                             .await
                             .map_err(|e| e.to_string())?;
-                        let refreshed_stall = chat_service.get_message(&stall_msg.id).await.unwrap_or(stall_msg);
+                        let refreshed_stall = chat_service
+                            .get_message(&stall_msg.id)
+                            .await
+                            .unwrap_or(stall_msg);
                         emit_message(app, session_id, &refreshed_stall);
                         logger::info(
                             "ai-chat",
@@ -633,7 +711,12 @@ impl ChatExecutionService {
                             ),
                         );
                         emit_phase(
-                            app, session_id, "stalled", round, None, None,
+                            app,
+                            session_id,
+                            "stalled",
+                            round,
+                            None,
+                            None,
                             generation_start.elapsed().as_millis() as u64,
                             Some(cumulative_prompt_tokens),
                             Some(cumulative_completion_tokens),
@@ -651,15 +734,27 @@ impl ChatExecutionService {
                     });
                     let msg = chat_service
                         .add_message_with_id(
-                            &stream_msg_id, session_id, "assistant",
+                            &stream_msg_id,
+                            session_id,
+                            "assistant",
                             Some(final_text.clone()),
-                            None, None, None, None, None, None, None, None, None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
                         )
                         .await
                         .map_err(|e| e.to_string())?;
                     let _ = chat_service
                         .update_message_usage(
-                            &msg.id, stream_prompt_tokens, stream_completion_tokens,
+                            &msg.id,
+                            stream_prompt_tokens,
+                            stream_completion_tokens,
                         )
                         .await;
                     if thinking_text.is_some() {
@@ -671,7 +766,9 @@ impl ChatExecutionService {
                     cumulative_completion_tokens += stream_completion_tokens.unwrap_or(0);
                     let refreshed_msg = chat_service.get_message(&msg.id).await.unwrap_or(msg);
                     emit_message(app, session_id, &refreshed_msg);
-                    messages.push(crate::services::ai_service::ChatMessage::assistant(&final_text));
+                    messages.push(crate::services::ai_service::ChatMessage::assistant(
+                        &final_text,
+                    ));
                     logger::info(
                         "ai-chat",
                         format!(
@@ -683,7 +780,12 @@ impl ChatExecutionService {
                         ),
                     );
                     emit_phase(
-                        app, session_id, "done", round, None, None,
+                        app,
+                        session_id,
+                        "done",
+                        round,
+                        None,
+                        None,
                         generation_start.elapsed().as_millis() as u64,
                         Some(cumulative_prompt_tokens),
                         Some(cumulative_completion_tokens),
@@ -698,7 +800,12 @@ impl ChatExecutionService {
                     cumulative_prompt_tokens += stream_prompt_tokens.unwrap_or(0);
                     cumulative_completion_tokens += stream_completion_tokens.unwrap_or(0);
                     emit_phase(
-                        app, session_id, "tool_calling", round, None, None,
+                        app,
+                        session_id,
+                        "tool_calling",
+                        round,
+                        None,
+                        None,
                         generation_start.elapsed().as_millis() as u64,
                         Some(cumulative_prompt_tokens),
                         Some(cumulative_completion_tokens),
@@ -728,8 +835,7 @@ impl ChatExecutionService {
                             })
                         })
                         .collect();
-                    let raw_tool_calls: Vec<Value> =
-                        calls.iter().map(|c| c.raw.clone()).collect();
+                    let raw_tool_calls: Vec<Value> = calls.iter().map(|c| c.raw.clone()).collect();
                     let tool_calls_str = serde_json::to_string(&raw_tool_calls).ok();
                     // 空轮计数器：calls 为空则计数，有工具调用则清零
                     if calls.is_empty() {
@@ -741,19 +847,37 @@ impl ChatExecutionService {
                     rounds_since_last_text += 1;
                     let asst_msg = chat_service
                         .add_message_with_id(
-                            &stream_msg_id, session_id, "assistant",
-                            if text_buf.is_empty() { None } else { Some(text_buf.clone()) },
-                            tool_calls_str, None, None, None, None, None, None, None, None,
+                            &stream_msg_id,
+                            session_id,
+                            "assistant",
+                            if text_buf.is_empty() {
+                                None
+                            } else {
+                                Some(text_buf.clone())
+                            },
+                            tool_calls_str,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
                         )
                         .await
                         .map_err(|e| e.to_string())?;
                     let _ = chat_service
                         .update_message_usage(
-                            &asst_msg.id, stream_prompt_tokens, stream_completion_tokens,
+                            &asst_msg.id,
+                            stream_prompt_tokens,
+                            stream_completion_tokens,
                         )
                         .await;
-                    let refreshed_asst_msg =
-                        chat_service.get_message(&asst_msg.id).await.unwrap_or(asst_msg);
+                    let refreshed_asst_msg = chat_service
+                        .get_message(&asst_msg.id)
+                        .await
+                        .unwrap_or(asst_msg);
                     emit_message(app, session_id, &refreshed_asst_msg);
                     messages.push(crate::services::ai_service::ChatMessage {
                         role: "assistant".into(),
@@ -778,8 +902,7 @@ impl ChatExecutionService {
 
                         // 若本轮内启动工具已失败，跳过依赖浏览器会话的工具
                         if let Some(ref failed_name) = round_startup_failed {
-                            let cat =
-                                crate::services::ai_tools::tool_category(&tool_call.name);
+                            let cat = crate::services::ai_tools::tool_category(&tool_call.name);
                             if matches!(cat, "cdp" | "magic") {
                                 let skip_text = format!(
                                     "skipped: {} failed earlier in this round. \
@@ -788,22 +911,23 @@ impl ChatExecutionService {
                                 );
                                 let tool_msg = chat_service
                                     .add_message(
-                                        session_id, "tool", None, None,
+                                        session_id,
+                                        "tool",
+                                        None,
+                                        None,
                                         Some(tool_call.id.clone()),
                                         Some(tool_call.name.clone()),
                                         serde_json::to_string(&tool_call.arguments).ok(),
                                         Some(skip_text.clone()),
                                         Some("skipped".to_string()),
                                         Some(0i64),
-                                        None, None,
+                                        None,
+                                        None,
                                     )
                                     .await
                                     .map_err(|e| e.to_string())?;
                                 emit_message(app, session_id, &tool_msg);
-                                messages.push(ChatMessage::tool_result(
-                                    &tool_call.id,
-                                    &skip_text,
-                                ));
+                                messages.push(ChatMessage::tool_result(&tool_call.id, &skip_text));
                                 continue;
                             }
                         }
@@ -859,10 +983,8 @@ impl ChatExecutionService {
                         let (result_text, result_image, tool_status) = {
                             // MCP 工具路由：以 mcp__ 开头的工具名，路由到 McpManager
                             if tool_call.name.starts_with("mcp__") {
-                                let mcp_manager = app
-                                    .state::<crate::state::AppState>()
-                                    .mcp_manager
-                                    .clone();
+                                let mcp_manager =
+                                    app.state::<crate::state::AppState>().mcp_manager.clone();
                                 // 解析 server_id：从工具名映射回 server
                                 let all_tools = mcp_manager.all_enabled_tools().await;
                                 let tool_def = all_tools.iter().find(|t| t.name == tool_call.name);
@@ -873,17 +995,32 @@ impl ChatExecutionService {
                                         let tool_timeout = std::time::Duration::from_secs(60);
                                         match tokio::time::timeout(
                                             tool_timeout,
-                                            mcp_manager.call_tool(&server_id, &original_name, tool_call.arguments.clone()),
+                                            mcp_manager.call_tool(
+                                                &server_id,
+                                                &original_name,
+                                                tool_call.arguments.clone(),
+                                            ),
                                         )
                                         .await
                                         {
                                             Ok(Ok(text)) => (text, None, "completed".to_string()),
-                                            Ok(Err(e)) => (format!("mcp tool error: {e}"), None, "failed".to_string()),
-                                            Err(_) => ("MCP tool timed out after 60s".to_string(), None, "failed".to_string()),
+                                            Ok(Err(e)) => (
+                                                format!("mcp tool error: {e}"),
+                                                None,
+                                                "failed".to_string(),
+                                            ),
+                                            Err(_) => (
+                                                "MCP tool timed out after 60s".to_string(),
+                                                None,
+                                                "failed".to_string(),
+                                            ),
                                         }
                                     }
                                     None => (
-                                        format!("MCP tool '{}' not found in any enabled server", tool_call.name),
+                                        format!(
+                                            "MCP tool '{}' not found in any enabled server",
+                                            tool_call.name
+                                        ),
                                         None,
                                         "failed".to_string(),
                                     ),
@@ -911,10 +1048,9 @@ impl ChatExecutionService {
                                                 &txt, 3_000,
                                             )
                                         } else {
-                                            let category =
-                                                crate::services::ai_tools::tool_category(
-                                                    &tool_call.name,
-                                                );
+                                            let category = crate::services::ai_tools::tool_category(
+                                                &tool_call.name,
+                                            );
                                             crate::services::token_counter::truncate_tool_result(
                                                 &txt, category,
                                             )
@@ -925,10 +1061,7 @@ impl ChatExecutionService {
                                         (format!("tool error: {e}"), None, "failed".to_string())
                                     }
                                     Err(_) => (
-                                        format!(
-                                            "Tool timed out after {}s",
-                                            tool_timeout.as_secs()
-                                        ),
+                                        format!("Tool timed out after {}s", tool_timeout.as_secs()),
                                         None,
                                         "failed".to_string(),
                                     ),
@@ -1136,12 +1269,13 @@ impl ChatExecutionService {
                                     let colon = sig.find(':').unwrap_or(sig.len());
                                     let repeated_tool = sig[..colon].to_string();
                                     let error_snippet = sig[colon + 1..].to_string();
-                                    let prompt = crate::services::agent_limits::build_escalation_prompt(
-                                        &repeated_tool,
-                                        MAX_SAME_ERROR_REPEATS,
-                                        &[error_snippet],
-                                        locale,
-                                    );
+                                    let prompt =
+                                        crate::services::agent_limits::build_escalation_prompt(
+                                            &repeated_tool,
+                                            MAX_SAME_ERROR_REPEATS,
+                                            &[error_snippet],
+                                            locale,
+                                        );
                                     messages.push(ChatMessage::system(&prompt));
                                     escalation_injected = true;
                                     let prefix = format!("{repeated_tool}:");

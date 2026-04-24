@@ -25,24 +25,33 @@ pub async fn execute(
     // 新增：多根目录工作区工具（需要 AppHandle）
     match name {
         "file_list_roots" => {
-            let result = handle_file_list_roots(ctx.app).await
+            let result = handle_file_list_roots(ctx.app)
+                .await
                 .map(|v| serde_json::to_string(&v).unwrap_or_else(|e| e.to_string()))
                 .unwrap_or_else(|e| format!("错误: {e}"));
             return Ok(ToolResult::text(result));
         }
         "file_read_folder_desc" => {
-            let root_id = args.get("root_id").and_then(|v| v.as_str()).unwrap_or("default");
+            let root_id = args
+                .get("root_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("default");
             let rel_path = args.get("rel_path").and_then(|v| v.as_str()).unwrap_or(".");
-            let result = handle_file_read_folder_desc(ctx.app, root_id, rel_path).await
+            let result = handle_file_read_folder_desc(ctx.app, root_id, rel_path)
+                .await
                 .map(|v| v.unwrap_or_else(|| "（暂无说明）".to_string()))
                 .unwrap_or_else(|e| format!("错误: {e}"));
             return Ok(ToolResult::text(result));
         }
         "file_write_folder_desc" => {
-            let root_id = args.get("root_id").and_then(|v| v.as_str()).unwrap_or("default");
+            let root_id = args
+                .get("root_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("default");
             let rel_path = args.get("rel_path").and_then(|v| v.as_str()).unwrap_or(".");
             let text = args.get("text").and_then(|v| v.as_str()).unwrap_or("");
-            let result = handle_file_write_folder_desc(ctx.app, root_id, rel_path, text).await
+            let result = handle_file_write_folder_desc(ctx.app, root_id, rel_path, text)
+                .await
                 .map(|()| "说明已保存".to_string())
                 .unwrap_or_else(|e| format!("错误: {e}"));
             return Ok(ToolResult::text(result));
@@ -52,14 +61,19 @@ pub async fn execute(
 
     // 通用文件工具：全部路由到 FsWorkspaceService，root_id 默认 "default"
     // 这样用户在设置中配置的自定义沙箱根和白名单目录才能对 AI 生效
-    let root_id = args.get("root_id").and_then(|v| v.as_str()).unwrap_or("default");
+    let root_id = args
+        .get("root_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("default");
     let svc = crate::services::fs_workspace_service::from_app(ctx.app)
         .map_err(|e| format!("文件系统服务初始化失败: {e}"))?;
 
     match name {
         "file_read" => {
             let path = require_str(&args, "path")?;
-            svc.read_file(root_id, &path).map(ToolResult::text).map_err(|e| e.to_string())
+            svc.read_file(root_id, &path)
+                .map(ToolResult::text)
+                .map_err(|e| e.to_string())
         }
         "file_write" => {
             let path = require_str(&args, "path")?;
@@ -80,18 +94,23 @@ pub async fn execute(
         "file_list_dir" => {
             let path = require_str(&args, "path")?;
             svc.list_dir(root_id, &path)
-                .map(|entries| ToolResult::text(serde_json::to_string(&entries).unwrap_or_default()))
+                .map(|entries| {
+                    ToolResult::text(serde_json::to_string(&entries).unwrap_or_default())
+                })
                 .map_err(|e| e.to_string())
         }
         "file_exists" => {
             let path = require_str(&args, "path")?;
             svc.path_exists(root_id, &path)
                 .map(|(exists, is_dir)| {
-                    ToolResult::text(json!({
-                        "exists": exists,
-                        "is_dir": is_dir,
-                        "is_file": exists && !is_dir,
-                    }).to_string())
+                    ToolResult::text(
+                        json!({
+                            "exists": exists,
+                            "is_dir": is_dir,
+                            "is_file": exists && !is_dir,
+                        })
+                        .to_string(),
+                    )
                 })
                 .map_err(|e| e.to_string())
         }
@@ -113,21 +132,32 @@ pub async fn execute(
     }
 }
 
-async fn handle_file_list_roots(app: &tauri::AppHandle) -> Result<Vec<crate::services::fs_workspace_service::FsRoot>, String> {
+async fn handle_file_list_roots(
+    app: &tauri::AppHandle,
+) -> Result<Vec<crate::services::fs_workspace_service::FsRoot>, String> {
     crate::services::fs_workspace_service::from_app(app)
         .map_err(|e| e.to_string())?
         .list_roots()
         .map_err(|e| e.to_string())
 }
 
-async fn handle_file_read_folder_desc(app: &tauri::AppHandle, root_id: &str, rel_path: &str) -> Result<Option<String>, String> {
+async fn handle_file_read_folder_desc(
+    app: &tauri::AppHandle,
+    root_id: &str,
+    rel_path: &str,
+) -> Result<Option<String>, String> {
     crate::services::fs_workspace_service::from_app(app)
         .map_err(|e| e.to_string())?
         .read_description(root_id, rel_path)
         .map_err(|e| e.to_string())
 }
 
-async fn handle_file_write_folder_desc(app: &tauri::AppHandle, root_id: &str, rel_path: &str, text: &str) -> Result<(), String> {
+async fn handle_file_write_folder_desc(
+    app: &tauri::AppHandle,
+    root_id: &str,
+    rel_path: &str,
+    text: &str,
+) -> Result<(), String> {
     crate::services::fs_workspace_service::from_app(app)
         .map_err(|e| e.to_string())?
         .save_description(root_id, rel_path, text)

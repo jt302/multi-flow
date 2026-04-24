@@ -119,7 +119,8 @@ impl SkillInstallService {
                 self.fetch_github_file(client, &repo, &file_path).await?
             }
             SkillInstallSource::GithubRepo(repo) => {
-                self.fetch_github_repo(client, &repo, req.slug_hint.as_deref()).await?
+                self.fetch_github_repo(client, &repo, req.slug_hint.as_deref())
+                    .await?
             }
         };
 
@@ -274,7 +275,10 @@ impl SkillInstallService {
     }
 }
 
-fn detect_source_type(source: &str, raw_source_type: Option<&str>) -> AppResult<SkillInstallSource> {
+fn detect_source_type(
+    source: &str,
+    raw_source_type: Option<&str>,
+) -> AppResult<SkillInstallSource> {
     let source_type = raw_source_type.unwrap_or("auto");
     match source_type {
         "auto" => auto_detect_source(source),
@@ -321,7 +325,10 @@ fn parse_git_source(source: &str) -> AppResult<SkillInstallSource> {
         return parse_url_source(source);
     }
     let normalized = source.trim_matches('/');
-    let parts: Vec<_> = normalized.split('/').filter(|part| !part.is_empty()).collect();
+    let parts: Vec<_> = normalized
+        .split('/')
+        .filter(|part| !part.is_empty())
+        .collect();
     if parts.len() < 2 {
         return Err(AppError::Validation(
             "Git 来源格式应为 owner/repo 或 owner/repo/path".to_string(),
@@ -340,7 +347,10 @@ fn parse_skills_sh_url(url: &reqwest::Url) -> Option<GithubRepoRef> {
     if url.domain()? != "skills.sh" {
         return None;
     }
-    let parts: Vec<_> = url.path_segments()?.filter(|part| !part.is_empty()).collect();
+    let parts: Vec<_> = url
+        .path_segments()?
+        .filter(|part| !part.is_empty())
+        .collect();
     if parts.len() < 3 {
         return None;
     }
@@ -356,7 +366,10 @@ fn parse_github_repo_url(url: &reqwest::Url) -> Option<GithubRepoRef> {
     if url.domain()? != "github.com" {
         return None;
     }
-    let parts: Vec<_> = url.path_segments()?.filter(|part| !part.is_empty()).collect();
+    let parts: Vec<_> = url
+        .path_segments()?
+        .filter(|part| !part.is_empty())
+        .collect();
     if parts.len() < 2 {
         return None;
     }
@@ -373,7 +386,10 @@ fn parse_github_repo_url(url: &reqwest::Url) -> Option<GithubRepoRef> {
 
 fn parse_github_blob_like_url(url: &reqwest::Url) -> Option<(GithubRepoRef, String)> {
     let domain = url.domain()?;
-    let parts: Vec<_> = url.path_segments()?.filter(|part| !part.is_empty()).collect();
+    let parts: Vec<_> = url
+        .path_segments()?
+        .filter(|part| !part.is_empty())
+        .collect();
 
     if domain == "raw.githubusercontent.com" {
         if parts.len() < 4 {
@@ -423,7 +439,9 @@ fn normalize_subdir(value: &str) -> Option<String> {
     }
 }
 
-async fn github_api<T: for<'de> Deserialize<'de>>(builder: reqwest::RequestBuilder) -> AppResult<T> {
+async fn github_api<T: for<'de> Deserialize<'de>>(
+    builder: reqwest::RequestBuilder,
+) -> AppResult<T> {
     let response = builder.send().await?;
     if !response.status().is_success() {
         return Err(AppError::Validation(format!(
@@ -470,7 +488,10 @@ async fn resolve_branch(client: &Client, repo: &GithubRepoRef) -> AppResult<Stri
     }
     let info: GithubRepoInfo = github_api(
         client
-            .get(format!("{GITHUB_API_BASE}/repos/{}/{}", repo.owner, repo.repo))
+            .get(format!(
+                "{GITHUB_API_BASE}/repos/{}/{}",
+                repo.owner, repo.repo
+            ))
             .header(USER_AGENT, USER_AGENT_VALUE)
             .header(ACCEPT, "application/vnd.github+json"),
     )
@@ -543,9 +564,7 @@ fn resolve_skill_dir(
     }
 
     if skill_paths.is_empty() {
-        return Err(AppError::NotFound(
-            "仓库中没有找到 SKILL.md".to_string(),
-        ));
+        return Err(AppError::NotFound("仓库中没有找到 SKILL.md".to_string()));
     }
 
     Err(AppError::Validation(
@@ -630,7 +649,10 @@ mod tests {
 
     #[test]
     fn parse_github_raw_skill_file_url() {
-        let url = reqwest::Url::parse("https://raw.githubusercontent.com/acme/skills/main/find-skills/SKILL.md").unwrap();
+        let url = reqwest::Url::parse(
+            "https://raw.githubusercontent.com/acme/skills/main/find-skills/SKILL.md",
+        )
+        .unwrap();
         let (repo, file_path) = parse_github_blob_like_url(&url).expect("raw parse");
         assert_eq!(repo.owner, "acme");
         assert_eq!(repo.repo, "skills");
@@ -640,15 +662,22 @@ mod tests {
 
     #[test]
     fn detect_git_shortcut_source() {
-        let parsed = detect_source_type("acme/skills/find-skills", Some("git")).expect("detect git");
+        let parsed =
+            detect_source_type("acme/skills/find-skills", Some("git")).expect("detect git");
         assert!(matches!(parsed, SkillInstallSource::GithubRepo(_)));
     }
 
     #[test]
     fn resolve_skill_dir_prefers_exact_subdir() {
         let tree = vec![
-            GithubTreeEntry { path: "find-skills/SKILL.md".to_string(), kind: "blob".to_string() },
-            GithubTreeEntry { path: "another/SKILL.md".to_string(), kind: "blob".to_string() },
+            GithubTreeEntry {
+                path: "find-skills/SKILL.md".to_string(),
+                kind: "blob".to_string(),
+            },
+            GithubTreeEntry {
+                path: "another/SKILL.md".to_string(),
+                kind: "blob".to_string(),
+            },
         ];
         let dir = resolve_skill_dir(&tree, Some("find-skills"), None).expect("dir");
         assert_eq!(dir, "find-skills");
@@ -657,8 +686,14 @@ mod tests {
     #[test]
     fn resolve_skill_dir_rejects_ambiguous_repo() {
         let tree = vec![
-            GithubTreeEntry { path: "find-skills/SKILL.md".to_string(), kind: "blob".to_string() },
-            GithubTreeEntry { path: "another/SKILL.md".to_string(), kind: "blob".to_string() },
+            GithubTreeEntry {
+                path: "find-skills/SKILL.md".to_string(),
+                kind: "blob".to_string(),
+            },
+            GithubTreeEntry {
+                path: "another/SKILL.md".to_string(),
+                kind: "blob".to_string(),
+            },
         ];
         assert!(resolve_skill_dir(&tree, None, None).is_err());
     }
@@ -686,7 +721,8 @@ mod tests {
 
         let package = RemoteSkillPackage {
             source_type: "git".to_string(),
-            skill_content: "---\nslug: installed-skill\nname: Installed Skill\n---\nbody".to_string(),
+            skill_content: "---\nslug: installed-skill\nname: Installed Skill\n---\nbody"
+                .to_string(),
             skill_dir: Some("installed-skill".to_string()),
             repo: None,
             attachments: vec![RemoteAttachment {
@@ -702,7 +738,11 @@ mod tests {
         };
 
         let result = svc.write_package(package, &req).unwrap();
-        let skill_root = tmp.path().join(".agents").join("skills").join("installed-skill");
+        let skill_root = tmp
+            .path()
+            .join(".agents")
+            .join("skills")
+            .join("installed-skill");
         let skill_md = skill_root.join("SKILL.md");
         let helper = skill_root.join("scripts").join("helper.py");
 
@@ -717,7 +757,9 @@ mod tests {
             ]
         );
         assert!(!result.enabled_for_session);
-        assert!(fs::read_to_string(skill_md).unwrap().contains("Installed Skill"));
+        assert!(fs::read_to_string(skill_md)
+            .unwrap()
+            .contains("Installed Skill"));
     }
 
     #[test]
@@ -727,7 +769,8 @@ mod tests {
 
         let package = RemoteSkillPackage {
             source_type: "git".to_string(),
-            skill_content: "---\nslug: installed-skill\nname: Installed Skill\n---\nbody".to_string(),
+            skill_content: "---\nslug: installed-skill\nname: Installed Skill\n---\nbody"
+                .to_string(),
             skill_dir: Some("installed-skill".to_string()),
             repo: None,
             attachments: vec![],

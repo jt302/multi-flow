@@ -69,7 +69,6 @@ fn default_true() -> bool {
     true
 }
 
-
 /// AI Provider 配置
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]

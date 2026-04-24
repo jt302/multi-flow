@@ -141,9 +141,7 @@ impl BookmarkTemplateService {
             applied_at: Set(None),
             ..Default::default()
         };
-        self.db_query(
-            bookmark_template_subscription::Entity::insert(active).exec(&self.db),
-        )?;
+        self.db_query(bookmark_template_subscription::Entity::insert(active).exec(&self.db))?;
         Ok(())
     }
 
@@ -154,9 +152,7 @@ impl BookmarkTemplateService {
                 .filter(
                     bookmark_template_subscription::Column::TemplateId
                         .eq(template_id)
-                        .and(
-                            bookmark_template_subscription::Column::ProfileId.eq(profile_id),
-                        ),
+                        .and(bookmark_template_subscription::Column::ProfileId.eq(profile_id)),
                 )
                 .exec(&self.db),
         )?;
@@ -170,9 +166,7 @@ impl BookmarkTemplateService {
     ) -> AppResult<Vec<BookmarkTemplateSubscription>> {
         let models = self.db_query(
             bookmark_template_subscription::Entity::find()
-                .filter(
-                    bookmark_template_subscription::Column::TemplateId.eq(template_id),
-                )
+                .filter(bookmark_template_subscription::Column::TemplateId.eq(template_id))
                 .all(&self.db),
         )?;
         Ok(models.into_iter().map(to_subscription).collect())
@@ -185,9 +179,7 @@ impl BookmarkTemplateService {
     ) -> AppResult<Vec<BookmarkTemplateSubscription>> {
         let models = self.db_query(
             bookmark_template_subscription::Entity::find()
-                .filter(
-                    bookmark_template_subscription::Column::ProfileId.eq(profile_id),
-                )
+                .filter(bookmark_template_subscription::Column::ProfileId.eq(profile_id))
                 .all(&self.db),
         )?;
         Ok(models.into_iter().map(to_subscription).collect())

@@ -10,7 +10,9 @@ use std::sync::Once;
 use std::thread;
 use std::time::Duration;
 
-use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, Submenu, SubmenuBuilder, WINDOW_SUBMENU_ID};
+use tauri::menu::{
+    MenuBuilder, MenuItemBuilder, PredefinedMenuItem, Submenu, SubmenuBuilder, WINDOW_SUBMENU_ID,
+};
 use tauri::plugin::Builder as TauriPluginBuilder;
 use tauri::utils::config::WindowConfig;
 use tauri::{
@@ -650,10 +652,7 @@ pub(crate) fn setup_native_menu(
             &MenuItemBuilder::with_id(MENU_ID_OPEN_DEVTOOLS, translations.open_devtools)
                 .build(app)?,
         )
-        .item(
-            &MenuItemBuilder::with_id(MENU_ID_RELOAD_WINDOW, translations.reload)
-                .build(app)?,
-        )
+        .item(&MenuItemBuilder::with_id(MENU_ID_RELOAD_WINDOW, translations.reload).build(app)?)
         .build()?;
 
     let menu = {
@@ -856,23 +855,14 @@ fn open_focused_window_devtools(app: &AppHandle) {
 
 fn reload_focused_window(app: &AppHandle) {
     let Some(window) = focused_webview_window(app) else {
-        logger::warn(
-            "menu",
-            "reload requested but no webview window was found",
-        );
+        logger::warn("menu", "reload requested but no webview window was found");
         return;
     };
 
     let label = window.label().to_string();
-    logger::info(
-        "menu",
-        format!("reload requested for window={label}"),
-    );
+    logger::info("menu", format!("reload requested for window={label}"));
     if let Err(err) = window.reload() {
-        logger::warn(
-            "menu",
-            format!("reload failed for window={label}: {err}"),
-        );
+        logger::warn("menu", format!("reload failed for window={label}: {err}"));
     }
 }
 
@@ -894,8 +884,7 @@ fn trim_to_option(input: String) -> Option<String> {
     }
 }
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq)]
-#[derive(Default)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Default)]
 struct SavedMainWindowState {
     width: u32,
     height: u32,
@@ -906,7 +895,6 @@ struct SavedMainWindowState {
     #[serde(default)]
     monitor: Option<SavedMonitorSnapshot>,
 }
-
 
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, PartialEq)]
 struct SavedMonitorSnapshot {
@@ -1403,9 +1391,7 @@ fn run_app_init(handle: AppHandle) -> Result<(), Box<dyn std::error::Error + Sen
 
     emit_splash("proxy", 65);
     start_proxy_daemon_sidecar(&handle, &app_state).map_err(
-        |err| -> Box<dyn std::error::Error + Send + Sync> {
-            Box::new(std::io::Error::other(err))
-        },
+        |err| -> Box<dyn std::error::Error + Send + Sync> { Box::new(std::io::Error::other(err)) },
     )?;
     handle.manage(app_state);
 
@@ -1430,18 +1416,14 @@ fn run_app_init(handle: AppHandle) -> Result<(), Box<dyn std::error::Error + Sen
     emit_splash("menu", 80);
     setup_native_menu(&handle, None).map_err(
         |err| -> Box<dyn std::error::Error + Send + Sync> {
-            Box::new(std::io::Error::other(
-                err.to_string(),
-            ))
+            Box::new(std::io::Error::other(err.to_string()))
         },
     )?;
     start_runtime_guard(handle.clone());
 
     emit_splash("window", 90);
     build_main_window(&handle).map_err(|err| -> Box<dyn std::error::Error + Send + Sync> {
-        Box::new(std::io::Error::other(
-            err.to_string(),
-        ))
+        Box::new(std::io::Error::other(err.to_string()))
     })?;
 
     emit_splash("ready", 100);

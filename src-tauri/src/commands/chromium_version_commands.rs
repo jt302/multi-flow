@@ -7,5 +7,7 @@ pub fn list_chromium_versions_for_platform(platform: String) -> Vec<ChromiumVers
 
 #[tauri::command]
 pub fn latest_chromium_version_for_platform(platform: String) -> String {
-    chromium_version_catalog::latest_for(&platform).version.to_string()
+    chromium_version_catalog::latest_for(&platform)
+        .version
+        .to_string()
 }

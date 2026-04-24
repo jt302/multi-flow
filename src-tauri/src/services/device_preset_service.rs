@@ -330,8 +330,8 @@ fn normalize_payload(
         AppError::Validation("device preset browserVersion is required".to_string())
     })?;
     // Validate version is in the platform catalog; unknown versions are still stored but warned.
-    let normalized_platform_str = fingerprint_catalog::normalize_platform(Some(&platform))
-        .unwrap_or("macos");
+    let normalized_platform_str =
+        fingerprint_catalog::normalize_platform(Some(&platform)).unwrap_or("macos");
     if !crate::chromium_version_catalog::contains(normalized_platform_str, &browser_version) {
         crate::logger::warn(
             "device_preset",

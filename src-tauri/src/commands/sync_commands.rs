@@ -174,8 +174,14 @@ pub fn arrange_profile_windows(
         "sync_cmd",
         format!(
             "arrange_profile_windows scale={scale} work_area={}x{}@({},{}) dip={}x{}@({},{})",
-            monitor.work_area.width, monitor.work_area.height, monitor.work_area.x, monitor.work_area.y,
-            dip_work_area.width, dip_work_area.height, dip_work_area.x, dip_work_area.y,
+            monitor.work_area.width,
+            monitor.work_area.height,
+            monitor.work_area.x,
+            monitor.work_area.y,
+            dip_work_area.width,
+            dip_work_area.height,
+            dip_work_area.x,
+            dip_work_area.y,
         ),
     );
 
@@ -204,9 +210,7 @@ pub fn arrange_profile_windows(
         "sync_cmd",
         format!(
             "arrange_profile_windows profile_count={} monitor_id={} mode={:?}",
-            n,
-            monitor.id,
-            payload.mode
+            n, monitor.id, payload.mode
         ),
     );
 
@@ -230,32 +234,33 @@ pub fn arrange_profile_windows(
     }
 
     // 计算初始 bounds（delta=0，无装饰补偿），用 DIP 工作区
-    let initial_bounds =
-        compute_arranged_bounds(&dip_work_area, &payload, n, gap_x, gap_y, 0, 0)?;
+    let initial_bounds = compute_arranged_bounds(&dip_work_area, &payload, n, gap_x, gap_y, 0, 0)?;
 
     // 装饰补偿：对第一个 profile 做 pre-set + read-back，推导 delta_h / delta_w
     // get_bounds 返回的是 DIP，和 dip_work_area 单位一致
-    let (delta_w, delta_h) =
-        if matches!(payload.chrome_decoration_compensation, ChromeDecorationCompensation::Auto) {
-            let first_id = &profile_ids[0];
-            // pre-set 第一个 profile 到初始 bounds
-            let _ = engine_manager.set_window_bounds(first_id, initial_bounds[0].clone(), None);
-            // read-back 实际 bounds
-            match engine_manager.magic_get_window_bounds(first_id) {
-                Ok(actual) => {
-                    let dw = (actual.width - initial_bounds[0].width).max(0);
-                    let dh = (actual.height - initial_bounds[0].height).max(0);
-                    logger::info(
-                        "sync_cmd",
-                        format!("decoration delta: delta_w={dw} delta_h={dh}"),
-                    );
-                    (dw, dh)
-                }
-                Err(_) => (0, 0),
+    let (delta_w, delta_h) = if matches!(
+        payload.chrome_decoration_compensation,
+        ChromeDecorationCompensation::Auto
+    ) {
+        let first_id = &profile_ids[0];
+        // pre-set 第一个 profile 到初始 bounds
+        let _ = engine_manager.set_window_bounds(first_id, initial_bounds[0].clone(), None);
+        // read-back 实际 bounds
+        match engine_manager.magic_get_window_bounds(first_id) {
+            Ok(actual) => {
+                let dw = (actual.width - initial_bounds[0].width).max(0);
+                let dh = (actual.height - initial_bounds[0].height).max(0);
+                logger::info(
+                    "sync_cmd",
+                    format!("decoration delta: delta_w={dw} delta_h={dh}"),
+                );
+                (dw, dh)
             }
-        } else {
-            (0, 0)
-        };
+            Err(_) => (0, 0),
+        }
+    } else {
+        (0, 0)
+    };
 
     // 用 delta 重新计算所有 bounds（补偿后），仍用 DIP 工作区
     let final_bounds =
@@ -414,7 +419,12 @@ fn compute_work_rect(area: &WindowBounds, padding: &EdgeInsets) -> WindowBounds 
 
 /// 根据提示（或 auto）推算最佳行列数。
 /// auto 时选使单格宽高比最接近 work_area 宽高比的列数，同时惩罚空格。
-fn choose_rows_cols(n: u32, rows_hint: Option<u32>, cols_hint: Option<u32>, rect: &WindowBounds) -> (u32, u32) {
+fn choose_rows_cols(
+    n: u32,
+    rows_hint: Option<u32>,
+    cols_hint: Option<u32>,
+    rect: &WindowBounds,
+) -> (u32, u32) {
     if n == 0 {
         return (1, 1);
     }
@@ -434,20 +444,22 @@ fn choose_rows_cols(n: u32, rows_hint: Option<u32>, cols_hint: Option<u32>, rect
             } else {
                 16.0 / 9.0
             };
-            let best_c = (1..=n).min_by(|&a, &b| {
-                let score = |c: u32| -> f64 {
-                    let r = n.div_ceil(c);
-                    // 单格宽高比 vs 屏幕宽高比（越接近越好）
-                    let cell_aspect = (c as f64) / (r as f64) * area_aspect;
-                    let aspect_penalty = (cell_aspect / area_aspect - 1.0).abs();
-                    // 空格惩罚（尽量少空格）
-                    let empty_penalty = (r * c - n) as f64 * 0.05;
-                    aspect_penalty + empty_penalty
-                };
-                score(a)
-                    .partial_cmp(&score(b))
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            }).unwrap_or(1);
+            let best_c = (1..=n)
+                .min_by(|&a, &b| {
+                    let score = |c: u32| -> f64 {
+                        let r = n.div_ceil(c);
+                        // 单格宽高比 vs 屏幕宽高比（越接近越好）
+                        let cell_aspect = (c as f64) / (r as f64) * area_aspect;
+                        let aspect_penalty = (cell_aspect / area_aspect - 1.0).abs();
+                        // 空格惩罚（尽量少空格）
+                        let empty_penalty = (r * c - n) as f64 * 0.05;
+                        aspect_penalty + empty_penalty
+                    };
+                    score(a)
+                        .partial_cmp(&score(b))
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .unwrap_or(1);
             (n.div_ceil(best_c), best_c)
         }
     }
@@ -514,7 +526,14 @@ fn build_grid_bounds(
         let items_in_row = if is_last_row { n - row * cols } else { cols };
 
         let (x_off, w_i) = if is_last_row && items_in_row < cols {
-            apply_last_row_align(last_row_align, col, items_in_row, target_w, gap_x, rect.width)
+            apply_last_row_align(
+                last_row_align,
+                col,
+                items_in_row,
+                target_w,
+                gap_x,
+                rect.width,
+            )
         } else {
             (col as i32 * (target_w + gap_x), target_w)
         };
@@ -576,7 +595,8 @@ fn build_main_sidebar_bounds(
         MainPosition::Left | MainPosition::Right => {
             let main_w = ((rect.width as f64 * ratio) as i32 - gap_x / 2).max(MIN_WINDOW_W);
             let side_w = (rect.width - main_w - gap_x).max(MIN_WINDOW_W);
-            let side_h = ((rect.height - (sidebars as i32 - 1) * gap_y) / sidebars as i32).max(MIN_WINDOW_H);
+            let side_h =
+                ((rect.height - (sidebars as i32 - 1) * gap_y) / sidebars as i32).max(MIN_WINDOW_H);
             let (main_x, side_x) = if matches!(main_position, MainPosition::Left) {
                 (rect.x, rect.x + main_w + gap_x)
             } else {
@@ -604,7 +624,8 @@ fn build_main_sidebar_bounds(
         MainPosition::Top | MainPosition::Bottom => {
             let main_h = ((rect.height as f64 * ratio) as i32 - gap_y / 2).max(MIN_WINDOW_H);
             let side_h = (rect.height - main_h - gap_y).max(MIN_WINDOW_H);
-            let side_w = ((rect.width - (sidebars as i32 - 1) * gap_x) / sidebars as i32).max(MIN_WINDOW_W);
+            let side_w =
+                ((rect.width - (sidebars as i32 - 1) * gap_x) / sidebars as i32).max(MIN_WINDOW_W);
             let (main_y, side_y) = if matches!(main_position, MainPosition::Top) {
                 (rect.y, rect.y + main_h + gap_y)
             } else {
@@ -651,8 +672,7 @@ fn compute_arranged_bounds(
 
     match payload.mode {
         WindowArrangeMode::Grid => {
-            let (rows, cols) =
-                choose_rows_cols(n, payload.rows, payload.columns, &rect);
+            let (rows, cols) = choose_rows_cols(n, payload.rows, payload.columns, &rect);
             if rows * cols < n {
                 return Err(format!(
                     "行列乘积（{rows}×{cols}={} ）不足以容纳 {n} 个窗口",
@@ -660,8 +680,16 @@ fn compute_arranged_bounds(
                 ));
             }
             build_grid_bounds(
-                &rect, n, rows, cols, gap_x, gap_y, delta_w, delta_h,
-                payload.last_row_align, payload.flow,
+                &rect,
+                n,
+                rows,
+                cols,
+                gap_x,
+                gap_y,
+                delta_w,
+                delta_h,
+                payload.last_row_align,
+                payload.flow,
             )
         }
         WindowArrangeMode::Cascade => {
@@ -673,8 +701,14 @@ fn compute_arranged_bounds(
         WindowArrangeMode::MainWithSidebar => {
             let main_ratio = payload.main_ratio.unwrap_or(0.66);
             build_main_sidebar_bounds(
-                &rect, n, main_ratio, payload.main_position,
-                gap_x, gap_y, delta_w, delta_h,
+                &rect,
+                n,
+                main_ratio,
+                payload.main_position,
+                gap_x,
+                gap_y,
+                delta_w,
+                delta_h,
             )
         }
     }
@@ -801,7 +835,9 @@ mod tests {
         local_api_server.mark_started();
 
         AppState {
-            active_runs: std::sync::Arc::new(crate::services::automation_context::ActiveRunRegistry::new()),
+            active_runs: std::sync::Arc::new(
+                crate::services::automation_context::ActiveRunRegistry::new(),
+            ),
             active_run_channels: Mutex::new(std::collections::HashMap::new()),
             cancel_tokens: Mutex::new(std::collections::HashMap::new()),
             ai_dialog_channels: Mutex::new(std::collections::HashMap::new()),
@@ -826,7 +862,11 @@ mod tests {
             chromium_magic_adapter_service: Mutex::new(ChromiumMagicAdapterService::new()),
             sync_manager_service: Mutex::new(SyncManagerService::new_mock(None, None)),
             mcp_manager: std::sync::Arc::new(crate::services::mcp::McpManager::from_db(db.clone())),
-            bookmark_template_service: Mutex::new(crate::services::bookmark_template_service::BookmarkTemplateService::from_db(db.clone())),
+            bookmark_template_service: Mutex::new(
+                crate::services::bookmark_template_service::BookmarkTemplateService::from_db(
+                    db.clone(),
+                ),
+            ),
             require_real_engine: false,
             last_arrangement_snapshot: Mutex::new(Vec::new()),
             host_locale_service: std::sync::Arc::new(
@@ -838,7 +878,12 @@ mod tests {
     // ─── layout algorithm unit tests ────────────────────────────────────────
 
     fn make_rect(w: i32, h: i32) -> WindowBounds {
-        WindowBounds { x: 0, y: 0, width: w, height: h }
+        WindowBounds {
+            x: 0,
+            y: 0,
+            width: w,
+            height: h,
+        }
     }
 
     #[test]
@@ -847,7 +892,10 @@ mod tests {
         let rect = make_rect(1800, 1080);
         let (rows, cols) = choose_rows_cols(3, None, None, &rect);
         // area is wide, so cols > rows expected
-        assert!(cols >= rows, "wide screen: cols({cols}) should >= rows({rows})");
+        assert!(
+            cols >= rows,
+            "wide screen: cols({cols}) should >= rows({rows})"
+        );
         assert_eq!(rows * cols, cols * rows);
         assert!(rows * cols >= 3);
     }
@@ -856,13 +904,30 @@ mod tests {
     fn grid_explicit_rows_cols() {
         let rect = make_rect(1920, 1080);
         let bounds = build_grid_bounds(
-            &rect, 4, 2, 2, 10, 20, 0, 0,
-            LastRowAlign::Stretch, ArrangeFlow::RowMajor,
-        ).expect("grid ok");
+            &rect,
+            4,
+            2,
+            2,
+            10,
+            20,
+            0,
+            0,
+            LastRowAlign::Stretch,
+            ArrangeFlow::RowMajor,
+        )
+        .expect("grid ok");
         assert_eq!(bounds.len(), 4);
         let cell_w = (1920 - 10) / 2;
         let cell_h = (1080 - 20) / 2;
-        assert_eq!(bounds[0], WindowBounds { x: 0, y: 0, width: cell_w, height: cell_h });
+        assert_eq!(
+            bounds[0],
+            WindowBounds {
+                x: 0,
+                y: 0,
+                width: cell_w,
+                height: cell_h
+            }
+        );
         assert_eq!(bounds[1].x, cell_w + 10);
         assert_eq!(bounds[2].y, cell_h + 20);
     }
@@ -872,9 +937,18 @@ mod tests {
         let rect = make_rect(1000, 800);
         // n=5, cols=2 → 3 rows, last row has 1 window
         let bounds = build_grid_bounds(
-            &rect, 5, 3, 2, 0, 0, 0, 0,
-            LastRowAlign::Center, ArrangeFlow::RowMajor,
-        ).expect("grid ok");
+            &rect,
+            5,
+            3,
+            2,
+            0,
+            0,
+            0,
+            0,
+            LastRowAlign::Center,
+            ArrangeFlow::RowMajor,
+        )
+        .expect("grid ok");
         assert_eq!(bounds.len(), 5);
         let cell_w = 1000 / 2;
         // last window (index 4) should be centered
@@ -886,9 +960,18 @@ mod tests {
     fn grid_last_row_stretch() {
         let rect = make_rect(1000, 800);
         let bounds = build_grid_bounds(
-            &rect, 5, 3, 2, 0, 0, 0, 0,
-            LastRowAlign::Stretch, ArrangeFlow::RowMajor,
-        ).expect("grid ok");
+            &rect,
+            5,
+            3,
+            2,
+            0,
+            0,
+            0,
+            0,
+            LastRowAlign::Stretch,
+            ArrangeFlow::RowMajor,
+        )
+        .expect("grid ok");
         // last window should span full width
         assert_eq!(bounds[4].x, 0);
         assert_eq!(bounds[4].width, 1000);
@@ -901,9 +984,18 @@ mod tests {
         let (rows, cols) = (3u32, 3u32);
         let cell_h = (1080 - 2 * 16) / 3; // gap_y=16
         let bounds = build_grid_bounds(
-            &rect, 9, rows, cols, 16, 16, 0, 28,
-            LastRowAlign::Stretch, ArrangeFlow::RowMajor,
-        ).expect("grid ok");
+            &rect,
+            9,
+            rows,
+            cols,
+            16,
+            16,
+            0,
+            28,
+            LastRowAlign::Stretch,
+            ArrangeFlow::RowMajor,
+        )
+        .expect("grid ok");
         let expected_h = (cell_h - 28).max(MIN_WINDOW_H);
         assert_eq!(bounds[0].height, expected_h);
         // y step should be target_h + gap_y (visual gap equals gap_y regardless of delta)
@@ -915,8 +1007,16 @@ mod tests {
         // Work area too small for 5 rows 5 cols with min window size
         let rect = make_rect(200, 200);
         let result = build_grid_bounds(
-            &rect, 25, 5, 5, 0, 0, 0, 0,
-            LastRowAlign::Start, ArrangeFlow::RowMajor,
+            &rect,
+            25,
+            5,
+            5,
+            0,
+            0,
+            0,
+            0,
+            LastRowAlign::Start,
+            ArrangeFlow::RowMajor,
         );
         assert!(result.is_err());
     }
@@ -936,9 +1036,8 @@ mod tests {
     #[test]
     fn main_sidebar_left() {
         let rect = make_rect(1800, 1080);
-        let bounds = build_main_sidebar_bounds(
-            &rect, 4, 0.66, MainPosition::Left, 16, 16, 0, 0,
-        ).expect("main sidebar ok");
+        let bounds = build_main_sidebar_bounds(&rect, 4, 0.66, MainPosition::Left, 16, 16, 0, 0)
+            .expect("main sidebar ok");
         assert_eq!(bounds.len(), 4);
         // main window at x=0
         assert_eq!(bounds[0].x, 0);
@@ -954,7 +1053,12 @@ mod tests {
     fn backward_compatible_old_bounds_grid() {
         // Old test: build_arranged_bounds_grid_tiles_in_rows equivalent
         // 3 windows at cols=2 (auto for n=3 on wide 1920×1080)
-        let area = WindowBounds { x: 10, y: 20, width: 1920, height: 1080 };
+        let area = WindowBounds {
+            x: 10,
+            y: 20,
+            width: 1920,
+            height: 1080,
+        };
         let payload = ArrangeProfileWindowsRequest {
             profile_ids: vec![],
             monitor_id: String::new(),
@@ -963,7 +1067,12 @@ mod tests {
             columns: None,
             gap_x: Some(16),
             gap_y: Some(16),
-            padding: EdgeInsets { top: 0, right: 0, bottom: 0, left: 0 },
+            padding: EdgeInsets {
+                top: 0,
+                right: 0,
+                bottom: 0,
+                left: 0,
+            },
             last_row_align: LastRowAlign::Stretch,
             flow: ArrangeFlow::RowMajor,
             width: None,
@@ -975,8 +1084,8 @@ mod tests {
             chrome_decoration_compensation: ChromeDecorationCompensation::Off,
             gap: None,
         };
-        let bounds = compute_arranged_bounds(&area, &payload, 3, 16, 16, 0, 0)
-            .expect("should succeed");
+        let bounds =
+            compute_arranged_bounds(&area, &payload, 3, 16, 16, 0, 0).expect("should succeed");
         assert_eq!(bounds.len(), 3);
         // first window starts at area origin
         assert_eq!(bounds[0].x, 10);

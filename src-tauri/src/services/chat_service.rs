@@ -157,20 +157,18 @@ impl ChatService {
                 .as_ref()
                 .and_then(|v| serde_json::to_string(v).ok())),
             active_profile_id: Set(normalized.active_profile_id),
-            enabled_skill_slugs: Set(
-                req.enabled_skill_slugs
-                    .as_ref()
-                    .filter(|v| !v.is_empty())
-                    .and_then(|v| serde_json::to_string(v).ok())
-                    .unwrap_or_else(|| "[]".to_string()),
-            ),
-            disabled_mcp_server_ids: Set(
-                req.disabled_mcp_server_ids
-                    .as_ref()
-                    .filter(|v| !v.is_empty())
-                    .and_then(|v| serde_json::to_string(v).ok())
-                    .unwrap_or_else(|| "[]".to_string()),
-            ),
+            enabled_skill_slugs: Set(req
+                .enabled_skill_slugs
+                .as_ref()
+                .filter(|v| !v.is_empty())
+                .and_then(|v| serde_json::to_string(v).ok())
+                .unwrap_or_else(|| "[]".to_string())),
+            disabled_mcp_server_ids: Set(req
+                .disabled_mcp_server_ids
+                .as_ref()
+                .filter(|v| !v.is_empty())
+                .and_then(|v| serde_json::to_string(v).ok())
+                .unwrap_or_else(|| "[]".to_string())),
             created_at: Set(now),
             updated_at: Set(now),
         };
@@ -236,15 +234,13 @@ impl ChatService {
         model.active_profile_id = Set(normalized.active_profile_id);
         if let Some(slugs_opt) = req.enabled_skill_slugs {
             let slugs = slugs_opt.unwrap_or_default();
-            model.enabled_skill_slugs = Set(
-                serde_json::to_string(&slugs).unwrap_or_else(|_| "[]".to_string()),
-            );
+            model.enabled_skill_slugs =
+                Set(serde_json::to_string(&slugs).unwrap_or_else(|_| "[]".to_string()));
         }
         if let Some(ids_opt) = req.disabled_mcp_server_ids {
             let ids = ids_opt.unwrap_or_default();
-            model.disabled_mcp_server_ids = Set(
-                serde_json::to_string(&ids).unwrap_or_else(|_| "[]".to_string()),
-            );
+            model.disabled_mcp_server_ids =
+                Set(serde_json::to_string(&ids).unwrap_or_else(|_| "[]".to_string()));
         }
 
         let updated = model.update(&self.db).await.map_err(AppError::from)?;

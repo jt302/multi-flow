@@ -1,9 +1,11 @@
 use tauri::{AppHandle, State};
 
 use crate::services::ai_skill_service::{
-    CreateSkillRequest, SkillFull, SkillMeta, UpdateSkillRequest, from_app,
+    from_app, CreateSkillRequest, SkillFull, SkillMeta, UpdateSkillRequest,
 };
-use crate::services::skill_install_service::{InstallSkillRequest, InstallSkillResult, SkillInstallService};
+use crate::services::skill_install_service::{
+    InstallSkillRequest, InstallSkillResult, SkillInstallService,
+};
 use crate::state::AppState;
 
 // ─── Skill CRUD ───────────────────────────────────────────────────────────
@@ -21,7 +23,10 @@ pub async fn read_ai_skill(app: AppHandle, slug: String) -> Result<SkillFull, St
 }
 
 #[tauri::command]
-pub async fn create_ai_skill(app: AppHandle, payload: CreateSkillRequest) -> Result<SkillFull, String> {
+pub async fn create_ai_skill(
+    app: AppHandle,
+    payload: CreateSkillRequest,
+) -> Result<SkillFull, String> {
     let svc = from_app(&app).map_err(|e| e.to_string())?;
     svc.create_skill(payload).map_err(|e| e.to_string())
 }

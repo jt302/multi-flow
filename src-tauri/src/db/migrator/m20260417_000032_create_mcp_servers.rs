@@ -11,20 +11,55 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(McpServers::Table)
                     .if_not_exists()
-                    .col(ColumnDef::new(McpServers::Id).text().not_null().primary_key())
+                    .col(
+                        ColumnDef::new(McpServers::Id)
+                            .text()
+                            .not_null()
+                            .primary_key(),
+                    )
                     .col(ColumnDef::new(McpServers::Name).text().not_null())
                     .col(ColumnDef::new(McpServers::Transport).text().not_null()) // 'stdio' | 'sse' | 'http'
                     .col(ColumnDef::new(McpServers::Command).text().null())
-                    .col(ColumnDef::new(McpServers::ArgsJson).text().not_null().default("[]"))
-                    .col(ColumnDef::new(McpServers::EnvJson).text().not_null().default("{}"))
+                    .col(
+                        ColumnDef::new(McpServers::ArgsJson)
+                            .text()
+                            .not_null()
+                            .default("[]"),
+                    )
+                    .col(
+                        ColumnDef::new(McpServers::EnvJson)
+                            .text()
+                            .not_null()
+                            .default("{}"),
+                    )
                     .col(ColumnDef::new(McpServers::Url).text().null())
-                    .col(ColumnDef::new(McpServers::HeadersJson).text().not_null().default("{}"))
-                    .col(ColumnDef::new(McpServers::AuthType).text().not_null().default("none")) // 'none' | 'bearer' | 'oauth'
+                    .col(
+                        ColumnDef::new(McpServers::HeadersJson)
+                            .text()
+                            .not_null()
+                            .default("{}"),
+                    )
+                    .col(
+                        ColumnDef::new(McpServers::AuthType)
+                            .text()
+                            .not_null()
+                            .default("none"),
+                    ) // 'none' | 'bearer' | 'oauth'
                     .col(ColumnDef::new(McpServers::BearerToken).text().null())
                     .col(ColumnDef::new(McpServers::OauthConfigJson).text().null())
                     .col(ColumnDef::new(McpServers::OauthTokensJson).text().null())
-                    .col(ColumnDef::new(McpServers::Enabled).integer().not_null().default(0))
-                    .col(ColumnDef::new(McpServers::LastStatus).text().not_null().default("idle"))
+                    .col(
+                        ColumnDef::new(McpServers::Enabled)
+                            .integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .col(
+                        ColumnDef::new(McpServers::LastStatus)
+                            .text()
+                            .not_null()
+                            .default("idle"),
+                    )
                     .col(ColumnDef::new(McpServers::LastError).text().null())
                     .col(ColumnDef::new(McpServers::CreatedAt).text().not_null())
                     .col(ColumnDef::new(McpServers::UpdatedAt).text().not_null())

@@ -21,11 +21,10 @@ pnpm -s release:check
 pnpm -s test
 pnpm -s build
 cargo check --manifest-path src-tauri/Cargo.toml
+cargo fmt --manifest-path src-tauri/Cargo.toml --check
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
-
-`cargo fmt --check` is not a strict CI gate yet because the current tree has broad historical formatting drift. Do not add avoidable formatting churn; clean formatting in dedicated commits.
 
 ## Commit Style
 

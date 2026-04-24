@@ -346,8 +346,8 @@ pub async fn execute(
 
         "app_create_group" => {
             let name_val = require_str(&args, "name")?;
-            let browser_bg_color = opt_str(&args, "browser_bg_color")
-                .or_else(|| opt_str(&args, "color"));
+            let browser_bg_color =
+                opt_str(&args, "browser_bg_color").or_else(|| opt_str(&args, "color"));
             let req = CreateProfileGroupRequest {
                 name: name_val,
                 note: None,
@@ -369,8 +369,8 @@ pub async fn execute(
         "app_update_group" => {
             let group_id = require_str(&args, "group_id")?;
             let name_val = require_str(&args, "name").unwrap_or_default();
-            let browser_bg_color = opt_str(&args, "browser_bg_color")
-                .or_else(|| opt_str(&args, "color"));
+            let browser_bg_color =
+                opt_str(&args, "browser_bg_color").or_else(|| opt_str(&args, "color"));
             let req = UpdateProfileGroupRequest {
                 name: if name_val.is_empty() {
                     "unnamed".to_string()

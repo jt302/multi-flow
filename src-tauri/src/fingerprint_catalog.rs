@@ -518,10 +518,12 @@ pub fn resolve_fingerprint_snapshot_from_preset(
         .as_deref()
         .and_then(trim_to_option)
         .or_else(|| trim_to_option(&preset.browser_version))
-        .unwrap_or_else(|| crate::chromium_version_catalog::latest_for(&preset.platform).version.to_string());
-    let strategy = source
-        .strategy
-        .unwrap_or(FingerprintStrategy::Template);
+        .unwrap_or_else(|| {
+            crate::chromium_version_catalog::latest_for(&preset.platform)
+                .version
+                .to_string()
+        });
+    let strategy = source.strategy.unwrap_or(FingerprintStrategy::Template);
     let variant = resolve_variant(preset, &version, fingerprint_seed, strategy);
     let language = language_override.and_then(trim_to_option);
     let time_zone = timezone_override.and_then(trim_to_option);
@@ -554,11 +556,7 @@ pub fn resolve_fingerprint_snapshot_from_preset(
         window_width: Some(preset.viewport_width),
         window_height: Some(preset.viewport_height),
         device_scale_factor: Some(preset.device_scale_factor),
-        fingerprint_seed: resolve_seed_value(
-            source.seed_policy,
-            strategy,
-            fingerprint_seed,
-        ),
+        fingerprint_seed: resolve_seed_value(source.seed_policy, strategy, fingerprint_seed),
     })
 }
 
@@ -591,7 +589,9 @@ pub fn normalize_source(
         })
         .or_else(|| preset_browser_version.and_then(trim_to_option))
         .unwrap_or_else(|| {
-            crate::chromium_version_catalog::latest_for(normalized_platform).version.to_string()
+            crate::chromium_version_catalog::latest_for(normalized_platform)
+                .version
+                .to_string()
         });
     let strategy = if random_fingerprint {
         FingerprintStrategy::RandomBundle
@@ -757,7 +757,12 @@ pub fn merge_preset_into_snapshot(
     } else {
         catalog_version
     };
-    let variant = resolve_variant(preset, version, fingerprint_seed, FingerprintStrategy::Template);
+    let variant = resolve_variant(
+        preset,
+        version,
+        fingerprint_seed,
+        FingerprintStrategy::Template,
+    );
 
     snapshot.preset_label = Some(preset.label.clone());
     snapshot.platform = Some(preset.platform.clone());
@@ -765,7 +770,11 @@ pub fn merge_preset_into_snapshot(
     snapshot.custom_platform = Some(preset.custom_platform.clone());
     snapshot.form_factor = Some(preset.form_factor.clone());
     snapshot.mobile = Some(preset.mobile);
-    snapshot.user_agent = Some(variant.user_agent_template.replace("{version}", &major_only_version(version)));
+    snapshot.user_agent = Some(
+        variant
+            .user_agent_template
+            .replace("{version}", &major_only_version(version)),
+    );
     snapshot.custom_ua_metadata = Some(build_ua_metadata(preset, version));
     snapshot.custom_gl_vendor = Some(variant.gl_vendor.clone());
     snapshot.custom_gl_renderer = Some(variant.gl_renderer.clone());
@@ -838,9 +847,13 @@ mod tests {
             seed_policy: Some(FingerprintSeedPolicy::Fixed),
             catalog_version: None,
         };
-        let mut snapshot =
-            resolve_fingerprint_snapshot(&source, Some("zh-CN"), Some("Asia/Shanghai"), Some(12345))
-                .expect("initial snapshot");
+        let mut snapshot = resolve_fingerprint_snapshot(
+            &source,
+            Some("zh-CN"),
+            Some("Asia/Shanghai"),
+            Some(12345),
+        )
+        .expect("initial snapshot");
 
         assert_eq!(snapshot.fingerprint_seed, Some(12345));
         assert_eq!(snapshot.language.as_deref(), Some("zh-CN"));
@@ -880,16 +893,37 @@ mod tests {
         );
 
         // 预设派生字段应已更新
-        assert_eq!(snapshot.custom_gl_vendor.as_deref(), Some("Google Inc. (Apple)"));
-        assert_eq!(snapshot.custom_gl_renderer.as_deref(), Some("ANGLE (Apple, ANGLE Metal Renderer: Apple M3)"));
+        assert_eq!(
+            snapshot.custom_gl_vendor.as_deref(),
+            Some("Google Inc. (Apple)")
+        );
+        assert_eq!(
+            snapshot.custom_gl_renderer.as_deref(),
+            Some("ANGLE (Apple, ANGLE Metal Renderer: Apple M3)")
+        );
         assert_eq!(snapshot.platform_version.as_deref(), Some("15.0.0"));
-        assert_eq!(snapshot.preset_label.as_deref(), Some("MacBook Pro 14 Custom"));
+        assert_eq!(
+            snapshot.preset_label.as_deref(),
+            Some("MacBook Pro 14 Custom")
+        );
         assert_eq!(snapshot.custom_cpu_cores, Some(10));
 
         // 不属于预设管辖的字段必须保留原值
-        assert_eq!(snapshot.fingerprint_seed, Some(12345), "fingerprint_seed 不能被修改");
-        assert_eq!(snapshot.language.as_deref(), Some("zh-CN"), "language 不能被修改");
-        assert_eq!(snapshot.time_zone.as_deref(), Some("Asia/Shanghai"), "time_zone 不能被修改");
+        assert_eq!(
+            snapshot.fingerprint_seed,
+            Some(12345),
+            "fingerprint_seed 不能被修改"
+        );
+        assert_eq!(
+            snapshot.language.as_deref(),
+            Some("zh-CN"),
+            "language 不能被修改"
+        );
+        assert_eq!(
+            snapshot.time_zone.as_deref(),
+            Some("Asia/Shanghai"),
+            "time_zone 不能被修改"
+        );
     }
 
     #[test]

@@ -7,10 +7,10 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use tokio::sync::Mutex;
 
-use crate::db::entities::mcp_server;
-use crate::error::AppError;
 use super::oauth::{OAuthConfig, OAuthTokens};
 use super::transport::{HttpTransport, StdioTransport};
+use crate::db::entities::mcp_server;
+use crate::error::AppError;
 
 // ─── 公共 DTO ────────────────────────────────────────────────────────────
 
@@ -265,9 +265,7 @@ impl McpManager {
         // 清除 OS keychain 中的 token
         super::oauth::delete_tokens_from_keychain(id);
 
-        mcp_server::Entity::delete_by_id(id)
-            .exec(&self.db)
-            .await?;
+        mcp_server::Entity::delete_by_id(id).exec(&self.db).await?;
         Ok(())
     }
 
@@ -346,10 +344,14 @@ impl McpManager {
 
         let result = match &mut runtime.transport {
             McpRuntimeTransport::Stdio { transport, .. } => {
-                transport.call("resources/read", json!({ "uri": uri })).await
+                transport
+                    .call("resources/read", json!({ "uri": uri }))
+                    .await
             }
             McpRuntimeTransport::Http(transport) => {
-                transport.call("resources/read", json!({ "uri": uri })).await
+                transport
+                    .call("resources/read", json!({ "uri": uri }))
+                    .await
             }
         }?;
 
@@ -408,12 +410,14 @@ impl McpManager {
         persist_runtime: bool,
     ) -> Result<Vec<McpToolDef>, String> {
         match server.transport.as_str() {
-            "stdio" => self
-                .connect_stdio_and_fetch_tools(server, persist_runtime)
-                .await,
-            "http" | "sse" => self
-                .connect_http_and_fetch_tools(server, persist_runtime)
-                .await,
+            "stdio" => {
+                self.connect_stdio_and_fetch_tools(server, persist_runtime)
+                    .await
+            }
+            "http" | "sse" => {
+                self.connect_http_and_fetch_tools(server, persist_runtime)
+                    .await
+            }
             t => Err(format!("Unsupported transport: {t}")),
         }
     }
@@ -430,16 +434,23 @@ impl McpManager {
 
         let args: Vec<String> = serde_json::from_str(&server.args_json)
             .map_err(|e| format!("Invalid args_json: {e}"))?;
-        let env_map: HashMap<String, String> = serde_json::from_str(&server.env_json)
-            .map_err(|e| format!("Invalid env_json: {e}"))?;
+        let env_map: HashMap<String, String> =
+            serde_json::from_str(&server.env_json).map_err(|e| format!("Invalid env_json: {e}"))?;
 
         // 过滤高危环境变量，防止覆盖系统关键路径
         const ENV_DENY_LIST: &[&str] = &[
-            "PATH", "LD_PRELOAD", "LD_LIBRARY_PATH",
-            "DYLD_INSERT_LIBRARIES", "DYLD_LIBRARY_PATH", "DYLD_FALLBACK_LIBRARY_PATH",
-            "PYTHONPATH", "NODE_PATH", "RUBYLIB",
+            "PATH",
+            "LD_PRELOAD",
+            "LD_LIBRARY_PATH",
+            "DYLD_INSERT_LIBRARIES",
+            "DYLD_LIBRARY_PATH",
+            "DYLD_FALLBACK_LIBRARY_PATH",
+            "PYTHONPATH",
+            "NODE_PATH",
+            "RUBYLIB",
         ];
-        let safe_env: HashMap<String, String> = env_map.into_iter()
+        let safe_env: HashMap<String, String> = env_map
+            .into_iter()
             .filter(|(k, _)| !ENV_DENY_LIST.contains(&k.as_str()))
             .collect();
 
@@ -514,7 +525,10 @@ impl McpManager {
             match transport.call("resources/list", json!({})).await {
                 Ok(r) => parse_resources_response(r, &server.id, &server.name),
                 Err(e) => {
-                    crate::logger::warn("mcp", format!("resources/list failed for '{}': {e}", server.name));
+                    crate::logger::warn(
+                        "mcp",
+                        format!("resources/list failed for '{}': {e}", server.name),
+                    );
                     vec![]
                 }
             }
@@ -572,7 +586,9 @@ impl McpManager {
             .await?;
 
         // 发送 initialized 通知（HTTP 传输也需要，忽略错误）
-        let _ = transport.notify("notifications/initialized", json!({})).await;
+        let _ = transport
+            .notify("notifications/initialized", json!({}))
+            .await;
 
         let has_resources = init_result
             .get("capabilities")
@@ -588,7 +604,10 @@ impl McpManager {
             match transport.call("resources/list", json!({})).await {
                 Ok(r) => parse_resources_response(r, &server.id, &server.name),
                 Err(e) => {
-                    crate::logger::warn("mcp", format!("resources/list failed for '{}': {e}", server.name));
+                    crate::logger::warn(
+                        "mcp",
+                        format!("resources/list failed for '{}': {e}", server.name),
+                    );
                     vec![]
                 }
             }
@@ -708,17 +727,16 @@ impl McpManager {
         // 检查 tools/list_changed 通知并即时刷新工具缓存
         let server_id_for_refresh = server_id.to_string();
         let server_name_for_refresh = server.name.clone();
-        let tools_changed = if let McpRuntimeTransport::Stdio { transport, .. } =
-            &mut runtime.transport
-        {
-            let changed = transport.tools_list_changed;
-            if changed {
-                transport.tools_list_changed = false;
-            }
-            changed
-        } else {
-            false
-        };
+        let tools_changed =
+            if let McpRuntimeTransport::Stdio { transport, .. } = &mut runtime.transport {
+                let changed = transport.tools_list_changed;
+                if changed {
+                    transport.tools_list_changed = false;
+                }
+                changed
+            } else {
+                false
+            };
         if tools_changed {
             let new_tools = if let McpRuntimeTransport::Stdio { transport, .. } =
                 &mut runtime.transport
@@ -738,7 +756,10 @@ impl McpManager {
                 runtime.cached_tools = tools;
                 crate::logger::info(
                     "mcp",
-                    format!("tools/list_changed: refreshed tools for '{}'", server_id_for_refresh),
+                    format!(
+                        "tools/list_changed: refreshed tools for '{}'",
+                        server_id_for_refresh
+                    ),
                 );
             }
         }
@@ -794,7 +815,10 @@ impl McpManager {
             .join("\n");
 
         if is_error {
-            Err(format!("MCP tool '{}' returned an error: {}", tool_name, text))
+            Err(format!(
+                "MCP tool '{}' returned an error: {}",
+                tool_name, text
+            ))
         } else {
             Ok(text)
         }
@@ -876,19 +900,25 @@ impl McpManager {
         let code = super::oauth::wait_for_oauth_callback(port, state).await?;
 
         // 换取 token
-        let tokens = super::oauth::exchange_code_for_token(&config, &code, &redirect_uri, &verifier).await?;
+        let tokens =
+            super::oauth::exchange_code_for_token(&config, &code, &redirect_uri, &verifier).await?;
 
         // 保存 token 到 OS keychain（不明文存 SQLite）
         let tokens_json = serde_json::to_string(&tokens).map_err(|e| e.to_string())?;
         super::oauth::save_tokens_to_keychain(server_id, &tokens_json)?;
         // DB 中只存元数据标记（过期时间），不含 token 本体
-        self.save_oauth_token_metadata(server_id, tokens.expires_at).await?;
+        self.save_oauth_token_metadata(server_id, tokens.expires_at)
+            .await?;
 
         Ok("OAuth authorization completed successfully".to_string())
     }
 
     /// 保存 OAuth token 元数据到数据库（仅存过期时间标记，不含 token 本体）
-    async fn save_oauth_token_metadata(&self, server_id: &str, expires_at: Option<i64>) -> Result<(), String> {
+    async fn save_oauth_token_metadata(
+        &self,
+        server_id: &str,
+        expires_at: Option<i64>,
+    ) -> Result<(), String> {
         let model = mcp_server::Entity::find_by_id(server_id)
             .one(&self.db)
             .await
@@ -1021,7 +1051,13 @@ fn server_slug(server_name: &str) -> String {
     server_name
         .to_lowercase()
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '-' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect::<String>()
         .split('-')
         .filter(|s| !s.is_empty())
@@ -1046,9 +1082,19 @@ fn parse_resources_response(
                 server_id: server_id.to_string(),
                 server_name: server_name.to_string(),
                 uri: r.get("uri")?.as_str()?.to_string(),
-                name: r.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string(),
-                description: r.get("description").and_then(|d| d.as_str()).map(|s| s.to_string()),
-                mime_type: r.get("mimeType").and_then(|m| m.as_str()).map(|s| s.to_string()),
+                name: r
+                    .get("name")
+                    .and_then(|n| n.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                description: r
+                    .get("description")
+                    .and_then(|d| d.as_str())
+                    .map(|s| s.to_string()),
+                mime_type: r
+                    .get("mimeType")
+                    .and_then(|m| m.as_str())
+                    .map(|s| s.to_string()),
             })
         })
         .collect()
@@ -1079,9 +1125,10 @@ fn parse_tools_response(
                     .get("description")
                     .and_then(|d| d.as_str())
                     .map(|s| s.to_string()),
-                input_schema: tool.get("inputSchema").cloned().unwrap_or_else(|| {
-                    json!({"type": "object", "properties": {}})
-                }),
+                input_schema: tool
+                    .get("inputSchema")
+                    .cloned()
+                    .unwrap_or_else(|| json!({"type": "object", "properties": {}})),
             })
         })
         .collect();

@@ -18,8 +18,7 @@ const BASE_CORE_ZH: &str = "\
 const TOOL_DESC_CDP_ZH: &str = "- cdp_*：页面交互（导航、点击、输入、获取文本、截图、执行JS等）";
 const TOOL_DESC_MAGIC_ZH: &str =
     "- magic_*：浏览器窗口控制（窗口大小、标签管理、书签、Cookie、扩展等）；以及 AI Agent 语义化操作（DOM 查询/点击/填写、UI 元素点击、页面信息获取、坐标系点击等）";
-const TOOL_DESC_APP_ZH: &str =
-    "- app_*：应用数据查询与管理（配置文件、机型预设、分组、代理等）";
+const TOOL_DESC_APP_ZH: &str = "- app_*：应用数据查询与管理（配置文件、机型预设、分组、代理等）";
 const TOOL_DESC_FILE_ZH: &str = "- file_*：app 内 fs 文件系统读写（仅限相对路径，10MB 限制）";
 const TOOL_DESC_DIALOG_ZH: &str = "- dialog_*：用户交互弹窗（确认框、输入框、文件选择等）";
 const TOOL_DESC_UTILITY_ZH: &str =
@@ -631,15 +630,27 @@ mod tests {
     #[test]
     fn anti_loop_rules_zh_uses_constants() {
         let rules = anti_loop_rules("zh");
-        assert!(rules.contains('3'), "ZH anti-loop rules should mention threshold 3");
-        assert!(rules.contains('2'), "ZH anti-loop rules should mention threshold 2");
+        assert!(
+            rules.contains('3'),
+            "ZH anti-loop rules should mention threshold 3"
+        );
+        assert!(
+            rules.contains('2'),
+            "ZH anti-loop rules should mention threshold 2"
+        );
     }
 
     #[test]
     fn anti_loop_rules_en_uses_constants() {
         let rules = anti_loop_rules("en");
-        assert!(rules.contains('3'), "EN anti-loop rules should mention threshold 3");
-        assert!(rules.contains('2'), "EN anti-loop rules should mention threshold 2");
+        assert!(
+            rules.contains('3'),
+            "EN anti-loop rules should mention threshold 3"
+        );
+        assert!(
+            rules.contains('2'),
+            "EN anti-loop rules should mention threshold 2"
+        );
     }
 
     #[test]
