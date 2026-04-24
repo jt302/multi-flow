@@ -49,3 +49,11 @@ test('workspace chrome avoids route-child rerender fanout', () => {
 	assert.equal(topbarSource.includes('memo(function WorkspaceTopbar'), true);
 	assert.equal(footerSource.includes('memo(function SidebarFooterStatus'), true);
 });
+
+test('workspace route fallback uses the shared page loading state', () => {
+	const source = readFileSync(new URL('./workspace-layout.tsx', import.meta.url), 'utf8');
+
+	assert.match(source, /PageLoadingState/);
+	assert.match(source, /<RouteSuspenseFallback \/>/);
+	assert.doesNotMatch(source, /size-6 animate-spin rounded-full/);
+});

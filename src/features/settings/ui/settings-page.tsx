@@ -1,6 +1,7 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getWorkspaceSection } from '@/app/model/workspace-sections';
+import { PageLoadingState } from '@/components/common';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { SettingsPageProps } from '@/features/settings/model/types';
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
@@ -36,21 +37,6 @@ const DevConfigCard = lazy(() =>
 		default: module.DevConfigCard,
 	})),
 );
-
-function SettingsTabLoadingFallback({ label }: { label: string }) {
-	return (
-		<div
-			role="status"
-			aria-live="polite"
-			className="flex min-h-40 items-center justify-center rounded-xl border border-border/60 bg-muted/20"
-		>
-			<div className="flex items-center gap-2 text-sm text-muted-foreground">
-				<div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-				<span>{label}</span>
-			</div>
-		</div>
-	);
-}
 
 export function SettingsPage({
 	activeTab,
@@ -108,7 +94,7 @@ export function SettingsPage({
 
 			<ScrollArea className="min-h-0 min-w-0 w-full flex-1">
 				<div className="pr-1">
-					<Suspense fallback={<SettingsTabLoadingFallback label={t('common:loading')} />}>
+					<Suspense fallback={<PageLoadingState label={t('common:loading')} />}>
 						{activeTab === 'general' && <GeneralSettingsPlaceholder />}
 
 						{activeTab === 'appearance' && (

@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { buildWorkspaceLayoutOutletContext } from '@/app/model/workspace-layout-context';
 import type { NavId } from '@/app/model/workspace-types';
 import { resolveNavFromPath, resolvePathFromNav } from '@/app/workspace-routes';
+import { PageLoadingState } from '@/components/common';
 import { Card, Sidebar, SidebarProvider, Toaster } from '@/components/ui';
 import { openLogPanelWindow } from '@/entities/log-entry/api/logs-api';
 import { normalizeCustomThemePreset } from '@/entities/theme/model/custom-presets';
@@ -93,14 +94,10 @@ function RouteContainer({
 	);
 }
 
-function RouteSuspenseFallback({ pathname: _pathname }: { pathname: string }) {
-	return (
-		<div className="p-6 text-sm text-muted-foreground border border-border/40 bg-transparent rounded-xl flex items-center justify-center min-h-[50vh]">
-			<div className="flex flex-col items-center gap-3 opacity-60">
-				<div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-			</div>
-		</div>
-	);
+function RouteSuspenseFallback() {
+	const { t } = useTranslation('common');
+
+	return <PageLoadingState label={t('loading')} className="min-h-[50vh]" />;
 }
 
 export function WorkspaceLayout() {
@@ -274,7 +271,7 @@ export function WorkspaceLayout() {
 							<div className="flex-1 min-h-0 overflow-y-auto mf-scrollbar">
 								<RouteContainer pathname={location.pathname}>
 									<RouteErrorBoundary pathname={location.pathname}>
-										<Suspense fallback={<RouteSuspenseFallback pathname={location.pathname} />}>
+										<Suspense fallback={<RouteSuspenseFallback />}>
 											<Outlet context={outletContext} />
 										</Suspense>
 									</RouteErrorBoundary>

@@ -23,9 +23,9 @@ test('settings page lazy loads tab bodies instead of bundling every settings pan
 });
 
 test('settings page lazy tab fallback shows an explicit loading state', () => {
-	assert.match(source, /SettingsTabLoadingFallback/);
-	assert.match(source, /role="status"/);
-	assert.match(source, /animate-spin/);
+	assert.match(source, /PageLoadingState/);
+	assert.match(source, /fallback=\{<PageLoadingState label=\{t\('common:loading'\)\} \/>\}/);
+	assert.doesNotMatch(source, /SettingsTabLoadingFallback/);
 	assert.doesNotMatch(
 		source,
 		/fallback=\{<div className="min-h-40 rounded-xl border border-border\/60 bg-muted\/20" \/>\}/,
