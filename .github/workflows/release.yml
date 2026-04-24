@@ -22,13 +22,42 @@ jobs:
         include:
           - runner: macos-latest # Apple Silicon (ARM) — native build
             target: aarch64-apple-darwin
-          - runner: macos-latest # Apple Silicon (ARM) — cross-compile to x86_64
+          - runner: macos-13 # Intel runner — native x86_64 build
             target: x86_64-apple-darwin
 
     runs-on: ${{ matrix.runner }}
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify signing and notarization secrets
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=()
+          for name in \
+            APPLE_CERTIFICATE \
+            APPLE_CERTIFICATE_PASSWORD \
+            APPLE_SIGNING_IDENTITY \
+            APPLE_ID \
+            APPLE_PASSWORD \
+            APPLE_TEAM_ID
+          do
+            if [[ -z "${!name}" ]]; then
+              missing+=("$name")
+            fi
+          done
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            echo "::error::Missing required macOS signing/notarization secrets: ${missing[*]}"
+            echo "Unsigned release artifacts are blocked by policy."
+            exit 1
+          fi
 
       # ── Sidecar pre-flight check ────────────────────────────────────────────
       # Tauri requires external binaries named <binary>-<target-triple>.
@@ -57,16 +86,16 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: latest
+          version: 10.33.0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
 
-      - name: Setup Rust (stable) with ${{ matrix.target }}
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Rust with ${{ matrix.target }}
+        uses: dtolnay/rust-toolchain@1.94.0
         with:
           targets: ${{ matrix.target }}
 
@@ -78,7 +107,10 @@ jobs:
 
       # ── Frontend ────────────────────────────────────────────────────────────
       - name: Install frontend dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
+
+      - name: Release metadata consistency
+        run: pnpm -s release:check
 
       # ── Tauri build + GitHub Release upload ─────────────────────────────────
       # tauri-action creates a draft release and uploads .dmg + .app.tar.gz.
@@ -87,13 +119,12 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Code signing — set these secrets when ready:
-          # APPLE_CERTIFICATE:            base64-encoded .p12 certificate
-          # APPLE_CERTIFICATE_PASSWORD:   .p12 export password
-          # APPLE_SIGNING_IDENTITY:       e.g. "Developer ID Application: ..."
-          # APPLE_ID:                     Apple ID for notarization
-          # APPLE_PASSWORD:               App-specific password
-          # APPLE_TEAM_ID:                10-char Team ID
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Multi-Flow ${{ github.ref_name }}'

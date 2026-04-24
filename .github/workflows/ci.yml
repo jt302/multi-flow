@@ -8,25 +8,39 @@ on:
 
 jobs:
   check:
-    name: Type-check & build (${{ matrix.os }})
-    runs-on: macos-latest # Apple Silicon runner — cheaper and faster for basic validation
+    name: Build and test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-22.04]
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Linux Tauri dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: latest
+          version: 10.33.0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
 
-      - name: Setup Rust (stable)
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.94.0
 
       - name: Rust dependency cache
         uses: swatinem/rust-cache@v2
@@ -34,10 +48,16 @@ jobs:
           workspaces: src-tauri
 
       - name: Install frontend dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
+
+      - name: Release metadata consistency
+        run: pnpm -s release:check
 
       - name: Frontend — TypeScript check + Vite build
         run: pnpm -s build
 
       - name: Backend — cargo check
         run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Backend — cargo test
+        run: cargo test --manifest-path src-tauri/Cargo.toml
