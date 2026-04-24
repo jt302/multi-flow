@@ -1,5 +1,4 @@
 import type { ProfileItem } from '@/entities/profile/model/types';
-import type { ResourceItem } from '@/entities/resource/model/types';
 import type { PlatformVisualMeta } from '@/entities/profile/lib/platform-meta';
 import { getPlatformMeta } from '@/entities/profile/lib/platform-meta';
 import { detectClientPlatform } from '@/shared/lib/platform';
@@ -61,33 +60,19 @@ export function filterProfiles(profiles: ProfileItem[], filters: ProfileListFilt
 	});
 }
 
-export function resolveBrowserVersionMeta(
-	profile: ProfileItem,
-	resources: ResourceItem[],
-): {
+export function resolveBrowserVersionMeta(profile: ProfileItem): {
 	versionLabel: string;
-	resourceLabel: string;
+	descriptionLabel: string;
 } {
 	const browserVersion = profile.settings?.basic?.browserVersion?.trim();
 	if (!browserVersion) {
 		return {
 			versionLabel: i18next.t('common:autoSelect'),
-			resourceLabel: i18next.t('profile:basic.versionAutoResolve'),
+			descriptionLabel: i18next.t('profile:basic.versionAutoResolve'),
 		};
 	}
-	const hostPlatform = detectClientPlatform();
-	const resource = resources.find(
-		(item) =>
-			item.kind === 'chromium' &&
-			item.platform === hostPlatform &&
-			item.version === browserVersion,
-	);
 	return {
 		versionLabel: browserVersion,
-		resourceLabel: resource
-			? resource.installed
-				? i18next.t('common:installed')
-				: i18next.t('profile:basic.versionNoResource')
-			: i18next.t('profile:basic.versionNotAvailable'),
+		descriptionLabel: i18next.t('profile:basic.versionSpoofLabel'),
 	};
 }

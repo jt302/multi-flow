@@ -38,6 +38,23 @@ test('profile list item separates numeric id from chromium label display', () =>
 	);
 });
 
+test('profile browser version display does not treat spoof versions as host resources', () => {
+	const listItemFile = readFileSync(new URL('./profile-list-item.tsx', import.meta.url), 'utf8');
+	const detailFile = readFileSync(new URL('./profile-detail-page.tsx', import.meta.url), 'utf8');
+	const formFile = readFileSync(new URL('./basic-settings-section.tsx', import.meta.url), 'utf8');
+	const formHookFile = readFileSync(new URL('../model/use-profile-create-form.ts', import.meta.url), 'utf8');
+	const listLibFile = readFileSync(new URL('../../../entities/profile/lib/profile-list.ts', import.meta.url), 'utf8');
+	const commandFile = readFileSync(new URL('../../../../src-tauri/src/commands/profile_commands.rs', import.meta.url), 'utf8');
+
+	assert.equal(listItemFile.includes('browserVersionMeta.resourceLabel'), false);
+	assert.equal(listItemFile.includes('browserVersionMeta.descriptionLabel'), false);
+	assert.equal(detailFile.includes('browserVersionMeta.resourceLabel'), false);
+	assert.equal(formFile.includes('resourceStatusLabel(selectedResource)'), false);
+	assert.equal(formHookFile.includes("!getValues('browserVersion') && selectedDevicePreset.browserVersion"), false);
+	assert.equal(listLibFile.includes('versionNotAvailable'), false);
+	assert.equal(commandFile.includes('preferred_chromium_version.as_deref().and_then'), false);
+});
+
 test('profile list item uses readable foreground in visual preview', () => {
 	const file = readFileSync(new URL('./profile-list-item.tsx', import.meta.url), 'utf8');
 

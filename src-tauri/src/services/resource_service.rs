@@ -329,82 +329,6 @@ impl ResourceService {
         self.resolve_active_chromium_executable_inner()
     }
 
-    pub fn resolve_chromium_executable_for_version(&self, version: &str) -> Option<PathBuf> {
-        let executable = self.resolve_chromium_installed_executable(version);
-        executable.is_file().then_some(executable)
-    }
-
-    pub fn host_platform(&self) -> &'static str {
-        current_host_platform()
-    }
-
-    pub fn latest_host_compatible_chromium_version(&self) -> AppResult<Option<String>> {
-        let resources = self.list_host_compatible_chromium_manifest_resources()?;
-        Ok(resources
-            .into_iter()
-            .map(|item| item.version)
-            .max_by(version_compare))
-    }
-
-    pub fn ensure_chromium_version_available<F>(
-        &self,
-        version: Option<&str>,
-        mut on_progress: F,
-    ) -> AppResult<(String, String, PathBuf)>
-    where
-        F: FnMut(&str, &str, u64, Option<u64>),
-    {
-        let resources = self.list_host_compatible_chromium_manifest_resources()?;
-        if resources.is_empty() {
-            return Err(AppError::Validation(format!(
-                "current system has no chromium builds in manifest: {}",
-                self.host_platform()
-            )));
-        }
-
-        let target_resource = match version.and_then(trim_to_option_ref) {
-            Some(target_version) => resources
-                .into_iter()
-                .find(|item| item.version == target_version)
-                .ok_or_else(|| {
-                    AppError::Validation(format!(
-                        "current system has no chromium build for version {target_version}"
-                    ))
-                })?,
-            None => resources
-                .into_iter()
-                .max_by(|left, right| version_compare(&left.version, &right.version))
-                .ok_or_else(|| {
-                    AppError::Validation(format!(
-                        "current system has no chromium builds in manifest: {}",
-                        self.host_platform()
-                    ))
-                })?,
-        };
-
-        if let Some(executable) =
-            self.resolve_chromium_executable_for_version(&target_resource.version)
-        {
-            return Ok((target_resource.id, target_resource.version, executable));
-        }
-
-        let install = self.install_chromium_resource_with_progress(
-            &target_resource.id,
-            false,
-            false,
-            false,
-            |stage, downloaded, total| {
-                on_progress(&target_resource.id, stage, downloaded, total);
-            },
-        )?;
-
-        Ok((
-            target_resource.id,
-            install.version,
-            PathBuf::from(install.executable_path),
-        ))
-    }
-
     fn load_manifest_with_fallback(&self) -> AppResult<(String, ResourceManifest)> {
         if let Ok(url) = env::var(MANIFEST_ENV) {
             let trimmed = url.trim();
@@ -451,16 +375,6 @@ impl ResourceService {
                 },
             ],
         }
-    }
-
-    fn list_host_compatible_chromium_manifest_resources(&self) -> AppResult<Vec<ManifestResource>> {
-        let (_source, manifest) = self.load_manifest_with_fallback()?;
-        let host_platform = self.host_platform();
-        Ok(manifest
-            .resources
-            .into_iter()
-            .filter(|item| item.kind == "chromium" && item.platform == host_platform)
-            .collect())
     }
 
     fn resolve_download_path(&self, resource: &ManifestResource) -> PathBuf {
@@ -660,55 +574,6 @@ fn unique_id() -> String {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_nanos().to_string())
         .unwrap_or_else(|_| "0".to_string())
-}
-
-fn current_host_platform() -> &'static str {
-    #[cfg(target_os = "macos")]
-    {
-        "macos"
-    }
-    #[cfg(target_os = "windows")]
-    {
-        "windows"
-    }
-    #[cfg(all(unix, not(target_os = "macos")))]
-    {
-        "linux"
-    }
-}
-
-fn trim_to_option_ref(input: &str) -> Option<String> {
-    let value = input.trim();
-    if value.is_empty() {
-        None
-    } else {
-        Some(value.to_string())
-    }
-}
-
-fn version_compare(left: &String, right: &String) -> std::cmp::Ordering {
-    compare_version_strings(left.as_str(), right.as_str())
-}
-
-fn compare_version_strings(left: &str, right: &str) -> std::cmp::Ordering {
-    let left_parts = left
-        .split('.')
-        .map(|item| item.parse::<u32>().unwrap_or_default())
-        .collect::<Vec<_>>();
-    let right_parts = right
-        .split('.')
-        .map(|item| item.parse::<u32>().unwrap_or_default())
-        .collect::<Vec<_>>();
-    let max_len = left_parts.len().max(right_parts.len());
-    for index in 0..max_len {
-        let left_value = *left_parts.get(index).unwrap_or(&0);
-        let right_value = *right_parts.get(index).unwrap_or(&0);
-        match left_value.cmp(&right_value) {
-            std::cmp::Ordering::Equal => {}
-            ordering => return ordering,
-        }
-    }
-    std::cmp::Ordering::Equal
 }
 
 #[cfg(test)]

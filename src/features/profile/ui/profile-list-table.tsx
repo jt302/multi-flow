@@ -19,7 +19,6 @@ import type {
 	ToolbarLabelMode,
 } from '@/entities/profile/model/types';
 import type { ProxyItem } from '@/entities/proxy/model/types';
-import type { ResourceItem } from '@/entities/resource/model/types';
 import { ProfileListItem } from './profile-list-item';
 import type {
 	QuickEditField,
@@ -29,7 +28,6 @@ import type {
 type ProfileListTableProps = {
 	profiles: ProfileItem[];
 	groups: GroupItem[];
-	resources: ResourceItem[];
 	profileActionStates: Record<string, ProfileActionState>;
 	profileProxyBindings: Record<string, string | undefined>;
 	proxyById: Record<string, ProxyItem>;
@@ -74,7 +72,6 @@ type ProfileListTableProps = {
 export function ProfileListTable({
 	profiles,
 	groups,
-	resources,
 	profileActionStates,
 	profileProxyBindings,
 	proxyById,
@@ -154,7 +151,6 @@ export function ProfileListTable({
 									key={item.id}
 									item={item}
 									groups={groups}
-									resources={resources}
 									index={index}
 									total={profiles.length}
 									selected={selectedProfileIds.includes(item.id)}

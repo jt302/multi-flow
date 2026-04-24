@@ -64,7 +64,6 @@ export function ProfilesPage({
 			profiles={profiles}
 			groups={groups}
 			proxies={proxies}
-			resources={resources}
 			profileProxyBindings={profileProxyBindings}
 			profileActionStates={profileActionStates}
 			onCreateClick={() => setView('create')}

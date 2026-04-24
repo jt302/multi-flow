@@ -2883,18 +2883,18 @@ curl -X POST http://127.0.0.1:9999/ \
 
 ### 12.1 当前资源与版本约定
 
-- 浏览器资源版本与指纹版本统一使用同一个字段：`browserVersion`
-- 这个字段同时决定：
-  - 运行内核版本
-  - 对外暴露的浏览器版本
+- `browserVersion` 是对外指纹版本，不是实际 Chromium 本体版本
+- 这个字段决定：
+  - UA / Sec-CH-UA 中网站看到的 Chrome 版本
+  - 指纹 catalog 与设备预设解析使用的版本
+- 实际运行的 Chromium 可执行文件由当前宿主系统的 active Chromium 资源决定
 - 宿主资源平台和模拟平台拆开：
   - 宿主资源平台：由当前系统自动推导，只用于匹配和下载可执行文件
   - 模拟平台：由环境配置决定，可模拟 `macos/windows/linux/android/ios`
-- 启动时如果当前宿主系统缺少目标 `browserVersion`：
-  - 自动下载并安装该版本
-  - 安装完成后继续本次启动
-  - 不切换全局 active Chromium
-- 如果当前宿主系统没有该版本构建，直接报错，不回退其他版本
+- 启动时不会按 `browserVersion` 匹配或下载 Chromium 本体：
+  - 已配置开发调试路径时使用该路径
+  - 否则使用当前 active Chromium 资源
+  - 若 active Chromium 不存在，直接报错并引导到设置页资源管理
 
 ### 12.2 环境持久化字段
 

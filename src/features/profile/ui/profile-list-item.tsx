@@ -68,7 +68,6 @@ import { listPluginPackages, readProfilePlugins, updateProfilePlugins } from '@/
 import type { PluginPackage } from '@/entities/plugin/model/types';
 import type { GroupItem } from '@/entities/group/model/types';
 import type { ProxyItem } from '@/entities/proxy/model/types';
-import type { ResourceItem } from '@/entities/resource/model/types';
 import { getReadableForeground } from '@/shared/lib/color';
 import { cn } from '@/lib/utils';
 
@@ -79,7 +78,6 @@ type QuickEditField = 'visual';
 type ProfileListItemProps = {
 	item: ProfileItem;
 	groups: GroupItem[];
-	resources: ResourceItem[];
 	index: number;
 	total: number;
 	selected: boolean;
@@ -211,7 +209,6 @@ async function selectCookieExportPath(profileName: string, scope: string) {
 export function ProfileListItem({
 	item,
 	groups,
-	resources,
 	index,
 	total,
 	selected,
@@ -252,7 +249,7 @@ export function ProfileListItem({
 		item.settings?.fingerprint?.fingerprintSnapshot?.presetLabel?.trim() ||
 		item.settings?.basic?.devicePresetId?.trim() ||
 		presetNotSet;
-	const browserVersionMeta = resolveBrowserVersionMeta(item, resources);
+	const browserVersionMeta = resolveBrowserVersionMeta(item);
 	const toolbarTextTrimmed = currentToolbarText.trim();
 	const showToolbarText = Boolean(toolbarTextTrimmed);
 	const proxyFlag = boundProxy ? resolveCountryFlag(boundProxy.country) : null;
@@ -465,7 +462,7 @@ export function ProfileListItem({
 				<TableCell className="align-top">
 					<p className="truncate text-xs text-muted-foreground">{normalizedNote}</p>
 					<p className="mt-1 truncate text-[11px] text-muted-foreground">
-						{browserVersionMeta.versionLabel} · {browserVersionMeta.resourceLabel}
+						{browserVersionMeta.versionLabel}
 					</p>
 				</TableCell>
 

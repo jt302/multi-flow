@@ -60,7 +60,7 @@
 - [x] 环境创建按钮与创建页面（列表页 -> 创建页）
 - [x] 前端代理页接入真实 Proxy 列表与绑定关系管理
 - [x] 环境页新增“完整创建配置”交互（基础/指纹/代理/高级），并持久化到 Profile settings
-- [x] 环境配置中的 `browserVersion` 启动联动：优先按环境版本解析可执行文件，未配置时回退 active version
+- [x] 环境配置中的 `browserVersion` 仅作为 UA / Sec-CH-UA 伪装版本；实际 Chromium 可执行文件使用开发路径或 active version
 - [x] 启动前浏览器可用性校验（无 active Chromium 时阻止启动并给出设置页引导）
 - [x] 设置页增加 Chromium 版本管理（下载安装激活 / 切换 active version）
 - [x] 新增窗口管理页面：对运行环境进行单个/批量标签页与窗口管理（前端页面 + Tauri 命令）

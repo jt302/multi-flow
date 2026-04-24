@@ -195,6 +195,12 @@ export function DevicePresetsPage({
 												>
 													{preset.formFactor}
 												</Badge>
+												<Badge
+													variant="secondary"
+													className="text-xs flex-shrink-0"
+												>
+													Chrome {preset.browserVersion}
+												</Badge>
 												{preset.mobile &&
 													preset.formFactor.trim().toLowerCase() !== 'mobile' && (
 														<Badge

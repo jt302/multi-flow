@@ -6,17 +6,15 @@ import { Badge, Icon } from '@/components/ui';
 import type { ProfileFingerprintSnapshot } from '@/entities/profile/model/types';
 
 import { SectionTitle } from '@/features/profile/ui/section-title';
-import type { ResourceItem } from '@/entities/resource/model/types';
 
 type FingerprintSummaryCardProps = {
 	hostPlatform: string;
 	browserVersion: string;
-	selectedResource?: ResourceItem;
+	activeChromiumVersion: string;
 	randomFingerprint: boolean;
 	previewLoading: boolean;
 	previewError: string | null;
 	mergedPreviewSnapshot: ProfileFingerprintSnapshot | null;
-	resourceStatusLabel: (item: ResourceItem | undefined) => string;
 };
 
 type SummaryMetricProps = {
@@ -27,12 +25,11 @@ type SummaryMetricProps = {
 export function FingerprintSummaryCard({
 	hostPlatform,
 	browserVersion,
-	selectedResource,
+	activeChromiumVersion,
 	randomFingerprint,
 	previewLoading,
 	previewError,
 	mergedPreviewSnapshot,
-	resourceStatusLabel,
 }: FingerprintSummaryCardProps) {
 	const { t } = useTranslation(['profile', 'common']);
 	return (
@@ -44,13 +41,13 @@ export function FingerprintSummaryCard({
 			<div className="rounded-xl border border-dashed border-border/70 bg-muted/25 p-3">
 				<div className="mb-3 flex flex-wrap items-center gap-2">
 					<Badge variant="secondary">
-						{t('detail.hostResource', { platform: hostPlatform })}
+						{t('detail.hostRuntime', {
+							platform: hostPlatform,
+							version: activeChromiumVersion || t('common:notSet'),
+						})}
 					</Badge>
-					<Badge
-						variant={selectedResource?.installed ? 'secondary' : 'outline'}
-					>
-						{browserVersion || t('detail.noVersionSelected')} ·{' '}
-						{resourceStatusLabel(selectedResource)}
+					<Badge variant="outline">
+						{browserVersion || t('detail.noVersionSelected')} · {t('basic.versionSpoofLabel')}
 					</Badge>
 					{mergedPreviewSnapshot?.presetLabel ? (
 						<Badge variant="outline">{mergedPreviewSnapshot.presetLabel}</Badge>

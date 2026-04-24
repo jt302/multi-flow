@@ -16,3 +16,12 @@ test('device presets page opens built-in presets as read-only with copy availabl
 	assert.equal(source.includes('onClick={() => openEdit(preset)}'), true);
 	assert.equal(source.includes('onClick={() => setDeleteTarget(preset)}'), true);
 });
+
+test('device presets list displays spoof browser version', () => {
+	const source = readFileSync(
+		new URL('./device-presets-page.tsx', import.meta.url),
+		'utf8',
+	);
+
+	assert.equal(source.includes('preset.browserVersion'), true);
+});

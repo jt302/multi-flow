@@ -23,7 +23,6 @@ export function ProfileListPage({
 	profiles,
 	groups,
 	proxies,
-	resources,
 	profileProxyBindings,
 	profileActionStates,
 	onCreateClick,
@@ -357,7 +356,6 @@ export function ProfileListPage({
 					<ProfileListTable
 						profiles={filteredProfiles}
 						groups={groups}
-						resources={resources}
 						profileActionStates={profileActionStates}
 						profileProxyBindings={profileProxyBindings}
 						proxyById={proxyById}

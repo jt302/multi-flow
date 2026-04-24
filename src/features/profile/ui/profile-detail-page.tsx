@@ -99,7 +99,7 @@ export function ProfileDetailPage({
 	const fingerprint = profile.settings?.fingerprint;
 	const source = fingerprint?.fingerprintSource;
 	const snapshot = fingerprint?.fingerprintSnapshot;
-	const browserVersionMeta = resolveBrowserVersionMeta(profile, resources);
+	const browserVersionMeta = resolveBrowserVersionMeta(profile);
 	const platformMeta = resolvePlatformMeta(profile);
 	const statusLabel = profile.running
 		? t('common:running')
@@ -117,6 +117,10 @@ export function ProfileDetailPage({
 		profile.running,
 	);
 	const runtimeDetails = runtimeDetailsQuery.data;
+	const activeChromiumVersion =
+		resources.find(
+			(item) => item.kind === 'chromium' && item.active,
+		)?.version ?? '';
 	const keyLaunchArgs = useMemo(() => {
 		return (runtimeDetails?.launchArgs ?? []).filter(
 			(item) =>
@@ -209,21 +213,15 @@ export function ProfileDetailPage({
 						<Badge variant={profile.running ? 'default' : 'outline'}>
 							{statusLabel}
 						</Badge>
-						<Badge
-							variant={
-								browserVersionMeta.resourceLabel === t('common:installed')
-									? 'secondary'
-									: 'outline'
-							}
-						>
+						<Badge variant="secondary">
 							{browserVersionMeta.versionLabel}
 						</Badge>
 					</div>
 				</CardHeader>
 				<CardContent className="grid gap-3 p-0 md:grid-cols-2 xl:grid-cols-4">
 					<DetailMetric
-						label={t('detail.browserResource')}
-						value={browserVersionMeta.resourceLabel}
+						label={t('detail.actualChromium')}
+						value={activeChromiumVersion || t('common:notSet')}
 					/>
 					<DetailMetric
 						label={t('detail.startupUrl')}

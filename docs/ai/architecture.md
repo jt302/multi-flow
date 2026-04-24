@@ -115,9 +115,9 @@
     - 保存环境时强制写入 `source + snapshot`
     - 启动环境时按 `source` 与当前 seed 解析运行态 snapshot，再统一映射为 Chromium 参数
     - 历史平铺字段（如 `userAgent/customCpuCores/customRamGb/customFontList`）仅保留兼容读取与旧数据懒迁移，不再作为主写入或主校验来源
-  - 浏览器版本只保留一个用户可见字段 `browserVersion`，同时参与：
-    - 运行内核版本
-    - 对外指纹版本
+  - 浏览器版本字段 `browserVersion` 只表示对外指纹版本：
+    - 决定 UA / Sec-CH-UA 中网站看到的 Chrome 版本
+    - 不决定实际运行的 Chromium 可执行文件版本
   - 宿主资源平台与模拟平台已经拆开：
     - 宿主资源平台由当前系统自动推导，仅用于过滤可运行资源和下载正确构建
     - 模拟平台由环境配置决定，可在 macOS 上模拟 `ios/android/windows/linux`
@@ -151,11 +151,10 @@
     - 插件安装/卸载/更新只改环境配置和本地状态文件；运行中的环境需要重启后生效
   - 每个环境目录除 `user-data` 外，额外创建 `cache-data` 并注入独立 `--disk-cache-dir`
   - 默认在代理场景启用 WebRTC `disable_non_proxied_udp` 策略；DNS 防泄露依赖 Chromium `--enable-dns-leak-protection`
-  - 启动时按当前宿主系统 + `browserVersion` 解析资源：
-    - 已安装则直接启动
-    - 未安装则自动下载并安装该版本后继续启动
-    - 不切换全局 active Chromium
-    - 若当前系统无该版本构建，直接返回明确错误
+  - 启动时实际 Chromium 本体按当前宿主系统的 active Chromium 资源解析：
+    - `browserVersion` 不参与资源匹配，只参与指纹快照和启动参数注入
+    - 未安装 active Chromium 时直接返回明确错误，引导到设置页资源管理
+    - 后续如更新 Chromium 本体，通过设置页资源激活机制切换
 
 ## 6) 安全边界
 

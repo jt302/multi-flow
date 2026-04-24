@@ -44,9 +44,8 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 		pluginPackagesQuery,
 		fontFamiliesQuery,
 		previewQuery,
-		selectedResource,
+		activeChromiumVersion,
 		mergedPreviewSnapshot,
-		resourceStatusLabel,
 		regenerateFontList,
 		regenerateFingerprintSeed,
 		regenerateCustomDeviceName,
@@ -90,7 +89,6 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 								groups={props.groups}
 								hostPlatform={hostPlatform}
 								hostChromiumVersions={hostChromiumVersions}
-								selectedResource={selectedResource}
 								devicePresets={devicePresetsQuery.data ?? []}
 								devicePresetsLoading={devicePresetsQuery.isLoading}
 								devicePresetsError={devicePresetsQuery.error instanceof Error ? devicePresetsQuery.error.message : null}
@@ -102,7 +100,6 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 								browserBgColor={values.browserBgColor}
 								browserBgColorMode={values.browserBgColorMode}
 								toolbarLabelMode={values.toolbarLabelMode}
-								resourceStatusLabel={resourceStatusLabel}
 							/>
 
 								<LocaleSettingsSection
@@ -193,12 +190,11 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 								<FingerprintSummaryCard
 									hostPlatform={hostPlatform}
 									browserVersion={values.browserVersion}
-									selectedResource={selectedResource}
+									activeChromiumVersion={activeChromiumVersion}
 									randomFingerprint={values.randomFingerprint}
 									previewLoading={previewQuery.isLoading}
 									previewError={previewQuery.error instanceof Error ? previewQuery.error.message : null}
 									mergedPreviewSnapshot={mergedPreviewSnapshot}
-									resourceStatusLabel={resourceStatusLabel}
 								/>
 							</div>
 						</div>

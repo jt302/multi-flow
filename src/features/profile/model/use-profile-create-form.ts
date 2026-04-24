@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import i18next from 'i18next';
 import {
 	listFingerprintPresets,
 	listProfileFontFamilies,
@@ -57,13 +56,6 @@ type UseProfileCreateFormOptions = {
 	initialProfile?: ProfileItem;
 	initialProxyId?: string;
 };
-
-export function resourceStatusLabel(item: ResourceItem | undefined) {
-	if (!item) {
-		return i18next.t('profile:noResourceForVersion');
-	}
-	return item.installed ? i18next.t('common:installed') : i18next.t('common:autoDownloadOnStartup');
-}
 
 export function useProfileCreateForm({
 	proxies,
@@ -270,10 +262,15 @@ export function useProfileCreateForm({
 	const chromiumVersionsQuery = useChromiumVersionsQuery(platform ?? defaultPlatform);
 	const hostChromiumVersions = chromiumVersionsQuery.data ?? [];
 
-	// Binary install status uses actual downloaded resources, independent of UA spoof version.
-	const selectedResource = useMemo(
-		() => resources.find((item) => item.kind === 'chromium' && item.platform === hostPlatform && item.version === browserVersion),
-		[browserVersion, resources, hostPlatform],
+	const activeChromiumVersion = useMemo(
+		() =>
+			resources.find(
+				(item) =>
+					item.kind === 'chromium' &&
+					item.platform === hostPlatform &&
+					item.active,
+			)?.version ?? '',
+		[resources, hostPlatform],
 	);
 
 	// Set default browserVersion once catalog loads if none was set yet.
@@ -415,6 +412,15 @@ export function useProfileCreateForm({
 			}
 			resolutionInitialized.current = true;
 			lastAppliedResolutionPresetId.current = selectedDevicePreset.id;
+			if (
+				selectedDevicePreset.browserVersion &&
+				getValues('browserVersion') !== selectedDevicePreset.browserVersion
+			) {
+				setValue('browserVersion', selectedDevicePreset.browserVersion, {
+					shouldDirty: false,
+					shouldValidate: true,
+				});
+			}
 			return;
 		}
 		if (lastAppliedResolutionPresetId.current === selectedDevicePreset.id) {
@@ -432,9 +438,14 @@ export function useProfileCreateForm({
 			shouldDirty: true,
 			shouldValidate: true,
 		});
-		// Sync browser version from preset when user switches presets (no profile-level override yet)
-		if (!getValues('browserVersion') && selectedDevicePreset.browserVersion) {
-			setValue('browserVersion', selectedDevicePreset.browserVersion, { shouldDirty: true });
+		if (
+			selectedDevicePreset.browserVersion &&
+			getValues('browserVersion') !== selectedDevicePreset.browserVersion
+		) {
+			setValue('browserVersion', selectedDevicePreset.browserVersion, {
+				shouldDirty: true,
+				shouldValidate: true,
+			});
 		}
 		lastAppliedResolutionPresetId.current = selectedDevicePreset.id;
 	}, [initialResolutionOverride, selectedDevicePreset, setValue, getValues]);
@@ -774,9 +785,8 @@ export function useProfileCreateForm({
 		pluginPackagesQuery,
 		fontFamiliesQuery,
 		previewQuery,
-		selectedResource,
+		activeChromiumVersion,
 		mergedPreviewSnapshot,
-		resourceStatusLabel,
 		regenerateFontList,
 		regenerateFingerprintSeed,
 		regenerateCustomDeviceName,

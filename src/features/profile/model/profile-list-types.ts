@@ -11,13 +11,11 @@ import type {
 	ToolbarLabelMode,
 } from '@/entities/profile/model/types';
 import type { ProxyItem } from '@/entities/proxy/model/types';
-import type { ResourceItem } from '@/entities/resource/model/types';
 
 export type ProfileListPageProps = {
 	profiles: ProfileItem[];
 	groups: GroupItem[];
 	proxies: ProxyItem[];
-	resources: ResourceItem[];
 	profileProxyBindings: ProfileProxyBindingMap;
 	profileActionStates: Record<string, ProfileActionState>;
 	onCreateClick: () => void;

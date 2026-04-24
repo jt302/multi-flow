@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use reqwest::Client;
 use reqwest::Url;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Manager, State};
 
 use crate::engine_manager::EngineLaunchOptions;
 use crate::error::AppError;
@@ -29,8 +29,6 @@ use crate::services::device_preset_service::DevicePresetService;
 use crate::services::proxy_service::lookup_geoip_geolocation;
 use crate::state::AppState;
 
-const DEFAULT_STARTUP_URL: &str = "https://www.browserscan.net/";
-const RESOURCE_PROGRESS_EVENT: &str = "resource_download_progress";
 const PUBLIC_IP_LOOKUP_TIMEOUT_SECS: u64 = 5;
 const PUBLIC_IP_LOOKUP_URLS: &[&str] = &[
     "https://api.ipify.org?format=json",
@@ -1458,7 +1456,7 @@ pub fn get_local_api_server_status(
 pub(crate) fn do_open_profile(
     state: &AppState,
     app: Option<&AppHandle>,
-    task_id: Option<&str>,
+    _task_id: Option<&str>,
     profile_id: &str,
     user_options: Option<OpenProfileOptions>,
 ) -> Result<OpenProfileResponse, String> {
@@ -1485,7 +1483,8 @@ pub(crate) fn do_open_profile(
         .and_then(|settings| settings.basic.as_ref())
         .and_then(|basic| basic.browser_version.as_deref())
         .and_then(trim_str_to_option);
-    // Precedence: profile.browser_version → preset.browser_version → host latest → catalog latest
+    // browserVersion 是网站看到的 Chrome 伪装版本，不是实际 Chromium 可执行文件版本。
+    // 优先级：profile.browser_version → preset.browser_version → 模拟平台 catalog 最新版本。
     let preset_browser_version: Option<String> = {
         let device_preset_id = profile_snapshot
             .settings
@@ -1503,23 +1502,32 @@ pub(crate) fn do_open_profile(
             None
         }
     };
-    let preferred_chromium_version = profile_browser_version.or(preset_browser_version);
-    let (resource_id, resolved_browser_version, chromium_executable) = {
+    let preferred_spoof_browser_version = profile_browser_version.or(preset_browser_version);
+    let simulated_platform = profile_snapshot
+        .settings
+        .as_ref()
+        .and_then(|settings| settings.fingerprint.as_ref())
+        .and_then(|fingerprint| fingerprint.fingerprint_source.as_ref())
+        .and_then(|source| source.platform.as_deref())
+        .and_then(trim_str_to_option)
+        .or_else(|| {
+            profile_snapshot
+                .settings
+                .as_ref()
+                .and_then(|settings| settings.basic.as_ref())
+                .and_then(|basic| basic.platform.as_deref())
+                .and_then(trim_str_to_option)
+        })
+        .unwrap_or_else(|| "macos".to_string());
+    let resolved_browser_version = preferred_spoof_browser_version
+        .clone()
+        .unwrap_or_else(|| {
+            crate::chromium_version_catalog::latest_for(&simulated_platform)
+                .version
+                .to_string()
+        });
+    let chromium_executable = {
         let resource_service = state.lock_resource_service();
-        let resolved_browser_version = preferred_chromium_version
-            .clone()
-            .or_else(|| {
-                resource_service
-                    .latest_host_compatible_chromium_version()
-                    .ok()
-                    .flatten()
-            })
-            .unwrap_or_else(|| {
-                // Use host platform (macOS) as fallback since this path runs on the host.
-                crate::chromium_version_catalog::latest_for("macos")
-                    .version
-                    .to_string()
-            });
         // 在 debug 模式下，优先使用开发者配置的自定义 Chromium 路径
         #[cfg(debug_assertions)]
         let dev_override: Option<std::path::PathBuf> = {
@@ -1538,11 +1546,6 @@ pub(crate) fn do_open_profile(
         let dev_override: Option<std::path::PathBuf> = None;
 
         let chromium_executable = dev_override
-            .or_else(|| {
-                preferred_chromium_version.as_deref().and_then(|version| {
-                    resource_service.resolve_chromium_executable_for_version(version)
-                })
-            })
             .or_else(|| resource_service.resolve_active_chromium_executable())
             .unwrap_or_default();
         // Fast-fail when Chromium is not installed: do NOT auto-download inside this sync
@@ -1551,7 +1554,7 @@ pub(crate) fn do_open_profile(
         if state.require_real_engine && !chromium_executable.is_file() {
             return Err("Chromium 未安装，请前往「设置 → 资源」页面下载后再启动环境".to_string());
         }
-        (String::new(), resolved_browser_version, chromium_executable)
+        chromium_executable
     };
     let active_chromium = chromium_executable
         .is_file()
@@ -1559,7 +1562,7 @@ pub(crate) fn do_open_profile(
     logger::info(
         "profile_cmd",
         format!(
-            "resolved chromium executable profile_id={profile_id} preferred_version={preferred_chromium_version:?} resource_id={resource_id} resolved_version={resolved_browser_version} executable={active_chromium:?}"
+            "resolved chromium executable profile_id={profile_id} spoof_version={preferred_spoof_browser_version:?} resolved_spoof_version={resolved_browser_version} executable={active_chromium:?}"
         ),
     );
     if profile_snapshot
@@ -2729,34 +2732,6 @@ fn source_seed(source: &ProfileFingerprintSource, fingerprint_seed: Option<u32>)
         source.browser_version.as_deref().unwrap_or_default()
     );
     Some(stable_seed(&hint))
-}
-
-fn emit_resource_progress(
-    app: &AppHandle,
-    task_id: &str,
-    resource_id: &str,
-    stage: &str,
-    downloaded_bytes: u64,
-    total_bytes: Option<u64>,
-    message: &str,
-) {
-    let percent = total_bytes.and_then(|total| {
-        if total == 0 {
-            None
-        } else {
-            Some(((downloaded_bytes as f64 / total as f64) * 100.0).min(100.0))
-        }
-    });
-    let payload = serde_json::json!({
-        "taskId": task_id,
-        "resourceId": resource_id,
-        "stage": stage,
-        "downloadedBytes": downloaded_bytes,
-        "totalBytes": total_bytes,
-        "percent": percent,
-        "message": message,
-    });
-    let _ = app.emit(RESOURCE_PROGRESS_EVENT, payload);
 }
 
 fn format_device_scale_factor(value: f32) -> String {

@@ -1,5 +1,4 @@
 import {
-	Badge,
 	Button,
 	Input,
 	Select,
@@ -12,7 +11,6 @@ import {
 import type { GroupItem } from '@/entities/group/model/types';
 import type { ProfileDevicePresetItem } from '@/entities/profile/model/types';
 import { PlatformGlyph } from '@/entities/profile/ui/platform-mark';
-import type { ResourceItem } from '@/entities/resource/model/types';
 import type { ChromiumVersionEntry } from '@/entities/chromium-version/model/types';
 import { PLATFORM_OPTIONS } from '@/entities/profile/lib/platform-meta';
 import { cn } from '@/lib/utils';
@@ -28,7 +26,6 @@ type BasicSettingsSectionProps = {
 	groups: GroupItem[];
 	hostPlatform: string;
 	hostChromiumVersions: ChromiumVersionEntry[];
-	selectedResource?: ResourceItem;
 	devicePresets: ProfileDevicePresetItem[];
 	devicePresetsLoading: boolean;
 	devicePresetsError: string | null;
@@ -40,7 +37,6 @@ type BasicSettingsSectionProps = {
 	browserBgColor: string;
 	browserBgColorMode: 'inherit' | 'custom' | 'none';
 	toolbarLabelMode: 'inherit' | 'id_only' | 'group_name_and_id';
-	resourceStatusLabel: (item: ResourceItem | undefined) => string;
 };
 
 function PlatformOptionCard({
@@ -87,7 +83,6 @@ export function BasicSettingsSection({
 	groups,
 	hostPlatform: _hostPlatform,
 	hostChromiumVersions,
-	selectedResource,
 	devicePresets,
 	devicePresetsLoading,
 	devicePresetsError,
@@ -99,7 +94,6 @@ export function BasicSettingsSection({
 	browserBgColor,
 	browserBgColorMode,
 	toolbarLabelMode,
-	resourceStatusLabel,
 }: BasicSettingsSectionProps) {
 	const { clearErrors, register, setValue } = form;
 	const { t } = useTranslation(['profile', 'common']);
@@ -161,14 +155,9 @@ export function BasicSettingsSection({
 					</Select>
 				</div>
 				<div>
-					<div className="mb-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-						<span>{t('basic.browserVersion')}</span>
-						<Badge
-							variant={selectedResource?.installed ? 'secondary' : 'outline'}
-						>
-							{resourceStatusLabel(selectedResource)}
-						</Badge>
-					</div>
+					<p className="mb-1 text-xs text-muted-foreground">
+						{t('basic.browserVersion')}
+					</p>
 					<Select
 						value={browserVersion}
 						onValueChange={(value) =>
