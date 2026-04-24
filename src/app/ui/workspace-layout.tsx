@@ -7,7 +7,6 @@ import { useThemeSettings } from '@/entities/theme/model/use-theme-settings';
 import { resolveSonnerTheme } from '@/entities/theme/model/sonner-theme';
 import { openLogPanelWindow } from '@/entities/log-entry/api/logs-api';
 import { Card, Sidebar, SidebarProvider, Toaster } from '@/components/ui';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 import { resolveNavFromPath, resolvePathFromNav } from '@/app/workspace-routes';
@@ -241,7 +240,7 @@ export function WorkspaceLayout() {
 							className="min-h-0 w-full flex-1 overflow-hidden flex flex-col border-border/40 bg-card/60 p-0 backdrop-blur-3xl shadow-md transition-all duration-300"
 							data-mobile-layout={isMobile ? 'true' : 'false'}
 						>
-							<ScrollArea className="flex-1 min-h-0">
+							<div className="flex-1 min-h-0 overflow-y-auto mf-scrollbar">
 								<RouteContainer key={location.pathname} pathname={location.pathname}>
 									<RouteErrorBoundary pathname={location.pathname}>
 										<Suspense fallback={<RouteSuspenseFallback pathname={location.pathname} />}>
@@ -249,7 +248,7 @@ export function WorkspaceLayout() {
 										</Suspense>
 									</RouteErrorBoundary>
 								</RouteContainer>
-							</ScrollArea>
+							</div>
 						</Card>
 					</section>
 				</div>
