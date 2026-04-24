@@ -95,6 +95,7 @@ multi-flow/
 
 ## 相关文档
 
+- [docs/release.md](docs/release.md)
 - [docs/ai/architecture.md](docs/ai/architecture.md)
 - [docs/ai/chromium.md](docs/ai/chromium.md)
 - [docs/ai/current-task.md](docs/ai/current-task.md)
@@ -105,4 +106,4 @@ multi-flow/
 
 ## 说明
 
-本项目当前没有在仓库中声明正式开源许可证，使用、分发或商用前请先确认仓库所有者意图。
+本项目使用 MIT License。发布产物前需确认签名与公证凭据已经配置完成。

@@ -95,6 +95,7 @@ Frontend entry points and routes mainly live in `src/app` and `src/pages`, with 
 
 ## Related Docs
 
+- [docs/release.md](docs/release.md)
 - [docs/ai/architecture.md](docs/ai/architecture.md)
 - [docs/ai/chromium.md](docs/ai/chromium.md)
 - [docs/ai/current-task.md](docs/ai/current-task.md)
@@ -105,4 +106,4 @@ Frontend entry points and routes mainly live in `src/app` and `src/pages`, with 
 
 ## Notes
 
-This repository does not currently declare a formal open-source license. Confirm the repository owner's intent before redistribution or commercial use.
+This repository is licensed under the MIT License. Confirm signing and notarization credentials before publishing release artifacts.
