@@ -1,7 +1,7 @@
-import i18next from 'i18next';
 import type { VariantProps } from 'class-variance-authority';
+import i18next from 'i18next';
 
-import { badgeVariants } from '@/components/ui';
+import type { badgeVariants } from '@/components/ui';
 
 type BadgeVariant = VariantProps<typeof badgeVariants>['variant'];
 

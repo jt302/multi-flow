@@ -1,13 +1,12 @@
-import { useEffect, useRef } from 'react';
-import { listen } from '@tauri-apps/api/event';
 import { useQueryClient } from '@tanstack/react-query';
-
-import { automationStore } from '@/store/automation-store';
-import { queryKeys } from '@/shared/config/query-keys';
+import { listen } from '@tauri-apps/api/event';
+import { useEffect, useRef } from 'react';
 import type {
 	AutomationProgressEvent,
 	AutomationVariablesUpdatedEvent,
 } from '@/entities/automation/model/types';
+import { queryKeys } from '@/shared/config/query-keys';
+import { automationStore } from '@/store/automation-store';
 
 /**
  * 全局监听 automation_progress / automation_variables_updated 事件，

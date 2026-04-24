@@ -1,5 +1,5 @@
-import * as React from 'react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
+import type * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -62,7 +62,12 @@ function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
 }
 
 function DialogFooter({ className, ...props }: React.ComponentProps<'div'>) {
-	return <div className={cn('flex flex-col-reverse gap-2 sm:flex-row sm:justify-end', className)} {...props} />;
+	return (
+		<div
+			className={cn('flex flex-col-reverse gap-2 sm:flex-row sm:justify-end', className)}
+			{...props}
+		/>
+	);
 }
 
 function DialogTitle({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) {
@@ -90,13 +95,13 @@ function DialogDescription({
 
 export {
 	Dialog,
-	DialogTrigger,
-	DialogPortal,
 	DialogClose,
-	DialogOverlay,
 	DialogContent,
-	DialogHeader,
-	DialogFooter,
-	DialogTitle,
 	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogOverlay,
+	DialogPortal,
+	DialogTitle,
+	DialogTrigger,
 };

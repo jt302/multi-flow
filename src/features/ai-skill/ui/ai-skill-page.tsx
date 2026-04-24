@@ -1,6 +1,6 @@
+import { Download, LoaderCircle, Plus, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download, LoaderCircle, Plus, RefreshCw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -12,9 +12,9 @@ import {
 } from '@/components/ui/dialog';
 import { useAiSkillsQuery } from '@/entities/ai-skill/model/use-ai-skills-query';
 import { useChatStore } from '@/store/chat-store';
-import { AiSkillList } from './ai-skill-list';
 import { AiSkillEditor } from './ai-skill-editor';
 import { AiSkillInstallDialog } from './ai-skill-install-dialog';
+import { AiSkillList } from './ai-skill-list';
 
 export function AiSkillPage() {
 	const { t } = useTranslation('chat');
@@ -67,11 +67,25 @@ export function AiSkillPage() {
 					<p className="max-w-2xl text-sm text-muted-foreground">{t('skills.pageDescription')}</p>
 				</div>
 				<div className="flex items-center gap-2">
-					<Button type="button" variant="outline" onClick={handleRefresh} className="cursor-pointer">
-						{isFetching ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+					<Button
+						type="button"
+						variant="outline"
+						onClick={handleRefresh}
+						className="cursor-pointer"
+					>
+						{isFetching ? (
+							<LoaderCircle className="h-4 w-4 animate-spin" />
+						) : (
+							<RefreshCw className="h-4 w-4" />
+						)}
 						{isFetching ? t('skills.refreshPending') : t('skills.refreshAction')}
 					</Button>
-					<Button type="button" variant="outline" onClick={handleInstall} className="cursor-pointer">
+					<Button
+						type="button"
+						variant="outline"
+						onClick={handleInstall}
+						className="cursor-pointer"
+					>
 						<Download className="h-4 w-4" />
 						{t('skills.installAction')}
 					</Button>

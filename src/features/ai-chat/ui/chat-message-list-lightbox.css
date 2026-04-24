@@ -5,7 +5,10 @@
 .ai-chat-lightbox .yarl__button {
 	backdrop-filter: blur(12px);
 	border-radius: 9999px;
-	transition: transform 150ms ease, background-color 150ms ease, color 150ms ease;
+	transition:
+		transform 150ms ease,
+		background-color 150ms ease,
+		color 150ms ease;
 }
 
 .ai-chat-lightbox .yarl__button:hover {

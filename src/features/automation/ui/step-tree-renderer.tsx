@@ -5,15 +5,14 @@
  * 已执行分支默认展开，未执行分支折叠并显示"未执行"灰色标签。
  */
 
+import { CheckCircle2, ChevronDown, ChevronRight, Loader2, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { CheckCircle2, ChevronDown, ChevronRight, Loader2, XCircle } from 'lucide-react';
-
 import type { AiExecutionDetail, ScriptStep, StepResult } from '@/entities/automation/model/types';
-import { useAutomationStore } from '@/store/automation-store';
 import { StepStatusIcon } from '@/entities/automation/ui/step-status-icon';
 import { StepSummary } from '@/entities/automation/ui/step-summary';
+import { useAutomationStore } from '@/store/automation-store';
 
 // ─── 步骤类型可读名称映射 ──────────────────────────────────────────────────────
 
@@ -125,7 +124,14 @@ type BranchGroupProps = {
 	hasExecuted: boolean;
 };
 
-function BranchGroup({ label, branchType, steps, resultMap, pathPrefix, hasExecuted }: BranchGroupProps) {
+function BranchGroup({
+	label,
+	branchType,
+	steps,
+	resultMap,
+	pathPrefix,
+	hasExecuted,
+}: BranchGroupProps) {
 	const [expanded, setExpanded] = useState(hasExecuted);
 	const borderCls = BRANCH_BORDER[branchType] ?? BRANCH_BORDER.btn;
 	const labelCls = BRANCH_LABEL_COLOR[branchType] ?? BRANCH_LABEL_COLOR.btn;
@@ -180,7 +186,9 @@ function AiDetailPanel({ detail }: { detail: AiExecutionDetail }) {
 			<div className="text-muted-foreground flex items-center gap-1.5">
 				{detail.phase === 'thinking' && <Loader2 className="h-3 w-3 animate-spin text-blue-500" />}
 				<span>{t('common:aiRound', { current: detail.round, total: detail.maxRounds })}</span>
-				<span className="text-muted-foreground/60">— {phaseLabel[detail.phase] ?? detail.phase}</span>
+				<span className="text-muted-foreground/60">
+					— {phaseLabel[detail.phase] ?? detail.phase}
+				</span>
 			</div>
 			{detail.thinking && (
 				<div className="bg-muted/30 rounded px-2 py-1.5 text-muted-foreground whitespace-pre-wrap max-h-28 overflow-y-auto leading-relaxed">
@@ -214,9 +222,10 @@ function AiDetailPanel({ detail }: { detail: AiExecutionDetail }) {
 function StepRow({ step, result }: StepRowProps) {
 	const isAiStep = step.kind === 'ai_agent' || step.kind === 'ai_judge';
 	const liveAiDetail = useAutomationStore((s) => s.liveAiDetail);
-	const aiDetail = isAiStep && result?.status === 'running' && liveAiDetail?.stepIndex === result.index
-		? liveAiDetail.detail
-		: null;
+	const aiDetail =
+		isAiStep && result?.status === 'running' && liveAiDetail?.stepIndex === result.index
+			? liveAiDetail.detail
+			: null;
 
 	return (
 		<div className="py-1 px-1.5 rounded-md bg-muted/40 text-sm">

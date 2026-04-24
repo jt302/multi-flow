@@ -4,7 +4,13 @@ function clamp(value: number, min: number, max: number): number {
 
 export function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
 	const pure = hex.replace('#', '').trim();
-	const normalized = pure.length === 3 ? pure.split('').map((char) => `${char}${char}`).join('') : pure;
+	const normalized =
+		pure.length === 3
+			? pure
+					.split('')
+					.map((char) => `${char}${char}`)
+					.join('')
+			: pure;
 	if (!/^[\da-fA-F]{6}$/.test(normalized)) {
 		return null;
 	}

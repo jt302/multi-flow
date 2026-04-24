@@ -1,5 +1,5 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
+import test from 'node:test';
 import i18next from 'i18next';
 
 import zhWindow from '@/shared/i18n/locales/zh-CN/window.json';
@@ -79,10 +79,7 @@ test('sync manager store only creates one client for concurrent initialization',
 		},
 	});
 
-	await Promise.all([
-		store.getState().ensureConnected(),
-		store.getState().ensureConnected(),
-	]);
+	await Promise.all([store.getState().ensureConnected(), store.getState().ensureConnected()]);
 
 	assert.equal(ensureCalls, 1);
 	assert.equal(clients.length, 1);
@@ -177,8 +174,7 @@ test('sync manager store applies sidecar events into diagnostics state', async (
 	assert.equal(
 		client.requests.some(
 			(item: { type: string; payload: unknown }) =>
-				item.type === 'instances.probe' &&
-				(item.payload as { id: string }).id === 'pf_1',
+				item.type === 'instances.probe' && (item.payload as { id: string }).id === 'pf_1',
 		),
 		true,
 	);
@@ -314,14 +310,17 @@ test('sync manager store starts sync directly without forcing probe', async () =
 		client.requests.some(
 			(item) =>
 				item.type === 'sync.start' &&
-				(item.payload as {
-					master_id: string;
-					slave_ids: string[];
-					master_browser_id?: number;
-					slave_browser_ids?: Record<string, number>;
-				}).master_id === 'pf_1' &&
+				(
+					item.payload as {
+						master_id: string;
+						slave_ids: string[];
+						master_browser_id?: number;
+						slave_browser_ids?: Record<string, number>;
+					}
+				).master_id === 'pf_1' &&
 				(item.payload as { master_browser_id?: number }).master_browser_id === 201 &&
-				(item.payload as { slave_browser_ids?: Record<string, number> }).slave_browser_ids?.pf_2 === 301,
+				(item.payload as { slave_browser_ids?: Record<string, number> }).slave_browser_ids?.pf_2 ===
+					301,
 		),
 		true,
 	);
@@ -335,19 +334,10 @@ test('sync manager store surfaces stage-specific sidecar startup errors', async 
 		createClient: () => new FakeSyncManagerClient(),
 	});
 
-	await assert.rejects(
-		() => store.getState().ensureConnected(),
-		/error/i,
-	);
+	await assert.rejects(() => store.getState().ensureConnected(), /error/i);
 	assert.equal(store.getState().connectionStatus, 'error');
-	assert.equal(
-		store.getState().lastError?.includes('sync sidecar 启动失败'),
-		true,
-	);
-	assert.equal(
-		store.getState().lastError?.includes('binary missing'),
-		true,
-	);
+	assert.equal(store.getState().lastError?.includes('sync sidecar 启动失败'), true);
+	assert.equal(store.getState().lastError?.includes('binary missing'), true);
 });
 
 test('sync manager store rejects startSync when target window binding is unavailable', async () => {

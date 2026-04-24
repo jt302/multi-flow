@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-
-import { queryKeys } from '@/shared/config/query-keys';
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
+import { queryKeys } from '@/shared/config/query-keys';
 import type { ChromiumVersionEntry } from './types';
 
 export function useChromiumVersionsQuery(platform: string) {

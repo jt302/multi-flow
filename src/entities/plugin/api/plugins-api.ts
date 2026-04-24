@@ -1,11 +1,15 @@
-import type { BatchProfileActionResponse, ProfileItem, ProfilePluginSelection } from '@/entities/profile/model/types';
+import { listen } from '@tauri-apps/api/event';
 import type {
 	InstallPluginToProfilesPayload,
 	PluginDownloadPreference,
 	PluginPackage,
 } from '@/entities/plugin/model/types';
+import type {
+	BatchProfileActionResponse,
+	ProfileItem,
+	ProfilePluginSelection,
+} from '@/entities/profile/model/types';
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
-import { listen } from '@tauri-apps/api/event';
 
 export type PluginDownloadProgressEvent = {
 	taskId: string;

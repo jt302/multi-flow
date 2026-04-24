@@ -1,15 +1,14 @@
-import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
 import { open } from '@tauri-apps/plugin-dialog';
-import { toast } from 'sonner';
 import { FolderOpen, X } from 'lucide-react';
-
-import { tauriInvoke } from '@/shared/api/tauri-invoke';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { tauriInvoke } from '@/shared/api/tauri-invoke';
 
 const QUERY_KEY = ['dev-chromium-executable'];
 
@@ -115,9 +114,7 @@ export function DevConfigCard() {
 					</div>
 					<p className="text-xs text-muted-foreground">
 						{t('dev.currentActive')}:{' '}
-						<span className="font-mono text-foreground/70">
-							{savedValue ?? t('dev.notSet')}
-						</span>
+						<span className="font-mono text-foreground/70">{savedValue ?? t('dev.notSet')}</span>
 					</p>
 				</div>
 			</CardContent>

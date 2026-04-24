@@ -1,8 +1,8 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Pencil, Plus, Star, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, Trash2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -32,8 +32,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui';
-import { tauriInvoke } from '@/shared/api/tauri-invoke';
 import type { CaptchaSolverConfig } from '@/entities/automation/model/types';
+import { tauriInvoke } from '@/shared/api/tauri-invoke';
 
 const CAPTCHA_PROVIDERS = [
 	{ value: '2captcha', label: '2Captcha' },
@@ -71,27 +71,22 @@ export function CaptchaSolverConfigCard() {
 	const { t } = useTranslation(['settings', 'common']);
 	const queryClient = useQueryClient();
 	const [dialogOpen, setDialogOpen] = useState(false);
-	const [editingEntry, setEditingEntry] = useState<CaptchaSolverConfig | null>(
-		null,
-	);
-	const [deleteTarget, setDeleteTarget] = useState<CaptchaSolverConfig | null>(
-		null,
-	);
+	const [editingEntry, setEditingEntry] = useState<CaptchaSolverConfig | null>(null);
+	const [deleteTarget, setDeleteTarget] = useState<CaptchaSolverConfig | null>(null);
 
 	const { data: configs = [] } = useQuery({
 		queryKey: ['captcha-configs'],
 		queryFn: listCaptchaConfigs,
 	});
 
-	const { register, handleSubmit, reset, setValue, watch } =
-		useForm<FormValues>({
-			defaultValues: {
-				provider: '2captcha',
-				apiKey: '',
-				baseUrl: '',
-				isDefault: false,
-			},
-		});
+	const { register, handleSubmit, reset, setValue, watch } = useForm<FormValues>({
+		defaultValues: {
+			provider: '2captcha',
+			apiKey: '',
+			baseUrl: '',
+			isDefault: false,
+		},
+	});
 	const selectedProvider = watch('provider');
 
 	const createMutation = useMutation({
@@ -101,8 +96,7 @@ export function CaptchaSolverConfigCard() {
 			toast.success(t('settings:captcha.added'));
 			closeDialog();
 		},
-		onError: (e) =>
-			toast.error(t('settings:captcha.addFailed', { error: String(e) })),
+		onError: (e) => toast.error(t('settings:captcha.addFailed', { error: String(e) })),
 	});
 
 	const updateMutation = useMutation({
@@ -112,8 +106,7 @@ export function CaptchaSolverConfigCard() {
 			toast.success(t('settings:captcha.updated'));
 			closeDialog();
 		},
-		onError: (e) =>
-			toast.error(t('settings:captcha.updateFailed', { error: String(e) })),
+		onError: (e) => toast.error(t('settings:captcha.updateFailed', { error: String(e) })),
 	});
 
 	const deleteMutation = useMutation({
@@ -122,8 +115,7 @@ export function CaptchaSolverConfigCard() {
 			queryClient.invalidateQueries({ queryKey: ['captcha-configs'] });
 			toast.success(t('settings:captcha.deleted'));
 		},
-		onError: (e) =>
-			toast.error(t('settings:captcha.deleteFailed', { error: String(e) })),
+		onError: (e) => toast.error(t('settings:captcha.deleteFailed', { error: String(e) })),
 	});
 
 	function openAdd() {
@@ -168,15 +160,8 @@ export function CaptchaSolverConfigCard() {
 		<>
 			<Card className="p-4">
 				<CardHeader className="p-0 mb-3 flex flex-row items-center justify-between">
-					<CardTitle className="text-sm">
-						{t('settings:captcha.title')}
-					</CardTitle>
-					<Button
-						size="sm"
-						variant="outline"
-						className="h-7 cursor-pointer"
-						onClick={openAdd}
-					>
+					<CardTitle className="text-sm">{t('settings:captcha.title')}</CardTitle>
+					<Button size="sm" variant="outline" className="h-7 cursor-pointer" onClick={openAdd}>
 						<Plus className="h-3.5 w-3.5 mr-1" />
 						{t('common:add')}
 					</Button>
@@ -198,8 +183,8 @@ export function CaptchaSolverConfigCard() {
 											{entry.isDefault && (
 												<Star className="h-3 w-3 text-yellow-500 fill-yellow-500 shrink-0" />
 											)}
-											{CAPTCHA_PROVIDERS.find((p) => p.value === entry.provider)
-												?.label ?? entry.provider}
+											{CAPTCHA_PROVIDERS.find((p) => p.value === entry.provider)?.label ??
+												entry.provider}
 										</div>
 										<div className="text-xs text-muted-foreground truncate">
 											{entry.apiKey.slice(0, 8)}...
@@ -239,30 +224,19 @@ export function CaptchaSolverConfigCard() {
 				<DialogContent className="sm:max-w-md">
 					<DialogHeader>
 						<DialogTitle>
-							{editingEntry
-								? t('settings:captcha.editTitle')
-								: t('settings:captcha.createTitle')}
+							{editingEntry ? t('settings:captcha.editTitle') : t('settings:captcha.createTitle')}
 						</DialogTitle>
 					</DialogHeader>
 					<form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
 						<div className="space-y-1.5">
-							<Label className="text-xs">
-								{t('settings:captcha.provider')}
-							</Label>
-							<Select
-								value={selectedProvider}
-								onValueChange={(v) => setValue('provider', v)}
-							>
+							<Label className="text-xs">{t('settings:captcha.provider')}</Label>
+							<Select value={selectedProvider} onValueChange={(v) => setValue('provider', v)}>
 								<SelectTrigger className="h-8 text-xs cursor-pointer">
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
 									{CAPTCHA_PROVIDERS.map((p) => (
-										<SelectItem
-											key={p.value}
-											value={p.value}
-											className="text-xs cursor-pointer"
-										>
+										<SelectItem key={p.value} value={p.value} className="text-xs cursor-pointer">
 											{p.label}
 										</SelectItem>
 									))}
@@ -292,12 +266,7 @@ export function CaptchaSolverConfigCard() {
 							/>
 						</div>
 						<DialogFooter>
-							<Button
-								type="submit"
-								size="sm"
-								className="cursor-pointer"
-								disabled={isPending}
-							>
+							<Button type="submit" size="sm" className="cursor-pointer" disabled={isPending}>
 								{isPending ? t('common:savingInProgress') : t('common:save')}
 							</Button>
 						</DialogFooter>
@@ -314,14 +283,10 @@ export function CaptchaSolverConfigCard() {
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>{t('settings:captcha.deleteTitle')}</AlertDialogTitle>
-						<AlertDialogDescription>
-							{t('settings:captcha.deleteDesc')}
-						</AlertDialogDescription>
+						<AlertDialogDescription>{t('settings:captcha.deleteDesc')}</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel className="cursor-pointer">
-							{t('common:cancel')}
-						</AlertDialogCancel>
+						<AlertDialogCancel className="cursor-pointer">{t('common:cancel')}</AlertDialogCancel>
 						<AlertDialogAction
 							className="cursor-pointer"
 							onClick={() => {

@@ -486,7 +486,6 @@
 		"loopNext": "下一步"
 	},
 	"properties": {
-		"title": "属性",
 		"deleteStep": "删除步骤",
 		"noEditableFields": "该步骤没有可编辑的属性",
 		"scriptVar": "脚本变量",
@@ -628,7 +627,6 @@
 		"dialog": "对话框交互"
 	},
 	"actions": {
-
 		"copy": "复制",
 		"paste": "粘贴",
 		"accept": "接受",

@@ -1,7 +1,7 @@
-import { useProfileDevicePresetsQuery } from '@/entities/profile/model/use-profile-device-presets-query';
-import { useProfileActions } from '@/features/profile/model/use-profile-actions';
 import { useWorkspaceRefresh } from '@/app/model/use-workspace-refresh';
+import { useProfileDevicePresetsQuery } from '@/entities/profile/model/use-profile-device-presets-query';
 import { DevicePresetsPage } from '@/features/device-presets/ui/device-presets-page';
+import { useProfileActions } from '@/features/profile/model/use-profile-actions';
 
 export function DevicePresetsRoutePage() {
 	const devicePresetsQuery = useProfileDevicePresetsQuery();

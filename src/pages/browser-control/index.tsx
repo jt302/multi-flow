@@ -3,37 +3,16 @@
  * 从窗口同步页面拆分而来，独立为主导航入口
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import i18next from 'i18next';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Controller, useForm } from 'react-hook-form';
-import { z } from 'zod/v3';
+import i18next from 'i18next';
 import { AppWindow, Bookmark, LayoutList, Monitor, Send, Type } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { useOutletContext } from 'react-router-dom';
-
-import { getWorkspaceSection } from '@/app/model/workspace-sections';
-import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
-import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
-import { formatDisplayMonitorOptionLabel } from '@/entities/window-session/model/display-monitor-label';
-import { useDisplayMonitorsQuery } from '@/entities/window-session/model/use-display-monitors-query';
-import { useSyncTargetsQuery } from '@/entities/window-session/model/use-sync-targets-query';
-import { buildSyncTargetItems } from '@/entities/window-session/model/build-sync-target-items';
-import { useWindowActions } from '@/features/window-session/model/use-window-actions';
-import { useWindowSyncActions } from '@/features/window-session/model/use-window-sync-actions';
+import { z } from 'zod/v3';
 import { useWorkspaceRefresh } from '@/app/model/use-workspace-refresh';
-import { WindowBatchActionsCard } from '@/features/window-session/ui/window-batch-actions-card';
-import { WindowStatesCard } from '@/features/window-session/ui/window-states-card';
-import { useWindowSyncStore, windowSyncStore } from '@/store/window-sync-store';
-import { useSyncManagerStore } from '@/store/sync-manager-store';
-import { computeArrangePreview } from '@/features/window-session/lib/arrange-preview';
-import { ArrangePreview } from '@/features/window-session/ui/arrange-preview';
-import {
-	arrangeWindowsFormSchema,
-	syncTextFormSchema,
-	windowBoundsBatchFormSchema,
-} from '@/features/window-session/model/window-sync-forms';
-import { BookmarkTab } from '@/widgets/browser-control/ui/bookmark-tab';
+import { getWorkspaceSection } from '@/app/model/workspace-sections';
 import type { WorkspaceOutletContext } from '@/app/model/workspace-types';
 import { NAV_PATHS } from '@/app/workspace-routes';
 import {
@@ -56,6 +35,26 @@ import {
 	TabsTrigger,
 	Textarea,
 } from '@/components/ui';
+import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
+import { buildSyncTargetItems } from '@/entities/window-session/model/build-sync-target-items';
+import { formatDisplayMonitorOptionLabel } from '@/entities/window-session/model/display-monitor-label';
+import { useDisplayMonitorsQuery } from '@/entities/window-session/model/use-display-monitors-query';
+import { useSyncTargetsQuery } from '@/entities/window-session/model/use-sync-targets-query';
+import { computeArrangePreview } from '@/features/window-session/lib/arrange-preview';
+import { useWindowActions } from '@/features/window-session/model/use-window-actions';
+import { useWindowSyncActions } from '@/features/window-session/model/use-window-sync-actions';
+import {
+	arrangeWindowsFormSchema,
+	syncTextFormSchema,
+	windowBoundsBatchFormSchema,
+} from '@/features/window-session/model/window-sync-forms';
+import { ArrangePreview } from '@/features/window-session/ui/arrange-preview';
+import { WindowBatchActionsCard } from '@/features/window-session/ui/window-batch-actions-card';
+import { WindowStatesCard } from '@/features/window-session/ui/window-states-card';
+import { useSyncManagerStore } from '@/store/sync-manager-store';
+import { useWindowSyncStore, windowSyncStore } from '@/store/window-sync-store';
+import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
+import { BookmarkTab } from '@/widgets/browser-control/ui/bookmark-tab';
 
 const section = getWorkspaceSection('browser-control');
 
@@ -137,9 +136,7 @@ export function BrowserControlRoutePage() {
 
 	const runningProfileIds = useMemo(() => {
 		const profilesData = profilesQuery.data ?? [];
-		return profilesData
-			.filter((p) => p.lifecycle === 'active' && p.running)
-			.map((p) => p.id);
+		return profilesData.filter((p) => p.lifecycle === 'active' && p.running).map((p) => p.id);
 	}, [profilesQuery.data]);
 	const selectedRunningIds = useMemo(() => {
 		const runningSet = new Set(runningProfileIds);
@@ -148,23 +145,17 @@ export function BrowserControlRoutePage() {
 
 	const runningProfiles = useMemo(() => {
 		const profilesData = profilesQuery.data ?? [];
-		return profilesData.filter(
-			(p) => p.lifecycle === 'active' && p.running,
-		);
+		return profilesData.filter((p) => p.lifecycle === 'active' && p.running);
 	}, [profilesQuery.data]);
 
 	const allSelected =
-		runningProfiles.length > 0 &&
-		runningProfiles.every((p) => selectedProfileIds.includes(p.id));
+		runningProfiles.length > 0 && runningProfiles.every((p) => selectedProfileIds.includes(p.id));
 
-	const toggleProfile = useCallback(
-		(id: string) => {
-			const current = windowSyncStore.getState().selectedProfileIds;
-			const isChecked = !current.includes(id);
-			windowSyncStore.getState().toggleProfile(id, isChecked);
-		},
-		[],
-	);
+	const toggleProfile = useCallback((id: string) => {
+		const current = windowSyncStore.getState().selectedProfileIds;
+		const isChecked = !current.includes(id);
+		windowSyncStore.getState().toggleProfile(id, isChecked);
+	}, []);
 
 	const toggleAll = useCallback(() => {
 		const state = windowSyncStore.getState();
@@ -181,9 +172,7 @@ export function BrowserControlRoutePage() {
 	}, [allSelected, runningProfiles]);
 
 	const [error, setError] = useState<string | null>(null);
-	const [pendingProfileIds, setPendingProfileIds] = useState<Set<string>>(
-		new Set(),
-	);
+	const [pendingProfileIds, setPendingProfileIds] = useState<Set<string>>(new Set());
 
 	const runAction = useCallback(async (action: () => Promise<void>) => {
 		setError(null);
@@ -256,8 +245,7 @@ export function BrowserControlRoutePage() {
 		if (displayMonitors.length === 0) return;
 		const current = arrangeForm.getValues('monitorId');
 		if (current) return;
-		const preferred =
-			displayMonitors.find((m) => m.isPrimary) ?? displayMonitors[0];
+		const preferred = displayMonitors.find((m) => m.isPrimary) ?? displayMonitors[0];
 		arrangeForm.setValue('monitorId', preferred.id);
 	}, [arrangeForm, displayMonitors]);
 
@@ -281,7 +269,11 @@ export function BrowserControlRoutePage() {
 
 	const handleViewProfile = useCallback(
 		(profileId: string) => {
-			navigation.onSetProfileNavigationIntent({ profileId, view: 'detail', returnNav: 'browser-control' });
+			navigation.onSetProfileNavigationIntent({
+				profileId,
+				view: 'detail',
+				returnNav: 'browser-control',
+			});
 			navigation.onNavigate(NAV_PATHS.profiles);
 		},
 		[navigation],
@@ -302,9 +294,7 @@ export function BrowserControlRoutePage() {
 						<Label className="text-sm shrink-0">{t('page.selectEnv')}</Label>
 						<div className="flex flex-wrap gap-2 flex-1 min-w-0">
 							{runningProfiles.length === 0 ? (
-								<span className="text-xs text-muted-foreground">
-									{t('page.noRunningEnv')}
-								</span>
+								<span className="text-xs text-muted-foreground">{t('page.noRunningEnv')}</span>
 							) : (
 								runningProfiles.map((p) => {
 									const isSelected = selectedProfileIds.includes(p.id);
@@ -320,9 +310,7 @@ export function BrowserControlRoutePage() {
 											}`}
 										>
 											{p.name}
-											{isSelected && (
-												<span className="text-[10px] opacity-70">✓</span>
-											)}
+											{isSelected && <span className="text-[10px] opacity-70">✓</span>}
 										</button>
 									);
 								})
@@ -334,9 +322,7 @@ export function BrowserControlRoutePage() {
 								onClick={toggleAll}
 								className="text-xs text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
 							>
-								{allSelected
-									? t('page.deselectAll')
-									: t('page.selectAll')}
+								{allSelected ? t('page.deselectAll') : t('page.selectAll')}
 							</button>
 						)}
 					</div>
@@ -351,31 +337,19 @@ export function BrowserControlRoutePage() {
 
 			<Tabs defaultValue="window" className="shrink-0">
 				<TabsList className="h-9 bg-muted/40">
-					<TabsTrigger
-						value="window"
-						className="text-xs h-7 px-3 cursor-pointer gap-1.5"
-					>
+					<TabsTrigger value="window" className="text-xs h-7 px-3 cursor-pointer gap-1.5">
 						<AppWindow className="h-3 w-3" />
 						{t('page.windowManagement')}
 					</TabsTrigger>
-					<TabsTrigger
-						value="tab"
-						className="text-xs h-7 px-3 cursor-pointer gap-1.5"
-					>
+					<TabsTrigger value="tab" className="text-xs h-7 px-3 cursor-pointer gap-1.5">
 						<LayoutList className="h-3 w-3" />
 						{t('page.tabManagement')}
 					</TabsTrigger>
-					<TabsTrigger
-						value="text"
-						className="text-xs h-7 px-3 cursor-pointer gap-1.5"
-					>
+					<TabsTrigger value="text" className="text-xs h-7 px-3 cursor-pointer gap-1.5">
 						<Type className="h-3 w-3" />
 						{t('page.textInput')}
 					</TabsTrigger>
-					<TabsTrigger
-						value="bookmark"
-						className="text-xs h-7 px-3 cursor-pointer gap-1.5"
-					>
+					<TabsTrigger value="bookmark" className="text-xs h-7 px-3 cursor-pointer gap-1.5">
 						<Bookmark className="h-3 w-3" />
 						{t('page.bookmarks', { defaultValue: '书签' })}
 					</TabsTrigger>
@@ -385,9 +359,7 @@ export function BrowserControlRoutePage() {
 					<div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
 						<Card className="border border-border/60 shadow-none min-w-0">
 							<CardHeader className="pb-2">
-								<CardTitle className="text-sm">
-									{t('arrange.uniformSize')}
-								</CardTitle>
+								<CardTitle className="text-sm">{t('arrange.uniformSize')}</CardTitle>
 							</CardHeader>
 							<CardContent className="min-w-0 space-y-3">
 								<form
@@ -406,17 +378,11 @@ export function BrowserControlRoutePage() {
 								>
 									<div className="min-w-0 space-y-1">
 										<Label>{t('arrange.width')}</Label>
-										<Input
-											type="number"
-											{...windowBoundsForm.register('width')}
-										/>
+										<Input type="number" {...windowBoundsForm.register('width')} />
 									</div>
 									<div className="min-w-0 space-y-1">
 										<Label>{t('arrange.height')}</Label>
-										<Input
-											type="number"
-											{...windowBoundsForm.register('height')}
-										/>
+										<Input type="number" {...windowBoundsForm.register('height')} />
 									</div>
 									<div className="md:col-span-2 flex flex-wrap gap-2">
 										<Button
@@ -431,14 +397,11 @@ export function BrowserControlRoutePage() {
 											variant="outline"
 											className="cursor-pointer"
 											onClick={() =>
-												void runAction(() =>
-													syncActions.restoreWindows(selectedRunningIds),
-												)
+												void runAction(() => syncActions.restoreWindows(selectedRunningIds))
 											}
 											disabled={selectedRunningIds.length === 0}
 										>
-											<Icon icon={Monitor} size={14} />{' '}
-											{t('arrange.showWindow')}
+											<Icon icon={Monitor} size={14} /> {t('arrange.showWindow')}
 										</Button>
 									</div>
 								</form>
@@ -447,9 +410,7 @@ export function BrowserControlRoutePage() {
 
 						<Card className="border border-border/60 shadow-none min-w-0">
 							<CardHeader className="pb-2">
-								<CardTitle className="text-sm">
-									{t('arrange.windowArrange')}
-								</CardTitle>
+								<CardTitle className="text-sm">{t('arrange.windowArrange')}</CardTitle>
 							</CardHeader>
 							<CardContent className="min-w-0 space-y-3">
 								{/* 布局预览 */}
@@ -519,37 +480,39 @@ export function BrowserControlRoutePage() {
 
 								<form
 									className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
-									onSubmit={arrangeForm.handleSubmit(
-										(values) => {
-											const mode = values.mode as 'grid' | 'cascade' | 'main_with_sidebar';
-											void runAction(() =>
-												syncActions.arrangeWindows({
-													profileIds: selectedRunningIds,
-													monitorId: values.monitorId,
-													mode,
-													gapX: values.gapX,
-													gapY: values.gapY,
-													padding: {
-														top: values.paddingTop ?? 12,
-														right: values.paddingRight ?? 12,
-														bottom: values.paddingBottom ?? 12,
-														left: values.paddingLeft ?? 12,
-													},
-													rows: values.rows === 'auto' ? undefined : values.rows as number | undefined,
-													columns: values.columns === 'auto' ? undefined : values.columns as number | undefined,
-													lastRowAlign: values.lastRowAlign,
-													flow: values.flow,
-													width: values.width ?? undefined,
-													height: values.height ?? undefined,
-													cascadeStep: values.cascadeStep,
-													mainRatio: values.mainRatio,
-													mainPosition: values.mainPosition,
-													order: values.order,
-													chromeDecorationCompensation: values.chromeDecorationCompensation,
-												}),
-											);
-										}
-									)}
+									onSubmit={arrangeForm.handleSubmit((values) => {
+										const mode = values.mode as 'grid' | 'cascade' | 'main_with_sidebar';
+										void runAction(() =>
+											syncActions.arrangeWindows({
+												profileIds: selectedRunningIds,
+												monitorId: values.monitorId,
+												mode,
+												gapX: values.gapX,
+												gapY: values.gapY,
+												padding: {
+													top: values.paddingTop ?? 12,
+													right: values.paddingRight ?? 12,
+													bottom: values.paddingBottom ?? 12,
+													left: values.paddingLeft ?? 12,
+												},
+												rows:
+													values.rows === 'auto' ? undefined : (values.rows as number | undefined),
+												columns:
+													values.columns === 'auto'
+														? undefined
+														: (values.columns as number | undefined),
+												lastRowAlign: values.lastRowAlign,
+												flow: values.flow,
+												width: values.width ?? undefined,
+												height: values.height ?? undefined,
+												cascadeStep: values.cascadeStep,
+												mainRatio: values.mainRatio,
+												mainPosition: values.mainPosition,
+												order: values.order,
+												chromeDecorationCompensation: values.chromeDecorationCompensation,
+											}),
+										);
+									})}
 								>
 									<div className="min-w-0 space-y-1 md:col-span-2">
 										<Label>{t('arrange.monitor')}</Label>
@@ -591,7 +554,9 @@ export function BrowserControlRoutePage() {
 													<SelectContent>
 														<SelectItem value="grid">{t('arrange.grid')}</SelectItem>
 														<SelectItem value="cascade">{t('arrange.cascade')}</SelectItem>
-														<SelectItem value="main_with_sidebar">{t('arrange.mainWithSidebar')}</SelectItem>
+														<SelectItem value="main_with_sidebar">
+															{t('arrange.mainWithSidebar')}
+														</SelectItem>
 													</SelectContent>
 												</Select>
 											)}
@@ -599,82 +564,120 @@ export function BrowserControlRoutePage() {
 									</div>
 
 									{/* grid 模式：行列 + 快捷预设 */}
-									{arrangeForm.watch('mode') === 'grid' && (<>
-										<div className="min-w-0 space-y-1">
-											<Label>{t('arrange.rows')}</Label>
-											<Input
-												type="number"
-												min={1}
-												placeholder={t('arrange.auto')}
-												{...arrangeForm.register('rows')}
-											/>
-										</div>
-										<div className="min-w-0 space-y-1">
-											<Label>{t('arrange.columns')}</Label>
-											<Input
-												type="number"
-												min={1}
-												placeholder={t('arrange.auto')}
-												{...arrangeForm.register('columns')}
-											/>
-										</div>
-										<div className="md:col-span-2 flex gap-2 flex-wrap">
-											<Button type="button" variant="outline" size="sm" className="cursor-pointer"
-												onClick={() => { arrangeForm.setValue('rows', 1 as unknown as 'auto'); arrangeForm.setValue('columns', undefined); }}>
-												{t('arrange.preset.singleRow')}
-											</Button>
-											<Button type="button" variant="outline" size="sm" className="cursor-pointer"
-												onClick={() => { arrangeForm.setValue('rows', undefined); arrangeForm.setValue('columns', 1 as unknown as 'auto'); }}>
-												{t('arrange.preset.singleCol')}
-											</Button>
-											<Button type="button" variant="outline" size="sm" className="cursor-pointer"
-												onClick={() => { arrangeForm.setValue('rows', undefined); arrangeForm.setValue('columns', undefined); }}>
-												{t('arrange.preset.auto')}
-											</Button>
-										</div>
-									</>)}
+									{arrangeForm.watch('mode') === 'grid' && (
+										<>
+											<div className="min-w-0 space-y-1">
+												<Label>{t('arrange.rows')}</Label>
+												<Input
+													type="number"
+													min={1}
+													placeholder={t('arrange.auto')}
+													{...arrangeForm.register('rows')}
+												/>
+											</div>
+											<div className="min-w-0 space-y-1">
+												<Label>{t('arrange.columns')}</Label>
+												<Input
+													type="number"
+													min={1}
+													placeholder={t('arrange.auto')}
+													{...arrangeForm.register('columns')}
+												/>
+											</div>
+											<div className="md:col-span-2 flex gap-2 flex-wrap">
+												<Button
+													type="button"
+													variant="outline"
+													size="sm"
+													className="cursor-pointer"
+													onClick={() => {
+														arrangeForm.setValue('rows', 1 as unknown as 'auto');
+														arrangeForm.setValue('columns', undefined);
+													}}
+												>
+													{t('arrange.preset.singleRow')}
+												</Button>
+												<Button
+													type="button"
+													variant="outline"
+													size="sm"
+													className="cursor-pointer"
+													onClick={() => {
+														arrangeForm.setValue('rows', undefined);
+														arrangeForm.setValue('columns', 1 as unknown as 'auto');
+													}}
+												>
+													{t('arrange.preset.singleCol')}
+												</Button>
+												<Button
+													type="button"
+													variant="outline"
+													size="sm"
+													className="cursor-pointer"
+													onClick={() => {
+														arrangeForm.setValue('rows', undefined);
+														arrangeForm.setValue('columns', undefined);
+													}}
+												>
+													{t('arrange.preset.auto')}
+												</Button>
+											</div>
+										</>
+									)}
 
 									{/* cascade 模式：宽高步长 */}
-									{arrangeForm.watch('mode') === 'cascade' && (<>
-										<div className="min-w-0 space-y-1">
-											<Label>{t('arrange.width')}</Label>
-											<Input type="number" {...arrangeForm.register('width')} />
-										</div>
-										<div className="min-w-0 space-y-1">
-											<Label>{t('arrange.height')}</Label>
-											<Input type="number" {...arrangeForm.register('height')} />
-										</div>
-										<div className="min-w-0 space-y-1">
-											<Label>{t('arrange.cascadeStep')}</Label>
-											<Input type="number" min={8} {...arrangeForm.register('cascadeStep')} />
-										</div>
-									</>)}
+									{arrangeForm.watch('mode') === 'cascade' && (
+										<>
+											<div className="min-w-0 space-y-1">
+												<Label>{t('arrange.width')}</Label>
+												<Input type="number" {...arrangeForm.register('width')} />
+											</div>
+											<div className="min-w-0 space-y-1">
+												<Label>{t('arrange.height')}</Label>
+												<Input type="number" {...arrangeForm.register('height')} />
+											</div>
+											<div className="min-w-0 space-y-1">
+												<Label>{t('arrange.cascadeStep')}</Label>
+												<Input type="number" min={8} {...arrangeForm.register('cascadeStep')} />
+											</div>
+										</>
+									)}
 
 									{/* mainWithSidebar 模式 */}
-									{arrangeForm.watch('mode') === 'main_with_sidebar' && (<>
-										<div className="min-w-0 space-y-1">
-											<Label>{t('arrange.mainRatio')}</Label>
-											<Input type="number" step={0.05} min={0.2} max={0.9} {...arrangeForm.register('mainRatio')} />
-										</div>
-										<div className="min-w-0 space-y-1">
-											<Label>{t('arrange.mainPosition')}</Label>
-											<Controller
-												control={arrangeForm.control}
-												name="mainPosition"
-												render={({ field }) => (
-													<Select value={field.value} onValueChange={field.onChange}>
-														<SelectTrigger className="cursor-pointer w-full"><SelectValue /></SelectTrigger>
-														<SelectContent>
-															<SelectItem value="left">{t('arrange.posLeft')}</SelectItem>
-															<SelectItem value="right">{t('arrange.posRight')}</SelectItem>
-															<SelectItem value="top">{t('arrange.posTop')}</SelectItem>
-															<SelectItem value="bottom">{t('arrange.posBottom')}</SelectItem>
-														</SelectContent>
-													</Select>
-												)}
-											/>
-										</div>
-									</>)}
+									{arrangeForm.watch('mode') === 'main_with_sidebar' && (
+										<>
+											<div className="min-w-0 space-y-1">
+												<Label>{t('arrange.mainRatio')}</Label>
+												<Input
+													type="number"
+													step={0.05}
+													min={0.2}
+													max={0.9}
+													{...arrangeForm.register('mainRatio')}
+												/>
+											</div>
+											<div className="min-w-0 space-y-1">
+												<Label>{t('arrange.mainPosition')}</Label>
+												<Controller
+													control={arrangeForm.control}
+													name="mainPosition"
+													render={({ field }) => (
+														<Select value={field.value} onValueChange={field.onChange}>
+															<SelectTrigger className="cursor-pointer w-full">
+																<SelectValue />
+															</SelectTrigger>
+															<SelectContent>
+																<SelectItem value="left">{t('arrange.posLeft')}</SelectItem>
+																<SelectItem value="right">{t('arrange.posRight')}</SelectItem>
+																<SelectItem value="top">{t('arrange.posTop')}</SelectItem>
+																<SelectItem value="bottom">{t('arrange.posBottom')}</SelectItem>
+															</SelectContent>
+														</Select>
+													)}
+												/>
+											</div>
+										</>
+									)}
 
 									{/* 通用：独立横纵间距 */}
 									<div className="min-w-0 space-y-1">
@@ -727,7 +730,10 @@ export function BrowserControlRoutePage() {
 													onClick={() => {
 														if (!templateNameInput.trim()) return;
 														const values = arrangeForm.getValues();
-														saveArrangeTemplate(templateNameInput.trim(), values as unknown as Record<string, unknown>);
+														saveArrangeTemplate(
+															templateNameInput.trim(),
+															values as unknown as Record<string, unknown>,
+														);
 														setTemplateNameInput('');
 														setShowSaveTemplate(false);
 													}}
@@ -739,7 +745,10 @@ export function BrowserControlRoutePage() {
 													size="sm"
 													variant="ghost"
 													className="cursor-pointer"
-													onClick={() => { setShowSaveTemplate(false); setTemplateNameInput(''); }}
+													onClick={() => {
+														setShowSaveTemplate(false);
+														setTemplateNameInput('');
+													}}
 												>
 													{t('template.cancel')}
 												</Button>
@@ -762,7 +771,10 @@ export function BrowserControlRoutePage() {
 															if (!tmpl) return;
 															const payload = tmpl.payload as Record<string, unknown>;
 															Object.entries(payload).forEach(([key, val]) => {
-																arrangeForm.setValue(key as Parameters<typeof arrangeForm.setValue>[0], val as never);
+																arrangeForm.setValue(
+																	key as Parameters<typeof arrangeForm.setValue>[0],
+																	val as never,
+																);
 															});
 														}}
 													>
@@ -779,15 +791,17 @@ export function BrowserControlRoutePage() {
 													</Select>
 												)}
 												{arrangeTemplates.length > 0 && (
-													<Select
-														onValueChange={(id) => deleteArrangeTemplate(id)}
-													>
+													<Select onValueChange={(id) => deleteArrangeTemplate(id)}>
 														<SelectTrigger className="cursor-pointer h-7 text-xs w-auto min-w-[80px] text-destructive border-destructive/30">
 															<SelectValue placeholder={t('template.delete')} />
 														</SelectTrigger>
 														<SelectContent>
 															{arrangeTemplates.map((tmpl) => (
-																<SelectItem key={tmpl.id} value={tmpl.id} className="text-xs text-destructive">
+																<SelectItem
+																	key={tmpl.id}
+																	value={tmpl.id}
+																	className="text-xs text-destructive"
+																>
 																	{tmpl.name}
 																</SelectItem>
 															))}
@@ -822,19 +836,13 @@ export function BrowserControlRoutePage() {
 							})
 						}
 						onBatchCloseTabs={() =>
-							void runAction(() =>
-								windowActions.batchCloseTabs(selectedRunningIds),
-							)
+							void runAction(() => windowActions.batchCloseTabs(selectedRunningIds))
 						}
 						onBatchCloseInactiveTabs={() =>
-							void runAction(() =>
-								windowActions.batchCloseInactiveTabs(selectedRunningIds),
-							)
+							void runAction(() => windowActions.batchCloseInactiveTabs(selectedRunningIds))
 						}
 						onBatchFocusWindows={() =>
-							void runAction(() =>
-								windowActions.batchFocusWindows(selectedRunningIds),
-							)
+							void runAction(() => windowActions.batchFocusWindows(selectedRunningIds))
 						}
 						onRefreshWindows={() => void runAction(refreshSyncAwareWindows)}
 					/>
@@ -843,16 +851,13 @@ export function BrowserControlRoutePage() {
 				<TabsContent value="text" className="mt-3">
 					<Card className="border border-border/60 shadow-none">
 						<CardHeader className="pb-2">
-							<CardTitle className="text-sm">
-								{t('textBroadcast.title')}
-							</CardTitle>
+							<CardTitle className="text-sm">{t('textBroadcast.title')}</CardTitle>
 						</CardHeader>
 						<CardContent className="space-y-3">
 							<form
 								className="space-y-3"
 								onSubmit={syncTextForm.handleSubmit(
-									(values) =>
-										void runAction(() => syncActions.sendSyncText(values.text)),
+									(values) => void runAction(() => syncActions.sendSyncText(values.text)),
 								)}
 							>
 								<div className="space-y-1">
@@ -868,11 +873,7 @@ export function BrowserControlRoutePage() {
 										</p>
 									)}
 								</div>
-								<Button
-									type="submit"
-									className="cursor-pointer"
-									disabled={!activeSyncSession}
-								>
+								<Button type="submit" className="cursor-pointer" disabled={!activeSyncSession}>
 									<Icon icon={Send} size={14} /> {t('textBroadcast.send')}
 								</Button>
 							</form>

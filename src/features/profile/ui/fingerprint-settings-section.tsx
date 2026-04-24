@@ -1,6 +1,6 @@
 import { Sparkles } from 'lucide-react';
 import type { UseFormReturn } from 'react-hook-form';
-
+import { useTranslation } from 'react-i18next';
 import {
 	Button,
 	Checkbox,
@@ -14,10 +14,8 @@ import {
 	Textarea,
 } from '@/components/ui';
 import type { WebRtcMode } from '@/entities/profile/model/types';
-
 import type { ProfileFormValues } from '../model/profile-form';
 import { SectionTitle } from './section-title';
-import { useTranslation } from 'react-i18next';
 
 type FingerprintSettingsSectionProps = {
 	form: UseFormReturn<ProfileFormValues>;
@@ -68,17 +66,11 @@ export function FingerprintSettingsSection({
 
 	return (
 		<div className="rounded-xl border border-border/70 p-3">
-			<SectionTitle
-				title={t('fingerprint.title')}
-				description={t('fingerprint.desc')}
-			/>
+			<SectionTitle title={t('fingerprint.title')} description={t('fingerprint.desc')} />
 			<div className="grid gap-3 md:grid-cols-2">
 				<div className="md:col-span-2">
 					<div className="mb-1 flex items-center justify-between gap-2">
-						<label
-							htmlFor={customFontListId}
-							className="text-xs text-muted-foreground"
-						>
+						<label htmlFor={customFontListId} className="text-xs text-muted-foreground">
 							{t('fingerprint.fontList')}
 						</label>
 						<Button
@@ -105,9 +97,7 @@ export function FingerprintSettingsSection({
 					</p>
 				</div>
 				<div className="md:col-span-2">
-					<p className="mb-1 text-xs text-muted-foreground">
-						{t('fingerprint.deviceName')}
-					</p>
+					<p className="mb-1 text-xs text-muted-foreground">{t('fingerprint.deviceName')}</p>
 					<Select
 						value={deviceNameMode}
 						onValueChange={(value) =>
@@ -118,9 +108,7 @@ export function FingerprintSettingsSection({
 						}
 					>
 						<SelectTrigger id={deviceNameModeId}>
-							<SelectValue
-								placeholder={t('fingerprint.selectDeviceNameMode')}
-							/>
+							<SelectValue placeholder={t('fingerprint.selectDeviceNameMode')} />
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value="real">{t('common:real')}</SelectItem>
@@ -134,10 +122,7 @@ export function FingerprintSettingsSection({
 				{deviceNameMode === 'custom' ? (
 					<div className="md:col-span-2">
 						<div className="mb-1 flex items-center justify-between gap-2">
-							<label
-								htmlFor={customDeviceNameId}
-								className="text-xs text-muted-foreground"
-							>
+							<label htmlFor={customDeviceNameId} className="text-xs text-muted-foreground">
 								{t('fingerprint.customDeviceName')}
 							</label>
 							<Button
@@ -163,9 +148,7 @@ export function FingerprintSettingsSection({
 					</div>
 				) : null}
 				<div className="md:col-span-2">
-					<p className="mb-1 text-xs text-muted-foreground">
-						{t('fingerprint.macAddress')}
-					</p>
+					<p className="mb-1 text-xs text-muted-foreground">{t('fingerprint.macAddress')}</p>
 					<Select
 						value={macAddressMode}
 						onValueChange={(value) =>
@@ -190,10 +173,7 @@ export function FingerprintSettingsSection({
 				{macAddressMode === 'custom' ? (
 					<div className="md:col-span-2">
 						<div className="mb-1 flex items-center justify-between gap-2">
-							<label
-								htmlFor={customMacAddressId}
-								className="text-xs text-muted-foreground"
-							>
+							<label htmlFor={customMacAddressId} className="text-xs text-muted-foreground">
 								{t('fingerprint.customMac')}
 							</label>
 							<Button
@@ -233,9 +213,7 @@ export function FingerprintSettingsSection({
 							}
 						/>
 						<div>
-							<p className="font-medium text-foreground">
-								{t('fingerprint.doNotTrack')}
-							</p>
+							<p className="font-medium text-foreground">{t('fingerprint.doNotTrack')}</p>
 							<p className="mt-1 text-xs text-muted-foreground">
 								{t('fingerprint.doNotTrackDesc')}
 							</p>
@@ -243,9 +221,7 @@ export function FingerprintSettingsSection({
 					</label>
 				</div>
 				<div className="md:col-span-2">
-					<p className="mb-1 text-xs text-muted-foreground">
-						{t('fingerprint.webrtc')}
-					</p>
+					<p className="mb-1 text-xs text-muted-foreground">{t('fingerprint.webrtc')}</p>
 					<Select
 						value={webRtcMode}
 						onValueChange={(value) =>
@@ -282,10 +258,7 @@ export function FingerprintSettingsSection({
 					</div>
 				) : null}
 				<div>
-					<label
-						htmlFor={viewportWidthId}
-						className="mb-1 block text-xs text-muted-foreground"
-					>
+					<label htmlFor={viewportWidthId} className="mb-1 block text-xs text-muted-foreground">
 						{t('fingerprint.resolutionWidth')}
 					</label>
 					<Input
@@ -295,10 +268,7 @@ export function FingerprintSettingsSection({
 					/>
 				</div>
 				<div>
-					<label
-						htmlFor={viewportHeightId}
-						className="mb-1 block text-xs text-muted-foreground"
-					>
+					<label htmlFor={viewportHeightId} className="mb-1 block text-xs text-muted-foreground">
 						{t('fingerprint.resolutionHeight')}
 					</label>
 					<Input
@@ -308,10 +278,7 @@ export function FingerprintSettingsSection({
 					/>
 				</div>
 				<div className="md:col-span-2">
-					<label
-						htmlFor={deviceScaleFactorId}
-						className="mb-1 block text-xs text-muted-foreground"
-					>
+					<label htmlFor={deviceScaleFactorId} className="mb-1 block text-xs text-muted-foreground">
 						{t('fingerprint.dpr')}
 					</label>
 					<Input
@@ -326,12 +293,8 @@ export function FingerprintSettingsSection({
 				</div>
 				<div className="md:col-span-2 flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
 					<div>
-						<p className="text-xs text-muted-foreground">
-							{t('fingerprint.fingerprintSeed')}
-						</p>
-						<p className="mt-1 text-sm">
-							{fingerprintSeed ?? t('common:notGenerated')}
-						</p>
+						<p className="text-xs text-muted-foreground">{t('fingerprint.fingerprintSeed')}</p>
+						<p className="mt-1 text-sm">{fingerprintSeed ?? t('common:notGenerated')}</p>
 					</div>
 					<Button
 						type="button"

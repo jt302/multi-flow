@@ -157,9 +157,21 @@ export function useWindowActions({
 			const result = await batchOpenProfileTabsApi(profileIds, url);
 			await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
 			if (result.failedCount > 0) {
-				toast.warning(t('common:batchResult', { action: t('window:actions.batchOpenTabs'), success: result.successCount, fail: result.failedCount }));
+				toast.warning(
+					t('common:batchResult', {
+						action: t('window:actions.batchOpenTabs'),
+						success: result.successCount,
+						fail: result.failedCount,
+					}),
+				);
 			} else {
-				toast.success(t('common:batchResult', { action: t('window:actions.batchOpenTabs'), success: result.successCount, fail: 0 }));
+				toast.success(
+					t('common:batchResult', {
+						action: t('window:actions.batchOpenTabs'),
+						success: result.successCount,
+						fail: 0,
+					}),
+				);
 			}
 		} catch (error) {
 			toast.error(t('window:actions.batchOpenTabsFailed'));
@@ -172,9 +184,21 @@ export function useWindowActions({
 			const result = await batchCloseProfileTabsApi(profileIds);
 			await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
 			if (result.failedCount > 0) {
-				toast.warning(t('common:batchResult', { action: t('window:actions.batchCloseTabs'), success: result.successCount, fail: result.failedCount }));
+				toast.warning(
+					t('common:batchResult', {
+						action: t('window:actions.batchCloseTabs'),
+						success: result.successCount,
+						fail: result.failedCount,
+					}),
+				);
 			} else {
-				toast.success(t('common:batchResult', { action: t('window:actions.batchCloseTabs'), success: result.successCount, fail: 0 }));
+				toast.success(
+					t('common:batchResult', {
+						action: t('window:actions.batchCloseTabs'),
+						success: result.successCount,
+						fail: 0,
+					}),
+				);
 			}
 		} catch (error) {
 			toast.error(t('window:actions.batchCloseTabsFailed'));
@@ -187,9 +211,21 @@ export function useWindowActions({
 			const result = await batchCloseInactiveTabsApi(profileIds);
 			await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
 			if (result.failedCount > 0) {
-				toast.warning(t('common:batchResult', { action: t('window:actions.batchCloseInactiveTabs'), success: result.successCount, fail: result.failedCount }));
+				toast.warning(
+					t('common:batchResult', {
+						action: t('window:actions.batchCloseInactiveTabs'),
+						success: result.successCount,
+						fail: result.failedCount,
+					}),
+				);
 			} else {
-				toast.success(t('common:batchResult', { action: t('window:actions.batchCloseInactiveTabs'), success: result.successCount, fail: 0 }));
+				toast.success(
+					t('common:batchResult', {
+						action: t('window:actions.batchCloseInactiveTabs'),
+						success: result.successCount,
+						fail: 0,
+					}),
+				);
 			}
 		} catch (error) {
 			toast.error(t('window:actions.batchCloseInactiveTabsFailed'));
@@ -202,9 +238,21 @@ export function useWindowActions({
 			const result = await batchOpenProfileWindowsApi(profileIds, url);
 			await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
 			if (result.failedCount > 0) {
-				toast.warning(t('common:batchResult', { action: t('window:actions.batchOpenWindows'), success: result.successCount, fail: result.failedCount }));
+				toast.warning(
+					t('common:batchResult', {
+						action: t('window:actions.batchOpenWindows'),
+						success: result.successCount,
+						fail: result.failedCount,
+					}),
+				);
 			} else {
-				toast.success(t('common:batchResult', { action: t('window:actions.batchOpenWindows'), success: result.successCount, fail: 0 }));
+				toast.success(
+					t('common:batchResult', {
+						action: t('window:actions.batchOpenWindows'),
+						success: result.successCount,
+						fail: 0,
+					}),
+				);
 			}
 		} catch (error) {
 			toast.error(t('window:actions.batchOpenWindowsFailed'));
@@ -217,9 +265,21 @@ export function useWindowActions({
 			const result = await batchFocusProfileWindowsApi(profileIds);
 			await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
 			if (result.failedCount > 0) {
-				toast.warning(t('common:batchResult', { action: t('window:actions.batchFocusWindows'), success: result.successCount, fail: result.failedCount }));
+				toast.warning(
+					t('common:batchResult', {
+						action: t('window:actions.batchFocusWindows'),
+						success: result.successCount,
+						fail: result.failedCount,
+					}),
+				);
 			} else {
-				toast.success(t('common:batchResult', { action: t('window:actions.batchFocusWindows'), success: result.successCount, fail: 0 }));
+				toast.success(
+					t('common:batchResult', {
+						action: t('window:actions.batchFocusWindows'),
+						success: result.successCount,
+						fail: 0,
+					}),
+				);
 			}
 		} catch (error) {
 			toast.error(t('window:actions.batchFocusWindowsFailed'));

@@ -9,9 +9,7 @@ type UseProxiesQueryOptions<TData> = {
 	select?: (data: ProxyItem[]) => TData;
 };
 
-export function useProxiesQuery<TData = ProxyItem[]>(
-	options: UseProxiesQueryOptions<TData> = {},
-) {
+export function useProxiesQuery<TData = ProxyItem[]>(options: UseProxiesQueryOptions<TData> = {}) {
 	const { enabled = true, select } = options;
 
 	return useQuery<ProxyItem[], Error, TData>({

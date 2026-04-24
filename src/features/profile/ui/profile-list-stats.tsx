@@ -19,7 +19,9 @@ export function ProfileListStats({
 		<div className="grid grid-cols-3 gap-2 sm:gap-3">
 			<Card className="min-w-0 gap-3 p-3">
 				<CardHeader className="px-1 pb-1">
-					<CardTitle className="text-xs text-muted-foreground">{t('stats.totalProfiles')}</CardTitle>
+					<CardTitle className="text-xs text-muted-foreground">
+						{t('stats.totalProfiles')}
+					</CardTitle>
 				</CardHeader>
 				<CardContent className="px-1 pt-0">
 					<p className="text-2xl font-semibold">{filteredCount}</p>
@@ -28,7 +30,9 @@ export function ProfileListStats({
 			</Card>
 			<Card className="min-w-0 gap-3 p-3">
 				<CardHeader className="px-1 pb-1">
-					<CardTitle className="text-xs text-muted-foreground">{t('stats.activeProfiles')}</CardTitle>
+					<CardTitle className="text-xs text-muted-foreground">
+						{t('stats.activeProfiles')}
+					</CardTitle>
 				</CardHeader>
 				<CardContent className="px-1 pt-0">
 					<p className="text-2xl font-semibold">{activeCount}</p>

@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LoaderCircle } from 'lucide-react';
-import { useEffect } from 'react';
 import type { ReactNode } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod/v3';
@@ -23,7 +23,7 @@ import {
 	SelectValue,
 	Textarea,
 } from '@/components/ui';
-import type { UpdateProxyPayload, ProxyProtocol } from '@/features/proxy/model/types';
+import type { ProxyProtocol, UpdateProxyPayload } from '@/features/proxy/model/types';
 
 const PROTOCOL_OPTIONS: ProxyProtocol[] = ['http', 'https', 'socks5', 'ssh'];
 
@@ -133,7 +133,12 @@ function FieldRow({
 	return (
 		<div className="grid gap-2 rounded-lg border border-border/60 p-3">
 			<label htmlFor={id} className="flex items-center gap-2 text-sm font-medium text-foreground">
-				<Checkbox id={id} checked={checked} onCheckedChange={(value) => onCheckedChange(value === true)} className="cursor-pointer" />
+				<Checkbox
+					id={id}
+					checked={checked}
+					onCheckedChange={(value) => onCheckedChange(value === true)}
+					className="cursor-pointer"
+				/>
 				<span>{label}</span>
 			</label>
 			<div className="pl-6">{children}</div>
@@ -186,89 +191,125 @@ export function ProxyBatchEditDialog({
 					})}
 				>
 					<div className="grid gap-3 md:grid-cols-2">
-					<FieldRow
-						id="proxy-batch-name"
-						label={t('proxy:name')}
-						checked={values.applyName}
-						onCheckedChange={(checked) => setValue('applyName', checked)}
-					>
-						<Input {...register('name')} placeholder={t('proxy:batchSetName')} disabled={!values.applyName || pending} />
-						{errors.name ? <p className="mt-1 text-xs text-destructive">{errors.name.message}</p> : null}
-					</FieldRow>
-					<FieldRow
-						id="proxy-batch-protocol"
-						label={t('proxy:protocol')}
-						checked={values.applyProtocol}
-						onCheckedChange={(checked) => setValue('applyProtocol', checked)}
-					>
-						<Select
-							value={values.protocol}
-							onValueChange={(value) => setValue('protocol', value as ProxyProtocol)}
-							disabled={!values.applyProtocol || pending}
+						<FieldRow
+							id="proxy-batch-name"
+							label={t('proxy:name')}
+							checked={values.applyName}
+							onCheckedChange={(checked) => setValue('applyName', checked)}
 						>
-							<SelectTrigger className="w-full cursor-pointer">
-								<SelectValue placeholder={t('proxy:selectProtocol')} />
-							</SelectTrigger>
-							<SelectContent>
-								{PROTOCOL_OPTIONS.map((protocol) => (
-									<SelectItem key={protocol} value={protocol}>
-										{protocol}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					</FieldRow>
+							<Input
+								{...register('name')}
+								placeholder={t('proxy:batchSetName')}
+								disabled={!values.applyName || pending}
+							/>
+							{errors.name ? (
+								<p className="mt-1 text-xs text-destructive">{errors.name.message}</p>
+							) : null}
+						</FieldRow>
+						<FieldRow
+							id="proxy-batch-protocol"
+							label={t('proxy:protocol')}
+							checked={values.applyProtocol}
+							onCheckedChange={(checked) => setValue('applyProtocol', checked)}
+						>
+							<Select
+								value={values.protocol}
+								onValueChange={(value) => setValue('protocol', value as ProxyProtocol)}
+								disabled={!values.applyProtocol || pending}
+							>
+								<SelectTrigger className="w-full cursor-pointer">
+									<SelectValue placeholder={t('proxy:selectProtocol')} />
+								</SelectTrigger>
+								<SelectContent>
+									{PROTOCOL_OPTIONS.map((protocol) => (
+										<SelectItem key={protocol} value={protocol}>
+											{protocol}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</FieldRow>
+						<FieldRow
+							id="proxy-batch-username"
+							label={t('proxy:username')}
+							checked={values.applyUsername}
+							onCheckedChange={(checked) => setValue('applyUsername', checked)}
+						>
+							<Input
+								{...register('username')}
+								placeholder={t('proxy:clearIfEmpty')}
+								disabled={!values.applyUsername || pending}
+							/>
+						</FieldRow>
+						<FieldRow
+							id="proxy-batch-password"
+							label={t('proxy:password')}
+							checked={values.applyPassword}
+							onCheckedChange={(checked) => setValue('applyPassword', checked)}
+						>
+							<Input
+								type="password"
+								{...register('password')}
+								placeholder={t('proxy:clearIfEmpty')}
+								disabled={!values.applyPassword || pending}
+							/>
+						</FieldRow>
+						<FieldRow
+							id="proxy-batch-provider"
+							label={t('proxy:provider')}
+							checked={values.applyProvider}
+							onCheckedChange={(checked) => setValue('applyProvider', checked)}
+						>
+							<Input
+								{...register('provider')}
+								placeholder={t('proxy:clearIfEmpty')}
+								disabled={!values.applyProvider || pending}
+							/>
+						</FieldRow>
+						<FieldRow
+							id="proxy-batch-expires-at"
+							label={t('proxy:expiresAt')}
+							checked={values.applyExpiresAt}
+							onCheckedChange={(checked) => setValue('applyExpiresAt', checked)}
+						>
+							<Input
+								type="datetime-local"
+								{...register('expiresAt')}
+								disabled={!values.applyExpiresAt || pending}
+							/>
+						</FieldRow>
+					</div>
 					<FieldRow
-						id="proxy-batch-username"
-						label={t('proxy:username')}
-						checked={values.applyUsername}
-						onCheckedChange={(checked) => setValue('applyUsername', checked)}
+						id="proxy-batch-note"
+						label={t('proxy:note')}
+						checked={values.applyNote}
+						onCheckedChange={(checked) => setValue('applyNote', checked)}
 					>
-						<Input {...register('username')} placeholder={t('proxy:clearIfEmpty')} disabled={!values.applyUsername || pending} />
+						<Textarea
+							{...register('note')}
+							rows={4}
+							placeholder={t('proxy:clearIfEmpty')}
+							disabled={!values.applyNote || pending}
+						/>
 					</FieldRow>
-					<FieldRow
-						id="proxy-batch-password"
-						label={t('proxy:password')}
-						checked={values.applyPassword}
-						onCheckedChange={(checked) => setValue('applyPassword', checked)}
-					>
-						<Input type="password" {...register('password')} placeholder={t('proxy:clearIfEmpty')} disabled={!values.applyPassword || pending} />
-					</FieldRow>
-					<FieldRow
-						id="proxy-batch-provider"
-						label={t('proxy:provider')}
-						checked={values.applyProvider}
-						onCheckedChange={(checked) => setValue('applyProvider', checked)}
-					>
-						<Input {...register('provider')} placeholder={t('proxy:clearIfEmpty')} disabled={!values.applyProvider || pending} />
-					</FieldRow>
-					<FieldRow
-						id="proxy-batch-expires-at"
-						label={t('proxy:expiresAt')}
-						checked={values.applyExpiresAt}
-						onCheckedChange={(checked) => setValue('applyExpiresAt', checked)}
-					>
-						<Input type="datetime-local" {...register('expiresAt')} disabled={!values.applyExpiresAt || pending} />
-					</FieldRow>
-				</div>
-				<FieldRow
-					id="proxy-batch-note"
-					label={t('proxy:note')}
-					checked={values.applyNote}
-					onCheckedChange={(checked) => setValue('applyNote', checked)}
-				>
-					<Textarea {...register('note')} rows={4} placeholder={t('proxy:clearIfEmpty')} disabled={!values.applyNote || pending} />
-				</FieldRow>
-					{errors.applyName ? <p className="text-xs text-destructive">{errors.applyName.message}</p> : null}
-				<DialogFooter>
-					<Button type="button" variant="ghost" className="cursor-pointer" disabled={pending} onClick={() => onOpenChange(false)}>
-						{t('common:cancel')}
-					</Button>
-					<Button type="submit" className="cursor-pointer" disabled={pending}>
-						{pending ? <LoaderCircle className="animate-spin" /> : null}
-						{t('proxy:confirmEdit')}
-					</Button>
-				</DialogFooter>
+					{errors.applyName ? (
+						<p className="text-xs text-destructive">{errors.applyName.message}</p>
+					) : null}
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="ghost"
+							className="cursor-pointer"
+							disabled={pending}
+							onClick={() => onOpenChange(false)}
+						>
+							{t('common:cancel')}
+						</Button>
+						<Button type="submit" className="cursor-pointer" disabled={pending}>
+							{pending ? <LoaderCircle className="animate-spin" /> : null}
+							{t('proxy:confirmEdit')}
+						</Button>
+					</DialogFooter>
 				</form>
 			</DialogContent>
 		</Dialog>

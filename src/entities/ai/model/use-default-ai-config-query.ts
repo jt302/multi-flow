@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getDefaultAiConfigId, setDefaultAiConfigId } from '@/entities/automation/api/automation-api';
+import {
+	getDefaultAiConfigId,
+	setDefaultAiConfigId,
+} from '@/entities/automation/api/automation-api';
 import { queryKeys } from '@/shared/config/query-keys';
 
 export function useDefaultAiConfigQuery() {

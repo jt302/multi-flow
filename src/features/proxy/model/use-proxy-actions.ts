@@ -26,10 +26,7 @@ type ProxyActionsDeps = {
 	refreshProfilesAndBindings: () => Promise<void>;
 };
 
-export function useProxyActions({
-	refreshProxies,
-	refreshProfilesAndBindings,
-}: ProxyActionsDeps) {
+export function useProxyActions({ refreshProxies, refreshProfilesAndBindings }: ProxyActionsDeps) {
 	const { t } = useTranslation(['proxy', 'common']);
 	const createProxy = async (payload: CreateProxyPayload) => {
 		try {
@@ -68,7 +65,13 @@ export function useProxyActions({
 		try {
 			const result = await batchDeleteProxiesApi(proxyIds);
 			await Promise.all([refreshProxies(), refreshProfilesAndBindings()]);
-			toast.success(t('common:batchResult', { action: t('proxy:actions.batchDelete'), success: result.successCount, fail: result.failedCount }));
+			toast.success(
+				t('common:batchResult', {
+					action: t('proxy:actions.batchDelete'),
+					success: result.successCount,
+					fail: result.failedCount,
+				}),
+			);
 			return result;
 		} catch (error) {
 			toast.error(t('proxy:actions.batchDeleteFailed'));
@@ -102,7 +105,13 @@ export function useProxyActions({
 		try {
 			const result = await batchUpdateProxiesApi(proxyIds, payload);
 			await refreshProxies();
-			toast.success(t('common:batchResult', { action: t('proxy:actions.batchEdit'), success: result.successCount, fail: result.failedCount }));
+			toast.success(
+				t('common:batchResult', {
+					action: t('proxy:actions.batchEdit'),
+					success: result.successCount,
+					fail: result.failedCount,
+				}),
+			);
 			return result;
 		} catch (error) {
 			toast.error(t('proxy:actions.batchEditFailed'));
@@ -110,12 +119,17 @@ export function useProxyActions({
 		}
 	};
 
-
 	const importProxies = async (payload: ImportProxiesPayload) => {
 		try {
 			const result = await importProxiesApi(payload);
 			await refreshProxies();
-			toast.success(t('common:batchResult', { action: t('proxy:actions.batchImport'), success: result.successCount, fail: result.failedCount }));
+			toast.success(
+				t('common:batchResult', {
+					action: t('proxy:actions.batchImport'),
+					success: result.successCount,
+					fail: result.failedCount,
+				}),
+			);
 			return result;
 		} catch (error) {
 			toast.error(t('proxy:actions.batchImportFailed'));
@@ -123,10 +137,7 @@ export function useProxyActions({
 		}
 	};
 
-	const checkProxy = async (
-		proxyId: string,
-		options?: { silent?: boolean },
-	) => {
+	const checkProxy = async (proxyId: string, options?: { silent?: boolean }) => {
 		try {
 			await checkProxyApi(proxyId);
 			await refreshProxies();
@@ -145,7 +156,13 @@ export function useProxyActions({
 		try {
 			const result = await batchCheckProxiesApi(proxyIds);
 			await refreshProxies();
-			toast.success(t('common:batchResult', { action: t('proxy:actions.batchCheck'), success: result.successCount, fail: result.failedCount }));
+			toast.success(
+				t('common:batchResult', {
+					action: t('proxy:actions.batchCheck'),
+					success: result.successCount,
+					fail: result.failedCount,
+				}),
+			);
 			return result;
 		} catch (error) {
 			toast.error(t('proxy:actions.batchCheckFailed'));

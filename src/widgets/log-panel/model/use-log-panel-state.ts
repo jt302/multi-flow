@@ -295,7 +295,8 @@ export function useLogPanelState() {
 		setLevelFilter: (value: LogLevelFilter) => dispatch({ type: 'set_level_filter', value }),
 		toggleGroupByProfile: () => dispatch({ type: 'toggle_group_by_profile' }),
 		toggleAutoScroll: () => dispatch({ type: 'toggle_auto_scroll' }),
-		setGroupOpen: (groupId: string, open: boolean) => dispatch({ type: 'set_group_open', groupId, open }),
+		setGroupOpen: (groupId: string, open: boolean) =>
+			dispatch({ type: 'set_group_open', groupId, open }),
 		clearLogs: () => dispatch({ type: 'clear_logs' }),
 		openDetachedWindow,
 		exportCurrent,

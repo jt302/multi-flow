@@ -54,9 +54,18 @@ export function GenerationProgress() {
 		<div className="flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground">
 			{/* 动画点 */}
 			<span className="flex gap-0.5">
-				<span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60" style={{ animationDelay: '0ms' }} />
-				<span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60" style={{ animationDelay: '150ms' }} />
-				<span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60" style={{ animationDelay: '300ms' }} />
+				<span
+					className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60"
+					style={{ animationDelay: '0ms' }}
+				/>
+				<span
+					className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60"
+					style={{ animationDelay: '150ms' }}
+				/>
+				<span
+					className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60"
+					style={{ animationDelay: '300ms' }}
+				/>
 			</span>
 
 			{/* 阶段描述 */}
@@ -66,10 +75,12 @@ export function GenerationProgress() {
 			{round > 0 && (
 				<>
 					<span className="text-muted-foreground/40">·</span>
-					<span className={cn(
-						'tabular-nums whitespace-nowrap',
-						round > 40 ? 'text-destructive font-medium' : round > 20 ? 'text-yellow-500' : '',
-					)}>
+					<span
+						className={cn(
+							'tabular-nums whitespace-nowrap',
+							round > 40 ? 'text-destructive font-medium' : round > 20 ? 'text-yellow-500' : '',
+						)}
+					>
 						Round {round}
 					</span>
 				</>

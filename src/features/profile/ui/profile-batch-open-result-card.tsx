@@ -28,7 +28,10 @@ export function ProfileBatchOpenResultCard({
 				<div>
 					<p className="text-sm font-medium">{t('list:batchOpenFailedTitle')}</p>
 					<p className="mt-1 text-xs text-muted-foreground">
-						{t('list:batchOpenFailedDesc', { success: result.successCount, failed: result.failedCount })}
+						{t('list:batchOpenFailedDesc', {
+							success: result.successCount,
+							failed: result.failedCount,
+						})}
 					</p>
 				</div>
 				<div className="flex items-center gap-2">

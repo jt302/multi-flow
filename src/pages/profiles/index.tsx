@@ -1,19 +1,18 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-
+import { useWorkspaceRefresh } from '@/app/model/use-workspace-refresh';
+import type { WorkspaceOutletContext } from '@/app/model/workspace-types';
 import { useGroupsQuery } from '@/entities/group/model/use-groups-query';
-import { useProfileProxyBindingsQuery } from '@/entities/profile/model/use-profile-proxy-bindings-query';
 import type { ProfileActionState } from '@/entities/profile/model/types';
+import { useProfileProxyBindingsQuery } from '@/entities/profile/model/use-profile-proxy-bindings-query';
 import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
 import { useProxiesQuery } from '@/entities/proxy/model/use-proxies-query';
 import type { ResourceProgressState } from '@/entities/resource/model/types';
 import { useResourcesQuery } from '@/entities/resource/model/use-resources-query';
 import { useProfileActions } from '@/features/profile/model/use-profile-actions';
 import { useProfileRunningRecovery } from '@/features/profile/model/use-profile-running-recovery';
-import { useWindowActions } from '@/features/window-session/model/use-window-actions';
-import { useWorkspaceRefresh } from '@/app/model/use-workspace-refresh';
-import type { WorkspaceOutletContext } from '@/app/model/workspace-types';
 import { ProfilesPage } from '@/features/profile/ui/profiles-page';
+import { useWindowActions } from '@/features/window-session/model/use-window-actions';
 
 export function ProfilesRoutePage() {
 	const { navigation } = useOutletContext<WorkspaceOutletContext>();
@@ -38,40 +37,33 @@ export function ProfilesRoutePage() {
 	} = useWorkspaceRefresh();
 
 	const groups = useMemo(
-		() =>
-			(groupsQuery.data ?? []).filter((item) => item.lifecycle === 'active'),
+		() => (groupsQuery.data ?? []).filter((item) => item.lifecycle === 'active'),
 		[groupsQuery.data],
 	);
 	const profiles = profilesQuery.data ?? [];
 	const proxies = proxiesQuery.data ?? [];
 	const resources = resourcesQuery.data ?? [];
 	const activeProfileIds = useMemo(
-		() =>
-			profiles
-				.filter((item) => item.lifecycle === 'active')
-				.map((item) => item.id),
+		() => profiles.filter((item) => item.lifecycle === 'active').map((item) => item.id),
 		[profiles],
 	);
 	const bindingsQuery = useProfileProxyBindingsQuery(activeProfileIds);
 	const profileProxyBindings = bindingsQuery.data ?? {};
 
-	const setActionState = useCallback(
-		(profileId: string, state: ProfileActionState | null) => {
-			setProfileActionStates((prev) => {
-				if (state === null) {
-					if (!(profileId in prev)) {
-						return prev;
-					}
-					const next = { ...prev };
-					delete next[profileId];
-					return next;
+	const setActionState = useCallback((profileId: string, state: ProfileActionState | null) => {
+		setProfileActionStates((prev) => {
+			if (state === null) {
+				if (!(profileId in prev)) {
+					return prev;
 				}
+				const next = { ...prev };
+				delete next[profileId];
+				return next;
+			}
 
-				return { ...prev, [profileId]: state };
-			});
-		},
-		[],
-	);
+			return { ...prev, [profileId]: state };
+		});
+	}, []);
 
 	profileActionStatesRef.current = profileActionStates;
 

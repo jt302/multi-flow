@@ -8,20 +8,14 @@ type ProxyStatsProps = {
 	boundCount: number;
 };
 
-export function ProxyStats({
-	totalCount,
-	activeCount,
-	boundCount,
-}: ProxyStatsProps) {
+export function ProxyStats({ totalCount, activeCount, boundCount }: ProxyStatsProps) {
 	const { t } = useTranslation('proxy');
 
 	return (
 		<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
 			<Card className="p-3">
 				<CardHeader className="px-1 pb-1">
-					<CardTitle className="text-xs text-muted-foreground">
-						{t('stats.totalProxies')}
-					</CardTitle>
+					<CardTitle className="text-xs text-muted-foreground">{t('stats.totalProxies')}</CardTitle>
 				</CardHeader>
 				<CardContent className="px-1 pt-0">
 					<p className="text-2xl font-semibold">{totalCount}</p>

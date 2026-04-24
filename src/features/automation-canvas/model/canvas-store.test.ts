@@ -17,16 +17,16 @@ test('canvas store updates drag positions immediately and only persists when dra
 		} as never,
 		{},
 		{
-				updateScriptCanvasPositions: async (_scriptId, positionsJson) => {
-					persistedPositions.push(positionsJson);
-				},
-				setTimeoutFn: ((callback: () => void) => {
-					scheduled.push(callback);
-					return scheduled.length as never;
-				}) as unknown as typeof setTimeout,
-				clearTimeoutFn: (() => undefined) as typeof clearTimeout,
+			updateScriptCanvasPositions: async (_scriptId, positionsJson) => {
+				persistedPositions.push(positionsJson);
 			},
-		);
+			setTimeoutFn: ((callback: () => void) => {
+				scheduled.push(callback);
+				return scheduled.length as never;
+			}) as unknown as typeof setTimeout,
+			clearTimeoutFn: (() => undefined) as typeof clearTimeout,
+		},
+	);
 
 	store.getState().onNodesChange([
 		{
@@ -53,10 +53,7 @@ test('canvas store updates drag positions immediately and only persists when dra
 	const runScheduled = scheduled[scheduled.length - 1];
 	await runScheduled?.();
 	assert.equal(persistedPositions.length, 1);
-	assert.equal(
-		String(persistedPositions[0]).indexOf('"step-0":{"x":360,"y":240}') >= 0,
-		true,
-	);
+	assert.equal(String(persistedPositions[0]).indexOf('"step-0":{"x":360,"y":240}') >= 0, true);
 });
 
 test('canvas store syncLiveStatuses refreshes only the node runtime status payload', () => {

@@ -1,10 +1,10 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
-@import 'shadcn/tailwind.css';
-@plugin '@tailwindcss/typography';
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "highlight.js/styles/github-dark.css" layer(base);
+@plugin "@tailwindcss/typography";
 
 /* highlight.js 代码高亮主题（代码块容器始终深色背景，统一用 dark 主题）*/
-@import 'highlight.js/styles/github-dark.css' layer(base);
 
 @custom-variant dark (&:is(.dark *));
 
@@ -58,16 +58,8 @@
 	--ring-light: #8ee2d3;
 	--ring-dark: #72d9c6;
 	--scrollbar-size: 6px;
-	--scrollbar-thumb: color-mix(
-		in oklab,
-		var(--muted-foreground) 50%,
-		transparent
-	);
-	--scrollbar-thumb-hover: color-mix(
-		in oklab,
-		var(--muted-foreground) 70%,
-		transparent
-	);
+	--scrollbar-thumb: color-mix(in oklab, var(--muted-foreground) 50%, transparent);
+	--scrollbar-thumb-hover: color-mix(in oklab, var(--muted-foreground) 70%, transparent);
 	--background: oklch(0.99 0.005 260);
 	--foreground: oklch(0.18 0.015 260);
 	--card: oklch(1 0 0);
@@ -162,7 +154,7 @@
 	}
 	body {
 		@apply bg-background text-foreground antialiased;
-		font-family: 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+		font-family: "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", sans-serif;
 		min-height: 100vh;
 		background-image:
 			radial-gradient(
@@ -184,7 +176,7 @@
 	h2,
 	h3,
 	h4 {
-		font-family: 'Chivo', 'Noto Sans SC', sans-serif;
+		font-family: "Chivo", "Noto Sans SC", sans-serif;
 		letter-spacing: -0.015em;
 	}
 }
@@ -250,9 +242,7 @@
 .react-flow__edge.selected .react-flow__edge-path {
 	stroke: var(--primary);
 	stroke-width: 2.5;
-	filter: drop-shadow(
-		0 0 3px color-mix(in oklab, var(--primary) 40%, transparent)
-	);
+	filter: drop-shadow(0 0 3px color-mix(in oklab, var(--primary) 40%, transparent));
 }
 .react-flow__edge:hover .react-flow__edge-path {
 	stroke: color-mix(in oklab, var(--primary) 70%, transparent);

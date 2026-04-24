@@ -1,39 +1,29 @@
-import { useEffect, useRef, useState } from 'react';
-import { PanelLeft } from 'lucide-react';
-
-import { toast } from 'sonner';
-import { useTranslation } from 'react-i18next';
-
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-
+import { PanelLeft } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import { Button, Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import {
 	listAiConfigs,
 	listenAutomationScriptUpdated,
 	openAutomationCanvasWindow,
 	updateAutomationScript,
 } from '@/entities/automation/api/automation-api';
+import type { AutomationScript, RunDelayConfig } from '@/entities/automation/model/types';
 import { useAutomationRunsQuery } from '@/entities/automation/model/use-automation-runs-query';
 import { useAutomationScriptsQuery } from '@/entities/automation/model/use-automation-scripts-query';
-import type {
-	AutomationScript,
-	RunDelayConfig,
-} from '@/entities/automation/model/types';
-import { queryKeys } from '@/shared/config/query-keys';
-import { useAutomationActions } from '@/features/automation/model/use-automation-actions';
-import { useAutomationStore } from '@/store/automation-store';
 import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
+import { useAutomationActions } from '@/features/automation/model/use-automation-actions';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { queryKeys } from '@/shared/config/query-keys';
 import { usePersistentLayout } from '@/shared/hooks/use-persistent-layout';
-import {
-	ResizableHandle,
-	ResizablePanel,
-	ResizablePanelGroup,
-} from '@/components/ui/resizable';
-import { Button, Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui';
+import { useAutomationStore } from '@/store/automation-store';
 import { ScriptDetailPanel } from './script-detail-panel';
 import { ScriptListSidebar } from './script-list-sidebar';
 import { ScriptMetaDialog } from './script-meta-dialog';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 export function AutomationPage() {
 	const { t } = useTranslation('automation');
@@ -53,9 +43,7 @@ export function AutomationPage() {
 	const runs = runsQuery.data ?? [];
 
 	const profilesQuery = useProfilesQuery();
-	const allProfiles = (profilesQuery.data ?? []).filter(
-		(p) => p.lifecycle === 'active',
-	);
+	const allProfiles = (profilesQuery.data ?? []).filter((p) => p.lifecycle === 'active');
 	const activeProfiles = allProfiles.filter((p) => p.running);
 
 	const aiConfigsQuery = useQuery({
@@ -75,8 +63,7 @@ export function AutomationPage() {
 
 	// 元数据对话框状态
 	const [metaDialogOpen, setMetaDialogOpen] = useState(false);
-	const [metaDialogScript, setMetaDialogScript] =
-		useState<AutomationScript | null>(null);
+	const [metaDialogScript, setMetaDialogScript] = useState<AutomationScript | null>(null);
 	const [isSaving, setIsSaving] = useState(false);
 
 	// 监听画布保存事件 + 窗口获焦刷新
@@ -179,14 +166,8 @@ export function AutomationPage() {
 			delayConfig && delayConfig.enabled
 				? {
 						enabled: true,
-						minSeconds: Math.max(
-							0,
-							Math.min(delayConfig.minSeconds, delayConfig.maxSeconds),
-						),
-						maxSeconds: Math.max(
-							delayConfig.minSeconds,
-							delayConfig.maxSeconds,
-						),
+						minSeconds: Math.max(0, Math.min(delayConfig.minSeconds, delayConfig.maxSeconds)),
+						maxSeconds: Math.max(delayConfig.minSeconds, delayConfig.maxSeconds),
 					}
 				: null;
 
@@ -210,15 +191,13 @@ export function AutomationPage() {
 		}
 
 		try {
-			const batchId =
-				profileIds.length > 1 ? crypto.randomUUID() : null;
+			const batchId = profileIds.length > 1 ? crypto.randomUUID() : null;
 			for (const profileId of profileIds) {
 				await actions.runScript.mutateAsync({
 					scriptId: selectedScript.id,
 					profileId,
 					stepTotal: selectedScript.steps.length,
-					initialVars:
-						Object.keys(initialVars).length > 0 ? initialVars : undefined,
+					initialVars: Object.keys(initialVars).length > 0 ? initialVars : undefined,
 					delayConfig: normalizedDelay,
 					batchId,
 				});
@@ -228,18 +207,14 @@ export function AutomationPage() {
 		}
 	}
 
-	async function handleDebugRun(
-		profileId: string,
-		initialVars: Record<string, string>,
-	) {
+	async function handleDebugRun(profileId: string, initialVars: Record<string, string>) {
 		if (!selectedScript) return;
 		try {
 			await actions.debugRun.mutateAsync({
 				scriptId: selectedScript.id,
 				profileId,
 				stepTotal: selectedScript.steps.length,
-				initialVars:
-					Object.keys(initialVars).length > 0 ? initialVars : undefined,
+				initialVars: Object.keys(initialVars).length > 0 ? initialVars : undefined,
 			});
 		} catch {
 			// onError 已处理 toast
@@ -272,9 +247,7 @@ export function AutomationPage() {
 				steps: json.steps as never,
 			});
 			setSelectedScriptId(created.id);
-			toast.success(
-				t('page.imported', { name: created.name, count: created.steps.length }),
-			);
+			toast.success(t('page.imported', { name: created.name, count: created.steps.length }));
 		} catch {
 			toast.error(t('page.parseFailed'));
 		}
@@ -288,26 +261,16 @@ export function AutomationPage() {
 					runs={runs}
 					activeProfiles={activeProfiles}
 					allProfiles={allProfiles}
-					isRunning={
-						activeScriptId === selectedScript.id &&
-						liveRunStatus === 'running'
-					}
-					liveStepResults={
-						activeScriptId === selectedScript.id ? liveStepResults : []
-					}
-					liveVariables={
-						activeScriptId === selectedScript.id ? liveVariables : {}
-					}
-					activeRunId={
-						activeScriptId === selectedScript.id ? activeRunId : null
-					}
+					isRunning={activeScriptId === selectedScript.id && liveRunStatus === 'running'}
+					liveStepResults={activeScriptId === selectedScript.id ? liveStepResults : []}
+					liveVariables={activeScriptId === selectedScript.id ? liveVariables : {}}
+					activeRunId={activeScriptId === selectedScript.id ? activeRunId : null}
 					onEdit={() => handleEditMeta(selectedScript)}
 					onDelete={() => handleDeleteScript(selectedScript.id)}
 					onRun={handleRun}
 					onDebugRun={handleDebugRun}
 					onCancel={() => {
-						const runId =
-							activeScriptId === selectedScript.id ? activeRunId : null;
+						const runId = activeScriptId === selectedScript.id ? activeRunId : null;
 						if (runId) actions.cancelRun.mutate(runId);
 					}}
 					onRunsChange={() => {
@@ -321,12 +284,8 @@ export function AutomationPage() {
 			) : (
 				<div className="flex-1 flex items-center justify-center h-full">
 					<div className="text-center space-y-2">
-						<p className="text-sm text-muted-foreground">
-							{t('page.selectScript')}
-						</p>
-						<p className="text-xs text-muted-foreground/60">
-							{t('page.createHint')}
-						</p>
+						<p className="text-sm text-muted-foreground">{t('page.selectScript')}</p>
+						<p className="text-xs text-muted-foreground/60">{t('page.createHint')}</p>
 					</div>
 				</div>
 			)}
@@ -403,45 +362,50 @@ export function AutomationPage() {
 
 	return (
 		<>
-		<ResizablePanelGroup direction="horizontal" className="h-full" defaultLayout={autoLayout} onLayoutChanged={onAutoLayoutChanged}>
-			{/* 左侧脚本列表侧边栏 */}
-			<ResizablePanel id="automation-sidebar" defaultSize={20} minSize={14} maxSize={40}>
-			<ScriptListSidebar
-				scripts={scripts}
-				selectedScriptId={selectedScriptId}
-				onSelect={setSelectedScriptId}
-				onNew={handleNewScript}
-				onImport={handleImportClick}
+			<ResizablePanelGroup
+				direction="horizontal"
+				className="h-full"
+				defaultLayout={autoLayout}
+				onLayoutChanged={onAutoLayoutChanged}
+			>
+				{/* 左侧脚本列表侧边栏 */}
+				<ResizablePanel id="automation-sidebar" defaultSize={20} minSize={14} maxSize={40}>
+					<ScriptListSidebar
+						scripts={scripts}
+						selectedScriptId={selectedScriptId}
+						onSelect={setSelectedScriptId}
+						onNew={handleNewScript}
+						onImport={handleImportClick}
+					/>
+				</ResizablePanel>
+				<ResizableHandle />
+
+				{/* 右侧：详情面板 or 仪表盘 */}
+				<ResizablePanel id="automation-main" defaultSize={80}>
+					{renderDetail()}
+				</ResizablePanel>
+			</ResizablePanelGroup>
+
+			{/* 新建/编辑元数据对话框 */}
+			<ScriptMetaDialog
+				open={metaDialogOpen}
+				onOpenChange={setMetaDialogOpen}
+				script={metaDialogScript}
+				allProfiles={allProfiles}
+				aiConfigs={aiConfigs}
+				existingNames={scripts.map((s) => s.name)}
+				onSave={handleMetaSave}
+				isSaving={isSaving}
 			/>
-			</ResizablePanel>
-			<ResizableHandle />
 
-			{/* 右侧：详情面板 or 仪表盘 */}
-			<ResizablePanel id="automation-main" defaultSize={80}>
-			{renderDetail()}
-			</ResizablePanel>
-		</ResizablePanelGroup>
-
-		{/* 新建/编辑元数据对话框 */}
-		<ScriptMetaDialog
-			open={metaDialogOpen}
-			onOpenChange={setMetaDialogOpen}
-			script={metaDialogScript}
-			allProfiles={allProfiles}
-			aiConfigs={aiConfigs}
-			existingNames={scripts.map((s) => s.name)}
-			onSave={handleMetaSave}
-			isSaving={isSaving}
-		/>
-
-		{/* 隐藏文件输入 */}
-		<input
-			ref={importInputRef}
-			type="file"
-			accept=".json"
-			className="hidden"
-			onChange={handleImportFile}
-		/>
+			{/* 隐藏文件输入 */}
+			<input
+				ref={importInputRef}
+				type="file"
+				accept=".json"
+				className="hidden"
+				onChange={handleImportFile}
+			/>
 		</>
 	);
 }

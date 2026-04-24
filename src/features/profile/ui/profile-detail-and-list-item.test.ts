@@ -1,6 +1,6 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import test from 'node:test';
 
 test('profile list item exposes visual dialog with translated background controls', () => {
 	const file = readFileSync(new URL('./profile-list-item.tsx', import.meta.url), 'utf8');
@@ -56,15 +56,27 @@ test('profile browser version display does not treat spoof versions as host reso
 	const listItemFile = readFileSync(new URL('./profile-list-item.tsx', import.meta.url), 'utf8');
 	const detailFile = readFileSync(new URL('./profile-detail-page.tsx', import.meta.url), 'utf8');
 	const formFile = readFileSync(new URL('./basic-settings-section.tsx', import.meta.url), 'utf8');
-	const formHookFile = readFileSync(new URL('../model/use-profile-create-form.ts', import.meta.url), 'utf8');
-	const listLibFile = readFileSync(new URL('../../../entities/profile/lib/profile-list.ts', import.meta.url), 'utf8');
-	const commandFile = readFileSync(new URL('../../../../src-tauri/src/commands/profile_commands.rs', import.meta.url), 'utf8');
+	const formHookFile = readFileSync(
+		new URL('../model/use-profile-create-form.ts', import.meta.url),
+		'utf8',
+	);
+	const listLibFile = readFileSync(
+		new URL('../../../entities/profile/lib/profile-list.ts', import.meta.url),
+		'utf8',
+	);
+	const commandFile = readFileSync(
+		new URL('../../../../src-tauri/src/commands/profile_commands.rs', import.meta.url),
+		'utf8',
+	);
 
 	assert.equal(listItemFile.includes('browserVersionMeta.resourceLabel'), false);
 	assert.equal(listItemFile.includes('browserVersionMeta.descriptionLabel'), false);
 	assert.equal(detailFile.includes('browserVersionMeta.resourceLabel'), false);
 	assert.equal(formFile.includes('resourceStatusLabel(selectedResource)'), false);
-	assert.equal(formHookFile.includes("!getValues('browserVersion') && selectedDevicePreset.browserVersion"), false);
+	assert.equal(
+		formHookFile.includes("!getValues('browserVersion') && selectedDevicePreset.browserVersion"),
+		false,
+	);
 	assert.equal(listLibFile.includes('versionNotAvailable'), false);
 	assert.equal(commandFile.includes('preferred_chromium_version.as_deref().and_then'), false);
 });
@@ -111,12 +123,31 @@ test('profile list batch actions share pending state and release it in finally',
 	const pageFile = readFileSync(new URL('./profile-list-page.tsx', import.meta.url), 'utf8');
 	const toolbarFile = readFileSync(new URL('./profile-list-toolbar.tsx', import.meta.url), 'utf8');
 	const filtersFile = readFileSync(new URL('./profile-list-filters.tsx', import.meta.url), 'utf8');
-	const groupDialogFile = readFileSync(new URL('./profile-batch-group-dialog.tsx', import.meta.url), 'utf8');
-	const clearGroupDialogFile = readFileSync(new URL('./profile-batch-clear-group-dialog.tsx', import.meta.url), 'utf8');
+	const groupDialogFile = readFileSync(
+		new URL('./profile-batch-group-dialog.tsx', import.meta.url),
+		'utf8',
+	);
+	const clearGroupDialogFile = readFileSync(
+		new URL('./profile-batch-clear-group-dialog.tsx', import.meta.url),
+		'utf8',
+	);
 
-	assert.equal(pageFile.includes("type ProfileBatchAction = 'refresh' | 'open' | 'close' | 'stopAll' | 'setGroup' | 'clearGroup' | 'retryOpen';"), true);
-	assert.equal(pageFile.includes('const [batchAction, setBatchAction] = useState<ProfileBatchAction | null>(null);'), true);
-	assert.equal(pageFile.includes('const batchActionRef = useRef<ProfileBatchAction | null>(null);'), true);
+	assert.equal(
+		/type ProfileBatchAction =\s*\|\s*'refresh'\s*\|\s*'open'\s*\|\s*'close'\s*\|\s*'stopAll'\s*\|\s*'setGroup'\s*\|\s*'clearGroup'\s*\|\s*'retryOpen';/.test(
+			pageFile,
+		),
+		true,
+	);
+	assert.equal(
+		pageFile.includes(
+			'const [batchAction, setBatchAction] = useState<ProfileBatchAction | null>(null);',
+		),
+		true,
+	);
+	assert.equal(
+		pageFile.includes('const batchActionRef = useRef<ProfileBatchAction | null>(null);'),
+		true,
+	);
 	assert.equal(pageFile.includes('const runBatchAction = async <T,'), true);
 	assert.equal(pageFile.includes('if (batchActionRef.current) {'), true);
 	assert.equal(pageFile.includes('batchActionRef.current = actionName;'), true);
@@ -130,9 +161,14 @@ test('profile list batch actions share pending state and release it in finally',
 	assert.equal(pageFile.includes("void runBatchAction('clearGroup'"), true);
 	assert.equal(pageFile.includes("void runBatchAction('retryOpen'"), true);
 	assert.equal(pageFile.includes("void runBatchAction('stopAll'"), true);
-	assert.equal(pageFile.includes("busyAction={batchAction}"), true);
+	assert.equal(pageFile.includes('busyAction={batchAction}'), true);
 	assert.equal(pageFile.includes("pending={batchAction === 'stopAll'}"), true);
-	assert.equal(pageFile.includes("confirmText={batchAction === 'stopAll' ? t('list.stopping') : t('list.confirmStop')}"), true);
+	assert.equal(
+		pageFile.includes(
+			"confirmText={batchAction === 'stopAll' ? t('list.stopping') : t('list.confirmStop')}",
+		),
+		true,
+	);
 	assert.equal(pageFile.includes('setStopAllRunningPending'), false);
 
 	assert.equal(toolbarFile.includes('busyAction: ProfileBatchAction | null;'), true);
@@ -190,7 +226,10 @@ test('profile create form includes plugin selection section', () => {
 });
 
 test('group form dialog exposes visual defaults editor', () => {
-	const file = readFileSync(new URL('../../group/ui/group-form-dialog.tsx', import.meta.url), 'utf8');
+	const file = readFileSync(
+		new URL('../../group/ui/group-form-dialog.tsx', import.meta.url),
+		'utf8',
+	);
 
 	assert.equal(file.includes('toolbarLabelMode'), true);
 	assert.equal(file.includes('browserBgColor'), true);
@@ -203,16 +242,16 @@ test('basic settings section clears browser color errors when leaving custom mod
 
 	assert.equal(file.includes("clearErrors('browserBgColor')"), true);
 	assert.equal(file.includes("shouldValidate: nextMode === 'custom'"), true);
-	});
+});
 
 test('basic settings section uses compact platform cards without hint copy', () => {
-		const file = readFileSync(new URL('./basic-settings-section.tsx', import.meta.url), 'utf8');
+	const file = readFileSync(new URL('./basic-settings-section.tsx', import.meta.url), 'utf8');
 
-		assert.equal(file.includes('grid-cols-[repeat(auto-fit,minmax(150px,1fr))]'), true);
-		assert.equal(file.includes('<PlatformGlyph'), true);
-		assert.equal(file.includes('size="xl"'), true);
-		assert.equal(file.includes('value.hint'), false);
-	});
+	assert.equal(file.includes('grid-cols-[repeat(auto-fit,minmax(150px,1fr))]'), true);
+	assert.equal(file.includes('<PlatformGlyph'), true);
+	assert.equal(file.includes('size="xl"'), true);
+	assert.equal(file.includes('value.hint'), false);
+});
 
 test('platform glyph supports extra large size for frameless platform cards', () => {
 	const file = readFileSync(

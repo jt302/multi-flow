@@ -1,13 +1,6 @@
-import { useEffect, useState } from 'react';
-
 import { Plus, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import type {
-	AiConfigEntry,
-	AutomationScript,
-} from '@/entities/automation/model/types';
-import type { ProfileItem } from '@/entities/profile/model/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,11 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
 	Select,
 	SelectContent,
@@ -40,6 +29,8 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useDefaultAiConfigQuery } from '@/entities/ai/model/use-default-ai-config-query';
+import type { AiConfigEntry, AutomationScript } from '@/entities/automation/model/types';
+import type { ProfileItem } from '@/entities/profile/model/types';
 
 type Props = {
 	open: boolean;
@@ -98,14 +89,10 @@ export function ScriptMetaDialog({
 		.map((id) => allProfiles.find((p) => p.id === id))
 		.filter((p): p is ProfileItem => p !== undefined);
 
-	const availableProfiles = allProfiles.filter(
-		(p) => !associatedIds.includes(p.id),
-	);
+	const availableProfiles = allProfiles.filter((p) => !associatedIds.includes(p.id));
 
 	function bindProfile(profileId: string) {
-		setAssociatedIds((prev) =>
-			prev.includes(profileId) ? prev : [...prev, profileId],
-		);
+		setAssociatedIds((prev) => (prev.includes(profileId) ? prev : [...prev, profileId]));
 		setProfilePickerOpen(false);
 	}
 
@@ -136,9 +123,7 @@ export function ScriptMetaDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="max-w-lg max-h-[85vh] flex flex-col gap-0">
 				<DialogHeader className="shrink-0 pb-4">
-					<DialogTitle>
-						{script ? t('meta.editTitle') : t('meta.createTitle')}
-					</DialogTitle>
+					<DialogTitle>{script ? t('meta.editTitle') : t('meta.createTitle')}</DialogTitle>
 				</DialogHeader>
 
 				<div className="space-y-3 overflow-y-auto flex-1 min-h-0 p-1">
@@ -153,11 +138,7 @@ export function ScriptMetaDialog({
 							autoFocus
 							className={isDuplicate ? 'border-destructive' : ''}
 						/>
-						{isDuplicate && (
-							<p className="text-xs text-destructive">
-								{t('meta.nameDuplicate')}
-							</p>
-						)}
+						{isDuplicate && <p className="text-xs text-destructive">{t('meta.nameDuplicate')}</p>}
 					</div>
 
 					{/* 描述 */}
@@ -176,9 +157,7 @@ export function ScriptMetaDialog({
 					{allProfiles.length > 0 && (
 						<div className="space-y-1.5">
 							<Label className="text-sm">{t('meta.linkedProfiles')}</Label>
-							<p className="text-xs text-muted-foreground">
-								{t('meta.linkedProfilesDesc')}
-							</p>
+							<p className="text-xs text-muted-foreground">{t('meta.linkedProfilesDesc')}</p>
 							<div className="rounded-lg border border-border/60 bg-muted/20 p-2 space-y-2">
 								<div className="flex flex-wrap gap-2">
 									{associatedProfiles.length > 0 ? (
@@ -188,9 +167,7 @@ export function ScriptMetaDialog({
 												variant="secondary"
 												className="flex items-center gap-1 pr-1"
 											>
-												<span className="max-w-45 truncate">
-													{profile.name}
-												</span>
+												<span className="max-w-45 truncate">{profile.name}</span>
 												<button
 													type="button"
 													onClick={() => unbindProfile(profile.id)}
@@ -209,10 +186,7 @@ export function ScriptMetaDialog({
 										</p>
 									)}
 								</div>
-								<Popover
-									open={profilePickerOpen}
-									onOpenChange={setProfilePickerOpen}
-								>
+								<Popover open={profilePickerOpen} onOpenChange={setProfilePickerOpen}>
 									<PopoverTrigger asChild>
 										<Button
 											type="button"
@@ -229,14 +203,9 @@ export function ScriptMetaDialog({
 										<Command>
 											<CommandInput placeholder={t('meta.searchProfile')} />
 											<CommandList>
-												<CommandEmpty>
-													{t('meta.noBindableProfiles')}
-												</CommandEmpty>
+												<CommandEmpty>{t('meta.noBindableProfiles')}</CommandEmpty>
 												{availableProfiles.map((profile) => (
-													<CommandItem
-														key={profile.id}
-														onSelect={() => bindProfile(profile.id)}
-													>
+													<CommandItem key={profile.id} onSelect={() => bindProfile(profile.id)}>
 														{profile.name}
 													</CommandItem>
 												))}
@@ -264,16 +233,14 @@ export function ScriptMetaDialog({
 							<SelectTrigger className="h-9 text-sm cursor-pointer disabled:cursor-not-allowed">
 								<SelectValue
 									placeholder={
-										aiConfigs.length > 0
-											? t('meta.useGlobalConfig')
-											: t('meta.addAiConfigFirst')
+										aiConfigs.length > 0 ? t('meta.useGlobalConfig') : t('meta.addAiConfigFirst')
 									}
 								>
 									{aiConfigId
 										? (aiConfigs.find((c) => c.id === aiConfigId)?.name ?? aiConfigId)
-										: (defaultConfig
+										: defaultConfig
 											? `${t('meta.globalConfig', '全局配置')}(${defaultConfig.name})`
-											: t('meta.useGlobalConfig'))}
+											: t('meta.useGlobalConfig')}
 								</SelectValue>
 							</SelectTrigger>
 							<SelectContent>
@@ -283,11 +250,7 @@ export function ScriptMetaDialog({
 										: t('meta.useGlobalConfig')}
 								</SelectItem>
 								{aiConfigs.map((c) => (
-									<SelectItem
-										key={c.id}
-										value={c.id}
-										className="cursor-pointer"
-									>
+									<SelectItem key={c.id} value={c.id} className="cursor-pointer">
 										{c.name}
 									</SelectItem>
 								))}
@@ -297,11 +260,7 @@ export function ScriptMetaDialog({
 				</div>
 
 				<DialogFooter className="shrink-0 pt-4">
-					<Button
-						variant="ghost"
-						onClick={() => onOpenChange(false)}
-						className="cursor-pointer"
-					>
+					<Button variant="ghost" onClick={() => onOpenChange(false)} className="cursor-pointer">
 						{t('common:cancel')}
 					</Button>
 					<Button

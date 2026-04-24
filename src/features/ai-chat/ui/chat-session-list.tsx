@@ -1,12 +1,12 @@
-import { memo } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';
 import { MessageSquarePlus, Trash2 } from 'lucide-react';
+import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import type { ChatSession } from '@/entities/chat/model/types';
+import { cn } from '@/lib/utils';
 
 type Props = {
 	sessions: ChatSession[];
@@ -28,12 +28,7 @@ export const ChatSessionList = memo(function ChatSessionList({
 	return (
 		<div className="flex h-full flex-col">
 			<div className="p-3 border-b">
-				<Button
-					type="button"
-					className="w-full gap-2"
-					size="sm"
-					onClick={onCreate}
-				>
+				<Button type="button" className="w-full gap-2" size="sm" onClick={onCreate}>
 					<MessageSquarePlus className="size-4" />
 					{t('newChat')}
 				</Button>
@@ -54,9 +49,7 @@ export const ChatSessionList = memo(function ChatSessionList({
 							}}
 							className={cn(
 								'group w-full min-w-0 overflow-hidden rounded-lg px-3 py-2 text-left text-sm transition-colors cursor-pointer',
-								s.id === activeId
-									? 'bg-primary/10 text-primary'
-									: 'hover:bg-muted',
+								s.id === activeId ? 'bg-primary/10 text-primary' : 'hover:bg-muted',
 							)}
 						>
 							<div className="flex items-start justify-between gap-2 min-w-0">

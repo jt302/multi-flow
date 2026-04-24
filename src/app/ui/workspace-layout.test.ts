@@ -1,12 +1,18 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import test from 'node:test';
 
 test('workspace layout keeps outlet container full-height for page-level flex layouts', () => {
 	const source = readFileSync(new URL('./workspace-layout.tsx', import.meta.url), 'utf8');
 	const topbarSource = readFileSync(new URL('./workspace-topbar.tsx', import.meta.url), 'utf8');
-	const dialogSource = readFileSync(new URL('../../components/ui/dialog.tsx', import.meta.url), 'utf8');
-	const alertDialogSource = readFileSync(new URL('../../components/ui/alert-dialog.tsx', import.meta.url), 'utf8');
+	const dialogSource = readFileSync(
+		new URL('../../components/ui/dialog.tsx', import.meta.url),
+		'utf8',
+	);
+	const alertDialogSource = readFileSync(
+		new URL('../../components/ui/alert-dialog.tsx', import.meta.url),
+		'utf8',
+	);
 
 	assert.equal(source.includes('relative h-dvh w-full overflow-hidden p-2 sm:p-4'), true);
 	assert.equal(source.includes('basis-0 flex-col gap-2 sm:gap-4 bg-transparent'), true);
@@ -34,7 +40,10 @@ test('workspace layout memoizes navigation handlers and outlet context', () => {
 test('workspace chrome avoids route-child rerender fanout', () => {
 	const layoutSource = readFileSync(new URL('./workspace-layout.tsx', import.meta.url), 'utf8');
 	const topbarSource = readFileSync(new URL('./workspace-topbar.tsx', import.meta.url), 'utf8');
-	const footerSource = readFileSync(new URL('./sidebar-footer-status.tsx', import.meta.url), 'utf8');
+	const footerSource = readFileSync(
+		new URL('./sidebar-footer-status.tsx', import.meta.url),
+		'utf8',
+	);
 
 	assert.equal(layoutSource.includes('key={location.pathname}'), false);
 	assert.equal(topbarSource.includes('memo(function WorkspaceTopbar'), true);

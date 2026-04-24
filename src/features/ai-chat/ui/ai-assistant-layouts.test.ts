@@ -3,9 +3,18 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const chatSource = readFileSync(new URL('./ai-chat-page.tsx', import.meta.url), 'utf8');
-const fsSource = readFileSync(new URL('../../../features/fs-workspace/ui/fs-workspace-page.tsx', import.meta.url), 'utf8');
-const mcpSource = readFileSync(new URL('../../../features/mcp/ui/mcp-page.tsx', import.meta.url), 'utf8');
-const resizableSource = readFileSync(new URL('../../../components/ui/resizable.tsx', import.meta.url), 'utf8');
+const fsSource = readFileSync(
+	new URL('../../../features/fs-workspace/ui/fs-workspace-page.tsx', import.meta.url),
+	'utf8',
+);
+const mcpSource = readFileSync(
+	new URL('../../../features/mcp/ui/mcp-page.tsx', import.meta.url),
+	'utf8',
+);
+const resizableSource = readFileSync(
+	new URL('../../../components/ui/resizable.tsx', import.meta.url),
+	'utf8',
+);
 
 test('chat and file system pages persist sidebar widths with the shared layout hook', () => {
 	assert.equal(chatSource.includes("id: 'ai-chat-layout'"), true);

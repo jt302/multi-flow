@@ -1,5 +1,5 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
+import test from 'node:test';
 import i18next from 'i18next';
 
 import zhWindow from '@/shared/i18n/locales/zh-CN/window.json';
@@ -23,10 +23,7 @@ await i18next.init({
 });
 
 test('getWindowSyncStartValidation only requires correct master and slave selection', () => {
-	const validWithoutProbe = getWindowSyncStartValidation(
-		['pf_1', 'pf_2'],
-		'pf_1',
-	);
+	const validWithoutProbe = getWindowSyncStartValidation(['pf_1', 'pf_2'], 'pf_1');
 	assert.equal(validWithoutProbe.ok, true);
 	assert.equal(validWithoutProbe.reason, null);
 

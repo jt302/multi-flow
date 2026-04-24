@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { fsWorkspaceApi } from '../api/fs-workspace-api';
 import { queryKeys } from '@/shared/config/query-keys';
+import { fsWorkspaceApi } from '../api/fs-workspace-api';
 
 export function useFsRootsQuery() {
 	return useQuery({

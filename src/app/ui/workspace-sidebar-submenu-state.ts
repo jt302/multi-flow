@@ -31,9 +31,7 @@ export function resolveNextExpandedNavIds(
 	current: ExpandableWorkspaceNavId[],
 	next: ExpandableWorkspaceNavId,
 ): ExpandableWorkspaceNavId[] {
-	return current.includes(next)
-		? current.filter((item) => item !== next)
-		: [...current, next];
+	return current.includes(next) ? current.filter((item) => item !== next) : [...current, next];
 }
 
 export function mergeExpandedNavIds(

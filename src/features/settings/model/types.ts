@@ -1,8 +1,5 @@
 import type { ResourceItem } from '@/entities/resource/model/types';
-import type {
-	CustomThemePreset,
-	PresetKey,
-} from '@/entities/theme/model/types';
+import type { CustomThemePreset, PresetKey } from '@/entities/theme/model/types';
 import type { SettingsTabId } from '@/features/settings/ui/settings-tab-constants';
 
 export type ThemeCustomizerCardProps = {
@@ -32,9 +29,6 @@ export type SettingsPageProps = {
 	onDeleteCustomPreset: (value: CustomThemePreset) => void;
 	resources: ResourceItem[];
 	onRefreshResources: () => Promise<void>;
-	onInstallChromium: (
-		resourceId: string,
-		options?: { force?: boolean },
-	) => Promise<void>;
+	onInstallChromium: (resourceId: string, options?: { force?: boolean }) => Promise<void>;
 	onDownloadResource: (resourceId: string, label?: string) => Promise<void>;
 };

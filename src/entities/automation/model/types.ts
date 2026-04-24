@@ -83,11 +83,28 @@ export type ScriptStep =
 	| { kind: 'cdp_reload'; ignore_cache?: boolean }
 	| { kind: 'cdp_click'; selector: string; selector_type?: SelectorType }
 	| { kind: 'cdp_type'; selector: string; text: string; selector_type?: SelectorType }
-	| { kind: 'cdp_scroll_to'; selector?: string; selector_type?: SelectorType; x?: number; y?: number }
-	| { kind: 'cdp_wait_for_selector'; selector: string; selector_type?: SelectorType; timeout_ms?: number }
+	| {
+			kind: 'cdp_scroll_to';
+			selector?: string;
+			selector_type?: SelectorType;
+			x?: number;
+			y?: number;
+	  }
+	| {
+			kind: 'cdp_wait_for_selector';
+			selector: string;
+			selector_type?: SelectorType;
+			timeout_ms?: number;
+	  }
 	| { kind: 'cdp_wait_for_page_load'; timeout_ms?: number }
 	| { kind: 'cdp_get_text'; selector: string; selector_type?: SelectorType; output_key?: string }
-	| { kind: 'cdp_get_attribute'; selector: string; selector_type?: SelectorType; attribute: string; output_key?: string }
+	| {
+			kind: 'cdp_get_attribute';
+			selector: string;
+			selector_type?: SelectorType;
+			attribute: string;
+			output_key?: string;
+	  }
 	| { kind: 'cdp_set_input_value'; selector: string; selector_type?: SelectorType; value: string }
 	| {
 			kind: 'cdp_screenshot';
@@ -101,7 +118,14 @@ export type ScriptStep =
 	// ── Magic Controller 具名步骤 ─────────────────────────────────────────────
 
 	// 窗口外观
-	| { kind: 'magic_set_bounds'; x: number; y: number; width: number; height: number; output_key?: string }
+	| {
+			kind: 'magic_set_bounds';
+			x: number;
+			y: number;
+			width: number;
+			height: number;
+			output_key?: string;
+	  }
 	| { kind: 'magic_get_bounds'; output_key?: string }
 	| { kind: 'magic_set_maximized' }
 	| { kind: 'magic_set_minimized' }
@@ -134,7 +158,13 @@ export type ScriptStep =
 
 	// 书签
 	| { kind: 'magic_get_bookmarks'; output_key?: string }
-	| { kind: 'magic_create_bookmark'; parent_id: string; title: string; url: string; output_key?: string }
+	| {
+			kind: 'magic_create_bookmark';
+			parent_id: string;
+			title: string;
+			url: string;
+			output_key?: string;
+	  }
 	| { kind: 'magic_create_bookmark_folder'; parent_id: string; title: string; output_key?: string }
 	| { kind: 'magic_update_bookmark'; node_id: string; title?: string; url?: string }
 	| { kind: 'magic_move_bookmark'; node_id: string; new_parent_id: string }
@@ -146,7 +176,13 @@ export type ScriptStep =
 
 	// Cookie
 	| { kind: 'magic_get_managed_cookies'; output_key?: string }
-	| { kind: 'magic_export_cookie_state'; mode: string; url?: string; environment_id?: string; output_key?: string }
+	| {
+			kind: 'magic_export_cookie_state';
+			mode: string;
+			url?: string;
+			environment_id?: string;
+			output_key?: string;
+	  }
 
 	// 扩展
 	| { kind: 'magic_get_managed_extensions'; output_key?: string }
@@ -156,23 +192,78 @@ export type ScriptStep =
 	| { kind: 'magic_disable_extension'; extension_id: string }
 
 	// 同步模式
-	| { kind: 'magic_toggle_sync_mode'; role: string; browser_id?: number; session_id?: string; output_key?: string }
+	| {
+			kind: 'magic_toggle_sync_mode';
+			role: string;
+			browser_id?: number;
+			session_id?: string;
+			output_key?: string;
+	  }
 	| { kind: 'magic_get_sync_mode'; output_key?: string }
 	| { kind: 'magic_get_is_master'; output_key?: string }
 	| { kind: 'magic_get_sync_status'; output_key?: string }
 
 	// AI Agent 语义化操作
 	| { kind: 'magic_get_browser'; browser_id: string; output_key?: string }
-	| { kind: 'magic_click_at'; grid: string; position: string; button?: string; modifiers?: string[]; click_count?: string; action?: string; browser_id?: string; output_key?: string }
+	| {
+			kind: 'magic_click_at';
+			grid: string;
+			position: string;
+			button?: string;
+			modifiers?: string[];
+			click_count?: string;
+			action?: string;
+			browser_id?: string;
+			output_key?: string;
+	  }
 	| { kind: 'magic_click_element'; target: string; browser_id?: string; output_key?: string }
 	| { kind: 'magic_get_ui_elements'; browser_id?: string; output_key?: string }
 	| { kind: 'magic_navigate_to'; url: string; tab_id?: string; output_key?: string }
-	| { kind: 'magic_query_dom'; by: string; selector: string; match?: string; tab_id?: string; limit?: string; visible_only?: boolean; output_key?: string }
-	| { kind: 'magic_click_dom'; by: string; selector: string; match?: string; index?: string; tab_id?: string; visible_only?: boolean; output_key?: string }
-	| { kind: 'magic_fill_dom'; by: string; selector: string; value: string; match?: string; index?: string; clear?: boolean; tab_id?: string; visible_only?: boolean; output_key?: string }
+	| {
+			kind: 'magic_query_dom';
+			by: string;
+			selector: string;
+			match?: string;
+			tab_id?: string;
+			limit?: string;
+			visible_only?: boolean;
+			output_key?: string;
+	  }
+	| {
+			kind: 'magic_click_dom';
+			by: string;
+			selector: string;
+			match?: string;
+			index?: string;
+			tab_id?: string;
+			visible_only?: boolean;
+			output_key?: string;
+	  }
+	| {
+			kind: 'magic_fill_dom';
+			by: string;
+			selector: string;
+			value: string;
+			match?: string;
+			index?: string;
+			clear?: boolean;
+			tab_id?: string;
+			visible_only?: boolean;
+			output_key?: string;
+	  }
 	| { kind: 'magic_send_keys'; keys: string[]; tab_id?: string; output_key?: string }
 	| { kind: 'magic_get_page_info'; tab_id?: string; output_key?: string }
-	| { kind: 'magic_scroll'; direction?: string; distance?: string; by?: string; selector?: string; index?: string; visible_only?: boolean; tab_id?: string; output_key?: string }
+	| {
+			kind: 'magic_scroll';
+			direction?: string;
+			distance?: string;
+			by?: string;
+			selector?: string;
+			index?: string;
+			visible_only?: boolean;
+			tab_id?: string;
+			output_key?: string;
+	  }
 	| { kind: 'magic_set_dock_icon_text'; text: string; color?: string; output_key?: string }
 	| {
 			kind: 'magic_get_page_content';
@@ -321,7 +412,16 @@ export type ScriptStep =
 
 	// ── CDP Cookie & 存储步骤 ──────────────────────────────────────────────
 	| { kind: 'cdp_get_cookies'; urls?: string[]; output_key?: string }
-	| { kind: 'cdp_set_cookie'; name: string; value: string; domain?: string; path?: string; expires?: number; http_only?: boolean; secure?: boolean }
+	| {
+			kind: 'cdp_set_cookie';
+			name: string;
+			value: string;
+			domain?: string;
+			path?: string;
+			expires?: number;
+			http_only?: boolean;
+			secure?: boolean;
+	  }
 	| { kind: 'cdp_delete_cookies'; name: string; domain?: string; path?: string }
 	| { kind: 'cdp_get_local_storage'; key?: string; output_key?: string }
 	| { kind: 'cdp_set_local_storage'; key: string; value: string }
@@ -330,26 +430,85 @@ export type ScriptStep =
 
 	// ── CDP 页面 & 导航步骤 ────────────────────────────────────────────────
 	| { kind: 'cdp_get_current_url'; output_key?: string }
-	| { kind: 'cdp_get_page_source'; selector?: string; selector_type?: SelectorType; output_key?: string }
+	| {
+			kind: 'cdp_get_page_source';
+			selector?: string;
+			selector_type?: SelectorType;
+			output_key?: string;
+	  }
 	| { kind: 'cdp_wait_for_navigation'; timeout_ms?: number }
 
 	// ── CDP 模拟步骤 ──────────────────────────────────────────────────────
-	| { kind: 'cdp_emulate_device'; width: number; height: number; device_scale_factor?: number; mobile?: boolean; user_agent?: string }
+	| {
+			kind: 'cdp_emulate_device';
+			width: number;
+			height: number;
+			device_scale_factor?: number;
+			mobile?: boolean;
+			user_agent?: string;
+	  }
 	| { kind: 'cdp_set_geolocation'; latitude: number; longitude: number; accuracy?: number }
 	| { kind: 'cdp_set_user_agent'; user_agent: string; platform?: string }
 
 	// ── CDP 元素 & 输入步骤 ────────────────────────────────────────────────
-	| { kind: 'cdp_get_element_box'; selector: string; selector_type?: SelectorType; output_key?: string }
-	| { kind: 'cdp_highlight_element'; selector: string; selector_type?: SelectorType; color?: string; duration_ms?: number }
+	| {
+			kind: 'cdp_get_element_box';
+			selector: string;
+			selector_type?: SelectorType;
+			output_key?: string;
+	  }
+	| {
+			kind: 'cdp_highlight_element';
+			selector: string;
+			selector_type?: SelectorType;
+			color?: string;
+			duration_ms?: number;
+	  }
 	| { kind: 'cdp_mouse_move'; x: number; y: number }
-	| { kind: 'cdp_drag_and_drop'; from_selector?: string; to_selector?: string; from_x?: number; from_y?: number; to_x?: number; to_y?: number; selector_type?: SelectorType }
-	| { kind: 'cdp_select_option'; selector: string; value?: string; index?: number; selector_type?: SelectorType; output_key?: string }
-	| { kind: 'cdp_check_checkbox'; selector: string; checked?: boolean; selector_type?: SelectorType }
+	| {
+			kind: 'cdp_drag_and_drop';
+			from_selector?: string;
+			to_selector?: string;
+			from_x?: number;
+			from_y?: number;
+			to_x?: number;
+			to_y?: number;
+			selector_type?: SelectorType;
+	  }
+	| {
+			kind: 'cdp_select_option';
+			selector: string;
+			value?: string;
+			index?: number;
+			selector_type?: SelectorType;
+			output_key?: string;
+	  }
+	| {
+			kind: 'cdp_check_checkbox';
+			selector: string;
+			checked?: boolean;
+			selector_type?: SelectorType;
+	  }
 
 	// ── CDP 网络 & 导出步骤 ────────────────────────────────────────────────
 	| { kind: 'cdp_block_urls'; patterns: string[] }
-	| { kind: 'cdp_pdf'; path?: string; landscape?: boolean; scale?: number; paper_width?: number; paper_height?: number; output_key?: string }
-	| { kind: 'cdp_intercept_request'; url_pattern: string; action: string; headers?: Record<string, unknown>; body?: string; status?: number }
+	| {
+			kind: 'cdp_pdf';
+			path?: string;
+			landscape?: boolean;
+			scale?: number;
+			paper_width?: number;
+			paper_height?: number;
+			output_key?: string;
+	  }
+	| {
+			kind: 'cdp_intercept_request';
+			url_pattern: string;
+			action: string;
+			headers?: Record<string, unknown>;
+			body?: string;
+			status?: number;
+	  }
 
 	// ── CDP 事件缓冲步骤 ──────────────────────────────────────────────────
 	| { kind: 'cdp_get_console_logs'; limit?: number; level?: string; output_key?: string }
@@ -363,11 +522,24 @@ export type ScriptStep =
 	| { kind: 'magic_import_cookies'; cookies: Record<string, unknown>[]; output_key?: string }
 
 	// ── App 新增步骤 ──────────────────────────────────────────────────────
-	| { kind: 'app_run_script'; script_id: string; profile_id?: string; initial_vars?: Record<string, unknown>; output_key?: string }
+	| {
+			kind: 'app_run_script';
+			script_id: string;
+			profile_id?: string;
+			initial_vars?: Record<string, unknown>;
+			output_key?: string;
+	  }
 
 	// ── CAPTCHA 步骤 ──────────────────────────────────────────────────────
 	| { kind: 'captcha_detect'; output_key?: string }
-	| { kind: 'captcha_solve'; captcha_type?: string; sitekey?: string; page_action?: string; image_base64?: string; output_key?: string }
+	| {
+			kind: 'captcha_solve';
+			captcha_type?: string;
+			sitekey?: string;
+			page_action?: string;
+			image_base64?: string;
+			output_key?: string;
+	  }
 	| { kind: 'captcha_inject_token'; type: string; token: string }
 	| { kind: 'captcha_solve_and_inject'; auto_submit?: boolean; output_key?: string }
 	| { kind: 'captcha_get_balance'; output_key?: string };
@@ -401,7 +573,14 @@ export type AutomationScript = {
 };
 
 export type StepStatus = 'pending' | 'running' | 'success' | 'failed' | 'skipped';
-export type RunStatus = 'pending' | 'running' | 'success' | 'failed' | 'cancelled' | 'waiting_human' | 'interrupted';
+export type RunStatus =
+	| 'pending'
+	| 'running'
+	| 'success'
+	| 'failed'
+	| 'cancelled'
+	| 'waiting_human'
+	| 'interrupted';
 
 export type StepResult = {
 	index: number;
@@ -598,8 +777,19 @@ export type AiConfigEntry = {
 // ── AI Dialog 类型（前端 ↔ 后端弹窗交互） ───────────────────────────
 
 export type AiDialogType =
-	| 'message' | 'confirm' | 'input' | 'save_file' | 'open_file' | 'select_folder'
-	| 'select' | 'form' | 'table' | 'image' | 'countdown' | 'toast' | 'markdown';
+	| 'message'
+	| 'confirm'
+	| 'input'
+	| 'save_file'
+	| 'open_file'
+	| 'select_folder'
+	| 'select'
+	| 'form'
+	| 'table'
+	| 'image'
+	| 'countdown'
+	| 'toast'
+	| 'markdown';
 
 export type AiDialogFileFilter = {
 	name: string;

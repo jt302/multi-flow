@@ -1,3 +1,5 @@
+import type { UseFormReturn } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import {
 	Button,
 	Input,
@@ -8,14 +10,12 @@ import {
 	SelectValue,
 	Textarea,
 } from '@/components/ui';
+import type { ChromiumVersionEntry } from '@/entities/chromium-version/model/types';
 import type { GroupItem } from '@/entities/group/model/types';
+import { PLATFORM_OPTIONS } from '@/entities/profile/lib/platform-meta';
 import type { ProfileDevicePresetItem } from '@/entities/profile/model/types';
 import { PlatformGlyph } from '@/entities/profile/ui/platform-mark';
-import type { ChromiumVersionEntry } from '@/entities/chromium-version/model/types';
-import { PLATFORM_OPTIONS } from '@/entities/profile/lib/platform-meta';
 import { cn } from '@/lib/utils';
-import type { UseFormReturn } from 'react-hook-form';
-import { useTranslation } from 'react-i18next';
 
 import type { ProfileFormValues } from '../model/profile-form';
 import { DEFAULT_STARTUP_URL } from '../model/profile-form';
@@ -103,18 +103,11 @@ export function BasicSettingsSection({
 			<SectionTitle title={t('basic.title')} description={t('basic.desc')} />
 			<div className="grid gap-3 md:grid-cols-2">
 				<div>
-					<p className="mb-1 text-xs text-muted-foreground">
-						{t('basic.name')}
-					</p>
-					<Input
-						{...register('name')}
-						placeholder={t('basic.namePlaceholder')}
-					/>
+					<p className="mb-1 text-xs text-muted-foreground">{t('basic.name')}</p>
+					<Input {...register('name')} placeholder={t('basic.namePlaceholder')} />
 				</div>
 				<div>
-					<p className="mb-1 text-xs text-muted-foreground">
-						{t('basic.group')}
-					</p>
+					<p className="mb-1 text-xs text-muted-foreground">{t('basic.group')}</p>
 					<Select
 						value={groupValue || '__none__'}
 						onValueChange={(value) =>
@@ -137,14 +130,10 @@ export function BasicSettingsSection({
 					</Select>
 				</div>
 				<div>
-					<p className="mb-1 text-xs text-muted-foreground">
-						{t('basic.browserEngine')}
-					</p>
+					<p className="mb-1 text-xs text-muted-foreground">{t('basic.browserEngine')}</p>
 					<Select
 						value={browserKind}
-						onValueChange={(value) =>
-							setValue('browserKind', value, { shouldDirty: true })
-						}
+						onValueChange={(value) => setValue('browserKind', value, { shouldDirty: true })}
 					>
 						<SelectTrigger>
 							<SelectValue placeholder={t('basic.selectEngine')} />
@@ -155,9 +144,7 @@ export function BasicSettingsSection({
 					</Select>
 				</div>
 				<div>
-					<p className="mb-1 text-xs text-muted-foreground">
-						{t('basic.browserVersion')}
-					</p>
+					<p className="mb-1 text-xs text-muted-foreground">{t('basic.browserVersion')}</p>
 					<Select
 						value={browserVersion}
 						onValueChange={(value) =>
@@ -178,14 +165,10 @@ export function BasicSettingsSection({
 							))}
 						</SelectContent>
 					</Select>
-					<p className="mt-1 text-[11px] text-muted-foreground">
-						{t('basic.chromiumVersionHint')}
-					</p>
+					<p className="mt-1 text-[11px] text-muted-foreground">{t('basic.chromiumVersionHint')}</p>
 				</div>
 				<div className="md:col-span-2">
-					<p className="mb-1 text-xs text-muted-foreground">
-						{t('basic.simulatedPlatform')}
-					</p>
+					<p className="mb-1 text-xs text-muted-foreground">{t('basic.simulatedPlatform')}</p>
 					<div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2">
 						{PLATFORM_OPTIONS.map((item) => (
 							<PlatformOptionCard
@@ -203,9 +186,7 @@ export function BasicSettingsSection({
 					</div>
 				</div>
 				<div className="md:col-span-2">
-					<p className="mb-1 text-xs text-muted-foreground">
-						{t('basic.devicePreset')}
-					</p>
+					<p className="mb-1 text-xs text-muted-foreground">{t('basic.devicePreset')}</p>
 					<Select
 						value={devicePresetId}
 						onValueChange={(value) =>
@@ -221,8 +202,8 @@ export function BasicSettingsSection({
 						<SelectContent>
 							{devicePresets.map((item) => (
 								<SelectItem key={item.id} value={item.id}>
-									{item.label} · 分辨率 {item.viewportWidth}x
-									{item.viewportHeight} · DPR {item.deviceScaleFactor}
+									{item.label} · 分辨率 {item.viewportWidth}x{item.viewportHeight} · DPR{' '}
+									{item.deviceScaleFactor}
 								</SelectItem>
 							))}
 						</SelectContent>
@@ -238,31 +219,20 @@ export function BasicSettingsSection({
 					</p>
 				</div>
 				<div>
-					<p className="mb-1 text-xs text-muted-foreground">
-						{t('basic.note')}
-					</p>
-					<Input
-						{...register('note')}
-						placeholder={t('basic.notePlaceholder')}
-					/>
+					<p className="mb-1 text-xs text-muted-foreground">{t('basic.note')}</p>
+					<Input {...register('note')} placeholder={t('basic.notePlaceholder')} />
 				</div>
 				<div className="md:col-span-2">
-					<p className="mb-1 text-xs text-muted-foreground">
-						{t('basic.startupUrls')}
-					</p>
+					<p className="mb-1 text-xs text-muted-foreground">{t('basic.startupUrls')}</p>
 					<Textarea
 						{...register('startupUrls')}
 						placeholder={`${DEFAULT_STARTUP_URL}\nhttps://example.com`}
 						className="min-h-24"
 					/>
-					<p className="mt-1 text-[11px] text-muted-foreground">
-						{t('basic.startupUrlsHelp')}
-					</p>
+					<p className="mt-1 text-[11px] text-muted-foreground">{t('basic.startupUrlsHelp')}</p>
 				</div>
 				<div>
-					<p className="mb-1 text-xs text-muted-foreground">
-						{t('basic.browserBgColor')}
-					</p>
+					<p className="mb-1 text-xs text-muted-foreground">{t('basic.browserBgColor')}</p>
 					<div className="grid gap-2">
 						<Select
 							value={browserBgColorMode}
@@ -305,9 +275,7 @@ export function BasicSettingsSection({
 					</div>
 				</div>
 				<div>
-					<p className="mb-1 text-xs text-muted-foreground">
-						{t('visual.toolbarLabel')}
-					</p>
+					<p className="mb-1 text-xs text-muted-foreground">{t('visual.toolbarLabel')}</p>
 					<Select
 						value={toolbarLabelMode}
 						onValueChange={(value) =>
@@ -324,9 +292,7 @@ export function BasicSettingsSection({
 								<SelectItem value="inherit">{t('visual.inheritGroup')}</SelectItem>
 							) : null}
 							<SelectItem value="id_only">{t('visual.idOnly')}</SelectItem>
-							<SelectItem value="group_name_and_id">
-								{t('visual.groupNameAndId')}
-							</SelectItem>
+							<SelectItem value="group_name_and_id">{t('visual.groupNameAndId')}</SelectItem>
 						</SelectContent>
 					</Select>
 				</div>

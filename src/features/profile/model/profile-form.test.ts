@@ -1,11 +1,11 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
+import test from 'node:test';
 
 import {
-	DEFAULT_STARTUP_URL,
 	applyProxySuggestionValue,
-	buildResolutionValuesFromPreset,
 	buildFingerprintSource,
+	buildResolutionValuesFromPreset,
+	DEFAULT_STARTUP_URL,
 	deriveCookieSiteUrls,
 	generateRandomCustomDeviceName,
 	generateRandomCustomMacAddress,
@@ -403,10 +403,7 @@ test('deriveCookieSiteUrls returns unique sorted site urls from cookie state', (
 		],
 	});
 
-	assert.deepEqual(sites, [
-		'https://accounts.example.com/',
-		'https://example.com/',
-	]);
+	assert.deepEqual(sites, ['https://accounts.example.com/', 'https://example.com/']);
 });
 
 test('profile form schema requires valid coordinates in custom geolocation mode', () => {
@@ -447,14 +444,8 @@ test('resolveProxySuggestedValues maps proxy portrait into profile fields', () =
 });
 
 test('applyProxySuggestionValue preserves manual value but allows proxy-owned value to refresh', () => {
-	assert.equal(
-		applyProxySuggestionValue('manual', 'zh-CN', 'en-US'),
-		'zh-CN',
-	);
-	assert.equal(
-		applyProxySuggestionValue('proxy', 'en-US', 'de-DE'),
-		'de-DE',
-	);
+	assert.equal(applyProxySuggestionValue('manual', 'zh-CN', 'en-US'), 'zh-CN');
+	assert.equal(applyProxySuggestionValue('proxy', 'en-US', 'de-DE'), 'de-DE');
 });
 
 test('resolveProxySuggestedValues prefers effective values over suggestion values', () => {

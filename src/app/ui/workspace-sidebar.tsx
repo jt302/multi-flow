@@ -1,8 +1,9 @@
 import { ChevronRight } from 'lucide-react';
-import LogoIcon from '@/assets/icon/icon-white.svg?react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
+import { getWorkspaceNavItems } from '@/app/model/workspace-nav-items';
+import type { NavId } from '@/app/model/workspace-types';
+import LogoIcon from '@/assets/icon/icon-white.svg?react';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -24,16 +25,14 @@ import {
 	SidebarMenuSubItem,
 	useSidebar,
 } from '@/components/ui';
-import { getWorkspaceNavItems } from '@/app/model/workspace-nav-items';
-import type { NavId } from '@/app/model/workspace-types';
 import { cn } from '@/lib/utils';
 import { SidebarFooterStatus } from './sidebar-footer-status';
 import {
+	type ExpandableWorkspaceNavId,
 	findAutoExpandedNavId,
 	isExpandableNavItem,
 	mergeExpandedNavIds,
 	resolveNextExpandedNavIds,
-	type ExpandableWorkspaceNavId,
 } from './workspace-sidebar-submenu-state';
 
 type WorkspaceSidebarProps = {
@@ -52,13 +51,8 @@ export function WorkspaceSidebar({
 	const { state } = useSidebar();
 	const collapsed = state === 'collapsed';
 	const { t, i18n } = useTranslation('nav');
-	const navItems = useMemo(
-		() => getWorkspaceNavItems(),
-		[i18n.resolvedLanguage],
-	);
-	const [expandedNavIds, setExpandedNavIds] = useState<
-		ExpandableWorkspaceNavId[]
-	>(() => {
+	const navItems = useMemo(() => getWorkspaceNavItems(), [i18n.resolvedLanguage]);
+	const [expandedNavIds, setExpandedNavIds] = useState<ExpandableWorkspaceNavId[]>(() => {
 		const autoExpanded = findAutoExpandedNavId(navItems, activePath);
 		if (autoExpanded) {
 			return [autoExpanded];
@@ -71,14 +65,10 @@ export function WorkspaceSidebar({
 	useEffect(() => {
 		const autoExpanded = findAutoExpandedNavId(navItems, activePath);
 		const activeItem = navItems.find((item) => item.id === activeNav);
-		const activeExpandableId =
-			activeItem && isExpandableNavItem(activeItem) ? activeItem.id : null;
+		const activeExpandableId = activeItem && isExpandableNavItem(activeItem) ? activeItem.id : null;
 
 		setExpandedNavIds((current) =>
-			mergeExpandedNavIds(
-				mergeExpandedNavIds(current, autoExpanded),
-				activeExpandableId,
-			),
+			mergeExpandedNavIds(mergeExpandedNavIds(current, autoExpanded), activeExpandableId),
 		);
 	}, [activeNav, activePath, navItems]);
 
@@ -96,9 +86,7 @@ export function WorkspaceSidebar({
 							<p className="text-[10px] uppercase tracking-[0.2em] text-sidebar-foreground/65">
 								multi-flow
 							</p>
-							<p className="truncate text-base font-semibold leading-none">
-								Workspace
-							</p>
+							<p className="truncate text-base font-semibold leading-none">Workspace</p>
 						</div>
 					</div>
 				)}
@@ -124,9 +112,7 @@ export function WorkspaceSidebar({
 										variant={active ? 'outline' : 'default'}
 										isActive={active}
 										aria-label={item.label}
-										aria-expanded={
-											!collapsed && expandable ? expanded : undefined
-										}
+										aria-expanded={!collapsed && expandable ? expanded : undefined}
 										onPointerDown={() => {
 											// 用 onPointerDown 代替 onClick：
 											// macOS 激活窗口时 click 被 Cocoa 吞，但 pointerdown(mousedown) 会传递到 webview
@@ -135,9 +121,7 @@ export function WorkspaceSidebar({
 											}
 
 											if (expandable) {
-												setExpandedNavIds((current) =>
-													resolveNextExpandedNavIds(current, item.id),
-												);
+												setExpandedNavIds((current) => resolveNextExpandedNavIds(current, item.id));
 												return;
 											}
 
@@ -187,14 +171,8 @@ export function WorkspaceSidebar({
 									<SidebarMenuItem key={item.id}>
 										{hasCollapsedMenu ? (
 											<DropdownMenu>
-												<DropdownMenuTrigger asChild>
-													{button}
-												</DropdownMenuTrigger>
-												<DropdownMenuContent
-													side="right"
-													align="start"
-													className="min-w-44"
-												>
+												<DropdownMenuTrigger asChild>{button}</DropdownMenuTrigger>
+												<DropdownMenuContent side="right" align="start" className="min-w-44">
 													<DropdownMenuLabel>{item.label}</DropdownMenuLabel>
 													<DropdownMenuSeparator />
 													{item.children.map((child) => {
@@ -222,14 +200,14 @@ export function WorkspaceSidebar({
 													const ChildIcon = child.icon;
 													return (
 														<SidebarMenuSubItem key={child.path}>
-														<SidebarMenuSubButton
-															type="button"
-															isActive={activePath === child.path}
-															onPointerDown={() => {
-																onNavigate(child.path);
-															}}
-															className="cursor-pointer"
-														>
+															<SidebarMenuSubButton
+																type="button"
+																isActive={activePath === child.path}
+																onPointerDown={() => {
+																	onNavigate(child.path);
+																}}
+																className="cursor-pointer"
+															>
 																<ChildIcon className="size-3.5" />
 																{child.label}
 															</SidebarMenuSubButton>

@@ -1,20 +1,18 @@
+import { Check, Copy, StopCircle, TriangleAlert, X } from 'lucide-react';
 import { memo, useMemo, useRef, useState } from 'react';
-import { Check, Copy, X, TriangleAlert, StopCircle } from 'lucide-react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import Lightbox from 'yet-another-react-lightbox';
 import Zoom from 'yet-another-react-lightbox/plugins/zoom';
 import 'yet-another-react-lightbox/styles.css';
 
 import { useTranslation } from 'react-i18next';
-import { MarkdownRenderer } from '@/shared/ui/markdown-renderer';
-
 import type { ChatMessageRecord } from '@/entities/chat/model/types';
+import { MarkdownRenderer } from '@/shared/ui/markdown-renderer';
 import type { TerminalState } from '@/store/chat-store';
 import { GenerationProgress } from './generation-progress';
 import { ThinkingBlock } from './thinking-block';
 import { ToolCallCard } from './tool-call-card';
 import './chat-message-list-lightbox.css';
-
 
 type Props = {
 	messages: ChatMessageRecord[];
@@ -25,7 +23,13 @@ type Props = {
 	onContinue?: () => void;
 };
 
-export function ChatMessageList({ messages, isGenerating, terminalState, terminalError, onContinue }: Props) {
+export function ChatMessageList({
+	messages,
+	isGenerating,
+	terminalState,
+	terminalError,
+	onContinue,
+}: Props) {
 	const { t } = useTranslation('chat');
 	const virtuosoRef = useRef<VirtuosoHandle>(null);
 	const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
@@ -35,50 +39,58 @@ export function ChatMessageList({ messages, isGenerating, terminalState, termina
 		() => (lightboxSrc ? [{ src: lightboxSrc, alt: t('imagePreview') }] : []),
 		[lightboxSrc, t],
 	);
-	const lightboxEl = useMemo(() => (
-		<Lightbox
-			open={!!lightboxSrc}
-			close={() => setLightboxSrc(null)}
-			slides={slides}
-			index={0}
-			plugins={[Zoom]}
-			className="ai-chat-lightbox"
-			controller={{ closeOnBackdropClick: true }}
-			carousel={{ finite: slides.length <= 1, padding: '64px', spacing: '10%', imageFit: 'contain' }}
-			toolbar={{ buttons: ['close'] }}
-			zoom={{ maxZoomPixelRatio: 3, doubleClickMaxStops: 4, scrollToZoom: true }}
-			labels={{
-				Close: t('closePreview'),
-				Lightbox: t('imagePreview'),
-				Carousel: t('imagePreview'),
-				Slide: t('imagePreview'),
-				'Photo gallery': t('imagePreview'),
-				'Zoom in': t('zoomInPreview'),
-				'Zoom out': t('zoomOutPreview'),
-			}}
-			styles={{
-				container: { '--yarl__color_backdrop': 'rgba(15, 23, 42, 0.68)' },
-				toolbar: {
-					'--yarl__button_filter': 'none',
-					'--yarl__toolbar_padding': '12px',
-				},
-				button: {
-					'--yarl__button_background_color': 'rgba(255, 255, 255, 0.94)',
-					'--yarl__button_border': '1px solid rgba(148, 163, 184, 0.28)',
-					'--yarl__button_filter': 'none',
-					'--yarl__button_padding': '6px',
-					color: '#0f172a',
-				},
-				icon: { '--yarl__icon_size': '18px' },
-			}}
-			render={{
-				buttonZoom: () => null,
-				buttonPrev: slides.length <= 1 ? () => null : undefined,
-				buttonNext: slides.length <= 1 ? () => null : undefined,
-				iconClose: () => <X className="size-[18px]" strokeWidth={2.25} />,
-			}}
-		/>
-	), [lightboxSrc, slides, t]);
+	const lightboxEl = useMemo(
+		() => (
+			<Lightbox
+				open={!!lightboxSrc}
+				close={() => setLightboxSrc(null)}
+				slides={slides}
+				index={0}
+				plugins={[Zoom]}
+				className="ai-chat-lightbox"
+				controller={{ closeOnBackdropClick: true }}
+				carousel={{
+					finite: slides.length <= 1,
+					padding: '64px',
+					spacing: '10%',
+					imageFit: 'contain',
+				}}
+				toolbar={{ buttons: ['close'] }}
+				zoom={{ maxZoomPixelRatio: 3, doubleClickMaxStops: 4, scrollToZoom: true }}
+				labels={{
+					Close: t('closePreview'),
+					Lightbox: t('imagePreview'),
+					Carousel: t('imagePreview'),
+					Slide: t('imagePreview'),
+					'Photo gallery': t('imagePreview'),
+					'Zoom in': t('zoomInPreview'),
+					'Zoom out': t('zoomOutPreview'),
+				}}
+				styles={{
+					container: { '--yarl__color_backdrop': 'rgba(15, 23, 42, 0.68)' },
+					toolbar: {
+						'--yarl__button_filter': 'none',
+						'--yarl__toolbar_padding': '12px',
+					},
+					button: {
+						'--yarl__button_background_color': 'rgba(255, 255, 255, 0.94)',
+						'--yarl__button_border': '1px solid rgba(148, 163, 184, 0.28)',
+						'--yarl__button_filter': 'none',
+						'--yarl__button_padding': '6px',
+						color: '#0f172a',
+					},
+					icon: { '--yarl__icon_size': '18px' },
+				}}
+				render={{
+					buttonZoom: () => null,
+					buttonPrev: slides.length <= 1 ? () => null : undefined,
+					buttonNext: slides.length <= 1 ? () => null : undefined,
+					iconClose: () => <X className="size-[18px]" strokeWidth={2.25} />,
+				}}
+			/>
+		),
+		[lightboxSrc, slides, t],
+	);
 
 	return (
 		<>
@@ -97,11 +109,22 @@ export function ChatMessageList({ messages, isGenerating, terminalState, termina
 				)}
 				components={{
 					Header: () => <div className="h-2" />,
-					Footer: () => isGenerating
-						? <div className="px-4 pb-2 max-w-5xl mx-auto w-full"><GenerationProgress /></div>
-						: terminalState && terminalState !== 'success'
-							? <div className="px-4 pb-3 max-w-5xl mx-auto w-full"><TerminalNotice state={terminalState} error={terminalError} onContinue={onContinue} /></div>
-							: <div className="h-2" />,
+					Footer: () =>
+						isGenerating ? (
+							<div className="px-4 pb-2 max-w-5xl mx-auto w-full">
+								<GenerationProgress />
+							</div>
+						) : terminalState && terminalState !== 'success' ? (
+							<div className="px-4 pb-3 max-w-5xl mx-auto w-full">
+								<TerminalNotice
+									state={terminalState}
+									error={terminalError}
+									onContinue={onContinue}
+								/>
+							</div>
+						) : (
+							<div className="h-2" />
+						),
 				}}
 			/>
 			{lightboxEl}
@@ -121,14 +144,16 @@ function CopyButton({ text, className }: { text: string; className?: string }) {
 
 	return (
 		<button
+			type="button"
 			onClick={handleCopy}
 			title={t('copyMessage')}
 			className={`cursor-pointer p-1 rounded hover:bg-accent transition-colors ${className ?? ''}`}
 		>
-			{copied
-				? <Check className="size-3.5 text-green-500" />
-				: <Copy className="size-3.5 text-muted-foreground" />
-			}
+			{copied ? (
+				<Check className="size-3.5 text-green-500" />
+			) : (
+				<Copy className="size-3.5 text-muted-foreground" />
+			)}
 		</button>
 	);
 }
@@ -136,7 +161,13 @@ function CopyButton({ text, className }: { text: string; className?: string }) {
 // React.memo 确保历史消息在流式期间不重渲：appendTextChunk 只替换流式那一条，
 // 其他消息对象引用不变，浅比较可以正确跳过。
 // 注意：onImageClick 必须是稳定引用（useState setter），否则 memo 会失效。
-const MessageItem = memo(function MessageItem({ message, onImageClick }: { message: ChatMessageRecord; onImageClick: (src: string) => void }) {
+const MessageItem = memo(function MessageItem({
+	message,
+	onImageClick,
+}: {
+	message: ChatMessageRecord;
+	onImageClick: (src: string) => void;
+}) {
 	const { t } = useTranslation('chat');
 	if (message.role === 'user') {
 		return (
@@ -150,12 +181,22 @@ const MessageItem = memo(function MessageItem({ message, onImageClick }: { messa
 				<div className="max-w-[75%] rounded-2xl bg-primary px-4 py-2.5 text-sm text-primary-foreground break-words whitespace-pre-wrap space-y-2">
 					{message.imageBase64 && (
 						<img
-							src={message.imageBase64.startsWith('data:') ? message.imageBase64 : `data:image/png;base64,${message.imageBase64}`}
+							src={
+								message.imageBase64.startsWith('data:')
+									? message.imageBase64
+									: `data:image/png;base64,${message.imageBase64}`
+							}
 							alt="user upload"
 							className="max-w-full rounded-lg object-contain max-h-64 cursor-pointer"
 							loading="lazy"
 							decoding="async"
-							onClick={() => onImageClick(message.imageBase64!.startsWith('data:') ? message.imageBase64! : `data:image/png;base64,${message.imageBase64}`)}
+							onClick={() =>
+								onImageClick(
+									message.imageBase64!.startsWith('data:')
+										? message.imageBase64!
+										: `data:image/png;base64,${message.imageBase64}`,
+								)
+							}
 						/>
 					)}
 					{message.contentText && <span>{message.contentText}</span>}
@@ -176,7 +217,10 @@ const MessageItem = memo(function MessageItem({ message, onImageClick }: { messa
 		// assistant 消息只有 tool_calls 没有文本时，显示紧凑占位行
 		let toolNames: string[] = [];
 		try {
-			const calls = JSON.parse(message.toolCallsJson) as Array<{ function?: { name?: string }; name?: string }>;
+			const calls = JSON.parse(message.toolCallsJson) as Array<{
+				function?: { name?: string };
+				name?: string;
+			}>;
 			toolNames = calls.map((c) => c.function?.name ?? c.name ?? '').filter(Boolean);
 		} catch {
 			// ignore
@@ -243,21 +287,28 @@ const MessageItem = memo(function MessageItem({ message, onImageClick }: { messa
 
 	if (message.role === 'system' && message.contentText) {
 		return (
-			<div className="text-center text-xs text-muted-foreground py-1">
-				{message.contentText}
-			</div>
+			<div className="text-center text-xs text-muted-foreground py-1">{message.contentText}</div>
 		);
 	}
 
 	return null;
 });
 
-function TerminalNotice({ state, error, onContinue }: { state: TerminalState; error?: string | null; onContinue?: () => void }) {
+function TerminalNotice({
+	state,
+	error,
+	onContinue,
+}: {
+	state: TerminalState;
+	error?: string | null;
+	onContinue?: () => void;
+}) {
 	const { t } = useTranslation('chat');
 
 	if (state === 'stalled' || state === 'max_rounds') {
 		const title = state === 'stalled' ? t('terminal.stalled.title') : t('terminal.maxRounds.title');
-		const desc = state === 'stalled' ? t('terminal.stalled.description') : t('terminal.maxRounds.description');
+		const desc =
+			state === 'stalled' ? t('terminal.stalled.description') : t('terminal.maxRounds.description');
 		return (
 			<div className="flex items-start gap-3 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm dark:border-yellow-900/50 dark:bg-yellow-950/30">
 				<TriangleAlert className="mt-0.5 size-4 shrink-0 text-yellow-600 dark:text-yellow-400" />
@@ -267,6 +318,7 @@ function TerminalNotice({ state, error, onContinue }: { state: TerminalState; er
 				</div>
 				{onContinue && (
 					<button
+						type="button"
 						onClick={onContinue}
 						className="cursor-pointer shrink-0 rounded-md border border-yellow-300 bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-800 hover:bg-yellow-200 transition-colors dark:border-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300 dark:hover:bg-yellow-900"
 					>
@@ -287,6 +339,7 @@ function TerminalNotice({ state, error, onContinue }: { state: TerminalState; er
 				</div>
 				{onContinue && (
 					<button
+						type="button"
 						onClick={onContinue}
 						className="cursor-pointer shrink-0 rounded-md border border-red-300 bg-red-100 px-3 py-1 text-xs font-medium text-red-800 hover:bg-red-200 transition-colors dark:border-red-800 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900"
 					>

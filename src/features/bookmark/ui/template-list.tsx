@@ -1,8 +1,6 @@
+import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Trash2 } from 'lucide-react';
-
-import type { BookmarkTemplateItem } from '@/entities/bookmark/model/types';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -16,6 +14,7 @@ import {
 	Button,
 	Skeleton,
 } from '@/components/ui';
+import type { BookmarkTemplateItem } from '@/entities/bookmark/model/types';
 import { cn } from '@/lib/utils';
 
 type TemplateListProps = {
@@ -50,9 +49,7 @@ export function TemplateList({
 		<div className="flex flex-col h-full min-h-0">
 			{/* 顶部工具栏 */}
 			<div className="flex items-center justify-between px-3 py-2 border-b border-border/60 shrink-0">
-				<span className="text-xs font-medium text-muted-foreground">
-					{t('templates.title')}
-				</span>
+				<span className="text-xs font-medium text-muted-foreground">{t('templates.title')}</span>
 				<Button
 					size="icon"
 					variant="ghost"
@@ -100,10 +97,7 @@ export function TemplateList({
 									<div className="flex-1 min-w-0">
 										<div className="flex items-center gap-1.5">
 											<span className="text-xs font-medium truncate">{tpl.name}</span>
-											<Badge
-												variant="secondary"
-												className="text-[9px] px-1 py-0 h-4 shrink-0"
-											>
+											<Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 shrink-0">
 												v{tpl.version}
 											</Badge>
 										</div>
@@ -131,10 +125,7 @@ export function TemplateList({
 			</div>
 
 			{/* 删除确认弹窗 */}
-			<AlertDialog
-				open={!!deleteTarget}
-				onOpenChange={(open) => !open && setDeleteTarget(null)}
-			>
+			<AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>
@@ -143,9 +134,7 @@ export function TemplateList({
 						<AlertDialogDescription>{t('templates.deleteWarning')}</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel className="cursor-pointer">
-							{t('detail.cancel')}
-						</AlertDialogCancel>
+						<AlertDialogCancel className="cursor-pointer">{t('detail.cancel')}</AlertDialogCancel>
 						<AlertDialogAction
 							className="cursor-pointer bg-destructive hover:bg-destructive/90"
 							onClick={handleDeleteConfirm}

@@ -1,0 +1,75 @@
+{
+	"$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"files": {
+		"includes": [
+			"*.json",
+			"*.jsonc",
+			"*.ts",
+			"*.tsx",
+			"scripts/**/*.mjs",
+			"scripts/**/*.ts",
+			"src/**/*.css",
+			"src/**/*.json",
+			"src/**/*.ts",
+			"src/**/*.tsx",
+			"src-tauri/**/*.json",
+			"src-tauri/**/*.ts"
+		]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"lineWidth": 100
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"a11y": {
+				"noLabelWithoutControl": "off",
+				"noRedundantAlt": "off",
+				"noStaticElementInteractions": "off",
+				"useFocusableInteractive": "off",
+				"useKeyWithClickEvents": "off",
+				"useSemanticElements": "off"
+			},
+			"complexity": {
+				"noUselessFragments": "off",
+				"useLiteralKeys": "off"
+			},
+			"correctness": {
+				"useExhaustiveDependencies": "off"
+			},
+			"style": {
+				"noNonNullAssertion": "off",
+				"useTemplate": "off"
+			},
+			"suspicious": {
+				"noArrayIndexKey": "off",
+				"noControlCharactersInRegex": "off",
+				"noDocumentCookie": "off",
+				"noThenProperty": "off",
+				"useIterableCallbackReturn": "off"
+			}
+		}
+	},
+	"assist": {
+		"enabled": true
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "single",
+			"jsxQuoteStyle": "double"
+		}
+	},
+	"css": {
+		"parser": {
+			"tailwindDirectives": true
+		}
+	}
+}

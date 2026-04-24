@@ -32,9 +32,12 @@ export function ProxyDeleteAlertDialog({
 		<AlertDialog open={open} onOpenChange={onOpenChange}>
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogTitle>{t('common:deleteItemConfirm', { item: t('common:proxy') })}</AlertDialogTitle>
+					<AlertDialogTitle>
+						{t('common:deleteItemConfirm', { item: t('common:proxy') })}
+					</AlertDialogTitle>
 					<AlertDialogDescription>
-						{t('proxy:archiveProxy', { name: proxyName })}，{t('proxy:removeBindings')}。{t('common:dangerousOperation')}。
+						{t('proxy:archiveProxy', { name: proxyName })}，{t('proxy:removeBindings')}。
+						{t('common:dangerousOperation')}。
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>

@@ -3,13 +3,7 @@ import { Select as SelectPrimitive } from 'radix-ui';
 import type { UseFormReturn } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
-import {
-	Badge,
-	Select,
-	SelectContent,
-	SelectTrigger,
-	SelectValue,
-} from '@/components/ui';
+import { Badge, Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import { cn } from '@/lib/utils';
 import { countryCodeToFlag } from '@/shared/lib/country-flag';
@@ -24,9 +18,7 @@ type ProxySettingsSectionProps = {
 };
 
 function formatGeo(proxy: ProxyItem): string {
-	const parts = [proxy.city, proxy.region, proxy.country]
-		.map((p) => p.trim())
-		.filter(Boolean);
+	const parts = [proxy.city, proxy.region, proxy.country].map((p) => p.trim()).filter(Boolean);
 	return parts.join(', ');
 }
 
@@ -114,15 +106,10 @@ function ProxySelectItem({ item }: { item: ProxyItem }) {
 					</span>
 				</SelectPrimitive.ItemText>
 				<div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-					<span className="font-mono">
-						{ip || `${item.host}:${item.port}`}
-					</span>
+					<span className="font-mono">{ip || `${item.host}:${item.port}`}</span>
 					{geo ? (
 						<>
-							<span
-								className="h-1 w-1 shrink-0 rounded-full bg-muted-foreground/40"
-								aria-hidden
-							/>
+							<span className="h-1 w-1 shrink-0 rounded-full bg-muted-foreground/40" aria-hidden />
 							<span className="flex min-w-0 items-center gap-0.5 truncate">
 								<MapPin className="size-3 shrink-0" />
 								<span className="truncate">{geo}</span>
@@ -174,7 +161,7 @@ export function ProxySettingsSection({
 
 	const selectedProxy =
 		proxyId && proxyId !== '__none__'
-			? availableProxies.find((p) => p.id === proxyId) ?? null
+			? (availableProxies.find((p) => p.id === proxyId) ?? null)
 			: null;
 
 	return (
@@ -189,9 +176,7 @@ export function ProxySettingsSection({
 				</SelectTrigger>
 				<SelectContent className="min-w-[360px] p-1.5">
 					<NoProxyItem label={t('proxySettings.noProxy')} />
-					{availableProxies.length ? (
-						<div className="my-1 h-px bg-border/60" />
-					) : null}
+					{availableProxies.length ? <div className="my-1 h-px bg-border/60" /> : null}
 					{availableProxies.map((item) => (
 						<ProxySelectItem key={item.id} item={item} />
 					))}
@@ -250,11 +235,7 @@ function ProxyDetailCard({ proxy, hint }: { proxy: ProxyItem; hint: string }) {
 				<InfoField label={t('proxySettings.exitIp')} value={ip} mono />
 				<InfoField
 					label={t('proxySettings.coords')}
-					value={
-						hasCoords
-							? `${proxy.latitude!.toFixed(4)}, ${proxy.longitude!.toFixed(4)}`
-							: ''
-					}
+					value={hasCoords ? `${proxy.latitude!.toFixed(4)}, ${proxy.longitude!.toFixed(4)}` : ''}
 					mono
 				/>
 			</div>
@@ -267,15 +248,7 @@ function ProxyDetailCard({ proxy, hint }: { proxy: ProxyItem; hint: string }) {
 	);
 }
 
-function InfoField({
-	label,
-	value,
-	mono,
-}: {
-	label: string;
-	value: string;
-	mono?: boolean;
-}) {
+function InfoField({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
 	const { t } = useTranslation('profile');
 	const display = value.trim() || t('proxySettings.notChecked');
 	const empty = !value.trim();

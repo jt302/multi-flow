@@ -1,38 +1,36 @@
 import {
 	Component,
+	type CSSProperties,
+	type ErrorInfo,
+	type ReactNode,
 	Suspense,
 	useCallback,
 	useMemo,
 	useState,
-	type CSSProperties,
-	type ErrorInfo,
-	type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-
-import { useThemeSettings } from '@/entities/theme/model/use-theme-settings';
-import { resolveSonnerTheme } from '@/entities/theme/model/sonner-theme';
-import { openLogPanelWindow } from '@/entities/log-entry/api/logs-api';
-import { Card, Sidebar, SidebarProvider, Toaster } from '@/components/ui';
-import { useIsMobile } from '@/hooks/use-mobile';
-
-import { resolveNavFromPath, resolvePathFromNav } from '@/app/workspace-routes';
 import { buildWorkspaceLayoutOutletContext } from '@/app/model/workspace-layout-context';
-import { ResourceDownloadListener } from './resource-download-listener';
-import { PluginDownloadListener } from './plugin-download-listener';
 import type { NavId } from '@/app/model/workspace-types';
+import { resolveNavFromPath, resolvePathFromNav } from '@/app/workspace-routes';
+import { Card, Sidebar, SidebarProvider, Toaster } from '@/components/ui';
+import { openLogPanelWindow } from '@/entities/log-entry/api/logs-api';
+import { normalizeCustomThemePreset } from '@/entities/theme/model/custom-presets';
+import { resolveSonnerTheme } from '@/entities/theme/model/sonner-theme';
+import { useThemeSettings } from '@/entities/theme/model/use-theme-settings';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { reportFrontendError } from '@/shared/lib/frontend-errors';
 import { useWorkspaceNavigationStore } from '@/store/workspace-navigation-store';
+import { PluginDownloadListener } from './plugin-download-listener';
+import { ResourceDownloadListener } from './resource-download-listener';
+import { WorkspaceSidebar } from './workspace-sidebar';
 import {
 	persistSidebarOpen,
 	resolveInitialSidebarOpen,
 	SIDEBAR_STORAGE_KEY,
 } from './workspace-sidebar-state';
-import { WorkspaceSidebar } from './workspace-sidebar';
 import { WorkspaceTopbar } from './workspace-topbar';
-import { normalizeCustomThemePreset } from '@/entities/theme/model/custom-presets';
-import { reportFrontendError } from '@/shared/lib/frontend-errors';
 
 class RouteErrorBoundary extends Component<
 	{ children: ReactNode; pathname: string },
@@ -61,9 +59,7 @@ class RouteErrorBoundary extends Component<
 				<div className="flex h-full items-center justify-center p-6">
 					<div className="max-w-lg space-y-3 rounded-lg border border-destructive/40 bg-destructive/5 p-5">
 						<p className="text-sm font-semibold text-destructive">页面渲染出错</p>
-						<p className="font-mono text-xs text-destructive/80 break-all">
-							{error.message}
-						</p>
+						<p className="font-mono text-xs text-destructive/80 break-all">{error.message}</p>
 						<button
 							type="button"
 							className="rounded bg-destructive px-3 py-1.5 text-xs text-destructive-foreground cursor-pointer hover:opacity-90"
@@ -117,9 +113,7 @@ export function WorkspaceLayout() {
 		resolveInitialSidebarOpen({
 			cookieText: typeof document === 'undefined' ? '' : document.cookie,
 			storageValue:
-				typeof window === 'undefined'
-					? null
-					: window.localStorage.getItem(SIDEBAR_STORAGE_KEY),
+				typeof window === 'undefined' ? null : window.localStorage.getItem(SIDEBAR_STORAGE_KEY),
 		}),
 	);
 	const { t } = useTranslation('common');
@@ -182,8 +176,7 @@ export function WorkspaceLayout() {
 						themeState.setUseCustomColor(true);
 						themeState.setCustomColor(value);
 					},
-					onToggleCustomColor: () =>
-						themeState.setUseCustomColor((prev) => !prev),
+					onToggleCustomColor: () => themeState.setUseCustomColor((prev) => !prev),
 					onAddCustomPreset: () => {
 						const normalized = normalizeCustomThemePreset(themeState.customColor);
 						if (!normalized) {
@@ -266,13 +259,13 @@ export function WorkspaceLayout() {
 
 					<section className="flex min-h-0 min-w-0 flex-1 basis-0 flex-col gap-2 sm:gap-4 bg-transparent pl-0 sm:pl-1 md:pl-2">
 						<Card className="w-full shrink-0 border-border/40 bg-card/60 px-3 py-2 sm:px-4 sm:py-2.5 backdrop-blur-3xl shadow-sm transition-all duration-300">
-								<WorkspaceTopbar
-									activeNav={activeNav}
-									themeMode={themeState.themeMode}
-									onThemeModeChange={themeState.setThemeMode}
-									onOpenLogPanel={handleOpenLogPanel}
-									onNavigate={handleNavigate}
-								/>
+							<WorkspaceTopbar
+								activeNav={activeNav}
+								themeMode={themeState.themeMode}
+								onThemeModeChange={themeState.setThemeMode}
+								onOpenLogPanel={handleOpenLogPanel}
+								onNavigate={handleNavigate}
+							/>
 						</Card>
 						<Card
 							className="min-h-0 w-full flex-1 overflow-hidden flex flex-col border-border/40 bg-card/60 p-0 backdrop-blur-3xl shadow-md transition-all duration-300"

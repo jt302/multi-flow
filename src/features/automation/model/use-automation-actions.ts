@@ -1,10 +1,6 @@
-import { useEffect, useRef } from 'react';
-
-import i18n from '@/shared/i18n';
-
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-
 import {
 	cancelAutomationRun,
 	createAutomationScript,
@@ -15,8 +11,9 @@ import {
 	updateAutomationScript,
 } from '@/entities/automation/api/automation-api';
 import type { CreateAutomationScriptPayload } from '@/entities/automation/model/types';
-import { automationStore } from '@/store/automation-store';
 import { queryKeys } from '@/shared/config/query-keys';
+import i18n from '@/shared/i18n';
+import { automationStore } from '@/store/automation-store';
 
 async function registerRunListeners(
 	runId: string,
@@ -58,8 +55,13 @@ export function useAutomationActions(activeScriptId: string | null) {
 	});
 
 	const updateScript = useMutation({
-		mutationFn: ({ scriptId, payload }: { scriptId: string; payload: CreateAutomationScriptPayload }) =>
-			updateAutomationScript(scriptId, payload),
+		mutationFn: ({
+			scriptId,
+			payload,
+		}: {
+			scriptId: string;
+			payload: CreateAutomationScriptPayload;
+		}) => updateAutomationScript(scriptId, payload),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.automationScripts });
 		},

@@ -70,7 +70,6 @@
 	"toast": {
 		"enterExtensionId": "请输入扩展 ID",
 		"downloaded": "插件已下载：{{name}}",
-		"downloadFailed": "下载插件失败",
 		"operationFailed": "插件操作失败",
 		"noStoreUrl": "当前插件缺少商店地址",
 		"openStoreFailed": "打开商店页面失败",

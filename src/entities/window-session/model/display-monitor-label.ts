@@ -5,13 +5,8 @@ function normalizeText(value?: string | null): string | null {
 	return normalized ? normalized : null;
 }
 
-function joinIdentity(
-	manufacturer?: string | null,
-	model?: string | null,
-): string | null {
-	const parts = [normalizeText(manufacturer), normalizeText(model)].filter(
-		Boolean,
-	) as string[];
+function joinIdentity(manufacturer?: string | null, model?: string | null): string | null {
+	const parts = [normalizeText(manufacturer), normalizeText(model)].filter(Boolean) as string[];
 	if (parts.length === 0) {
 		return null;
 	}
@@ -26,9 +21,7 @@ export function formatDisplayMonitorName(
 
 	if (monitor.isBuiltin) {
 		const builtinLabel = translate('window:arrange.builtinDisplay');
-		return monitor.hostDeviceName
-			? `${monitor.hostDeviceName} ${builtinLabel}`
-			: builtinLabel;
+		return monitor.hostDeviceName ? `${monitor.hostDeviceName} ${builtinLabel}` : builtinLabel;
 	}
 
 	const friendlyName = normalizeText(monitor.friendlyName);
@@ -57,7 +50,5 @@ export function formatDisplayMonitorOptionLabel(
 	const name = formatDisplayMonitorName(monitor, translate);
 	const label = name.includes(resolution) ? name : `${name} (${resolution})`;
 
-	return monitor.isPrimary
-		? `${label} (${translate('window:arrange.primaryMonitor')})`
-		: label;
+	return monitor.isPrimary ? `${label} (${translate('window:arrange.primaryMonitor')})` : label;
 }

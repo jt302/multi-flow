@@ -13,8 +13,13 @@ export function useCreateAiSkill() {
 export function useUpdateAiSkill() {
 	const qc = useQueryClient();
 	return useMutation({
-		mutationFn: ({ slug, payload }: { slug: string; payload: Parameters<typeof aiSkillApi.update>[1] }) =>
-			aiSkillApi.update(slug, payload),
+		mutationFn: ({
+			slug,
+			payload,
+		}: {
+			slug: string;
+			payload: Parameters<typeof aiSkillApi.update>[1];
+		}) => aiSkillApi.update(slug, payload),
 		onSuccess: (_, { slug }) => {
 			qc.invalidateQueries({ queryKey: queryKeys.aiSkills });
 			qc.invalidateQueries({ queryKey: queryKeys.aiSkill(slug) });

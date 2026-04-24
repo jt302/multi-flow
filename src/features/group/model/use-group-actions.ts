@@ -1,7 +1,5 @@
-import type { ToolbarLabelMode } from '@/entities/profile/model/types';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-
 import {
 	createGroup as createGroupApi,
 	deleteGroup as deleteGroupApi,
@@ -9,6 +7,7 @@ import {
 	restoreGroup as restoreGroupApi,
 	updateGroup as updateGroupApi,
 } from '@/entities/group/api/groups-api';
+import type { ToolbarLabelMode } from '@/entities/profile/model/types';
 
 type GroupActionsDeps = {
 	refreshGroups: () => Promise<void>;

@@ -2,11 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { BackendLogEvent } from '../../../entities/log-entry/api/logs-api.ts';
-import {
-	filterBackendLogs,
-	getLogEventKey,
-	normalizeLogLevel,
-} from './use-log-panel-state.ts';
+import { filterBackendLogs, getLogEventKey, normalizeLogLevel } from './use-log-panel-state.ts';
 
 function createEvent(overrides: Partial<BackendLogEvent>): BackendLogEvent {
 	return {
@@ -30,8 +26,16 @@ test('normalizeLogLevel 兼容大小写和噪声字符', () => {
 test('filterBackendLogs 级别过滤只保留目标级别', () => {
 	const logs = [
 		createEvent({ level: ' INFO ', message: 'info line' }),
-		createEvent({ level: '\u001b[31mERROR\u001b[0m', message: 'error line', line: '[1762932800][ERROR][engine] error line' }),
-		createEvent({ level: '[warn]', message: 'warn line', line: '[1762932800][WARN][engine] warn line' }),
+		createEvent({
+			level: '\u001b[31mERROR\u001b[0m',
+			message: 'error line',
+			line: '[1762932800][ERROR][engine] error line',
+		}),
+		createEvent({
+			level: '[warn]',
+			message: 'warn line',
+			line: '[1762932800][WARN][engine] warn line',
+		}),
 	];
 
 	const result = filterBackendLogs(logs, {

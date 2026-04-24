@@ -1,9 +1,17 @@
-import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
+import {
+	ChevronRight,
+	FileText,
+	Folder,
+	FolderPlus,
+	PanelLeft,
+	Settings,
+	Trash2,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Folder, FileText, FolderPlus, Trash2, ChevronRight, Settings, PanelLeft } from 'lucide-react';
 import { z } from 'zod/v3';
 
 import { ConfirmActionDialog } from '@/components/common/confirm-action-dialog';
@@ -28,26 +36,22 @@ import {
 	SheetTitle,
 	Textarea,
 } from '@/components/ui';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import type { FsRoot } from '@/entities/fs-workspace/model/types';
 import {
-	ResizableHandle,
-	ResizablePanel,
-	ResizablePanelGroup,
-} from '@/components/ui/resizable';
-import { cn } from '@/lib/utils';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { usePersistentLayout } from '@/shared/hooks/use-persistent-layout';
-import {
-	useFsRootsQuery,
-	useFsDirQuery,
 	useFsDescriptionQuery,
+	useFsDirQuery,
+	useFsRootsQuery,
 } from '@/entities/fs-workspace/model/use-fs-workspace-query';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
+import { usePersistentLayout } from '@/shared/hooks/use-persistent-layout';
 import {
 	useCreateFolder,
 	useDeleteEntry,
 	useSaveDescription,
 } from '../model/use-fs-workspace-mutations';
 import { FsPreferencesDrawer } from './fs-preferences-drawer';
-import type { FsRoot } from '@/entities/fs-workspace/model/types';
 
 const createFolderSchema = (t: (key: string) => string) =>
 	z.object({
@@ -73,7 +77,9 @@ export function FsWorkspacePage() {
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [rootsSheetOpen, setRootsSheetOpen] = useState(false);
 	const [createFolderOpen, setCreateFolderOpen] = useState(false);
-	const [pendingDelete, setPendingDelete] = useState<{ relPath: string; name: string } | null>(null);
+	const [pendingDelete, setPendingDelete] = useState<{ relPath: string; name: string } | null>(
+		null,
+	);
 
 	const rootsQuery = useFsRootsQuery();
 	const roots = rootsQuery.data ?? [];
@@ -160,15 +166,14 @@ export function FsWorkspacePage() {
 		setSelectedEntryPath(null);
 	};
 
-	const selectedRootLabel =
-		selectedRoot?.isDefault ? t('fileSystem.defaultRootLabel') : selectedRoot?.label;
+	const selectedRootLabel = selectedRoot?.isDefault
+		? t('fileSystem.defaultRootLabel')
+		: selectedRoot?.label;
 
 	const renderRootsPanel = () => (
 		<div className="flex h-full flex-col">
 			<div className="flex items-center justify-between border-b px-3 py-2">
-				<span className="text-xs font-medium text-muted-foreground">
-					{t('fileSystem.roots')}
-				</span>
+				<span className="text-xs font-medium text-muted-foreground">{t('fileSystem.roots')}</span>
 				<Button
 					size="icon"
 					variant="ghost"
@@ -272,9 +277,7 @@ export function FsWorkspacePage() {
 						)}
 						<span className="flex-1 truncate text-sm">{entry.name}</span>
 						{entry.hasDescription && (
-							<span className="text-xs text-primary/70">
-								{t('fileSystem.hasDescriptionBadge')}
-							</span>
+							<span className="text-xs text-primary/70">{t('fileSystem.hasDescriptionBadge')}</span>
 						)}
 						{selectedRoot?.allowWrite && (
 							<Button
@@ -355,9 +358,7 @@ export function FsWorkspacePage() {
 								onClick={() => setRootsSheetOpen(true)}
 							>
 								<PanelLeft className="h-4 w-4" />
-								<span className="truncate">
-									{selectedRootLabel ?? t('fileSystem.roots')}
-								</span>
+								<span className="truncate">{selectedRootLabel ?? t('fileSystem.roots')}</span>
 							</Button>
 							<Button
 								size="icon"
@@ -369,49 +370,43 @@ export function FsWorkspacePage() {
 							</Button>
 						</div>
 						<div className="min-h-0 flex flex-1 flex-col overflow-hidden">
-							<div className="min-h-0 flex-1 overflow-hidden">
-								{renderDirectoryPanel()}
-							</div>
-							<div className="min-h-[220px] border-t">
-								{renderDescriptionPanel()}
-							</div>
+							<div className="min-h-0 flex-1 overflow-hidden">{renderDirectoryPanel()}</div>
+							<div className="min-h-[220px] border-t">{renderDescriptionPanel()}</div>
 						</div>
 					</div>
 					<SheetContent side="left" className="w-[min(88vw,360px)] p-0">
 						<SheetHeader className="border-b">
 							<SheetTitle>{t('fileSystem.roots')}</SheetTitle>
 						</SheetHeader>
-						<div className="min-h-0 flex-1 overflow-hidden">
-							{renderRootsPanel()}
-						</div>
+						<div className="min-h-0 flex-1 overflow-hidden">{renderRootsPanel()}</div>
 					</SheetContent>
 				</Sheet>
 			) : (
-			<ResizablePanelGroup
-				direction="horizontal"
-				className="h-full"
-				defaultLayout={defaultLayout}
-				onLayoutChanged={onLayoutChanged}
-			>
-				{/* 左栏: 根列表 */}
-				<ResizablePanel id="fs-roots-panel" defaultSize={20} minSize={15} maxSize={35}>
-					{renderRootsPanel()}
-				</ResizablePanel>
+				<ResizablePanelGroup
+					direction="horizontal"
+					className="h-full"
+					defaultLayout={defaultLayout}
+					onLayoutChanged={onLayoutChanged}
+				>
+					{/* 左栏: 根列表 */}
+					<ResizablePanel id="fs-roots-panel" defaultSize={20} minSize={15} maxSize={35}>
+						{renderRootsPanel()}
+					</ResizablePanel>
 
-				<ResizableHandle />
+					<ResizableHandle />
 
-				{/* 中栏: 目录内容 */}
-				<ResizablePanel id="fs-directory-panel" defaultSize={40} minSize={25}>
-					{renderDirectoryPanel()}
-				</ResizablePanel>
+					{/* 中栏: 目录内容 */}
+					<ResizablePanel id="fs-directory-panel" defaultSize={40} minSize={25}>
+						{renderDirectoryPanel()}
+					</ResizablePanel>
 
-				<ResizableHandle />
+					<ResizableHandle />
 
-				{/* 右栏: 说明编辑 */}
-				<ResizablePanel id="fs-description-panel" defaultSize={40} minSize={25}>
-					{renderDescriptionPanel()}
-				</ResizablePanel>
-			</ResizablePanelGroup>
+					{/* 右栏: 说明编辑 */}
+					<ResizablePanel id="fs-description-panel" defaultSize={40} minSize={25}>
+						{renderDescriptionPanel()}
+					</ResizablePanel>
+				</ResizablePanelGroup>
 			)}
 
 			<FsPreferencesDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
@@ -455,10 +450,7 @@ export function FsWorkspacePage() {
 									<FormItem>
 										<FormLabel>{t('fileSystem.folderNameLabel')}</FormLabel>
 										<FormControl>
-											<Input
-												{...field}
-												placeholder={t('fileSystem.folderNamePlaceholder')}
-											/>
+											<Input {...field} placeholder={t('fileSystem.folderNamePlaceholder')} />
 										</FormControl>
 										<FormMessage />
 									</FormItem>

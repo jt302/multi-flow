@@ -14,7 +14,11 @@ function formatTokens(n: number): string {
 	return String(n);
 }
 
-export function ThinkingBlock({ thinkingText, thinkingTokens, defaultOpen = false }: ThinkingBlockProps) {
+export function ThinkingBlock({
+	thinkingText,
+	thinkingTokens,
+	defaultOpen = false,
+}: ThinkingBlockProps) {
 	const [open, setOpen] = useState(defaultOpen);
 
 	if (!thinkingText) return null;

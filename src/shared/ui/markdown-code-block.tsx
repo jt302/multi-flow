@@ -1,5 +1,5 @@
-import { useContext, useMemo, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
+import { useContext, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { MarkdownCtx } from './markdown-renderer';
@@ -45,11 +45,10 @@ export function MarkdownCodeBlock({ children, className }: Props) {
 		<div className="relative my-3 rounded-lg overflow-hidden border border-border/50 bg-zinc-950 dark:bg-zinc-900">
 			{/* 顶部语言标签栏 */}
 			<div className="flex items-center justify-between px-4 py-1.5 bg-zinc-900/80 dark:bg-zinc-800/60 border-b border-white/8">
-				<span className="text-xs text-zinc-400 font-mono select-none">
-					{lang || 'text'}
-				</span>
+				<span className="text-xs text-zinc-400 font-mono select-none">{lang || 'text'}</span>
 				{!streaming && (
 					<button
+						type="button"
 						onClick={handleCopy}
 						title={t('copyCode')}
 						className={cn(
@@ -57,16 +56,28 @@ export function MarkdownCodeBlock({ children, className }: Props) {
 							'text-zinc-400 hover:text-zinc-200 hover:bg-white/8 transition-colors',
 						)}
 					>
-						{copied
-							? <><Check className="size-3 text-green-400" />{t('codeCopied')}</>
-							: <><Copy className="size-3" />{t('copyCode')}</>
-						}
+						{copied ? (
+							<>
+								<Check className="size-3 text-green-400" />
+								{t('codeCopied')}
+							</>
+						) : (
+							<>
+								<Copy className="size-3" />
+								{t('copyCode')}
+							</>
+						)}
 					</button>
 				)}
 			</div>
 			{/* 代码区域 */}
 			<div className="overflow-x-auto">
-				<code className={cn('block px-4 py-3 text-xs leading-relaxed font-mono text-zinc-100', className)}>
+				<code
+					className={cn(
+						'block px-4 py-3 text-xs leading-relaxed font-mono text-zinc-100',
+						className,
+					)}
+				>
 					{children}
 				</code>
 			</div>

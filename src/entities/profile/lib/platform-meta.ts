@@ -1,6 +1,6 @@
 import i18next from 'i18next';
 
-import { TerminalSquare, type LucideIcon } from 'lucide-react';
+import { type LucideIcon, TerminalSquare } from 'lucide-react';
 import type { FC, SVGProps } from 'react';
 
 import AndroidIcon from '@/assets/icon/android.svg?react';
@@ -78,15 +78,15 @@ export const PLATFORM_OPTIONS: PlatformVisualMeta[] = [
 export function getPlatformMeta(platform?: string | null): PlatformVisualMeta {
 	const normalized = platform?.trim().toLowerCase();
 	if (!normalized) {
-			return {
-				value: 'system',
-				label: i18next.t('platform:currentSystem'),
-				fallbackIcon: TerminalSquare,
-				code: 'SYS',
-				hint: i18next.t('platform:hostPlatform'),
-				badgeClass: 'bg-muted text-muted-foreground',
-				iconClass: 'text-muted-foreground',
-			};
+		return {
+			value: 'system',
+			label: i18next.t('platform:currentSystem'),
+			fallbackIcon: TerminalSquare,
+			code: 'SYS',
+			hint: i18next.t('platform:hostPlatform'),
+			badgeClass: 'bg-muted text-muted-foreground',
+			iconClass: 'text-muted-foreground',
+		};
 	}
 
 	const matched = PLATFORM_OPTIONS.find((item) => normalized.includes(item.value));

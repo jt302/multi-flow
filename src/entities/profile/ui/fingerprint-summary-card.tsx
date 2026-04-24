@@ -78,22 +78,18 @@ export function FingerprintSummaryCard({
 								{t('detail.uaMetadata')}
 							</p>
 							<p className="mt-1 break-words text-xs text-muted-foreground">
-								{mergedPreviewSnapshot.customUaMetadata ||
-									t('common:notGenerated')}
+								{mergedPreviewSnapshot.customUaMetadata || t('common:notGenerated')}
 							</p>
 						</div>
 						<div className="grid gap-2 sm:grid-cols-2">
 							<SummaryMetric
 								label={t('detail.platformParams')}
-								value={
-									mergedPreviewSnapshot.customPlatform || t('common:notSet')
-								}
+								value={mergedPreviewSnapshot.customPlatform || t('common:notSet')}
 							/>
 							<SummaryMetric
 								label={t('detail.resolutionDpr')}
 								value={
-									mergedPreviewSnapshot.windowWidth &&
-									mergedPreviewSnapshot.windowHeight
+									mergedPreviewSnapshot.windowWidth && mergedPreviewSnapshot.windowHeight
 										? `${mergedPreviewSnapshot.windowWidth}x${mergedPreviewSnapshot.windowHeight} · ${mergedPreviewSnapshot.deviceScaleFactor ?? '-'}x`
 										: t('common:notSet')
 								}
@@ -101,8 +97,7 @@ export function FingerprintSummaryCard({
 							<SummaryMetric
 								label={t('detail.cpuRam')}
 								value={
-									mergedPreviewSnapshot.customCpuCores &&
-									mergedPreviewSnapshot.customRamGb
+									mergedPreviewSnapshot.customCpuCores && mergedPreviewSnapshot.customRamGb
 										? `${mergedPreviewSnapshot.customCpuCores} ${t('common:coreUnit')} / ${mergedPreviewSnapshot.customRamGb} GB`
 										: t('common:notSet')
 								}
@@ -110,29 +105,20 @@ export function FingerprintSummaryCard({
 							<SummaryMetric
 								label={t('detail.touchFormFactor')}
 								value={
-									mergedPreviewSnapshot.customTouchPoints?.toString() ||
-									t('common:desktopMode')
+									mergedPreviewSnapshot.customTouchPoints?.toString() || t('common:desktopMode')
 								}
 							/>
 							<SummaryMetric
 								label={t('detail.language')}
-								value={
-									mergedPreviewSnapshot.language ||
-									t('common:followProxyOrSystem')
-								}
+								value={mergedPreviewSnapshot.language || t('common:followProxyOrSystem')}
 							/>
 							<SummaryMetric
 								label={t('detail.timezone')}
-								value={
-									mergedPreviewSnapshot.timeZone ||
-									t('common:followProxyOrSystem')
-								}
+								value={mergedPreviewSnapshot.timeZone || t('common:followProxyOrSystem')}
 							/>
 							<SummaryMetric
 								label={t('detail.acceptLanguage')}
-								value={
-									mergedPreviewSnapshot.acceptLanguages || t('common:notSet')
-								}
+								value={mergedPreviewSnapshot.acceptLanguages || t('common:notSet')}
 							/>
 							<SummaryMetric
 								label={t('detail.seed')}
@@ -165,9 +151,8 @@ export function FingerprintSummaryCard({
 									: t('common:notSet')}
 							</p>
 							<p className="mt-1 break-words text-xs text-muted-foreground">
-								{mergedPreviewSnapshot.customFontList
-									?.slice(0, 6)
-									.join(' / ') || t('common:notSet')}
+								{mergedPreviewSnapshot.customFontList?.slice(0, 6).join(' / ') ||
+									t('common:notSet')}
 							</p>
 						</div>
 					</div>
@@ -178,9 +163,7 @@ export function FingerprintSummaryCard({
 					</div>
 				)}
 			</div>
-			{previewError ? (
-				<p className="mt-2 text-xs text-destructive">{previewError}</p>
-			) : null}
+			{previewError ? <p className="mt-2 text-xs text-destructive">{previewError}</p> : null}
 		</div>
 	);
 }
@@ -188,9 +171,7 @@ export function FingerprintSummaryCard({
 function SummaryMetric({ label, value }: SummaryMetricProps) {
 	return (
 		<div className="rounded-lg border border-border/70 bg-background/70 p-2">
-			<p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-				{label}
-			</p>
+			<p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
 			<p className="mt-1 break-words text-xs">{value}</p>
 		</div>
 	);

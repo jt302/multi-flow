@@ -1,13 +1,9 @@
+import { Plug, X } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plug, X } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useMcpServersQuery } from '@/entities/mcp/model/use-mcp-query';
 import { cn } from '@/lib/utils';
 

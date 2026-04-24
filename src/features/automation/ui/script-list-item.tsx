@@ -1,7 +1,7 @@
-import type { AutomationScript } from '@/entities/automation/model/types';
-import { resolveScriptFlowEntryState } from '@/entities/automation/model/script-flow-entry';
-import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
+import { resolveScriptFlowEntryState } from '@/entities/automation/model/script-flow-entry';
+import type { AutomationScript } from '@/entities/automation/model/types';
+import { cn } from '@/lib/utils';
 
 type Props = {
 	script: AutomationScript;
@@ -24,9 +24,7 @@ export function ScriptListItem({ script, isSelected, onClick }: Props) {
 			}}
 			className={cn(
 				'group w-full min-w-0 overflow-hidden text-left rounded-lg px-3 py-2 text-sm transition-colors cursor-pointer',
-				isSelected
-					? 'bg-primary/10 text-primary'
-					: 'hover:bg-muted',
+				isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted',
 			)}
 		>
 			<div className="flex items-start justify-between gap-2 min-w-0">

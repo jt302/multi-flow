@@ -1,10 +1,5 @@
 export type ProfileLifecycle = 'active' | 'deleted';
-export type ProfileActionState =
-	| 'opening'
-	| 'closing'
-	| 'deleting'
-	| 'restoring'
-	| 'recovering';
+export type ProfileActionState = 'opening' | 'closing' | 'deleting' | 'restoring' | 'recovering';
 
 export type WebRtcMode = 'real' | 'follow_ip' | 'replace' | 'disable';
 export type FingerprintStrategy = 'template' | 'random_bundle';

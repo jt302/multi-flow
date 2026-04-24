@@ -1,25 +1,25 @@
 {
-  "downloads": {
-    "title": "下载",
-    "empty": "暂无下载任务",
-    "clearCompleted": "清除已完成",
-    "profileLabel": "环境",
-    "stateInProgress": "下载中",
-    "stateComplete": "已完成",
-    "stateInterrupted": "已中断"
-  },
-  "toast": {
-    "downloadCompleted": "下载完成：{{filename}}",
-    "downloadInterrupted": "下载中断：{{filename}}",
-    "rendererCrashed": "渲染进程崩溃（{{profile}}）：{{title}}",
-    "rendererHung": "渲染进程无响应（{{profile}}）：{{title}}",
-    "networkOffline": "环境 {{profile}} 已离线",
-    "networkRestored": "环境 {{profile}} 网络已恢复",
-    "browserReady": "环境 {{profile}} 已就绪",
-    "browserShuttingDown": "环境 {{profile}} 正在关闭"
-  },
-  "offline": {
-    "badge": "离线",
-    "tooltip": "以下环境已离线：{{profiles}}"
-  }
+	"downloads": {
+		"title": "下载",
+		"empty": "暂无下载任务",
+		"clearCompleted": "清除已完成",
+		"profileLabel": "环境",
+		"stateInProgress": "下载中",
+		"stateComplete": "已完成",
+		"stateInterrupted": "已中断"
+	},
+	"toast": {
+		"downloadCompleted": "下载完成：{{filename}}",
+		"downloadInterrupted": "下载中断：{{filename}}",
+		"rendererCrashed": "渲染进程崩溃（{{profile}}）：{{title}}",
+		"rendererHung": "渲染进程无响应（{{profile}}）：{{title}}",
+		"networkOffline": "环境 {{profile}} 已离线",
+		"networkRestored": "环境 {{profile}} 网络已恢复",
+		"browserReady": "环境 {{profile}} 已就绪",
+		"browserShuttingDown": "环境 {{profile}} 正在关闭"
+	},
+	"offline": {
+		"badge": "离线",
+		"tooltip": "以下环境已离线：{{profiles}}"
+	}
 }

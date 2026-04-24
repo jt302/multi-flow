@@ -4,11 +4,26 @@ import test from 'node:test';
 
 const modSource = readFileSync(new URL('./mod.rs', import.meta.url), 'utf8');
 const defsSource = readFileSync(new URL('./tool_defs.rs', import.meta.url), 'utf8');
-const commonZhSource = readFileSync(new URL('../../../../src/shared/i18n/locales/zh-CN/common.json', import.meta.url), 'utf8');
-const commonEnSource = readFileSync(new URL('../../../../src/shared/i18n/locales/en-US/common.json', import.meta.url), 'utf8');
-const toolModalSource = readFileSync(new URL('../../../../src/app/ui/tool-confirmation-modal.tsx', import.meta.url), 'utf8');
-const devDocSource = readFileSync(new URL('../../../../docs/ai/ai-tools-developer.md', import.meta.url), 'utf8');
-const agentDocSource = readFileSync(new URL('../../../../docs/ai/ai-tools-agent.md', import.meta.url), 'utf8');
+const commonZhSource = readFileSync(
+	new URL('../../../../src/shared/i18n/locales/zh-CN/common.json', import.meta.url),
+	'utf8',
+);
+const commonEnSource = readFileSync(
+	new URL('../../../../src/shared/i18n/locales/en-US/common.json', import.meta.url),
+	'utf8',
+);
+const toolModalSource = readFileSync(
+	new URL('../../../../src/app/ui/tool-confirmation-modal.tsx', import.meta.url),
+	'utf8',
+);
+const devDocSource = readFileSync(
+	new URL('../../../../docs/ai/ai-tools-developer.md', import.meta.url),
+	'utf8',
+);
+const agentDocSource = readFileSync(
+	new URL('../../../../docs/ai/ai-tools-agent.md', import.meta.url),
+	'utf8',
+);
 
 test('exec command tool is registered with its own executor module', () => {
 	assert.equal(modSource.includes('pub mod exec_tools;'), true);

@@ -1,14 +1,7 @@
-import { useEffect, useState } from 'react';
-
-import { useTranslation } from 'react-i18next';
-
 import { Bug, Minus, Play, Plus } from 'lucide-react';
-
-import type { ProfileItem } from '@/entities/profile/model/types';
-import type {
-	RunDelayConfig,
-	ScriptSettings,
-} from '@/entities/automation/model/types';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { ProfileGroupSelector } from '@/components/common/profile-group-selector';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -20,7 +13,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ProfileGroupSelector } from '@/components/common/profile-group-selector';
+import type { RunDelayConfig, ScriptSettings } from '@/entities/automation/model/types';
+import type { ProfileItem } from '@/entities/profile/model/types';
 
 type VarEntry = { key: string; value: string };
 
@@ -57,9 +51,7 @@ export function RunDialog({
 }: Props) {
 	const [selectedIds, setSelectedIds] = useState<string[]>([]);
 	const { t } = useTranslation('automation');
-	const [varEntries, setVarEntries] = useState<VarEntry[]>(
-		() => defaultVars ?? [],
-	);
+	const [varEntries, setVarEntries] = useState<VarEntry[]>(() => defaultVars ?? []);
 	const [varsOpen, setVarsOpen] = useState(false);
 	const [delayEnabled, setDelayEnabled] = useState(false);
 	const [delayMinSeconds, setDelayMinSeconds] = useState(1);
@@ -92,15 +84,11 @@ export function RunDialog({
 	}
 
 	function setVarKey(i: number, key: string) {
-		setVarEntries((prev) =>
-			prev.map((e, idx) => (idx === i ? { ...e, key } : e)),
-		);
+		setVarEntries((prev) => prev.map((e, idx) => (idx === i ? { ...e, key } : e)));
 	}
 
 	function setVarValue(i: number, value: string) {
-		setVarEntries((prev) =>
-			prev.map((e, idx) => (idx === i ? { ...e, value } : e)),
-		);
+		setVarEntries((prev) => prev.map((e, idx) => (idx === i ? { ...e, value } : e)));
 	}
 
 	function buildVars(): Record<string, string> {
@@ -142,159 +130,141 @@ export function RunDialog({
 					{/* 环境选择（含分组） */}
 					<div className="space-y-2">
 						<Label className="text-sm font-medium">{t('runDialog.selectEnv')}</Label>
-						<ProfileGroupSelector
-							selectedIds={selectedIds}
-							onChange={setSelectedIds}
-						/>
-						</div>
-
-						<div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-							<div className="flex items-center gap-2">
-								<Checkbox
-									checked={delayEnabled}
-									onCheckedChange={(checked) => setDelayEnabled(checked === true)}
-									className="cursor-pointer"
-								/>
-								<div>
-									<Label className="text-sm">{t('runDialog.delay.title')}</Label>
-									<p className="text-xs text-muted-foreground">
-										{t('runDialog.delay.desc')}
-									</p>
-								</div>
-							</div>
-							{delayEnabled && (
-								<div className="grid grid-cols-2 gap-2">
-									<div className="space-y-1">
-										<Label className="text-xs text-muted-foreground">
-											{t('runDialog.delay.minSeconds')}
-										</Label>
-										<Input
-											type="number"
-											min={0}
-											step={1}
-											value={delayMinSeconds}
-											onChange={(event) =>
-												setDelayMinSeconds(
-													Number.isNaN(event.target.valueAsNumber)
-														? 0
-														: event.target.valueAsNumber,
-												)
-											}
-											className="h-8 text-sm"
-										/>
-									</div>
-									<div className="space-y-1">
-										<Label className="text-xs text-muted-foreground">
-											{t('runDialog.delay.maxSeconds')}
-										</Label>
-										<Input
-											type="number"
-											min={0}
-											step={1}
-											value={delayMaxSeconds}
-											onChange={(event) =>
-												setDelayMaxSeconds(
-													Number.isNaN(event.target.valueAsNumber)
-														? 0
-														: event.target.valueAsNumber,
-												)
-											}
-											className="h-8 text-sm"
-										/>
-									</div>
-								</div>
-							)}
-						</div>
-
-						{/* 初始变量 */}
-						<div className="space-y-2">
-							<div className="flex items-center justify-between">
-								<button
-									type="button"
-									onClick={() => setVarsOpen((v) => !v)}
-									className="text-sm font-medium text-muted-foreground hover:text-foreground cursor-pointer"
-								>
-							{t('runDialog.vars.title')}{varEntries.length > 0 && ` (${varEntries.length})`}
-								</button>
-								<button
-									type="button"
-									onClick={addVar}
-									className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-								>
-									<Plus className="h-3 w-3" />
-									{t('runDialog.vars.add')}
-								</button>
-							</div>
-							{(varsOpen || varEntries.length > 0) && varEntries.length > 0 && (
-								<div className="space-y-1.5">
-									{varEntries.map((entry, i) => (
-										<div key={i} className="flex items-center gap-1.5">
-											<Input
-												placeholder={t('runDialog.vars.keyPlaceholder')}
-												value={entry.key}
-												onChange={(e) => setVarKey(i, e.target.value)}
-												className="h-7 text-xs font-mono"
-											/>
-											<span className="text-muted-foreground text-xs shrink-0">
-												=
-											</span>
-											<Input
-												placeholder={t('runDialog.vars.valuePlaceholder')}
-												value={entry.value}
-												onChange={(e) => setVarValue(i, e.target.value)}
-												className="h-7 text-xs"
-											/>
-											<button
-												type="button"
-												onClick={() => removeVar(i)}
-												className="text-muted-foreground hover:text-destructive cursor-pointer shrink-0"
-											>
-												<Minus className="h-3.5 w-3.5" />
-											</button>
-										</div>
-									))}
-								</div>
-							)}
-						</div>
-
-						{/* 批量提示 */}
-						{selectedIds.length > 1 && (
-							<p className="text-xs text-muted-foreground">
-								{delayEnabled
-									? t('runDialog.batchHint.withDelay', { count: selectedIds.length })
-									: t('runDialog.batchHint.withoutDelay', { count: selectedIds.length })}
-								</p>
-							)}
+						<ProfileGroupSelector selectedIds={selectedIds} onChange={setSelectedIds} />
 					</div>
 
-					<DialogFooter className="gap-2">
-						<Button
-							variant="ghost"
-							onClick={() => onOpenChange(false)}
-							className="cursor-pointer"
-						>
-							{t('runDialog.cancel')}
-						</Button>
-						<Button
-							variant="outline"
-							onClick={handleDebugRun}
-							disabled={!canDebug}
-							className="cursor-pointer"
-						>
-							<Bug className="h-3.5 w-3.5 mr-1.5" />
-							{t('runDialog.debugRun')}
-						</Button>
-						<Button
-							onClick={handleRun}
-							disabled={!canRun}
-							className="cursor-pointer"
-						>
-							<Play className="h-3.5 w-3.5 mr-1.5" />
-							{selectedIds.length > 1
-								? t('runDialog.runWithCount', { count: selectedIds.length })
-								: t('runDialog.run')}
-						</Button>
-					</DialogFooter>
+					<div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+						<div className="flex items-center gap-2">
+							<Checkbox
+								checked={delayEnabled}
+								onCheckedChange={(checked) => setDelayEnabled(checked === true)}
+								className="cursor-pointer"
+							/>
+							<div>
+								<Label className="text-sm">{t('runDialog.delay.title')}</Label>
+								<p className="text-xs text-muted-foreground">{t('runDialog.delay.desc')}</p>
+							</div>
+						</div>
+						{delayEnabled && (
+							<div className="grid grid-cols-2 gap-2">
+								<div className="space-y-1">
+									<Label className="text-xs text-muted-foreground">
+										{t('runDialog.delay.minSeconds')}
+									</Label>
+									<Input
+										type="number"
+										min={0}
+										step={1}
+										value={delayMinSeconds}
+										onChange={(event) =>
+											setDelayMinSeconds(
+												Number.isNaN(event.target.valueAsNumber) ? 0 : event.target.valueAsNumber,
+											)
+										}
+										className="h-8 text-sm"
+									/>
+								</div>
+								<div className="space-y-1">
+									<Label className="text-xs text-muted-foreground">
+										{t('runDialog.delay.maxSeconds')}
+									</Label>
+									<Input
+										type="number"
+										min={0}
+										step={1}
+										value={delayMaxSeconds}
+										onChange={(event) =>
+											setDelayMaxSeconds(
+												Number.isNaN(event.target.valueAsNumber) ? 0 : event.target.valueAsNumber,
+											)
+										}
+										className="h-8 text-sm"
+									/>
+								</div>
+							</div>
+						)}
+					</div>
+
+					{/* 初始变量 */}
+					<div className="space-y-2">
+						<div className="flex items-center justify-between">
+							<button
+								type="button"
+								onClick={() => setVarsOpen((v) => !v)}
+								className="text-sm font-medium text-muted-foreground hover:text-foreground cursor-pointer"
+							>
+								{t('runDialog.vars.title')}
+								{varEntries.length > 0 && ` (${varEntries.length})`}
+							</button>
+							<button
+								type="button"
+								onClick={addVar}
+								className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+							>
+								<Plus className="h-3 w-3" />
+								{t('runDialog.vars.add')}
+							</button>
+						</div>
+						{(varsOpen || varEntries.length > 0) && varEntries.length > 0 && (
+							<div className="space-y-1.5">
+								{varEntries.map((entry, i) => (
+									<div key={i} className="flex items-center gap-1.5">
+										<Input
+											placeholder={t('runDialog.vars.keyPlaceholder')}
+											value={entry.key}
+											onChange={(e) => setVarKey(i, e.target.value)}
+											className="h-7 text-xs font-mono"
+										/>
+										<span className="text-muted-foreground text-xs shrink-0">=</span>
+										<Input
+											placeholder={t('runDialog.vars.valuePlaceholder')}
+											value={entry.value}
+											onChange={(e) => setVarValue(i, e.target.value)}
+											className="h-7 text-xs"
+										/>
+										<button
+											type="button"
+											onClick={() => removeVar(i)}
+											className="text-muted-foreground hover:text-destructive cursor-pointer shrink-0"
+										>
+											<Minus className="h-3.5 w-3.5" />
+										</button>
+									</div>
+								))}
+							</div>
+						)}
+					</div>
+
+					{/* 批量提示 */}
+					{selectedIds.length > 1 && (
+						<p className="text-xs text-muted-foreground">
+							{delayEnabled
+								? t('runDialog.batchHint.withDelay', { count: selectedIds.length })
+								: t('runDialog.batchHint.withoutDelay', { count: selectedIds.length })}
+						</p>
+					)}
+				</div>
+
+				<DialogFooter className="gap-2">
+					<Button variant="ghost" onClick={() => onOpenChange(false)} className="cursor-pointer">
+						{t('runDialog.cancel')}
+					</Button>
+					<Button
+						variant="outline"
+						onClick={handleDebugRun}
+						disabled={!canDebug}
+						className="cursor-pointer"
+					>
+						<Bug className="h-3.5 w-3.5 mr-1.5" />
+						{t('runDialog.debugRun')}
+					</Button>
+					<Button onClick={handleRun} disabled={!canRun} className="cursor-pointer">
+						<Play className="h-3.5 w-3.5 mr-1.5" />
+						{selectedIds.length > 1
+							? t('runDialog.runWithCount', { count: selectedIds.length })
+							: t('runDialog.run')}
+					</Button>
+				</DialogFooter>
 			</DialogContent>
 		</Dialog>
 	);

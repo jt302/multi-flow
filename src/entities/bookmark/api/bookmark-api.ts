@@ -1,4 +1,3 @@
-import { tauriInvoke } from '@/shared/api/tauri-invoke';
 import type {
 	ApplyBookmarkTemplateRequest,
 	BatchProfileActionResponse,
@@ -14,6 +13,7 @@ import type {
 	UpdateBookmarkTemplateRequest,
 	UpdateProfileBookmarkRequest,
 } from '@/entities/bookmark/model/types';
+import { tauriInvoke } from '@/shared/api/tauri-invoke';
 
 export async function getProfileBookmarks(profileId: string): Promise<GetProfileBookmarksResponse> {
 	return tauriInvoke<GetProfileBookmarksResponse>('get_profile_bookmarks', { profileId });

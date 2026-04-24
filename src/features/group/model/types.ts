@@ -1,5 +1,5 @@
-import type { ToolbarLabelMode } from '@/entities/profile/model/types';
 import type { GroupItem } from '@/entities/group/model/types';
+import type { ToolbarLabelMode } from '@/entities/profile/model/types';
 
 export type GroupsPageProps = {
 	groups: GroupItem[];

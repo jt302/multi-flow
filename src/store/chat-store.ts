@@ -1,6 +1,6 @@
 import { useStore } from 'zustand';
-import { createStore } from 'zustand/vanilla';
 import { persist } from 'zustand/middleware';
+import { createStore } from 'zustand/vanilla';
 
 import type { ChatMessageRecord, ChatPhaseEvent } from '@/entities/chat/model/types';
 
@@ -76,26 +76,64 @@ export function createChatStore(initial?: Partial<ChatStoreState>) {
 		...initial,
 
 		setActiveSession: (id) =>
-			set({ activeSessionId: id, liveMessages: [], isGenerating: false, generationPhase: 'idle', terminalState: null, terminalError: null }),
+			set({
+				activeSessionId: id,
+				liveMessages: [],
+				isGenerating: false,
+				generationPhase: 'idle',
+				terminalState: null,
+				terminalError: null,
+			}),
 
-		startGeneration: () => set({ isGenerating: true, generationPhase: 'thinking', generationStartTime: Date.now(), currentRound: 0, promptTokens: 0, completionTokens: 0, elapsedMs: 0, terminalState: null, terminalError: null }),
+		startGeneration: () =>
+			set({
+				isGenerating: true,
+				generationPhase: 'thinking',
+				generationStartTime: Date.now(),
+				currentRound: 0,
+				promptTokens: 0,
+				completionTokens: 0,
+				elapsedMs: 0,
+				terminalState: null,
+				terminalError: null,
+			}),
 
-		finishGeneration: () => set((s) => ({
-			isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null,
-			liveMessages: s.liveMessages.map((m) =>
-				m.status === 'streaming' ? { ...m, status: 'complete' as const, streamingToolNames: undefined } : m,
-			),
-		})),
+		finishGeneration: () =>
+			set((s) => ({
+				isGenerating: false,
+				generationPhase: 'idle',
+				currentToolName: null,
+				generationStartTime: null,
+				liveMessages: s.liveMessages.map((m) =>
+					m.status === 'streaming'
+						? { ...m, status: 'complete' as const, streamingToolNames: undefined }
+						: m,
+				),
+			})),
 
 		appendMessage: (msg) =>
-			set((s) => ({ liveMessages: upsertLiveMessage(s.liveMessages, { ...msg, status: 'complete' as const, streamingToolNames: undefined }) })),
+			set((s) => ({
+				liveMessages: upsertLiveMessage(s.liveMessages, {
+					...msg,
+					status: 'complete' as const,
+					streamingToolNames: undefined,
+				}),
+			})),
 
 		startLiveMessage: (msg) =>
 			set((s) => {
 				const cleared = s.liveMessages.map((m) =>
-					m.status === 'streaming' ? { ...m, status: 'complete' as const, streamingToolNames: undefined } : m,
+					m.status === 'streaming'
+						? { ...m, status: 'complete' as const, streamingToolNames: undefined }
+						: m,
 				);
-				return { liveMessages: upsertLiveMessage(cleared, { ...msg, status: 'streaming' as const, contentText: '' }) };
+				return {
+					liveMessages: upsertLiveMessage(cleared, {
+						...msg,
+						status: 'streaming' as const,
+						contentText: '',
+					}),
+				};
 			}),
 
 		appendTextChunk: (_sessionId, messageId, delta) =>
@@ -112,7 +150,10 @@ export function createChatStore(initial?: Partial<ChatStoreState>) {
 				const idx = s.liveMessages.findIndex((m) => m.id === messageId);
 				if (idx === -1) return {};
 				const next = s.liveMessages.slice();
-				next[idx] = { ...next[idx], streamingToolNames: [...(next[idx].streamingToolNames ?? []), name] };
+				next[idx] = {
+					...next[idx],
+					streamingToolNames: [...(next[idx].streamingToolNames ?? []), name],
+				};
 				return { liveMessages: next };
 			}),
 
@@ -128,20 +169,62 @@ export function createChatStore(initial?: Partial<ChatStoreState>) {
 					contextLimit: event.contextLimit ?? s.contextLimit,
 				};
 				const cleanedMessages = s.liveMessages.map((m) =>
-					m.status === 'streaming' ? { ...m, status: 'complete' as const, streamingToolNames: undefined } : m,
+					m.status === 'streaming'
+						? { ...m, status: 'complete' as const, streamingToolNames: undefined }
+						: m,
 				);
 				if (event.phase === 'done') {
-					return { isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null, liveMessages: cleanedMessages, terminalState: 'success' as const, terminalError: null, ...shared };
+					return {
+						isGenerating: false,
+						generationPhase: 'idle',
+						currentToolName: null,
+						generationStartTime: null,
+						liveMessages: cleanedMessages,
+						terminalState: 'success' as const,
+						terminalError: null,
+						...shared,
+					};
 				} else if (event.phase === 'error') {
-					return { isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null, liveMessages: cleanedMessages, terminalState: 'error' as const, terminalError: event.error ?? null, ...shared };
+					return {
+						isGenerating: false,
+						generationPhase: 'idle',
+						currentToolName: null,
+						generationStartTime: null,
+						liveMessages: cleanedMessages,
+						terminalState: 'error' as const,
+						terminalError: event.error ?? null,
+						...shared,
+					};
 				} else if (event.phase === 'stalled') {
-					return { isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null, liveMessages: cleanedMessages, terminalState: 'stalled' as const, terminalError: null, ...shared };
+					return {
+						isGenerating: false,
+						generationPhase: 'idle',
+						currentToolName: null,
+						generationStartTime: null,
+						liveMessages: cleanedMessages,
+						terminalState: 'stalled' as const,
+						terminalError: null,
+						...shared,
+					};
 				} else if (event.phase === 'max_rounds_reached') {
-					return { isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null, liveMessages: cleanedMessages, terminalState: 'max_rounds' as const, terminalError: null, ...shared };
+					return {
+						isGenerating: false,
+						generationPhase: 'idle',
+						currentToolName: null,
+						generationStartTime: null,
+						liveMessages: cleanedMessages,
+						terminalState: 'max_rounds' as const,
+						terminalError: null,
+						...shared,
+					};
 				} else if (event.phase === 'thinking') {
 					return { generationPhase: 'thinking', currentToolName: null, ...shared };
 				} else if (event.phase === 'tool_calling') {
-					return { generationPhase: 'tool_calling', currentToolName: event.toolName ?? null, ...shared };
+					return {
+						generationPhase: 'tool_calling',
+						currentToolName: event.toolName ?? null,
+						...shared,
+					};
 				}
 				return shared;
 			}),
@@ -156,26 +239,64 @@ export const chatStore = createStore<ChatStoreState & ChatStoreActions>()(
 			...INITIAL_STATE,
 
 			setActiveSession: (id) =>
-				set({ activeSessionId: id, liveMessages: [], isGenerating: false, generationPhase: 'idle', terminalState: null, terminalError: null }),
+				set({
+					activeSessionId: id,
+					liveMessages: [],
+					isGenerating: false,
+					generationPhase: 'idle',
+					terminalState: null,
+					terminalError: null,
+				}),
 
-			startGeneration: () => set({ isGenerating: true, generationPhase: 'thinking', generationStartTime: Date.now(), currentRound: 0, promptTokens: 0, completionTokens: 0, elapsedMs: 0, terminalState: null, terminalError: null }),
+			startGeneration: () =>
+				set({
+					isGenerating: true,
+					generationPhase: 'thinking',
+					generationStartTime: Date.now(),
+					currentRound: 0,
+					promptTokens: 0,
+					completionTokens: 0,
+					elapsedMs: 0,
+					terminalState: null,
+					terminalError: null,
+				}),
 
-			finishGeneration: () => set((s) => ({
-				isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null,
-				liveMessages: s.liveMessages.map((m) =>
-					m.status === 'streaming' ? { ...m, status: 'complete' as const, streamingToolNames: undefined } : m,
-				),
-			})),
+			finishGeneration: () =>
+				set((s) => ({
+					isGenerating: false,
+					generationPhase: 'idle',
+					currentToolName: null,
+					generationStartTime: null,
+					liveMessages: s.liveMessages.map((m) =>
+						m.status === 'streaming'
+							? { ...m, status: 'complete' as const, streamingToolNames: undefined }
+							: m,
+					),
+				})),
 
 			appendMessage: (msg) =>
-				set((s) => ({ liveMessages: upsertLiveMessage(s.liveMessages, { ...msg, status: 'complete' as const, streamingToolNames: undefined }) })),
+				set((s) => ({
+					liveMessages: upsertLiveMessage(s.liveMessages, {
+						...msg,
+						status: 'complete' as const,
+						streamingToolNames: undefined,
+					}),
+				})),
 
 			startLiveMessage: (msg) =>
 				set((s) => {
 					const cleared = s.liveMessages.map((m) =>
-						m.status === 'streaming' ? { ...m, status: 'complete' as const, streamingToolNames: undefined } : m,
+						m.status === 'streaming'
+							? { ...m, status: 'complete' as const, streamingToolNames: undefined }
+							: m,
 					);
-					return { liveMessages: upsertLiveMessage(cleared, { ...msg, status: 'streaming' as const, contentText: '' }) };
+					return {
+						liveMessages: upsertLiveMessage(cleared, {
+							...msg,
+							status: 'streaming' as const,
+							contentText: '',
+						}),
+					};
 				}),
 
 			appendTextChunk: (_sessionId: string, messageId: string, delta: string) =>
@@ -192,7 +313,10 @@ export const chatStore = createStore<ChatStoreState & ChatStoreActions>()(
 					const idx = s.liveMessages.findIndex((m) => m.id === messageId);
 					if (idx === -1) return {};
 					const next = s.liveMessages.slice();
-					next[idx] = { ...next[idx], streamingToolNames: [...(next[idx].streamingToolNames ?? []), name] };
+					next[idx] = {
+						...next[idx],
+						streamingToolNames: [...(next[idx].streamingToolNames ?? []), name],
+					};
 					return { liveMessages: next };
 				}),
 
@@ -208,20 +332,62 @@ export const chatStore = createStore<ChatStoreState & ChatStoreActions>()(
 					contextLimit: event.contextLimit ?? get().contextLimit,
 				};
 				const cleanedMessages = get().liveMessages.map((m) =>
-					m.status === 'streaming' ? { ...m, status: 'complete' as const, streamingToolNames: undefined } : m,
+					m.status === 'streaming'
+						? { ...m, status: 'complete' as const, streamingToolNames: undefined }
+						: m,
 				);
 				if (event.phase === 'done') {
-					set({ isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null, liveMessages: cleanedMessages, terminalState: 'success', terminalError: null, ...shared });
+					set({
+						isGenerating: false,
+						generationPhase: 'idle',
+						currentToolName: null,
+						generationStartTime: null,
+						liveMessages: cleanedMessages,
+						terminalState: 'success',
+						terminalError: null,
+						...shared,
+					});
 				} else if (event.phase === 'error') {
-					set({ isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null, liveMessages: cleanedMessages, terminalState: 'error', terminalError: event.error ?? null, ...shared });
+					set({
+						isGenerating: false,
+						generationPhase: 'idle',
+						currentToolName: null,
+						generationStartTime: null,
+						liveMessages: cleanedMessages,
+						terminalState: 'error',
+						terminalError: event.error ?? null,
+						...shared,
+					});
 				} else if (event.phase === 'stalled') {
-					set({ isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null, liveMessages: cleanedMessages, terminalState: 'stalled', terminalError: null, ...shared });
+					set({
+						isGenerating: false,
+						generationPhase: 'idle',
+						currentToolName: null,
+						generationStartTime: null,
+						liveMessages: cleanedMessages,
+						terminalState: 'stalled',
+						terminalError: null,
+						...shared,
+					});
 				} else if (event.phase === 'max_rounds_reached') {
-					set({ isGenerating: false, generationPhase: 'idle', currentToolName: null, generationStartTime: null, liveMessages: cleanedMessages, terminalState: 'max_rounds', terminalError: null, ...shared });
+					set({
+						isGenerating: false,
+						generationPhase: 'idle',
+						currentToolName: null,
+						generationStartTime: null,
+						liveMessages: cleanedMessages,
+						terminalState: 'max_rounds',
+						terminalError: null,
+						...shared,
+					});
 				} else if (event.phase === 'thinking') {
 					set({ generationPhase: 'thinking', currentToolName: null, ...shared });
 				} else if (event.phase === 'tool_calling') {
-					set({ generationPhase: 'tool_calling', currentToolName: event.toolName ?? null, ...shared });
+					set({
+						generationPhase: 'tool_calling',
+						currentToolName: event.toolName ?? null,
+						...shared,
+					});
 				}
 			},
 

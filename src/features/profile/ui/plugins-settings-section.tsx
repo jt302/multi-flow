@@ -16,10 +16,7 @@ type PluginsSettingsSectionProps = {
 	error: string | null;
 };
 
-function isSelected(
-	pluginSelections: ProfileFormValues['pluginSelections'],
-	packageId: string,
-) {
+function isSelected(pluginSelections: ProfileFormValues['pluginSelections'], packageId: string) {
 	return pluginSelections.find((item) => item.packageId === packageId) ?? null;
 }
 
@@ -42,13 +39,8 @@ export function PluginsSettingsSection({
 
 	return (
 		<div className="rounded-xl border border-border/70 p-3">
-			<SectionTitle
-			title={t('plugins.title')}
-			description={t('plugins.desc')}
-			/>
-			{loading ? (
-				<p className="text-xs text-muted-foreground">{t('plugins.loading')}</p>
-			) : null}
+			<SectionTitle title={t('plugins.title')} description={t('plugins.desc')} />
+			{loading ? <p className="text-xs text-muted-foreground">{t('plugins.loading')}</p> : null}
 			{error ? <p className="text-xs text-destructive">{error}</p> : null}
 			{!loading && packages.length === 0 ? (
 				<div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-3 py-4 text-sm text-muted-foreground">
@@ -71,16 +63,12 @@ export function PluginsSettingsSection({
 										onCheckedChange={(checked) => {
 											if (checked !== true) {
 												updateSelections(
-													pluginSelections.filter(
-														(item) => item.packageId !== pkg.packageId,
-													),
+													pluginSelections.filter((item) => item.packageId !== pkg.packageId),
 												);
 												return;
 											}
 											updateSelections([
-												...pluginSelections.filter(
-													(item) => item.packageId !== pkg.packageId,
-												),
+												...pluginSelections.filter((item) => item.packageId !== pkg.packageId),
 												{ packageId: pkg.packageId, enabled: true },
 											]);
 										}}
@@ -91,46 +79,44 @@ export function PluginsSettingsSection({
 											<Badge variant="outline">v{pkg.version}</Badge>
 											<Badge variant="secondary">{pkg.extensionId}</Badge>
 										</div>
-									<p className="mt-1 text-xs text-muted-foreground">
-										{pkg.description?.trim() || t('plugins.noDescription')}
-									</p>
+										<p className="mt-1 text-xs text-muted-foreground">
+											{pkg.description?.trim() || t('plugins.noDescription')}
+										</p>
 									</div>
 								</label>
 								<div className="flex items-center gap-2">
-								<label className="flex items-center gap-2 text-xs text-muted-foreground">
-									<Checkbox
-										checked={selected?.enabled ?? false}
-										disabled={!selected}
-										className="cursor-pointer"
-										onCheckedChange={(checked) => {
+									<label className="flex items-center gap-2 text-xs text-muted-foreground">
+										<Checkbox
+											checked={selected?.enabled ?? false}
+											disabled={!selected}
+											className="cursor-pointer"
+											onCheckedChange={(checked) => {
+												updateSelections(
+													pluginSelections.map((item) =>
+														item.packageId === pkg.packageId
+															? { ...item, enabled: checked === true }
+															: item,
+													),
+												);
+											}}
+										/>
+										{t('plugins.enabled')}
+									</label>
+									<Button
+										type="button"
+										variant="ghost"
+										size="sm"
+										className="h-7 cursor-pointer px-2 text-[11px]"
+										onClick={() => {
 											updateSelections(
-												pluginSelections.map((item) =>
-													item.packageId === pkg.packageId
-														? { ...item, enabled: checked === true }
-														: item,
-											),
-										);
-									}}
-									/>
-									{t('plugins.enabled')}
-								</label>
-								<Button
-									type="button"
-									variant="ghost"
-									size="sm"
-									className="h-7 cursor-pointer px-2 text-[11px]"
-									onClick={() => {
-										updateSelections(
-											pluginSelections.filter(
-												(item) => item.packageId !== pkg.packageId,
-											),
-										);
-									}}
-									disabled={!selected}
-								>
-									<Icon icon={Puzzle} size={12} />
-									{t('plugins.remove')}
-								</Button>
+												pluginSelections.filter((item) => item.packageId !== pkg.packageId),
+											);
+										}}
+										disabled={!selected}
+									>
+										<Icon icon={Puzzle} size={12} />
+										{t('plugins.remove')}
+									</Button>
 								</div>
 							</div>
 							{pkg.updateStatus === 'update_available' ? (

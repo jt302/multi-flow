@@ -2,13 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+	isWorkspacePath,
 	NAV_PATHS,
 	PROFILES_DEVICE_PRESETS_PATH,
-	SETTINGS_DEFAULT_PATH,
-	SETTINGS_PATHS,
-	isWorkspacePath,
 	resolveNavFromPath,
 	resolvePathFromNav,
+	SETTINGS_DEFAULT_PATH,
+	SETTINGS_PATHS,
 } from './workspace-routes.ts';
 
 test('workspace routes resolve explicit nav paths without retired rpa entries', () => {

@@ -13,13 +13,19 @@ function nextRequestId() {
 
 export class MultiFlowSyncManagerClient implements SyncManagerClient {
 	private websocket: WebSocket | null = null;
-	private pending = new Map<string, { resolve: (value: unknown) => void; reject: (reason?: unknown) => void }>();
+	private pending = new Map<
+		string,
+		{ resolve: (value: unknown) => void; reject: (reason?: unknown) => void }
+	>();
 	private listeners = new Map<string, Set<SyncManagerClientEventHandler>>();
 	private closedByClient = false;
 	private readonly url: string;
 	private readonly createWebSocket: (url: string) => WebSocket;
 
-	constructor(url: string, createWebSocket: (url: string) => WebSocket = (value) => new WebSocket(value)) {
+	constructor(
+		url: string,
+		createWebSocket: (url: string) => WebSocket = (value) => new WebSocket(value),
+	) {
 		this.url = url;
 		this.createWebSocket = createWebSocket;
 	}

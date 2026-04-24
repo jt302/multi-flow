@@ -23,48 +23,52 @@ import {
 	SelectValue,
 	Textarea,
 } from '@/components/ui';
-import type { ProxyItem } from '@/entities/proxy/model/types';
+import type { ProxyItem, ProxyValueSource } from '@/entities/proxy/model/types';
 import type {
 	CreateProxyPayload,
 	ProxyProtocol,
 	UpdateProxyPayload,
 } from '@/features/proxy/model/types';
-import type { ProxyValueSource } from '@/entities/proxy/model/types';
 
 const PROTOCOL_OPTIONS: ProxyProtocol[] = ['http', 'https', 'socks5', 'ssh'];
 
-const proxyFormSchema = (t: (key: string) => string) => z
-	.object({
-		name: z.string().trim().min(1, t('common:errors.proxyNameRequired')),
-		protocol: z.enum(['http', 'https', 'socks5', 'ssh']),
-		host: z.string().trim().min(1, t('common:errors.hostRequired')),
-		port: z.coerce.number().int(t('common:errors.portInteger')).min(1, t('common:errors.portRange')).max(65535, t('common:errors.portRange')),
-		username: z.string(),
-		password: z.string(),
-		provider: z.string(),
-		note: z.string(),
-		expiresAt: z.string(),
-		languageSource: z.enum(['ip', 'custom']),
-		customLanguage: z.string(),
-		timezoneSource: z.enum(['ip', 'custom']),
-		customTimezone: z.string(),
-	})
-	.superRefine((values, ctx) => {
-		if (values.languageSource === 'custom' && !values.customLanguage.trim()) {
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				message: t('common:customLanguageRequired'),
-				path: ['customLanguage'],
-			});
-		}
-		if (values.timezoneSource === 'custom' && !values.customTimezone.trim()) {
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				message: t('common:customTimezoneRequired'),
-				path: ['customTimezone'],
-			});
-		}
-	});
+const proxyFormSchema = (t: (key: string) => string) =>
+	z
+		.object({
+			name: z.string().trim().min(1, t('common:errors.proxyNameRequired')),
+			protocol: z.enum(['http', 'https', 'socks5', 'ssh']),
+			host: z.string().trim().min(1, t('common:errors.hostRequired')),
+			port: z.coerce
+				.number()
+				.int(t('common:errors.portInteger'))
+				.min(1, t('common:errors.portRange'))
+				.max(65535, t('common:errors.portRange')),
+			username: z.string(),
+			password: z.string(),
+			provider: z.string(),
+			note: z.string(),
+			expiresAt: z.string(),
+			languageSource: z.enum(['ip', 'custom']),
+			customLanguage: z.string(),
+			timezoneSource: z.enum(['ip', 'custom']),
+			customTimezone: z.string(),
+		})
+		.superRefine((values, ctx) => {
+			if (values.languageSource === 'custom' && !values.customLanguage.trim()) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: t('common:customLanguageRequired'),
+					path: ['customLanguage'],
+				});
+			}
+			if (values.timezoneSource === 'custom' && !values.customTimezone.trim()) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: t('common:customTimezoneRequired'),
+					path: ['customTimezone'],
+				});
+			}
+		});
 
 type ProxyFormValues = z.infer<ReturnType<typeof proxyFormSchema>>;
 
@@ -159,11 +163,13 @@ export function ProxyFormDialog({
 	});
 
 	const isEdit = mode === 'edit';
-	const title = isEdit ? t('common:editItem', { item: t('common:proxy') }) : t('common:createItem', { item: t('common:proxy') });
-	const description = isEdit
-		? t('proxy:editDescription')
-		: t('proxy:createDescription');
-	const submitLabel = isEdit ? t('common:saveChanges') : t('common:createItem', { item: t('common:proxy') });
+	const title = isEdit
+		? t('common:editItem', { item: t('common:proxy') })
+		: t('common:createItem', { item: t('common:proxy') });
+	const description = isEdit ? t('proxy:editDescription') : t('proxy:createDescription');
+	const submitLabel = isEdit
+		? t('common:saveChanges')
+		: t('common:createItem', { item: t('common:proxy') });
 
 	useEffect(() => {
 		if (!open) {
@@ -196,14 +202,10 @@ export function ProxyFormDialog({
 						expiresAt: parseDateTimeLocalValue(values.expiresAt),
 						languageSource: values.languageSource,
 						customLanguage:
-							values.languageSource === 'custom'
-								? values.customLanguage.trim()
-								: undefined,
+							values.languageSource === 'custom' ? values.customLanguage.trim() : undefined,
 						timezoneSource: values.timezoneSource,
 						customTimezone:
-							values.timezoneSource === 'custom'
-								? values.customTimezone.trim()
-								: undefined,
+							values.timezoneSource === 'custom' ? values.customTimezone.trim() : undefined,
 					});
 				} else {
 					await onCreateProxy({
@@ -218,14 +220,10 @@ export function ProxyFormDialog({
 						expiresAt: parseDateTimeLocalValue(values.expiresAt),
 						languageSource: values.languageSource,
 						customLanguage:
-							values.languageSource === 'custom'
-								? values.customLanguage.trim()
-								: undefined,
+							values.languageSource === 'custom' ? values.customLanguage.trim() : undefined,
 						timezoneSource: values.timezoneSource,
 						customTimezone:
-							values.timezoneSource === 'custom'
-								? values.customTimezone.trim()
-								: undefined,
+							values.timezoneSource === 'custom' ? values.customTimezone.trim() : undefined,
 					});
 				}
 				onOpenChange(false);
@@ -244,12 +242,24 @@ export function ProxyFormDialog({
 					<div className="grid gap-3 md:grid-cols-2">
 						<div>
 							<p className="mb-1 text-xs text-muted-foreground">{t('common:name')}</p>
-							<Input {...register('name')} placeholder={t('common:placeholder.proxyNameExample')} disabled={pending} />
-							{errors.name ? <p className="mt-1 text-xs text-destructive">{errors.name.message}</p> : null}
+							<Input
+								{...register('name')}
+								placeholder={t('common:placeholder.proxyNameExample')}
+								disabled={pending}
+							/>
+							{errors.name ? (
+								<p className="mt-1 text-xs text-destructive">{errors.name.message}</p>
+							) : null}
 						</div>
 						<div>
 							<p className="mb-1 text-xs text-muted-foreground">{t('common:protocol')}</p>
-							<Select value={protocolValue} onValueChange={(value) => setValue('protocol', value as ProxyProtocol, { shouldValidate: true })} disabled={pending}>
+							<Select
+								value={protocolValue}
+								onValueChange={(value) =>
+									setValue('protocol', value as ProxyProtocol, { shouldValidate: true })
+								}
+								disabled={pending}
+							>
 								<SelectTrigger className="w-full cursor-pointer">
 									<SelectValue placeholder={t('common:protocol')} />
 								</SelectTrigger>
@@ -266,107 +276,201 @@ export function ProxyFormDialog({
 					<div className="grid grid-cols-[minmax(0,1fr)_120px] gap-3">
 						<div>
 							<p className="mb-1 text-xs text-muted-foreground">{t('common:host')}</p>
-							<Input {...register('host')} placeholder={t('common:placeholder.hostIp')} disabled={pending || isEdit} />
-							{errors.host ? <p className="mt-1 text-xs text-destructive">{errors.host.message}</p> : null}
+							<Input
+								{...register('host')}
+								placeholder={t('common:placeholder.hostIp')}
+								disabled={pending || isEdit}
+							/>
+							{errors.host ? (
+								<p className="mt-1 text-xs text-destructive">{errors.host.message}</p>
+							) : null}
 						</div>
 						<div>
 							<p className="mb-1 text-xs text-muted-foreground">{t('common:port')}</p>
-							<Input type="number" {...register('port')} placeholder={t('common:placeholder.port')} disabled={pending || isEdit} />
-							{errors.port ? <p className="mt-1 text-xs text-destructive">{errors.port.message}</p> : null}
+							<Input
+								type="number"
+								{...register('port')}
+								placeholder={t('common:placeholder.port')}
+								disabled={pending || isEdit}
+							/>
+							{errors.port ? (
+								<p className="mt-1 text-xs text-destructive">{errors.port.message}</p>
+							) : null}
 						</div>
 					</div>
 					<div className="grid gap-3 md:grid-cols-2">
 						<div>
 							<p className="mb-1 text-xs text-muted-foreground">{t('common:username')}</p>
-							<Input {...register('username')} placeholder={t('common:placeholder.leaveEmpty')} disabled={pending} />
+							<Input
+								{...register('username')}
+								placeholder={t('common:placeholder.leaveEmpty')}
+								disabled={pending}
+							/>
 						</div>
 						<div>
 							<p className="mb-1 text-xs text-muted-foreground">{t('common:password')}</p>
-							<Input type="password" {...register('password')} placeholder={t('common:placeholder.leaveEmpty')} disabled={pending} />
+							<Input
+								type="password"
+								{...register('password')}
+								placeholder={t('common:placeholder.leaveEmpty')}
+								disabled={pending}
+							/>
 						</div>
 					</div>
 					<div>
 						<p className="mb-1 text-xs text-muted-foreground">{t('common:provider')}</p>
-						<Input {...register('provider')} placeholder={t('common:provider')} disabled={pending} />
+						<Input
+							{...register('provider')}
+							placeholder={t('common:provider')}
+							disabled={pending}
+						/>
 					</div>
 					<div>
 						<p className="mb-1 text-xs text-muted-foreground">{t('common:expiresAt')}</p>
 						<Input type="datetime-local" {...register('expiresAt')} disabled={pending} />
 					</div>
 					<div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-						<p className="mb-2 text-xs font-medium text-muted-foreground">{t('proxy:langTimezoneSource')}</p>
+						<p className="mb-2 text-xs font-medium text-muted-foreground">
+							{t('proxy:langTimezoneSource')}
+						</p>
 						<div className="grid gap-3 md:grid-cols-2">
 							<div>
 								<p className="mb-1 text-xs text-muted-foreground">{t('proxy:languageSource')}</p>
 								<Select
 									value={languageSourceValue}
-									onValueChange={(value) => setValue('languageSource', value as ProxyValueSource, { shouldValidate: true })}
+									onValueChange={(value) =>
+										setValue('languageSource', value as ProxyValueSource, { shouldValidate: true })
+									}
 									disabled={pending}
 								>
-										<SelectTrigger className="w-full cursor-pointer">
-											<SelectValue placeholder={t('proxy:languageSource')} />
-										</SelectTrigger>
-										<SelectContent>
-											{VALUE_SOURCE_OPTIONS.map((item) => (
-												<SelectItem key={item.value} value={item.value}>
-													{item.label}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-									{languageSourceValue === 'custom' ? (
-										<>
-											<Input {...register('customLanguage')} className="mt-2" placeholder="zh-CN / en-US" disabled={pending} />
-											{errors.customLanguage ? <p className="mt-1 text-xs text-destructive">{errors.customLanguage.message}</p> : null}
-										</>
-									) : (
-										<p className="mt-2 text-[11px] text-muted-foreground">{t('proxy:autoDeriveHint')}</p>
-									)}
+									<SelectTrigger className="w-full cursor-pointer">
+										<SelectValue placeholder={t('proxy:languageSource')} />
+									</SelectTrigger>
+									<SelectContent>
+										{VALUE_SOURCE_OPTIONS.map((item) => (
+											<SelectItem key={item.value} value={item.value}>
+												{item.label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+								{languageSourceValue === 'custom' ? (
+									<>
+										<Input
+											{...register('customLanguage')}
+											className="mt-2"
+											placeholder="zh-CN / en-US"
+											disabled={pending}
+										/>
+										{errors.customLanguage ? (
+											<p className="mt-1 text-xs text-destructive">
+												{errors.customLanguage.message}
+											</p>
+										) : null}
+									</>
+								) : (
+									<p className="mt-2 text-[11px] text-muted-foreground">
+										{t('proxy:autoDeriveHint')}
+									</p>
+								)}
 							</div>
 							<div>
 								<p className="mb-1 text-xs text-muted-foreground">{t('proxy:timezoneSource')}</p>
 								<Select
 									value={timezoneSourceValue}
-									onValueChange={(value) => setValue('timezoneSource', value as ProxyValueSource, { shouldValidate: true })}
+									onValueChange={(value) =>
+										setValue('timezoneSource', value as ProxyValueSource, { shouldValidate: true })
+									}
 									disabled={pending}
 								>
-										<SelectTrigger className="w-full cursor-pointer">
-											<SelectValue placeholder={t('proxy:timezoneSource')} />
-										</SelectTrigger>
-										<SelectContent>
-											{VALUE_SOURCE_OPTIONS.map((item) => (
-												<SelectItem key={item.value} value={item.value}>
-													{item.label}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-									{timezoneSourceValue === 'custom' ? (
-										<>
-											<Input {...register('customTimezone')} className="mt-2" placeholder="Asia/Shanghai" disabled={pending} />
-											{errors.customTimezone ? <p className="mt-1 text-xs text-destructive">{errors.customTimezone.message}</p> : null}
-										</>
-									) : (
-										<p className="mt-2 text-[11px] text-muted-foreground">{t('proxy:autoDeriveHint')}</p>
-									)}
+									<SelectTrigger className="w-full cursor-pointer">
+										<SelectValue placeholder={t('proxy:timezoneSource')} />
+									</SelectTrigger>
+									<SelectContent>
+										{VALUE_SOURCE_OPTIONS.map((item) => (
+											<SelectItem key={item.value} value={item.value}>
+												{item.label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+								{timezoneSourceValue === 'custom' ? (
+									<>
+										<Input
+											{...register('customTimezone')}
+											className="mt-2"
+											placeholder="Asia/Shanghai"
+											disabled={pending}
+										/>
+										{errors.customTimezone ? (
+											<p className="mt-1 text-xs text-destructive">
+												{errors.customTimezone.message}
+											</p>
+										) : null}
+									</>
+								) : (
+									<p className="mt-2 text-[11px] text-muted-foreground">
+										{t('proxy:autoDeriveHint')}
+									</p>
+								)}
 							</div>
 						</div>
 					</div>
 					<div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-						<p className="mb-2 text-xs font-medium text-muted-foreground">{t('proxy:checkResults')}</p>
+						<p className="mb-2 text-xs font-medium text-muted-foreground">
+							{t('proxy:checkResults')}
+						</p>
 						<div className="grid gap-2 text-xs md:grid-cols-2">
-							<p>{t('proxy:exitIp')}: {proxy?.exitIp || t('common:notDetected')}</p>
-							<p>{t('common:status')}: {proxy?.checkStatus || 'unknown'}</p>
-							<p>{t('proxy:countryRegion')}: {proxy ? `${proxy.country || t('common:unknown')} / ${proxy.region || t('common:unknown')}` : t('common:notDetected')}</p>
-							<p>{t('proxy:city')}: {proxy?.city || t('common:notDetected')}</p>
-							<p>{t('proxy:latLong')}: {proxy && proxy.latitude !== null && proxy.longitude !== null ? `${proxy.latitude}, ${proxy.longitude}` : t('common:notDetected')}</p>
-							<p>{t('proxy:geoSuggestion')}: {proxy ? `${proxy.suggestedLanguage || t('common:notDetected')} / ${proxy.suggestedTimezone || t('common:notDetected')}` : t('common:notDetected')}</p>
-							<p>{t('proxy:currentEffective')}: {proxy ? `${proxy.effectiveLanguage || t('common:notSet')} / ${proxy.effectiveTimezone || t('common:notSet')}` : t('common:notDetected')}</p>
-							<p>{t('proxy:languageSource')}: {proxy ? `${proxy.languageSource === 'custom' ? t('common:custom') : t('common:followIp')}${proxy.customLanguage ? ` (${proxy.customLanguage})` : ''}` : t('common:notSet')}</p>
-							<p>{t('proxy:timezoneSource')}: {proxy ? `${proxy.timezoneSource === 'custom' ? t('common:custom') : t('common:followIp')}${proxy.customTimezone ? ` (${proxy.customTimezone})` : ''}` : t('common:notSet')}</p>
+							<p>
+								{t('proxy:exitIp')}: {proxy?.exitIp || t('common:notDetected')}
+							</p>
+							<p>
+								{t('common:status')}: {proxy?.checkStatus || 'unknown'}
+							</p>
+							<p>
+								{t('proxy:countryRegion')}:{' '}
+								{proxy
+									? `${proxy.country || t('common:unknown')} / ${proxy.region || t('common:unknown')}`
+									: t('common:notDetected')}
+							</p>
+							<p>
+								{t('proxy:city')}: {proxy?.city || t('common:notDetected')}
+							</p>
+							<p>
+								{t('proxy:latLong')}:{' '}
+								{proxy && proxy.latitude !== null && proxy.longitude !== null
+									? `${proxy.latitude}, ${proxy.longitude}`
+									: t('common:notDetected')}
+							</p>
+							<p>
+								{t('proxy:geoSuggestion')}:{' '}
+								{proxy
+									? `${proxy.suggestedLanguage || t('common:notDetected')} / ${proxy.suggestedTimezone || t('common:notDetected')}`
+									: t('common:notDetected')}
+							</p>
+							<p>
+								{t('proxy:currentEffective')}:{' '}
+								{proxy
+									? `${proxy.effectiveLanguage || t('common:notSet')} / ${proxy.effectiveTimezone || t('common:notSet')}`
+									: t('common:notDetected')}
+							</p>
+							<p>
+								{t('proxy:languageSource')}:{' '}
+								{proxy
+									? `${proxy.languageSource === 'custom' ? t('common:custom') : t('common:followIp')}${proxy.customLanguage ? ` (${proxy.customLanguage})` : ''}`
+									: t('common:notSet')}
+							</p>
+							<p>
+								{t('proxy:timezoneSource')}:{' '}
+								{proxy
+									? `${proxy.timezoneSource === 'custom' ? t('common:custom') : t('common:followIp')}${proxy.customTimezone ? ` (${proxy.customTimezone})` : ''}`
+									: t('common:notSet')}
+							</p>
 						</div>
 						<div className="mt-2">
-							<p className="mb-1 text-xs font-medium text-muted-foreground">{t('common:targetSiteChecks')}</p>
+							<p className="mb-1 text-xs font-medium text-muted-foreground">
+								{t('common:targetSiteChecks')}
+							</p>
 							{proxy?.targetSiteChecks.length ? (
 								<div className="space-y-1 text-xs">
 									{proxy.targetSiteChecks.map((item) => {
@@ -378,11 +482,21 @@ export function ProxyFormDialog({
 											<p key={`${proxy.id}-${item.site}`} className="flex items-center gap-1">
 												{IconComponent ? <IconComponent className="h-3.5 w-3.5 shrink-0" /> : null}
 												<span className="text-muted-foreground">{label}:</span>
-												<span className={item.reachable ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}>
+												<span
+													className={
+														item.reachable
+															? 'text-emerald-600 dark:text-emerald-400'
+															: 'text-destructive'
+													}
+												>
 													{item.reachable ? t('common:reachable') : t('common:unreachable')}
 												</span>
-												{item.statusCode ? <span className="text-muted-foreground">HTTP {item.statusCode}</span> : null}
-												{item.error ? <span className="truncate text-muted-foreground">({item.error})</span> : null}
+												{item.statusCode ? (
+													<span className="text-muted-foreground">HTTP {item.statusCode}</span>
+												) : null}
+												{item.error ? (
+													<span className="truncate text-muted-foreground">({item.error})</span>
+												) : null}
 											</p>
 										);
 									})}
@@ -392,15 +506,28 @@ export function ProxyFormDialog({
 							)}
 						</div>
 						{proxy?.checkMessage ? (
-							<p className="mt-2 text-xs text-muted-foreground">{t('proxy:checkMessage')}: {proxy.checkMessage}</p>
+							<p className="mt-2 text-xs text-muted-foreground">
+								{t('proxy:checkMessage')}: {proxy.checkMessage}
+							</p>
 						) : null}
 					</div>
 					<div>
 						<p className="mb-1 text-xs text-muted-foreground">{t('common:note')}</p>
-						<Textarea {...register('note')} rows={4} placeholder={t('common:note')} disabled={pending} />
+						<Textarea
+							{...register('note')}
+							rows={4}
+							placeholder={t('common:note')}
+							disabled={pending}
+						/>
 					</div>
 					<DialogFooter>
-						<Button type="button" variant="ghost" className="cursor-pointer" disabled={pending} onClick={() => onOpenChange(false)}>
+						<Button
+							type="button"
+							variant="ghost"
+							className="cursor-pointer"
+							disabled={pending}
+							onClick={() => onOpenChange(false)}
+						>
 							{t('common:cancel')}
 						</Button>
 						<Button type="submit" className="cursor-pointer" disabled={pending}>

@@ -1,10 +1,7 @@
-import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-
-import { tauriInvoke } from '@/shared/api/tauri-invoke';
-import { normalizeAppLanguage } from '@/shared/i18n';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -17,6 +14,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select';
+import { tauriInvoke } from '@/shared/api/tauri-invoke';
+import { normalizeAppLanguage } from '@/shared/i18n';
 
 const LANGUAGE_OPTIONS = [
 	{ value: 'zh-CN', label: 'settings:language.zhCN' },
@@ -110,20 +109,14 @@ export function GeneralSettingsPlaceholder() {
 							className="mt-0.5 cursor-pointer"
 						/>
 						<div className="space-y-0.5">
-							<Label className="text-sm cursor-pointer">
-								{t('general.chromiumLogging')}
-							</Label>
-							<p className="text-xs text-muted-foreground">
-								{t('general.chromiumLoggingDesc')}
-							</p>
+							<Label className="text-sm cursor-pointer">{t('general.chromiumLogging')}</Label>
+							<p className="text-xs text-muted-foreground">{t('general.chromiumLoggingDesc')}</p>
 						</div>
 					</label>
 
 					<div className="space-y-2">
 						<Label className="text-sm">{t('general.defaultStartupUrl')}</Label>
-						<p className="text-xs text-muted-foreground">
-							{t('general.defaultStartupUrlDesc')}
-						</p>
+						<p className="text-xs text-muted-foreground">{t('general.defaultStartupUrlDesc')}</p>
 						<div className="flex gap-2">
 							<Input
 								value={urlInput}
@@ -155,9 +148,7 @@ export function GeneralSettingsPlaceholder() {
 								{t('common:save')}
 							</Button>
 						</div>
-						{urlError && (
-							<p className="text-xs text-destructive">{urlError}</p>
-						)}
+						{urlError && <p className="text-xs text-destructive">{urlError}</p>}
 					</div>
 				</CardContent>
 			</Card>
@@ -177,19 +168,12 @@ export function GeneralSettingsPlaceholder() {
 							updateLanguage.mutate(lng);
 						}}
 					>
-						<SelectTrigger
-							className="w-48 cursor-pointer"
-							disabled={updateLanguage.isPending}
-						>
+						<SelectTrigger className="w-48 cursor-pointer" disabled={updateLanguage.isPending}>
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
 							{LANGUAGE_OPTIONS.map((opt) => (
-								<SelectItem
-									key={opt.value}
-									value={opt.value}
-									className="cursor-pointer"
-								>
+								<SelectItem key={opt.value} value={opt.value} className="cursor-pointer">
 									{t(opt.label)}
 								</SelectItem>
 							))}

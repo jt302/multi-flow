@@ -1,12 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import {
-	cancelAutomationRun,
-	listenAutomationStepErrorPause,
-	resumeAutomationRun,
-} from '@/entities/automation/api/automation-api';
-import type { AutomationStepErrorPauseEvent } from '@/entities/automation/model/types';
 import { Button } from '@/components/ui/button';
 import {
 	Dialog,
@@ -15,6 +8,12 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
+import {
+	cancelAutomationRun,
+	listenAutomationStepErrorPause,
+	resumeAutomationRun,
+} from '@/entities/automation/api/automation-api';
+import type { AutomationStepErrorPauseEvent } from '@/entities/automation/model/types';
 
 export function StepErrorPauseModal() {
 	const [pauseEvent, setPauseEvent] = useState<AutomationStepErrorPauseEvent | null>(null);
@@ -28,7 +27,9 @@ export function StepErrorPauseModal() {
 			if (!mounted) return;
 			setPauseEvent(event);
 			setSubmitting(false);
-		}).then((u) => { unlistenRef.current = u; });
+		}).then((u) => {
+			unlistenRef.current = u;
+		});
 		return () => {
 			mounted = false;
 			unlistenRef.current?.();
@@ -70,14 +71,23 @@ export function StepErrorPauseModal() {
 					<DialogTitle>{t('stepErrorTitle')}</DialogTitle>
 				</DialogHeader>
 				<div className="space-y-3 py-2">
-					<p className="text-sm text-muted-foreground">{t('stepFailed', { index: pauseEvent.stepIndex + 1 })}</p>
+					<p className="text-sm text-muted-foreground">
+						{t('stepFailed', { index: pauseEvent.stepIndex + 1 })}
+					</p>
 					<div className="rounded bg-red-50 dark:bg-red-950/20 p-3">
-						<p className="text-sm text-red-500 break-all whitespace-pre-wrap font-mono">{pauseEvent.errorMessage}</p>
+						<p className="text-sm text-red-500 break-all whitespace-pre-wrap font-mono">
+							{pauseEvent.errorMessage}
+						</p>
 					</div>
 					<p className="text-sm text-muted-foreground">{t('skipStepPrompt')}</p>
 				</div>
 				<DialogFooter>
-					<Button variant="outline" onClick={handleStop} disabled={submitting} className="cursor-pointer">
+					<Button
+						variant="outline"
+						onClick={handleStop}
+						disabled={submitting}
+						className="cursor-pointer"
+					>
 						{t('stopRun')}
 					</Button>
 					<Button onClick={handleContinue} disabled={submitting} className="cursor-pointer">

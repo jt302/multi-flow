@@ -1,11 +1,10 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 import { getWorkspaceSection } from '@/app/model/workspace-sections';
-import type { SettingsPageProps } from '@/features/settings/model/types';
-import { getSettingsTabs } from './settings-tab-constants';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import type { SettingsPageProps } from '@/features/settings/model/types';
+import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
+import { getSettingsTabs } from './settings-tab-constants';
 
 const GeneralSettingsPlaceholder = lazy(() =>
 	import('./general-settings-placeholder').then((module) => ({
@@ -58,12 +57,8 @@ export function SettingsPage({
 	const { t, i18n } = useTranslation('settings');
 	const section = getWorkspaceSection('settings');
 	const [pendingKey, setPendingKey] = useState('');
-	const settingsTabs = useMemo(
-		() => getSettingsTabs(),
-		[i18n.resolvedLanguage],
-	);
-	const activeTabItem =
-		settingsTabs.find((tab) => tab.id === activeTab) ?? settingsTabs[0];
+	const settingsTabs = useMemo(() => getSettingsTabs(), [i18n.resolvedLanguage]);
+	const activeTabItem = settingsTabs.find((tab) => tab.id === activeTab) ?? settingsTabs[0];
 
 	const chromiumItems = useMemo(
 		() => resources.filter((item) => item.kind === 'chromium'),
@@ -99,9 +94,7 @@ export function SettingsPage({
 			<ScrollArea className="min-h-0 min-w-0 w-full flex-1">
 				<div className="pr-1">
 					<Suspense
-						fallback={
-							<div className="min-h-40 rounded-xl border border-border/60 bg-muted/20" />
-						}
+						fallback={<div className="min-h-40 rounded-xl border border-border/60 bg-muted/20" />}
 					>
 						{activeTab === 'general' && <GeneralSettingsPlaceholder />}
 
@@ -132,9 +125,7 @@ export function SettingsPage({
 									const actionKey = options?.force
 										? `redownload-${resourceId}`
 										: `install-${resourceId}`;
-									void runAction(actionKey, () =>
-										onInstallChromium(resourceId, options),
-									);
+									void runAction(actionKey, () => onInstallChromium(resourceId, options));
 								}}
 								onDownloadResource={(resourceId, label) => {
 									void runAction(`download-${resourceId}`, () =>

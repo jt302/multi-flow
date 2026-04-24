@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import type {
 	BatchProfileActionResponse,
 	BrowserBgColorMode,
@@ -11,21 +12,19 @@ import type {
 	ProfileFingerprintSource,
 	ProfileItem,
 	ProfileLifecycle,
-	ReadProfileCookiesResponse,
 	ProfileRuntimeDetails,
 	ProfileSettings,
+	ReadProfileCookiesResponse,
 	SaveProfileDevicePresetPayload,
 	ToolbarLabelMode,
 } from '@/entities/profile/model/types';
-import { tauriInvoke } from '@/shared/api/tauri-invoke';
-import i18next from 'i18next';
-
 import {
 	createResourceTaskId,
 	listenResourceProgress,
 	listenResourceProgressByTaskPrefix,
 	type ResourceDownloadProgressEvent,
 } from '@/entities/resource/api/resource-api';
+import { tauriInvoke } from '@/shared/api/tauri-invoke';
 
 type BackendProfile = {
 	id: string;
@@ -96,7 +95,10 @@ export async function duplicateProfile(profileId: string): Promise<void> {
 	await tauriInvoke('duplicate_profile', { profileId });
 }
 
-export async function updateProfile(profileId: string, payload: CreateProfilePayload): Promise<void> {
+export async function updateProfile(
+	profileId: string,
+	payload: CreateProfilePayload,
+): Promise<void> {
 	await tauriInvoke('update_profile', {
 		profileId,
 		payload: {
@@ -200,21 +202,15 @@ export async function previewFingerprintBundle(
 	});
 }
 
-export async function getProfileRuntimeDetails(
-	profileId: string,
-): Promise<ProfileRuntimeDetails> {
+export async function getProfileRuntimeDetails(profileId: string): Promise<ProfileRuntimeDetails> {
 	return tauriInvoke<ProfileRuntimeDetails>('get_profile_runtime_details', { profileId });
 }
 
-export async function clearProfileCache(
-	profileId: string,
-): Promise<ClearProfileCacheResponse> {
+export async function clearProfileCache(profileId: string): Promise<ClearProfileCacheResponse> {
 	return tauriInvoke<ClearProfileCacheResponse>('clear_profile_cache', { profileId });
 }
 
-export async function readProfileCookies(
-	profileId: string,
-): Promise<ReadProfileCookiesResponse> {
+export async function readProfileCookies(profileId: string): Promise<ReadProfileCookiesResponse> {
 	return tauriInvoke<ReadProfileCookiesResponse>('read_profile_cookies', { profileId });
 }
 
@@ -237,9 +233,7 @@ export async function openProfile(
 	onProgress?: (progress: ResourceDownloadProgressEvent) => void,
 ): Promise<void> {
 	const taskId = createResourceTaskId(`open-${profileId}`);
-	const unlisten = onProgress
-		? await listenResourceProgress(taskId, null, onProgress)
-		: null;
+	const unlisten = onProgress ? await listenResourceProgress(taskId, null, onProgress) : null;
 	try {
 		await tauriInvoke('open_profile', { profileId, options: null, taskId });
 	} finally {

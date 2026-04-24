@@ -4,15 +4,12 @@
  * 包含：运行状态环样式、连接点样式、节点组件、以及 NODE_TYPES 映射。
  */
 
-import { memo } from 'react';
-
 import { Handle, Position } from '@xyflow/react';
 import i18next from 'i18next';
+import { memo } from 'react';
 
-import type {
-	StepNodeData,
-	StepNodeSourceHandle,
-} from '../model/canvas-node-data';
+import type { StepNodeData, StepNodeSourceHandle } from '../model/canvas-node-data';
+
 export type { StepNodeData } from '../model/canvas-node-data';
 
 // ─── 运行状态高亮环 ────────────────────────────────────────────────────────────
@@ -108,15 +105,11 @@ export const StepNodeComponent = memo(function StepNodeComponent({
 			)}
 			<div className="px-3 py-2">
 				<div className="flex items-center gap-1.5 mb-0.5">
-					<span
-						className={`text-[9px] font-semibold px-1 rounded ${groupColorClass}`}
-					>
+					<span className={`text-[9px] font-semibold px-1 rounded ${groupColorClass}`}>
 						{groupLabel}
 					</span>
 				</div>
-				<div className="text-[11px] font-bold truncate leading-tight">
-					{label}
-				</div>
+				<div className="text-[11px] font-bold truncate leading-tight">{label}</div>
 				{summary && (
 					<div className="text-[10px] text-muted-foreground truncate mt-0.5 font-mono opacity-70">
 						{summary}
@@ -126,10 +119,7 @@ export const StepNodeComponent = memo(function StepNodeComponent({
 			{footerLabels.length > 0 && (
 				<div className="flex justify-between mt-1.5 text-[9px] text-muted-foreground select-none px-1">
 					{footerLabels.map((footerLabel) => (
-						<span
-							key={footerLabel}
-							className="truncate max-w-[50px] text-center flex-1"
-						>
+						<span key={footerLabel} className="truncate max-w-[50px] text-center flex-1">
 							{footerLabel}
 						</span>
 					))}
@@ -154,11 +144,7 @@ export const StepNodeComponent = memo(function StepNodeComponent({
 						<span className="pl-3" />
 						<span className="pr-3" />
 					</div>
-					<Handle
-						type="source"
-						position={Position.Bottom}
-						className={HANDLE_CLS}
-					/>
+					<Handle type="source" position={Position.Bottom} className={HANDLE_CLS} />
 				</>
 			)}
 		</div>

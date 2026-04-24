@@ -12,12 +12,18 @@ export const createDevicePresetSchema = (t: (key: string) => string) =>
 	z.object({
 		label: z.string().trim().min(1, t('common:validation.devicePreset.nameRequired')),
 		platform: z.string().trim().min(1, t('common:validation.devicePreset.platformRequired')),
-		platformVersion: z.string().trim().min(1, t('common:validation.devicePreset.platformVersionRequired')),
+		platformVersion: z
+			.string()
+			.trim()
+			.min(1, t('common:validation.devicePreset.platformVersionRequired')),
 		viewportWidth: z.number().int().min(1, t('common:validation.devicePreset.widthMin')),
 		viewportHeight: z.number().int().min(1, t('common:validation.devicePreset.heightMin')),
 		deviceScaleFactor: z.number().positive(t('common:validation.devicePreset.dprPositive')),
 		touchPoints: z.number().int().min(0, t('common:validation.devicePreset.touchPointsMin')),
-		customPlatform: z.string().trim().min(1, t('common:validation.devicePreset.customPlatformRequired')),
+		customPlatform: z
+			.string()
+			.trim()
+			.min(1, t('common:validation.devicePreset.customPlatformRequired')),
 		arch: z.string().trim().min(1, t('common:validation.devicePreset.archRequired')),
 		bitness: z.string().trim().min(1, t('common:validation.devicePreset.bitnessRequired')),
 		mobile: z.boolean(),
@@ -30,13 +36,20 @@ export const createDevicePresetSchema = (t: (key: string) => string) =>
 				message: t('common:validation.devicePreset.uaTemplateVersion'),
 			}),
 		customGlVendor: z.string().trim().min(1, t('common:validation.devicePreset.glVendorRequired')),
-		customGlRenderer: z.string().trim().min(1, t('common:validation.devicePreset.glRendererRequired')),
+		customGlRenderer: z
+			.string()
+			.trim()
+			.min(1, t('common:validation.devicePreset.glRendererRequired')),
 		customCpuCores: z.number().int().min(1, t('common:validation.devicePreset.cpuCoresMin')),
-		customRamGb: z.number()
+		customRamGb: z
+			.number()
 			.int()
 			.min(1, t('common:validation.devicePreset.memoryMin'))
 			.max(8, t('common:validation.devicePreset.memoryMax')),
-		browserVersion: z.string().trim().min(1, t('common:validation.devicePreset.browserVersionRequired')),
+		browserVersion: z
+			.string()
+			.trim()
+			.min(1, t('common:validation.devicePreset.browserVersionRequired')),
 	});
 
 export type DevicePresetFormValues = z.infer<ReturnType<typeof createDevicePresetSchema>>;

@@ -1,10 +1,6 @@
 import type { ProfilePluginSelection } from '@/entities/profile/model/types';
 
-export type PluginUpdateStatus =
-	| 'unknown'
-	| 'up_to_date'
-	| 'update_available'
-	| 'error';
+export type PluginUpdateStatus = 'unknown' | 'up_to_date' | 'update_available' | 'error';
 
 export type PluginPackage = {
 	packageId: string;

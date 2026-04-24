@@ -1,5 +1,5 @@
 import { useState } from 'react';
-
+import { useWorkspaceRefresh } from '@/app/model/use-workspace-refresh';
 import { useGroupsQuery } from '@/entities/group/model/use-groups-query';
 import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
 import { useProxiesQuery } from '@/entities/proxy/model/use-proxies-query';
@@ -7,7 +7,6 @@ import type { ResourceProgressState } from '@/entities/resource/model/types';
 import { useGroupActions } from '@/features/group/model/use-group-actions';
 import { useProfileActions } from '@/features/profile/model/use-profile-actions';
 import { useProxyActions } from '@/features/proxy/model/use-proxy-actions';
-import { useWorkspaceRefresh } from '@/app/model/use-workspace-refresh';
 import { RecycleBinPage } from '@/features/recycle-bin/ui/recycle-bin-page';
 
 export function RecycleBinRoutePage() {
@@ -18,7 +17,8 @@ export function RecycleBinRoutePage() {
 	const profiles = profilesQuery.data ?? [];
 	const proxies = proxiesQuery.data ?? [];
 	const groups = (groupsQuery.data ?? []).filter((item) => item.lifecycle === 'deleted');
-	const { refreshProfilesAndBindings, refreshProxies, refreshGroups, refreshWindows } = useWorkspaceRefresh();
+	const { refreshProfilesAndBindings, refreshProxies, refreshGroups, refreshWindows } =
+		useWorkspaceRefresh();
 	const profileActions = useProfileActions({
 		setActionState: () => {},
 		withProfileActionLock: async (_profileId, action) => action(),

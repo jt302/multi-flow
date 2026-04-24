@@ -7,27 +7,15 @@
  * 变量插入功能：支持在文本输入框中通过 Popover 选择并插入 {{变量名}}。
  */
 
-import React from 'react';
-import { useTranslation } from 'react-i18next';
-
-import { ChevronDown, FolderOpen, Trash2, Variable } from 'lucide-react';
 import { save as saveDialog } from '@tauri-apps/plugin-dialog';
-
-import type {
-	DialogButton,
-	ScriptStep,
-	ScriptVarDef,
-} from '@/entities/automation/model/types';
-import { getKindLabel } from '@/entities/automation/model/step-registry';
-
+import { ChevronDown, FolderOpen, Trash2, Variable } from 'lucide-react';
+import type React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
 	Select,
 	SelectContent,
@@ -35,8 +23,9 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
+import { getKindLabel } from '@/entities/automation/model/step-registry';
+import type { DialogButton, ScriptStep, ScriptVarDef } from '@/entities/automation/model/types';
 
 type Props = {
 	step: ScriptStep;
@@ -71,28 +60,19 @@ export function StepPropertiesPanel({
 		...allSteps.slice(0, stepIndex).flatMap((stepItem, i) => {
 			const stepRecord = stepItem as Record<string, unknown>;
 			const results: { name: string; source: string }[] = [];
-			if (
-				typeof stepRecord['output_key'] === 'string' &&
-				stepRecord['output_key']
-			) {
+			if (typeof stepRecord['output_key'] === 'string' && stepRecord['output_key']) {
 				results.push({
 					name: stepRecord['output_key'] as string,
 					source: t('common:stepsCount', { count: i + 1 }),
 				});
 			}
-			if (
-				typeof stepRecord['output_key_base64'] === 'string' &&
-				stepRecord['output_key_base64']
-			) {
+			if (typeof stepRecord['output_key_base64'] === 'string' && stepRecord['output_key_base64']) {
 				results.push({
 					name: stepRecord['output_key_base64'] as string,
 					source: t('common:stepsCount', { count: i + 1 }),
 				});
 			}
-			if (
-				typeof stepRecord['iter_var'] === 'string' &&
-				stepRecord['iter_var']
-			) {
+			if (typeof stepRecord['iter_var'] === 'string' && stepRecord['iter_var']) {
 				results.push({
 					name: stepRecord['iter_var'] as string,
 					source: t('common:stepsCount', { count: i + 1 }),
@@ -117,10 +97,7 @@ export function StepPropertiesPanel({
 		/** 在光标位置插入 {{varName}} */
 		function insertVar(varName: string) {
 			const insertion = `{{${varName}}}`;
-			const el = document.getElementById(inputId) as
-				| HTMLInputElement
-				| HTMLTextAreaElement
-				| null;
+			const el = document.getElementById(inputId) as HTMLInputElement | HTMLTextAreaElement | null;
 			if (el) {
 				const start = el.selectionStart ?? value.length;
 				const end = el.selectionEnd ?? value.length;
@@ -129,10 +106,7 @@ export function StepPropertiesPanel({
 				// 异步设置光标位置
 				setTimeout(() => {
 					el.focus();
-					el.setSelectionRange(
-						start + insertion.length,
-						start + insertion.length,
-					);
+					el.setSelectionRange(start + insertion.length, start + insertion.length);
 				}, 0);
 			} else {
 				onUpdate({ ...step, [key]: value + insertion } as ScriptStep);
@@ -148,14 +122,14 @@ export function StepPropertiesPanel({
 							variant="ghost"
 							size="icon"
 							className="h-7 w-7 flex-shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-							title={t("automation:properties.insertVar")}
+							title={t('automation:properties.insertVar')}
 						>
 							<Variable className="h-3.5 w-3.5" />
 						</Button>
 					</PopoverTrigger>
 					<PopoverContent className="w-52 p-1" align="end">
 						<div className="text-xs text-muted-foreground px-2 py-1 font-medium">
-							{t("automation:properties.selectVar")}
+							{t('automation:properties.selectVar')}
 						</div>
 						{availableVars.map((v, i) => (
 							<button
@@ -165,9 +139,7 @@ export function StepPropertiesPanel({
 								onClick={() => insertVar(v.name)}
 							>
 								<span className="font-mono text-blue-500 truncate">{`{{${v.name}}}`}</span>
-								<span className="text-muted-foreground flex-shrink-0">
-									{v.source}
-								</span>
+								<span className="text-muted-foreground flex-shrink-0">{v.source}</span>
 							</button>
 						))}
 					</PopoverContent>
@@ -182,23 +154,17 @@ export function StepPropertiesPanel({
 						<Textarea
 							id={inputId}
 							value={value}
-							onChange={(e) =>
-								onUpdate({ ...step, [key]: e.target.value } as ScriptStep)
-							}
+							onChange={(e) => onUpdate({ ...step, [key]: e.target.value } as ScriptStep)}
 							className="text-xs min-h-[100px] pr-8 resize-y"
 						/>
-						{varButton && (
-							<div className="absolute top-1 right-1">{varButton}</div>
-						)}
+						{varButton && <div className="absolute top-1 right-1">{varButton}</div>}
 					</div>
 				) : (
 					<div className="flex gap-1">
 						<Input
 							id={inputId}
 							value={value}
-							onChange={(e) =>
-								onUpdate({ ...step, [key]: e.target.value } as ScriptStep)
-							}
+							onChange={(e) => onUpdate({ ...step, [key]: e.target.value } as ScriptStep)}
 							className="h-8 text-xs flex-1"
 						/>
 						{varButton}
@@ -216,9 +182,7 @@ export function StepPropertiesPanel({
 				<Input
 					type="number"
 					value={Number(s[key] ?? 0)}
-					onChange={(e) =>
-						onUpdate({ ...step, [key]: Number(e.target.value) } as ScriptStep)
-					}
+					onChange={(e) => onUpdate({ ...step, [key]: Number(e.target.value) } as ScriptStep)}
 					className="h-8 text-xs"
 				/>
 			</div>
@@ -242,9 +206,7 @@ export function StepPropertiesPanel({
 				<div className="flex gap-1.5">
 					<Select
 						value={sType}
-						onValueChange={(v) =>
-							onUpdate({ ...step, selector_type: v } as ScriptStep)
-						}
+						onValueChange={(v) => onUpdate({ ...step, selector_type: v } as ScriptStep)}
 					>
 						<SelectTrigger className="h-8 w-[80px] text-xs flex-shrink-0 cursor-pointer">
 							<SelectValue />
@@ -257,9 +219,7 @@ export function StepPropertiesPanel({
 					</Select>
 					<Input
 						value={String(s['selector'] ?? '')}
-						onChange={(e) =>
-							onUpdate({ ...step, selector: e.target.value } as ScriptStep)
-						}
+						onChange={(e) => onUpdate({ ...step, selector: e.target.value } as ScriptStep)}
 						placeholder={placeholder}
 						className="h-8 text-xs font-mono flex-1"
 					/>
@@ -267,7 +227,6 @@ export function StepPropertiesPanel({
 			</div>
 		);
 	}
-
 
 	function outputKeyField(key: string, label: string) {
 		const value = String(s[key] ?? '');
@@ -277,10 +236,8 @@ export function StepPropertiesPanel({
 				<div className="flex gap-1">
 					<Input
 						value={value}
-						onChange={(e) =>
-							onUpdate({ ...step, [key]: e.target.value } as ScriptStep)
-						}
-						placeholder={t("automation:properties.newOrSelect")}
+						onChange={(e) => onUpdate({ ...step, [key]: e.target.value } as ScriptStep)}
+						placeholder={t('automation:properties.newOrSelect')}
 						className="h-8 text-xs flex-1"
 					/>
 					<Popover>
@@ -290,7 +247,7 @@ export function StepPropertiesPanel({
 								variant="ghost"
 								size="icon"
 								className="h-8 w-8 flex-shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-								title={t("automation:properties.selectExisting")}
+								title={t('automation:properties.selectExisting')}
 								disabled={availableVars.length === 0}
 							>
 								<ChevronDown className="h-3.5 w-3.5" />
@@ -300,20 +257,16 @@ export function StepPropertiesPanel({
 							{availableVars.length > 0 ? (
 								<>
 									<div className="text-xs text-muted-foreground px-2 py-1 font-medium">
-										{t("automation:properties.selectExisting")}
+										{t('automation:properties.selectExisting')}
 									</div>
 									{availableVars.map((v) => (
 										<button
 											key={`${v.name}-${v.source}`}
 											type="button"
 											className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent cursor-pointer flex items-center justify-between gap-2"
-											onClick={() =>
-												onUpdate({ ...step, [key]: v.name } as ScriptStep)
-											}
+											onClick={() => onUpdate({ ...step, [key]: v.name } as ScriptStep)}
 										>
-											<span className="font-mono text-blue-500 truncate">
-												{v.name}
-											</span>
+											<span className="font-mono text-blue-500 truncate">{v.name}</span>
 											<span className="text-muted-foreground flex-shrink-0 text-[10px]">
 												{v.source}
 											</span>
@@ -322,7 +275,7 @@ export function StepPropertiesPanel({
 								</>
 							) : (
 								<div className="text-xs text-muted-foreground px-2 py-2 text-center">
-									{t("automation:properties.noVarsAvailable")}
+									{t('automation:properties.noVarsAvailable')}
 								</div>
 							)}
 						</PopoverContent>
@@ -341,7 +294,6 @@ export function StepPropertiesPanel({
 	if (kind === 'navigate' || kind === 'cdp_navigate') {
 		fields.push(tf('url', t('automation:properties.url')));
 		fields.push(okf());
-
 	} else if (kind === 'wait') {
 		fields.push(nf('ms', t('automation:fields.waitMs')));
 	} else if (kind === 'click' || kind === 'cdp_click') {
@@ -368,10 +320,8 @@ export function StepPropertiesPanel({
 				<div className="flex gap-1">
 					<Input
 						value={pathValue}
-						onChange={(e) =>
-							onUpdate({ ...step, output_path: e.target.value } as ScriptStep)
-						}
-						placeholder={t("common:leaveEmptyForDefault")}
+						onChange={(e) => onUpdate({ ...step, output_path: e.target.value } as ScriptStep)}
+						placeholder={t('common:leaveEmptyForDefault')}
 						className="h-8 text-xs flex-1"
 					/>
 					<Button
@@ -379,7 +329,7 @@ export function StepPropertiesPanel({
 						variant="ghost"
 						size="icon"
 						className="h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-						title={t("automation:fields.selectSavePath")}
+						title={t('automation:fields.selectSavePath')}
 						onClick={async () => {
 							const selected = await saveDialog({
 								defaultPath: pathValue || 'screenshot.png',
@@ -390,8 +340,7 @@ export function StepPropertiesPanel({
 							if (selected) {
 								onUpdate({
 									...step,
-									output_path:
-										typeof selected === 'string' ? selected : selected,
+									output_path: typeof selected === 'string' ? selected : selected,
 								} as ScriptStep);
 							}
 						}}
@@ -404,7 +353,6 @@ export function StepPropertiesPanel({
 	} else if (kind === 'cdp_open_new_tab') {
 		fields.push(tf('url', t('automation:properties.url')));
 		fields.push(okf());
-
 	} else if (kind === 'cdp_get_all_tabs') {
 		fields.push(okf());
 	} else if (kind === 'cdp_switch_tab') {
@@ -424,10 +372,8 @@ export function StepPropertiesPanel({
 				<div className="flex gap-1">
 					<Input
 						value={dlPathValue}
-						onChange={(e) =>
-							onUpdate({ ...step, download_path: e.target.value } as ScriptStep)
-						}
-						placeholder={t("automation:fields.selectOrInputDownloadDir")}
+						onChange={(e) => onUpdate({ ...step, download_path: e.target.value } as ScriptStep)}
+						placeholder={t('automation:fields.selectOrInputDownloadDir')}
 						className="h-8 text-xs flex-1"
 					/>
 					<Button
@@ -435,7 +381,7 @@ export function StepPropertiesPanel({
 						variant="ghost"
 						size="icon"
 						className="h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-						title={t("automation:fields.selectDir")}
+						title={t('automation:fields.selectDir')}
 						onClick={async () => {
 							const { open } = await import('@tauri-apps/plugin-dialog');
 							const selected = await open({ directory: true });
@@ -481,10 +427,8 @@ export function StepPropertiesPanel({
 				<div className="flex gap-1">
 					<Input
 						value={jsFilePath}
-						onChange={(e) =>
-							onUpdate({ ...step, file_path: e.target.value } as ScriptStep)
-						}
-						placeholder={t("automation:fields.leaveEmptyForAboveCode")}
+						onChange={(e) => onUpdate({ ...step, file_path: e.target.value } as ScriptStep)}
+						placeholder={t('automation:fields.leaveEmptyForAboveCode')}
 						className="h-8 text-xs flex-1"
 					/>
 					<Button
@@ -492,7 +436,7 @@ export function StepPropertiesPanel({
 						variant="ghost"
 						size="icon"
 						className="h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-						title={t("automation:fields.selectJsFile")}
+						title={t('automation:fields.selectJsFile')}
 						onClick={async () => {
 							const { open } = await import('@tauri-apps/plugin-dialog');
 							const selected = await open({
@@ -520,9 +464,7 @@ export function StepPropertiesPanel({
 				<Label className="text-xs">{t('automation:fields.textSource')}</Label>
 				<Select
 					value={textSrc}
-					onValueChange={(v) =>
-						onUpdate({ ...step, text_source: v } as ScriptStep)
-					}
+					onValueChange={(v) => onUpdate({ ...step, text_source: v } as ScriptStep)}
 				>
 					<SelectTrigger className="h-8 text-xs">
 						<SelectValue />
@@ -545,10 +487,8 @@ export function StepPropertiesPanel({
 					<div className="flex gap-1">
 						<Input
 							value={filePath}
-							onChange={(e) =>
-								onUpdate({ ...step, file_path: e.target.value } as ScriptStep)
-							}
-							placeholder={t("automation:fields.selectTextFile")}
+							onChange={(e) => onUpdate({ ...step, file_path: e.target.value } as ScriptStep)}
+							placeholder={t('automation:fields.selectTextFile')}
 							className="h-8 text-xs flex-1"
 						/>
 						<Button
@@ -556,7 +496,7 @@ export function StepPropertiesPanel({
 							variant="ghost"
 							size="icon"
 							className="h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-							title={t("common:selectFile")}
+							title={t('common:selectFile')}
 							onClick={async () => {
 								const { open } = await import('@tauri-apps/plugin-dialog');
 								const selected = await open({
@@ -585,10 +525,7 @@ export function StepPropertiesPanel({
 		fields.push(
 			<div key="key" className="space-y-1">
 				<Label className="text-xs">{t('automation:fields.keyPress')}</Label>
-				<Select
-					value={keyVal}
-					onValueChange={(v) => onUpdate({ ...step, key: v } as ScriptStep)}
-				>
+				<Select value={keyVal} onValueChange={(v) => onUpdate({ ...step, key: v } as ScriptStep)}>
 					<SelectTrigger className="h-8 text-xs cursor-pointer">
 						<SelectValue />
 					</SelectTrigger>
@@ -614,9 +551,7 @@ export function StepPropertiesPanel({
 	} else if (kind === 'cdp_shortcut') {
 		const mods = (s['modifiers'] as string[] | undefined) ?? [];
 		const toggleMod = (mod: string) => {
-			const newMods = mods.includes(mod)
-				? mods.filter((m: string) => m !== mod)
-				: [...mods, mod];
+			const newMods = mods.includes(mod) ? mods.filter((m: string) => m !== mod) : [...mods, mod];
 			onUpdate({ ...step, modifiers: newMods } as ScriptStep);
 		};
 		fields.push(
@@ -624,20 +559,16 @@ export function StepPropertiesPanel({
 				<Label className="text-xs">{t('automation:fields.modifierKeys')}</Label>
 				<div className="flex flex-wrap gap-3">
 					{(['ctrl', 'meta', 'alt', 'shift'] as const).map((mod) => (
-						<label
-							key={mod}
-							className="flex items-center gap-1.5 text-xs cursor-pointer"
-						>
+						<label key={mod} className="flex items-center gap-1.5 text-xs cursor-pointer">
 							<input
 								type="checkbox"
 								checked={mods.includes(mod)}
 								onChange={() => toggleMod(mod)}
 								className="h-3.5 w-3.5 cursor-pointer"
 							/>
-					{mod === 'meta'
-						? t('automation:properties.modKeyMeta')
-						: t(`automation:properties.modKey${mod.charAt(0).toUpperCase() + mod.slice(1)}`)}
-
+							{mod === 'meta'
+								? t('automation:properties.modKeyMeta')
+								: t(`automation:properties.modKey${mod.charAt(0).toUpperCase() + mod.slice(1)}`)}
 						</label>
 					))}
 				</div>
@@ -658,9 +589,7 @@ export function StepPropertiesPanel({
 				<input
 					type="checkbox"
 					checked={ignoreCache}
-					onChange={(e) =>
-						onUpdate({ ...step, ignore_cache: e.target.checked } as ScriptStep)
-					}
+					onChange={(e) => onUpdate({ ...step, ignore_cache: e.target.checked } as ScriptStep)}
 					className="h-3.5 w-3.5 cursor-pointer"
 				/>
 				<Label className="text-xs">{t('automation:fields.ignoreCache')}</Label>
@@ -679,9 +608,7 @@ export function StepPropertiesPanel({
 				<Label className="text-xs">{t('automation:fields.timeoutAction')}</Label>
 				<Select
 					value={onTimeout}
-					onValueChange={(v) =>
-						onUpdate({ ...step, on_timeout: v } as ScriptStep)
-					}
+					onValueChange={(v) => onUpdate({ ...step, on_timeout: v } as ScriptStep)}
 				>
 					<SelectTrigger className="h-8 text-xs cursor-pointer">
 						<SelectValue />
@@ -703,10 +630,7 @@ export function StepPropertiesPanel({
 		fields.push(
 			<div key="level" className="space-y-1">
 				<Label className="text-xs">{t('automation:fields.logLevel')}</Label>
-				<Select
-					value={lvl}
-					onValueChange={(v) => onUpdate({ ...step, level: v } as ScriptStep)}
-				>
+				<Select value={lvl} onValueChange={(v) => onUpdate({ ...step, level: v } as ScriptStep)}>
 					<SelectTrigger className="h-8 text-xs cursor-pointer">
 						<SelectValue />
 					</SelectTrigger>
@@ -768,9 +692,7 @@ export function StepPropertiesPanel({
 				<Label className="text-xs">{t('automation:fields.outputFormat')}</Label>
 				<Select
 					value={outputFormat}
-					onValueChange={(v) =>
-						onUpdate({ ...step, output_format: v } as ScriptStep)
-					}
+					onValueChange={(v) => onUpdate({ ...step, output_format: v } as ScriptStep)}
 				>
 					<SelectTrigger className="h-8 text-xs cursor-pointer">
 						<SelectValue />
@@ -796,9 +718,7 @@ export function StepPropertiesPanel({
 				<Label className="text-xs">{t('automation:fields.outputMode')}</Label>
 				<Select
 					value={outputMode}
-					onValueChange={(v) =>
-						onUpdate({ ...step, output_mode: v } as ScriptStep)
-					}
+					onValueChange={(v) => onUpdate({ ...step, output_mode: v } as ScriptStep)}
 				>
 					<SelectTrigger className="h-8 text-xs cursor-pointer">
 						<SelectValue />
@@ -817,7 +737,6 @@ export function StepPropertiesPanel({
 						? t('automation:properties.booleanHint')
 						: t('automation:properties.percentageHint')}
 				</p>
-
 			</div>,
 		);
 		fields.push(nf('max_steps', t('automation:fields.maxRounds')));
@@ -830,7 +749,6 @@ export function StepPropertiesPanel({
 		fields.push(nf('y', t('automation:properties.positionY')));
 		fields.push(nf('width', t('automation:properties.width')));
 		fields.push(nf('height', t('automation:properties.height')));
-
 	} else if (kind === 'magic_capture_app_shell') {
 		fields.push(outputKeyField('output_key_file_path', t('automation:fields.filePathVar')));
 		const appShellPathValue = String(s['output_path'] ?? '');
@@ -840,10 +758,8 @@ export function StepPropertiesPanel({
 				<div className="flex gap-1">
 					<Input
 						value={appShellPathValue}
-						onChange={(e) =>
-							onUpdate({ ...step, output_path: e.target.value } as ScriptStep)
-						}
-						placeholder={t("common:leaveEmptyForDefault")}
+						onChange={(e) => onUpdate({ ...step, output_path: e.target.value } as ScriptStep)}
+						placeholder={t('common:leaveEmptyForDefault')}
 						className="h-8 text-xs flex-1"
 					/>
 					<Button
@@ -851,7 +767,7 @@ export function StepPropertiesPanel({
 						variant="ghost"
 						size="icon"
 						className="h-8 w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-						title={t("automation:fields.selectSavePath")}
+						title={t('automation:fields.selectSavePath')}
 						onClick={async () => {
 							const selected = await saveDialog({
 								defaultPath: appShellPathValue || 'appshell.png',
@@ -862,8 +778,7 @@ export function StepPropertiesPanel({
 							if (selected) {
 								onUpdate({
 									...step,
-									output_path:
-										typeof selected === 'string' ? selected : selected,
+									output_path: typeof selected === 'string' ? selected : selected,
 								} as ScriptStep);
 							}
 						}}
@@ -875,10 +790,7 @@ export function StepPropertiesPanel({
 		);
 	} else if (['magic_get_browsers', 'magic_get_bounds'].includes(kind)) {
 		fields.push(okf());
-	} else if (
-		kind === 'magic_enable_extension' ||
-		kind === 'magic_disable_extension'
-	) {
+	} else if (kind === 'magic_enable_extension' || kind === 'magic_disable_extension') {
 		fields.push(tf('extension_id', t('automation:fields.extensionId')));
 	} else if (kind === 'confirm_dialog') {
 		fields.push(tf('title', t('common:title')));
@@ -902,7 +814,7 @@ export function StepPropertiesPanel({
 									newBtns[i] = { ...btn, text: e.target.value };
 									onUpdate({ ...step, buttons: newBtns } as ScriptStep);
 								}}
-								placeholder={t("automation:fields.buttonText")}
+								placeholder={t('automation:fields.buttonText')}
 								className="h-7 text-xs flex-1"
 							/>
 							<Input
@@ -912,7 +824,7 @@ export function StepPropertiesPanel({
 									newBtns[i] = { ...btn, value: e.target.value };
 									onUpdate({ ...step, buttons: newBtns } as ScriptStep);
 								}}
-								placeholder={t("automation:fields.buttonValue")}
+								placeholder={t('automation:fields.buttonValue')}
 								className="h-7 text-xs w-20"
 							/>
 							<Select
@@ -948,9 +860,7 @@ export function StepPropertiesPanel({
 								className="h-7 w-7 shrink-0 cursor-pointer text-destructive hover:text-destructive"
 								disabled={buttons.length <= 1}
 								onClick={() => {
-									const newBtns = buttons.filter(
-										(_: DialogButton, idx: number) => idx !== i,
-									);
+									const newBtns = buttons.filter((_: DialogButton, idx: number) => idx !== i);
 									onUpdate({ ...step, buttons: newBtns } as ScriptStep);
 								}}
 							>
@@ -967,14 +877,11 @@ export function StepPropertiesPanel({
 							onClick={() =>
 								onUpdate({
 									...step,
-									buttons: [
-										...buttons,
-										{ text: '', value: '', variant: 'default' },
-									],
+									buttons: [...buttons, { text: '', value: '', variant: 'default' }],
 								} as ScriptStep)
 							}
 						>
-							{`+ ${t("automation:properties.addButton")}`}
+							{`+ ${t('automation:properties.addButton')}`}
 						</Button>
 					)}
 				</div>
@@ -1001,7 +908,7 @@ export function StepPropertiesPanel({
 									newOpts[i] = e.target.value;
 									onUpdate({ ...step, options: newOpts } as ScriptStep);
 								}}
-								placeholder={t("automation:fields.option", { index: i + 1 })}
+								placeholder={t('automation:fields.option', { index: i + 1 })}
 								className="h-7 text-xs flex-1"
 							/>
 							<Button
@@ -1010,9 +917,7 @@ export function StepPropertiesPanel({
 								size="icon"
 								className="h-7 w-7 shrink-0 cursor-pointer text-destructive hover:text-destructive"
 								onClick={() => {
-									const newOpts = options.filter(
-										(_: string, idx: number) => idx !== i,
-									);
+									const newOpts = options.filter((_: string, idx: number) => idx !== i);
 									onUpdate({ ...step, options: newOpts } as ScriptStep);
 								}}
 							>
@@ -1025,11 +930,9 @@ export function StepPropertiesPanel({
 						variant="outline"
 						size="sm"
 						className="h-7 text-xs w-full cursor-pointer"
-						onClick={() =>
-							onUpdate({ ...step, options: [...options, ''] } as ScriptStep)
-						}
+						onClick={() => onUpdate({ ...step, options: [...options, ''] } as ScriptStep)}
 					>
-						{`+ ${t("automation:properties.addOption")}`}
+						{`+ ${t('automation:properties.addOption')}`}
 					</Button>
 				</div>
 			</div>,
@@ -1039,9 +942,7 @@ export function StepPropertiesPanel({
 				<input
 					type="checkbox"
 					checked={Boolean(s['multi_select'] ?? false)}
-					onChange={(e) =>
-						onUpdate({ ...step, multi_select: e.target.checked } as ScriptStep)
-					}
+					onChange={(e) => onUpdate({ ...step, multi_select: e.target.checked } as ScriptStep)}
 					className="h-3.5 w-3.5 cursor-pointer"
 				/>
 				<Label className="text-xs">{t('automation:properties.allowMultiSelect')}</Label>
@@ -1056,10 +957,7 @@ export function StepPropertiesPanel({
 		fields.push(
 			<div key="level" className="space-y-1">
 				<Label className="text-xs">{t('common:level')}</Label>
-				<Select
-					value={level}
-					onValueChange={(v) => onUpdate({ ...step, level: v } as ScriptStep)}
-				>
+				<Select value={level} onValueChange={(v) => onUpdate({ ...step, level: v } as ScriptStep)}>
 					<SelectTrigger className="h-8 text-xs cursor-pointer">
 						<SelectValue />
 					</SelectTrigger>
@@ -1123,9 +1021,7 @@ export function StepPropertiesPanel({
 					type="checkbox"
 					checked={Boolean(s['pierce'])}
 					className="cursor-pointer"
-					onChange={(e) =>
-						onUpdate({ ...step, pierce: e.target.checked } as ScriptStep)
-					}
+					onChange={(e) => onUpdate({ ...step, pierce: e.target.checked } as ScriptStep)}
 				/>
 				<Label className="text-xs">{t('automation:fields.pierceShadowDOM')}</Label>
 			</div>,
@@ -1142,18 +1038,18 @@ export function StepPropertiesPanel({
 			{/* 标题栏 + 删除按钮 */}
 			<div className="flex items-center justify-between px-3 py-2 border-b flex-shrink-0 bg-muted/30">
 				<div className="flex items-center gap-1.5 min-w-0">
-				<span className="text-xs font-bold truncate">
-					{getKindLabel(kind)}
-				</span>
+					<span className="text-xs font-bold truncate">{getKindLabel(kind)}</span>
 
-					<span className="text-[9px] text-muted-foreground">{t("automation:properties.title")}</span>
+					<span className="text-[9px] text-muted-foreground">
+						{t('automation:properties.title')}
+					</span>
 				</div>
 				<Button
 					size="sm"
 					variant="ghost"
 					className="h-6 w-6 p-0 cursor-pointer text-destructive hover:text-destructive"
 					onClick={onDelete}
-					title={t("automation:properties.deleteStep")}
+					title={t('automation:properties.deleteStep')}
 				>
 					<Trash2 className="h-3 w-3" />
 				</Button>
@@ -1165,7 +1061,9 @@ export function StepPropertiesPanel({
 					{fields.length > 0 ? (
 						fields
 					) : (
-						<p className="text-xs text-muted-foreground">{t("automation:properties.noEditableFields")}</p>
+						<p className="text-xs text-muted-foreground">
+							{t('automation:properties.noEditableFields')}
+						</p>
 					)}
 				</div>
 			</ScrollArea>

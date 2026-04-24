@@ -1,15 +1,9 @@
 import { useTranslation } from 'react-i18next';
 
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from '@/components/ui';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui';
+import { useAutomationScriptsQuery } from '@/entities/automation/model/use-automation-scripts-query';
 import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
 import { useProxiesQuery } from '@/entities/proxy/model/use-proxies-query';
-import { useAutomationScriptsQuery } from '@/entities/automation/model/use-automation-scripts-query';
 import { useWindowStatesQuery } from '@/entities/window-session/model/use-window-states-query';
 
 export function MetricsGrid() {
@@ -66,9 +60,7 @@ export function MetricsGrid() {
 					<CardTitle className="text-3xl">{activeSyncSessions}</CardTitle>
 				</CardHeader>
 				<CardContent className="px-4 pt-0">
-					<p className="text-xs text-muted-foreground">
-						{t('metrics.runningWindows')}
-					</p>
+					<p className="text-xs text-muted-foreground">{t('metrics.runningWindows')}</p>
 				</CardContent>
 			</Card>
 			<Card className="min-w-0 gap-2 py-4">
@@ -79,9 +71,7 @@ export function MetricsGrid() {
 					<CardTitle className="text-3xl">{scripts.length}</CardTitle>
 				</CardHeader>
 				<CardContent className="px-4 pt-0">
-					<p className="text-xs text-muted-foreground">
-						{t('metrics.totalScripts')}
-					</p>
+					<p className="text-xs text-muted-foreground">{t('metrics.totalScripts')}</p>
 				</CardContent>
 			</Card>
 		</div>

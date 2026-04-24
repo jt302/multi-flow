@@ -1,8 +1,7 @@
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
-
-import type { BatchProfileActionResponse } from '@/entities/profile/model/types';
 import type { ProfileListFiltersState } from '@/entities/profile/lib/profile-list';
+import type { BatchProfileActionResponse } from '@/entities/profile/model/types';
 
 export type QuickEditField = 'visual';
 
@@ -66,7 +65,8 @@ export function createProfileListStore(initialState?: Partial<ProfileListStoreSt
 
 	return createStore<ProfileListStore>()((set) => ({
 		...defaults,
-		reset: () => set({ ...PROFILE_LIST_INITIAL_STATE, filters: { ...PROFILE_LIST_INITIAL_STATE.filters } }),
+		reset: () =>
+			set({ ...PROFILE_LIST_INITIAL_STATE, filters: { ...PROFILE_LIST_INITIAL_STATE.filters } }),
 		setError: (error) => set({ error }),
 		patchFilters: (patch) => set((state) => ({ filters: { ...state.filters, ...patch } })),
 		setQuickEdit: (quickEdit) => set({ quickEdit }),

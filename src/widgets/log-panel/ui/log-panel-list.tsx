@@ -1,6 +1,6 @@
+import { useTranslation } from 'react-i18next';
 import { Badge, CardContent } from '@/components/ui';
 import type { BackendLogEvent } from '@/entities/log-entry/api/logs-api';
-import { useTranslation } from 'react-i18next';
 import {
 	formatLogTime,
 	getLogEventKey,
@@ -19,7 +19,9 @@ type LogPanelListProps = {
 
 /** Strip ANSI escape codes (colors, cursor, etc.) from sidecar stderr */
 const ANSI_RE = /\x1b\[[0-9;]*[A-Za-z]|\x1b\].*?\x07/g;
-function stripAnsi(s: string) { return s.replace(ANSI_RE, ''); }
+function stripAnsi(s: string) {
+	return s.replace(ANSI_RE, '');
+}
 
 function LogRow({ item }: { item: BackendLogEvent }) {
 	const levelLabel = normalizeLogLevel(item.level);
@@ -75,15 +77,10 @@ export function LogPanelList({
 									key={profileId}
 									open={opened}
 									className="rounded-xl border border-border/70 bg-background/50 px-2"
-									onToggle={(event) =>
-										onGroupOpenChange(profileId, event.currentTarget.open)
-									}
+									onToggle={(event) => onGroupOpenChange(profileId, event.currentTarget.open)}
 								>
 									<summary className="cursor-pointer select-none py-2 text-sm font-medium text-foreground">
-										{profileId === 'unassigned'
-											? t('list.unassigned')
-											: profileId}{' '}
-										({items.length})
+										{profileId === 'unassigned' ? t('list.unassigned') : profileId} ({items.length})
 									</summary>
 									<div className="space-y-1 pb-2">
 										{items.map((item, index) => (

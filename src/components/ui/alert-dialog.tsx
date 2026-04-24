@@ -1,8 +1,7 @@
-import * as React from 'react';
 import { AlertDialog as AlertDialogPrimitive } from 'radix-ui';
-
-import { cn } from '@/lib/utils';
+import type * as React from 'react';
 import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 function AlertDialog(props: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
 	return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />;
@@ -59,7 +58,12 @@ function AlertDialogHeader({ className, ...props }: React.ComponentProps<'div'>)
 }
 
 function AlertDialogFooter({ className, ...props }: React.ComponentProps<'div'>) {
-	return <div className={cn('flex flex-col-reverse gap-2 sm:flex-row sm:justify-end', className)} {...props} />;
+	return (
+		<div
+			className={cn('flex flex-col-reverse gap-2 sm:flex-row sm:justify-end', className)}
+			{...props}
+		/>
+	);
 }
 
 function AlertDialogTitle({
@@ -95,10 +99,7 @@ function AlertDialogAction({
 	return (
 		<AlertDialogPrimitive.Action
 			data-slot="alert-dialog-action"
-			className={cn(
-				buttonVariants({ variant: 'destructive' }),
-				className,
-			)}
+			className={cn(buttonVariants({ variant: 'destructive' }), className)}
 			{...props}
 		/>
 	);
@@ -111,10 +112,7 @@ function AlertDialogCancel({
 	return (
 		<AlertDialogPrimitive.Cancel
 			data-slot="alert-dialog-cancel"
-			className={cn(
-				buttonVariants({ variant: 'outline' }),
-				className,
-			)}
+			className={cn(buttonVariants({ variant: 'outline' }), className)}
 			{...props}
 		/>
 	);
@@ -122,14 +120,14 @@ function AlertDialogCancel({
 
 export {
 	AlertDialog,
-	AlertDialogTrigger,
-	AlertDialogPortal,
-	AlertDialogOverlay,
-	AlertDialogContent,
-	AlertDialogHeader,
-	AlertDialogFooter,
-	AlertDialogTitle,
-	AlertDialogDescription,
 	AlertDialogAction,
 	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogOverlay,
+	AlertDialogPortal,
+	AlertDialogTitle,
+	AlertDialogTrigger,
 };

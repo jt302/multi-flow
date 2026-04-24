@@ -1,11 +1,10 @@
-import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-
-import { AutomationCanvasPage } from '@/features/automation-canvas/ui/automation-canvas-page';
-import { useAutomationStore, useRunsByScript } from '@/store/automation-store';
+import { useParams } from 'react-router-dom';
 import { useAutomationScriptsQuery } from '@/entities/automation/model/use-automation-scripts-query';
 import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
 import { useAutomationActions } from '@/features/automation/model/use-automation-actions';
+import { AutomationCanvasPage } from '@/features/automation-canvas/ui/automation-canvas-page';
+import { useAutomationStore, useRunsByScript } from '@/store/automation-store';
 
 export function AutomationCanvasRoutePage() {
 	const { t } = useTranslation('common');
@@ -20,9 +19,7 @@ export function AutomationCanvasRoutePage() {
 	const liveRunStatus = useAutomationStore((s) => s.liveRunStatus);
 	const liveStepResults = useAutomationStore((s) => s.liveStepResults);
 
-	const { runScript, debugRun, cancelRun } = useAutomationActions(
-		scriptId ?? null,
-	);
+	const { runScript, debugRun, cancelRun } = useAutomationActions(scriptId ?? null);
 
 	// 必须在所有条件返回之前调用，避免违反 React Hooks 规则
 	const scriptRuns = useRunsByScript(scriptId ?? null);
@@ -47,8 +44,7 @@ export function AutomationCanvasRoutePage() {
 
 	const belongsToThisScript = activeScriptId === scriptId;
 	const isRunning =
-		belongsToThisScript &&
-		(liveRunStatus === 'running' || liveRunStatus === 'waiting_human');
+		belongsToThisScript && (liveRunStatus === 'running' || liveRunStatus === 'waiting_human');
 	const concurrentCounts: Record<number, number> = {};
 	for (const run of scriptRuns) {
 		if (run.liveRunStatus !== 'running' && run.liveRunStatus !== 'waiting_human') continue;
@@ -73,14 +69,8 @@ export function AutomationCanvasRoutePage() {
 					delayConfig && delayConfig.enabled
 						? {
 								enabled: true,
-								minSeconds: Math.max(
-									0,
-									Math.min(delayConfig.minSeconds, delayConfig.maxSeconds),
-								),
-								maxSeconds: Math.max(
-									delayConfig.minSeconds,
-									delayConfig.maxSeconds,
-								),
+								minSeconds: Math.max(0, Math.min(delayConfig.minSeconds, delayConfig.maxSeconds)),
+								maxSeconds: Math.max(delayConfig.minSeconds, delayConfig.maxSeconds),
 							}
 						: null;
 				const batchId = profileIds.length > 1 ? crypto.randomUUID() : null;
@@ -90,8 +80,7 @@ export function AutomationCanvasRoutePage() {
 							scriptId: script.id,
 							profileId,
 							stepTotal: script.steps.length,
-							initialVars:
-								Object.keys(initialVars).length > 0 ? initialVars : undefined,
+							initialVars: Object.keys(initialVars).length > 0 ? initialVars : undefined,
 							delayConfig: normalizedDelay,
 							batchId,
 						}),
@@ -103,8 +92,7 @@ export function AutomationCanvasRoutePage() {
 					scriptId: script.id,
 					profileId,
 					stepTotal: script.steps.length,
-					initialVars:
-						Object.keys(initialVars).length > 0 ? initialVars : undefined,
+					initialVars: Object.keys(initialVars).length > 0 ? initialVars : undefined,
 				})
 			}
 			onCancel={() => {

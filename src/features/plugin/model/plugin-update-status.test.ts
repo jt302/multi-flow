@@ -9,50 +9,29 @@ import {
 } from './plugin-update-status';
 
 test('plugin update status maps to localized label keys', () => {
-	assert.equal(
-		getPluginUpdateStatusLabelKey('up_to_date'),
-		'library.updateStatuses.upToDate',
-	);
+	assert.equal(getPluginUpdateStatusLabelKey('up_to_date'), 'library.updateStatuses.upToDate');
 	assert.equal(
 		getPluginUpdateStatusLabelKey('update_available'),
 		'library.updateStatuses.updateAvailable',
 	);
 	assert.equal(getPluginUpdateStatusLabelKey('error'), 'library.updateStatuses.error');
-	assert.equal(
-		getPluginUpdateStatusLabelKey('unknown'),
-		'library.updateStatuses.unknown',
-	);
-	assert.equal(
-		getPluginUpdateStatusLabelKey(undefined),
-		'library.updateStatuses.unknown',
-	);
+	assert.equal(getPluginUpdateStatusLabelKey('unknown'), 'library.updateStatuses.unknown');
+	assert.equal(getPluginUpdateStatusLabelKey(undefined), 'library.updateStatuses.unknown');
 });
 
 test('plugin update check toast maps to status-specific localized keys', () => {
-	assert.equal(
-		getPluginUpdateCheckToastKey('up_to_date'),
-		'library.updateCheckToast.upToDate',
-	);
+	assert.equal(getPluginUpdateCheckToastKey('up_to_date'), 'library.updateCheckToast.upToDate');
 	assert.equal(
 		getPluginUpdateCheckToastKey('update_available'),
 		'library.updateCheckToast.updateAvailable',
 	);
 	assert.equal(getPluginUpdateCheckToastKey('error'), 'library.updateCheckToast.error');
-	assert.equal(
-		getPluginUpdateCheckToastKey('unknown'),
-		'library.updateCheckToast.unknown',
-	);
-	assert.equal(
-		getPluginUpdateCheckToastKey(undefined),
-		'library.updateCheckToast.unknown',
-	);
+	assert.equal(getPluginUpdateCheckToastKey('unknown'), 'library.updateCheckToast.unknown');
+	assert.equal(getPluginUpdateCheckToastKey(undefined), 'library.updateCheckToast.unknown');
 });
 
 test('plugin update package toast maps to status-specific localized keys', () => {
-	assert.equal(
-		getPluginUpdatePackageToastKey('up_to_date'),
-		'library.updatePackageToast.updated',
-	);
+	assert.equal(getPluginUpdatePackageToastKey('up_to_date'), 'library.updatePackageToast.updated');
 	assert.equal(
 		getPluginUpdatePackageToastKey('update_available'),
 		'library.updatePackageToast.stillUpdateAvailable',

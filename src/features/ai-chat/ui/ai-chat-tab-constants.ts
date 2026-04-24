@@ -1,8 +1,8 @@
-import { FolderTree, MessagesSquare, Plug, Sparkles } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import i18next from 'i18next';
+import type { LucideIcon } from 'lucide-react';
+import { FolderTree, MessagesSquare, Plug, Sparkles } from 'lucide-react';
 
-import { AI_CHAT_PATHS, AI_CHAT_DEFAULT_PATH } from '@/app/workspace-routes';
+import { AI_CHAT_DEFAULT_PATH, AI_CHAT_PATHS } from '@/app/workspace-routes';
 
 export const AI_CHAT_TAB_IDS = {
 	sessions: 'sessions',

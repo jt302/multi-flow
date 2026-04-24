@@ -11,10 +11,7 @@ import {
 } from './workspace-sidebar-submenu-state.ts';
 
 test('findAutoExpandedNavId 在设置子路由下默认展开 settings', () => {
-	assert.equal(
-		findAutoExpandedNavId(getWorkspaceNavItems(), SETTINGS_PATHS.general),
-		'settings',
-	);
+	assert.equal(findAutoExpandedNavId(getWorkspaceNavItems(), SETTINGS_PATHS.general), 'settings');
 });
 
 test('findAutoExpandedNavId 在环境子路由下默认展开 profiles', () => {

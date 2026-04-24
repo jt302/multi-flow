@@ -21,8 +21,7 @@ export const mcpApi = {
 	testConnectionDraft: (payload: CreateMcpServerRequest) =>
 		tauriInvoke<string>('test_mcp_connection_draft', { payload }),
 	startOAuth: (id: string) => tauriInvoke<string>('start_mcp_oauth', { id }),
-	listTools: (serverId: string) =>
-		tauriInvoke<McpTool[]>('list_mcp_tools', { serverId }),
+	listTools: (serverId: string) => tauriInvoke<McpTool[]>('list_mcp_tools', { serverId }),
 	listAllTools: () => tauriInvoke<McpTool[]>('list_all_mcp_tools'),
 	discoverOAuth: (baseUrl: string) =>
 		tauriInvoke<OAuthDiscoveryResult>('discover_mcp_oauth', { baseUrl }),

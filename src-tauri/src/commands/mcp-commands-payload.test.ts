@@ -1,6 +1,6 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import test from 'node:test';
 
 test('mcp commands accept payload args to match frontend tauri invoke contract', () => {
 	const source = readFileSync(new URL('./mcp_commands.rs', import.meta.url), 'utf8');

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -8,7 +9,6 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from '@/components/ui';
-import { useTranslation } from 'react-i18next';
 
 type ConfirmActionDialogProps = {
 	open: boolean;
@@ -48,7 +48,11 @@ export function ConfirmActionDialog({
 						{resolvedCancelText}
 					</AlertDialogCancel>
 					<AlertDialogAction
-						className={confirmVariant === 'default' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'cursor-pointer'}
+						className={
+							confirmVariant === 'default'
+								? 'bg-primary text-primary-foreground hover:bg-primary/90'
+								: 'cursor-pointer'
+						}
 						disabled={pending}
 						onClick={onConfirm}
 					>

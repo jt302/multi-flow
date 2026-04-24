@@ -18,7 +18,14 @@ import type {
 	ProfileListRunningFilter,
 } from '@/entities/profile/lib/profile-list';
 
-type ProfileBatchAction = 'refresh' | 'open' | 'close' | 'stopAll' | 'setGroup' | 'clearGroup' | 'retryOpen';
+type ProfileBatchAction =
+	| 'refresh'
+	| 'open'
+	| 'close'
+	| 'stopAll'
+	| 'setGroup'
+	| 'clearGroup'
+	| 'retryOpen';
 
 type ProfileListFiltersProps = {
 	keyword: string;
@@ -85,9 +92,7 @@ export function ProfileListFilters({
 				</Select>
 				<Select
 					value={runningFilter}
-					onValueChange={(value) =>
-						onChange({ runningFilter: value as ProfileListRunningFilter })
-					}
+					onValueChange={(value) => onChange({ runningFilter: value as ProfileListRunningFilter })}
 				>
 					<SelectTrigger className="w-full">
 						<SelectValue placeholder={t('common:allRunningStates')} />
@@ -148,7 +153,11 @@ export function ProfileListFilters({
 						onClick={onBatchOpen}
 						disabled={pending || stoppedSelectedCount === 0}
 					>
-						<Icon icon={busyAction === 'open' ? LoaderCircle : Play} size={12} className={busyAction === 'open' ? 'animate-spin' : undefined} />
+						<Icon
+							icon={busyAction === 'open' ? LoaderCircle : Play}
+							size={12}
+							className={busyAction === 'open' ? 'animate-spin' : undefined}
+						/>
 						{t('common:batchOpen')} {stoppedSelectedCount > 0 ? `(${stoppedSelectedCount})` : ''}
 					</Button>
 					<Button
@@ -159,7 +168,11 @@ export function ProfileListFilters({
 						onClick={onBatchClose}
 						disabled={pending || runningSelectedCount === 0}
 					>
-						<Icon icon={busyAction === 'close' ? LoaderCircle : Square} size={12} className={busyAction === 'close' ? 'animate-spin' : undefined} />
+						<Icon
+							icon={busyAction === 'close' ? LoaderCircle : Square}
+							size={12}
+							className={busyAction === 'close' ? 'animate-spin' : undefined}
+						/>
 						{t('common:batchClose')} {runningSelectedCount > 0 ? `(${runningSelectedCount})` : ''}
 					</Button>
 					<Button
@@ -170,7 +183,11 @@ export function ProfileListFilters({
 						onClick={onStopAllRunning}
 						disabled={pending || stopAllRunningCount === 0}
 					>
-						<Icon icon={busyAction === 'stopAll' ? LoaderCircle : Square} size={12} className={busyAction === 'stopAll' ? 'animate-spin' : undefined} />
+						<Icon
+							icon={busyAction === 'stopAll' ? LoaderCircle : Square}
+							size={12}
+							className={busyAction === 'stopAll' ? 'animate-spin' : undefined}
+						/>
 						{t('common:stopAllRunning')} {stopAllRunningCount > 0 ? `(${stopAllRunningCount})` : ''}
 					</Button>
 				</div>

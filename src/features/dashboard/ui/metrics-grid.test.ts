@@ -1,12 +1,9 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import test from 'node:test';
 
 test('dashboard metrics keep the top summary cards side by side on small screens', () => {
-	const source = readFileSync(
-		new URL('./metrics-grid.tsx', import.meta.url),
-		'utf8',
-	);
+	const source = readFileSync(new URL('./metrics-grid.tsx', import.meta.url), 'utf8');
 
 	assert.equal(source.includes('grid-cols-4'), true);
 	assert.equal(source.includes('grid-cols-2'), false);

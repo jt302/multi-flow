@@ -1,16 +1,10 @@
 import { Logs, MonitorCog, MoonStar, Search, Sun } from 'lucide-react';
 import { memo, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import { DownloadsPopover } from '@/widgets/downloads/ui/downloads-popover';
-import { OfflineBadge } from '@/widgets/downloads/ui/offline-badge';
-
-import { cn } from '@/lib/utils';
-
-import { getWorkspaceSection } from '@/app/model/workspace-sections';
 import { getWorkspaceNavItems } from '@/app/model/workspace-nav-items';
-import { resolvePathFromNav } from '@/app/workspace-routes';
+import { getWorkspaceSection } from '@/app/model/workspace-sections';
 import type { NavId } from '@/app/model/workspace-types';
+import { resolvePathFromNav } from '@/app/workspace-routes';
 import {
 	Button,
 	CommandDialog,
@@ -23,6 +17,9 @@ import {
 	SidebarTrigger,
 } from '@/components/ui';
 import type { ThemeMode } from '@/entities/theme/model/types';
+import { cn } from '@/lib/utils';
+import { DownloadsPopover } from '@/widgets/downloads/ui/downloads-popover';
+import { OfflineBadge } from '@/widgets/downloads/ui/offline-badge';
 
 type WorkspaceTopbarProps = {
 	activeNav: NavId;
@@ -41,10 +38,7 @@ export const WorkspaceTopbar = memo(function WorkspaceTopbar({
 }: WorkspaceTopbarProps) {
 	const { t, i18n } = useTranslation('common');
 	const [commandOpen, setCommandOpen] = useState(false);
-	const section = useMemo(
-		() => getWorkspaceSection(activeNav),
-		[activeNav, i18n.resolvedLanguage],
-	);
+	const section = useMemo(() => getWorkspaceSection(activeNav), [activeNav, i18n.resolvedLanguage]);
 
 	const navCommands = useMemo(
 		() =>
@@ -73,9 +67,7 @@ export const WorkspaceTopbar = memo(function WorkspaceTopbar({
 					<SidebarTrigger className="shrink-0" />
 					<div className="min-w-0">
 						<p className="truncate text-sm font-semibold">{section.title}</p>
-						<p className="truncate text-xs text-muted-foreground">
-							{section.desc}
-						</p>
+						<p className="truncate text-xs text-muted-foreground">{section.desc}</p>
 					</div>
 				</div>
 
@@ -86,10 +78,7 @@ export const WorkspaceTopbar = memo(function WorkspaceTopbar({
 						onClick={() => setCommandOpen(true)}
 						className="min-w-0 flex-1 justify-start border-border/40 bg-background/50 dark:bg-background/50 shadow-sm transition-all duration-300 hover:scale-[1.02] sm:w-auto sm:flex-none sm:justify-center"
 					>
-						<Search
-							data-icon="inline-start"
-							className="text-muted-foreground"
-						/>
+						<Search data-icon="inline-start" className="text-muted-foreground" />
 						{t('nav:searchCommand')}
 					</Button>
 					<OfflineBadge />

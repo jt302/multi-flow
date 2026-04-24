@@ -1,9 +1,9 @@
-import { useTranslation } from 'react-i18next';
 import { WifiOff } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui';
-import { useChromiumRuntimeStore } from '@/store/chromium-runtime-store';
 import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
+import { useChromiumRuntimeStore } from '@/store/chromium-runtime-store';
 
 export function OfflineBadge() {
 	const { t } = useTranslation('chromium');

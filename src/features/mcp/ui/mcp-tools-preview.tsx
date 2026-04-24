@@ -1,6 +1,6 @@
+import { ChevronDown, ChevronRight, Wrench } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronRight, Wrench } from 'lucide-react';
 import { useMcpToolsQuery } from '@/entities/mcp/model/use-mcp-query';
 
 type Props = {
@@ -24,7 +24,9 @@ export function McpToolsPreview({ serverId }: Props) {
 			>
 				{expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
 				<Wrench className="size-3.5" />
-				<span>{t('mcp.tools')} ({tools.length})</span>
+				<span>
+					{t('mcp.tools')} ({tools.length})
+				</span>
 			</button>
 
 			{expanded && (

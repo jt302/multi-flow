@@ -1,10 +1,10 @@
-import { useTranslation } from 'react-i18next';
 import { BadgeCheck, ChevronRight, Server, TriangleAlert } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { cn } from '@/lib/utils';
 import type { McpServer } from '@/entities/mcp/model/types';
+import { cn } from '@/lib/utils';
 import { useDisableMcpServer, useEnableMcpServer } from '../model/use-mcp-mutations';
 
 type Props = {
@@ -85,8 +85,13 @@ export function McpServerList({ servers, isLoading, selectedId, onSelect }: Prop
 								</div>
 								<div className="min-w-0 flex-1 space-y-2">
 									<div className="flex flex-wrap items-center gap-2">
-										<div className="truncate text-sm font-medium text-foreground">{server.name}</div>
-										<Badge variant={statusVariant[server.lastStatus] ?? 'outline'} className="text-[11px]">
+										<div className="truncate text-sm font-medium text-foreground">
+											{server.name}
+										</div>
+										<Badge
+											variant={statusVariant[server.lastStatus] ?? 'outline'}
+											className="text-[11px]"
+										>
 											{t(`mcp.status.${server.lastStatus}`)}
 										</Badge>
 										<span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
@@ -103,7 +108,12 @@ export function McpServerList({ servers, isLoading, selectedId, onSelect }: Prop
 											</span>
 										)}
 									</div>
-									<div className={cn('line-clamp-2 text-xs text-muted-foreground', summaryIsError && 'text-destructive')}>
+									<div
+										className={cn(
+											'line-clamp-2 text-xs text-muted-foreground',
+											summaryIsError && 'text-destructive',
+										)}
+									>
 										{summary}
 									</div>
 									{summaryIsError ? (

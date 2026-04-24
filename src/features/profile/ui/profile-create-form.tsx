@@ -2,12 +2,9 @@ import { ArrowLeft, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Icon } from '@/components/ui';
-import type {
-	CreateProfilePayload,
-	ProfileItem,
-} from '@/entities/profile/model/types';
-import { FingerprintSummaryCard } from '@/entities/profile/ui/fingerprint-summary-card';
 import type { GroupItem } from '@/entities/group/model/types';
+import type { CreateProfilePayload, ProfileItem } from '@/entities/profile/model/types';
+import { FingerprintSummaryCard } from '@/entities/profile/ui/fingerprint-summary-card';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import type { ResourceItem } from '@/entities/resource/model/types';
 
@@ -15,8 +12,8 @@ import { useProfileCreateForm } from '../model/use-profile-create-form';
 import { AdvancedSettingsSection } from './advanced-settings-section';
 import { BasicSettingsSection } from './basic-settings-section';
 import { FingerprintSettingsSection } from './fingerprint-settings-section';
-import { LocaleSettingsSection } from './locale-settings-section';
 import { FormErrorList } from './form-error-list';
+import { LocaleSettingsSection } from './locale-settings-section';
 import { PluginsSettingsSection } from './plugins-settings-section';
 import { ProxySettingsSection } from './proxy-settings-section';
 
@@ -54,10 +51,7 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 		onFormSubmit,
 		values,
 	} = useProfileCreateForm(props);
-	const {
-		errors,
-		isSubmitting,
-	} = form.formState;
+	const { errors, isSubmitting } = form.formState;
 
 	return (
 		<div className="space-y-3">
@@ -84,23 +78,27 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 					<form onSubmit={onFormSubmit} className="space-y-4">
 						<div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
 							<div className="space-y-4">
-							<BasicSettingsSection
-								form={form}
-								groups={props.groups}
-								hostPlatform={hostPlatform}
-								hostChromiumVersions={hostChromiumVersions}
-								devicePresets={devicePresetsQuery.data ?? []}
-								devicePresetsLoading={devicePresetsQuery.isLoading}
-								devicePresetsError={devicePresetsQuery.error instanceof Error ? devicePresetsQuery.error.message : null}
-								browserKind={values.browserKind}
-								browserVersion={values.browserVersion}
-								groupValue={values.group}
-								platform={values.platform}
-								devicePresetId={values.devicePresetId}
-								browserBgColor={values.browserBgColor}
-								browserBgColorMode={values.browserBgColorMode}
-								toolbarLabelMode={values.toolbarLabelMode}
-							/>
+								<BasicSettingsSection
+									form={form}
+									groups={props.groups}
+									hostPlatform={hostPlatform}
+									hostChromiumVersions={hostChromiumVersions}
+									devicePresets={devicePresetsQuery.data ?? []}
+									devicePresetsLoading={devicePresetsQuery.isLoading}
+									devicePresetsError={
+										devicePresetsQuery.error instanceof Error
+											? devicePresetsQuery.error.message
+											: null
+									}
+									browserKind={values.browserKind}
+									browserVersion={values.browserVersion}
+									groupValue={values.group}
+									platform={values.platform}
+									devicePresetId={values.devicePresetId}
+									browserBgColor={values.browserBgColor}
+									browserBgColorMode={values.browserBgColorMode}
+									toolbarLabelMode={values.toolbarLabelMode}
+								/>
 
 								<LocaleSettingsSection
 									form={form}
@@ -121,12 +119,15 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 									randomFingerprint={values.randomFingerprint}
 									fingerprintSeed={values.fingerprintSeed}
 									availableFontFamiliesCount={fontFamiliesQuery.data?.length ?? 0}
-								onRegenerateFonts={() => {
-									void regenerateFontList().catch((error) => {
-											const message = error instanceof Error ? error.message : t('create.fontListRegenerateFailed');
-										form.setError('customFontListText', { message });
-									});
-								}}
+									onRegenerateFonts={() => {
+										void regenerateFontList().catch((error) => {
+											const message =
+												error instanceof Error
+													? error.message
+													: t('create.fontListRegenerateFailed');
+											form.setError('customFontListText', { message });
+										});
+									}}
 									onRegenerateFingerprintSeed={regenerateFingerprintSeed}
 									onRegenerateCustomDeviceName={regenerateCustomDeviceName}
 									onRegenerateCustomMacAddress={regenerateCustomMacAddress}
@@ -172,16 +173,27 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 
 								<FormErrorList errors={errors} submitError={submitError} />
 								<div className="flex items-center gap-2">
-					<Button type="button" variant="outline" className="flex-1 cursor-pointer" onClick={props.onBack}>
-						{t('create.cancel')}
-					</Button>
+									<Button
+										type="button"
+										variant="outline"
+										className="flex-1 cursor-pointer"
+										onClick={props.onBack}
+									>
+										{t('create.cancel')}
+									</Button>
 									<Button
 										type="submit"
 										className="flex-1 cursor-pointer"
 										disabled={!values.name.trim() || isSubmitting || !mergedPreviewSnapshot}
 									>
 										<Icon icon={Plus} size={14} />
-										{isSubmitting ? (mode === 'edit' ? t('create.saving') : t('create.creating')) : mode === 'edit' ? t('create.saveChanges') : t('create.createProfile')}
+										{isSubmitting
+											? mode === 'edit'
+												? t('create.saving')
+												: t('create.creating')
+											: mode === 'edit'
+												? t('create.saveChanges')
+												: t('create.createProfile')}
 									</Button>
 								</div>
 							</div>
@@ -193,7 +205,9 @@ export function ProfileCreateForm(props: ProfileCreateFormProps) {
 									activeChromiumVersion={activeChromiumVersion}
 									randomFingerprint={values.randomFingerprint}
 									previewLoading={previewQuery.isLoading}
-									previewError={previewQuery.error instanceof Error ? previewQuery.error.message : null}
+									previewError={
+										previewQuery.error instanceof Error ? previewQuery.error.message : null
+									}
 									mergedPreviewSnapshot={mergedPreviewSnapshot}
 								/>
 							</div>

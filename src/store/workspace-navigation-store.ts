@@ -13,13 +13,16 @@ type WorkspaceNavigationStoreActions = {
 	clearProfileNavigationIntent: () => void;
 };
 
-export type WorkspaceNavigationStore = WorkspaceNavigationStoreState & WorkspaceNavigationStoreActions;
+export type WorkspaceNavigationStore = WorkspaceNavigationStoreState &
+	WorkspaceNavigationStoreActions;
 
 export const WORKSPACE_NAVIGATION_INITIAL_STATE: WorkspaceNavigationStoreState = {
 	profileNavigationIntent: null,
 };
 
-export function createWorkspaceNavigationStore(initialState?: Partial<WorkspaceNavigationStoreState>) {
+export function createWorkspaceNavigationStore(
+	initialState?: Partial<WorkspaceNavigationStoreState>,
+) {
 	const defaults = {
 		...WORKSPACE_NAVIGATION_INITIAL_STATE,
 		...initialState,

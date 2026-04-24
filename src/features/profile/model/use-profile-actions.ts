@@ -1,14 +1,13 @@
 import { toast } from 'sonner';
-import i18n from '@/shared/i18n';
-
 import {
 	batchCloseProfiles as batchCloseProfilesApi,
 	batchOpenProfiles as batchOpenProfilesApi,
+	batchSetProfileGroup as batchSetProfileGroupApi,
 	closeProfile as closeProfileApi,
 	createProfile as createProfileApi,
 	createProfileDevicePreset as createProfileDevicePresetApi,
-	deleteProfileDevicePreset as deleteProfileDevicePresetApi,
 	deleteProfile as deleteProfileApi,
+	deleteProfileDevicePreset as deleteProfileDevicePresetApi,
 	duplicateProfile as duplicateProfileApi,
 	exportProfileCookies as exportProfileCookiesApi,
 	openProfile as openProfileApi,
@@ -16,7 +15,6 @@ import {
 	readProfileCookies as readProfileCookiesApi,
 	restoreProfile as restoreProfileApi,
 	setProfileGroup as setProfileGroupApi,
-	batchSetProfileGroup as batchSetProfileGroupApi,
 	updateProfile as updateProfileApi,
 	updateProfileDevicePreset as updateProfileDevicePresetApi,
 	updateProfileVisual as updateProfileVisualApi,
@@ -31,12 +29,18 @@ import type {
 	ToolbarLabelMode,
 } from '@/entities/profile/model/types';
 import type { ResourceProgressState } from '@/entities/resource/model/types';
+import i18n from '@/shared/i18n';
 
 type ProfileActionsDeps = {
 	setActionState: (profileId: string, state: ProfileActionState | null) => void;
 	withProfileActionLock: (profileId: string, action: () => Promise<void>) => Promise<void>;
 	suppressRunningRecovery: (profileIds: string[]) => void;
-	setResourceProgress: (state: ResourceProgressState | null | ((prev: ResourceProgressState | null) => ResourceProgressState | null)) => void;
+	setResourceProgress: (
+		state:
+			| ResourceProgressState
+			| null
+			| ((prev: ResourceProgressState | null) => ResourceProgressState | null),
+	) => void;
 	refreshProfilesAndBindings: () => Promise<void>;
 	refreshGroups: () => Promise<void>;
 	refreshWindows: () => Promise<void>;
@@ -55,8 +59,6 @@ export function useProfileActions({
 	refreshResources,
 	refreshDevicePresets,
 }: ProfileActionsDeps) {
-	
-
 	const createProfile = async (payload: CreateProfilePayload) => {
 		const name = payload.name.trim();
 		if (!name) {
@@ -98,9 +100,7 @@ export function useProfileActions({
 			const outcome = await updateProfileDevicePresetApi(presetId, payload, options);
 			await Promise.all([refreshDevicePresets(), refreshProfilesAndBindings()]);
 			if (outcome.syncedCount > 0) {
-				toast.success(
-					i18n.t('device:page.syncedToast', { count: outcome.syncedCount }),
-				);
+				toast.success(i18n.t('device:page.syncedToast', { count: outcome.syncedCount }));
 			} else {
 				toast.success(i18n.t('profile:devicePresetUpdated'));
 			}
@@ -185,7 +185,9 @@ export function useProfileActions({
 						}
 						if (percent !== null) {
 							lastShownPercent = percent;
-							toast.loading(i18n.t('profile:downloadingBrowserVersion', { percent }), { id: toastId });
+							toast.loading(i18n.t('profile:downloadingBrowserVersion', { percent }), {
+								id: toastId,
+							});
 						} else {
 							toast.loading(i18n.t('profile:downloadingBrowserVersion'), { id: toastId });
 						}
@@ -321,7 +323,9 @@ export function useProfileActions({
 					}
 					if (percent !== null) {
 						lastShownPercent = percent;
-						toast.loading(i18n.t('profile:batchPreparingBrowserResource', { percent }), { id: toastId });
+						toast.loading(i18n.t('profile:batchPreparingBrowserResource', { percent }), {
+							id: toastId,
+						});
 					} else {
 						toast.loading(i18n.t('profile:batchPreparingBrowserResource'), { id: toastId });
 					}
@@ -335,19 +339,27 @@ export function useProfileActions({
 					toast.loading(i18n.t('profile:browserResourceReady'), { id: toastId });
 				}
 			});
-			await Promise.all([
-				refreshProfilesAndBindings(),
-				refreshWindows(),
-				refreshResources(),
-			]);
+			await Promise.all([refreshProfilesAndBindings(), refreshWindows(), refreshResources()]);
 			if (result.failedCount > 0) {
-				toast.warning(i18n.t('profile:batchStartCompleteWarning', { successCount: result.successCount, failedCount: result.failedCount }), {
-					id: toastId,
-				});
+				toast.warning(
+					i18n.t('profile:batchStartCompleteWarning', {
+						successCount: result.successCount,
+						failedCount: result.failedCount,
+					}),
+					{
+						id: toastId,
+					},
+				);
 			} else {
-				toast.success(i18n.t('profile:batchStartComplete', { successCount: result.successCount, total: result.total }), {
-					id: toastId,
-				});
+				toast.success(
+					i18n.t('profile:batchStartComplete', {
+						successCount: result.successCount,
+						total: result.total,
+					}),
+					{
+						id: toastId,
+					},
+				);
 			}
 			return result;
 		} catch (error) {
@@ -370,9 +382,19 @@ export function useProfileActions({
 			const result = await batchCloseProfilesApi(profileIds);
 			await Promise.all([refreshProfilesAndBindings(), refreshWindows()]);
 			if (result.failedCount > 0) {
-				toast.warning(i18n.t('profile:batchCloseCompleteWarning', { successCount: result.successCount, failedCount: result.failedCount }));
+				toast.warning(
+					i18n.t('profile:batchCloseCompleteWarning', {
+						successCount: result.successCount,
+						failedCount: result.failedCount,
+					}),
+				);
 			} else {
-				toast.success(i18n.t('profile:batchCloseComplete', { successCount: result.successCount, total: result.total }));
+				toast.success(
+					i18n.t('profile:batchCloseComplete', {
+						successCount: result.successCount,
+						total: result.total,
+					}),
+				);
 			}
 			return result;
 		} catch (error) {
@@ -387,7 +409,9 @@ export function useProfileActions({
 			await Promise.all([refreshProfilesAndBindings(), refreshGroups()]);
 			toast.success(groupName ? i18n.t('profile:groupUpdated') : i18n.t('profile:groupCleared'));
 		} catch (error) {
-			toast.error(groupName ? i18n.t('profile:updateGroupFailed') : i18n.t('profile:clearGroupFailed'));
+			toast.error(
+				groupName ? i18n.t('profile:updateGroupFailed') : i18n.t('profile:clearGroupFailed'),
+			);
 			throw error;
 		}
 	};
@@ -405,13 +429,23 @@ export function useProfileActions({
 			const result = await batchSetProfileGroupApi(profileIds, groupName);
 			await Promise.all([refreshProfilesAndBindings(), refreshGroups()]);
 			if (result.failedCount > 0) {
-				toast.warning(groupName ? i18n.t('profile:batchSetGroupPartialFailed') : i18n.t('profile:batchClearGroupPartialFailed'));
+				toast.warning(
+					groupName
+						? i18n.t('profile:batchSetGroupPartialFailed')
+						: i18n.t('profile:batchClearGroupPartialFailed'),
+				);
 			} else {
-				toast.success(groupName ? i18n.t('profile:batchSetGroupComplete') : i18n.t('profile:batchClearGroupComplete'));
+				toast.success(
+					groupName
+						? i18n.t('profile:batchSetGroupComplete')
+						: i18n.t('profile:batchClearGroupComplete'),
+				);
 			}
 			return result;
 		} catch (error) {
-			toast.error(groupName ? i18n.t('profile:batchSetGroupFailed') : i18n.t('profile:batchClearGroupFailed'));
+			toast.error(
+				groupName ? i18n.t('profile:batchSetGroupFailed') : i18n.t('profile:batchClearGroupFailed'),
+			);
 			throw error;
 		}
 	};
@@ -420,10 +454,7 @@ export function useProfileActions({
 		return readProfileCookiesApi(profileId);
 	};
 
-	const exportProfileCookies = async (
-		profileId: string,
-		payload: ExportProfileCookiesPayload,
-	) => {
+	const exportProfileCookies = async (profileId: string, payload: ExportProfileCookiesPayload) => {
 		try {
 			const result = await exportProfileCookiesApi(profileId, payload);
 			toast.success(i18n.t('profile:cookieExported'), {

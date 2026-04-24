@@ -4,8 +4,8 @@ import { toast } from 'sonner';
 
 import type { ProfileItem, ProfileProxyBindingMap } from '@/entities/profile/model/types';
 import type { ProxyItem } from '@/entities/proxy/model/types';
-import type { BatchProxyActionResponse, UpdateProxyPayload } from './types';
 import { useProxyListStore } from '@/store/proxy-list-store';
+import type { BatchProxyActionResponse, UpdateProxyPayload } from './types';
 
 function areIdsEqual(left: string[], right: string[]) {
 	if (left.length !== right.length) return false;
@@ -43,8 +43,14 @@ export function useProxyPageState({
 	>(null);
 	const [checkingProxyIds, setCheckingProxyIds] = useState<string[]>([]);
 	const [batchChecking, setBatchChecking] = useState(false);
-	const activeProxies = useMemo(() => proxies.filter((item) => item.lifecycle === 'active'), [proxies]);
-	const activeProfiles = useMemo(() => profiles.filter((item) => item.lifecycle === 'active'), [profiles]);
+	const activeProxies = useMemo(
+		() => proxies.filter((item) => item.lifecycle === 'active'),
+		[proxies],
+	);
+	const activeProfiles = useMemo(
+		() => profiles.filter((item) => item.lifecycle === 'active'),
+		[profiles],
+	);
 	const boundCount = activeProfiles.filter((profile) => profileProxyBindings[profile.id]).length;
 	const store = useProxyListStore((state) => state);
 
@@ -56,7 +62,7 @@ export function useProxyPageState({
 		}
 	}, [activeProxies, store]);
 
-	const runAction = async <T,>(fn: () => Promise<T>) => {
+	const runAction = async <T>(fn: () => Promise<T>) => {
 		if (pending) return null;
 		setPending(true);
 		setError(null);
@@ -70,7 +76,7 @@ export function useProxyPageState({
 		}
 	};
 
-	const runNamedAction = async <T,>(
+	const runNamedAction = async <T>(
 		action: NonNullable<typeof busyAction>,
 		fn: () => Promise<T>,
 	) => {
@@ -168,9 +174,21 @@ export function useProxyPageState({
 			};
 			store.setLastBatchResult(result);
 			if (result.failedCount > 0) {
-				toast.warning(t('common:batchResult', { action: t('proxy:actions.batchCheck'), success: result.successCount, fail: result.failedCount }));
+				toast.warning(
+					t('common:batchResult', {
+						action: t('proxy:actions.batchCheck'),
+						success: result.successCount,
+						fail: result.failedCount,
+					}),
+				);
 			} else {
-				toast.success(t('common:batchResult', { action: t('proxy:actions.batchCheck'), success: result.successCount, fail: 0 }));
+				toast.success(
+					t('common:batchResult', {
+						action: t('proxy:actions.batchCheck'),
+						success: result.successCount,
+						fail: 0,
+					}),
+				);
 			}
 		} finally {
 			setBatchChecking(false);

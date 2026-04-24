@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-
-import { listProfileProxyBindings } from '@/entities/proxy/api/proxy-api';
 import type { ProfileProxyBindingMap } from '@/entities/profile/model/types';
+import { listProfileProxyBindings } from '@/entities/proxy/api/proxy-api';
 import { queryKeys } from '@/shared/config/query-keys';
 
 export function useProfileProxyBindingsQuery(profileIds: string[]) {

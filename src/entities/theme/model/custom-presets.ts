@@ -13,9 +13,7 @@ function expandShortHex(value: string): string {
 		.join('');
 }
 
-export function normalizeCustomThemePreset(
-	value: string,
-): CustomThemePreset | null {
+export function normalizeCustomThemePreset(value: string): CustomThemePreset | null {
 	const pure = value.trim().replace(/^#/, '');
 	const normalized = expandShortHex(pure);
 
@@ -26,9 +24,7 @@ export function normalizeCustomThemePreset(
 	return `#${normalized.toUpperCase()}`;
 }
 
-export function readCustomThemePresets(
-	value: string | null,
-): CustomThemePreset[] {
+export function readCustomThemePresets(value: string | null): CustomThemePreset[] {
 	if (!value) {
 		return [];
 	}

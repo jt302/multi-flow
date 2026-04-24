@@ -1,7 +1,7 @@
+import { LoaderCircle, Plus, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LoaderCircle, Plus, RefreshCw } from 'lucide-react';
-
+import { Button } from '@/components/ui/button';
 import {
 	Dialog,
 	DialogContent,
@@ -9,11 +9,10 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { useMcpServersQuery } from '@/entities/mcp/model/use-mcp-query';
 import type { McpServer } from '@/entities/mcp/model/types';
-import { McpServerList } from './mcp-server-list';
+import { useMcpServersQuery } from '@/entities/mcp/model/use-mcp-query';
 import { McpServerEditor } from './mcp-server-editor';
+import { McpServerList } from './mcp-server-list';
 
 export function McpPage() {
 	const { t } = useTranslation('chat');
@@ -63,7 +62,12 @@ export function McpPage() {
 					<p className="max-w-2xl text-sm text-muted-foreground">{t('mcp.pageDescription')}</p>
 				</div>
 				<div className="flex items-center gap-2">
-					<Button type="button" variant="outline" onClick={handleRefresh} className="cursor-pointer">
+					<Button
+						type="button"
+						variant="outline"
+						onClick={handleRefresh}
+						className="cursor-pointer"
+					>
 						{serversQuery.isFetching ? (
 							<LoaderCircle className="h-4 w-4 animate-spin" />
 						) : (
@@ -97,9 +101,7 @@ export function McpPage() {
 			>
 				<DialogContent className="max-w-4xl">
 					<DialogHeader>
-						<DialogTitle>
-							{isCreating ? t('mcp.createTitle') : t('mcp.editTitle')}
-						</DialogTitle>
+						<DialogTitle>{isCreating ? t('mcp.createTitle') : t('mcp.editTitle')}</DialogTitle>
 						<DialogDescription>{t('mcp.dialogDescription')}</DialogDescription>
 					</DialogHeader>
 					<McpServerEditor

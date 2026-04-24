@@ -1,10 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 
 export function RunStatusBadge({ status }: { status: string }) {
-	const variantMap: Record<
-		string,
-		'default' | 'secondary' | 'destructive' | 'outline'
-	> = {
+	const variantMap: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
 		success: 'default',
 		failed: 'destructive',
 		running: 'secondary',

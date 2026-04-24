@@ -2,13 +2,10 @@ import { Palette, Plus, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { Badge, Button, Card, Icon, Input } from '@/components/ui';
-import {
-	THEME_PRESET_KEYS,
-	THEME_PRESETS,
-} from '@/entities/theme/model/presets';
 import { normalizeCustomThemePreset } from '@/entities/theme/model/custom-presets';
-import { cn } from '@/lib/utils';
+import { THEME_PRESET_KEYS, THEME_PRESETS } from '@/entities/theme/model/presets';
 import type { ThemeCustomizerCardProps } from '@/features/settings/model/types';
+import { cn } from '@/lib/utils';
 
 export function ThemeCustomizerCard({
 	useCustomColor,
@@ -44,14 +41,10 @@ export function ThemeCustomizerCard({
 				<div className="flex items-center justify-between gap-3">
 					<div>
 						<p className="text-sm font-medium">{t('theme.presetSection')}</p>
-						<p className="text-xs text-muted-foreground">
-							{t('theme.dualMode')}
-						</p>
+						<p className="text-xs text-muted-foreground">{t('theme.dualMode')}</p>
 					</div>
 					<Badge variant="outline" className="rounded-full px-2.5 py-1 text-[11px]">
-						{useCustomColor
-							? t('theme.customSection')
-							: t('theme.presetSection')}
+						{useCustomColor ? t('theme.customSection') : t('theme.presetSection')}
 					</Badge>
 				</div>
 
@@ -76,9 +69,7 @@ export function ThemeCustomizerCard({
 								/>
 								{item}
 							</div>
-							<p className="text-[11px] text-muted-foreground">
-								{t('theme.dualMode')}
-							</p>
+							<p className="text-[11px] text-muted-foreground">{t('theme.dualMode')}</p>
 						</Button>
 					))}
 				</div>
@@ -87,16 +78,12 @@ export function ThemeCustomizerCard({
 			<Card className="self-start w-fit max-w-full gap-4 rounded-2xl border-border/60 bg-gradient-to-br from-background via-background to-primary/5 p-4 shadow-none">
 				<div className="space-y-1">
 					<p className="text-sm font-medium">{t('theme.customSection')}</p>
-					<p className="text-xs text-muted-foreground">
-						{t('theme.customPrimaryColor')}
-					</p>
+					<p className="text-xs text-muted-foreground">{t('theme.customPrimaryColor')}</p>
 				</div>
 
 				<div className="space-y-2">
 					<div className="flex items-center justify-between gap-3">
-						<p className="text-xs font-medium text-muted-foreground">
-							{t('theme.customPresets')}
-						</p>
+						<p className="text-xs font-medium text-muted-foreground">{t('theme.customPresets')}</p>
 						{hasSavedCustomPreset ? (
 							<Badge variant="secondary" className="rounded-full px-2 py-0.5">
 								{t('theme.customPresetExists')}
@@ -121,10 +108,7 @@ export function ThemeCustomizerCard({
 										onClick={() => onApplyCustomPreset(item)}
 										className="inline-flex items-center gap-1.5 rounded-full text-xs font-medium"
 									>
-										<span
-											className="size-2.5 rounded-full"
-											style={{ backgroundColor: item }}
-										/>
+										<span className="size-2.5 rounded-full" style={{ backgroundColor: item }} />
 										{item}
 									</button>
 									<Button

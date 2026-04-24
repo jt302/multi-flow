@@ -1,11 +1,9 @@
+import { ChevronDown, ChevronUp, Filter, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import { ChevronDown, ChevronUp, Filter, X } from 'lucide-react';
-
-import type { RunLogEntry } from '@/entities/automation/model/types';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import type { RunLogEntry } from '@/entities/automation/model/types';
 
 type Props = {
 	logs: RunLogEntry[];
@@ -14,14 +12,7 @@ type Props = {
 };
 
 const LOG_LEVELS: RunLogEntry['level'][] = ['info', 'warn', 'error', 'debug'];
-const LOG_CATEGORIES: RunLogEntry['category'][] = [
-	'flow',
-	'step',
-	'ai',
-	'cdp',
-	'magic',
-	'error',
-];
+const LOG_CATEGORIES: RunLogEntry['category'][] = ['flow', 'step', 'ai', 'cdp', 'magic', 'error'];
 
 const LEVEL_TEXT_CLASS: Record<RunLogEntry['level'], string> = {
 	info: 'text-foreground',
@@ -76,29 +67,24 @@ export function RunLogViewer({ logs, expanded = false }: Props) {
 	const [enabledLevels, setEnabledLevels] = useState<Set<RunLogEntry['level']>>(
 		() => new Set(LOG_LEVELS),
 	);
-	const [enabledCategories, setEnabledCategories] = useState<
-		Set<RunLogEntry['category']>
-	>(() => new Set(LOG_CATEGORIES));
-	const [expandedDetails, setExpandedDetails] = useState<Set<number>>(
-		() => new Set(),
+	const [enabledCategories, setEnabledCategories] = useState<Set<RunLogEntry['category']>>(
+		() => new Set(LOG_CATEGORIES),
 	);
+	const [expandedDetails, setExpandedDetails] = useState<Set<number>>(() => new Set());
 	// 筛选栏默认折叠，节省垂直空间
 	const [filtersCollapsed, setFiltersCollapsed] = useState(true);
 
 	const filteredLogs = useMemo(
 		() =>
 			logs.filter(
-				(entry) =>
-					enabledLevels.has(entry.level) &&
-					enabledCategories.has(entry.category),
+				(entry) => enabledLevels.has(entry.level) && enabledCategories.has(entry.category),
 			),
 		[enabledCategories, enabledLevels, logs],
 	);
 
 	// 是否有任何过滤器处于非全选状态
 	const hasActiveFilter =
-		enabledLevels.size < LOG_LEVELS.length ||
-		enabledCategories.size < LOG_CATEGORIES.length;
+		enabledLevels.size < LOG_LEVELS.length || enabledCategories.size < LOG_CATEGORIES.length;
 
 	function toggleLevel(level: RunLogEntry['level']) {
 		setEnabledLevels((prev) => {
@@ -159,9 +145,7 @@ export function RunLogViewer({ logs, expanded = false }: Props) {
 						>
 							<Filter className="h-3 w-3" />
 							<span>{t('common:filter')}</span>
-							{hasActiveFilter && (
-								<span className="h-1.5 w-1.5 rounded-full bg-primary" />
-							)}
+							{hasActiveFilter && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
 						</button>
 						<span className="text-[10px] text-muted-foreground">
 							{t('common:countTotal', { filtered: filteredLogs.length, total: logs.length })}
@@ -210,9 +194,7 @@ export function RunLogViewer({ logs, expanded = false }: Props) {
 			<ScrollArea className="flex-1 min-h-0">
 				<div className="font-mono text-xs">
 					{filteredLogs.length === 0 ? (
-						<p className="px-3 py-3 text-muted-foreground">
-							{t('common:noMatches')}
-						</p>
+						<p className="px-3 py-3 text-muted-foreground">{t('common:noMatches')}</p>
 					) : (
 						filteredLogs.map((entry, index) => {
 							const hasDetails = !!entry.details;
@@ -237,9 +219,7 @@ export function RunLogViewer({ logs, expanded = false }: Props) {
 										>
 											{entry.category}
 										</Badge>
-										<p className="flex-1 break-all leading-5">
-											{entry.message}
-										</p>
+										<p className="flex-1 break-all leading-5">{entry.message}</p>
 										{hasDetails && (
 											<button
 												type="button"
@@ -327,9 +307,7 @@ function StepDetails({
 						<span className="text-[10px] text-muted-foreground shrink-0 min-w-[70px] text-right">
 							{key}
 						</span>
-						<span
-							className={`text-foreground/80 break-all ${isLong ? 'whitespace-pre-wrap' : ''}`}
-						>
+						<span className={`text-foreground/80 break-all ${isLong ? 'whitespace-pre-wrap' : ''}`}>
 							{strVal}
 						</span>
 					</div>
@@ -341,11 +319,7 @@ function StepDetails({
 						expandedContainer ? 'max-h-96' : 'max-h-40'
 					}`}
 				>
-					{JSON.stringify(
-						Object.fromEntries(restKeys.map((k) => [k, details[k]])),
-						null,
-						2,
-					)}
+					{JSON.stringify(Object.fromEntries(restKeys.map((k) => [k, details[k]])), null, 2)}
 				</pre>
 			)}
 		</div>

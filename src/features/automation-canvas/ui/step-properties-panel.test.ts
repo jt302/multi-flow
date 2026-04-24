@@ -1,12 +1,9 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import test from 'node:test';
 
 test('ai agent properties use translated labels and hide tool category picker', () => {
-	const source = readFileSync(
-		new URL('./step-properties-panel.tsx', import.meta.url),
-		'utf8',
-	);
+	const source = readFileSync(new URL('./step-properties-panel.tsx', import.meta.url), 'utf8');
 	const commandSource = readFileSync(
 		new URL('../../../../src-tauri/src/commands/automation_commands.rs', import.meta.url),
 		'utf8',
@@ -43,10 +40,7 @@ test('ai agent properties use translated labels and hide tool category picker', 
 });
 
 test('ai judge also hides tool category picker and uses all tools', () => {
-	const source = readFileSync(
-		new URL('./step-properties-panel.tsx', import.meta.url),
-		'utf8',
-	);
+	const source = readFileSync(new URL('./step-properties-panel.tsx', import.meta.url), 'utf8');
 	const commandSource = readFileSync(
 		new URL('../../../../src-tauri/src/commands/automation_commands.rs', import.meta.url),
 		'utf8',

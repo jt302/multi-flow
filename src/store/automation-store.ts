@@ -1,7 +1,7 @@
 import { useStore } from 'zustand';
-import { createStore } from 'zustand/vanilla';
 import { persist } from 'zustand/middleware';
 import { useShallow } from 'zustand/react/shallow';
+import { createStore } from 'zustand/vanilla';
 
 import type {
 	AiDialogFormField,
@@ -116,9 +116,7 @@ function pruneRuns(runs: Record<string, RunState>): Record<string, RunState> {
 		.filter((r) => r.endedAt !== undefined)
 		.sort((a, b) => (b.endedAt ?? 0) - (a.endedAt ?? 0));
 	if (completed.length <= MAX_COMPLETED_RUNS) return runs;
-	const toRemove = new Set(
-		completed.slice(MAX_COMPLETED_RUNS).map((r) => r.runId),
-	);
+	const toRemove = new Set(completed.slice(MAX_COMPLETED_RUNS).map((r) => r.runId));
 	const pruned = { ...runs };
 	for (const id of toRemove) delete pruned[id];
 	return pruned;
@@ -195,16 +193,12 @@ export const automationStore = createStore<AutomationStore>()(
 						liveAiDetail: null,
 					};
 					const newRuns = { ...state.runs, [runId]: newRun };
-					const newBatches =
-						batchId
-							? {
-									...state.batches,
-									[batchId]: [
-										...(state.batches[batchId] ?? []).filter((id) => id !== runId),
-										runId,
-									],
-								}
-							: state.batches;
+					const newBatches = batchId
+						? {
+								...state.batches,
+								[batchId]: [...(state.batches[batchId] ?? []).filter((id) => id !== runId), runId],
+							}
+						: state.batches;
 					const focusedRunId = runId;
 					return {
 						runs: newRuns,
@@ -362,8 +356,7 @@ export const automationStore = createStore<AutomationStore>()(
 
 			reset: () => set({ ...INITIAL_STATE }),
 
-			startRun: (runId, scriptId, stepTotal) =>
-				get().upsertRun(runId, scriptId, stepTotal),
+			startRun: (runId, scriptId, stepTotal) => get().upsertRun(runId, scriptId, stepTotal),
 		}),
 		{
 			name: 'mf-automation-store-v2',
@@ -386,9 +379,7 @@ export function useRunState(runId: string | null): RunState | null {
 }
 
 export function useFocusedRunState(): RunState | null {
-	return useAutomationStore((s) =>
-		s.focusedRunId ? (s.runs[s.focusedRunId] ?? null) : null,
-	);
+	return useAutomationStore((s) => (s.focusedRunId ? (s.runs[s.focusedRunId] ?? null) : null));
 }
 
 /** Returns the first active run (running/waiting_human/pending) for a script. */
@@ -420,9 +411,7 @@ export function useRunsByBatch(batchId: string | null): RunState[] {
 	return useAutomationStore(
 		useShallow((s) => {
 			if (!batchId) return [];
-			return (s.batches[batchId] ?? [])
-				.map((id) => s.runs[id])
-				.filter(Boolean) as RunState[];
+			return (s.batches[batchId] ?? []).map((id) => s.runs[id]).filter(Boolean) as RunState[];
 		}),
 	);
 }

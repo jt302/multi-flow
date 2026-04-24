@@ -1,8 +1,7 @@
 import { useTranslation } from 'react-i18next';
-
-import { cn } from '@/lib/utils';
-import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
 import { resolvePlatformMeta } from '@/entities/profile/lib/profile-list';
+import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
+import { cn } from '@/lib/utils';
 import { PlatformGlyph } from './platform-mark';
 
 export type ProfileBadgeProps = {
@@ -33,9 +32,7 @@ export function ProfileBadge({
 	const profile = profileId ? profiles.find((p) => p.id === profileId) : undefined;
 
 	const displayName =
-		profile?.name ??
-		profileName ??
-		(profileId ? profileId.slice(0, 8) : t('runContext.unknown'));
+		profile?.name ?? profileName ?? (profileId ? profileId.slice(0, 8) : t('runContext.unknown'));
 	const meta = profile ? resolvePlatformMeta(profile) : undefined;
 	const bgColor = profile?.settings?.basic?.browserBgColor;
 
@@ -49,17 +46,10 @@ export function ProfileBadge({
 			title={t('runContext.fromProfile', { name: displayName })}
 		>
 			{showColor && bgColor && (
-				<span
-					className="h-2 w-2 rounded-full shrink-0"
-					style={{ backgroundColor: bgColor }}
-				/>
+				<span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: bgColor }} />
 			)}
 			{showIcon && meta && (
-				<PlatformGlyph
-					meta={meta}
-					size="sm"
-					className="!w-3 !h-3 shrink-0 opacity-80"
-				/>
+				<PlatformGlyph meta={meta} size="sm" className="!w-3 !h-3 shrink-0 opacity-80" />
 			)}
 			{showName && <span className="truncate max-w-[6rem]">{displayName}</span>}
 		</span>

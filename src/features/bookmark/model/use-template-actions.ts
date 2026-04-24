@@ -1,11 +1,11 @@
-import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 
 import {
-	createBookmarkTemplate,
-	updateBookmarkTemplate,
-	deleteBookmarkTemplate,
 	applyBookmarkTemplate,
+	createBookmarkTemplate,
+	deleteBookmarkTemplate,
+	updateBookmarkTemplate,
 } from '@/entities/bookmark/api/bookmark-api';
 import type {
 	ApplyBookmarkTemplateRequest,

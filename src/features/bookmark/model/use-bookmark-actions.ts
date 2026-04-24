@@ -4,9 +4,9 @@ import { useTranslation } from 'react-i18next';
 import {
 	createProfileBookmark,
 	createProfileBookmarkFolder,
+	importBookmarksToProfile,
 	removeProfileBookmark,
 	updateProfileBookmark,
-	importBookmarksToProfile,
 } from '@/entities/bookmark/api/bookmark-api';
 import type {
 	CreateProfileBookmarkRequest,

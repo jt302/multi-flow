@@ -12,9 +12,7 @@ function selectorDisplay(item: Step) {
 	if (t && t !== 'css') {
 		return (
 			<>
-				<span className="text-xs text-blue-500 mr-0.5">
-					[{t.toUpperCase()}]
-				</span>
+				<span className="text-xs text-blue-500 mr-0.5">[{t.toUpperCase()}]</span>
 				{selector}
 			</>
 		);
@@ -30,9 +28,7 @@ export function StepSummary({ step }: { step: Step }) {
 		case 'wait':
 			return <span className="text-muted-foreground">{step.ms}ms</span>;
 		case 'click':
-			return (
-				<span className="text-muted-foreground">{selectorDisplay(step)}</span>
-			);
+			return <span className="text-muted-foreground">{selectorDisplay(step)}</span>;
 		case 'type':
 			return (
 				<span className="text-muted-foreground">
@@ -40,19 +36,13 @@ export function StepSummary({ step }: { step: Step }) {
 				</span>
 			);
 		case 'screenshot':
-			return (
-				<span className="text-muted-foreground">{t('steps.screenshot')}</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.screenshot')}</span>;
 		case 'magic':
 			return <span className="text-muted-foreground">{step.command}</span>;
 		case 'cdp':
 			return <span className="text-muted-foreground">{step.method}</span>;
 		case 'wait_for_user':
-			return (
-				<span className="text-muted-foreground">
-					{step.message.slice(0, 60)}
-				</span>
-			);
+			return <span className="text-muted-foreground">{step.message.slice(0, 60)}</span>;
 		case 'condition':
 			return (
 				<span className="text-muted-foreground font-mono text-xs">
@@ -62,9 +52,7 @@ export function StepSummary({ step }: { step: Step }) {
 		case 'loop':
 			return (
 				<span className="text-muted-foreground">
-					{step.mode === 'while'
-						? `while ${step.condition_expr ?? ''}`
-						: `×${step.count ?? 1}`}
+					{step.mode === 'while' ? `while ${step.condition_expr ?? ''}` : `×${step.count ?? 1}`}
 				</span>
 			);
 		case 'break':
@@ -72,24 +60,16 @@ export function StepSummary({ step }: { step: Step }) {
 		case 'continue':
 			return <span className="text-muted-foreground">continue</span>;
 		case 'ai_agent':
-			return (
-				<span className="text-muted-foreground">
-					{step.prompt.slice(0, 60)}
-				</span>
-			);
+			return <span className="text-muted-foreground">{step.prompt.slice(0, 60)}</span>;
 		case 'cdp_navigate':
 			return <span className="text-muted-foreground">{step.url}</span>;
 		case 'cdp_reload':
-			return (
-				<span className="text-muted-foreground">{t('steps.reloadPage')}</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.reloadPage')}</span>;
 		case 'cdp_click':
 		case 'cdp_wait_for_selector':
 		case 'cdp_get_text':
 		case 'cdp_scroll_to':
-			return (
-				<span className="text-muted-foreground">{selectorDisplay(step)}</span>
-			);
+			return <span className="text-muted-foreground">{selectorDisplay(step)}</span>;
 		case 'cdp_type':
 			return (
 				<span className="text-muted-foreground">
@@ -122,29 +102,17 @@ export function StepSummary({ step }: { step: Step }) {
 				</span>
 			);
 		case 'magic_get_bounds':
-			return (
-				<span className="text-muted-foreground">{t('steps.getBounds')}</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.getBounds')}</span>;
 		case 'magic_set_maximized':
-			return (
-				<span className="text-muted-foreground">{t('steps.maximize')}</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.maximize')}</span>;
 		case 'magic_set_minimized':
-			return (
-				<span className="text-muted-foreground">{t('steps.minimize')}</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.minimize')}</span>;
 		case 'magic_set_closed':
-			return (
-				<span className="text-muted-foreground">{t('steps.closeWindow')}</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.closeWindow')}</span>;
 		case 'magic_set_restored':
-			return (
-				<span className="text-muted-foreground">{t('steps.restore')}</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.restore')}</span>;
 		case 'magic_set_fullscreen':
-			return (
-				<span className="text-muted-foreground">{t('steps.fullscreen')}</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.fullscreen')}</span>;
 		case 'magic_set_bg_color':
 			return (
 				<span className="text-muted-foreground">
@@ -154,11 +122,7 @@ export function StepSummary({ step }: { step: Step }) {
 		case 'magic_set_toolbar_text':
 			return <span className="text-muted-foreground">{step.text}</span>;
 		case 'magic_set_app_top_most':
-			return (
-				<span className="text-muted-foreground">
-					{t('steps.activateWindow')}
-				</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.activateWindow')}</span>;
 		case 'magic_set_master_indicator_visible':
 			return (
 				<span className="text-muted-foreground">
@@ -170,27 +134,15 @@ export function StepSummary({ step }: { step: Step }) {
 			return <span className="text-muted-foreground">{step.url}</span>;
 		case 'magic_close_tab':
 		case 'magic_activate_tab':
-			return (
-				<span className="text-muted-foreground">tab_id={step.tab_id}</span>
-			);
+			return <span className="text-muted-foreground">tab_id={step.tab_id}</span>;
 		case 'magic_activate_tab_by_index':
 			return <span className="text-muted-foreground">index={step.index}</span>;
 		case 'magic_close_inactive_tabs':
-			return (
-				<span className="text-muted-foreground">
-					{t('steps.closeInactiveTabs')}
-				</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.closeInactiveTabs')}</span>;
 		case 'magic_open_new_window':
-			return (
-				<span className="text-muted-foreground">{t('steps.newWindow')}</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.newWindow')}</span>;
 		case 'magic_type_string':
-			return (
-				<span className="text-muted-foreground">
-					"{step.text.slice(0, 40)}"
-				</span>
-			);
+			return <span className="text-muted-foreground">"{step.text.slice(0, 40)}"</span>;
 		case 'magic_capture_app_shell':
 			return (
 				<span className="text-muted-foreground truncate max-w-48">
@@ -198,41 +150,21 @@ export function StepSummary({ step }: { step: Step }) {
 				</span>
 			);
 		case 'magic_get_browsers':
-			return (
-				<span className="text-muted-foreground">{t('steps.allBrowsers')}</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.allBrowsers')}</span>;
 		case 'magic_get_active_browser':
-			return (
-				<span className="text-muted-foreground">
-					{t('steps.activeBrowser')}
-				</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.activeBrowser')}</span>;
 		case 'magic_get_tabs':
-			return (
-				<span className="text-muted-foreground">
-					browser_id={step.browser_id}
-				</span>
-			);
+			return <span className="text-muted-foreground">browser_id={step.browser_id}</span>;
 		case 'magic_get_active_tabs':
-			return (
-				<span className="text-muted-foreground">{t('steps.activeTabs')}</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.activeTabs')}</span>;
 		case 'magic_get_switches':
-			return (
-				<span className="text-muted-foreground font-mono">{step.key}</span>
-			);
+			return <span className="text-muted-foreground font-mono">{step.key}</span>;
 		case 'magic_get_host_name':
-			return (
-				<span className="text-muted-foreground">{t('steps.hostname')}</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.hostname')}</span>;
 		case 'magic_get_mac_address':
-			return (
-				<span className="text-muted-foreground">{t('steps.macAddress')}</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.macAddress')}</span>;
 		case 'magic_get_bookmarks':
-			return (
-				<span className="text-muted-foreground">{t('steps.bookmarkTree')}</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.bookmarkTree')}</span>;
 		case 'magic_create_bookmark':
 			return (
 				<span className="text-muted-foreground">
@@ -244,91 +176,51 @@ export function StepSummary({ step }: { step: Step }) {
 		case 'magic_update_bookmark':
 		case 'magic_remove_bookmark':
 		case 'magic_move_bookmark':
-			return (
-				<span className="text-muted-foreground font-mono">
-					node_id={step.node_id}
-				</span>
-			);
+			return <span className="text-muted-foreground font-mono">node_id={step.node_id}</span>;
 		case 'magic_bookmark_current_tab':
-			return (
-				<span className="text-muted-foreground">
-					{t('steps.bookmarkCurrentTab')}
-				</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.bookmarkCurrentTab')}</span>;
 		case 'magic_unbookmark_current_tab':
-			return (
-				<span className="text-muted-foreground">
-					{t('steps.unbookmarkCurrentTab')}
-				</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.unbookmarkCurrentTab')}</span>;
 		case 'magic_is_current_tab_bookmarked':
-			return (
-				<span className="text-muted-foreground">{t('steps.isBookmarked')}</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.isBookmarked')}</span>;
 		case 'magic_export_bookmark_state':
-			return (
-				<span className="text-muted-foreground">
-					{t('steps.exportBookmarks')}
-				</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.exportBookmarks')}</span>;
 		case 'magic_get_managed_cookies':
-			return (
-				<span className="text-muted-foreground">
-					{t('steps.managedCookies')}
-				</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.managedCookies')}</span>;
 		case 'magic_export_cookie_state':
 			return <span className="text-muted-foreground">{step.mode}</span>;
 		case 'magic_get_managed_extensions':
-			return (
-				<span className="text-muted-foreground">
-					{t('steps.managedExtensions')}
-				</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.managedExtensions')}</span>;
 		case 'magic_trigger_extension_action':
 			return (
-				<span className="text-muted-foreground font-mono">
-					{step.extension_id.slice(0, 16)}...
-				</span>
+				<span className="text-muted-foreground font-mono">{step.extension_id.slice(0, 16)}...</span>
 			);
 		case 'magic_close_extension_popup':
-			return (
-				<span className="text-muted-foreground">
-					{t('steps.closeExtPopup')}
-				</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.closeExtPopup')}</span>;
 		case 'magic_toggle_sync_mode':
 			return <span className="text-muted-foreground">{step.role}</span>;
 		case 'magic_get_sync_mode':
-			return (
-				<span className="text-muted-foreground">{t('steps.syncStatus')}</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.syncStatus')}</span>;
 		case 'magic_get_is_master':
-			return (
-				<span className="text-muted-foreground">{t('steps.isMaster')}</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.isMaster')}</span>;
 		case 'magic_get_sync_status':
-			return (
-				<span className="text-muted-foreground">
-					{t('steps.fullSyncStatus')}
-				</span>
-			);
+			return <span className="text-muted-foreground">{t('steps.fullSyncStatus')}</span>;
 		case 'form_dialog':
 			return (
 				<span className="text-muted-foreground">
-					{step.title || 'Form'}{step.fields?.length ? ` (${step.fields.length} fields)` : ''}
+					{step.title || 'Form'}
+					{step.fields?.length ? ` (${step.fields.length} fields)` : ''}
 				</span>
 			);
 		case 'table_dialog':
 			return (
 				<span className="text-muted-foreground">
-					{step.title || 'Table'}{step.rows?.length ? ` (${step.rows.length} rows)` : ''}
+					{step.title || 'Table'}
+					{step.rows?.length ? ` (${step.rows.length} rows)` : ''}
 				</span>
 			);
 		case 'image_dialog':
-			return (
-				<span className="text-muted-foreground">{step.title || 'Image'}</span>
-			);
+			return <span className="text-muted-foreground">{step.title || 'Image'}</span>;
 		case 'countdown_dialog':
 			return (
 				<span className="text-muted-foreground">
@@ -373,9 +265,7 @@ export function getStepSummaryText(step: Step): string {
 		case 'condition':
 			return step.condition_expr.slice(0, 60);
 		case 'loop':
-			return step.mode === 'while'
-				? `while ${step.condition_expr ?? ''}`
-				: `×${step.count ?? 1}`;
+			return step.mode === 'while' ? `while ${step.condition_expr ?? ''}` : `×${step.count ?? 1}`;
 		case 'break':
 			return 'break';
 		case 'continue':

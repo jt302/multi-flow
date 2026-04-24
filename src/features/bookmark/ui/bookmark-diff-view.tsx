@@ -1,5 +1,5 @@
-import { useTranslation } from 'react-i18next';
 import { CheckCircle2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import type { BookmarkDiffEntry, BookmarkDiffResult } from '@/entities/bookmark/model/types';
 

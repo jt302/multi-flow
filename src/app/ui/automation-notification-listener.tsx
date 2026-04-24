@@ -14,8 +14,12 @@ export function AutomationNotificationListener() {
 			if (!mounted) return;
 
 			const level = event.level ?? 'info';
-			const profileLabel = event.profileName ?? (event.profileId ? event.profileId.slice(0, 8) : null);
-			const descParts = [event.body || undefined, profileLabel ? `[${profileLabel}]` : undefined].filter(Boolean);
+			const profileLabel =
+				event.profileName ?? (event.profileId ? event.profileId.slice(0, 8) : null);
+			const descParts = [
+				event.body || undefined,
+				profileLabel ? `[${profileLabel}]` : undefined,
+			].filter(Boolean);
 			const options = {
 				description: descParts.length > 0 ? descParts.join('  ') : undefined,
 				duration: event.durationMs ?? 5000,

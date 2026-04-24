@@ -1,17 +1,10 @@
-import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ShieldAlert } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-
-import { tauriInvoke } from '@/shared/api/tauri-invoke';
-import {
-	Button,
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle,
-} from '@/components/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { Checkbox } from '@/components/ui/checkbox';
+import { tauriInvoke } from '@/shared/api/tauri-invoke';
 
 // ── 类型 ─────────────────────────────────────────────────────────────
 
@@ -29,19 +22,14 @@ async function getToolPermissions(): Promise<ToolPermissionEntry[]> {
 	return tauriInvoke<ToolPermissionEntry[]>('get_tool_permissions');
 }
 
-async function setToolPermission(
-	toolName: string,
-	requireConfirmation: boolean,
-): Promise<void> {
+async function setToolPermission(toolName: string, requireConfirmation: boolean): Promise<void> {
 	return tauriInvoke<void>('set_tool_permission', {
 		toolName,
 		requireConfirmation,
 	});
 }
 
-async function setAllToolPermissions(
-	requireConfirmation: boolean,
-): Promise<void> {
+async function setAllToolPermissions(requireConfirmation: boolean): Promise<void> {
 	return tauriInvoke<void>('set_all_tool_permissions', {
 		requireConfirmation,
 	});
@@ -95,9 +83,7 @@ export function ToolPermissionsCard() {
 				<div className="flex items-center gap-2">
 					<ShieldAlert className="h-5 w-5 text-destructive" />
 					<div>
-						<CardTitle className="text-base">
-							{t('settings:toolPermissions.title')}
-						</CardTitle>
+						<CardTitle className="text-base">{t('settings:toolPermissions.title')}</CardTitle>
 						<p className="text-xs text-muted-foreground mt-0.5">
 							{t('settings:toolPermissions.desc')}
 						</p>
@@ -127,23 +113,16 @@ export function ToolPermissionsCard() {
 			<CardContent>
 				<div className="divide-y divide-border rounded-md border">
 					{permissions.map((entry) => (
-						<div
-							key={entry.toolName}
-							className="flex items-center justify-between px-3 py-3"
-						>
+						<div key={entry.toolName} className="flex items-center justify-between px-3 py-3">
 							<div className="flex flex-col gap-0.5 min-w-0 flex-1 mr-4">
 								<div className="flex items-center gap-2">
-									<span className="text-sm font-medium">
-										{entry.displayName}
-									</span>
+									<span className="text-sm font-medium">{entry.displayName}</span>
 									<code className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
 										{entry.toolName}
 									</code>
 								</div>
 								{entry.description && (
-									<p className="text-xs text-muted-foreground">
-										{entry.description}
-									</p>
+									<p className="text-xs text-muted-foreground">{entry.description}</p>
 								)}
 							</div>
 							<div className="flex items-center gap-2 shrink-0">

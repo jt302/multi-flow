@@ -1,14 +1,22 @@
+import { useQuery } from '@tanstack/react-query';
+import { Check, Loader2, Star, Wifi, X } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useQuery } from '@tanstack/react-query';
-import { Check, Loader2, Star, Wifi, X } from 'lucide-react';
-
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select';
 import { formatContextWindow, getModelCapability } from '@/entities/ai/model/model-capabilities';
-import { useDefaultAiConfigQuery, useSetDefaultAiConfigMutation } from '@/entities/ai/model/use-default-ai-config-query';
+import {
+	useDefaultAiConfigQuery,
+	useSetDefaultAiConfigMutation,
+} from '@/entities/ai/model/use-default-ai-config-query';
 import { listAiConfigs } from '@/entities/automation/api/automation-api';
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
 
@@ -65,9 +73,7 @@ export function AiChatSettingsCard() {
 			<CardContent className="space-y-4">
 				{/* 默认 AI 模型 */}
 				<div className="space-y-2">
-					<label className="text-sm font-medium">
-						{t('aiChatSettings.defaultModel')}
-					</label>
+					<label className="text-sm font-medium">{t('aiChatSettings.defaultModel')}</label>
 					<Select
 						value={defaultConfigId ?? '__none__'}
 						disabled={!hasConfigs}
@@ -78,16 +84,16 @@ export function AiChatSettingsCard() {
 								{defaultConfigId
 									? (() => {
 											const c = configs.find((c) => c.id === defaultConfigId);
-											return c ? `${c.name}${c.model ? ` (${c.model})` : ''}` : t('aiChatSettings.noDefault');
+											return c
+												? `${c.name}${c.model ? ` (${c.model})` : ''}`
+												: t('aiChatSettings.noDefault');
 										})()
 									: t('aiChatSettings.noDefault')}
 							</SelectValue>
 						</SelectTrigger>
 						{hasConfigs ? (
 							<SelectContent position="popper" className="z-[200]">
-								<SelectItem value="__none__">
-									{t('aiChatSettings.noDefault')}
-								</SelectItem>
+								<SelectItem value="__none__">{t('aiChatSettings.noDefault')}</SelectItem>
 								{configs.map((c) => (
 									<SelectItem key={c.id} value={c.id} className="cursor-pointer">
 										{c.name}
@@ -101,11 +107,13 @@ export function AiChatSettingsCard() {
 
 				{/* 连接测试 */}
 				<div className="space-y-2">
-					<label className="text-sm font-medium">
-						{t('aiChatSettings.connectionTest')}
-					</label>
+					<label className="text-sm font-medium">{t('aiChatSettings.connectionTest')}</label>
 					<div className="flex items-center gap-2">
-						<Select value={selectedConfigId} onValueChange={setSelectedConfigId} disabled={!hasConfigs}>
+						<Select
+							value={selectedConfigId}
+							onValueChange={setSelectedConfigId}
+							disabled={!hasConfigs}
+						>
 							<SelectTrigger className="flex-1">
 								<SelectValue placeholder={configSelectPlaceholder} />
 							</SelectTrigger>
@@ -113,7 +121,8 @@ export function AiChatSettingsCard() {
 								<SelectContent>
 									{configs.map((c) => (
 										<SelectItem key={c.id} value={c.id}>
-											{c.name} ({c.model}){c.id === defaultConfigId ? ` ${t('aiChatSettings.isDefault')}` : ''}
+											{c.name} ({c.model})
+											{c.id === defaultConfigId ? ` ${t('aiChatSettings.isDefault')}` : ''}
 										</SelectItem>
 									))}
 								</SelectContent>
@@ -130,7 +139,9 @@ export function AiChatSettingsCard() {
 						</Button>
 						<Button
 							size="sm"
-							variant={selectedConfigId && selectedConfigId === defaultConfigId ? 'default' : 'outline'}
+							variant={
+								selectedConfigId && selectedConfigId === defaultConfigId ? 'default' : 'outline'
+							}
 							disabled={!selectedConfigId || setDefaultMutation.isPending}
 							onClick={() => {
 								if (selectedConfigId === defaultConfigId) {
@@ -140,19 +151,27 @@ export function AiChatSettingsCard() {
 								}
 							}}
 							className="cursor-pointer"
-							title={selectedConfigId === defaultConfigId
-								? t('aiChatSettings.removeDefault')
-								: t('aiChatSettings.setDefault')}
+							title={
+								selectedConfigId === defaultConfigId
+									? t('aiChatSettings.removeDefault')
+									: t('aiChatSettings.setDefault')
+							}
 						>
-							<Star className={`h-4 w-4 ${selectedConfigId && selectedConfigId === defaultConfigId ? 'fill-current' : ''}`} />
+							<Star
+								className={`h-4 w-4 ${selectedConfigId && selectedConfigId === defaultConfigId ? 'fill-current' : ''}`}
+							/>
 						</Button>
 					</div>
 					{testResult && (
-						<div className={`flex items-center gap-2 text-sm ${testResult.success ? 'text-green-600' : 'text-destructive'}`}>
+						<div
+							className={`flex items-center gap-2 text-sm ${testResult.success ? 'text-green-600' : 'text-destructive'}`}
+						>
 							{testResult.success ? (
 								<>
 									<Check className="h-4 w-4" />
-									<span>{t('aiChatSettings.connected')} ({testResult.latencyMs}ms)</span>
+									<span>
+										{t('aiChatSettings.connected')} ({testResult.latencyMs}ms)
+									</span>
 								</>
 							) : (
 								<>
@@ -167,9 +186,7 @@ export function AiChatSettingsCard() {
 				{/* 模型能力 */}
 				{modelCap && (
 					<div className="space-y-2">
-						<label className="text-sm font-medium">
-							{t('aiChatSettings.modelCapabilities')}
-						</label>
+						<label className="text-sm font-medium">{t('aiChatSettings.modelCapabilities')}</label>
 						<div className="flex flex-wrap gap-2 text-xs">
 							<span className="rounded bg-muted px-2 py-1 tabular-nums">
 								{formatContextWindow(modelCap.contextWindow)} ctx

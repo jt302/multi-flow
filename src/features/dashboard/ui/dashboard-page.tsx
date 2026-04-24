@@ -1,20 +1,12 @@
 import { BarChart3, Globe2, PanelsTopLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
-import {
-	Badge,
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle,
-	Icon,
-} from '@/components/ui';
 import { DataSection } from '@/components/common';
-import { MetricsGrid } from './metrics-grid';
+import { Badge, Card, CardContent, CardHeader, CardTitle, Icon } from '@/components/ui';
+import { useGroupsQuery } from '@/entities/group/model/use-groups-query';
 import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
 import { useProxiesQuery } from '@/entities/proxy/model/use-proxies-query';
 import { useWindowStatesQuery } from '@/entities/window-session/model/use-window-states-query';
-import { useGroupsQuery } from '@/entities/group/model/use-groups-query';
+import { MetricsGrid } from './metrics-grid';
 
 export function DashboardPage() {
 	const { t } = useTranslation('dashboard');
@@ -55,9 +47,16 @@ export function DashboardPage() {
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="p-0 pt-2 text-xs text-muted-foreground space-y-1">
-							<p>{t('overview.profilesByGroup', { groups: activeGroups.length, profiles: activeProfiles.length })}</p>
+							<p>
+								{t('overview.profilesByGroup', {
+									groups: activeGroups.length,
+									profiles: activeProfiles.length,
+								})}
+							</p>
 							{activeGroups.slice(0, 3).map((g) => (
-								<p key={g.id} className="pl-2">• {g.name}: {g.profileCount}</p>
+								<p key={g.id} className="pl-2">
+									• {g.name}: {g.profileCount}
+								</p>
 							))}
 							{activeGroups.length > 3 && <p className="pl-2 text-muted-foreground/60">…</p>}
 						</CardContent>
@@ -70,7 +69,13 @@ export function DashboardPage() {
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="p-0 pt-2 text-xs text-muted-foreground space-y-1">
-							<p>{t('proxyHealth.summary', { total: activeProxies.length, error: proxyErrorCount, unchecked: proxyUnchecked })}</p>
+							<p>
+								{t('proxyHealth.summary', {
+									total: activeProxies.length,
+									error: proxyErrorCount,
+									unchecked: proxyUnchecked,
+								})}
+							</p>
 						</CardContent>
 					</Card>
 					<Card className="p-3">
@@ -110,8 +115,12 @@ export function DashboardPage() {
 									<p className="truncate font-medium">{row.name}</p>
 									<p className="truncate text-xs text-muted-foreground">{row.group}</p>
 								</div>
-								<p className="text-xs text-muted-foreground sm:text-right">{t('sessionsTable.windows', { count: row.totalWindows })}</p>
-								<p className="text-xs text-muted-foreground sm:text-right">{t('sessionsTable.tabs', { count: row.totalTabs })}</p>
+								<p className="text-xs text-muted-foreground sm:text-right">
+									{t('sessionsTable.windows', { count: row.totalWindows })}
+								</p>
+								<p className="text-xs text-muted-foreground sm:text-right">
+									{t('sessionsTable.tabs', { count: row.totalTabs })}
+								</p>
 							</div>
 						))
 					)}

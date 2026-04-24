@@ -1,11 +1,10 @@
 import assert from 'node:assert/strict';
 import process from 'node:process';
-
+import type { ScriptStep } from '../src/entities/automation/model/types.ts';
 import {
 	flattenControlFlowTree,
 	resolveControlFlowGraph,
 } from '../src/features/automation-canvas/model/canvas-helpers.ts';
-import type { ScriptStep } from '../src/entities/automation/model/types.ts';
 
 function assertRoundTrip(name: string, steps: ScriptStep[]) {
 	const { flatSteps, edges } = flattenControlFlowTree(steps);
@@ -42,10 +41,7 @@ const cases: Array<{ name: string; steps: ScriptStep[] }> = [
 					{ text: '继续', value: 'confirm', variant: 'default' },
 					{ text: '取消', value: 'cancel', variant: 'outline' },
 				],
-				button_branches: [
-					[],
-					[{ kind: 'end' }],
-				],
+				button_branches: [[], [{ kind: 'end' }]],
 				confirm_text: '继续',
 				cancel_text: '取消',
 				on_timeout: 'cancel',
@@ -65,7 +61,13 @@ const cases: Array<{ name: string; steps: ScriptStep[] }> = [
 			{ kind: 'wait', ms: 3000 },
 			{ kind: 'cdp_press_key', key: 'Enter' },
 			{ kind: 'cdp_wait_for_page_load', timeout_ms: 30000 },
-			{ kind: 'ai_judge', prompt: '是否遇到人机验证', output_mode: 'boolean', max_steps: 5, output_key: 'is_done' },
+			{
+				kind: 'ai_judge',
+				prompt: '是否遇到人机验证',
+				output_mode: 'boolean',
+				max_steps: 5,
+				output_key: 'is_done',
+			},
 			{
 				kind: 'condition',
 				condition_expr: '{{is_done}}',
@@ -78,10 +80,7 @@ const cases: Array<{ name: string; steps: ScriptStep[] }> = [
 							{ text: '已完成', value: 'confirm', variant: 'default' },
 							{ text: '取消', value: 'cancel', variant: 'default' },
 						],
-						button_branches: [
-							[],
-							[{ kind: 'end' }],
-						],
+						button_branches: [[], [{ kind: 'end' }]],
 						confirm_text: '确认完成',
 						cancel_text: '取消',
 						on_timeout: 'cancel',

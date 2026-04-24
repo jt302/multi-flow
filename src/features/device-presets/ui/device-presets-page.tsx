@@ -1,10 +1,6 @@
-import { useState } from 'react';
 import { Copy, Eye, Pencil, Plus, Trash2 } from 'lucide-react';
-
-import { getPlatformMeta } from '@/entities/profile/lib/platform-meta';
-import { PlatformGlyph } from '@/entities/profile/ui/platform-mark';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import {
 	Badge,
 	Button,
@@ -19,19 +15,19 @@ import {
 	Label,
 	ScrollArea,
 } from '@/components/ui';
+import { getPlatformMeta } from '@/entities/profile/lib/platform-meta';
 import type {
 	ProfileDevicePresetItem,
 	SaveProfileDevicePresetPayload,
 } from '@/entities/profile/model/types';
 import { useDevicePresetRefCountQuery } from '@/entities/profile/model/use-device-preset-ref-count-query';
+import { PlatformGlyph } from '@/entities/profile/ui/platform-mark';
 import { useDevicePresetEditor } from '@/features/device-presets/model/use-device-preset-editor';
 import { DevicePresetForm } from '@/features/device-presets/ui/device-preset-form';
 
 type DevicePresetsPageProps = {
 	devicePresets: ProfileDevicePresetItem[];
-	onCreateDevicePreset: (
-		payload: SaveProfileDevicePresetPayload,
-	) => Promise<void>;
+	onCreateDevicePreset: (payload: SaveProfileDevicePresetPayload) => Promise<void>;
 	onUpdateDevicePreset: (
 		presetId: string,
 		payload: SaveProfileDevicePresetPayload,
@@ -52,28 +48,21 @@ export function DevicePresetsPage({
 }: DevicePresetsPageProps) {
 	const [formOpen, setFormOpen] = useState(false);
 	const [formMode, setFormMode] = useState<DevicePresetFormMode>('create');
-	const [deleteTarget, setDeleteTarget] =
-		useState<ProfileDevicePresetItem | null>(null);
+	const [deleteTarget, setDeleteTarget] = useState<ProfileDevicePresetItem | null>(null);
 	const [deleting, setDeleting] = useState(false);
 	const [syncConfirmOpen, setSyncConfirmOpen] = useState(false);
 	const [syncChecked, setSyncChecked] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const { t } = useTranslation(['device', 'common']);
 
-	const {
-		form,
-		activePreset,
-		copyPreset,
-		setActivePresetId,
-		resetPresetEditor,
-		handleSavePreset,
-	} = useDevicePresetEditor({
-		devicePresets,
-		onCreateDevicePreset,
-		onUpdateDevicePreset,
-		onRefreshDevicePresets,
-		t,
-	});
+	const { form, activePreset, copyPreset, setActivePresetId, resetPresetEditor, handleSavePreset } =
+		useDevicePresetEditor({
+			devicePresets,
+			onCreateDevicePreset,
+			onUpdateDevicePreset,
+			onRefreshDevicePresets,
+			t,
+		});
 
 	const { data: refCount = 0 } = useDevicePresetRefCountQuery(activePreset?.id);
 
@@ -153,9 +142,7 @@ export function DevicePresetsPage({
 			<div className="flex items-center justify-between">
 				<div>
 					<h2 className="text-lg font-semibold">{t('page.title')}</h2>
-					<p className="text-sm text-muted-foreground mt-0.5">
-						{t('page.desc')}
-					</p>
+					<p className="text-sm text-muted-foreground mt-0.5">{t('page.desc')}</p>
 				</div>
 				<Button type="button" onClick={openCreate} className="cursor-pointer">
 					<Plus className="h-4 w-4 mr-1.5" />
@@ -186,35 +173,22 @@ export function DevicePresetsPage({
 										/>
 										<div className="min-w-0 flex-1">
 											<div className="flex items-center gap-2">
-												<p className="text-sm font-medium truncate">
-													{preset.label}
-												</p>
-												<Badge
-													variant="outline"
-													className="text-xs flex-shrink-0"
-												>
+												<p className="text-sm font-medium truncate">{preset.label}</p>
+												<Badge variant="outline" className="text-xs flex-shrink-0">
 													{preset.formFactor}
 												</Badge>
-												<Badge
-													variant="secondary"
-													className="text-xs flex-shrink-0"
-												>
+												<Badge variant="secondary" className="text-xs flex-shrink-0">
 													Chrome {preset.browserVersion}
 												</Badge>
-												{preset.mobile &&
-													preset.formFactor.trim().toLowerCase() !== 'mobile' && (
-														<Badge
-															variant="secondary"
-															className="text-xs flex-shrink-0"
-														>
-															{t('common:mobile')}
-														</Badge>
-													)}
+												{preset.mobile && preset.formFactor.trim().toLowerCase() !== 'mobile' && (
+													<Badge variant="secondary" className="text-xs flex-shrink-0">
+														{t('common:mobile')}
+													</Badge>
+												)}
 											</div>
 											<p className="text-xs text-muted-foreground mt-0.5">
-												{preset.platform} · {preset.viewportWidth}×
-												{preset.viewportHeight} · DPR {preset.deviceScaleFactor} ·{' '}
-												{preset.arch} {preset.bitness}-bit
+												{preset.platform} · {preset.viewportWidth}×{preset.viewportHeight} · DPR{' '}
+												{preset.deviceScaleFactor} · {preset.arch} {preset.bitness}-bit
 											</p>
 										</div>
 									</div>
@@ -330,9 +304,7 @@ export function DevicePresetsPage({
 				<DialogContent className="max-w-md">
 					<DialogHeader>
 						<DialogTitle>{t('page.syncTitle')}</DialogTitle>
-						<DialogDescription>
-							{t('page.syncDesc', { count: refCount })}
-						</DialogDescription>
+						<DialogDescription>{t('page.syncDesc', { count: refCount })}</DialogDescription>
 					</DialogHeader>
 					<div className="flex items-center gap-2 py-2">
 						<Checkbox
@@ -356,7 +328,9 @@ export function DevicePresetsPage({
 						<Button
 							type="button"
 							disabled={saving}
-							onClick={() => { void handleSyncConfirm(); }}
+							onClick={() => {
+								void handleSyncConfirm();
+							}}
 							className="cursor-pointer"
 						>
 							{t('page.syncConfirm')}
@@ -397,9 +371,7 @@ export function DevicePresetsPage({
 							}}
 							className="cursor-pointer"
 						>
-							{deleting
-								? t('common:deletingInProgress')
-								: t('page.confirmDelete')}
+							{deleting ? t('common:deletingInProgress') : t('page.confirmDelete')}
 						</Button>
 					</DialogFooter>
 				</DialogContent>

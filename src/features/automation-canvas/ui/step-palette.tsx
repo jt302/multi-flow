@@ -5,9 +5,6 @@
  * 折叠时只显示一个展开按钮。
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-
 import {
 	ChevronDown,
 	ChevronRight,
@@ -16,24 +13,21 @@ import {
 	HelpCircle,
 	Search,
 } from 'lucide-react';
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 import {
-	GROUP_COLORS,
-	PALETTE_DOT_COLORS,
 	GROUP_ACCENT_COLORS,
-	KIND_GROUPS,
+	GROUP_COLORS,
+	getGroupLabel,
 	getKindDescription,
 	getKindLabel,
-	getGroupLabel,
+	KIND_GROUPS,
+	PALETTE_DOT_COLORS,
 	PALETTE_GROUPS,
 	STEP_TOOL_INFO,
 } from '@/entities/automation/model/step-registry';
@@ -62,22 +56,20 @@ function StepToolPopover({ kind }: { kind: string }) {
 	const groupLabel = getGroupLabel(groupKey);
 
 	return (
-		<div
-			className={`w-80 border-l-4 ${accentColor} bg-popover rounded-lg shadow-lg`}
-		>
+		<div className={`w-80 border-l-4 ${accentColor} bg-popover rounded-lg shadow-lg`}>
 			{/* Header */}
-				<div className="px-4 py-3 border-b">
-					<div className="flex items-center gap-2 mb-1">
+			<div className="px-4 py-3 border-b">
+				<div className="flex items-center gap-2 mb-1">
 					<span
 						className={`inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded ${GROUP_COLORS[groupKey] ?? GROUP_COLORS['通用']}`}
 					>
 						{groupLabel}
 					</span>
-					</div>
-					<h4 className="font-semibold text-xs text-muted-foreground mt-3 break-words [overflow-wrap:anywhere]">
-						{getKindLabel(kind)}
-					</h4>
 				</div>
+				<h4 className="font-semibold text-xs text-muted-foreground mt-3 break-words [overflow-wrap:anywhere]">
+					{getKindLabel(kind)}
+				</h4>
+			</div>
 
 			<div className="p-4 space-y-4">
 				{/* Description */}
@@ -102,17 +94,11 @@ function StepToolPopover({ kind }: { kind: string }) {
 										{input.name}
 									</code>
 									{input.required ? (
-										<Badge
-											variant="secondary"
-											className="text-[10px] h-4 px-1 shrink-0"
-										>
+										<Badge variant="secondary" className="text-[10px] h-4 px-1 shrink-0">
 											{t('automation:stepTooltip.required', '必需')}
 										</Badge>
 									) : (
-										<Badge
-											variant="outline"
-											className="text-[10px] h-4 px-1 shrink-0"
-										>
+										<Badge variant="outline" className="text-[10px] h-4 px-1 shrink-0">
 											{t('automation:stepTooltip.optional', '可选')}
 										</Badge>
 									)}
@@ -231,9 +217,7 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 			label: favoritesLabel,
 			kinds: FAVORITE_KINDS.filter(
 				(k) =>
-					!isSearching ||
-					getKindLabel(k).toLowerCase().includes(q) ||
-					k.toLowerCase().includes(q),
+					!isSearching || getKindLabel(k).toLowerCase().includes(q) || k.toLowerCase().includes(q),
 			),
 		};
 
@@ -247,16 +231,11 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 				if (favoriteSet.has(kind)) return false;
 				if (!isSearching) return true;
 				const label = getKindLabel(kind);
-				return (
-					label.toLowerCase().includes(q) || kind.toLowerCase().includes(q)
-				);
+				return label.toLowerCase().includes(q) || kind.toLowerCase().includes(q);
 			}),
 		})).filter((group) => group.kinds.length > 0);
 
-		const result =
-			favoriteGroup.kinds.length > 0
-				? [favoriteGroup, ...otherGroups]
-				: otherGroups;
+		const result = favoriteGroup.kinds.length > 0 ? [favoriteGroup, ...otherGroups] : otherGroups;
 		return result;
 	}, [search, favoritesLabel]);
 
@@ -343,10 +322,7 @@ export function StepPalette({ onAddStep, collapsed, onToggleCollapse }: Props) {
 								{/* 该分组下的步骤按钮（折叠时隐藏） */}
 								{isExpanded &&
 									group.kinds.map((kind) => (
-										<div
-											key={kind}
-											className="flex items-center gap-1 group/item"
-										>
+										<div key={kind} className="flex items-center gap-1 group/item">
 											<button
 												type="button"
 												className="flex-1 text-left text-xs px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer flex items-center gap-2"

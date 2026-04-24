@@ -5,12 +5,30 @@ import test from 'node:test';
 const pageSource = readFileSync(new URL('./mcp-page.tsx', import.meta.url), 'utf8');
 const listSource = readFileSync(new URL('./mcp-server-list.tsx', import.meta.url), 'utf8');
 const editorSource = readFileSync(new URL('./mcp-server-editor.tsx', import.meta.url), 'utf8');
-const mutationsSource = readFileSync(new URL('../model/use-mcp-mutations.ts', import.meta.url), 'utf8');
-const apiSource = readFileSync(new URL('../../../entities/mcp/api/mcp-api.ts', import.meta.url), 'utf8');
-const commandSource = readFileSync(new URL('../../../../src-tauri/src/commands/mcp_commands.rs', import.meta.url), 'utf8');
-const managerSource = readFileSync(new URL('../../../../src-tauri/src/services/mcp/manager.rs', import.meta.url), 'utf8');
-const zhChatSource = readFileSync(new URL('../../../shared/i18n/locales/zh-CN/chat.json', import.meta.url), 'utf8');
-const enChatSource = readFileSync(new URL('../../../shared/i18n/locales/en-US/chat.json', import.meta.url), 'utf8');
+const mutationsSource = readFileSync(
+	new URL('../model/use-mcp-mutations.ts', import.meta.url),
+	'utf8',
+);
+const apiSource = readFileSync(
+	new URL('../../../entities/mcp/api/mcp-api.ts', import.meta.url),
+	'utf8',
+);
+const commandSource = readFileSync(
+	new URL('../../../../src-tauri/src/commands/mcp_commands.rs', import.meta.url),
+	'utf8',
+);
+const managerSource = readFileSync(
+	new URL('../../../../src-tauri/src/services/mcp/manager.rs', import.meta.url),
+	'utf8',
+);
+const zhChatSource = readFileSync(
+	new URL('../../../shared/i18n/locales/zh-CN/chat.json', import.meta.url),
+	'utf8',
+);
+const enChatSource = readFileSync(
+	new URL('../../../shared/i18n/locales/en-US/chat.json', import.meta.url),
+	'utf8',
+);
 
 test('mcp page opens create and edit flows in a dialog instead of inline editing', () => {
 	assert.equal(pageSource.includes('<Dialog'), true);
@@ -25,11 +43,17 @@ test('mcp page uses the same single-column shell style as skills instead of a pe
 	assert.equal(pageSource.includes('usePersistentLayout'), false);
 	assert.equal(pageSource.includes("t('mcp.pageDescription')"), true);
 	assert.equal(pageSource.includes('void serversQuery.refetch()'), true);
-	assert.equal(pageSource.includes('rounded-xl border border-border/70 bg-card px-5 py-4 shadow-sm'), true);
+	assert.equal(
+		pageSource.includes('rounded-xl border border-border/70 bg-card px-5 py-4 shadow-sm'),
+		true,
+	);
 });
 
 test('mcp list uses card rows with status, transport, summary and switch actions', () => {
-	assert.equal(listSource.includes('rounded-xl border border-border/70 bg-card p-3 shadow-sm'), true);
+	assert.equal(
+		listSource.includes('rounded-xl border border-border/70 bg-card p-3 shadow-sm'),
+		true,
+	);
 	assert.equal(listSource.includes('border-dashed border-border/70 bg-card/70'), true);
 	assert.equal(listSource.includes('hover:bg-accent/30'), true);
 	assert.equal(listSource.includes('statusVariant'), true);
@@ -56,8 +80,11 @@ test('mcp editor uses in-app delete confirmation and draft connection testing', 
 
 test('mcp mutations and tauri api expose draft connection testing', () => {
 	assert.equal(mutationsSource.includes('useTestMcpDraftConnection'), true);
-	assert.equal(apiSource.includes("testConnectionDraft: (payload: CreateMcpServerRequest)"), true);
-	assert.equal(apiSource.includes("tauriInvoke<string>('test_mcp_connection_draft', { payload })"), true);
+	assert.equal(apiSource.includes('testConnectionDraft: (payload: CreateMcpServerRequest)'), true);
+	assert.equal(
+		apiSource.includes("tauriInvoke<string>('test_mcp_connection_draft', { payload })"),
+		true,
+	);
 });
 
 test('mcp backend exposes a draft test command without persisting the form first', () => {

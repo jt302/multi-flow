@@ -1,5 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { ThemeRuntime } from '@/entities/theme/ui/theme-runtime';
+import { reportFrontendError } from '@/shared/lib/frontend-errors';
+import { AppRouter } from './router';
 import { AiDialogModal } from './ui/ai-dialog-modal';
 import { AutomationNotificationListener } from './ui/automation-notification-listener';
 import { AutomationProgressListener } from './ui/automation-progress-listener';
@@ -8,8 +10,6 @@ import { ChromiumEventsListener } from './ui/chromium-events-listener';
 import { HumanInterventionModal } from './ui/human-intervention-modal';
 import { StepErrorPauseModal } from './ui/step-error-pause-modal';
 import { ToolConfirmationModal } from './ui/tool-confirmation-modal';
-import { AppRouter } from './router';
-import { reportFrontendError } from '@/shared/lib/frontend-errors';
 
 class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
 	state = { error: null };

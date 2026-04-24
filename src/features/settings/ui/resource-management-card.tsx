@@ -26,10 +26,7 @@ type ResourceManagementCardProps = {
 	geoItems: ResourceItem[];
 	pendingKey: string;
 	onRefreshResources: () => void;
-	onInstallChromium: (
-		resourceId: string,
-		options?: { force?: boolean },
-	) => void;
+	onInstallChromium: (resourceId: string, options?: { force?: boolean }) => void;
 	onDownloadResource: (resourceId: string, label?: string) => void;
 };
 
@@ -61,9 +58,7 @@ function ResourceProgressBlock({
 		<div className="mt-2 space-y-1">
 			<div className="flex items-center justify-between text-[11px] text-muted-foreground">
 				<span>{stageLabel}</span>
-				<span>
-					{progress.percent === null ? '--' : `${Math.floor(progress.percent)}%`}
-				</span>
+				<span>{progress.percent === null ? '--' : `${Math.floor(progress.percent)}%`}</span>
 			</div>
 			<div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
 				<div
@@ -74,8 +69,7 @@ function ResourceProgressBlock({
 				/>
 			</div>
 			<p className="text-[11px] text-muted-foreground">
-				{formatBytes(progress.downloadedBytes)} /{' '}
-				{formatBytes(progress.totalBytes)}
+				{formatBytes(progress.downloadedBytes)} / {formatBytes(progress.totalBytes)}
 			</p>
 		</div>
 	);
@@ -90,16 +84,12 @@ export function ResourceManagementCard({
 	onDownloadResource,
 }: ResourceManagementCardProps) {
 	const { t } = useTranslation(['settings', 'common']);
-	const [redownloadTarget, setRedownloadTarget] = useState<ResourceItem | null>(
-		null,
-	);
+	const [redownloadTarget, setRedownloadTarget] = useState<ResourceItem | null>(null);
 	return (
 		<Card className="p-4">
 			<div className="mb-2 flex items-center justify-between gap-3">
 				<div>
-					<CardTitle className="text-sm">
-						{t('settings:resource.chromiumVersions')}
-					</CardTitle>
+					<CardTitle className="text-sm">{t('settings:resource.chromiumVersions')}</CardTitle>
 					<p className="mt-1 text-xs text-muted-foreground">
 						{t('settings:resource.resourceDesc')}
 					</p>
@@ -122,18 +112,11 @@ export function ResourceManagementCard({
 					</p>
 				) : (
 					chromiumItems.map((item) => (
-						<div
-							key={item.id}
-							className="rounded-xl border border-border/70 bg-background/70 p-3"
-						>
+						<div key={item.id} className="rounded-xl border border-border/70 bg-background/70 p-3">
 							<div className="flex items-center justify-between gap-2">
 								<div className="min-w-0">
-									<p className="truncate text-sm font-medium">
-										Chromium {item.version}
-									</p>
-									<p className="truncate text-xs text-muted-foreground">
-										{item.platform}
-									</p>
+									<p className="truncate text-sm font-medium">Chromium {item.version}</p>
+									<p className="truncate text-xs text-muted-foreground">{item.platform}</p>
 								</div>
 								<div className="flex items-center gap-1">
 									{item.installed ? (
@@ -172,10 +155,7 @@ export function ResourceManagementCard({
 					))
 				)}
 				{geoItems.map((item) => (
-					<div
-						key={item.id}
-						className="rounded-xl border border-border/70 bg-background/70 p-3"
-					>
+					<div key={item.id} className="rounded-xl border border-border/70 bg-background/70 p-3">
 						<div className="flex items-center justify-between gap-2">
 							<div className="min-w-0">
 								<p className="truncate text-sm font-medium">
@@ -187,9 +167,7 @@ export function ResourceManagementCard({
 							</div>
 							<div className="flex items-center gap-1">
 								{item.installed ? (
-									<Badge variant="outline">
-										{t('settings:resource.downloaded')}
-									</Badge>
+									<Badge variant="outline">{t('settings:resource.downloaded')}</Badge>
 								) : (
 									<Badge variant="secondary">{t('common:notDownloaded')}</Badge>
 								)}
@@ -229,9 +207,7 @@ export function ResourceManagementCard({
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>
-							{t('settings:resource.redownloadConfirmTitle')}
-						</AlertDialogTitle>
+						<AlertDialogTitle>{t('settings:resource.redownloadConfirmTitle')}</AlertDialogTitle>
 						<AlertDialogDescription>
 							{t('settings:resource.redownloadConfirmDesc', {
 								version: redownloadTarget?.version ?? '',

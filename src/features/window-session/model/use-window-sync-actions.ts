@@ -1,14 +1,17 @@
-import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 
 import {
 	arrangeProfileWindows,
-	restoreLastArrangement,
 	batchRestoreProfileWindows,
 	batchSetProfileWindowBounds,
 	broadcastSyncText,
+	restoreLastArrangement,
 } from '@/entities/window-session/api/windows-api';
-import type { ArrangeWindowsPayload, WindowBoundsItem } from '@/entities/window-session/model/types';
+import type {
+	ArrangeWindowsPayload,
+	WindowBoundsItem,
+} from '@/entities/window-session/model/types';
 import { syncManagerStore } from '@/store/sync-manager-store';
 
 type WindowSyncActionsDeps = {
@@ -26,10 +29,7 @@ export function useWindowSyncActions({
 		await Promise.all([refreshWindowsStable(), refreshProfilesAndBindings()]);
 	};
 
-	const startSync = async (
-		profileIds: string[],
-		masterProfileId: string,
-	) => {
+	const startSync = async (profileIds: string[], masterProfileId: string) => {
 		try {
 			const slaveIds = profileIds.filter((profileId) => profileId !== masterProfileId);
 			await syncManagerStore.getState().startSync(masterProfileId, slaveIds);
@@ -73,9 +73,19 @@ export function useWindowSyncActions({
 			const result = await broadcastSyncText(slaveIds, text);
 			await refreshAll();
 			if (result.failedCount > 0) {
-				toast.warning(t('syncActions.textSyncResult', { success: result.successCount, fail: result.failedCount }));
+				toast.warning(
+					t('syncActions.textSyncResult', {
+						success: result.successCount,
+						fail: result.failedCount,
+					}),
+				);
 			} else {
-				toast.success(t('syncActions.textSyncResultShort', { success: result.successCount, total: result.total }));
+				toast.success(
+					t('syncActions.textSyncResultShort', {
+						success: result.successCount,
+						total: result.total,
+					}),
+				);
 			}
 		} catch (error) {
 			toast.error(t('syncActions.textSyncFailed'));
@@ -88,9 +98,19 @@ export function useWindowSyncActions({
 			const result = await batchRestoreProfileWindows(profileIds);
 			await refreshAll();
 			if (result.failedCount > 0) {
-				toast.warning(t('syncActions.showWindowResult', { success: result.successCount, fail: result.failedCount }));
+				toast.warning(
+					t('syncActions.showWindowResult', {
+						success: result.successCount,
+						fail: result.failedCount,
+					}),
+				);
 			} else {
-				toast.success(t('syncActions.showWindowResultShort', { success: result.successCount, total: result.total }));
+				toast.success(
+					t('syncActions.showWindowResultShort', {
+						success: result.successCount,
+						total: result.total,
+					}),
+				);
 			}
 		} catch (error) {
 			toast.error(t('syncActions.showWindowFailed'));
@@ -103,9 +123,19 @@ export function useWindowSyncActions({
 			const result = await batchSetProfileWindowBounds(profileIds, bounds);
 			await refreshAll();
 			if (result.failedCount > 0) {
-				toast.warning(t('syncActions.uniformSizeResult', { success: result.successCount, fail: result.failedCount }));
+				toast.warning(
+					t('syncActions.uniformSizeResult', {
+						success: result.successCount,
+						fail: result.failedCount,
+					}),
+				);
 			} else {
-				toast.success(t('syncActions.uniformSizeResultShort', { success: result.successCount, total: result.total }));
+				toast.success(
+					t('syncActions.uniformSizeResultShort', {
+						success: result.successCount,
+						total: result.total,
+					}),
+				);
 			}
 		} catch (error) {
 			toast.error(t('syncActions.uniformSizeFailed'));
@@ -118,9 +148,19 @@ export function useWindowSyncActions({
 			const result = await arrangeProfileWindows(payload);
 			await refreshAll();
 			if (result.failedCount > 0) {
-				toast.warning(t('syncActions.arrangeResult', { success: result.successCount, fail: result.failedCount }));
+				toast.warning(
+					t('syncActions.arrangeResult', {
+						success: result.successCount,
+						fail: result.failedCount,
+					}),
+				);
 			} else {
-				toast.success(t('syncActions.arrangeResultShort', { success: result.successCount, total: result.total }));
+				toast.success(
+					t('syncActions.arrangeResultShort', {
+						success: result.successCount,
+						total: result.total,
+					}),
+				);
 			}
 		} catch (error) {
 			toast.error(t('syncActions.arrangeFailed'));
@@ -133,9 +173,19 @@ export function useWindowSyncActions({
 			const result = await restoreLastArrangement();
 			await refreshAll();
 			if (result.failedCount > 0) {
-				toast.warning(t('syncActions.restoreResult', { success: result.successCount, fail: result.failedCount }));
+				toast.warning(
+					t('syncActions.restoreResult', {
+						success: result.successCount,
+						fail: result.failedCount,
+					}),
+				);
 			} else {
-				toast.success(t('syncActions.restoreResultShort', { success: result.successCount, total: result.total }));
+				toast.success(
+					t('syncActions.restoreResultShort', {
+						success: result.successCount,
+						total: result.total,
+					}),
+				);
 			}
 		} catch (error) {
 			toast.error(t('syncActions.restoreFailed'));

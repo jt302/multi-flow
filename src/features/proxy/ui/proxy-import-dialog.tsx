@@ -42,7 +42,12 @@ const DEFAULT_VALUES = {
 	content: '',
 };
 
-export function ProxyImportDialog({ open, pending, onOpenChange, onConfirm }: ProxyImportDialogProps) {
+export function ProxyImportDialog({
+	open,
+	pending,
+	onOpenChange,
+	onConfirm,
+}: ProxyImportDialogProps) {
 	const { t } = useTranslation(['proxy', 'common']);
 
 	const schema = useMemo(() => createSchema(t), [t]);
@@ -81,7 +86,10 @@ export function ProxyImportDialog({ open, pending, onOpenChange, onConfirm }: Pr
 					onSubmit={handleSubmit(async (values) => {
 						await onConfirm({
 							protocol: values.protocol as ProxyProtocol,
-							lines: values.content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
+							lines: values.content
+								.split(/\r?\n/)
+								.map((line) => line.trim())
+								.filter(Boolean),
 						});
 						onOpenChange(false);
 					})}
@@ -90,7 +98,9 @@ export function ProxyImportDialog({ open, pending, onOpenChange, onConfirm }: Pr
 						<p className="mb-1 text-xs text-muted-foreground">{t('common:protocol')}</p>
 						<Select
 							value={protocol}
-							onValueChange={(value) => setValue('protocol', value as ProxyProtocol, { shouldValidate: true })}
+							onValueChange={(value) =>
+								setValue('protocol', value as ProxyProtocol, { shouldValidate: true })
+							}
 							disabled={pending}
 						>
 							<SelectTrigger className="w-full cursor-pointer">
@@ -98,7 +108,9 @@ export function ProxyImportDialog({ open, pending, onOpenChange, onConfirm }: Pr
 							</SelectTrigger>
 							<SelectContent>
 								{['http', 'https', 'socks5', 'ssh'].map((item) => (
-									<SelectItem key={item} value={item}>{item}</SelectItem>
+									<SelectItem key={item} value={item}>
+										{item}
+									</SelectItem>
 								))}
 							</SelectContent>
 						</Select>

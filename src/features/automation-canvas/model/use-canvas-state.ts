@@ -4,19 +4,12 @@
  * 用于 InnerCanvas 组件，将业务逻辑从 UI 层中分离。
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-
-import { Position, addEdge, applyEdgeChanges, applyNodeChanges } from '@xyflow/react';
 import type { Connection, Edge, EdgeChange, Node, NodeChange } from '@xyflow/react';
-import i18next from 'i18next';
-import { toast } from 'sonner';
 
-import type {
-	AutomationScript,
-	ScriptStep,
-	ScriptVarDef,
-	ScriptSettings,
-} from '@/entities/automation/model/types';
+import { addEdge, applyEdgeChanges, applyNodeChanges, Position } from '@xyflow/react';
+import i18next from 'i18next';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import {
 	emitScriptUpdated,
 	saveAutomationCanvasGraph,
@@ -24,8 +17,15 @@ import {
 } from '@/entities/automation/api/automation-api';
 import { isTerminalStepKind } from '@/entities/automation/model/step-flow';
 import { defaultStep, KIND_LABELS } from '@/entities/automation/model/step-registry';
+import type {
+	AutomationScript,
+	ScriptSettings,
+	ScriptStep,
+	ScriptVarDef,
+} from '@/entities/automation/model/types';
 
 import type { StepNodeData } from '../ui/step-node';
+import type { PositionsMap } from './canvas-helpers';
 import {
 	buildCanvasDataJson,
 	buildNodes,
@@ -36,11 +36,10 @@ import {
 	flattenControlFlowTree,
 	getStartEdgeTarget,
 	parseCanvasData,
-	serializeControlFlowGraph,
 	START_NODE_ID,
+	serializeControlFlowGraph,
 	stripStartEdges,
 } from './canvas-helpers';
-import type { PositionsMap } from './canvas-helpers';
 
 // ─── Hook 返回类型 ─────────────────────────────────────────────────────────────
 
@@ -93,23 +92,20 @@ export function useCanvasState(
 		const { flatSteps, edges } = flattenControlFlowTree(script.steps);
 		const canvas = parseCanvasData(script.canvasPositionsJson, flatSteps);
 		// 合并孤立步骤（从 canvasPositionsJson 恢复）到 flat 步骤列表末尾
-		const allSteps = canvas.orphanedSteps && canvas.orphanedSteps.length > 0
-			? [...flatSteps, ...canvas.orphanedSteps]
-			: flatSteps;
+		const allSteps =
+			canvas.orphanedSteps && canvas.orphanedSteps.length > 0
+				? [...flatSteps, ...canvas.orphanedSteps]
+				: flatSteps;
 		return { initFlatSteps: allSteps, reconstructedEdges: edges, parsedCanvas: canvas };
 	});
 	const [steps, setSteps] = useState<ScriptStep[]>(initFlatSteps);
 	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 	const [saving, setSaving] = useState(false);
 	const [savedAt, setSavedAt] = useState<number | null>(null);
-	const [stepDelayMs, setStepDelayMs] = useState<number>(
-		() => script.settings?.stepDelayMs ?? 0,
-	);
+	const [stepDelayMs, setStepDelayMs] = useState<number>(() => script.settings?.stepDelayMs ?? 0);
 	const [varsDefs, setVarsDefs] = useState<ScriptVarDef[]>(() => {
 		try {
-			return script.variablesSchemaJson
-				? JSON.parse(script.variablesSchemaJson)
-				: [];
+			return script.variablesSchemaJson ? JSON.parse(script.variablesSchemaJson) : [];
 		} catch {
 			return [];
 		}
@@ -227,12 +223,7 @@ export function useCanvasState(
 					remappedPositions,
 					orphanedCount,
 					orphanedSteps,
-				} = serializeControlFlowGraph(
-					newSteps,
-					stepEdges,
-					stepPositions,
-					currentStartTarget,
-				);
+				} = serializeControlFlowGraph(newSteps, stepEdges, stepPositions, currentStartTarget);
 				const nextIndexByOldId = new Map(
 					orderedIds.map((oldId, newIndex) => [oldId, newIndex] as const),
 				);
@@ -247,14 +238,15 @@ export function useCanvasState(
 							...(previousNode ?? {
 								id: oldId,
 								type: 'step',
-								position: remappedPositions[`step-${newIndex}`] ?? { x: 120, y: newIndex * 120 + 60 },
+								position: remappedPositions[`step-${newIndex}`] ?? {
+									x: 120,
+									y: newIndex * 120 + 60,
+								},
 							}),
 							id: `step-${newIndex}`,
 							type: 'step',
-							position:
-								remappedPositions[`step-${newIndex}`] ??
-								previousNode?.position ??
-								{ x: 120, y: newIndex * 120 + 60 },
+							position: remappedPositions[`step-${newIndex}`] ??
+								previousNode?.position ?? { x: 120, y: newIndex * 120 + 60 },
 							data: {
 								...((previousNode?.data as StepNodeData | undefined) ?? {}),
 								step: flatSteps[newIndex],
@@ -323,13 +315,7 @@ export function useCanvasState(
 				setSaving(false);
 			}
 		},
-		[
-			buildCanvasDataJson,
-			buildNextSettings,
-			liveStatuses,
-			script.id,
-			serializeControlFlowGraph,
-		],
+		[buildCanvasDataJson, buildNextSettings, liveStatuses, script.id, serializeControlFlowGraph],
 	);
 
 	// ── 防抖保存管理 ─────────────────────────────────────────────────────────
@@ -370,14 +356,18 @@ export function useCanvasState(
 				const cleanPos = { ...positionsRef.current };
 				delete cleanPos[START_NODE_ID];
 				const serialized = serializeControlFlowGraph(
-						currentSteps,
-						cleanEdges,
-						cleanPos,
-						getStartEdgeTarget(edgesRef.current),
-					);
+					currentSteps,
+					cleanEdges,
+					cleanPos,
+					getStartEdgeTarget(edgesRef.current),
+				);
 				void saveAutomationCanvasGraph(script.id, {
 					steps: serialized.nestedSteps,
-					positionsJson: buildCanvasDataJson(positionsRef.current, edgesRef.current, serialized.orphanedSteps),
+					positionsJson: buildCanvasDataJson(
+						positionsRef.current,
+						edgesRef.current,
+						serialized.orphanedSteps,
+					),
 					settings: buildNextSettings(),
 				});
 			}
@@ -404,9 +394,7 @@ export function useCanvasState(
 					// 取消防抖保存，获取最新 steps（含未保存的属性编辑）
 					const baseSteps = flushPendingEdits();
 					const sortedRemoved = [...removedIndices].sort((a, b) => a - b);
-					const newSteps = baseSteps.filter(
-						(_, i) => !removedIndices.has(i),
-					);
+					const newSteps = baseSteps.filter((_, i) => !removedIndices.has(i));
 					setSteps(newSteps);
 					setSelectedIndex(null);
 
@@ -416,8 +404,12 @@ export function useCanvasState(
 						(e) => !deletedIds.has(e.source) && !deletedIds.has(e.target),
 					);
 					// Start 节点边单独处理（不参与 step-N 重映射）
-					const startEdges = surviving.filter((e) => e.source === START_NODE_ID || e.target === START_NODE_ID);
-					const stepSurviving = surviving.filter((e) => e.source !== START_NODE_ID && e.target !== START_NODE_ID);
+					const startEdges = surviving.filter(
+						(e) => e.source === START_NODE_ID || e.target === START_NODE_ID,
+					);
+					const stepSurviving = surviving.filter(
+						(e) => e.source !== START_NODE_ID && e.target !== START_NODE_ID,
+					);
 					const remappedStepEdges = stepSurviving.map((e) => {
 						const si = parseInt(e.source.replace('step-', ''), 10);
 						const ti = parseInt(e.target.replace('step-', ''), 10);
@@ -534,10 +526,7 @@ export function useCanvasState(
 			// 禁止节点自连接
 			if (connection.source === connection.target) return;
 			if (connection.source && connection.source !== START_NODE_ID) {
-				const sourceIndex = Number.parseInt(
-					connection.source.replace('step-', ''),
-					10,
-				);
+				const sourceIndex = Number.parseInt(connection.source.replace('step-', ''), 10);
 				const sourceStep = steps[sourceIndex];
 				if (sourceStep && isTerminalStepKind(sourceStep.kind)) {
 					toast.warning(
@@ -564,8 +553,7 @@ export function useCanvasState(
 				const filtered = prev.filter(
 					(e) =>
 						!(
-							e.target === connection.target &&
-							e.targetHandle === (connection.targetHandle ?? null)
+							e.target === connection.target && e.targetHandle === (connection.targetHandle ?? null)
 						),
 				);
 				const next = addEdge({ ...connection, type: 'smoothstep' }, filtered);
@@ -639,7 +627,10 @@ export function useCanvasState(
 			if (newIndex === 0) {
 				// 第一个步骤：从 Start 节点连线
 				const startEdge = buildStartEdge(`step-0`);
-				const nextEdges = [startEdge, ...edgesRef.current.filter((e) => e.source !== START_NODE_ID)];
+				const nextEdges = [
+					startEdge,
+					...edgesRef.current.filter((e) => e.source !== START_NODE_ID),
+				];
 				edgesRef.current = nextEdges;
 				setEdges(nextEdges);
 				scheduleCanvasSave(positionsRef.current, nextEdges);
@@ -667,9 +658,7 @@ export function useCanvasState(
 			// 同步更新对应节点的 data（即时反映到画布）
 			setNodes((prev) =>
 				prev.map((n) =>
-					n.id === `step-${index}`
-						? { ...n, data: { ...(n.data as StepNodeData), step } }
-						: n,
+					n.id === `step-${index}` ? { ...n, data: { ...(n.data as StepNodeData), step } } : n,
 				),
 			);
 			// 弹窗节点：按钮删除时清理连接到已移除 btn_N handle 的边

@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { toast } from 'sonner';
 import { Link, Loader2, TestTube, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import { z } from 'zod';
 
 import { ConfirmActionDialog } from '@/components/common/confirm-action-dialog';
 import { Button } from '@/components/ui/button';
@@ -19,12 +19,16 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import type { CreateMcpServerRequest, McpServer, OAuthDiscoveryResult } from '@/entities/mcp/model/types';
+import type {
+	CreateMcpServerRequest,
+	McpServer,
+	OAuthDiscoveryResult,
+} from '@/entities/mcp/model/types';
 import {
+	formatMcpErrorMessage,
 	useCreateMcpServer,
 	useDeleteMcpServer,
 	useDiscoverMcpOAuth,
-	formatMcpErrorMessage,
 	useStartMcpOAuth,
 	useTestMcpDraftConnection,
 	useUpdateMcpServer,
@@ -154,13 +158,7 @@ function toCreatePayload(values: FormValues): CreateMcpServerRequest {
 	};
 }
 
-export function McpServerEditor({
-	server,
-	isNew,
-	onSaved,
-	onDeleted,
-	onCancel,
-}: Props) {
+export function McpServerEditor({ server, isNew, onSaved, onDeleted, onCancel }: Props) {
 	const { t } = useTranslation('chat');
 	const [pendingDelete, setPendingDelete] = useState(false);
 	const createServer = useCreateMcpServer();
@@ -169,10 +167,7 @@ export function McpServerEditor({
 	const testConnection = useTestMcpDraftConnection();
 	const startOAuth = useStartMcpOAuth();
 	const discoverOAuth = useDiscoverMcpOAuth();
-	const initialValues = useMemo(
-		() => buildFormValues(server, t('mcp.newServerName')),
-		[server, t],
-	);
+	const initialValues = useMemo(() => buildFormValues(server, t('mcp.newServerName')), [server, t]);
 	const formSchema = useMemo(() => schema(t), [t]);
 
 	const form = useForm<FormValues>({
@@ -313,7 +308,9 @@ export function McpServerEditor({
 
 				<section className="space-y-4 rounded-xl border border-border/70 bg-card/60 p-4">
 					<div className="space-y-1">
-						<h3 className="text-sm font-medium text-foreground">{t('mcp.editorTransportSection')}</h3>
+						<h3 className="text-sm font-medium text-foreground">
+							{t('mcp.editorTransportSection')}
+						</h3>
 						<p className="text-xs text-muted-foreground">{t('mcp.editorTransportSectionHint')}</p>
 					</div>
 					{transport === 'stdio' ? (
@@ -326,7 +323,9 @@ export function McpServerEditor({
 									placeholder="npx"
 								/>
 								{form.formState.errors.command ? (
-									<p className="text-xs text-destructive">{form.formState.errors.command.message}</p>
+									<p className="text-xs text-destructive">
+										{form.formState.errors.command.message}
+									</p>
 								) : null}
 							</div>
 							<div className="space-y-1.5">
@@ -338,7 +337,9 @@ export function McpServerEditor({
 									placeholder='["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]'
 								/>
 								{form.formState.errors.argsJson ? (
-									<p className="text-xs text-destructive">{form.formState.errors.argsJson.message}</p>
+									<p className="text-xs text-destructive">
+										{form.formState.errors.argsJson.message}
+									</p>
 								) : null}
 							</div>
 							<div className="space-y-1.5">
@@ -350,7 +351,9 @@ export function McpServerEditor({
 									placeholder='{"API_KEY": "..."}'
 								/>
 								{form.formState.errors.envJson ? (
-									<p className="text-xs text-destructive">{form.formState.errors.envJson.message}</p>
+									<p className="text-xs text-destructive">
+										{form.formState.errors.envJson.message}
+									</p>
 								) : null}
 							</div>
 						</>
@@ -376,7 +379,9 @@ export function McpServerEditor({
 									placeholder='{"X-Custom": "value"}'
 								/>
 								{form.formState.errors.headersJson ? (
-									<p className="text-xs text-destructive">{form.formState.errors.headersJson.message}</p>
+									<p className="text-xs text-destructive">
+										{form.formState.errors.headersJson.message}
+									</p>
 								) : null}
 							</div>
 						</>
@@ -434,21 +439,29 @@ export function McpServerEditor({
 											onClick={() => {
 												const url = form.getValues('url') || '';
 												if (!url) {
-													import('sonner').then(({ toast }) => toast.error(t('mcp.discoverNeedsUrl')));
+													import('sonner').then(({ toast }) =>
+														toast.error(t('mcp.discoverNeedsUrl')),
+													);
 													return;
 												}
 												discoverOAuth.mutate(url, {
 													onSuccess: (result: OAuthDiscoveryResult) => {
 														const existing = form.getValues('oauthConfigJson');
 														let cfg: Record<string, unknown> = {};
-														try { cfg = JSON.parse(existing || '{}'); } catch {}
+														try {
+															cfg = JSON.parse(existing || '{}');
+														} catch {}
 														cfg.authUrl = result.authorizationEndpoint;
 														cfg.tokenUrl = result.tokenEndpoint;
 														if (result.scopesSupported.length > 0 && !cfg.scopes) {
 															cfg.scopes = result.scopesSupported;
 														}
-														form.setValue('oauthConfigJson', JSON.stringify(cfg, null, 2), { shouldDirty: true });
-														import('sonner').then(({ toast }) => toast.success(t('mcp.discoverSuccess')));
+														form.setValue('oauthConfigJson', JSON.stringify(cfg, null, 2), {
+															shouldDirty: true,
+														});
+														import('sonner').then(({ toast }) =>
+															toast.success(t('mcp.discoverSuccess')),
+														);
 													},
 												});
 											}}

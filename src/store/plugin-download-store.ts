@@ -45,6 +45,6 @@ export function usePluginDownloadProgress(
 	extensionId: string | null | undefined,
 ): PluginDownloadEntry | null {
 	return usePluginDownloadStore((state) =>
-		extensionId ? state.byExtensionId[extensionId] ?? null : null,
+		extensionId ? (state.byExtensionId[extensionId] ?? null) : null,
 	);
 }

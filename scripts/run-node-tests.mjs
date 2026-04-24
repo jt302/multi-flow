@@ -1,8 +1,8 @@
-import { readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawnSync } from 'node:child_process';
+import { readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 
-const roots = ["src", "src-tauri/src"];
+const roots = ['src', 'src-tauri/src'];
 const testFilePattern = /\.(test|spec)\.tsx?$/;
 
 function collectTestFiles(dir) {
@@ -27,21 +27,21 @@ const testFiles = roots
 	.sort();
 
 if (testFiles.length === 0) {
-	console.log("No Node tests found.");
+	console.log('No Node tests found.');
 	process.exit(0);
 }
 
 const result = spawnSync(
 	process.execPath,
 	[
-		"--import",
-		"tsx",
-		"--import",
-		"./scripts/register-node-test-assets.mjs",
-		"--test",
+		'--import',
+		'tsx',
+		'--import',
+		'./scripts/register-node-test-assets.mjs',
+		'--test',
 		...testFiles,
 	],
-	{ stdio: "inherit" },
+	{ stdio: 'inherit' },
 );
 
 process.exit(result.status ?? 1);

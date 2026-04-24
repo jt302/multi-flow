@@ -28,32 +28,22 @@ const UPDATE_ACTION_LABEL_KEYS: Record<PluginUpdateStatus, string> = {
 	error: 'library.updatePluginActions.checkAndUpdate',
 };
 
-function normalizePluginUpdateStatus(
-	status?: PluginUpdateStatus | null,
-): PluginUpdateStatus {
+function normalizePluginUpdateStatus(status?: PluginUpdateStatus | null): PluginUpdateStatus {
 	return status && status in STATUS_LABEL_KEYS ? status : 'unknown';
 }
 
-export function getPluginUpdateStatusLabelKey(
-	status?: PluginUpdateStatus | null,
-) {
+export function getPluginUpdateStatusLabelKey(status?: PluginUpdateStatus | null) {
 	return STATUS_LABEL_KEYS[normalizePluginUpdateStatus(status)];
 }
 
-export function getPluginUpdateCheckToastKey(
-	status?: PluginUpdateStatus | null,
-) {
+export function getPluginUpdateCheckToastKey(status?: PluginUpdateStatus | null) {
 	return STATUS_TOAST_KEYS[normalizePluginUpdateStatus(status)];
 }
 
-export function getPluginUpdatePackageToastKey(
-	status?: PluginUpdateStatus | null,
-) {
+export function getPluginUpdatePackageToastKey(status?: PluginUpdateStatus | null) {
 	return UPDATE_PACKAGE_TOAST_KEYS[normalizePluginUpdateStatus(status)];
 }
 
-export function getPluginUpdateActionLabelKey(
-	status?: PluginUpdateStatus | null,
-) {
+export function getPluginUpdateActionLabelKey(status?: PluginUpdateStatus | null) {
 	return UPDATE_ACTION_LABEL_KEYS[normalizePluginUpdateStatus(status)];
 }

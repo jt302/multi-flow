@@ -1,9 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import i18next from 'i18next';
 import { Link2, Unlink2 } from 'lucide-react';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import i18next from 'i18next';
 import { z } from 'zod/v3';
 
 import {
@@ -97,7 +97,10 @@ export function ProxyBindingCard({
 					})}
 				>
 					<div>
-						<Select value={selectedProfileId} onValueChange={(value) => setValue('profileId', value, { shouldValidate: true })}>
+						<Select
+							value={selectedProfileId}
+							onValueChange={(value) => setValue('profileId', value, { shouldValidate: true })}
+						>
 							<SelectTrigger className="w-full">
 								<SelectValue placeholder={t('common:placeholder.selectProfile')} />
 							</SelectTrigger>
@@ -109,10 +112,15 @@ export function ProxyBindingCard({
 								))}
 							</SelectContent>
 						</Select>
-						{errors.profileId ? <p className="mt-1 text-xs text-destructive">{errors.profileId.message}</p> : null}
+						{errors.profileId ? (
+							<p className="mt-1 text-xs text-destructive">{errors.profileId.message}</p>
+						) : null}
 					</div>
 					<div>
-						<Select value={selectedProxyId} onValueChange={(value) => setValue('proxyId', value, { shouldValidate: true })}>
+						<Select
+							value={selectedProxyId}
+							onValueChange={(value) => setValue('proxyId', value, { shouldValidate: true })}
+						>
 							<SelectTrigger className="w-full">
 								<SelectValue placeholder={t('common:placeholder.selectProxy')} />
 							</SelectTrigger>
@@ -124,21 +132,34 @@ export function ProxyBindingCard({
 								))}
 							</SelectContent>
 						</Select>
-						{errors.proxyId ? <p className="mt-1 text-xs text-destructive">{errors.proxyId.message}</p> : null}
+						{errors.proxyId ? (
+							<p className="mt-1 text-xs text-destructive">{errors.proxyId.message}</p>
+						) : null}
 					</div>
 					<div className="grid grid-cols-2 gap-2">
-						<Button type="submit" variant="outline" disabled={pending || !selectedProfileId || !selectedProxyId}>
+						<Button
+							type="submit"
+							variant="outline"
+							disabled={pending || !selectedProfileId || !selectedProxyId}
+						>
 							<Icon icon={Link2} size={13} />
 							{t('common:bind')}
 						</Button>
-						<Button type="button" variant="outline" disabled={pending || !selectedProfileId} onClick={() => void onUnbindProfileProxy(selectedProfileId)}>
+						<Button
+							type="button"
+							variant="outline"
+							disabled={pending || !selectedProfileId}
+							onClick={() => void onUnbindProfileProxy(selectedProfileId)}
+						>
 							<Icon icon={Unlink2} size={13} />
 							{t('common:unbind')}
 						</Button>
 					</div>
 					<div className="max-h-48 space-y-1.5 overflow-y-auto rounded-xl border border-border/70 p-2">
 						{boundRows.length === 0 ? (
-							<p className="px-1 py-6 text-center text-xs text-muted-foreground">{t('common:noBound')}</p>
+							<p className="px-1 py-6 text-center text-xs text-muted-foreground">
+								{t('common:noBound')}
+							</p>
 						) : (
 							boundRows.map(({ profile, proxy }) => (
 								<div
@@ -149,7 +170,14 @@ export function ProxyBindingCard({
 										<p className="truncate text-xs font-medium">{profile.name}</p>
 										<p className="truncate text-[11px] text-muted-foreground">{proxy?.name}</p>
 									</div>
-									<Button type="button" size="icon" variant="ghost" className="h-7 w-7" disabled={pending} onClick={() => void onUnbindProfileProxy(profile.id)}>
+									<Button
+										type="button"
+										size="icon"
+										variant="ghost"
+										className="h-7 w-7"
+										disabled={pending}
+										onClick={() => void onUnbindProfileProxy(profile.id)}
+									>
 										<Icon icon={Unlink2} size={12} />
 									</Button>
 								</div>

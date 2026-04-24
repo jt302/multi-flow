@@ -1,9 +1,21 @@
-import { useTranslation } from 'react-i18next';
 import { Eye, Focus, LayoutPanelTop, Plus, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Checkbox, Icon } from '@/components/ui';
+import {
+	Badge,
+	Button,
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+	Checkbox,
+	Icon,
+} from '@/components/ui';
 import type { ProfileItem } from '@/entities/profile/model/types';
-import type { ProfileWindowStateItem, WindowBoundsItem } from '@/entities/window-session/model/types';
+import type {
+	ProfileWindowStateItem,
+	WindowBoundsItem,
+} from '@/entities/window-session/model/types';
 import { WindowBoundsForm } from './window-bounds-form';
 
 type WindowStatesCardProps = {
@@ -24,7 +36,11 @@ type WindowStatesCardProps = {
 	onOpenWindow: (profileId: string, url?: string) => Promise<void>;
 	onCloseWindow: (profileId: string, windowId?: number) => Promise<void>;
 	onFocusWindow: (profileId: string, windowId?: number) => Promise<void>;
-	onSetWindowBounds: (profileId: string, bounds: WindowBoundsItem, windowId?: number) => Promise<void>;
+	onSetWindowBounds: (
+		profileId: string,
+		bounds: WindowBoundsItem,
+		windowId?: number,
+	) => Promise<void>;
 };
 
 export function WindowStatesCard({
@@ -86,19 +102,37 @@ export function WindowStatesCard({
 									<div className="flex items-center gap-2">
 										<Checkbox
 											checked={selected}
-											onCheckedChange={(checked) => onSelectProfile(state.profileId, checked === true)}
+											onCheckedChange={(checked) =>
+												onSelectProfile(state.profileId, checked === true)
+											}
 										/>
 										<p className="text-sm font-semibold">{profileLabel}</p>
-										<Badge variant="outline">{state.totalWindows} {t('states.windows')}</Badge>
-										<Badge variant="secondary">{state.totalTabs} {t('states.tabs')}</Badge>
-										<Badge variant={isRunning ? 'default' : 'secondary'}>
-											{isRunning ? (profileBusy ? t('states.operating') : t('states.running')) : t('states.stopped')}
+										<Badge variant="outline">
+											{state.totalWindows} {t('states.windows')}
 										</Badge>
-										{isRunning && !hasWindowSnapshot ? <Badge variant="outline">{t('states.syncing')}</Badge> : null}
+										<Badge variant="secondary">
+											{state.totalTabs} {t('states.tabs')}
+										</Badge>
+										<Badge variant={isRunning ? 'default' : 'secondary'}>
+											{isRunning
+												? profileBusy
+													? t('states.operating')
+													: t('states.running')
+												: t('states.stopped')}
+										</Badge>
+										{isRunning && !hasWindowSnapshot ? (
+											<Badge variant="outline">{t('states.syncing')}</Badge>
+										) : null}
 										{state.pid ? <Badge variant="secondary">PID {state.pid}</Badge> : null}
 									</div>
 									<div className="flex items-center gap-1">
-										<Button type="button" size="sm" variant="outline" className="cursor-pointer" onClick={() => onViewProfile(state.profileId)}>
+										<Button
+											type="button"
+											size="sm"
+											variant="outline"
+											className="cursor-pointer"
+											onClick={() => onViewProfile(state.profileId)}
+										>
 											<Icon icon={Eye} size={12} />
 											{t('states.profileDetail')}
 										</Button>
@@ -107,7 +141,11 @@ export function WindowStatesCard({
 											size="sm"
 											variant="outline"
 											className="cursor-pointer"
-											onClick={() => onRunProfileAction(state.profileId, async () => onOpenTab(state.profileId, await onResolveValidatedActionUrl()))}
+											onClick={() =>
+												onRunProfileAction(state.profileId, async () =>
+													onOpenTab(state.profileId, await onResolveValidatedActionUrl()),
+												)
+											}
 											disabled={!controllable}
 										>
 											<Icon icon={Plus} size={12} />
@@ -118,17 +156,41 @@ export function WindowStatesCard({
 											size="sm"
 											variant="outline"
 											className="cursor-pointer"
-											onClick={() => onRunProfileAction(state.profileId, async () => onOpenWindow(state.profileId, await onResolveValidatedActionUrl()))}
+											onClick={() =>
+												onRunProfileAction(state.profileId, async () =>
+													onOpenWindow(state.profileId, await onResolveValidatedActionUrl()),
+												)
+											}
 											disabled={!controllable}
 										>
 											<Icon icon={LayoutPanelTop} size={12} />
 											{t('states.newWindow')}
 										</Button>
-										<Button type="button" size="sm" variant="outline" className="cursor-pointer" onClick={() => onRunProfileAction(state.profileId, async () => onCloseTab(state.profileId))} disabled={!controllable}>
+										<Button
+											type="button"
+											size="sm"
+											variant="outline"
+											className="cursor-pointer"
+											onClick={() =>
+												onRunProfileAction(state.profileId, async () => onCloseTab(state.profileId))
+											}
+											disabled={!controllable}
+										>
 											<Icon icon={X} size={12} />
 											{t('states.closeCurrentTab')}
 										</Button>
-										<Button type="button" size="sm" variant="outline" className="cursor-pointer" onClick={() => onRunProfileAction(state.profileId, async () => onCloseInactiveTabs(state.profileId))} disabled={!controllable}>
+										<Button
+											type="button"
+											size="sm"
+											variant="outline"
+											className="cursor-pointer"
+											onClick={() =>
+												onRunProfileAction(state.profileId, async () =>
+													onCloseInactiveTabs(state.profileId),
+												)
+											}
+											disabled={!controllable}
+										>
 											<Icon icon={X} size={12} />
 											{t('states.closeBgTabs')}
 										</Button>
@@ -137,17 +199,46 @@ export function WindowStatesCard({
 
 								<div className="space-y-2">
 									{state.windows.map((window) => (
-										<div key={`${state.profileId}-${window.windowId}`} className="rounded-lg border border-border/60 p-2">
+										<div
+											key={`${state.profileId}-${window.windowId}`}
+											className="rounded-lg border border-border/60 p-2"
+										>
 											<div className="mb-1 flex items-center justify-between">
 												<div className="flex items-center gap-2 text-xs">
-													<Badge variant={window.focused ? 'default' : 'secondary'}>{t('states.windowNumber', { id: window.windowId })}</Badge>
-													<Badge variant="outline">{window.tabCount} {t('states.tabs')}</Badge>
+													<Badge variant={window.focused ? 'default' : 'secondary'}>
+														{t('states.windowNumber', { id: window.windowId })}
+													</Badge>
+													<Badge variant="outline">
+														{window.tabCount} {t('states.tabs')}
+													</Badge>
 												</div>
 												<div className="flex items-center gap-1">
-													<Button type="button" size="icon" variant="ghost" className="h-7 w-7 cursor-pointer" onClick={() => onRunProfileAction(state.profileId, async () => onFocusWindow(state.profileId, window.windowId))} disabled={!controllable}>
+													<Button
+														type="button"
+														size="icon"
+														variant="ghost"
+														className="h-7 w-7 cursor-pointer"
+														onClick={() =>
+															onRunProfileAction(state.profileId, async () =>
+																onFocusWindow(state.profileId, window.windowId),
+															)
+														}
+														disabled={!controllable}
+													>
 														<Icon icon={Focus} size={12} />
 													</Button>
-													<Button type="button" size="icon" variant="ghost" className="h-7 w-7 cursor-pointer" onClick={() => onRunProfileAction(state.profileId, async () => onCloseWindow(state.profileId, window.windowId))} disabled={!controllable}>
+													<Button
+														type="button"
+														size="icon"
+														variant="ghost"
+														className="h-7 w-7 cursor-pointer"
+														onClick={() =>
+															onRunProfileAction(state.profileId, async () =>
+																onCloseWindow(state.profileId, window.windowId),
+															)
+														}
+														disabled={!controllable}
+													>
 														<Icon icon={X} size={12} />
 													</Button>
 												</div>
@@ -171,16 +262,44 @@ export function WindowStatesCard({
 													>
 														<div className="min-w-0">
 															<div className="flex items-center gap-2">
-																{tab.active ? <Badge variant="default">{t('states.current')}</Badge> : <Badge variant="secondary">{t('states.background')}</Badge>}
+																{tab.active ? (
+																	<Badge variant="default">{t('states.current')}</Badge>
+																) : (
+																	<Badge variant="secondary">{t('states.background')}</Badge>
+																)}
 																<p className="truncate text-xs font-medium">{tab.title}</p>
 															</div>
-															<p className="truncate text-[11px] text-muted-foreground">{tab.url}</p>
+															<p className="truncate text-[11px] text-muted-foreground">
+																{tab.url}
+															</p>
 														</div>
 														<div className="flex items-center gap-1">
-															<Button type="button" size="icon" variant="ghost" className="h-7 w-7 cursor-pointer" onClick={() => onRunProfileAction(state.profileId, async () => onActivateTab(state.profileId, tab.tabId))} disabled={!controllable}>
+															<Button
+																type="button"
+																size="icon"
+																variant="ghost"
+																className="h-7 w-7 cursor-pointer"
+																onClick={() =>
+																	onRunProfileAction(state.profileId, async () =>
+																		onActivateTab(state.profileId, tab.tabId),
+																	)
+																}
+																disabled={!controllable}
+															>
 																<Icon icon={Focus} size={12} />
 															</Button>
-															<Button type="button" size="icon" variant="ghost" className="h-7 w-7 cursor-pointer" onClick={() => onRunProfileAction(state.profileId, async () => onCloseTab(state.profileId, tab.tabId))} disabled={!controllable}>
+															<Button
+																type="button"
+																size="icon"
+																variant="ghost"
+																className="h-7 w-7 cursor-pointer"
+																onClick={() =>
+																	onRunProfileAction(state.profileId, async () =>
+																		onCloseTab(state.profileId, tab.tabId),
+																	)
+																}
+																disabled={!controllable}
+															>
 																<Icon icon={X} size={12} />
 															</Button>
 														</div>
@@ -188,7 +307,18 @@ export function WindowStatesCard({
 												))}
 											</div>
 											<div className="mt-2 flex justify-end">
-												<Button type="button" size="sm" variant="ghost" className="cursor-pointer" onClick={() => onRunProfileAction(state.profileId, async () => onActivateTabByIndex(state.profileId, 0, window.windowId))} disabled={!controllable}>
+												<Button
+													type="button"
+													size="sm"
+													variant="ghost"
+													className="cursor-pointer"
+													onClick={() =>
+														onRunProfileAction(state.profileId, async () =>
+															onActivateTabByIndex(state.profileId, 0, window.windowId),
+														)
+													}
+													disabled={!controllable}
+												>
 													<Icon icon={Focus} size={12} />
 													{t('states.activateFirstTab')}
 												</Button>

@@ -38,7 +38,8 @@ export function createGroupManagementStore(initialState?: Partial<GroupManagemen
 		reset: () => set({ ...GROUP_MANAGEMENT_INITIAL_STATE }),
 		setSearchKeyword: (searchKeyword) => set({ searchKeyword }),
 		openCreateForm: () => set({ isFormOpen: true, editingGroupId: null, editorMode: 'create' }),
-		openEditForm: (groupId) => set({ isFormOpen: true, editingGroupId: groupId, editorMode: 'edit' }),
+		openEditForm: (groupId) =>
+			set({ isFormOpen: true, editingGroupId: groupId, editorMode: 'edit' }),
 		closeForm: () => set({ isFormOpen: false, editingGroupId: null, editorMode: 'create' }),
 	}));
 }

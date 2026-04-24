@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 
 import {
@@ -7,14 +7,13 @@ import {
 	listenAllPluginProgress,
 	type PluginDownloadProgressEvent,
 } from '@/entities/plugin/api/plugins-api';
-import { usePluginDownloadStore } from '@/store/plugin-download-store';
 import { queryKeys } from '@/shared/config/query-keys';
 import i18n from '@/shared/i18n';
+import { usePluginDownloadStore } from '@/store/plugin-download-store';
 
 function formatPluginProgressMessage(payload: PluginDownloadProgressEvent) {
 	if (payload.stage === 'download') {
-		const percent =
-			payload.percent === null ? null : Math.floor(payload.percent);
+		const percent = payload.percent === null ? null : Math.floor(payload.percent);
 		return percent === null
 			? i18n.t('plugin:toast.downloadProgress')
 			: i18n.t('plugin:toast.downloadProgressPercent', { percent });
@@ -51,10 +50,7 @@ export function PluginDownloadListener() {
 			if (payload.stage === 'error') {
 				store.remove(payload.extensionId);
 				const toastId = toastIdsRef.current[payload.taskId];
-				toast.error(
-					payload.message || i18n.t('plugin:toast.downloadFailed'),
-					{ id: toastId },
-				);
+				toast.error(payload.message || i18n.t('plugin:toast.downloadFailed'), { id: toastId });
 				delete toastIdsRef.current[payload.taskId];
 				return;
 			}

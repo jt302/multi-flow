@@ -1,4 +1,3 @@
-import { tauriInvoke } from '@/shared/api/tauri-invoke';
 import type {
 	ArrangeWindowsPayload,
 	DisplayMonitorItem,
@@ -7,6 +6,7 @@ import type {
 	ProfileWindowStateItem,
 	WindowBoundsItem,
 } from '@/entities/window-session/model/types';
+import { tauriInvoke } from '@/shared/api/tauri-invoke';
 
 type BatchActionResponse = {
 	total: number;
@@ -54,7 +54,9 @@ export async function restoreLastArrangement(): Promise<BatchActionResponse> {
 	return tauriInvoke<BatchActionResponse>('restore_last_arrangement');
 }
 
-export async function batchRestoreProfileWindows(profileIds: string[]): Promise<BatchActionResponse> {
+export async function batchRestoreProfileWindows(
+	profileIds: string[],
+): Promise<BatchActionResponse> {
 	return tauriInvoke<BatchActionResponse>('batch_restore_profile_windows', {
 		payload: { profileIds },
 	});
@@ -130,7 +132,11 @@ export async function activateTab(profileId: string, tabId: number): Promise<voi
 	await tauriInvoke('activate_tab', { profileId, tabId });
 }
 
-export async function activateTabByIndex(profileId: string, index: number, windowId?: number): Promise<void> {
+export async function activateTabByIndex(
+	profileId: string,
+	index: number,
+	windowId?: number,
+): Promise<void> {
 	await tauriInvoke('activate_tab_by_index', {
 		profileId,
 		index,
@@ -138,7 +144,10 @@ export async function activateTabByIndex(profileId: string, index: number, windo
 	});
 }
 
-export async function batchOpenProfileTabs(profileIds: string[], url?: string): Promise<BatchActionResponse> {
+export async function batchOpenProfileTabs(
+	profileIds: string[],
+	url?: string,
+): Promise<BatchActionResponse> {
 	return tauriInvoke<BatchActionResponse>('batch_open_profile_tabs', {
 		payload: {
 			profileIds,

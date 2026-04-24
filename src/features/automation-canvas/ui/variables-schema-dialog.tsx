@@ -4,13 +4,9 @@
  * 变量在步骤中通过 {{变量名}} 语法引用，运行时会预填到初始变量栏。
  */
 
+import { Minus, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import { Minus, Plus } from 'lucide-react';
-
-import type { ScriptVarDef } from '@/entities/automation/model/types';
-import { updateScriptVariablesSchema } from '@/entities/automation/api/automation-api';
 import { Button } from '@/components/ui/button';
 import {
 	Dialog,
@@ -20,6 +16,8 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { updateScriptVariablesSchema } from '@/entities/automation/api/automation-api';
+import type { ScriptVarDef } from '@/entities/automation/model/types';
 
 type Props = {
 	open: boolean;
@@ -66,9 +64,7 @@ export function VariablesSchemaDialog({
 	}
 
 	function setDefault(i: number, defaultValue: string) {
-		setVars((prev) =>
-			prev.map((v, idx) => (idx === i ? { ...v, defaultValue } : v)),
-		);
+		setVars((prev) => prev.map((v, idx) => (idx === i ? { ...v, defaultValue } : v)));
 	}
 
 	async function handleSave() {
@@ -91,9 +87,7 @@ export function VariablesSchemaDialog({
 					<DialogTitle>{t('variables.title')}</DialogTitle>
 				</DialogHeader>
 				<div className="space-y-2 py-1">
-					<p className="text-xs text-muted-foreground">
-						{t('variables.desc')}
-					</p>
+					<p className="text-xs text-muted-foreground">{t('variables.desc')}</p>
 					{vars.length > 0 && (
 						<div className="space-y-1.5">
 							{vars.map((v, i) => (
@@ -104,9 +98,7 @@ export function VariablesSchemaDialog({
 										onChange={(e) => setName(i, e.target.value)}
 										className="h-7 text-xs font-mono"
 									/>
-									<span className="text-muted-foreground text-xs flex-shrink-0">
-										=
-									</span>
+									<span className="text-muted-foreground text-xs flex-shrink-0">=</span>
 									<Input
 										placeholder={t('variables.defaultValue')}
 										value={v.defaultValue}
@@ -134,18 +126,10 @@ export function VariablesSchemaDialog({
 					</button>
 				</div>
 				<DialogFooter>
-					<Button
-						variant="ghost"
-						onClick={() => onOpenChange(false)}
-						className="cursor-pointer"
-					>
+					<Button variant="ghost" onClick={() => onOpenChange(false)} className="cursor-pointer">
 						{t('variables.cancel')}
 					</Button>
-					<Button
-						onClick={() => void handleSave()}
-						disabled={saving}
-						className="cursor-pointer"
-					>
+					<Button onClick={() => void handleSave()} disabled={saving} className="cursor-pointer">
 						{t('variables.save')}
 					</Button>
 				</DialogFooter>

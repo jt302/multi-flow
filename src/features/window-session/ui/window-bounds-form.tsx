@@ -69,16 +69,45 @@ export function WindowBoundsForm({ window, controllable, onApply }: WindowBounds
 				});
 			})}
 		>
-			<Input {...register('x')} inputMode="numeric" placeholder={t('common:x')} className="h-8 text-xs" />
-			<Input {...register('y')} inputMode="numeric" placeholder={t('common:y')} className="h-8 text-xs" />
-			<Input {...register('width')} inputMode="numeric" placeholder={t('common:width')} className="h-8 text-xs" />
-			<Input {...register('height')} inputMode="numeric" placeholder={t('common:height')} className="h-8 text-xs" />
-			<Button type="submit" size="sm" variant="outline" className="cursor-pointer" disabled={!controllable}>
+			<Input
+				{...register('x')}
+				inputMode="numeric"
+				placeholder={t('common:x')}
+				className="h-8 text-xs"
+			/>
+			<Input
+				{...register('y')}
+				inputMode="numeric"
+				placeholder={t('common:y')}
+				className="h-8 text-xs"
+			/>
+			<Input
+				{...register('width')}
+				inputMode="numeric"
+				placeholder={t('common:width')}
+				className="h-8 text-xs"
+			/>
+			<Input
+				{...register('height')}
+				inputMode="numeric"
+				placeholder={t('common:height')}
+				className="h-8 text-xs"
+			/>
+			<Button
+				type="submit"
+				size="sm"
+				variant="outline"
+				className="cursor-pointer"
+				disabled={!controllable}
+			>
 				{t('window:applyBounds')}
 			</Button>
 			{errors.x || errors.y || errors.width || errors.height ? (
 				<p className="text-xs text-destructive md:col-span-5">
-					{errors.x?.message ?? errors.y?.message ?? errors.width?.message ?? errors.height?.message}
+					{errors.x?.message ??
+						errors.y?.message ??
+						errors.width?.message ??
+						errors.height?.message}
 				</p>
 			) : null}
 		</form>

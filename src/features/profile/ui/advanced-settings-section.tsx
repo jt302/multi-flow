@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-
+import { useTranslation } from 'react-i18next';
 import {
 	Button,
 	Checkbox,
@@ -18,13 +18,8 @@ import {
 	SelectValue,
 	Textarea,
 } from '@/components/ui';
-
-import {
-	mergeCookieStateJson,
-	type ProfileFormValues,
-} from '../model/profile-form';
+import { mergeCookieStateJson, type ProfileFormValues } from '../model/profile-form';
 import { SectionTitle } from './section-title';
-import { useTranslation } from 'react-i18next';
 
 type AdvancedSettingsSectionProps = {
 	form: UseFormReturn<ProfileFormValues>;
@@ -78,17 +73,14 @@ export function AdvancedSettingsSection({
 	const accuracyId = 'profile-accuracy';
 	const geolocationSourceLabel =
 		geolocationSource === 'proxy'
-							? t('fingerprint:sourceProxyGeo')
-							: geolocationSource === 'manual'
+			? t('fingerprint:sourceProxyGeo')
+			: geolocationSource === 'manual'
 				? t('fingerprint.sourceManual')
 				: t('common:notSet');
 
 	return (
 		<div className="rounded-xl border border-border/70 p-3">
-			<SectionTitle
-				title={t('advanced.title')}
-				description={t('advanced.desc')}
-			/>
+			<SectionTitle title={t('advanced.title')} description={t('advanced.desc')} />
 			<div className="space-y-3">
 				<label htmlFor={headlessId} className="flex items-center gap-2 text-sm">
 					<Checkbox
@@ -103,31 +95,21 @@ export function AdvancedSettingsSection({
 					/>
 					{t('advanced.headless')}
 				</label>
-				<label
-					htmlFor={disableImagesId}
-					className="flex items-center gap-2 text-sm"
-				>
+				<label htmlFor={disableImagesId} className="flex items-center gap-2 text-sm">
 					<Checkbox
 						id={disableImagesId}
 						checked={imageLoadingMode === 'block'}
 						className="cursor-pointer"
 						onCheckedChange={(checked) =>
-							setValue(
-								'imageLoadingMode',
-								checked === true ? 'block' : 'off',
-								{
-									shouldDirty: true,
-									shouldValidate: true,
-								},
-							)
+							setValue('imageLoadingMode', checked === true ? 'block' : 'off', {
+								shouldDirty: true,
+								shouldValidate: true,
+							})
 						}
 					/>
 					{t('advanced.disableImages')}
 				</label>
-				<label
-					htmlFor={portScanProtectionId}
-					className="flex items-center gap-2 text-sm"
-				>
+				<label htmlFor={portScanProtectionId} className="flex items-center gap-2 text-sm">
 					<Checkbox
 						id={portScanProtectionId}
 						checked={portScanProtection}
@@ -140,10 +122,7 @@ export function AdvancedSettingsSection({
 					/>
 					{t('advanced.portScanProtection')}
 				</label>
-				<label
-					htmlFor={automationDetectionShieldId}
-					className="flex items-center gap-2 text-sm"
-				>
+				<label htmlFor={automationDetectionShieldId} className="flex items-center gap-2 text-sm">
 					<Checkbox
 						id={automationDetectionShieldId}
 						checked={automationDetectionShield}
@@ -158,29 +137,19 @@ export function AdvancedSettingsSection({
 				</label>
 				<div className="grid gap-3 md:grid-cols-2">
 					<div className="space-y-2">
-						<label
-							htmlFor={imageLoadingModeId}
-							className="block text-xs text-muted-foreground"
-						>
+						<label htmlFor={imageLoadingModeId} className="block text-xs text-muted-foreground">
 							{t('advanced.imageLoadingMode')}
 						</label>
 						<Select
 							value={imageLoadingMode}
 							onValueChange={(value) =>
-								setValue(
-									'imageLoadingMode',
-									value as 'off' | 'block' | 'max-area',
-									{
-										shouldDirty: true,
-										shouldValidate: true,
-									},
-								)
+								setValue('imageLoadingMode', value as 'off' | 'block' | 'max-area', {
+									shouldDirty: true,
+									shouldValidate: true,
+								})
 							}
 						>
-							<SelectTrigger
-								id={imageLoadingModeId}
-								className="w-full cursor-pointer"
-							>
+							<SelectTrigger id={imageLoadingModeId} className="w-full cursor-pointer">
 								<SelectValue placeholder={t('advanced.selectImageLoadingMode')} />
 							</SelectTrigger>
 							<SelectContent>
@@ -192,10 +161,7 @@ export function AdvancedSettingsSection({
 					</div>
 					{imageLoadingMode === 'max-area' ? (
 						<div>
-							<label
-								htmlFor={imageMaxAreaId}
-								className="mb-1 block text-xs text-muted-foreground"
-							>
+							<label htmlFor={imageMaxAreaId} className="mb-1 block text-xs text-muted-foreground">
 								{t('advanced.imageMaxArea')}
 							</label>
 							<Input
@@ -214,10 +180,7 @@ export function AdvancedSettingsSection({
 					) : null}
 				</div>
 				<div className="space-y-2">
-					<label
-						htmlFor={geolocationModeId}
-						className="block text-xs text-muted-foreground"
-					>
+					<label htmlFor={geolocationModeId} className="block text-xs text-muted-foreground">
 						{t('advanced.geoMode')}
 					</label>
 					<Select
@@ -229,10 +192,7 @@ export function AdvancedSettingsSection({
 							})
 						}
 					>
-						<SelectTrigger
-							id={geolocationModeId}
-							className="w-full cursor-pointer"
-						>
+						<SelectTrigger id={geolocationModeId} className="w-full cursor-pointer">
 							<SelectValue placeholder={t('advanced.selectGeoMode')} />
 						</SelectTrigger>
 						<SelectContent>
@@ -243,9 +203,7 @@ export function AdvancedSettingsSection({
 					</Select>
 					{geolocationMode === 'ip' ? (
 						<p className="text-[11px] text-muted-foreground">
-							{hasProxyGeolocation
-								? t('advanced.geoFollowIpHint')
-								: t('advanced.geoCustomHint')}
+							{hasProxyGeolocation ? t('advanced.geoFollowIpHint') : t('advanced.geoCustomHint')}
 						</p>
 					) : (
 						<p className="text-[11px] text-muted-foreground">
@@ -253,10 +211,7 @@ export function AdvancedSettingsSection({
 						</p>
 					)}
 				</div>
-				<label
-					htmlFor={autoAllowGeolocationId}
-					className="flex items-center gap-2 text-sm"
-				>
+				<label htmlFor={autoAllowGeolocationId} className="flex items-center gap-2 text-sm">
 					<Checkbox
 						id={autoAllowGeolocationId}
 						checked={autoAllowGeolocation}
@@ -271,10 +226,7 @@ export function AdvancedSettingsSection({
 				</label>
 				<div>
 					<div className="mb-1 flex items-center justify-between gap-2">
-						<label
-							htmlFor={cookieStateJsonId}
-							className="block text-xs text-muted-foreground"
-						>
+						<label htmlFor={cookieStateJsonId} className="block text-xs text-muted-foreground">
 							{t('advanced.cookieJson')}
 						</label>
 						<Button
@@ -294,35 +246,22 @@ export function AdvancedSettingsSection({
 					<Textarea
 						id={cookieStateJsonId}
 						{...register('cookieStateJson')}
-						placeholder={
-							'{\n  "environment_id": "env_001",\n  "managed_cookies": []\n}'
-						}
+						placeholder={'{\n  "environment_id": "env_001",\n  "managed_cookies": []\n}'}
 						className="min-h-[180px] font-mono text-[12px]"
 					/>
-					<p className="mt-1 text-[11px] text-muted-foreground">
-						{t('advanced.cookieHelp')}
-					</p>
+					<p className="mt-1 text-[11px] text-muted-foreground">{t('advanced.cookieHelp')}</p>
 					{cookieStateLoading ? (
-						<p className="mt-1 text-[11px] text-muted-foreground">
-							{t('advanced.readingCookie')}
-						</p>
+						<p className="mt-1 text-[11px] text-muted-foreground">{t('advanced.readingCookie')}</p>
 					) : null}
 					{cookieStateError ? (
-						<p className="mt-1 text-[11px] text-destructive">
-							{cookieStateError}
-						</p>
+						<p className="mt-1 text-[11px] text-destructive">{cookieStateError}</p>
 					) : null}
 					{cookieStateJson.trim() ? (
-						<p className="mt-1 text-[11px] text-muted-foreground">
-							{t('advanced.cookieLoaded')}
-						</p>
+						<p className="mt-1 text-[11px] text-muted-foreground">{t('advanced.cookieLoaded')}</p>
 					) : null}
 				</div>
 				<div>
-					<label
-						htmlFor={launchArgsId}
-						className="mb-1 block text-xs text-muted-foreground"
-					>
+					<label htmlFor={launchArgsId} className="mb-1 block text-xs text-muted-foreground">
 						{t('advanced.customLaunchArgs')}
 					</label>
 					<Textarea
@@ -337,43 +276,22 @@ export function AdvancedSettingsSection({
 				{geolocationMode === 'custom' ? (
 					<div className="grid gap-3 md:grid-cols-3">
 						<div>
-							<label
-								htmlFor={latitudeId}
-								className="mb-1 block text-xs text-muted-foreground"
-							>
+							<label htmlFor={latitudeId} className="mb-1 block text-xs text-muted-foreground">
 								{t('advanced.latitude')}
 							</label>
-							<Input
-								id={latitudeId}
-								{...register('latitude')}
-								placeholder="31.2304"
-							/>
+							<Input id={latitudeId} {...register('latitude')} placeholder="31.2304" />
 						</div>
 						<div>
-							<label
-								htmlFor={longitudeId}
-								className="mb-1 block text-xs text-muted-foreground"
-							>
+							<label htmlFor={longitudeId} className="mb-1 block text-xs text-muted-foreground">
 								{t('advanced.longitude')}
 							</label>
-							<Input
-								id={longitudeId}
-								{...register('longitude')}
-								placeholder="121.4737"
-							/>
+							<Input id={longitudeId} {...register('longitude')} placeholder="121.4737" />
 						</div>
 						<div>
-							<label
-								htmlFor={accuracyId}
-								className="mb-1 block text-xs text-muted-foreground"
-							>
+							<label htmlFor={accuracyId} className="mb-1 block text-xs text-muted-foreground">
 								{t('advanced.accuracy')}
 							</label>
-							<Input
-								id={accuracyId}
-								{...register('accuracy')}
-								placeholder="20"
-							/>
+							<Input id={accuracyId} {...register('accuracy')} placeholder="20" />
 						</div>
 					</div>
 				) : null}
@@ -382,15 +300,10 @@ export function AdvancedSettingsSection({
 				<DialogContent className="max-w-3xl">
 					<DialogHeader>
 						<DialogTitle>{t('advanced.mergeCookie')}</DialogTitle>
-						<DialogDescription>
-							{t('advanced.mergeCookieDesc')}
-						</DialogDescription>
+						<DialogDescription>{t('advanced.mergeCookieDesc')}</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-2">
-						<label
-							htmlFor={mergeCookieStateJsonId}
-							className="block text-xs text-muted-foreground"
-						>
+						<label htmlFor={mergeCookieStateJsonId} className="block text-xs text-muted-foreground">
 							{t('advanced.cookieToMerge')}
 						</label>
 						<Textarea
@@ -405,9 +318,7 @@ export function AdvancedSettingsSection({
 							placeholder={'{\n  "managed_cookies": []\n}'}
 							className="min-h-[220px] font-mono text-[12px]"
 						/>
-						{mergeError ? (
-							<p className="text-xs text-destructive">{mergeError}</p>
-						) : null}
+						{mergeError ? <p className="text-xs text-destructive">{mergeError}</p> : null}
 					</div>
 					<DialogFooter>
 						<Button
@@ -424,9 +335,7 @@ export function AdvancedSettingsSection({
 							onClick={() => {
 								try {
 									const merged = mergeCookieStateJson(
-										cookieStateJson.trim()
-											? cookieStateJson
-											: '{\n  "managed_cookies": []\n}',
+										cookieStateJson.trim() ? cookieStateJson : '{\n  "managed_cookies": []\n}',
 										mergeCookieText,
 										profileId,
 									);
@@ -439,9 +348,7 @@ export function AdvancedSettingsSection({
 									setMergeError(null);
 								} catch (error) {
 									setMergeError(
-										error instanceof Error
-											? error.message
-											: t('advanced.mergeCookieFailed'),
+										error instanceof Error ? error.message : t('advanced.mergeCookieFailed'),
 									);
 								}
 							}}

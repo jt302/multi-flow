@@ -61,7 +61,11 @@ export function normalizeInstance(value: unknown): SyncManagerInstanceInfo | nul
 		return null;
 	}
 	const record = value as Record<string, unknown>;
-	if (typeof record.id !== 'string' || typeof record.host !== 'string' || typeof record.port !== 'number') {
+	if (
+		typeof record.id !== 'string' ||
+		typeof record.host !== 'string' ||
+		typeof record.port !== 'number'
+	) {
 		return null;
 	}
 	return {
@@ -69,9 +73,7 @@ export function normalizeInstance(value: unknown): SyncManagerInstanceInfo | nul
 		host: record.host,
 		port: record.port,
 		status:
-			record.status === 'online' ||
-			record.status === 'offline' ||
-			record.status === 'unhealthy'
+			record.status === 'online' || record.status === 'offline' || record.status === 'unhealthy'
 				? record.status
 				: 'unknown',
 		label: normalizeNullableString(record.label),
@@ -79,9 +81,7 @@ export function normalizeInstance(value: unknown): SyncManagerInstanceInfo | nul
 		lastDropReason: normalizeNullableString(record.last_drop_reason),
 		activeBrowser: normalizeActiveBrowser(record.active_browser),
 		supportsNativeReplay:
-			typeof record.supports_native_replay === 'boolean'
-				? record.supports_native_replay
-				: null,
+			typeof record.supports_native_replay === 'boolean' ? record.supports_native_replay : null,
 		captureBackend: normalizeNullableString(record.capture_backend),
 		injectBackend: normalizeNullableString(record.inject_backend),
 		magicSocketServerPort:
@@ -113,12 +113,9 @@ export function normalizeMetrics(value: unknown) {
 		eventsForwarded: normalizeNumber(record.events_forwarded) ?? 0,
 		eventsFailed: normalizeNumber(record.events_failed) ?? 0,
 		eventsDroppedInvalid: normalizeNumber(record.events_dropped_invalid) ?? 0,
-		eventsDroppedSessionMismatch:
-			normalizeNumber(record.events_dropped_session_mismatch) ?? 0,
-		eventsDroppedNonReplayable:
-			normalizeNumber(record.events_dropped_non_replayable) ?? 0,
-		eventsDroppedPlatformMismatch:
-			normalizeNumber(record.events_dropped_platform_mismatch) ?? 0,
+		eventsDroppedSessionMismatch: normalizeNumber(record.events_dropped_session_mismatch) ?? 0,
+		eventsDroppedNonReplayable: normalizeNumber(record.events_dropped_non_replayable) ?? 0,
+		eventsDroppedPlatformMismatch: normalizeNumber(record.events_dropped_platform_mismatch) ?? 0,
 	};
 }
 
@@ -161,7 +158,11 @@ export function normalizeWarning(value: unknown): SyncWarningItem | null {
 		return null;
 	}
 	const record = value as Record<string, unknown>;
-	if (typeof record.code !== 'string' || typeof record.scope !== 'string' || typeof record.message !== 'string') {
+	if (
+		typeof record.code !== 'string' ||
+		typeof record.scope !== 'string' ||
+		typeof record.message !== 'string'
+	) {
 		return null;
 	}
 	return {

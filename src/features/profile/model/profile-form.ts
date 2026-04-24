@@ -1,15 +1,15 @@
-import { z } from 'zod/v3';
 import i18next from 'i18next';
-import { TIMEZONE_SET } from '@/shared/lib/timezone-list';
+import { z } from 'zod/v3';
 import type {
 	CookieStateFile,
 	ProfileDevicePresetItem,
+	ProfileFingerprintSettings,
 	ProfileFingerprintSnapshot,
 	ProfileFingerprintSource,
-	ProfileFingerprintSettings,
 	ProfilePluginSelection,
 	WebRtcMode,
 } from '@/entities/profile/model/types';
+import { TIMEZONE_SET } from '@/shared/lib/timezone-list';
 
 export const DEFAULT_STARTUP_URL = 'https://www.browserscan.net/';
 const DEVICE_NAME_PATTERN = /^[A-Za-z0-9-]{1,63}$/;
@@ -49,7 +49,11 @@ export const profileFormSchema = z
 		portScanProtection: z.boolean(),
 		automationDetectionShield: z.boolean(),
 		imageLoadingMode: z.enum(['off', 'block', 'max-area']),
-		imageMaxArea: z.number().int().positive(i18next.t('validation:imageMaxAreaPositive')).nullable(),
+		imageMaxArea: z
+			.number()
+			.int()
+			.positive(i18next.t('validation:imageMaxAreaPositive'))
+			.nullable(),
 		randomFingerprint: z.boolean(),
 		customLaunchArgsText: z.string(),
 		cookieStateJson: z.string(),
@@ -248,9 +252,7 @@ export type CustomDeviceIdentityValues = {
 	customMacAddress: string;
 };
 
-type CookieStateParseResult =
-	| { ok: true; value: CookieStateFile }
-	| { ok: false; error: string };
+type CookieStateParseResult = { ok: true; value: CookieStateFile } | { ok: false; error: string };
 
 type ResolutionPresetInput = Pick<
 	ProfileDevicePresetItem,
@@ -278,9 +280,7 @@ export function applyProxySuggestionValue(
 	return suggestedValue || '';
 }
 
-export function resolveProxySuggestedValues(
-	proxy: ProxyLocaleSuggestionInput | null | undefined,
-) {
+export function resolveProxySuggestedValues(proxy: ProxyLocaleSuggestionInput | null | undefined) {
 	if (!proxy) {
 		return {
 			language: '',
@@ -290,17 +290,13 @@ export function resolveProxySuggestedValues(
 	}
 	return {
 		language: proxy.effectiveLanguage?.trim() || proxy.suggestedLanguage?.trim() || '',
-		timezoneId:
-			proxy.effectiveTimezone?.trim() || proxy.suggestedTimezone?.trim() || '',
+		timezoneId: proxy.effectiveTimezone?.trim() || proxy.suggestedTimezone?.trim() || '',
 		geolocation:
 			proxy.latitude !== null && proxy.longitude !== null
 				? {
 						latitude: proxy.latitude.toString(),
 						longitude: proxy.longitude.toString(),
-						accuracy:
-							proxy.geoAccuracyMeters === null
-								? ''
-								: proxy.geoAccuracyMeters.toString(),
+						accuracy: proxy.geoAccuracyMeters === null ? '' : proxy.geoAccuracyMeters.toString(),
 					}
 				: null,
 	};
@@ -324,12 +320,7 @@ export function resolveHostSuggestedValues(suggestion: HostLocaleSuggestion | nu
 }
 
 export function normalizeWebRtcMode(value?: string): WebRtcMode {
-	if (
-		value === 'replace' ||
-		value === 'disable' ||
-		value === 'real' ||
-		value === 'follow_ip'
-	) {
+	if (value === 'replace' || value === 'disable' || value === 'real' || value === 'follow_ip') {
 		return value;
 	}
 	return 'real';
@@ -386,10 +377,7 @@ export function randomizeFontList(pool: string[]): string[] {
 	const shuffled = [...pool];
 	for (let index = shuffled.length - 1; index > 0; index -= 1) {
 		const swapIndex = Math.floor(Math.random() * (index + 1));
-		[shuffled[index], shuffled[swapIndex]] = [
-			shuffled[swapIndex],
-			shuffled[index],
-		];
+		[shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
 	}
 	const keepRatio = 0.7 + Math.random() * 0.2;
 	const targetCount = Math.max(
@@ -418,9 +406,7 @@ export function generateRandomCustomMacAddress() {
 		}
 	}
 	bytes[0] = (bytes[0] | 0x02) & 0xfe;
-	return Array.from(bytes, (value) =>
-		value.toString(16).padStart(2, '0').toUpperCase(),
-	).join(':');
+	return Array.from(bytes, (value) => value.toString(16).padStart(2, '0').toUpperCase()).join(':');
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -499,8 +485,7 @@ export function normalizeCookieStateJson(
 	}
 	const normalized: CookieStateFile = {
 		...parsed.value,
-		environment_id:
-			parsed.value.environment_id?.trim() || environmentId?.trim() || undefined,
+		environment_id: parsed.value.environment_id?.trim() || environmentId?.trim() || undefined,
 	};
 	return `${JSON.stringify(normalized, null, 2)}\n`;
 }
@@ -531,10 +516,7 @@ export function mergeCookieStateJson(
 
 	return `${JSON.stringify(
 		{
-			environment_id:
-				current.value.environment_id?.trim() ||
-				environmentId?.trim() ||
-				undefined,
+			environment_id: current.value.environment_id?.trim() || environmentId?.trim() || undefined,
 			managed_cookies: Array.from(merged.values()),
 		} satisfies CookieStateFile,
 		null,
@@ -551,9 +533,7 @@ export function deriveCookieSiteUrls(cookieState: CookieStateFile) {
 				continue;
 			}
 			sites.add(`${parsed.origin}/`);
-		} catch {
-			continue;
-		}
+		} catch {}
 	}
 	return Array.from(sites).sort((left, right) => left.localeCompare(right));
 }
@@ -587,11 +567,9 @@ export function resolveInitialCustomDeviceIdentityValues(
 ): CustomDeviceIdentityValues {
 	return {
 		deviceNameMode: storedValues?.deviceNameMode === 'custom' ? 'custom' : 'real',
-		customDeviceName:
-			storedValues?.customDeviceName?.trim() || randomValues.deviceName,
+		customDeviceName: storedValues?.customDeviceName?.trim() || randomValues.deviceName,
 		macAddressMode: storedValues?.macAddressMode === 'custom' ? 'custom' : 'real',
-		customMacAddress:
-			storedValues?.customMacAddress?.trim() || randomValues.macAddress,
+		customMacAddress: storedValues?.customMacAddress?.trim() || randomValues.macAddress,
 	};
 }
 
@@ -648,10 +626,7 @@ export function buildResolutionValuesFromPreset(
 }
 
 export function resolveInitialResolutionValues(
-	storedValues:
-		| Partial<ProfileResolutionValues>
-		| null
-		| undefined,
+	storedValues: Partial<ProfileResolutionValues> | null | undefined,
 	preset: ResolutionPresetInput | null | undefined,
 ): ProfileResolutionValues | null {
 	if (

@@ -1,4 +1,4 @@
-import type { ProfileProxyBindingMap, ProfileItem } from '@/entities/profile/model/types';
+import type { ProfileItem, ProfileProxyBindingMap } from '@/entities/profile/model/types';
 import type {
 	BatchProxyActionResponse,
 	CreateProxyPayload,
@@ -22,10 +22,7 @@ export type ProxyPageProps = {
 	) => Promise<BatchProxyActionResponse>;
 	onRestoreProxy: (proxyId: string) => Promise<void>;
 	onImportProxies: (payload: ImportProxiesPayload) => Promise<BatchProxyActionResponse>;
-	onCheckProxy: (
-		proxyId: string,
-		options?: { silent?: boolean },
-	) => Promise<void>;
+	onCheckProxy: (proxyId: string, options?: { silent?: boolean }) => Promise<void>;
 	onBatchCheckProxies: (proxyIds: string[]) => Promise<BatchProxyActionResponse>;
 	onBindProfileProxy: (profileId: string, proxyId: string) => Promise<void>;
 	onUnbindProfileProxy: (profileId: string) => Promise<void>;

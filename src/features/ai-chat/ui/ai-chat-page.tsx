@@ -1,37 +1,31 @@
+import { useQueryClient } from '@tanstack/react-query';
+import { PanelLeft } from 'lucide-react';
 import { startTransition, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { PanelLeft } from 'lucide-react';
-
-import { useQueryClient } from '@tanstack/react-query';
-
+import { Button, Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import {
+	regenerateChatMessage,
 	sendChatMessage,
 	stopChatGeneration,
 	updateChatSession,
-	regenerateChatMessage,
 } from '@/entities/chat/api/chat-api';
 import type { ChatMessageRecord } from '@/entities/chat/model/types';
-import { usePersistentLayout } from '@/shared/hooks/use-persistent-layout';
-import {
-	ResizableHandle,
-	ResizablePanel,
-	ResizablePanelGroup,
-} from '@/components/ui/resizable';
-import { Button, Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui';
-import { queryKeys } from '@/shared/config/query-keys';
-import { chatStore, useChatStore } from '@/store/chat-store';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { queryKeys } from '@/shared/config/query-keys';
+import { usePersistentLayout } from '@/shared/hooks/use-persistent-layout';
+import { chatStore, useChatStore } from '@/store/chat-store';
+import { useChatMessagesQuery } from '../model/use-chat-messages';
 import {
+	useChatSessionsQuery,
 	useCreateChatSession,
 	useDeleteChatSession,
-	useChatSessionsQuery,
 } from '../model/use-chat-sessions';
-import { useChatMessagesQuery } from '../model/use-chat-messages';
-import { ChatSessionList } from './chat-session-list';
-import { ChatMessageList } from './chat-message-list';
 import { ChatHeader } from './chat-header';
 import { ChatInputBar } from './chat-input-bar';
+import { ChatMessageList } from './chat-message-list';
+import { ChatSessionList } from './chat-session-list';
 
 export function AiChatPage() {
 	const { t } = useTranslation('chat');
@@ -43,7 +37,7 @@ export function AiChatPage() {
 	});
 	const [mobileSessionsOpen, setMobileSessionsOpen] = useState(false);
 
-const sessionsQuery = useChatSessionsQuery();
+	const sessionsQuery = useChatSessionsQuery();
 	const sessions = useMemo(() => sessionsQuery.data ?? [], [sessionsQuery.data]);
 
 	const persistedSessionId = useChatStore((s) => s.activeSessionId);
@@ -65,10 +59,9 @@ const sessionsQuery = useChatSessionsQuery();
 	// merge DB messages with live messages (avoid duplicates)
 	const allMessages = useMemo(() => {
 		const liveIds = new Set(liveMessages.map((m) => m.id));
-		return [
-			...dbMessages.filter((m) => !liveIds.has(m.id)),
-			...liveMessages,
-		].sort((a, b) => a.sortOrder - b.sortOrder);
+		return [...dbMessages.filter((m) => !liveIds.has(m.id)), ...liveMessages].sort(
+			(a, b) => a.sortOrder - b.sortOrder,
+		);
 	}, [dbMessages, liveMessages]);
 
 	const createSession = useCreateChatSession();
@@ -121,36 +114,40 @@ const sessionsQuery = useChatSessionsQuery();
 	}, [createSession, activateSession]);
 
 	// 当前会话是否关联了环境
-	const hasProfile = (hydratedSession?.profileIds?.length ?? 0) > 0
-		|| !!hydratedSession?.profileId;
+	const hasProfile = (hydratedSession?.profileIds?.length ?? 0) > 0 || !!hydratedSession?.profileId;
 
-	const handleSubmit = useCallback(async (text: string, img: string | null) => {
-		if (!hydratedSessionId || isGenerating) return;
+	const handleSubmit = useCallback(
+		async (text: string, img: string | null) => {
+			if (!hydratedSessionId || isGenerating) return;
 
-		// 未关联任何环境时提醒（input bar 的 sendDisabled=false 允许点击，这里负责拦截）
-		if (!hasProfile) {
-			toast.warning(t('noProfileWarning', '请先在顶部选择一个运行环境，否则浏览器工具将无法使用。'));
-			return;
-		}
+			// 未关联任何环境时提醒（input bar 的 sendDisabled=false 允许点击，这里负责拦截）
+			if (!hasProfile) {
+				toast.warning(
+					t('noProfileWarning', '请先在顶部选择一个运行环境，否则浏览器工具将无法使用。'),
+				);
+				return;
+			}
 
-		if (!text.trim() && !img) return;
+			if (!text.trim() && !img) return;
 
-		chatStore.getState().startGeneration();
+			chatStore.getState().startGeneration();
 
-		// auto-generate title from the first user message
-		if (hydratedSession && !hydratedSession.title) {
-			const autoTitle = text.length > 30 ? text.slice(0, 30) + '…' : text;
-			updateChatSession(hydratedSessionId, { title: autoTitle }).then(() => {
-				qc.invalidateQueries({ queryKey: queryKeys.chatSessions });
-			});
-		}
+			// auto-generate title from the first user message
+			if (hydratedSession && !hydratedSession.title) {
+				const autoTitle = text.length > 30 ? text.slice(0, 30) + '…' : text;
+				updateChatSession(hydratedSessionId, { title: autoTitle }).then(() => {
+					qc.invalidateQueries({ queryKey: queryKeys.chatSessions });
+				});
+			}
 
-		try {
-			await sendChatMessage(hydratedSessionId, text, img);
-		} catch {
-			chatStore.getState().finishGeneration();
-		}
-	}, [hydratedSessionId, isGenerating, hasProfile, t, hydratedSession, qc]);
+			try {
+				await sendChatMessage(hydratedSessionId, text, img);
+			} catch {
+				chatStore.getState().finishGeneration();
+			}
+		},
+		[hydratedSessionId, isGenerating, hasProfile, t, hydratedSession, qc],
+	);
 
 	const handleStop = useCallback(() => {
 		if (hydratedSessionId) {
@@ -169,12 +166,15 @@ const sessionsQuery = useChatSessionsQuery();
 		}
 	}, [hydratedSessionId, isGenerating]);
 
-	const handleDelete = useCallback((id: string) => {
-		deleteSession.mutate(id);
-		if (persistedSessionId === id || hydratedSessionId === id) {
-			activateSession(null);
-		}
-	}, [deleteSession, persistedSessionId, hydratedSessionId, activateSession]);
+	const handleDelete = useCallback(
+		(id: string) => {
+			deleteSession.mutate(id);
+			if (persistedSessionId === id || hydratedSessionId === id) {
+				activateSession(null);
+			}
+		},
+		[deleteSession, persistedSessionId, hydratedSessionId, activateSession],
+	);
 
 	if (isMobile) {
 		return (
@@ -217,9 +217,7 @@ const sessionsQuery = useChatSessionsQuery();
 					) : isRestoringSession ? (
 						<div className="flex flex-1 flex-col justify-center gap-4 px-4 text-muted-foreground">
 							<div className="space-y-2">
-								<p className="text-sm font-medium text-foreground">
-									{t('restoringChat')}
-								</p>
+								<p className="text-sm font-medium text-foreground">{t('restoringChat')}</p>
 							</div>
 							<div className="space-y-3">
 								<div className="h-4 w-40 animate-pulse rounded bg-muted" />
@@ -259,16 +257,21 @@ const sessionsQuery = useChatSessionsQuery();
 	}
 
 	return (
-		<ResizablePanelGroup direction="horizontal" className="h-full" defaultLayout={chatLayout} onLayoutChanged={onChatLayoutChanged}>
-				<ResizablePanel id="ai-chat-sidebar" defaultSize={14} minSize={12} maxSize={35}>
-					<ChatSessionList
-						sessions={sessions}
-						activeId={listActiveSessionId}
-						onSelect={activateSession}
-						onCreate={handleCreate}
-						onDelete={handleDelete}
-					/>
-				</ResizablePanel>
+		<ResizablePanelGroup
+			direction="horizontal"
+			className="h-full"
+			defaultLayout={chatLayout}
+			onLayoutChanged={onChatLayoutChanged}
+		>
+			<ResizablePanel id="ai-chat-sidebar" defaultSize={14} minSize={12} maxSize={35}>
+				<ChatSessionList
+					sessions={sessions}
+					activeId={listActiveSessionId}
+					onSelect={activateSession}
+					onCreate={handleCreate}
+					onDelete={handleDelete}
+				/>
+			</ResizablePanel>
 			<ResizableHandle />
 			<ResizablePanel id="ai-chat-main" defaultSize={86}>
 				<div className="flex h-full flex-col overflow-hidden">
@@ -291,14 +294,12 @@ const sessionsQuery = useChatSessionsQuery();
 								sendDisabled={hasProfile ? undefined : false}
 								contextUsed={contextUsed}
 							/>
-							</>
+						</>
 					) : isRestoringSession ? (
 						<div className="flex flex-1 flex-col justify-center gap-4 px-6 text-muted-foreground">
-						<div className="space-y-2">
-							<p className="text-sm font-medium text-foreground">
-								{t('restoringChat')}
-							</p>
-						</div>
+							<div className="space-y-2">
+								<p className="text-sm font-medium text-foreground">{t('restoringChat')}</p>
+							</div>
 							<div className="space-y-3">
 								<div className="h-4 w-40 animate-pulse rounded bg-muted" />
 								<div className="h-20 w-full animate-pulse rounded-2xl bg-muted/80" />

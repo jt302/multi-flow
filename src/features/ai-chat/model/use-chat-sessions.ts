@@ -6,7 +6,10 @@ import {
 	listChatSessions,
 	updateChatSession,
 } from '@/entities/chat/api/chat-api';
-import type { CreateChatSessionRequest, UpdateChatSessionRequest } from '@/entities/chat/model/types';
+import type {
+	CreateChatSessionRequest,
+	UpdateChatSessionRequest,
+} from '@/entities/chat/model/types';
 import { queryKeys } from '@/shared/config/query-keys';
 
 export function useChatSessionsQuery() {
@@ -24,8 +27,13 @@ export function useCreateChatSession() {
 export function useUpdateChatSession() {
 	const qc = useQueryClient();
 	return useMutation({
-		mutationFn: ({ sessionId, payload }: { sessionId: string; payload: UpdateChatSessionRequest }) =>
-			updateChatSession(sessionId, payload),
+		mutationFn: ({
+			sessionId,
+			payload,
+		}: {
+			sessionId: string;
+			payload: UpdateChatSessionRequest;
+		}) => updateChatSession(sessionId, payload),
 		onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.chatSessions }),
 	});
 }

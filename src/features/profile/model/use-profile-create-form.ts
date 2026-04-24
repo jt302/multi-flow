@@ -3,26 +3,25 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { useChromiumVersionsQuery } from '@/entities/chromium-version/model/use-chromium-versions-query';
+import type { GroupItem } from '@/entities/group/model/types';
+import { fetchHostLocaleSuggestion } from '@/entities/host-locale/api';
+import { listPluginPackages, readProfilePlugins } from '@/entities/plugin/api/plugins-api';
+import type { PluginPackage } from '@/entities/plugin/model/types';
 import {
 	listFingerprintPresets,
 	listProfileFontFamilies,
 	previewFingerprintBundle,
 	readProfileCookies,
 } from '@/entities/profile/api/profiles-api';
-import { listPluginPackages, readProfilePlugins } from '@/entities/plugin/api/plugins-api';
 import type {
 	CreateProfilePayload,
 	ProfileFingerprintSnapshot,
 	ProfileItem,
 } from '@/entities/profile/model/types';
-import type { PluginPackage } from '@/entities/plugin/model/types';
-import type { GroupItem } from '@/entities/group/model/types';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import type { ResourceItem } from '@/entities/resource/model/types';
 import { detectClientPlatform } from '@/shared/lib/platform';
-import { useChromiumVersionsQuery } from '@/entities/chromium-version/model/use-chromium-versions-query';
-
-import { fetchHostLocaleSuggestion } from '@/entities/host-locale/api';
 import {
 	applyProxySuggestionValue,
 	buildFingerprintSource,
@@ -33,17 +32,17 @@ import {
 	generateRandomFingerprintSeed,
 	mergePreviewSnapshot,
 	normalizeCookieStateJson,
+	type ProfileFormValues,
+	type ProxySuggestionFieldSource,
 	parseCustomFontList,
 	parseStartupUrls,
 	profileFormSchema,
 	randomizeFontList,
+	resolveHostSuggestedValues,
 	resolveInitialCustomDeviceIdentityValues,
 	resolveInitialResolutionValues,
 	resolveInitialWebRtcMode,
 	resolveProxySuggestedValues,
-	resolveHostSuggestedValues,
-	type ProxySuggestionFieldSource,
-	type ProfileFormValues,
 } from './profile-form';
 
 type UseProfileCreateFormOptions = {
@@ -71,11 +70,7 @@ export function useProfileCreateForm({
 	const initialFingerprint = initialProfile?.settings?.fingerprint;
 	const initialAdvanced = initialProfile?.settings?.advanced;
 	const initialCookieStateJson = useMemo(
-		() =>
-			normalizeCookieStateJson(
-				initialAdvanced?.cookieStateJson,
-				initialProfile?.id,
-			),
+		() => normalizeCookieStateJson(initialAdvanced?.cookieStateJson, initialProfile?.id),
 		[initialAdvanced?.cookieStateJson, initialProfile?.id],
 	);
 	const initialResolutionOverride = useMemo(
@@ -91,8 +86,7 @@ export function useProfileCreateForm({
 		],
 	);
 	const initialGeolocationMode =
-		initialAdvanced?.geolocationMode ??
-		(initialAdvanced?.geolocation ? 'custom' : 'off');
+		initialAdvanced?.geolocationMode ?? (initialAdvanced?.geolocation ? 'custom' : 'off');
 	const hostPlatform = detectClientPlatform();
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const initialRandomFontsApplied = useRef(false);
@@ -112,10 +106,9 @@ export function useProfileCreateForm({
 					? 'proxy'
 					: 'empty',
 	}));
-	const [previewSnapshot, setPreviewSnapshot] =
-		useState<ProfileFingerprintSnapshot | null>(
-			initialFingerprint?.fingerprintSnapshot ?? null,
-		);
+	const [previewSnapshot, setPreviewSnapshot] = useState<ProfileFingerprintSnapshot | null>(
+		initialFingerprint?.fingerprintSnapshot ?? null,
+	);
 	const [initialDeviceIdentityValues] = useState(() =>
 		resolveInitialCustomDeviceIdentityValues(initialFingerprint, {
 			deviceName: generateRandomCustomDeviceName(),
@@ -143,14 +136,10 @@ export function useProfileCreateForm({
 			browserVersion: defaultBrowserVersion,
 			platform: defaultPlatform,
 			devicePresetId: initialBasic?.devicePresetId ?? '',
-			startupUrls:
-				initialBasic?.startupUrls?.join('\n') ??
-				initialBasic?.startupUrl ??
-				'',
+			startupUrls: initialBasic?.startupUrls?.join('\n') ?? initialBasic?.startupUrl ?? '',
 			browserBgColor: initialBasic?.browserBgColor ?? '',
 			browserBgColorMode:
-				initialBasic?.browserBgColorMode ??
-				(initialBasic?.browserBgColor ? 'custom' : 'inherit'),
+				initialBasic?.browserBgColorMode ?? (initialBasic?.browserBgColor ? 'custom' : 'inherit'),
 			toolbarLabelMode:
 				initialBasic?.toolbarLabelMode ??
 				(initialProfile?.group && initialProfile.group !== t('common:noGroup')
@@ -169,18 +158,14 @@ export function useProfileCreateForm({
 			macAddressMode: initialDeviceIdentityValues.macAddressMode,
 			customMacAddress: initialDeviceIdentityValues.customMacAddress,
 			doNotTrackEnabled: initialFingerprint?.doNotTrackEnabled ?? false,
-			webRtcMode: resolveInitialWebRtcMode(
-				initialFingerprint?.webRtcMode,
-				Boolean(initialProfile),
-			),
+			webRtcMode: resolveInitialWebRtcMode(initialFingerprint?.webRtcMode, Boolean(initialProfile)),
 			webrtcIpOverride: initialFingerprint?.webrtcIpOverride ?? '',
 			headless: initialAdvanced?.headless ?? false,
 			disableImages: false,
 			portScanProtection: initialAdvanced?.portScanProtection ?? false,
 			automationDetectionShield: initialAdvanced?.automationDetectionShield ?? false,
 			imageLoadingMode:
-				initialAdvanced?.imageLoadingMode ??
-				(initialAdvanced?.disableImages ? 'block' : 'off'),
+				initialAdvanced?.imageLoadingMode ?? (initialAdvanced?.disableImages ? 'block' : 'off'),
 			imageMaxArea: initialAdvanced?.imageMaxArea ?? null,
 			randomFingerprint: initialAdvanced?.randomFingerprint ?? false,
 			customLaunchArgsText: initialAdvanced?.customLaunchArgs?.join('\n') ?? '',
@@ -265,10 +250,7 @@ export function useProfileCreateForm({
 	const activeChromiumVersion = useMemo(
 		() =>
 			resources.find(
-				(item) =>
-					item.kind === 'chromium' &&
-					item.platform === hostPlatform &&
-					item.active,
+				(item) => item.kind === 'chromium' && item.platform === hostPlatform && item.active,
 			)?.version ?? '',
 		[resources, hostPlatform],
 	);
@@ -334,7 +316,14 @@ export function useProfileCreateForm({
 			}
 			return next;
 		});
-	}, [getValues, proxySuggestedValues, hostSuggestedValues, proxySuggestionSource, setValue, selectedProxy]);
+	}, [
+		getValues,
+		proxySuggestedValues,
+		hostSuggestedValues,
+		proxySuggestionSource,
+		setValue,
+		selectedProxy,
+	]);
 
 	const markProxyFieldManual = useCallback((field: 'language' | 'timezoneId' | 'geolocation') => {
 		setProxySuggestionSource((prev) => ({ ...prev, [field]: 'manual' }));
@@ -346,8 +335,14 @@ export function useProfileCreateForm({
 			timezoneId: proxySuggestedValues.timezoneId ? 'proxy' : 'empty',
 			geolocation: proxySuggestedValues.geolocation ? 'proxy' : 'empty',
 		});
-		setValue('language', proxySuggestedValues.language, { shouldDirty: false, shouldValidate: true });
-		setValue('timezoneId', proxySuggestedValues.timezoneId, { shouldDirty: false, shouldValidate: true });
+		setValue('language', proxySuggestedValues.language, {
+			shouldDirty: false,
+			shouldValidate: true,
+		});
+		setValue('timezoneId', proxySuggestedValues.timezoneId, {
+			shouldDirty: false,
+			shouldValidate: true,
+		});
 	}, [proxySuggestedValues, setValue]);
 
 	const latestCatalogVersion = hostChromiumVersions[0]?.version ?? '';
@@ -367,9 +362,7 @@ export function useProfileCreateForm({
 		enabled: Boolean(platform && browserVersion),
 	});
 	const selectedDevicePreset = useMemo(() => {
-		return (
-			(devicePresetsQuery.data ?? []).find((item) => item.id === devicePresetId) ?? null
-		);
+		return (devicePresetsQuery.data ?? []).find((item) => item.id === devicePresetId) ?? null;
 	}, [devicePresetId, devicePresetsQuery.data]);
 
 	useEffect(() => {
@@ -500,14 +493,10 @@ export function useProfileCreateForm({
 			return;
 		}
 		runtimePluginSelectionsLoaded.current = true;
-		setValue(
-			'pluginSelections',
-			dedupeProfilePluginSelections(runtimePluginSelectionsQuery.data),
-			{
-				shouldDirty: false,
-				shouldValidate: true,
-			},
-		);
+		setValue('pluginSelections', dedupeProfilePluginSelections(runtimePluginSelectionsQuery.data), {
+			shouldDirty: false,
+			shouldValidate: true,
+		});
 	}, [runtimePluginSelectionsQuery.data, setValue]);
 
 	const regenerateFontList = useCallback(async () => {
@@ -553,10 +542,7 @@ export function useProfileCreateForm({
 		setValue,
 	]);
 
-	const customFonts = useMemo(
-		() => parseCustomFontList(customFontListText),
-		[customFontListText],
-	);
+	const customFonts = useMemo(() => parseCustomFontList(customFontListText), [customFontListText]);
 
 	const previewQuery = useQuery({
 		queryKey: [
@@ -582,8 +568,7 @@ export function useProfileCreateForm({
 					fingerprintSeed: fingerprintSeed ?? previewFingerprintSeed,
 				},
 			),
-		enabled:
-			Boolean(platform && browserVersion && devicePresetId) && customFonts.length > 0,
+		enabled: Boolean(platform && browserVersion && devicePresetId) && customFonts.length > 0,
 	});
 
 	useEffect(() => {
@@ -603,14 +588,7 @@ export function useProfileCreateForm({
 				viewportHeight,
 				deviceScaleFactor,
 			}),
-		[
-			deviceScaleFactor,
-			language,
-			previewSnapshot,
-			timezoneId,
-			viewportHeight,
-			viewportWidth,
-		],
+		[deviceScaleFactor, language, previewSnapshot, timezoneId, viewportHeight, viewportWidth],
 	);
 
 	const regenerateFingerprintSeed = useCallback(() => {
@@ -643,16 +621,11 @@ export function useProfileCreateForm({
 			.map((line) => line.trim())
 			.filter(Boolean);
 		const source = buildFingerprintSource(values);
-		let snapshot = mergePreviewSnapshot(
-			previewSnapshot,
-			values.language,
-			values.timezoneId,
-			{
-				viewportWidth: values.viewportWidth,
-				viewportHeight: values.viewportHeight,
-				deviceScaleFactor: values.deviceScaleFactor,
-			},
-		);
+		let snapshot = mergePreviewSnapshot(previewSnapshot, values.language, values.timezoneId, {
+			viewportWidth: values.viewportWidth,
+			viewportHeight: values.viewportHeight,
+			deviceScaleFactor: values.deviceScaleFactor,
+		});
 		if (!snapshot) {
 			snapshot = mergePreviewSnapshot(
 				await previewFingerprintBundle(source, {
@@ -674,9 +647,7 @@ export function useProfileCreateForm({
 			return;
 		}
 
-		let geolocation:
-			| { latitude: number; longitude: number; accuracy?: number }
-			| undefined;
+		let geolocation: { latitude: number; longitude: number; accuracy?: number } | undefined;
 		if (values.geolocationMode === 'custom') {
 			const accuracy = values.accuracy.trim() ? Number(values.accuracy.trim()) : undefined;
 			geolocation = {
@@ -705,9 +676,7 @@ export function useProfileCreateForm({
 							: undefined,
 					browserBgColorMode: values.browserBgColorMode,
 					toolbarLabelMode:
-						values.toolbarLabelMode === 'inherit'
-							? undefined
-							: values.toolbarLabelMode,
+						values.toolbarLabelMode === 'inherit' ? undefined : values.toolbarLabelMode,
 				},
 				fingerprint: {
 					fingerprintSource: source,
@@ -743,20 +712,14 @@ export function useProfileCreateForm({
 					automationDetectionShield: values.automationDetectionShield,
 					imageLoadingMode: values.imageLoadingMode,
 					imageMaxArea:
-						values.imageLoadingMode === 'max-area'
-							? values.imageMaxArea ?? undefined
-							: undefined,
+						values.imageLoadingMode === 'max-area' ? (values.imageMaxArea ?? undefined) : undefined,
 					geolocationMode: values.geolocationMode,
 					autoAllowGeolocation: values.autoAllowGeolocation,
 					customLaunchArgs: customLaunchArgs.length ? customLaunchArgs : undefined,
 					randomFingerprint: values.randomFingerprint,
-					fixedFingerprintSeed:
-						values.fingerprintSeed ?? snapshot.fingerprintSeed,
+					fixedFingerprintSeed: values.fingerprintSeed ?? snapshot.fingerprintSeed,
 					cookieStateJson:
-						normalizeCookieStateJson(
-							values.cookieStateJson,
-							initialProfile?.id,
-						) || undefined,
+						normalizeCookieStateJson(values.cookieStateJson, initialProfile?.id) || undefined,
 					pluginSelections:
 						values.pluginSelections.length > 0
 							? dedupeProfilePluginSelections(values.pluginSelections)

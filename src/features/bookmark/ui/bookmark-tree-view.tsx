@@ -1,6 +1,6 @@
+import { ChevronRight, Folder, FolderOpen, Globe, Lock } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronRight, Folder, FolderOpen, Globe, Lock } from 'lucide-react';
 
 import type { BookmarkDisplayNode, BookmarkDisplayRoots } from '@/entities/bookmark/model/types';
 
@@ -19,7 +19,14 @@ type TreeNodeProps = {
 	onToggleExpand: (id: string) => void;
 };
 
-function TreeNode({ node, depth, selectedId, onSelect, expandedIds, onToggleExpand }: TreeNodeProps) {
+function TreeNode({
+	node,
+	depth,
+	selectedId,
+	onSelect,
+	expandedIds,
+	onToggleExpand,
+}: TreeNodeProps) {
 	const isFolder = node.type === 'folder';
 	const isExpanded = expandedIds.has(node.id);
 	const isSelected = selectedId === node.id;
@@ -34,9 +41,7 @@ function TreeNode({ node, depth, selectedId, onSelect, expandedIds, onToggleExpa
 					if (isFolder && hasChildren) onToggleExpand(node.id);
 				}}
 				className={`flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-xs transition-colors cursor-pointer ${
-					isSelected
-						? 'bg-primary/10 text-primary'
-						: 'hover:bg-muted/60 text-foreground'
+					isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted/60 text-foreground'
 				}`}
 				style={{ paddingLeft: `${4 + depth * 14}px` }}
 			>
@@ -66,9 +71,7 @@ function TreeNode({ node, depth, selectedId, onSelect, expandedIds, onToggleExpa
 
 				<span className="min-w-0 flex-1 truncate">{node.title}</span>
 
-				{node.managed && (
-					<Lock className="h-2.5 w-2.5 shrink-0 text-muted-foreground/50" />
-				)}
+				{node.managed && <Lock className="h-2.5 w-2.5 shrink-0 text-muted-foreground/50" />}
 			</button>
 
 			{isFolder && isExpanded && node.children && node.children.length > 0 && (
@@ -99,7 +102,14 @@ type SectionProps = {
 	onToggleExpand: (id: string) => void;
 };
 
-function TreeSection({ label, nodes, selectedId, onSelect, expandedIds, onToggleExpand }: SectionProps) {
+function TreeSection({
+	label,
+	nodes,
+	selectedId,
+	onSelect,
+	expandedIds,
+	onToggleExpand,
+}: SectionProps) {
 	const { t } = useTranslation('bookmark');
 	if (nodes.length === 0) return null;
 
@@ -143,8 +153,7 @@ export function BookmarkTreeView({ roots, selectedId, onSelect }: BookmarkTreeVi
 		});
 	};
 
-	const totalCount =
-		roots.bookmarkBar.length + roots.other.length + roots.mobile.length;
+	const totalCount = roots.bookmarkBar.length + roots.other.length + roots.mobile.length;
 
 	if (totalCount === 0) {
 		return (

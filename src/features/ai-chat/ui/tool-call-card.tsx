@@ -1,25 +1,33 @@
-import { memo, useMemo, useState } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
+import { ChevronRight, Clock, Wrench } from 'lucide-react';
+import { memo, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ChevronRight, Clock, Wrench } from 'lucide-react';
-
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
 import type { ChatMessageRecord } from '@/entities/chat/model/types';
+import { cn } from '@/lib/utils';
 
 type Props = { message: ChatMessageRecord };
 
 const SCREENSHOT_TOOLS = new Set(['cdp_screenshot', 'magic_capture_app_shell']);
 
-export const ToolCallCard = memo(function ToolCallCard({ message, onImageClick }: Props & { onImageClick?: (src: string) => void }) {
+export const ToolCallCard = memo(function ToolCallCard({
+	message,
+	onImageClick,
+}: Props & { onImageClick?: (src: string) => void }) {
 	const { t } = useTranslation('chat');
 	const isError = message.toolStatus === 'failed';
 	const [open, setOpen] = useState(isError);
 
-	const args = useMemo(() => message.toolArgsJson ? tryParseJson(message.toolArgsJson) : null, [message.toolArgsJson]);
-	const argsText = useMemo(() => args ? JSON.stringify(args, null, 2) : '', [args]);
-	const resultText = useMemo(() => message.toolResult ? formatToolResult(message.toolResult) : null, [message.toolResult]);
+	const args = useMemo(
+		() => (message.toolArgsJson ? tryParseJson(message.toolArgsJson) : null),
+		[message.toolArgsJson],
+	);
+	const argsText = useMemo(() => (args ? JSON.stringify(args, null, 2) : ''), [args]);
+	const resultText = useMemo(
+		() => (message.toolResult ? formatToolResult(message.toolResult) : null),
+		[message.toolResult],
+	);
 	const imageSrc = useMemo(() => {
 		if (message.imageRef) return convertFileSrc(message.imageRef);
 		if (message.imageBase64) {
@@ -36,9 +44,7 @@ export const ToolCallCard = memo(function ToolCallCard({ message, onImageClick }
 		<div
 			className={cn(
 				'rounded-lg border text-xs',
-				isError
-					? 'border-destructive bg-destructive/10'
-					: 'border-border bg-muted/30',
+				isError ? 'border-destructive bg-destructive/10' : 'border-border bg-muted/30',
 			)}
 		>
 			<button
@@ -47,9 +53,7 @@ export const ToolCallCard = memo(function ToolCallCard({ message, onImageClick }
 				onClick={() => setOpen((v) => !v)}
 			>
 				<Wrench className="size-3 shrink-0 text-muted-foreground" />
-				<span className="font-mono font-medium truncate">
-					{message.toolName}
-				</span>
+				<span className="font-mono font-medium truncate">{message.toolName}</span>
 				<Badge
 					variant={isError ? 'destructive' : 'secondary'}
 					className="ml-auto shrink-0 text-[10px] h-4"
@@ -68,10 +72,7 @@ export const ToolCallCard = memo(function ToolCallCard({ message, onImageClick }
 					</span>
 				)}
 				<ChevronRight
-					className={cn(
-						'size-3 shrink-0 transition-transform duration-200',
-						open && 'rotate-90',
-					)}
+					className={cn('size-3 shrink-0 transition-transform duration-200', open && 'rotate-90')}
 				/>
 			</button>
 			<div
@@ -100,10 +101,7 @@ export const ToolCallCard = memo(function ToolCallCard({ message, onImageClick }
 							<img
 								src={imageSrc}
 								alt="tool result screenshot"
-								className={cn(
-									'max-w-full rounded border',
-									onImageClick && 'cursor-zoom-in',
-								)}
+								className={cn('max-w-full rounded border', onImageClick && 'cursor-zoom-in')}
 								loading="lazy"
 								decoding="async"
 								onClick={() => onImageClick?.(imageSrc)}

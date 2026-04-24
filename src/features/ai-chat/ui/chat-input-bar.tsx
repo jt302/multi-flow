@@ -1,7 +1,6 @@
-import { memo, useRef, useCallback, useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-
 import { Send, Square, X } from 'lucide-react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -61,9 +60,7 @@ export const ChatInputBar = memo(function ChatInputBar({
 			keyCode?: number;
 		};
 		const isComposing =
-			compositionRef.current
-			|| e.nativeEvent.isComposing
-			|| nativeEvent.keyCode === 229;
+			compositionRef.current || e.nativeEvent.isComposing || nativeEvent.keyCode === 229;
 		if (isComposing) return;
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();

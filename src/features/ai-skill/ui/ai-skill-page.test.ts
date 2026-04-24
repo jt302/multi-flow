@@ -5,9 +5,18 @@ import test from 'node:test';
 const pageSource = readFileSync(new URL('./ai-skill-page.tsx', import.meta.url), 'utf8');
 const listSource = readFileSync(new URL('./ai-skill-list.tsx', import.meta.url), 'utf8');
 const editorSource = readFileSync(new URL('./ai-skill-editor.tsx', import.meta.url), 'utf8');
-const installSource = readFileSync(new URL('./ai-skill-install-dialog.tsx', import.meta.url), 'utf8');
-const inputSource = readFileSync(new URL('../../../components/ui/input.tsx', import.meta.url), 'utf8');
-const textareaSource = readFileSync(new URL('../../../components/ui/textarea.tsx', import.meta.url), 'utf8');
+const installSource = readFileSync(
+	new URL('./ai-skill-install-dialog.tsx', import.meta.url),
+	'utf8',
+);
+const inputSource = readFileSync(
+	new URL('../../../components/ui/input.tsx', import.meta.url),
+	'utf8',
+);
+const textareaSource = readFileSync(
+	new URL('../../../components/ui/textarea.tsx', import.meta.url),
+	'utf8',
+);
 
 test('ai skill page opens the editor in a dialog instead of inline panel content', () => {
 	assert.equal(pageSource.includes('<Dialog'), true);
@@ -53,21 +62,29 @@ test('ai skill page exposes a refresh entry wired to query refetch', () => {
 
 test('ai skill install dialog shows loading feedback while submitting', () => {
 	assert.equal(installSource.includes('LoaderCircle'), true);
-	assert.equal(installSource.includes("installSkill.isPending ? t('skills.installPending') : t('skills.installAction')"), true);
-	assert.equal(installSource.includes("className=\"size-4 animate-spin\""), true);
+	assert.equal(
+		installSource.includes(
+			"installSkill.isPending ? t('skills.installPending') : t('skills.installAction')",
+		),
+		true,
+	);
+	assert.equal(installSource.includes('className="size-4 animate-spin"'), true);
 });
 
 test('ai skill page uses a single-column page header instead of split panels', () => {
 	assert.equal(pageSource.includes('ResizablePanelGroup'), false);
-	assert.equal(pageSource.includes('<p className="max-w-2xl text-sm text-muted-foreground">'), true);
+	assert.equal(
+		pageSource.includes('<p className="max-w-2xl text-sm text-muted-foreground">'),
+		true,
+	);
 	assert.equal(pageSource.includes("t('skills.pageDescription')"), true);
-	assert.equal(pageSource.includes("variant=\"outline\""), true);
+	assert.equal(pageSource.includes('variant="outline"'), true);
 });
 
 test('ai skill list renders card-style rows instead of bordered sidebar items', () => {
 	assert.equal(listSource.includes('rounded-xl border border-border/70 bg-card'), true);
 	assert.equal(listSource.includes('border-b px-4 py-3'), false);
-	assert.equal(listSource.includes("Switch"), true);
+	assert.equal(listSource.includes('Switch'), true);
 });
 
 test('ai skill list hides delete action for built-in skills and shows badge', () => {

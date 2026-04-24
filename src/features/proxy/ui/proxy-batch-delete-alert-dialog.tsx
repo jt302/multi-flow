@@ -1,5 +1,5 @@
-import { useTranslation } from 'react-i18next';
 import { LoaderCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -33,7 +33,9 @@ export function ProxyBatchDeleteAlertDialog({
 			<AlertDialogContent>
 				<AlertDialogHeader>
 					<AlertDialogTitle>{t('common:batchDelete')}</AlertDialogTitle>
-					<AlertDialogDescription>{t('proxy:batchDeleteDesc', { count: selectedCount })} {t('proxy:deleteRecoverable')}</AlertDialogDescription>
+					<AlertDialogDescription>
+						{t('proxy:batchDeleteDesc', { count: selectedCount })} {t('proxy:deleteRecoverable')}
+					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
 					<AlertDialogCancel asChild>

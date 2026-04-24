@@ -1,8 +1,7 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
-
-import { createChatStore } from './chat-store.ts';
+import test from 'node:test';
 import type { ChatMessageRecord } from '@/entities/chat/model/types';
+import { createChatStore } from './chat-store.ts';
 
 function createMessage(overrides: Partial<ChatMessageRecord> = {}): ChatMessageRecord {
 	return {

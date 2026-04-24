@@ -72,7 +72,8 @@ export function createProxyListStore(initialState?: Partial<ProxyListStoreState>
 			})),
 		clearSelection: () => set({ selectedProxyIds: [] }),
 		openCreateDialog: () => set({ formDialogOpen: true, formMode: 'create', editingProxyId: null }),
-		openEditDialog: (editingProxyId) => set({ formDialogOpen: true, formMode: 'edit', editingProxyId }),
+		openEditDialog: (editingProxyId) =>
+			set({ formDialogOpen: true, formMode: 'edit', editingProxyId }),
 		setFormDialogOpen: (formDialogOpen) =>
 			set({
 				formDialogOpen,

@@ -486,7 +486,6 @@
 		"loopNext": "Next"
 	},
 	"properties": {
-		"title": "Properties",
 		"deleteStep": "Delete Step",
 		"noEditableFields": "This step has no editable properties",
 		"scriptVar": "Script Variable",
@@ -628,7 +627,6 @@
 		"dialog": "Dialog Interaction"
 	},
 	"actions": {
-
 		"copy": "Copy",
 		"paste": "Paste",
 		"accept": "Accept",

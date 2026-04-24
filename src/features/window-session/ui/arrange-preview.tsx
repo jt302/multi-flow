@@ -12,8 +12,16 @@ type ArrangePreviewProps = {
 };
 
 const PALETTE = [
-	'#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
-	'#06b6d4', '#f97316', '#ec4899', '#84cc16', '#6366f1',
+	'#3b82f6',
+	'#10b981',
+	'#f59e0b',
+	'#ef4444',
+	'#8b5cf6',
+	'#06b6d4',
+	'#f97316',
+	'#ec4899',
+	'#84cc16',
+	'#6366f1',
 ];
 
 export function ArrangePreview({
@@ -53,6 +61,8 @@ export function ArrangePreview({
 
 	return (
 		<svg
+			role="img"
+			aria-label="Window arrangement preview"
 			width={canvasWidth}
 			height={canvasHeight}
 			viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}

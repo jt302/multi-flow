@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -61,14 +61,16 @@ export function useProfileRunningRecovery({
 			if (suppressedUntil > 0 && suppressedUntil <= now) {
 				profileCloseSuppressionRef.current.delete(profile.id);
 			}
-			if (shouldMarkProfileRecovered({
-				previousRunning: previous?.running,
-				currentRunning: profile.running,
-				lifecycle: profile.lifecycle,
-				actionState,
-				actionLocked: profileActionLocksRef.current.has(profile.id),
-				closeSuppressed,
-			})) {
+			if (
+				shouldMarkProfileRecovered({
+					previousRunning: previous?.running,
+					currentRunning: profile.running,
+					lifecycle: profile.lifecycle,
+					actionState,
+					actionLocked: profileActionLocksRef.current.has(profile.id),
+					closeSuppressed,
+				})
+			) {
 				setActionState(profile.id, 'recovering');
 				toast.info(t('toast.recovered', { name: profile.name }));
 				window.setTimeout(() => setActionState(profile.id, null), 1800);

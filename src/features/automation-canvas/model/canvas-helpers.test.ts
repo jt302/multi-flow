@@ -5,8 +5,8 @@ import {
 	buildCanvasDataJson,
 	buildStartEdge,
 	parseCanvasData,
-	serializeControlFlowGraph,
 	START_NODE_ID,
+	serializeControlFlowGraph,
 } from './canvas-helpers.ts';
 
 test('buildStartEdge keeps the start connection deletable for manual graph editing', () => {
@@ -62,10 +62,7 @@ test('parseCanvasData preserves an explicitly deleted start edge', () => {
 
 test('serializeControlFlowGraph does not rebuild a deleted continuation edge', () => {
 	const result = serializeControlFlowGraph(
-		[
-			{ kind: 'cdp_type', text: 'hello' },
-			{ kind: 'cdp_click' },
-		] as never,
+		[{ kind: 'cdp_type', text: 'hello' }, { kind: 'cdp_click' }] as never,
 		[],
 		{},
 	);

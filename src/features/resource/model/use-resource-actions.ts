@@ -1,12 +1,11 @@
 import { toast } from 'sonner';
-import i18n from '@/shared/i18n';
-
 import {
 	activateChromiumVersion as activateChromiumVersionApi,
 	downloadResourceWithProgress,
-	installChromiumResourceWithProgress,
 	type InstallChromiumOptions,
+	installChromiumResourceWithProgress,
 } from '@/entities/resource/api/resource-api';
+import i18n from '@/shared/i18n';
 
 type ResourceActionsDeps = {
 	refreshResources: () => Promise<void>;
@@ -24,10 +23,7 @@ type ResourceActionsDeps = {
  * 分别由当前活跃的 action 调用 / 持久 store 驱动，互不耦合。
  */
 export function useResourceActions({ refreshResources }: ResourceActionsDeps) {
-	const installChromium = async (
-		resourceId: string,
-		options: InstallChromiumOptions = {},
-	) => {
+	const installChromium = async (resourceId: string, options: InstallChromiumOptions = {}) => {
 		const force = options.force ?? false;
 		const toastId = toast.loading(
 			i18n.t(force ? 'resource:redownloadingBrowser' : 'resource:downloadingBrowser'),
@@ -38,17 +34,15 @@ export function useResourceActions({ refreshResources }: ResourceActionsDeps) {
 				resourceId,
 				(progress) => {
 					if (progress.stage === 'download') {
-						const percent =
-							progress.percent === null ? null : Math.floor(progress.percent);
+						const percent = progress.percent === null ? null : Math.floor(progress.percent);
 						if (percent !== null && percent <= lastShownPercent) {
 							return;
 						}
 						if (percent !== null) {
 							lastShownPercent = percent;
-							toast.loading(
-								i18n.t('resource:browserDownloadingPercent', { percent }),
-								{ id: toastId },
-							);
+							toast.loading(i18n.t('resource:browserDownloadingPercent', { percent }), {
+								id: toastId,
+							});
 						} else {
 							toast.loading(i18n.t('resource:browserDownloading'), {
 								id: toastId,
@@ -61,19 +55,17 @@ export function useResourceActions({ refreshResources }: ResourceActionsDeps) {
 						return;
 					}
 					if (progress.stage === 'error') {
-						toast.error(
-							progress.message || i18n.t('resource:browserInstallFailed'),
-							{ id: toastId },
-						);
+						toast.error(progress.message || i18n.t('resource:browserInstallFailed'), {
+							id: toastId,
+						});
 					}
 				},
 				{ force },
 			);
 			await refreshResources();
-			toast.success(
-				i18n.t(force ? 'resource:browserRedownloaded' : 'resource:browserInstalled'),
-				{ id: toastId },
-			);
+			toast.success(i18n.t(force ? 'resource:browserRedownloaded' : 'resource:browserInstalled'), {
+				id: toastId,
+			});
 		} catch (error) {
 			const errorMessage =
 				error instanceof Error ? error.message : i18n.t('resource:installFailed');
@@ -94,23 +86,19 @@ export function useResourceActions({ refreshResources }: ResourceActionsDeps) {
 	};
 
 	const downloadResource = async (resourceId: string, label = '资源') => {
-		const toastId = toast.loading(
-			i18n.t('resource:startDownloadLabel', { label }),
-		);
+		const toastId = toast.loading(i18n.t('resource:startDownloadLabel', { label }));
 		try {
 			await downloadResourceWithProgress(resourceId, (progress) => {
 				if (progress.stage === 'download') {
-					const percent =
-						progress.percent === null ? null : Math.floor(progress.percent);
+					const percent = progress.percent === null ? null : Math.floor(progress.percent);
 					if (percent === null) {
 						toast.loading(i18n.t('resource:downloadingLabel', { label }), {
 							id: toastId,
 						});
 					} else {
-						toast.loading(
-							i18n.t('resource:downloadingLabelPercent', { label, percent }),
-							{ id: toastId },
-						);
+						toast.loading(i18n.t('resource:downloadingLabelPercent', { label, percent }), {
+							id: toastId,
+						});
 					}
 				}
 			});
@@ -120,9 +108,7 @@ export function useResourceActions({ refreshResources }: ResourceActionsDeps) {
 			});
 		} catch (error) {
 			const errorMessage =
-				error instanceof Error
-					? error.message
-					: i18n.t('resource:downloadFailed');
+				error instanceof Error ? error.message : i18n.t('resource:downloadFailed');
 			toast.error(errorMessage, { id: toastId });
 			throw error;
 		}

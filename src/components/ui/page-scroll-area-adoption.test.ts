@@ -22,7 +22,7 @@ test('workspace layout keeps the primary route container on native scrolling', (
 		'utf8',
 	);
 
-	assert.equal(source.includes("@/components/ui/scroll-area"), false);
+	assert.equal(source.includes('@/components/ui/scroll-area'), false);
 	assert.equal(source.includes('<ScrollArea className="flex-1 min-h-0">'), false);
 	assert.match(source, /className="flex-1 min-h-0 overflow-y-auto/);
 });

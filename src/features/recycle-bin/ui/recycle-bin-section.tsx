@@ -1,14 +1,7 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import {
-	Table,
-	TableBody,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from '@/components/ui';
 import { DataSection } from '@/components/common';
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui';
 
 type RecycleBinSectionItem = {
 	id: string;
@@ -43,9 +36,7 @@ export function RecycleBinSection<TItem extends RecycleBinSectionItem>({
 							<TableRow className="bg-muted/20 hover:bg-muted/20">
 								<TableHead>{t('name')}</TableHead>
 								<TableHead className="w-[280px]">{t('detail')}</TableHead>
-								<TableHead className="w-[220px] text-right">
-									{t('action')}
-								</TableHead>
+								<TableHead className="w-[220px] text-right">{t('action')}</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>{items.map((item) => children(item))}</TableBody>

@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-
+import type { ProfilesPageProps } from '@/features/profile/model/page-types';
 import { ProfileCreateForm } from '@/features/profile/ui/profile-create-form';
 import { ProfileDetailPage } from '@/features/profile/ui/profile-detail-page';
 import { ProfileListPage } from '@/features/profile/ui/profile-list-page';
-import type { ProfilesPageProps } from '@/features/profile/model/page-types';
 
 export function ProfilesPage({
 	profiles,
@@ -32,9 +31,7 @@ export function ProfilesPage({
 	onConsumeNavigationIntent,
 	onNavigate,
 }: ProfilesPageProps) {
-	const [view, setView] = useState<'list' | 'create' | 'edit' | 'detail'>(
-		'list',
-	);
+	const [view, setView] = useState<'list' | 'create' | 'edit' | 'detail'>('list');
 	const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
 	const [returnNav, setReturnNav] = useState<string | null>(null);
 
@@ -113,9 +110,7 @@ export function ProfilesPage({
 			<ProfileDetailPage
 				profile={profile}
 				resources={resources}
-				boundProxy={proxies.find(
-					(item) => item.id === profileProxyBindings[profile.id],
-				)}
+				boundProxy={proxies.find((item) => item.id === profileProxyBindings[profile.id])}
 				onBack={() => {
 					if (returnNav && onNavigate) {
 						onNavigate(returnNav);

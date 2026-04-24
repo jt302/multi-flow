@@ -1,4 +1,3 @@
-import { memo, useCallback, useMemo } from 'react';
 import type { TFunction } from 'i18next';
 import {
 	Ellipsis,
@@ -12,6 +11,7 @@ import {
 	Trash2,
 	Upload,
 } from 'lucide-react';
+import { memo, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import GoogleIcon from '@/assets/icon/google.svg?react';
 import YouTubeIcon from '@/assets/icon/youtube.svg?react';
@@ -170,9 +170,7 @@ const TARGET_SITES = [
 ] as const;
 
 function findTargetSiteCheck(item: ProxyItem, site: string) {
-	return item.targetSiteChecks.find(
-		(entry) => entry.site.trim().toLowerCase() === site,
-	);
+	return item.targetSiteChecks.find((entry) => entry.site.trim().toLowerCase() === site);
 }
 
 function resolveTargetSiteSummary(item: ProxyItem, t: TFunction) {
@@ -207,16 +205,11 @@ function useProxyRowState({
 	| 'onRestoreProxy'
 >) {
 	const latencyMs = useMemo(() => resolveLatency(item), [item]);
-	const latencyTone = useMemo(
-		() => resolveLatencyTone(item, latencyMs),
-		[item, latencyMs],
-	);
+	const latencyTone = useMemo(() => resolveLatencyTone(item, latencyMs), [item, latencyMs]);
 	const countryFlag = useMemo(() => resolveCountryFlag(item.country), [item.country]);
 	const exitIpLabel =
 		item.exitIp ||
-		(item.checkStatus === 'ok'
-			? t('common:exitIpFetchFailed')
-			: t('common:exitIpNotDetected'));
+		(item.checkStatus === 'ok' ? t('common:exitIpFetchFailed') : t('common:exitIpNotDetected'));
 	const statusLabel = resolveStatusLabel(item, t);
 	const displayName = resolveProxyDisplayName(item);
 	const address = formatProxyAddress(item.protocol, item.host, item.port);
@@ -225,8 +218,7 @@ function useProxyRowState({
 	const fallbackHealth =
 		item.checkStatus === 'ok'
 			? t('common:latencyPending')
-			: item.checkMessage ||
-				`${t('common:expired')} ${formatExpiry(item.expiresAt, t, locale)}`;
+			: item.checkMessage || `${t('common:expired')} ${formatExpiry(item.expiresAt, t, locale)}`;
 
 	const handleSelect = useCallback(
 		(checked: boolean | 'indeterminate') => {
@@ -236,18 +228,9 @@ function useProxyRowState({
 	);
 	const handleCheck = useCallback(() => onCheckProxy(item.id), [item.id, onCheckProxy]);
 	const handleEdit = useCallback(() => onOpenEdit(item.id), [item.id, onOpenEdit]);
-	const handleBinding = useCallback(
-		() => onOpenBinding(item.id),
-		[item.id, onOpenBinding],
-	);
-	const handleDelete = useCallback(
-		() => onRequestDelete(item.id),
-		[item.id, onRequestDelete],
-	);
-	const handleRestore = useCallback(
-		() => onRestoreProxy(item.id),
-		[item.id, onRestoreProxy],
-	);
+	const handleBinding = useCallback(() => onOpenBinding(item.id), [item.id, onOpenBinding]);
+	const handleDelete = useCallback(() => onRequestDelete(item.id), [item.id, onRequestDelete]);
+	const handleRestore = useCallback(() => onRestoreProxy(item.id), [item.id, onRestoreProxy]);
 
 	return {
 		address,
@@ -313,14 +296,10 @@ const ProxyMobileListItem = memo(function ProxyMobileListItem({
 								{item.protocol}
 							</Badge>
 							<Badge variant={item.lifecycle === 'active' ? 'outline' : 'secondary'}>
-								{item.lifecycle === 'active'
-									? t('common:active')
-									: t('common:archived')}
+								{item.lifecycle === 'active' ? t('common:active') : t('common:archived')}
 							</Badge>
 						</div>
-						<p className="mt-1 truncate text-xs text-muted-foreground">
-							{row.address}
-						</p>
+						<p className="mt-1 truncate text-xs text-muted-foreground">{row.address}</p>
 						<p className="mt-1 truncate text-[11px] text-muted-foreground">
 							{item.provider || t('common:providerNotSet')} ·{' '}
 							{t('common:itemBoundCount', { count: boundCount })}
@@ -359,10 +338,7 @@ const ProxyMobileListItem = memo(function ProxyMobileListItem({
 										<Icon icon={Pencil} size={13} />
 										{t('common:editItem', { item: t('common:proxy') })}
 									</DropdownMenuItem>
-									<DropdownMenuItem
-										className="cursor-pointer"
-										onClick={row.handleBinding}
-									>
+									<DropdownMenuItem className="cursor-pointer" onClick={row.handleBinding}>
 										<Icon icon={Link2} size={13} />
 										{t('common:bind')}
 									</DropdownMenuItem>
@@ -400,8 +376,7 @@ const ProxyMobileListItem = memo(function ProxyMobileListItem({
 						{item.country || t('common:unknownCountry')}
 					</p>
 					<p className="text-[11px] text-muted-foreground">
-						{item.region || t('common:unknownRegion')} /{' '}
-						{item.city || t('common:unknownCity')}
+						{item.region || t('common:unknownRegion')} / {item.city || t('common:unknownCity')}
 					</p>
 				</div>
 				<div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
@@ -412,9 +387,7 @@ const ProxyMobileListItem = memo(function ProxyMobileListItem({
 					</p>
 				</div>
 				<div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-					<p className="text-[11px] text-muted-foreground">
-						{t('common:siteReachability')}
-					</p>
+					<p className="text-[11px] text-muted-foreground">{t('common:siteReachability')}</p>
 					<p className="mt-1 text-sm font-medium">{row.targetSummary}</p>
 				</div>
 				<div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
@@ -495,13 +468,10 @@ const ProxyTableRow = memo(function ProxyTableRow({
 						) : (
 							<Icon icon={Globe} size={14} className="text-muted-foreground" />
 						)}
-						<span className="truncate">
-							{item.country || t('common:unknownCountry')}
-						</span>
+						<span className="truncate">{item.country || t('common:unknownCountry')}</span>
 					</p>
 					<p className="truncate text-[11px] text-muted-foreground">
-						{item.region || t('common:unknownRegion')} /{' '}
-						{item.city || t('common:unknownCity')}
+						{item.region || t('common:unknownRegion')} / {item.city || t('common:unknownCity')}
 					</p>
 				</div>
 			</TableCell>
@@ -512,9 +482,7 @@ const ProxyTableRow = memo(function ProxyTableRow({
 				</p>
 			</TableCell>
 			<TableCell>
-				<p className="truncate text-[11px] text-muted-foreground">
-					{row.targetSummary}
-				</p>
+				<p className="truncate text-[11px] text-muted-foreground">{row.targetSummary}</p>
 				<div className="mt-1 flex flex-col gap-1">
 					{TARGET_SITES.map(({ site, label, IconComponent }) => {
 						const target = findTargetSiteCheck(item, site);
@@ -541,9 +509,7 @@ const ProxyTableRow = memo(function ProxyTableRow({
 							>
 								<IconComponent className="h-3.5 w-3.5 shrink-0" />
 								<span className="truncate text-muted-foreground">{label}</span>
-								<span className={`truncate font-medium ${statusClass}`}>
-									{itemStatusLabel}
-								</span>
+								<span className={`truncate font-medium ${statusClass}`}>{itemStatusLabel}</span>
 							</p>
 						);
 					})}
@@ -612,10 +578,7 @@ const ProxyTableRow = memo(function ProxyTableRow({
 										<Icon icon={Pencil} size={13} />
 										{t('common:editItem', { item: t('common:proxy') })}
 									</DropdownMenuItem>
-									<DropdownMenuItem
-										className="cursor-pointer"
-										onClick={row.handleBinding}
-									>
+									<DropdownMenuItem className="cursor-pointer" onClick={row.handleBinding}>
 										<Icon icon={Link2} size={13} />
 										{t('common:bind')}
 									</DropdownMenuItem>
@@ -674,14 +637,8 @@ export function ProxyListCard({
 	const { t, i18n } = useTranslation();
 	const isMobile = useIsMobile();
 	const locale = i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US';
-	const selectedProxyIdSet = useMemo(
-		() => new Set(selectedProxyIds),
-		[selectedProxyIds],
-	);
-	const checkingProxyIdSet = useMemo(
-		() => new Set(checkingProxyIds),
-		[checkingProxyIds],
-	);
+	const selectedProxyIdSet = useMemo(() => new Set(selectedProxyIds), [selectedProxyIds]);
+	const checkingProxyIdSet = useMemo(() => new Set(checkingProxyIds), [checkingProxyIds]);
 	const activeProxyIds = useMemo(
 		() => proxies.filter((item) => item.lifecycle === 'active').map((item) => item.id),
 		[proxies],
@@ -704,12 +661,80 @@ export function ProxyListCard({
 					</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
-					<Button type="button" variant="default" size="sm" className="w-full sm:w-auto" disabled={pending || batchChecking || rowActionDisabled} onClick={onOpenCreate}><Icon icon={Pencil} size={12} />{t('common:createItem', { item: t('common:proxy') })}</Button>
-					<Button type="button" variant="outline" size="sm" className="w-full sm:w-auto" disabled={pending || batchChecking || rowActionDisabled} onClick={onOpenImport}><Icon icon={Upload} size={12} />{t('common:batchImport')}</Button>
-					<Button type="button" variant="outline" size="sm" className="w-full sm:w-auto" disabled={pending || batchChecking || selectedActiveCount === 0} onClick={onBatchCheck}><Icon icon={batchChecking ? LoaderCircle : Search} size={12} className={batchChecking ? 'animate-spin' : ''} />{t('common:batchCheck')}</Button>
-					<Button type="button" variant="outline" size="sm" className="w-full sm:w-auto" disabled={pending || batchChecking || rowActionDisabled || selectedActiveCount === 0} onClick={onOpenBatchEdit}><Icon icon={Pencil} size={12} />{t('common:batchEdit')}</Button>
-					<Button type="button" variant="outline" size="sm" className="w-full sm:w-auto" disabled={pending || batchChecking || rowActionDisabled || selectedActiveCount === 0} onClick={onOpenBatchDelete}><Icon icon={Trash2} size={12} />{t('common:batchDelete')}</Button>
-					<Button type="button" variant="ghost" size="sm" className="w-full sm:w-auto" disabled={pending || refreshing || batchChecking} onClick={onRefresh}><Icon icon={refreshing ? LoaderCircle : RefreshCw} size={12} className={refreshing ? 'animate-spin' : ''} />{t('common:refresh')}</Button>
+					<Button
+						type="button"
+						variant="default"
+						size="sm"
+						className="w-full sm:w-auto"
+						disabled={pending || batchChecking || rowActionDisabled}
+						onClick={onOpenCreate}
+					>
+						<Icon icon={Pencil} size={12} />
+						{t('common:createItem', { item: t('common:proxy') })}
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="w-full sm:w-auto"
+						disabled={pending || batchChecking || rowActionDisabled}
+						onClick={onOpenImport}
+					>
+						<Icon icon={Upload} size={12} />
+						{t('common:batchImport')}
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="w-full sm:w-auto"
+						disabled={pending || batchChecking || selectedActiveCount === 0}
+						onClick={onBatchCheck}
+					>
+						<Icon
+							icon={batchChecking ? LoaderCircle : Search}
+							size={12}
+							className={batchChecking ? 'animate-spin' : ''}
+						/>
+						{t('common:batchCheck')}
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="w-full sm:w-auto"
+						disabled={pending || batchChecking || rowActionDisabled || selectedActiveCount === 0}
+						onClick={onOpenBatchEdit}
+					>
+						<Icon icon={Pencil} size={12} />
+						{t('common:batchEdit')}
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="w-full sm:w-auto"
+						disabled={pending || batchChecking || rowActionDisabled || selectedActiveCount === 0}
+						onClick={onOpenBatchDelete}
+					>
+						<Icon icon={Trash2} size={12} />
+						{t('common:batchDelete')}
+					</Button>
+					<Button
+						type="button"
+						variant="ghost"
+						size="sm"
+						className="w-full sm:w-auto"
+						disabled={pending || refreshing || batchChecking}
+						onClick={onRefresh}
+					>
+						<Icon
+							icon={refreshing ? LoaderCircle : RefreshCw}
+							size={12}
+							className={refreshing ? 'animate-spin' : ''}
+						/>
+						{t('common:refresh')}
+					</Button>
 				</div>
 			</div>
 

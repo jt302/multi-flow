@@ -1,17 +1,15 @@
+import { ChevronDown, ChevronUp, Download, Maximize2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import { ChevronDown, ChevronUp, Download, Maximize2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-
-import type { AutomationRun } from '@/entities/automation/model/types';
-import { exportBackendLogs } from '@/entities/log-entry/api/logs-api';
-import { RunStatusBadge } from '@/entities/automation/ui/run-status-badge';
-import { ProfileBadge } from '@/entities/profile/ui/profile-badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { AutomationRun } from '@/entities/automation/model/types';
+import { RunStatusBadge } from '@/entities/automation/ui/run-status-badge';
+import { exportBackendLogs } from '@/entities/log-entry/api/logs-api';
+import { ProfileBadge } from '@/entities/profile/ui/profile-badge';
 import { RunLogViewer } from './run-log-viewer';
-import { StepTreeRenderer, buildResultMap } from './step-tree-renderer';
+import { buildResultMap, StepTreeRenderer } from './step-tree-renderer';
 
 // ─── RunRow ───────────────────────────────────────────────────────────────────
 
@@ -34,7 +32,9 @@ export function RunRow({ run, onSelect, onDelete }: RunRowProps) {
 					onClick={onSelect}
 				>
 					<RunStatusBadge status={run.status} />
-					{run.profileId && <ProfileBadge profileId={run.profileId} showColor={false} className="shrink-0" />}
+					{run.profileId && (
+						<ProfileBadge profileId={run.profileId} showColor={false} className="shrink-0" />
+					)}
 					<span className="text-muted-foreground flex-1 min-w-0 truncate">
 						{new Date(run.startedAt * 1000).toLocaleString()}
 					</span>
@@ -43,9 +43,7 @@ export function RunRow({ run, onSelect, onDelete }: RunRowProps) {
 							{((run.finishedAt - run.startedAt) / 1).toFixed(1)}s
 						</span>
 					)}
-					{run.error && (
-						<span className="text-red-500 truncate max-w-40">{run.error}</span>
-					)}
+					{run.error && <span className="text-red-500 truncate max-w-40">{run.error}</span>}
 					<Maximize2 className="h-3 w-3 text-muted-foreground shrink-0" />
 				</button>
 				<Button
@@ -90,7 +88,10 @@ function formatExportLogTime(ts: number): string {
 	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-function formatRunForExport(run: AutomationRun, t: (key: string, options?: Record<string, unknown>) => string): string[] {
+function formatRunForExport(
+	run: AutomationRun,
+	t: (key: string, options?: Record<string, unknown>) => string,
+): string[] {
 	const lines: string[] = [];
 
 	lines.push('═══════════════════════════════════════════');
@@ -189,7 +190,8 @@ export function RunDetailView({ run, expanded = false }: RunDetailViewProps) {
 				<div className="flex items-center mx-3 mt-2 mb-0 shrink-0 gap-1">
 					<TabsList className="h-7 bg-muted/40">
 						<TabsTrigger value="results" className="text-xs h-6 px-2.5">
-							{t('common:stepResults')}{run.results ? ` (${run.results.length})` : ''}
+							{t('common:stepResults')}
+							{run.results ? ` (${run.results.length})` : ''}
 						</TabsTrigger>
 						<TabsTrigger value="logs" className="text-xs h-6 px-2.5">
 							{t('common:executionLogs')}
@@ -219,29 +221,19 @@ export function RunDetailView({ run, expanded = false }: RunDetailViewProps) {
 				>
 					{run.error && (
 						<div className="rounded bg-red-50 dark:bg-red-950/20 p-2">
-							<p className="text-xs text-red-500 font-medium mb-0.5">
-								{t('common:errorInfo')}
-							</p>
-							<p className="text-xs text-red-400 break-all whitespace-pre-wrap">
-								{run.error}
-							</p>
+							<p className="text-xs text-red-500 font-medium mb-0.5">{t('common:errorInfo')}</p>
+							<p className="text-xs text-red-400 break-all whitespace-pre-wrap">{run.error}</p>
 						</div>
 					)}
 					{run.results && run.results.length > 0 ? (
-						<StepTreeRenderer
-							steps={run.steps}
-							resultMap={buildResultMap(run.results)}
-						/>
+						<StepTreeRenderer steps={run.steps} resultMap={buildResultMap(run.results)} />
 					) : (
 						<p className="text-xs text-muted-foreground">{t('common:noResults')}</p>
 					)}
 				</TabsContent>
 
 				{/* 执行日志 Tab */}
-				<TabsContent
-					value="logs"
-					className="flex flex-col flex-1 min-h-0 px-0 pb-0 pt-0 mt-0"
-				>
+				<TabsContent value="logs" className="flex flex-col flex-1 min-h-0 px-0 pb-0 pt-0 mt-0">
 					<RunLogViewer logs={run.logs ?? []} expanded={expanded} />
 				</TabsContent>
 			</Tabs>
@@ -260,19 +252,11 @@ type Props = {
 };
 
 /** @deprecated 使用 RunRow + RunDetailView 替代 */
-export function ScriptRunCard({
-	run,
-	runIndex: _runIndex,
-	isExpanded,
-	onToggle,
-	onDelete,
-}: Props) {
+export function ScriptRunCard({ run, runIndex: _runIndex, isExpanded, onToggle, onDelete }: Props) {
 	const { t } = useTranslation(['automation', 'common']);
 
 	return (
-		<div
-			className={`rounded-lg border ${isExpanded ? 'bg-card shadow-sm' : 'bg-muted/20'}`}
-		>
+		<div className={`rounded-lg border ${isExpanded ? 'bg-card shadow-sm' : 'bg-muted/20'}`}>
 			<div className="flex items-center gap-3 px-3 py-2 text-xs">
 				<button
 					type="button"

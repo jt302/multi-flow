@@ -1,14 +1,9 @@
+import { Focus, LoaderCircle, RefreshCw, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-	Focus,
-	LoaderCircle,
-	RefreshCw,
-	Sparkles,
-} from 'lucide-react';
 
 import { getWorkspaceSection } from '@/app/model/workspace-sections';
-import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
+import { ProfileGroupSelector } from '@/components/common/profile-group-selector';
 import {
 	Badge,
 	Button,
@@ -20,10 +15,10 @@ import {
 	Icon,
 	ScrollArea,
 } from '@/components/ui';
-import { ProfileGroupSelector } from '@/components/common/profile-group-selector';
-import { useWindowSyncStore } from '@/store/window-sync-store';
 import type { WindowsPageProps } from '@/features/window-session/model/page-types';
 import { getWindowSyncStartValidation } from '@/features/window-session/model/window-sync-forms';
+import { useWindowSyncStore } from '@/store/window-sync-store';
+import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 
 export function WindowsPage({
 	profiles,
@@ -42,17 +37,11 @@ export function WindowsPage({
 	const section = getWorkspaceSection('windows');
 	const [syncActionPending, setSyncActionPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const selectedProfileIds = useWindowSyncStore(
-		(state) => state.selectedProfileIds,
-	);
+	const selectedProfileIds = useWindowSyncStore((state) => state.selectedProfileIds);
 	const masterProfileId = useWindowSyncStore((state) => state.masterProfileId);
 	const toggleProfile = useWindowSyncStore((state) => state.toggleProfile);
-	const setSelectedProfileIds = useWindowSyncStore(
-		(state) => state.setSelectedProfileIds,
-	);
-	const setMasterProfileId = useWindowSyncStore(
-		(state) => state.setMasterProfileId,
-	);
+	const setSelectedProfileIds = useWindowSyncStore((state) => state.setSelectedProfileIds);
+	const setMasterProfileId = useWindowSyncStore((state) => state.setMasterProfileId);
 	const activeSyncSession = sessionPayload?.session ?? null;
 
 	const runningProfileIds = useMemo(() => {
@@ -120,9 +109,7 @@ export function WindowsPage({
 			sessionPayload?.master
 				? {
 						label: t('syncDiag.masterPrefix', {
-							name:
-								profileNameMap[sessionPayload.master.id] ??
-								sessionPayload.master.id,
+							name: profileNameMap[sessionPayload.master.id] ?? sessionPayload.master.id,
 						}),
 						boundBrowserId: sessionPayload.master.boundBrowserId ?? null,
 						boundWindowToken: sessionPayload.master.boundWindowToken ?? null,
@@ -195,18 +182,13 @@ export function WindowsPage({
 									<Badge variant="default">
 										{t('page.syncing', {
 											master:
-												profileNameMap[activeSyncSession.masterId] ??
-												activeSyncSession.masterId,
+												profileNameMap[activeSyncSession.masterId] ?? activeSyncSession.masterId,
 										})}
 									</Badge>
 								) : (
 									<Badge variant="secondary">{t('page.notSyncing')}</Badge>
 								)}
-								<Badge
-									variant={
-										syncConnectionStatus === 'connected' ? 'default' : 'outline'
-									}
-								>
+								<Badge variant={syncConnectionStatus === 'connected' ? 'default' : 'outline'}>
 									{t('page.sidecarStatus', { status: syncConnectionStatus })}
 								</Badge>
 							</div>
@@ -219,17 +201,12 @@ export function WindowsPage({
 										void runSyncAction(() =>
 											activeSyncSession
 												? onStopSync()
-												: onStartSync(
-														selectedRunningIds,
-														masterProfileId ?? '',
-													),
+												: onStartSync(selectedRunningIds, masterProfileId ?? ''),
 										)
 									}
 									disabled={
 										syncActionPending ||
-										(activeSyncSession
-											? !activeSyncSession
-											: !startValidation.ok)
+										(activeSyncSession ? !activeSyncSession : !startValidation.ok)
 									}
 								>
 									<Icon
@@ -267,13 +244,9 @@ export function WindowsPage({
 								</Button>
 							</div>
 							{startValidation.reason ? (
-								<p className="text-xs text-muted-foreground">
-									{startValidation.reason}
-								</p>
+								<p className="text-xs text-muted-foreground">{startValidation.reason}</p>
 							) : null}
-							{error ? (
-								<p className="text-xs text-destructive">{error}</p>
-							) : null}
+							{error ? <p className="text-xs text-destructive">{error}</p> : null}
 
 							{/* 按分组快速选择环境 */}
 							<ProfileGroupSelector
@@ -337,23 +310,15 @@ export function WindowsPage({
 												>
 													{item.instanceStatus}
 												</Badge>
-												{item.platform ? (
-													<Badge variant="outline">{item.platform}</Badge>
-												) : null}
+												{item.platform ? <Badge variant="outline">{item.platform}</Badge> : null}
 												{item.lastProbeError ? (
-													<Badge variant="outline">
-														{t('syncDiag.probeError')}
-													</Badge>
+													<Badge variant="outline">{t('syncDiag.probeError')}</Badge>
 												) : null}
 												{item.boundBrowserId ? (
-													<Badge variant="outline">
-														browser {item.boundBrowserId}
-													</Badge>
+													<Badge variant="outline">browser {item.boundBrowserId}</Badge>
 												) : null}
 												{item.boundWindowToken ? (
-													<Badge variant="outline">
-														token {item.boundWindowToken}
-													</Badge>
+													<Badge variant="outline">token {item.boundWindowToken}</Badge>
 												) : null}
 											</div>
 											<div className="flex w-full items-center gap-2 sm:w-auto">
@@ -381,74 +346,49 @@ export function WindowsPage({
 			{/* 同步诊断 — shrink-0 固定在底部 */}
 			<Card className="p-3 shrink-0">
 				<CardHeader className="px-1 pb-2">
-					<CardTitle className="text-sm">
-						{t('syncDiag.syncDiagnostics')}
-					</CardTitle>
+					<CardTitle className="text-sm">{t('syncDiag.syncDiagnostics')}</CardTitle>
 				</CardHeader>
 				<CardContent className="grid gap-3 px-1 pt-0 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
 					<div className="space-y-3">
 						<div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
 							<div className="rounded-lg border border-border/60 p-3">
-								<p className="text-xs text-muted-foreground">
-									{t('syncDiag.connectionStatus')}
-								</p>
-								<p className="mt-1 text-sm font-medium">
-									{syncConnectionStatus}
-								</p>
+								<p className="text-xs text-muted-foreground">{t('syncDiag.connectionStatus')}</p>
+								<p className="mt-1 text-sm font-medium">{syncConnectionStatus}</p>
 							</div>
 							<div className="rounded-lg border border-border/60 p-3">
-								<p className="text-xs text-muted-foreground">
-									{t('syncDiag.sidecarPort')}
-								</p>
+								<p className="text-xs text-muted-foreground">{t('syncDiag.sidecarPort')}</p>
 								<p className="mt-1 text-sm font-medium">{sidecarPort ?? '-'}</p>
 							</div>
 							<div className="rounded-lg border border-border/60 p-3">
-								<p className="text-xs text-muted-foreground">
-									{t('syncDiag.sessionStatus')}
-								</p>
-								<p className="mt-1 text-sm font-medium">
-									{activeSyncSession?.status ?? 'stopped'}
-								</p>
+								<p className="text-xs text-muted-foreground">{t('syncDiag.sessionStatus')}</p>
+								<p className="mt-1 text-sm font-medium">{activeSyncSession?.status ?? 'stopped'}</p>
 							</div>
 							<div className="rounded-lg border border-border/60 p-3">
-								<p className="text-xs text-muted-foreground">
-									{t('syncDiag.forwardedEvents')}
-								</p>
-								<p className="mt-1 text-sm font-medium">
-									{metrics?.eventsForwarded ?? 0}
-								</p>
+								<p className="text-xs text-muted-foreground">{t('syncDiag.forwardedEvents')}</p>
+								<p className="mt-1 text-sm font-medium">{metrics?.eventsForwarded ?? 0}</p>
 							</div>
 							<div className="rounded-lg border border-border/60 p-3">
-								<p className="text-xs text-muted-foreground">
-									{t('syncDiag.failedEvents')}
-								</p>
-								<p className="mt-1 text-sm font-medium">
-									{metrics?.eventsFailed ?? 0}
-								</p>
+								<p className="text-xs text-muted-foreground">{t('syncDiag.failedEvents')}</p>
+								<p className="mt-1 text-sm font-medium">{metrics?.eventsFailed ?? 0}</p>
 							</div>
 						</div>
 						<div className="rounded-lg border border-border/60 p-3 text-xs text-muted-foreground">
 							<p>
 								{t('syncDiag.lastError')}
-								<span className="ml-1 text-foreground">
-									{syncLastError ?? t('syncDiag.none')}
-								</span>
+								<span className="ml-1 text-foreground">{syncLastError ?? t('syncDiag.none')}</span>
 							</p>
 							<p className="mt-1">
 								{t('syncDiag.sessionReason')}
 								<span className="ml-1 text-foreground">
-									{sessionPayload?.reason ??
-										syncLastError ??
-										t('syncDiag.none')}
+									{sessionPayload?.reason ?? syncLastError ?? t('syncDiag.none')}
 								</span>
 							</p>
 							<p className="mt-1">
 								{t('syncDiag.dropStats')}
 								<span className="ml-1 text-foreground">
-									invalid {metrics?.eventsDroppedInvalid ?? 0} / session
-									mismatch {metrics?.eventsDroppedSessionMismatch ?? 0} /
-									non-replayable {metrics?.eventsDroppedNonReplayable ?? 0} /
-									platform mismatch{' '}
+									invalid {metrics?.eventsDroppedInvalid ?? 0} / session mismatch{' '}
+									{metrics?.eventsDroppedSessionMismatch ?? 0} / non-replayable{' '}
+									{metrics?.eventsDroppedNonReplayable ?? 0} / platform mismatch{' '}
 									{metrics?.eventsDroppedPlatformMismatch ?? 0}
 								</span>
 							</p>
@@ -459,8 +399,7 @@ export function WindowsPage({
 										<p key={item.label}>
 											{item.label}：
 											<span className="ml-1 text-foreground">
-												browser {item.boundBrowserId ?? '-'} / token{' '}
-												{item.boundWindowToken ?? '-'}
+												browser {item.boundBrowserId ?? '-'} / token {item.boundWindowToken ?? '-'}
 											</span>
 										</p>
 									))}
@@ -468,10 +407,7 @@ export function WindowsPage({
 										{t('syncDiag.coordinateMode')}
 										<span className="ml-1 text-foreground">
 											{bindingDiagnostics
-												.map(
-													(item) =>
-														`${item.label} ${item.coordinateMode ?? '-'}`,
-												)
+												.map((item) => `${item.label} ${item.coordinateMode ?? '-'}`)
 												.join(' / ')}
 										</span>
 									</p>
@@ -481,9 +417,7 @@ export function WindowsPage({
 					</div>
 					<div className="grid gap-3">
 						<div className="rounded-lg border border-border/60 p-3">
-							<p className="mb-2 text-sm font-medium">
-								{t('syncDiag.recentWarnings')}
-							</p>
+							<p className="mb-2 text-sm font-medium">{t('syncDiag.recentWarnings')}</p>
 							<div className="space-y-2 text-xs text-muted-foreground">
 								{recentWarnings.length === 0 ? (
 									<p>{t('syncDiag.noWarnings')}</p>
@@ -504,9 +438,7 @@ export function WindowsPage({
 							</div>
 						</div>
 						<div className="rounded-lg border border-border/60 p-3">
-							<p className="mb-2 text-sm font-medium">
-								{t('syncDiag.recentProbeErrors')}
-							</p>
+							<p className="mb-2 text-sm font-medium">{t('syncDiag.recentProbeErrors')}</p>
 							<div className="space-y-2 text-xs text-muted-foreground">
 								{recentProbeErrors.length === 0 ? (
 									<p>{t('syncDiag.noProbeErrors')}</p>

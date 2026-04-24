@@ -1,21 +1,17 @@
+import type { Connection, Edge, EdgeChange, Node, NodeChange } from '@xyflow/react';
+import { addEdge, applyEdgeChanges, applyNodeChanges } from '@xyflow/react';
+import i18next from 'i18next';
 import type React from 'react';
+import { toast } from 'sonner';
 import { useStore } from 'zustand';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import {
-	addEdge,
-	applyEdgeChanges,
-	applyNodeChanges,
-} from '@xyflow/react';
-import type {
-	Connection,
-	Edge,
-	EdgeChange,
-	Node,
-	NodeChange,
-} from '@xyflow/react';
-import i18next from 'i18next';
-import { toast } from 'sonner';
-
+	emitScriptUpdated,
+	saveAutomationCanvasGraph,
+	updateScriptCanvasPositions,
+} from '@/entities/automation/api/automation-api';
+import { isTerminalStepKind } from '@/entities/automation/model/step-flow';
+import { defaultStep, KIND_LABELS } from '@/entities/automation/model/step-registry';
 import type {
 	AutomationScript,
 	ScriptSettings,
@@ -23,25 +19,6 @@ import type {
 	ScriptVarDef,
 } from '@/entities/automation/model/types';
 import {
-	emitScriptUpdated,
-	saveAutomationCanvasGraph,
-	updateScriptCanvasPositions,
-} from '@/entities/automation/api/automation-api';
-import { isTerminalStepKind } from '@/entities/automation/model/step-flow';
-import {
-	KIND_LABELS,
-	defaultStep,
-} from '@/entities/automation/model/step-registry';
-
-import {
-	buildStepCanvasNode,
-	buildStepNodeData,
-	rebuildIndexedNode,
-	syncNodeStatuses,
-	type StepNodeData,
-} from './canvas-node-data';
-import {
-	START_NODE_ID,
 	buildCanvasDataJson,
 	buildNodes,
 	buildStartEdge,
@@ -50,11 +27,19 @@ import {
 	findRootStepId,
 	flattenControlFlowTree,
 	getStartEdgeTarget,
+	type PositionsMap,
 	parseCanvasData,
+	START_NODE_ID,
 	serializeControlFlowGraph,
 	stripStartEdges,
-	type PositionsMap,
 } from './canvas-helpers';
+import {
+	buildStepCanvasNode,
+	buildStepNodeData,
+	rebuildIndexedNode,
+	type StepNodeData,
+	syncNodeStatuses,
+} from './canvas-node-data';
 
 export type CanvasStoreState = {
 	steps: ScriptStep[];
@@ -118,8 +103,7 @@ export function createCanvasStore(
 	deps: CanvasStoreDeps = {},
 ): CanvasStoreApi {
 	const saveGraph = deps.saveAutomationCanvasGraph ?? saveAutomationCanvasGraph;
-	const persistCanvasPositions =
-		deps.updateScriptCanvasPositions ?? updateScriptCanvasPositions;
+	const persistCanvasPositions = deps.updateScriptCanvasPositions ?? updateScriptCanvasPositions;
 	const emitUpdated = deps.emitScriptUpdated ?? emitScriptUpdated;
 	const toastWarning = deps.toastWarning ?? toast.warning;
 	const setTimeoutFn = deps.setTimeoutFn ?? setTimeout;
@@ -133,9 +117,7 @@ export function createCanvasStore(
 			? [...flatSteps, ...parsedCanvas.orphanedSteps]
 			: flatSteps;
 	const initPos = parsedCanvas.positions;
-	const initEdges = parsedCanvas.edgesFromSave
-		? parsedCanvas.edges
-		: reconstructedEdges;
+	const initEdges = parsedCanvas.edgesFromSave ? parsedCanvas.edges : reconstructedEdges;
 	const initialStartEdgeTarget =
 		parsedCanvas.startEdgeTarget === undefined
 			? findRootStepId(initEdges, initFlatSteps.length)
@@ -188,10 +170,7 @@ export function createCanvasStore(
 			clearTimer(saveTimerRef);
 			saveTimerRef = setTimeoutFn(() => {
 				saveTimerRef = null;
-				void persistCanvasPositions(
-					script.id,
-					buildCanvasDataJson(positions, edges),
-				);
+				void persistCanvasPositions(script.id, buildCanvasDataJson(positions, edges));
 			}, 500);
 		};
 
@@ -219,12 +198,7 @@ export function createCanvasStore(
 					remappedPositions,
 					orphanedCount,
 					orphanedSteps,
-				} = serializeControlFlowGraph(
-					newSteps,
-					stepEdges,
-					stepPositions,
-					currentStartTarget,
-				);
+				} = serializeControlFlowGraph(newSteps, stepEdges, stepPositions, currentStartTarget);
 				const nextIndexByOldId = new Map(
 					orderedIds.map((oldId, newIndex) => [oldId, newIndex] as const),
 				);
@@ -235,9 +209,7 @@ export function createCanvasStore(
 						: nextIndexByOldId.has(currentStartTarget)
 							? `step-${nextIndexByOldId.get(currentStartTarget)}`
 							: rootId;
-				const startEdge = remappedStartTarget
-					? buildStartEdge(remappedStartTarget)
-					: null;
+				const startEdge = remappedStartTarget ? buildStartEdge(remappedStartTarget) : null;
 				const nextEdges = startEdge ? [startEdge, ...remappedEdges] : remappedEdges;
 				const startPos = positionsRef[START_NODE_ID];
 
@@ -250,20 +222,15 @@ export function createCanvasStore(
 				saveTimerRef = null;
 
 				set((state) => {
-					const prevNodeById = new Map(
-						state.nodes.map((node) => [node.id, node] as const),
-					);
+					const prevNodeById = new Map(state.nodes.map((node) => [node.id, node] as const));
 					const startNode = prevNodeById.get(START_NODE_ID);
 					const stepNodes = orderedIds.map((oldId, newIndex) => {
-						const previousNode = prevNodeById.get(oldId) as
-							| Node<StepNodeData>
-							| undefined;
+						const previousNode = prevNodeById.get(oldId) as Node<StepNodeData> | undefined;
 						const node = buildStepCanvasNode(
 							nextFlatSteps[newIndex],
 							newIndex,
 							remappedPositions[`step-${newIndex}`] ??
-								previousNode?.position ??
-								{ x: 120, y: newIndex * 120 + 60 },
+								previousNode?.position ?? { x: 120, y: newIndex * 120 + 60 },
 							liveStatusesRef[newIndex],
 						);
 						if (previousNode?.selected) {
@@ -279,7 +246,7 @@ export function createCanvasStore(
 						selectedIndex:
 							state.selectedIndex === null
 								? null
-								: nextIndexByOldId.get(`step-${state.selectedIndex}`) ?? null,
+								: (nextIndexByOldId.get(`step-${state.selectedIndex}`) ?? null),
 					};
 				});
 
@@ -298,10 +265,7 @@ export function createCanvasStore(
 							action: {
 								label: i18next.t('canvas:orphan.deleteAction'),
 								onClick: () => {
-									const kept = nextFlatSteps.slice(
-										0,
-										nextFlatSteps.length - orphanedCount,
-									);
+									const kept = nextFlatSteps.slice(0, nextFlatSteps.length - orphanedCount);
 									void saveScript(kept);
 								},
 							},
@@ -311,11 +275,7 @@ export function createCanvasStore(
 
 				await saveGraph(script.id, {
 					steps: nestedSteps,
-					positionsJson: buildCanvasDataJson(
-						positionsRef,
-						nextEdges,
-						orphanedSteps,
-					),
+					positionsJson: buildCanvasDataJson(positionsRef, nextEdges, orphanedSteps),
 					settings: buildNextSettings(),
 				});
 				void emitUpdated(script.id);
@@ -349,11 +309,7 @@ export function createCanvasStore(
 			);
 			await saveGraph(script.id, {
 				steps: serialized.nestedSteps,
-				positionsJson: buildCanvasDataJson(
-					positionsRef,
-					edgesRef,
-					serialized.orphanedSteps,
-				),
+				positionsJson: buildCanvasDataJson(positionsRef, edgesRef, serialized.orphanedSteps),
 				settings: buildNextSettings(),
 			});
 		};
@@ -389,8 +345,7 @@ export function createCanvasStore(
 				if (viewportCenter) {
 					newPosition = { x: viewportCenter.x - 90, y: viewportCenter.y - 30 };
 				} else {
-					const lastPosition =
-						positionsRef[`step-${newIndex - 1}`] ?? { x: 120, y: 0 };
+					const lastPosition = positionsRef[`step-${newIndex - 1}`] ?? { x: 120, y: 0 };
 					newPosition = { x: lastPosition.x, y: lastPosition.y + 140 };
 				}
 
@@ -403,12 +358,7 @@ export function createCanvasStore(
 					steps: newSteps,
 					nodes: [
 						...state.nodes,
-						buildStepCanvasNode(
-							step,
-							newIndex,
-							newPosition,
-							liveStatusesRef[newIndex],
-						),
+						buildStepCanvasNode(step, newIndex, newPosition, liveStatusesRef[newIndex]),
 					],
 				}));
 
@@ -445,13 +395,9 @@ export function createCanvasStore(
 					nodes: state.nodes.map((node) =>
 						node.id === `step-${index}`
 							? {
-								...node,
-								data: buildStepNodeData(
-									step,
-									index,
-									liveStatusesRef[index],
-								),
-							}
+									...node,
+									data: buildStepNodeData(step, index, liveStatusesRef[index]),
+								}
 							: node,
 					),
 				}));
@@ -466,17 +412,12 @@ export function createCanvasStore(
 						if (!edge.sourceHandle.startsWith('btn_')) {
 							return false;
 						}
-						const buttonIndex = Number.parseInt(
-							edge.sourceHandle.replace('btn_', ''),
-							10,
-						);
+						const buttonIndex = Number.parseInt(edge.sourceHandle.replace('btn_', ''), 10);
 						return buttonIndex >= buttonCount;
 					});
 					if (invalidEdges.length > 0) {
 						const invalidIds = new Set(invalidEdges.map((edge) => edge.id));
-						const cleanedEdges = edgesRef.filter(
-							(edge) => !invalidIds.has(edge.id),
-						);
+						const cleanedEdges = edgesRef.filter((edge) => !invalidIds.has(edge.id));
 						edgesRef = cleanedEdges;
 						set({ edges: cleanedEdges });
 						scheduleCanvasSave(positionsRef, cleanedEdges);
@@ -515,8 +456,7 @@ export function createCanvasStore(
 				for (const step of stepsToAdd) {
 					const newIndex = currentSteps.length;
 					currentSteps = [...currentSteps, step];
-					const lastPosition =
-						positionsRef[`step-${newIndex - 1}`] ?? { x: 120, y: 0 };
+					const lastPosition = positionsRef[`step-${newIndex - 1}`] ?? { x: 120, y: 0 };
 					const newPosition = { x: lastPosition.x, y: lastPosition.y + 140 };
 					positionsRef = {
 						...positionsRef,
@@ -524,12 +464,7 @@ export function createCanvasStore(
 					};
 					nextNodes = [
 						...nextNodes,
-						buildStepCanvasNode(
-							step,
-							newIndex,
-							newPosition,
-							liveStatusesRef[newIndex],
-						),
+						buildStepCanvasNode(step, newIndex, newPosition, liveStatusesRef[newIndex]),
 					];
 					if (newIndex > 0) {
 						const connection: Edge = {
@@ -561,10 +496,8 @@ export function createCanvasStore(
 					.map((edge) => {
 						const sourceIndex = getStepIndexFromNodeId(edge.source);
 						const targetIndex = getStepIndexFromNodeId(edge.target);
-						const nextSourceIndex =
-							sourceIndex > index ? sourceIndex - 1 : sourceIndex;
-						const nextTargetIndex =
-							targetIndex > index ? targetIndex - 1 : targetIndex;
+						const nextSourceIndex = sourceIndex > index ? sourceIndex - 1 : sourceIndex;
+						const nextTargetIndex = targetIndex > index ? targetIndex - 1 : targetIndex;
 						return {
 							...edge,
 							id: `e-${nextSourceIndex}-${nextTargetIndex}`,
@@ -600,11 +533,11 @@ export function createCanvasStore(
 								return nodeIndex === index
 									? node
 									: rebuildIndexedNode(
-										node as Node<StepNodeData>,
-										newSteps[nodeIndex],
-										nodeIndex,
-										liveStatusesRef[nodeIndex],
-									);
+											node as Node<StepNodeData>,
+											newSteps[nodeIndex],
+											nodeIndex,
+											liveStatusesRef[nodeIndex],
+										);
 							}
 							return rebuildIndexedNode(
 								node as Node<StepNodeData>,
@@ -629,33 +562,24 @@ export function createCanvasStore(
 					if (removedIndices.size > 0) {
 						const baseSteps = flushPendingEdits();
 						const sortedRemoved = [...removedIndices].sort((left, right) => left - right);
-						const newSteps = baseSteps.filter(
-							(_, index) => !removedIndices.has(index),
-						);
+						const newSteps = baseSteps.filter((_, index) => !removedIndices.has(index));
 						const deletedIds = new Set(removeChanges.map((change) => change.id));
 						const survivingEdges = edgesRef.filter(
-							(edge) =>
-								!deletedIds.has(edge.source) && !deletedIds.has(edge.target),
+							(edge) => !deletedIds.has(edge.source) && !deletedIds.has(edge.target),
 						);
 						const startEdges = survivingEdges.filter(
-							(edge) =>
-								edge.source === START_NODE_ID || edge.target === START_NODE_ID,
+							(edge) => edge.source === START_NODE_ID || edge.target === START_NODE_ID,
 						);
 						const stepEdges = survivingEdges.filter(
-							(edge) =>
-								edge.source !== START_NODE_ID && edge.target !== START_NODE_ID,
+							(edge) => edge.source !== START_NODE_ID && edge.target !== START_NODE_ID,
 						);
 						const remappedStepEdges = stepEdges.map((edge) => {
 							const sourceIndex = getStepIndexFromNodeId(edge.source);
 							const targetIndex = getStepIndexFromNodeId(edge.target);
-							const sourceShift = sortedRemoved.filter((index) => index < sourceIndex)
-								.length;
-							const targetShift = sortedRemoved.filter((index) => index < targetIndex)
-								.length;
-							const nextSourceIndex =
-								sourceShift > 0 ? sourceIndex - sourceShift : sourceIndex;
-							const nextTargetIndex =
-								targetShift > 0 ? targetIndex - targetShift : targetIndex;
+							const sourceShift = sortedRemoved.filter((index) => index < sourceIndex).length;
+							const targetShift = sortedRemoved.filter((index) => index < targetIndex).length;
+							const nextSourceIndex = sourceShift > 0 ? sourceIndex - sourceShift : sourceIndex;
+							const nextTargetIndex = targetShift > 0 ? targetIndex - targetShift : targetIndex;
 							return {
 								...edge,
 								id: `e-${nextSourceIndex}-${nextTargetIndex}`,
@@ -670,20 +594,15 @@ export function createCanvasStore(
 								if (Number.isNaN(targetIndex)) {
 									return edge;
 								}
-								const targetShift = sortedRemoved.filter((index) => index < targetIndex)
-									.length;
-								const nextTargetIndex =
-									targetShift > 0 ? targetIndex - targetShift : targetIndex;
+								const targetShift = sortedRemoved.filter((index) => index < targetIndex).length;
+								const nextTargetIndex = targetShift > 0 ? targetIndex - targetShift : targetIndex;
 								return {
 									...edge,
 									id: `e-start-step-${nextTargetIndex}`,
 									target: `step-${nextTargetIndex}`,
 								};
 							});
-						const remappedEdges = [
-							...remappedStartEdges,
-							...remappedStepEdges,
-						];
+						const remappedEdges = [...remappedStartEdges, ...remappedStepEdges];
 						const nextPositions = { ...positionsRef };
 						for (const index of removedIndices) {
 							delete nextPositions[`step-${index}`];
@@ -713,8 +632,7 @@ export function createCanvasStore(
 										return node;
 									}
 									const nodeIndex = getStepIndexFromNodeId(node.id);
-									const shift = sortedRemoved.filter((removed) => removed < nodeIndex)
-										.length;
+									const shift = sortedRemoved.filter((removed) => removed < nodeIndex).length;
 									const nextIndex = shift > 0 ? nodeIndex - shift : nodeIndex;
 									return rebuildIndexedNode(
 										node as Node<StepNodeData>,
@@ -784,13 +702,8 @@ export function createCanvasStore(
 				}
 				if (connection.source === START_NODE_ID) {
 					set((state) => {
-						const filtered = state.edges.filter(
-							(edge) => edge.source !== START_NODE_ID,
-						);
-						const nextEdges = addEdge(
-							{ ...connection, type: 'smoothstep' },
-							filtered,
-						);
+						const filtered = state.edges.filter((edge) => edge.source !== START_NODE_ID);
+						const nextEdges = addEdge({ ...connection, type: 'smoothstep' }, filtered);
 						edgesRef = nextEdges;
 						scheduleCanvasSave(positionsRef, nextEdges);
 						return { edges: nextEdges };
@@ -805,10 +718,7 @@ export function createCanvasStore(
 								edge.targetHandle === (connection.targetHandle ?? null)
 							),
 					);
-					const nextEdges = addEdge(
-						{ ...connection, type: 'smoothstep' },
-						filtered,
-					);
+					const nextEdges = addEdge({ ...connection, type: 'smoothstep' }, filtered);
 					edgesRef = nextEdges;
 					scheduleCanvasSave(positionsRef, nextEdges);
 					return { edges: nextEdges };
@@ -829,10 +739,7 @@ export function createCanvasStore(
 			syncLiveStatuses: (liveStatuses) => {
 				liveStatusesRef = { ...liveStatuses };
 				set((state) => ({
-					nodes: syncNodeStatuses(
-						state.nodes as Node<StepNodeData>[],
-						liveStatuses,
-					) as Node[],
+					nodes: syncNodeStatuses(state.nodes as Node<StepNodeData>[], liveStatuses) as Node[],
 				}));
 			},
 			syncConcurrentCounts: (counts) => {
@@ -865,9 +772,6 @@ export function createCanvasStore(
 	return store;
 }
 
-export function useCanvasStore<T>(
-	store: CanvasStoreApi,
-	selector: (state: CanvasStore) => T,
-): T {
+export function useCanvasStore<T>(store: CanvasStoreApi, selector: (state: CanvasStore) => T): T {
 	return useStore(store, selector);
 }

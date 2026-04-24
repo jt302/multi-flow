@@ -1,4 +1,4 @@
-import { tauriInvoke } from '@/shared/api/tauri-invoke';
+import type { ProfileProxyBindingMap } from '@/entities/profile/model/types';
 import type {
 	BatchProxyActionResponse,
 	CreateProxyPayload,
@@ -10,7 +10,7 @@ import type {
 	ProxyValueSource,
 	UpdateProxyPayload,
 } from '@/entities/proxy/model/types';
-import type { ProfileProxyBindingMap } from '@/entities/profile/model/types';
+import { tauriInvoke } from '@/shared/api/tauri-invoke';
 
 type BackendProxy = {
 	id: string;
@@ -172,32 +172,25 @@ export async function batchUpdateProxies(
 	proxyIds: string[],
 	payload: UpdateProxyPayload,
 ): Promise<BatchProxyActionResponse> {
-	const response = await tauriInvoke<BackendBatchProxyActionResponse>(
-		'batch_update_proxies',
-		{
-			payload: {
-				proxyIds,
-				payload,
-			},
+	const response = await tauriInvoke<BackendBatchProxyActionResponse>('batch_update_proxies', {
+		payload: {
+			proxyIds,
+			payload,
 		},
-	);
+	});
 	return mapBatchProxyActionResponse(response);
 }
 
-export async function batchDeleteProxies(
-	proxyIds: string[],
+export async function batchDeleteProxies(proxyIds: string[]): Promise<BatchProxyActionResponse> {
+	const response = await tauriInvoke<BackendBatchProxyActionResponse>('batch_delete_proxies', {
+		payload: { proxyIds },
+	});
+	return mapBatchProxyActionResponse(response);
+}
+
+export async function importProxies(
+	payload: ImportProxiesPayload,
 ): Promise<BatchProxyActionResponse> {
-	const response = await tauriInvoke<BackendBatchProxyActionResponse>(
-		'batch_delete_proxies',
-		{
-			payload: { proxyIds },
-		},
-	);
-	return mapBatchProxyActionResponse(response);
-}
-
-
-export async function importProxies(payload: ImportProxiesPayload): Promise<BatchProxyActionResponse> {
 	const response = await tauriInvoke<BackendBatchProxyActionResponse>('import_proxies', {
 		payload: {
 			protocol: payload.protocol,
@@ -234,7 +227,9 @@ export async function unbindProfileProxy(profileId: string): Promise<void> {
 	await tauriInvoke('unbind_profile_proxy', { profileId });
 }
 
-export async function listProfileProxyBindings(profileIds: string[]): Promise<ProfileProxyBindingMap> {
+export async function listProfileProxyBindings(
+	profileIds: string[],
+): Promise<ProfileProxyBindingMap> {
 	const entries = await Promise.all(
 		profileIds.map(async (profileId) => {
 			try {

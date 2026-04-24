@@ -1,8 +1,7 @@
 import i18next from 'i18next';
-
-import { tauriInvoke } from '@/shared/api/tauri-invoke';
 import type { GroupItem } from '@/entities/group/model/types';
 import type { ToolbarLabelMode } from '@/entities/profile/model/types';
+import { tauriInvoke } from '@/shared/api/tauri-invoke';
 
 type GroupLifecycle = 'active' | 'deleted';
 

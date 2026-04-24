@@ -14,13 +14,11 @@ export const fsWorkspaceApi = {
 	saveDescription: (rootId: string, relPath: string, text: string) =>
 		tauriInvoke<void>('fs_save_description', { rootId, relPath, text }),
 	getSandboxRoot: () => tauriInvoke<string | null>('fs_get_sandbox_root'),
-	setSandboxRoot: (path: string | null) =>
-		tauriInvoke<void>('fs_set_sandbox_root', { path }),
+	setSandboxRoot: (path: string | null) => tauriInvoke<void>('fs_set_sandbox_root', { path }),
 	getWhitelist: () => tauriInvoke<FsWhitelistEntry[]>('fs_get_whitelist'),
 	addWhitelistEntry: (entry: FsWhitelistEntry) =>
 		tauriInvoke<void>('fs_add_whitelist_entry', { entry }),
 	updateWhitelistEntry: (entry: FsWhitelistEntry) =>
 		tauriInvoke<void>('fs_update_whitelist_entry', { entry }),
-	removeWhitelistEntry: (id: string) =>
-		tauriInvoke<void>('fs_remove_whitelist_entry', { id }),
+	removeWhitelistEntry: (id: string) => tauriInvoke<void>('fs_remove_whitelist_entry', { id }),
 };

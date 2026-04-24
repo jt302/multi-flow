@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { useTranslation } from 'react-i18next';
 import { zodResolver } from '@hookform/resolvers/zod';
 import i18next from 'i18next';
 import { Plus, Save } from 'lucide-react';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { z } from 'zod/v3';
 
 import {
@@ -28,9 +28,9 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui';
-import type { GroupEditorMode } from '@/store/group-management-store';
 import type { GroupItem } from '@/entities/group/model/types';
 import type { ToolbarLabelMode } from '@/entities/profile/model/types';
+import type { GroupEditorMode } from '@/store/group-management-store';
 
 export const groupFormSchema = z.object({
 	name: z.string().trim().min(1, i18next.t('group:form.nameRequired')),
@@ -94,14 +94,10 @@ export function GroupFormDialog({
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>
-						{mode === 'edit'
-							? t('group:form.editTitle')
-							: t('group:form.createTitle')}
+						{mode === 'edit' ? t('group:form.editTitle') : t('group:form.createTitle')}
 					</DialogTitle>
 					<DialogDescription>
-						{mode === 'edit'
-							? t('group:form.editDesc')
-							: t('group:form.createDesc')}
+						{mode === 'edit' ? t('group:form.editDesc') : t('group:form.createDesc')}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -120,10 +116,7 @@ export function GroupFormDialog({
 								<FormItem>
 									<FormLabel>{t('group:form.name')}</FormLabel>
 									<FormControl>
-										<Input
-											{...field}
-											placeholder={t('group:form.namePlaceholder')}
-										/>
+										<Input {...field} placeholder={t('group:form.namePlaceholder')} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -137,10 +130,7 @@ export function GroupFormDialog({
 								<FormItem>
 									<FormLabel>{t('group:form.note')}</FormLabel>
 									<FormControl>
-										<Input
-											{...field}
-											placeholder={t('group:form.notePlaceholder')}
-										/>
+										<Input {...field} placeholder={t('group:form.notePlaceholder')} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -148,9 +138,7 @@ export function GroupFormDialog({
 						/>
 
 						<div className="rounded-lg border border-border/60 p-3">
-							<p className="mb-3 text-sm font-medium">
-								{t('group:form.visualSectionTitle')}
-							</p>
+							<p className="mb-3 text-sm font-medium">{t('group:form.visualSectionTitle')}</p>
 							<FormField
 								control={control}
 								name="toolbarLabelMode"
@@ -159,9 +147,7 @@ export function GroupFormDialog({
 										<FormLabel>{t('group:form.toolbarLabelMode')}</FormLabel>
 										<Select
 											value={field.value}
-											onValueChange={(value) =>
-												field.onChange(value as ToolbarLabelMode)
-											}
+											onValueChange={(value) => field.onChange(value as ToolbarLabelMode)}
 										>
 											<FormControl>
 												<SelectTrigger>
@@ -169,8 +155,12 @@ export function GroupFormDialog({
 												</SelectTrigger>
 											</FormControl>
 											<SelectContent>
-												<SelectItem value="id_only">{t('group:form.toolbarLabelModeIdOnly')}</SelectItem>
-												<SelectItem value="group_name_and_id">{t('group:form.toolbarLabelModeGroupAndId')}</SelectItem>
+												<SelectItem value="id_only">
+													{t('group:form.toolbarLabelModeIdOnly')}
+												</SelectItem>
+												<SelectItem value="group_name_and_id">
+													{t('group:form.toolbarLabelModeGroupAndId')}
+												</SelectItem>
 											</SelectContent>
 										</Select>
 										<FormMessage />
@@ -192,10 +182,7 @@ export function GroupFormDialog({
 													onChange={(event) => field.onChange(event.target.value)}
 													className="h-10 w-12 cursor-pointer rounded p-1"
 												/>
-												<Input
-													{...field}
-													placeholder="#0F8A73"
-												/>
+												<Input {...field} placeholder="#0F8A73" />
 											</div>
 										</FormControl>
 										<FormMessage />
@@ -213,15 +200,9 @@ export function GroupFormDialog({
 							>
 								{t('common:cancel')}
 							</Button>
-							<Button
-								type="submit"
-								className="cursor-pointer"
-								disabled={isSubmitting}
-							>
+							<Button type="submit" className="cursor-pointer" disabled={isSubmitting}>
 								<Icon icon={mode === 'edit' ? Save : Plus} size={14} />
-								{mode === 'edit'
-									? t('group:form.saveGroup')
-									: t('group:form.createGroup')}
+								{mode === 'edit' ? t('group:form.saveGroup') : t('group:form.createGroup')}
 							</Button>
 						</DialogFooter>
 					</form>

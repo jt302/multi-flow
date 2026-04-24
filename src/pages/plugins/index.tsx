@@ -1,8 +1,7 @@
 import { useMemo } from 'react';
-
+import { useWorkspaceRefresh } from '@/app/model/use-workspace-refresh';
 import { useGroupsQuery } from '@/entities/group/model/use-groups-query';
 import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
-import { useWorkspaceRefresh } from '@/app/model/use-workspace-refresh';
 import { PluginsPage } from '@/features/plugin/ui/plugins-page';
 
 export function PluginsRoutePage() {

@@ -1,6 +1,6 @@
 import { useStore } from 'zustand';
-import { createStore } from 'zustand/vanilla';
 import { persist } from 'zustand/middleware';
+import { createStore } from 'zustand/vanilla';
 
 import type { WindowArrangeMode } from '@/entities/window-session/model/types';
 
@@ -66,19 +66,13 @@ export function createWindowSyncStore(initialState?: Partial<WindowSyncStoreStat
 					: state.selectedProfileIds.filter((id) => id !== profileId);
 				return {
 					selectedProfileIds,
-					masterProfileId: resolveMasterProfileId(
-						selectedProfileIds,
-						state.masterProfileId,
-					),
+					masterProfileId: resolveMasterProfileId(selectedProfileIds, state.masterProfileId),
 				};
 			}),
 		setSelectedProfileIds: (selectedProfileIds) =>
 			set((state) => ({
 				selectedProfileIds,
-				masterProfileId: resolveMasterProfileId(
-					selectedProfileIds,
-					state.masterProfileId,
-				),
+				masterProfileId: resolveMasterProfileId(selectedProfileIds, state.masterProfileId),
 			})),
 		setMasterProfileId: (masterProfileId) =>
 			set((state) => ({
@@ -118,19 +112,13 @@ export const windowSyncStore = createStore<WindowSyncStore>()(
 						: state.selectedProfileIds.filter((id) => id !== profileId);
 					return {
 						selectedProfileIds,
-						masterProfileId: resolveMasterProfileId(
-							selectedProfileIds,
-							state.masterProfileId,
-						),
+						masterProfileId: resolveMasterProfileId(selectedProfileIds, state.masterProfileId),
 					};
 				}),
 			setSelectedProfileIds: (selectedProfileIds) =>
 				set((state) => ({
 					selectedProfileIds,
-					masterProfileId: resolveMasterProfileId(
-						selectedProfileIds,
-						state.masterProfileId,
-					),
+					masterProfileId: resolveMasterProfileId(selectedProfileIds, state.masterProfileId),
 				})),
 			setMasterProfileId: (masterProfileId) =>
 				set((state) => ({

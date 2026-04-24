@@ -1,16 +1,7 @@
-import { MarkdownRenderer } from '@/shared/ui/markdown-renderer';
-import { useEffect, useRef, useState } from 'react';
 import { Clock, Copy } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-
-import {
-	cancelAutomationRun,
-	listenAutomationHumanDismissed,
-	listenAutomationHumanRequired,
-	resumeAutomationRun,
-} from '@/entities/automation/api/automation-api';
-import type { AiDialogFormField } from '@/entities/automation/model/types';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -32,8 +23,16 @@ import {
 	TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { useAutomationStore } from '@/store/automation-store';
+import {
+	cancelAutomationRun,
+	listenAutomationHumanDismissed,
+	listenAutomationHumanRequired,
+	resumeAutomationRun,
+} from '@/entities/automation/api/automation-api';
+import type { AiDialogFormField } from '@/entities/automation/model/types';
 import { ProfileBadge } from '@/entities/profile/ui/profile-badge';
+import { MarkdownRenderer } from '@/shared/ui/markdown-renderer';
+import { useAutomationStore } from '@/store/automation-store';
 
 export function HumanInterventionModal() {
 	const [inputValue, setInputValue] = useState('');
@@ -154,12 +153,36 @@ export function HumanInterventionModal() {
 		if (buttons && buttons.length > 0) {
 			return (
 				<Dialog open onOpenChange={() => {}}>
-					<DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-						<DialogHeader><DialogTitle><TitleWithProfile>{title}</TitleWithProfile></DialogTitle></DialogHeader>
-						<div className="py-2"><p className="text-sm text-foreground whitespace-pre-wrap">{message}</p></div>
+					<DialogContent
+						className="max-w-md"
+						onInteractOutside={(e) => e.preventDefault()}
+						onEscapeKeyDown={(e) => e.preventDefault()}
+					>
+						<DialogHeader>
+							<DialogTitle>
+								<TitleWithProfile>{title}</TitleWithProfile>
+							</DialogTitle>
+						</DialogHeader>
+						<div className="py-2">
+							<p className="text-sm text-foreground whitespace-pre-wrap">{message}</p>
+						</div>
 						<DialogFooter>
 							{buttons.map((btn) => (
-								<Button key={btn.value} variant={btn.variant === 'destructive' ? 'destructive' : btn.variant === 'outline' ? 'outline' : 'default'} onClick={() => handleResume(btn.value)} disabled={submitting} className="cursor-pointer">{btn.text}</Button>
+								<Button
+									key={btn.value}
+									variant={
+										btn.variant === 'destructive'
+											? 'destructive'
+											: btn.variant === 'outline'
+												? 'outline'
+												: 'default'
+									}
+									onClick={() => handleResume(btn.value)}
+									disabled={submitting}
+									className="cursor-pointer"
+								>
+									{btn.text}
+								</Button>
 							))}
 						</DialogFooter>
 					</DialogContent>
@@ -171,12 +194,35 @@ export function HumanInterventionModal() {
 		const cancelText = humanIntervention.cancelText || t('cancel');
 		return (
 			<Dialog open onOpenChange={() => {}}>
-				<DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-					<DialogHeader><DialogTitle><TitleWithProfile>{title}</TitleWithProfile></DialogTitle></DialogHeader>
-					<div className="py-2"><p className="text-sm text-foreground whitespace-pre-wrap">{message}</p></div>
+				<DialogContent
+					className="max-w-md"
+					onInteractOutside={(e) => e.preventDefault()}
+					onEscapeKeyDown={(e) => e.preventDefault()}
+				>
+					<DialogHeader>
+						<DialogTitle>
+							<TitleWithProfile>{title}</TitleWithProfile>
+						</DialogTitle>
+					</DialogHeader>
+					<div className="py-2">
+						<p className="text-sm text-foreground whitespace-pre-wrap">{message}</p>
+					</div>
 					<DialogFooter>
-						<Button variant="outline" onClick={() => handleResume('false')} disabled={submitting} className="cursor-pointer">{cancelText}</Button>
-						<Button onClick={() => handleResume('true')} disabled={submitting} className="cursor-pointer">{submitting ? t('processing') : confirmText}</Button>
+						<Button
+							variant="outline"
+							onClick={() => handleResume('false')}
+							disabled={submitting}
+							className="cursor-pointer"
+						>
+							{cancelText}
+						</Button>
+						<Button
+							onClick={() => handleResume('true')}
+							disabled={submitting}
+							className="cursor-pointer"
+						>
+							{submitting ? t('processing') : confirmText}
+						</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
@@ -198,15 +244,30 @@ export function HumanInterventionModal() {
 
 		return (
 			<Dialog open onOpenChange={() => {}}>
-				<DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-					<DialogHeader><DialogTitle><TitleWithProfile>{title}</TitleWithProfile></DialogTitle></DialogHeader>
+				<DialogContent
+					className="max-w-md"
+					onInteractOutside={(e) => e.preventDefault()}
+					onEscapeKeyDown={(e) => e.preventDefault()}
+				>
+					<DialogHeader>
+						<DialogTitle>
+							<TitleWithProfile>{title}</TitleWithProfile>
+						</DialogTitle>
+					</DialogHeader>
 					<div className="space-y-3 py-2">
 						{message && <p className="text-sm text-foreground whitespace-pre-wrap">{message}</p>}
 						<ScrollArea className="max-h-60">
 							<div className="space-y-2">
 								{options.map((opt) => (
-									<label key={opt} className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-muted">
-										<Checkbox checked={selectedOptions.includes(opt)} onCheckedChange={() => toggleOption(opt)} disabled={submitting} />
+									<label
+										key={opt}
+										className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-muted"
+									>
+										<Checkbox
+											checked={selectedOptions.includes(opt)}
+											onCheckedChange={() => toggleOption(opt)}
+											disabled={submitting}
+										/>
 										<span className="text-sm">{opt}</span>
 									</label>
 								))}
@@ -214,8 +275,25 @@ export function HumanInterventionModal() {
 						</ScrollArea>
 					</div>
 					<DialogFooter>
-						<Button variant="outline" onClick={handleCancel} disabled={submitting} className="cursor-pointer">{t('cancelRun')}</Button>
-						<Button onClick={() => handleResume(multiSelect ? JSON.stringify(selectedOptions) : (selectedOptions[0] ?? ''))} disabled={submitting || selectedOptions.length === 0} className="cursor-pointer">{submitting ? t('processing') : t('ok')}</Button>
+						<Button
+							variant="outline"
+							onClick={handleCancel}
+							disabled={submitting}
+							className="cursor-pointer"
+						>
+							{t('cancelRun')}
+						</Button>
+						<Button
+							onClick={() =>
+								handleResume(
+									multiSelect ? JSON.stringify(selectedOptions) : (selectedOptions[0] ?? ''),
+								)
+							}
+							disabled={submitting || selectedOptions.length === 0}
+							className="cursor-pointer"
+						>
+							{submitting ? t('processing') : t('ok')}
+						</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
@@ -233,28 +311,59 @@ export function HumanInterventionModal() {
 				const v = formValues[f.name] ?? '';
 				if (f.required && !v) errors[f.name] = t('required');
 				if (f.validation && v) {
-					try { if (!new RegExp(f.validation).test(v)) errors[f.name] = t('invalidFormat'); } catch { /* */ }
+					try {
+						if (!new RegExp(f.validation).test(v)) errors[f.name] = t('invalidFormat');
+					} catch {
+						/* */
+					}
 				}
 			}
-			if (Object.keys(errors).length > 0) { setFormErrors(errors); return; }
+			if (Object.keys(errors).length > 0) {
+				setFormErrors(errors);
+				return;
+			}
 			handleResume(JSON.stringify(formValues));
 		}
 
 		return (
 			<Dialog open onOpenChange={() => {}}>
-				<DialogContent className="max-w-lg" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-					<DialogHeader><DialogTitle><TitleWithProfile>{title}</TitleWithProfile></DialogTitle></DialogHeader>
+				<DialogContent
+					className="max-w-lg"
+					onInteractOutside={(e) => e.preventDefault()}
+					onEscapeKeyDown={(e) => e.preventDefault()}
+				>
+					<DialogHeader>
+						<DialogTitle>
+							<TitleWithProfile>{title}</TitleWithProfile>
+						</DialogTitle>
+					</DialogHeader>
 					{message && <p className="text-sm text-foreground whitespace-pre-wrap">{message}</p>}
 					<ScrollArea className="max-h-[60vh]">
 						<div className="space-y-3 py-2 pl-1 pr-3">
 							{fields.map((field) => (
-								<HumanFormField key={field.name} field={field} value={formValues[field.name] ?? ''} error={formErrors[field.name]} disabled={submitting} onChange={(v) => setFormValues((prev) => ({ ...prev, [field.name]: v }))} />
+								<HumanFormField
+									key={field.name}
+									field={field}
+									value={formValues[field.name] ?? ''}
+									error={formErrors[field.name]}
+									disabled={submitting}
+									onChange={(v) => setFormValues((prev) => ({ ...prev, [field.name]: v }))}
+								/>
 							))}
 						</div>
 					</ScrollArea>
 					<DialogFooter>
-						<Button variant="outline" onClick={handleCancel} disabled={submitting} className="cursor-pointer">{t('cancelRun')}</Button>
-						<Button onClick={handleFormSubmit} disabled={submitting} className="cursor-pointer">{humanIntervention.submitLabel ?? t('ok')}</Button>
+						<Button
+							variant="outline"
+							onClick={handleCancel}
+							disabled={submitting}
+							className="cursor-pointer"
+						>
+							{t('cancelRun')}
+						</Button>
+						<Button onClick={handleFormSubmit} disabled={submitting} className="cursor-pointer">
+							{humanIntervention.submitLabel ?? t('ok')}
+						</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
@@ -271,7 +380,9 @@ export function HumanInterventionModal() {
 		const maxH = humanIntervention.maxHeight ?? 400;
 
 		function toggleRow(idx: number) {
-			setSelectedRows((prev) => isMulti ? (prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]) : [idx]);
+			setSelectedRows((prev) =>
+				isMulti ? (prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]) : [idx],
+			);
 		}
 
 		return (
@@ -282,38 +393,75 @@ export function HumanInterventionModal() {
 					onEscapeKeyDown={(e) => e.preventDefault()}
 				>
 					<DialogHeader className="shrink-0">
-						<DialogTitle><TitleWithProfile>{title}</TitleWithProfile></DialogTitle>
+						<DialogTitle>
+							<TitleWithProfile>{title}</TitleWithProfile>
+						</DialogTitle>
 					</DialogHeader>
 					{message && <p className="text-sm text-foreground whitespace-pre-wrap">{message}</p>}
 					<ScrollArea className="min-h-0 w-full flex-1" style={{ maxHeight: maxH }}>
 						<div className="w-full overflow-x-auto">
 							<div className="w-max min-w-full">
 								<Table className="w-max min-w-full">
-								<TableHeader>
-									<TableRow>
-										{isSelectable && <TableHead className="w-10" />}
-										{columns.map((col) => <TableHead key={col.key} style={{ width: col.width, textAlign: col.align ?? 'left' }}>{col.label}</TableHead>)}
-									</TableRow>
-								</TableHeader>
-								<TableBody>
-									{rows.map((row, idx) => (
-										<TableRow key={idx} className={isSelectable ? 'cursor-pointer hover:bg-muted' : undefined} onClick={isSelectable ? () => toggleRow(idx) : undefined}>
-											{isSelectable && <TableCell><Checkbox checked={selectedRows.includes(idx)} onCheckedChange={() => toggleRow(idx)} /></TableCell>}
+									<TableHeader>
+										<TableRow>
+											{isSelectable && <TableHead className="w-10" />}
 											{columns.map((col) => (
-												<TableCell key={col.key} className="max-w-[240px] break-words whitespace-normal align-top" style={{ textAlign: col.align ?? 'left' }}>
-													{String(row[col.key] ?? '')}
-												</TableCell>
+												<TableHead
+													key={col.key}
+													style={{ width: col.width, textAlign: col.align ?? 'left' }}
+												>
+													{col.label}
+												</TableHead>
 											))}
 										</TableRow>
-									))}
-								</TableBody>
+									</TableHeader>
+									<TableBody>
+										{rows.map((row, idx) => (
+											<TableRow
+												key={idx}
+												className={isSelectable ? 'cursor-pointer hover:bg-muted' : undefined}
+												onClick={isSelectable ? () => toggleRow(idx) : undefined}
+											>
+												{isSelectable && (
+													<TableCell>
+														<Checkbox
+															checked={selectedRows.includes(idx)}
+															onCheckedChange={() => toggleRow(idx)}
+														/>
+													</TableCell>
+												)}
+												{columns.map((col) => (
+													<TableCell
+														key={col.key}
+														className="max-w-[240px] break-words whitespace-normal align-top"
+														style={{ textAlign: col.align ?? 'left' }}
+													>
+														{String(row[col.key] ?? '')}
+													</TableCell>
+												))}
+											</TableRow>
+										))}
+									</TableBody>
 								</Table>
 							</div>
 						</div>
 					</ScrollArea>
 					<DialogFooter className="shrink-0">
-						<Button variant="outline" onClick={handleCancel} disabled={submitting} className="cursor-pointer">{t('cancelRun')}</Button>
-						<Button onClick={() => handleResume(JSON.stringify(selectedRows))} disabled={submitting} className="cursor-pointer">{t('ok')}</Button>
+						<Button
+							variant="outline"
+							onClick={handleCancel}
+							disabled={submitting}
+							className="cursor-pointer"
+						>
+							{t('cancelRun')}
+						</Button>
+						<Button
+							onClick={() => handleResume(JSON.stringify(selectedRows))}
+							disabled={submitting}
+							className="cursor-pointer"
+						>
+							{t('ok')}
+						</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
@@ -330,21 +478,55 @@ export function HumanInterventionModal() {
 
 		return (
 			<Dialog open onOpenChange={() => {}}>
-				<DialogContent className="max-w-lg" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-					<DialogHeader><DialogTitle><TitleWithProfile>{title}</TitleWithProfile></DialogTitle></DialogHeader>
+				<DialogContent
+					className="max-w-lg"
+					onInteractOutside={(e) => e.preventDefault()}
+					onEscapeKeyDown={(e) => e.preventDefault()}
+				>
+					<DialogHeader>
+						<DialogTitle>
+							<TitleWithProfile>{title}</TitleWithProfile>
+						</DialogTitle>
+					</DialogHeader>
 					{message && <p className="text-sm text-foreground whitespace-pre-wrap">{message}</p>}
 					<div className="flex justify-center py-2">
-						<img src={imageSrc} alt="dialog" className="max-h-80 max-w-full rounded object-contain" />
+						<img
+							src={imageSrc}
+							alt="dialog"
+							className="max-h-80 max-w-full rounded object-contain"
+						/>
 					</div>
 					{hasInput && (
 						<div className="space-y-1.5">
 							<Label>{humanIntervention.inputLabel}</Label>
-							<Input value={inputValue} onChange={(e) => setInputValue(e.target.value)} placeholder={humanIntervention.inputPlaceholder} disabled={submitting} onKeyDown={(e) => { if (e.key === 'Enter') handleResume(inputValue); }} autoFocus />
+							<Input
+								value={inputValue}
+								onChange={(e) => setInputValue(e.target.value)}
+								placeholder={humanIntervention.inputPlaceholder}
+								disabled={submitting}
+								onKeyDown={(e) => {
+									if (e.key === 'Enter') handleResume(inputValue);
+								}}
+								autoFocus
+							/>
 						</div>
 					)}
 					<DialogFooter>
-						<Button variant="outline" onClick={handleCancel} disabled={submitting} className="cursor-pointer">{t('cancelRun')}</Button>
-						<Button onClick={() => handleResume(hasInput ? inputValue : undefined)} disabled={submitting} className="cursor-pointer">{t('ok')}</Button>
+						<Button
+							variant="outline"
+							onClick={handleCancel}
+							disabled={submitting}
+							className="cursor-pointer"
+						>
+							{t('cancelRun')}
+						</Button>
+						<Button
+							onClick={() => handleResume(hasInput ? inputValue : undefined)}
+							disabled={submitting}
+							className="cursor-pointer"
+						>
+							{t('ok')}
+						</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
@@ -355,22 +537,55 @@ export function HumanInterventionModal() {
 	if (dialogType === 'countdown') {
 		const title = humanIntervention.title || t('countdown');
 		const lvl = humanIntervention.level ?? 'warning';
-		const color = lvl === 'danger' ? 'text-red-500 border-red-500' : lvl === 'info' ? 'text-blue-500 border-blue-500' : 'text-yellow-500 border-yellow-500';
+		const color =
+			lvl === 'danger'
+				? 'text-red-500 border-red-500'
+				: lvl === 'info'
+					? 'text-blue-500 border-blue-500'
+					: 'text-yellow-500 border-yellow-500';
 
 		return (
 			<Dialog open onOpenChange={() => {}}>
-				<DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-					<DialogHeader><DialogTitle><TitleWithProfile><span className="flex items-center gap-2"><Clock className={`h-5 w-5 ${color.split(' ')[0]}`} />{title}</span></TitleWithProfile></DialogTitle></DialogHeader>
+				<DialogContent
+					className="max-w-md"
+					onInteractOutside={(e) => e.preventDefault()}
+					onEscapeKeyDown={(e) => e.preventDefault()}
+				>
+					<DialogHeader>
+						<DialogTitle>
+							<TitleWithProfile>
+								<span className="flex items-center gap-2">
+									<Clock className={`h-5 w-5 ${color.split(' ')[0]}`} />
+									{title}
+								</span>
+							</TitleWithProfile>
+						</DialogTitle>
+					</DialogHeader>
 					<p className="text-sm text-foreground whitespace-pre-wrap">{message}</p>
 					<div className="flex justify-center py-4">
-						<div className={`flex h-20 w-20 items-center justify-center rounded-full border-4 ${color}`}>
+						<div
+							className={`flex h-20 w-20 items-center justify-center rounded-full border-4 ${color}`}
+						>
 							<span className={`text-3xl font-bold ${color.split(' ')[0]}`}>{countdown}</span>
 						</div>
 					</div>
 					<DialogFooter>
-						<Button variant="outline" onClick={handleCancel} disabled={submitting} className="cursor-pointer">{t('cancel')}</Button>
-						<Button onClick={() => handleResume('true')} disabled={submitting || (countdown > 0 && !humanIntervention.autoProceed)} className="cursor-pointer">
-							{countdown > 0 ? `${humanIntervention.actionLabel ?? t('continue')} (${countdown}s)` : (humanIntervention.actionLabel ?? t('continue'))}
+						<Button
+							variant="outline"
+							onClick={handleCancel}
+							disabled={submitting}
+							className="cursor-pointer"
+						>
+							{t('cancel')}
+						</Button>
+						<Button
+							onClick={() => handleResume('true')}
+							disabled={submitting || (countdown > 0 && !humanIntervention.autoProceed)}
+							className="cursor-pointer"
+						>
+							{countdown > 0
+								? `${humanIntervention.actionLabel ?? t('continue')} (${countdown}s)`
+								: (humanIntervention.actionLabel ?? t('continue'))}
 						</Button>
 					</DialogFooter>
 				</DialogContent>
@@ -387,21 +602,68 @@ export function HumanInterventionModal() {
 
 		return (
 			<Dialog open onOpenChange={() => {}}>
-				<DialogContent className={humanIntervention.width === 'lg' ? 'max-w-lg' : humanIntervention.width === 'xl' ? 'max-w-xl' : 'max-w-md'} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-					{title && <DialogHeader><DialogTitle><TitleWithProfile>{title}</TitleWithProfile></DialogTitle></DialogHeader>}
+				<DialogContent
+					className={
+						humanIntervention.width === 'lg'
+							? 'max-w-lg'
+							: humanIntervention.width === 'xl'
+								? 'max-w-xl'
+								: 'max-w-md'
+					}
+					onInteractOutside={(e) => e.preventDefault()}
+					onEscapeKeyDown={(e) => e.preventDefault()}
+				>
+					{title && (
+						<DialogHeader>
+							<DialogTitle>
+								<TitleWithProfile>{title}</TitleWithProfile>
+							</DialogTitle>
+						</DialogHeader>
+					)}
 					<ScrollArea style={{ maxHeight: maxH }}>
 						<MarkdownRenderer content={content} className="py-2" />
 					</ScrollArea>
 					<DialogFooter>
 						{humanIntervention.copyable && (
-							<Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(content); toast.success(t('copied')); }} className="cursor-pointer mr-auto"><Copy className="h-4 w-4 mr-1" />{t('copy')}</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => {
+									navigator.clipboard.writeText(content);
+									toast.success(t('copied'));
+								}}
+								className="cursor-pointer mr-auto"
+							>
+								<Copy className="h-4 w-4 mr-1" />
+								{t('copy')}
+							</Button>
 						)}
 						{actions && actions.length > 0 ? (
 							actions.map((btn) => (
-								<Button key={btn.value} variant={btn.variant === 'destructive' ? 'destructive' : btn.variant === 'outline' ? 'outline' : 'default'} onClick={() => handleResume(btn.value)} disabled={submitting} className="cursor-pointer">{btn.text}</Button>
+								<Button
+									key={btn.value}
+									variant={
+										btn.variant === 'destructive'
+											? 'destructive'
+											: btn.variant === 'outline'
+												? 'outline'
+												: 'default'
+									}
+									onClick={() => handleResume(btn.value)}
+									disabled={submitting}
+									className="cursor-pointer"
+								>
+									{btn.text}
+								</Button>
 							))
 						) : (
-							<Button onClick={() => handleResume('close')} disabled={submitting} className="cursor-pointer">{t('close')}</Button>
+							<Button
+								onClick={() => handleResume('close')}
+								disabled={submitting}
+								className="cursor-pointer"
+							>
+								{t('close')}
+							</Button>
 						)}
 					</DialogFooter>
 				</DialogContent>
@@ -414,20 +676,49 @@ export function HumanInterventionModal() {
 
 	return (
 		<Dialog open onOpenChange={() => {}}>
-			<DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-				<DialogHeader><DialogTitle><TitleWithProfile>{t('waitForManualAction')}</TitleWithProfile></DialogTitle></DialogHeader>
+			<DialogContent
+				className="max-w-md"
+				onInteractOutside={(e) => e.preventDefault()}
+				onEscapeKeyDown={(e) => e.preventDefault()}
+			>
+				<DialogHeader>
+					<DialogTitle>
+						<TitleWithProfile>{t('waitForManualAction')}</TitleWithProfile>
+					</DialogTitle>
+				</DialogHeader>
 				<div className="space-y-4 py-2">
 					<p className="text-sm text-foreground whitespace-pre-wrap">{message}</p>
 					{hasInput && (
 						<div className="space-y-1.5">
 							<Label>{inputLabel}</Label>
-							<Input value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleResume(hasInput ? inputValue : undefined); }} disabled={submitting} autoFocus />
+							<Input
+								value={inputValue}
+								onChange={(e) => setInputValue(e.target.value)}
+								onKeyDown={(e) => {
+									if (e.key === 'Enter') handleResume(hasInput ? inputValue : undefined);
+								}}
+								disabled={submitting}
+								autoFocus
+							/>
 						</div>
 					)}
 				</div>
 				<DialogFooter>
-					<Button variant="outline" onClick={handleCancel} disabled={submitting} className="cursor-pointer">{t('cancelRun')}</Button>
-					<Button onClick={() => handleResume(hasInput ? inputValue : undefined)} disabled={submitting} className="cursor-pointer">{submitting ? t('processing') : t('continue')}</Button>
+					<Button
+						variant="outline"
+						onClick={handleCancel}
+						disabled={submitting}
+						className="cursor-pointer"
+					>
+						{t('cancelRun')}
+					</Button>
+					<Button
+						onClick={() => handleResume(hasInput ? inputValue : undefined)}
+						disabled={submitting}
+						className="cursor-pointer"
+					>
+						{submitting ? t('processing') : t('continue')}
+					</Button>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
@@ -436,26 +727,56 @@ export function HumanInterventionModal() {
 
 // ─── 表单字段渲染器 ─────────────────────────────────────────────────────
 
-function HumanFormField({ field, value, error, disabled, onChange }: {
-	field: AiDialogFormField; value: string; error?: string; disabled: boolean; onChange: (v: string) => void;
+function HumanFormField({
+	field,
+	value,
+	error,
+	disabled,
+	onChange,
+}: {
+	field: AiDialogFormField;
+	value: string;
+	error?: string;
+	disabled: boolean;
+	onChange: (v: string) => void;
 }) {
 	const ft = field.fieldType ?? 'text';
 
 	if (ft === 'checkbox') {
 		return (
 			<div className="flex items-center gap-2">
-				<Checkbox id={field.name} checked={value === 'true'} onCheckedChange={(c) => onChange(String(!!c))} disabled={disabled} />
-				<Label htmlFor={field.name} className="cursor-pointer">{field.label}{field.required && <span className="text-destructive ml-0.5">*</span>}</Label>
+				<Checkbox
+					id={field.name}
+					checked={value === 'true'}
+					onCheckedChange={(c) => onChange(String(!!c))}
+					disabled={disabled}
+				/>
+				<Label htmlFor={field.name} className="cursor-pointer">
+					{field.label}
+					{field.required && <span className="text-destructive ml-0.5">*</span>}
+				</Label>
 			</div>
 		);
 	}
 	if (ft === 'select') {
 		return (
 			<div className="space-y-1">
-				<Label>{field.label}{field.required && <span className="text-destructive ml-0.5">*</span>}</Label>
-				<select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+				<Label>
+					{field.label}
+					{field.required && <span className="text-destructive ml-0.5">*</span>}
+				</Label>
+				<select
+					value={value}
+					onChange={(e) => onChange(e.target.value)}
+					disabled={disabled}
+					className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+				>
 					<option value="">{field.placeholder ?? '---'}</option>
-					{(field.options ?? []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+					{(field.options ?? []).map((o) => (
+						<option key={o.value} value={o.value}>
+							{o.label}
+						</option>
+					))}
 				</select>
 				{error && <p className="text-xs text-destructive">{error}</p>}
 			</div>
@@ -464,8 +785,17 @@ function HumanFormField({ field, value, error, disabled, onChange }: {
 	if (ft === 'textarea') {
 		return (
 			<div className="space-y-1">
-				<Label>{field.label}{field.required && <span className="text-destructive ml-0.5">*</span>}</Label>
-				<Textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={field.placeholder} disabled={disabled} rows={3} />
+				<Label>
+					{field.label}
+					{field.required && <span className="text-destructive ml-0.5">*</span>}
+				</Label>
+				<Textarea
+					value={value}
+					onChange={(e) => onChange(e.target.value)}
+					placeholder={field.placeholder}
+					disabled={disabled}
+					rows={3}
+				/>
 				{field.hint && <p className="text-xs text-muted-foreground">{field.hint}</p>}
 				{error && <p className="text-xs text-destructive">{error}</p>}
 			</div>
@@ -473,8 +803,17 @@ function HumanFormField({ field, value, error, disabled, onChange }: {
 	}
 	return (
 		<div className="space-y-1">
-			<Label>{field.label}{field.required && <span className="text-destructive ml-0.5">*</span>}</Label>
-			<Input type={ft} value={value} onChange={(e) => onChange(e.target.value)} placeholder={field.placeholder} disabled={disabled} />
+			<Label>
+				{field.label}
+				{field.required && <span className="text-destructive ml-0.5">*</span>}
+			</Label>
+			<Input
+				type={ft}
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+				placeholder={field.placeholder}
+				disabled={disabled}
+			/>
 			{field.hint && <p className="text-xs text-muted-foreground">{field.hint}</p>}
 			{error && <p className="text-xs text-destructive">{error}</p>}
 		</div>

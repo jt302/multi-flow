@@ -163,7 +163,6 @@
 	"latencyPending": "Latency pending",
 	"expired": "Expired",
 	"active": "Active",
-	"archived": "Archived",
 	"noProxy": "No proxies",
 	"addProxyFirst": "Please add a proxy first",
 	"proxy": "Proxy",

@@ -89,9 +89,7 @@ export function DevicePresetForm({
 									? t('form.editTitle')
 									: t('form.createTitle')}
 						</CardTitle>
-						<p className="mt-1 text-xs text-muted-foreground">
-							{t('form.cardDesc')}
-						</p>
+						<p className="mt-1 text-xs text-muted-foreground">{t('form.cardDesc')}</p>
 					</div>
 					{readonly ? (
 						<Badge variant="outline">{t('form.readonly')}</Badge>
@@ -112,33 +110,23 @@ export function DevicePresetForm({
 				>
 					<div className="grid gap-3 md:grid-cols-2">
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">
-								{t('form.name')}
-							</p>
+							<p className="mb-1 text-xs text-muted-foreground">{t('form.name')}</p>
 							<Input
 								{...register('label')}
 								disabled={readonly}
 								placeholder={t('form.namePlaceholder')}
 							/>
 							{errors.label ? (
-								<p className="mt-1 text-xs text-destructive">
-									{errors.label.message}
-								</p>
+								<p className="mt-1 text-xs text-destructive">{errors.label.message}</p>
 							) : null}
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">
-								{t('form.platform')}
-							</p>
+							<p className="mb-1 text-xs text-muted-foreground">{t('form.platform')}</p>
 							<Controller
 								control={control}
 								name="platform"
 								render={({ field }) => (
-									<Select
-										value={field.value}
-										onValueChange={field.onChange}
-										disabled={readonly}
-									>
+									<Select value={field.value} onValueChange={field.onChange} disabled={readonly}>
 										<SelectTrigger className="w-full">
 											<SelectValue placeholder={t('form.selectPlatform')} />
 										</SelectTrigger>
@@ -154,18 +142,12 @@ export function DevicePresetForm({
 							/>
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">
-								{t('form.browserVersion')}
-							</p>
+							<p className="mb-1 text-xs text-muted-foreground">{t('form.browserVersion')}</p>
 							<Controller
 								control={control}
 								name="browserVersion"
 								render={({ field }) => (
-									<Select
-										value={field.value}
-										onValueChange={field.onChange}
-										disabled={readonly}
-									>
+									<Select value={field.value} onValueChange={field.onChange} disabled={readonly}>
 										<SelectTrigger className="w-full">
 											<SelectValue placeholder={t('form.selectBrowserVersion')} />
 										</SelectTrigger>
@@ -183,15 +165,11 @@ export function DevicePresetForm({
 								{t('form.browserVersionHint')}
 							</p>
 							{errors.browserVersion ? (
-								<p className="mt-1 text-xs text-destructive">
-									{errors.browserVersion.message}
-								</p>
+								<p className="mt-1 text-xs text-destructive">{errors.browserVersion.message}</p>
 							) : null}
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">
-								{t('form.platformVersion')}
-							</p>
+							<p className="mb-1 text-xs text-muted-foreground">{t('form.platformVersion')}</p>
 							<Input
 								{...register('platformVersion')}
 								disabled={readonly}
@@ -199,9 +177,7 @@ export function DevicePresetForm({
 							/>
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">
-								{t('form.platformParams')}
-							</p>
+							<p className="mb-1 text-xs text-muted-foreground">{t('form.platformParams')}</p>
 							<Input
 								{...register('customPlatform')}
 								disabled={readonly}
@@ -212,9 +188,7 @@ export function DevicePresetForm({
 
 					<div className="grid gap-3 md:grid-cols-4">
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">
-								{t('form.width')}
-							</p>
+							<p className="mb-1 text-xs text-muted-foreground">{t('form.width')}</p>
 							<Input
 								type="number"
 								{...register('viewportWidth', { valueAsNumber: true })}
@@ -222,9 +196,7 @@ export function DevicePresetForm({
 							/>
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">
-								{t('form.height')}
-							</p>
+							<p className="mb-1 text-xs text-muted-foreground">{t('form.height')}</p>
 							<Input
 								type="number"
 								{...register('viewportHeight', { valueAsNumber: true })}
@@ -232,9 +204,7 @@ export function DevicePresetForm({
 							/>
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">
-								{t('form.dpr')}
-							</p>
+							<p className="mb-1 text-xs text-muted-foreground">{t('form.dpr')}</p>
 							<Input
 								type="number"
 								step="0.125"
@@ -243,9 +213,7 @@ export function DevicePresetForm({
 							/>
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">
-								{t('form.touchPoints')}
-							</p>
+							<p className="mb-1 text-xs text-muted-foreground">{t('form.touchPoints')}</p>
 							<Input
 								type="number"
 								{...register('touchPoints', { valueAsNumber: true })}
@@ -256,18 +224,12 @@ export function DevicePresetForm({
 
 					<div className="grid gap-3 md:grid-cols-4">
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">
-								{t('form.arch')}
-							</p>
+							<p className="mb-1 text-xs text-muted-foreground">{t('form.arch')}</p>
 							<Controller
 								control={control}
 								name="arch"
 								render={({ field }) => (
-									<Select
-										value={field.value}
-										onValueChange={field.onChange}
-										disabled={readonly}
-									>
+									<Select value={field.value} onValueChange={field.onChange} disabled={readonly}>
 										<SelectTrigger className="w-full">
 											<SelectValue />
 										</SelectTrigger>
@@ -283,18 +245,12 @@ export function DevicePresetForm({
 							/>
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">
-								{t('form.bitness')}
-							</p>
+							<p className="mb-1 text-xs text-muted-foreground">{t('form.bitness')}</p>
 							<Controller
 								control={control}
 								name="bitness"
 								render={({ field }) => (
-									<Select
-										value={field.value}
-										onValueChange={field.onChange}
-										disabled={readonly}
-									>
+									<Select value={field.value} onValueChange={field.onChange} disabled={readonly}>
 										<SelectTrigger className="w-full">
 											<SelectValue />
 										</SelectTrigger>
@@ -310,18 +266,12 @@ export function DevicePresetForm({
 							/>
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">
-								{t('form.formFactor')}
-							</p>
+							<p className="mb-1 text-xs text-muted-foreground">{t('form.formFactor')}</p>
 							<Controller
 								control={control}
 								name="formFactor"
 								render={({ field }) => (
-									<Select
-										value={field.value}
-										onValueChange={field.onChange}
-										disabled={readonly}
-									>
+									<Select value={field.value} onValueChange={field.onChange} disabled={readonly}>
 										<SelectTrigger className="w-full">
 											<SelectValue />
 										</SelectTrigger>
@@ -349,9 +299,7 @@ export function DevicePresetForm({
 											id={mobileCheckboxId}
 											checked={field.value}
 											disabled={readonly}
-											onCheckedChange={(checked) =>
-												field.onChange(Boolean(checked))
-											}
+											onCheckedChange={(checked) => field.onChange(Boolean(checked))}
 										/>
 									)}
 								/>
@@ -362,9 +310,7 @@ export function DevicePresetForm({
 
 					<div className="grid gap-3 md:grid-cols-2">
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">
-								{t('form.glVendor')}
-							</p>
+							<p className="mb-1 text-xs text-muted-foreground">{t('form.glVendor')}</p>
 							<Input
 								{...register('customGlVendor')}
 								disabled={readonly}
@@ -372,9 +318,7 @@ export function DevicePresetForm({
 							/>
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">
-								{t('form.glRenderer')}
-							</p>
+							<p className="mb-1 text-xs text-muted-foreground">{t('form.glRenderer')}</p>
 							<Input
 								{...register('customGlRenderer')}
 								disabled={readonly}
@@ -382,9 +326,7 @@ export function DevicePresetForm({
 							/>
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">
-								{t('form.cpuCores')}
-							</p>
+							<p className="mb-1 text-xs text-muted-foreground">{t('form.cpuCores')}</p>
 							<Input
 								type="number"
 								{...register('customCpuCores', { valueAsNumber: true })}
@@ -392,26 +334,20 @@ export function DevicePresetForm({
 							/>
 						</div>
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">
-								{t('form.memory')}
-							</p>
+							<p className="mb-1 text-xs text-muted-foreground">{t('form.memory')}</p>
 							<Input
 								type="number"
 								{...register('customRamGb', { valueAsNumber: true })}
 								disabled={readonly}
 							/>
 							{errors.customRamGb ? (
-								<p className="mt-1 text-xs text-destructive">
-									{errors.customRamGb.message}
-								</p>
+								<p className="mt-1 text-xs text-destructive">{errors.customRamGb.message}</p>
 							) : null}
 						</div>
 					</div>
 
 					<div>
-						<p className="mb-1 text-xs text-muted-foreground">
-							{t('form.uaTemplate')}
-						</p>
+						<p className="mb-1 text-xs text-muted-foreground">{t('form.uaTemplate')}</p>
 						<Textarea
 							rows={4}
 							{...register('userAgentTemplate')}
@@ -419,19 +355,13 @@ export function DevicePresetForm({
 							placeholder="Mozilla/5.0 (...) Chrome/{version} Safari/537.36"
 						/>
 						{errors.userAgentTemplate ? (
-							<p className="mt-1 text-xs text-destructive">
-								{errors.userAgentTemplate.message}
-							</p>
+							<p className="mt-1 text-xs text-destructive">{errors.userAgentTemplate.message}</p>
 						) : null}
-						<p className="mt-3 mb-1 text-xs text-muted-foreground">
-							{t('form.uaPreview')}
-						</p>
+						<p className="mt-3 mb-1 text-xs text-muted-foreground">{t('form.uaPreview')}</p>
 						<div className="rounded-md border border-border/50 bg-muted/40 p-2 font-mono text-[11px] leading-relaxed break-all text-muted-foreground">
 							{uaPreview}
 						</div>
-						<p className="mt-1 text-[11px] text-muted-foreground">
-							{t('form.uaPreviewHint')}
-						</p>
+						<p className="mt-1 text-[11px] text-muted-foreground">{t('form.uaPreviewHint')}</p>
 					</div>
 
 					<div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-3">

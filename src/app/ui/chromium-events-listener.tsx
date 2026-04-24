@@ -1,7 +1,7 @@
+import { useQueryClient } from '@tanstack/react-query';
+import { listen } from '@tauri-apps/api/event';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { listen } from '@tauri-apps/api/event';
-import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { queryKeys } from '@/shared/config/query-keys';
@@ -65,8 +65,7 @@ export function ChromiumEventsListener() {
 					updatedAt: Date.now(),
 				});
 			} else if (p.event_type === 'download.updated') {
-				const existing =
-					useChromiumRuntimeStore.getState().downloads[`${profileId}:${downloadId}`];
+				const existing = useChromiumRuntimeStore.getState().downloads[`${profileId}:${downloadId}`];
 				upsertDownload({
 					downloadId,
 					profileId,
@@ -78,14 +77,17 @@ export function ChromiumEventsListener() {
 					updatedAt: Date.now(),
 				});
 			} else if (p.event_type === 'download.completed') {
-				const existing =
-					useChromiumRuntimeStore.getState().downloads[`${profileId}:${downloadId}`];
+				const existing = useChromiumRuntimeStore.getState().downloads[`${profileId}:${downloadId}`];
 				const filename = existing?.filename ?? '';
-				completeDownload(profileId, downloadId, String(d.target_path ?? ''), Number(d.total_bytes ?? 0));
+				completeDownload(
+					profileId,
+					downloadId,
+					String(d.target_path ?? ''),
+					Number(d.total_bytes ?? 0),
+				);
 				toast.success(t('toast.downloadCompleted', { filename: filename || downloadId }));
 			} else if (p.event_type === 'download.interrupted') {
-				const existing =
-					useChromiumRuntimeStore.getState().downloads[`${profileId}:${downloadId}`];
+				const existing = useChromiumRuntimeStore.getState().downloads[`${profileId}:${downloadId}`];
 				const filename = existing?.filename ?? '';
 				interruptDownload(profileId, downloadId, String(d.error ?? ''));
 				if (filename) {

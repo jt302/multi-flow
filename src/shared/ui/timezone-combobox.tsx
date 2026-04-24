@@ -1,7 +1,6 @@
-import { useState } from 'react';
 import { Check, ChevronsUpDown } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
 import {
 	Button,
 	Command,
@@ -14,6 +13,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from '@/components/ui';
+import { cn } from '@/lib/utils';
 import { TIMEZONE_LIST } from '@/shared/lib/timezone-list';
 
 type TimezoneComboboxProps = {
@@ -67,10 +67,7 @@ export function TimezoneCombobox({
 									}}
 								>
 									<Check
-										className={cn(
-											'mr-2 h-4 w-4',
-											value === tz ? 'opacity-100' : 'opacity-0',
-										)}
+										className={cn('mr-2 h-4 w-4', value === tz ? 'opacity-100' : 'opacity-0')}
 									/>
 									{tz}
 								</CommandItem>

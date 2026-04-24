@@ -1,9 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { AlertTriangle } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import { tauriInvoke } from '@/shared/api/tauri-invoke';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -15,6 +13,7 @@ import {
 	AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { tauriInvoke } from '@/shared/api/tauri-invoke';
 
 // ── 类型定义 ─────────────────────────────────────────────────────────
 
@@ -38,16 +37,18 @@ export function ToolConfirmationModal() {
 	useEffect(() => {
 		let mounted = true;
 
-		getCurrentWindow().listen<ToolConfirmationRequest>('tool-confirmation-request', (event) => {
-			if (!mounted) return;
-			setRequest(event.payload);
-		}).then((unlisten) => {
-			if (mounted) {
-				unlistenRef.current = unlisten;
-			} else {
-				unlisten();
-			}
-		});
+		getCurrentWindow()
+			.listen<ToolConfirmationRequest>('tool-confirmation-request', (event) => {
+				if (!mounted) return;
+				setRequest(event.payload);
+			})
+			.then((unlisten) => {
+				if (mounted) {
+					unlistenRef.current = unlisten;
+				} else {
+					unlisten();
+				}
+			});
 
 		return () => {
 			mounted = false;
@@ -92,31 +93,24 @@ export function ToolConfirmationModal() {
 							<p>{t('toolConfirmation.message')}</p>
 							<div className="rounded-md border bg-muted/50 p-3 space-y-2">
 								<div className="flex items-center gap-2">
-									<span className="text-muted-foreground">
-										{t('toolConfirmation.toolName')}:
-									</span>
+									<span className="text-muted-foreground">{t('toolConfirmation.toolName')}:</span>
 									<code className="rounded bg-destructive/10 px-1.5 py-0.5 text-xs font-mono text-destructive">
 										{request?.toolName}
 									</code>
 								</div>
-								{request?.args &&
-									Object.keys(request.args).length > 0 && (
-										<div>
-											<span className="text-muted-foreground">
-												{t('toolConfirmation.args')}:
-											</span>
-											<ScrollArea className="mt-1 h-48">
-												<pre className="rounded bg-background p-2 text-xs font-mono whitespace-pre-wrap break-all">
-													{formatArgs(request.args)}
-												</pre>
-											</ScrollArea>
-										</div>
-									)}
+								{request?.args && Object.keys(request.args).length > 0 && (
+									<div>
+										<span className="text-muted-foreground">{t('toolConfirmation.args')}:</span>
+										<ScrollArea className="mt-1 h-48">
+											<pre className="rounded bg-background p-2 text-xs font-mono whitespace-pre-wrap break-all">
+												{formatArgs(request.args)}
+											</pre>
+										</ScrollArea>
+									</div>
+								)}
 								{request?.cwd && (
 									<div className="flex flex-col gap-1">
-										<span className="text-muted-foreground">
-											{t('toolConfirmation.cwd')}:
-										</span>
+										<span className="text-muted-foreground">{t('toolConfirmation.cwd')}:</span>
 										<code className="rounded bg-background px-2 py-1 text-xs font-mono break-all">
 											{request.cwd}
 										</code>

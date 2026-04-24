@@ -1,12 +1,18 @@
 import type { LucideIcon } from 'lucide-react';
 
-import type {
-	CustomThemePreset,
-	PresetKey,
-	ThemeMode,
-} from '@/entities/theme/model/types';
+import type { CustomThemePreset, PresetKey, ThemeMode } from '@/entities/theme/model/types';
 
-export type NavId = 'dashboard' | 'profiles' | 'plugins' | 'groups' | 'proxy' | 'windows' | 'browser-control' | 'automation' | 'ai-chat' | 'settings';
+export type NavId =
+	| 'dashboard'
+	| 'profiles'
+	| 'plugins'
+	| 'groups'
+	| 'proxy'
+	| 'windows'
+	| 'browser-control'
+	| 'automation'
+	| 'ai-chat'
+	| 'settings';
 
 export type NavChildItem = {
 	label: string;

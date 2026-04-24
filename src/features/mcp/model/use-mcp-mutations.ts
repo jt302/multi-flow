@@ -65,8 +65,13 @@ export function useCreateMcpServer() {
 export function useUpdateMcpServer() {
 	const qc = useQueryClient();
 	return useMutation({
-		mutationFn: ({ id, payload }: { id: string; payload: import('@/entities/mcp/model/types').UpdateMcpServerRequest }) =>
-			mcpApi.updateServer(id, payload),
+		mutationFn: ({
+			id,
+			payload,
+		}: {
+			id: string;
+			payload: import('@/entities/mcp/model/types').UpdateMcpServerRequest;
+		}) => mcpApi.updateServer(id, payload),
 		onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.mcpServers }),
 	});
 }

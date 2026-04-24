@@ -1,6 +1,6 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import test from 'node:test';
 
 test('profile multi select only queries profiles while the popover is open', () => {
 	const source = readFileSync(new URL('./profile-multi-select.tsx', import.meta.url), 'utf8');

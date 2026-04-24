@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import {
 	AppWindow,
 	Bot,
@@ -10,11 +11,10 @@ import {
 	Settings2,
 	Smartphone,
 } from 'lucide-react';
-import i18next from 'i18next';
 
 import { NAV_PATHS, PROFILES_DEVICE_PRESETS_PATH } from '@/app/workspace-routes';
-import { getSettingsTabs } from '@/features/settings/ui/settings-tab-constants';
 import { getAiChatTabs } from '@/features/ai-chat/ui/ai-chat-tab-constants';
+import { getSettingsTabs } from '@/features/settings/ui/settings-tab-constants';
 import type { NavItem } from './workspace-types';
 
 export function getWorkspaceNavItems(): NavItem[] {

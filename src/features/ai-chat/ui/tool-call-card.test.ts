@@ -10,6 +10,6 @@ test('tool call card uses animated expand and collapse container', () => {
 });
 
 test('tool call card rotates chevron when toggled', () => {
-	assert.equal(source.includes("transition-transform duration-200"), true);
+	assert.equal(source.includes('transition-transform duration-200'), true);
 	assert.equal(source.includes("open && 'rotate-90'"), true);
 });

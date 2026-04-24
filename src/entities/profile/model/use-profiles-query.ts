@@ -13,11 +13,7 @@ type UseProfilesQueryOptions<TData> = {
 export function useProfilesQuery<TData = ProfileItem[]>(
 	options: UseProfilesQueryOptions<TData> = {},
 ) {
-	const {
-		enabled = true,
-		refetchInterval = 5000,
-		select,
-	} = options;
+	const { enabled = true, refetchInterval = 5000, select } = options;
 
 	return useQuery<ProfileItem[], Error, TData>({
 		queryKey: queryKeys.profiles,

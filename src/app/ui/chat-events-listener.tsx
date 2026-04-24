@@ -1,15 +1,14 @@
-import { useEffect, useRef } from 'react';
-import { listen } from '@tauri-apps/api/event';
 import { useQueryClient } from '@tanstack/react-query';
-
-import { chatStore } from '@/store/chat-store';
-import { queryKeys } from '@/shared/config/query-keys';
+import { listen } from '@tauri-apps/api/event';
+import { useEffect, useRef } from 'react';
 import type {
 	ChatMessageDeltaEvent,
 	ChatMessageEvent,
 	ChatPhaseEvent,
 	ChatSessionEvent,
 } from '@/entities/chat/model/types';
+import { queryKeys } from '@/shared/config/query-keys';
+import { chatStore } from '@/store/chat-store';
 
 /**
  * 全局监听 ai_chat:// 系列事件，确保用户离开聊天页面后事件不丢失。
@@ -57,7 +56,9 @@ export function ChatEventsListener() {
 			if (event.payload.sessionId === state.activeSessionId) {
 				state.startLiveMessage(event.payload.message);
 			}
-		}).then((u) => { unlistenStartRef.current = u; });
+		}).then((u) => {
+			unlistenStartRef.current = u;
+		});
 
 		// 流式增量文本 / 工具占位（text delta 走 rAF 合批；tool_start 立即处理）
 		listen<ChatMessageDeltaEvent>('ai_chat://message_delta', (event) => {
@@ -70,10 +71,16 @@ export function ChatEventsListener() {
 					pending.set(messageId, { sessionId, delta: (existing?.delta ?? '') + delta });
 					if (rafId === null) rafId = requestAnimationFrame(flush);
 				} else if (event.payload.kind === 'tool_start' && event.payload.toolName) {
-					state.markToolCallPlaceholder(event.payload.sessionId, event.payload.messageId, event.payload.toolName);
+					state.markToolCallPlaceholder(
+						event.payload.sessionId,
+						event.payload.messageId,
+						event.payload.toolName,
+					);
 				}
 			}
-		}).then((u) => { unlistenDeltaRef.current = u; });
+		}).then((u) => {
+			unlistenDeltaRef.current = u;
+		});
 
 		// 完整消息（用户消息、工具结果、流式完成后的最终版本）
 		listen<ChatMessageEvent>('ai_chat://message', (event) => {

@@ -4,29 +4,15 @@
  * 保存状态指示器、运行/取消按钮以及运行状态徽章。
  */
 
-import {
-	ArrowLeft,
-	Check,
-	Loader2,
-	Play,
-	Save,
-	Settings2,
-	Square,
-	Variable,
-} from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Check, Loader2, Play, Save, Settings2, Square, Variable } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
-import type { ScriptVarDef } from '@/entities/automation/model/types';
+import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import type { ScriptVarDef } from '@/entities/automation/model/types';
 
 type Props = {
 	/** 脚本名称，显示在工具栏中 */
@@ -138,7 +124,9 @@ export function CanvasToolbar({
 				<PopoverContent className="w-64 p-3 space-y-3" align="end">
 					{/* 步骤延迟 */}
 					<div className="space-y-1.5">
-						<Label className="text-xs font-medium">{t('common:stepDelay')} ({t('automation:toolbar.ms')})</Label>
+						<Label className="text-xs font-medium">
+							{t('common:stepDelay')} ({t('automation:toolbar.ms')})
+						</Label>
 						<Input
 							type="number"
 							min={0}
@@ -146,9 +134,7 @@ export function CanvasToolbar({
 							value={stepDelayMs}
 							onChange={(e) => {
 								const raw = Number(e.target.value);
-								const val = Number.isFinite(raw)
-									? Math.min(9999, Math.max(0, raw))
-									: 0;
+								const val = Number.isFinite(raw) ? Math.min(9999, Math.max(0, raw)) : 0;
 								onStepDelayChange(val);
 							}}
 							className="h-8 text-xs"
@@ -164,7 +150,9 @@ export function CanvasToolbar({
 							onClick={onOpenVariables}
 						>
 							<Variable className="h-3.5 w-3.5 mr-1.5" />
-							{varsDefs.length > 0 ? t('automation:toolbar.variablesCount', { count: varsDefs.length }) : t('common:variables')}
+							{varsDefs.length > 0
+								? t('automation:toolbar.variablesCount', { count: varsDefs.length })
+								: t('common:variables')}
 						</Button>
 					</div>
 				</PopoverContent>
@@ -172,12 +160,7 @@ export function CanvasToolbar({
 
 			{/* 运行 / 取消按钮 */}
 			{isRunning ? (
-				<Button
-					size="sm"
-					variant="destructive"
-					className="h-8 cursor-pointer"
-					onClick={onCancel}
-				>
+				<Button size="sm" variant="destructive" className="h-8 cursor-pointer" onClick={onCancel}>
 					<Square className="h-3.5 w-3.5 mr-1" />
 					{t('common:cancelRun')}
 				</Button>

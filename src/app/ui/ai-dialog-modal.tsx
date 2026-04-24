@@ -1,36 +1,9 @@
-import { MarkdownRenderer } from '@/shared/ui/markdown-renderer';
-import { useCallback, useEffect, useRef, useState } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { open, save } from '@tauri-apps/plugin-dialog';
-import {
-	AlertCircle,
-	CheckCircle2,
-	Clock,
-	Copy,
-	Info,
-	TriangleAlert,
-} from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Copy, Info, TriangleAlert } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-
-import {
-	listenAiDialogRequest,
-	submitAiDialogResponse,
-} from '@/entities/automation/api/automation-api';
-import type {
-	AiDialogAction,
-	AiDialogFormField,
-	AiDialogRequest,
-} from '@/entities/automation/model/types';
-import { Button } from '@/components/ui/button';
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from '@/components/ui/dialog';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -41,7 +14,16 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -54,6 +36,16 @@ import {
 	TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import {
+	listenAiDialogRequest,
+	submitAiDialogResponse,
+} from '@/entities/automation/api/automation-api';
+import type {
+	AiDialogAction,
+	AiDialogFormField,
+	AiDialogRequest,
+} from '@/entities/automation/model/types';
+import { MarkdownRenderer } from '@/shared/ui/markdown-renderer';
 
 const LEVEL_ICON: Record<string, React.ReactNode> = {
 	info: <Info className="h-5 w-5 text-blue-500" />,
@@ -324,7 +316,9 @@ export function AiDialogModal() {
 								if (!new RegExp(f.validation).test(v)) {
 									errors[f.name] = t('invalidFormat');
 								}
-							} catch { /* ignore invalid regex */ }
+							} catch {
+								/* ignore invalid regex */
+							}
 						}
 					}
 					if (Object.keys(errors).length > 0) {
@@ -488,9 +482,7 @@ export function AiDialogModal() {
 									<div className="flex-1 min-w-0">
 										<span className="text-sm">{opt.label}</span>
 										{opt.description && (
-											<p className="text-xs text-muted-foreground">
-												{opt.description}
-											</p>
+											<p className="text-xs text-muted-foreground">{opt.description}</p>
 										)}
 									</div>
 								</label>
@@ -550,9 +542,7 @@ export function AiDialogModal() {
 									value={formValues[field.name] ?? ''}
 									error={formErrors[field.name]}
 									disabled={submitting}
-									onChange={(v) =>
-										setFormValues((prev) => ({ ...prev, [field.name]: v }))
-									}
+									onChange={(v) => setFormValues((prev) => ({ ...prev, [field.name]: v }))}
 								/>
 							))}
 						</div>
@@ -566,11 +556,7 @@ export function AiDialogModal() {
 						>
 							{t('cancel')}
 						</Button>
-						<Button
-							onClick={handleConfirm}
-							disabled={submitting}
-							className="cursor-pointer"
-						>
+						<Button onClick={handleConfirm} disabled={submitting} className="cursor-pointer">
 							{request.submitLabel ?? t('ok')}
 						</Button>
 					</DialogFooter>
@@ -635,11 +621,7 @@ export function AiDialogModal() {
 										{rows.map((row, idx) => (
 											<TableRow
 												key={idx}
-												className={
-													isSelectable
-														? 'cursor-pointer hover:bg-muted'
-														: undefined
-												}
+												className={isSelectable ? 'cursor-pointer hover:bg-muted' : undefined}
 												onClick={isSelectable ? () => toggleRow(idx) : undefined}
 											>
 												{isSelectable && (
@@ -675,11 +657,7 @@ export function AiDialogModal() {
 						>
 							{t('cancel')}
 						</Button>
-						<Button
-							onClick={handleConfirm}
-							disabled={submitting}
-							className="cursor-pointer"
-						>
+						<Button onClick={handleConfirm} disabled={submitting} className="cursor-pointer">
 							{t('ok')}
 						</Button>
 					</DialogFooter>
@@ -777,11 +755,7 @@ export function AiDialogModal() {
 								>
 									{t('cancel')}
 								</Button>
-								<Button
-									onClick={handleConfirm}
-									disabled={submitting}
-									className="cursor-pointer"
-								>
+								<Button onClick={handleConfirm} disabled={submitting} className="cursor-pointer">
 									{t('ok')}
 								</Button>
 							</>
@@ -823,9 +797,7 @@ export function AiDialogModal() {
 										: 'border-yellow-500'
 							}`}
 						>
-							<span className={`text-3xl font-bold ${levelColor}`}>
-								{countdown}
-							</span>
+							<span className={`text-3xl font-bold ${levelColor}`}>{countdown}</span>
 						</div>
 					</div>
 					<AlertDialogFooter>
@@ -870,7 +842,7 @@ export function AiDialogModal() {
 						</DialogHeader>
 					)}
 					<ScrollArea style={{ maxHeight: maxH }}>
-						<MarkdownRenderer content={request.content ?? ""} className="py-2" />
+						<MarkdownRenderer content={request.content ?? ''} className="py-2" />
 					</ScrollArea>
 					<DialogFooter>
 						{request.copyable && (
@@ -929,8 +901,7 @@ export function AiDialogModal() {
 	// ─── message / input 类型（原有） → Dialog ───────────────────
 	const isInput = request.dialogType === 'input';
 	const isMultiline =
-		(request.defaultValue?.length ?? 0) > 80 ||
-		request.defaultValue?.includes('\n');
+		(request.defaultValue?.length ?? 0) > 80 || request.defaultValue?.includes('\n');
 
 	return (
 		<Dialog open onOpenChange={() => {}}>
@@ -944,9 +915,7 @@ export function AiDialogModal() {
 						{icon}
 						{request.title ?? (isInput ? t('aiInput') : t('aiMessage'))}
 					</DialogTitle>
-					<DialogDescription className="whitespace-pre-wrap">
-						{request.message}
-					</DialogDescription>
+					<DialogDescription className="whitespace-pre-wrap">{request.message}</DialogDescription>
 				</DialogHeader>
 
 				{isInput && (
@@ -978,11 +947,7 @@ export function AiDialogModal() {
 
 				<DialogFooter>
 					{request.dialogType === 'message' ? (
-						<Button
-							onClick={handleConfirm}
-							disabled={submitting}
-							className="cursor-pointer"
-						>
+						<Button onClick={handleConfirm} disabled={submitting} className="cursor-pointer">
 							{t('gotIt')}
 						</Button>
 					) : (
@@ -995,11 +960,7 @@ export function AiDialogModal() {
 							>
 								{t('cancel')}
 							</Button>
-							<Button
-								onClick={handleConfirm}
-								disabled={submitting}
-								className="cursor-pointer"
-							>
+							<Button onClick={handleConfirm} disabled={submitting} className="cursor-pointer">
 								{t('ok')}
 							</Button>
 						</>
@@ -1040,9 +1001,7 @@ function FormFieldRenderer({
 					{field.label}
 					{field.required && <span className="text-destructive ml-0.5">*</span>}
 				</Label>
-				{field.hint && (
-					<span className="text-xs text-muted-foreground">{field.hint}</span>
-				)}
+				{field.hint && <span className="text-xs text-muted-foreground">{field.hint}</span>}
 			</div>
 		);
 	}
@@ -1067,9 +1026,7 @@ function FormFieldRenderer({
 						</option>
 					))}
 				</select>
-				{field.hint && (
-					<p className="text-xs text-muted-foreground">{field.hint}</p>
-				)}
+				{field.hint && <p className="text-xs text-muted-foreground">{field.hint}</p>}
 				{error && <p className="text-xs text-destructive">{error}</p>}
 			</div>
 		);
@@ -1089,9 +1046,7 @@ function FormFieldRenderer({
 					disabled={disabled}
 					rows={3}
 				/>
-				{field.hint && (
-					<p className="text-xs text-muted-foreground">{field.hint}</p>
-				)}
+				{field.hint && <p className="text-xs text-muted-foreground">{field.hint}</p>}
 				{error && <p className="text-xs text-destructive">{error}</p>}
 			</div>
 		);
@@ -1111,9 +1066,7 @@ function FormFieldRenderer({
 				placeholder={field.placeholder}
 				disabled={disabled}
 			/>
-			{field.hint && (
-				<p className="text-xs text-muted-foreground">{field.hint}</p>
-			)}
+			{field.hint && <p className="text-xs text-muted-foreground">{field.hint}</p>}
 			{error && <p className="text-xs text-destructive">{error}</p>}
 		</div>
 	);

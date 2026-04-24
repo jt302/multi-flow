@@ -102,10 +102,22 @@ export function BackgroundQuickEditForm({
 					>
 						{t('backgroundColor.reset')}
 					</Button>
-					<Button type="button" size="sm" variant="ghost" className="cursor-pointer" onClick={onCancel}>
+					<Button
+						type="button"
+						size="sm"
+						variant="ghost"
+						className="cursor-pointer"
+						onClick={onCancel}
+					>
 						{t('common:cancel')}
 					</Button>
-					<Button type="submit" size="sm" variant="outline" className="cursor-pointer" disabled={disabled}>
+					<Button
+						type="submit"
+						size="sm"
+						variant="outline"
+						className="cursor-pointer"
+						disabled={disabled}
+					>
 						{t('backgroundColor.save')}
 					</Button>
 				</div>
@@ -155,10 +167,22 @@ export function ToolbarQuickEditForm({
 					disabled={disabled}
 				/>
 				<div className="ml-auto flex items-center gap-1">
-					<Button type="button" size="sm" variant="ghost" className="cursor-pointer" onClick={onCancel}>
+					<Button
+						type="button"
+						size="sm"
+						variant="ghost"
+						className="cursor-pointer"
+						onClick={onCancel}
+					>
 						{t('common:cancel')}
 					</Button>
-					<Button type="submit" size="sm" variant="outline" className="cursor-pointer" disabled={disabled}>
+					<Button
+						type="submit"
+						size="sm"
+						variant="outline"
+						className="cursor-pointer"
+						disabled={disabled}
+					>
 						{t('toolbarText.save')}
 					</Button>
 				</div>

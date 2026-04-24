@@ -1,6 +1,6 @@
 import i18next from 'i18next';
 import type { LucideIcon } from 'lucide-react';
-import { Settings, Palette, HardDrive, Bot, Trash2, Code } from 'lucide-react';
+import { Bot, Code, HardDrive, Palette, Settings, Trash2 } from 'lucide-react';
 
 import { SETTINGS_PATHS } from '@/app/workspace-routes';
 

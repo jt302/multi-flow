@@ -1,25 +1,27 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 import { Plus, RefreshCw } from 'lucide-react';
-
-import {
-	ConfirmActionDialog,
-	DataSection,
-	EmptyState,
-} from '@/components/common';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
+import { getWorkspaceSection } from '@/app/model/workspace-sections';
+import { ConfirmActionDialog, DataSection, EmptyState } from '@/components/common';
 import { Button, Icon } from '@/components/ui';
 import { filterProfiles } from '@/entities/profile/lib/profile-list';
 import type { ProxyItem } from '@/entities/proxy/model/types';
-import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
-import { getWorkspaceSection } from '@/app/model/workspace-sections';
 import { useProfileListStore } from '@/store/profile-list-store';
+import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 import type { ProfileListPageProps } from '../model/profile-list-types';
 import { ProfileListStats } from './profile-list-stats';
 import { ProfileListTable } from './profile-list-table';
 import { ProfileListToolbar } from './profile-list-toolbar';
 
-type ProfileBatchAction = 'refresh' | 'open' | 'close' | 'stopAll' | 'setGroup' | 'clearGroup' | 'retryOpen';
+type ProfileBatchAction =
+	| 'refresh'
+	| 'open'
+	| 'close'
+	| 'stopAll'
+	| 'setGroup'
+	| 'clearGroup'
+	| 'retryOpen';
 
 export function ProfileListPage({
 	profiles,
@@ -50,49 +52,30 @@ export function ProfileListPage({
 	const { t: tCommon } = useTranslation('common');
 	const section = getWorkspaceSection('profiles');
 	const [searchParams, setSearchParams] = useSearchParams();
-	const [stopAllRunningDialogOpen, setStopAllRunningDialogOpen] =
-		useState(false);
+	const [stopAllRunningDialogOpen, setStopAllRunningDialogOpen] = useState(false);
 	const [batchAction, setBatchAction] = useState<ProfileBatchAction | null>(null);
 	const batchActionRef = useRef<ProfileBatchAction | null>(null);
 	const error = useProfileListStore((state) => state.error);
 	const filters = useProfileListStore((state) => state.filters);
 	const quickEdit = useProfileListStore((state) => state.quickEdit);
-	const batchGroupTarget = useProfileListStore(
-		(state) => state.batchGroupTarget,
-	);
-	const batchGroupDialogOpen = useProfileListStore(
-		(state) => state.batchGroupDialogOpen,
-	);
-	const batchClearGroupDialogOpen = useProfileListStore(
-		(state) => state.batchClearGroupDialogOpen,
-	);
-	const selectedProfileIds = useProfileListStore(
-		(state) => state.selectedProfileIds,
-	);
-	const lastBatchOpenResult = useProfileListStore(
-		(state) => state.lastBatchOpenResult,
-	);
+	const batchGroupTarget = useProfileListStore((state) => state.batchGroupTarget);
+	const batchGroupDialogOpen = useProfileListStore((state) => state.batchGroupDialogOpen);
+	const batchClearGroupDialogOpen = useProfileListStore((state) => state.batchClearGroupDialogOpen);
+	const selectedProfileIds = useProfileListStore((state) => state.selectedProfileIds);
+	const lastBatchOpenResult = useProfileListStore((state) => state.lastBatchOpenResult);
 	const reset = useProfileListStore((state) => state.reset);
 	const setError = useProfileListStore((state) => state.setError);
 	const patchFilters = useProfileListStore((state) => state.patchFilters);
 	const setQuickEdit = useProfileListStore((state) => state.setQuickEdit);
-	const setBatchGroupTarget = useProfileListStore(
-		(state) => state.setBatchGroupTarget,
-	);
-	const setBatchGroupDialogOpen = useProfileListStore(
-		(state) => state.setBatchGroupDialogOpen,
-	);
+	const setBatchGroupTarget = useProfileListStore((state) => state.setBatchGroupTarget);
+	const setBatchGroupDialogOpen = useProfileListStore((state) => state.setBatchGroupDialogOpen);
 	const setBatchClearGroupDialogOpen = useProfileListStore(
 		(state) => state.setBatchClearGroupDialogOpen,
 	);
 	const toggleProfile = useProfileListStore((state) => state.toggleProfile);
-	const setSelectedProfiles = useProfileListStore(
-		(state) => state.setSelectedProfiles,
-	);
+	const setSelectedProfiles = useProfileListStore((state) => state.setSelectedProfiles);
 	const clearSelection = useProfileListStore((state) => state.clearSelection);
-	const setBatchOpenResult = useProfileListStore(
-		(state) => state.setBatchOpenResult,
-	);
+	const setBatchOpenResult = useProfileListStore((state) => state.setBatchOpenResult);
 
 	const onErrorReset = useCallback(() => setError(null), [setError]);
 
@@ -108,12 +91,11 @@ export function ProfileListPage({
 
 	const handleFilterChange = (patch: Parameters<typeof patchFilters>[0]) => {
 		patchFilters(patch);
-		if (!Object.prototype.hasOwnProperty.call(patch, 'groupFilter')) {
+		if (!('groupFilter' in patch)) {
 			return;
 		}
 		const next = new URLSearchParams(searchParams);
-		const nextGroup =
-			patch.groupFilter && patch.groupFilter !== 'all' ? patch.groupFilter : '';
+		const nextGroup = patch.groupFilter && patch.groupFilter !== 'all' ? patch.groupFilter : '';
 		if (nextGroup) {
 			next.set('group', nextGroup);
 		} else {
@@ -131,20 +113,12 @@ export function ProfileListPage({
 
 	const groupOptions = useMemo(() => {
 		const values = groups.map((item) => item.name.trim()).filter(Boolean);
-		return Array.from(new Set(values)).sort((a, b) =>
-			a.localeCompare(b, 'zh-Hans-CN'),
-		);
+		return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
 	}, [groups]);
 
-	const filteredProfiles = useMemo(
-		() => filterProfiles(profiles, filters),
-		[profiles, filters],
-	);
+	const filteredProfiles = useMemo(() => filterProfiles(profiles, filters), [profiles, filters]);
 	const filteredActiveIds = useMemo(
-		() =>
-			filteredProfiles
-				.filter((item) => item.lifecycle === 'active')
-				.map((item) => item.id),
+		() => filteredProfiles.filter((item) => item.lifecycle === 'active').map((item) => item.id),
 		[filteredProfiles],
 	);
 	const filteredStoppedIds = useMemo(
@@ -174,32 +148,27 @@ export function ProfileListPage({
 		return selectedProfileIds.filter((id) => allowed.has(id));
 	}, [filteredActiveIds, selectedProfileIds]);
 	const allFilteredSelected =
-		filteredActiveIds.length > 0 &&
-		selectedFilteredActiveIds.length === filteredActiveIds.length;
+		filteredActiveIds.length > 0 && selectedFilteredActiveIds.length === filteredActiveIds.length;
 	const filteredSelectionIndeterminate =
 		selectedFilteredActiveIds.length > 0 &&
 		selectedFilteredActiveIds.length < filteredActiveIds.length;
 
-	const activeCount = filteredProfiles.filter(
-		(item) => item.lifecycle === 'active',
-	).length;
+	const activeCount = filteredProfiles.filter((item) => item.lifecycle === 'active').length;
 	const runningCount = filteredProfiles.filter((item) => item.running).length;
 
-	const runAction = useCallback(async (action: () => Promise<void>) => {
-		setError(null);
-		try {
-			await action();
-		} catch (err) {
-			setError(
-				err instanceof Error ? err.message : t('errors.operationFailed'),
-			);
-		}
-	}, [setError, t]);
+	const runAction = useCallback(
+		async (action: () => Promise<void>) => {
+			setError(null);
+			try {
+				await action();
+			} catch (err) {
+				setError(err instanceof Error ? err.message : t('errors.operationFailed'));
+			}
+		},
+		[setError, t],
+	);
 
-	const runBatchAction = async <T,>(
-		actionName: ProfileBatchAction,
-		action: () => Promise<T>,
-	) => {
+	const runBatchAction = async <T,>(actionName: ProfileBatchAction, action: () => Promise<T>) => {
 		if (batchActionRef.current) {
 			return null;
 		}
@@ -209,9 +178,7 @@ export function ProfileListPage({
 		try {
 			return await action();
 		} catch (err) {
-			setError(
-				err instanceof Error ? err.message : t('errors.operationFailed'),
-			);
+			setError(err instanceof Error ? err.message : t('errors.operationFailed'));
 			return null;
 		} finally {
 			batchActionRef.current = null;
@@ -220,8 +187,7 @@ export function ProfileListPage({
 	};
 
 	const isEmpty = filteredProfiles.length === 0;
-	const emptyText =
-		profiles.length === 0 ? t('list.emptyNoProfiles') : t('list.emptyNoMatch');
+	const emptyText = profiles.length === 0 ? t('list.emptyNoProfiles') : t('list.emptyNoMatch');
 
 	return (
 		<div className="flex flex-col gap-3 h-full min-h-0">
@@ -257,12 +223,7 @@ export function ProfileListPage({
 							<Icon icon={RefreshCw} size={12} />
 							{tCommon('refresh')}
 						</Button>
-						<Button
-							type="button"
-							size="sm"
-							className="cursor-pointer"
-							onClick={onCreateClick}
-						>
+						<Button type="button" size="sm" className="cursor-pointer" onClick={onCreateClick}>
 							<Icon icon={Plus} size={14} />
 							{tCommon('createItem', { item: tCommon('profile') })}
 						</Button>
@@ -316,10 +277,7 @@ export function ProfileListPage({
 					onBatchGroupTargetChange={setBatchGroupTarget}
 					onConfirmBatchGroup={() => {
 						void runBatchAction('setGroup', async () => {
-							await onBatchSetProfileGroup(
-								selectedFilteredActiveIds,
-								batchGroupTarget,
-							);
+							await onBatchSetProfileGroup(selectedFilteredActiveIds, batchGroupTarget);
 							setBatchGroupDialogOpen(false);
 							setBatchGroupTarget('');
 							clearSelection();
@@ -394,9 +352,7 @@ export function ProfileListPage({
 						onErrorReset={onErrorReset}
 					/>
 				)}
-				{error ? (
-					<p className="mt-2 px-1 text-xs text-destructive">{error}</p>
-				) : null}
+				{error ? <p className="mt-2 px-1 text-xs text-destructive">{error}</p> : null}
 			</DataSection>
 		</div>
 	);

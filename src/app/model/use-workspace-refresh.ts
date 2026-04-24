@@ -1,11 +1,14 @@
-import { useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 
 import type { ProfileItem, ProfileProxyBindingMap } from '@/entities/profile/model/types';
 import { listProfileProxyBindings } from '@/entities/proxy/api/proxy-api';
 import { queryKeys } from '@/shared/config/query-keys';
 
-async function refetchExactQuery(queryClient: ReturnType<typeof useQueryClient>, queryKey: readonly unknown[]) {
+async function refetchExactQuery(
+	queryClient: ReturnType<typeof useQueryClient>,
+	queryKey: readonly unknown[],
+) {
 	await queryClient.invalidateQueries({ queryKey, exact: true });
 	await queryClient.refetchQueries({ queryKey, exact: true, type: 'active' });
 }

@@ -1,18 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import {
-	Download,
-	ExternalLink,
-	PackageCheck,
-	Puzzle,
-	RefreshCcw,
-	Trash2,
-} from 'lucide-react';
-import { toast } from 'sonner';
+import { Download, ExternalLink, PackageCheck, Puzzle, RefreshCcw, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
+import { toast } from 'sonner';
+import { getWorkspaceSection } from '@/app/model/workspace-sections';
 import {
 	Badge,
 	Button,
@@ -35,6 +28,19 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui';
+import type { GroupItem } from '@/entities/group/model/types';
+import {
+	checkPluginUpdate,
+	downloadPluginByExtensionId,
+	installPluginToProfiles,
+	listPluginPackages,
+	type PluginDownloadProgressEvent,
+	readPluginDownloadPreference,
+	uninstallPluginPackage,
+	updatePluginDownloadPreference,
+	updatePluginPackage,
+} from '@/entities/plugin/api/plugins-api';
+import type { PluginPackage } from '@/entities/plugin/model/types';
 import {
 	filterProfiles,
 	type ProfileListFiltersState,
@@ -42,31 +48,17 @@ import {
 	type ProfileListRunningFilter,
 } from '@/entities/profile/lib/profile-list';
 import type { ProfileItem } from '@/entities/profile/model/types';
-import type { GroupItem } from '@/entities/group/model/types';
 import { useProxiesQuery } from '@/entities/proxy/model/use-proxies-query';
-import {
-	checkPluginUpdate,
-	downloadPluginByExtensionId,
-	installPluginToProfiles,
-	listPluginPackages,
-	readPluginDownloadPreference,
-	uninstallPluginPackage,
-	updatePluginDownloadPreference,
-	updatePluginPackage,
-	type PluginDownloadProgressEvent,
-} from '@/entities/plugin/api/plugins-api';
-import type { PluginPackage } from '@/entities/plugin/model/types';
-import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
-import { getWorkspaceSection } from '@/app/model/workspace-sections';
-import { queryKeys } from '@/shared/config/query-keys';
-import { formatBytes } from '@/shared/lib/format';
-import { usePluginDownloadStore } from '@/store/plugin-download-store';
 import {
 	getPluginUpdateActionLabelKey,
 	getPluginUpdateCheckToastKey,
 	getPluginUpdatePackageToastKey,
 	getPluginUpdateStatusLabelKey,
 } from '@/features/plugin/model/plugin-update-status';
+import { queryKeys } from '@/shared/config/query-keys';
+import { formatBytes } from '@/shared/lib/format';
+import { usePluginDownloadStore } from '@/store/plugin-download-store';
+import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 
 type PluginsPageProps = {
 	profiles: ProfileItem[];
@@ -83,20 +75,14 @@ const DEFAULT_FILTERS: ProfileListFiltersState = {
 
 const DIRECT_DOWNLOAD_PROXY_VALUE = 'direct';
 
-export function PluginsPage({
-	profiles,
-	groups,
-	onRefreshProfiles,
-}: PluginsPageProps) {
+export function PluginsPage({ profiles, groups, onRefreshProfiles }: PluginsPageProps) {
 	const { t } = useTranslation(['plugin', 'common']);
 	const section = getWorkspaceSection('plugins');
 	const [extensionIdInput, setExtensionIdInput] = useState('');
 	const [downloadPending, setDownloadPending] = useState(false);
 	const [busyPackageId, setBusyPackageId] = useState<string | null>(null);
-	const [installDialogPackage, setInstallDialogPackage] =
-		useState<PluginPackage | null>(null);
-	const [filters, setFilters] =
-		useState<ProfileListFiltersState>(DEFAULT_FILTERS);
+	const [installDialogPackage, setInstallDialogPackage] = useState<PluginPackage | null>(null);
+	const [filters, setFilters] = useState<ProfileListFiltersState>(DEFAULT_FILTERS);
 	const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
 	const [selectedDownloadProxyId, setSelectedDownloadProxyId] = useState(
 		DIRECT_DOWNLOAD_PROXY_VALUE,
@@ -107,19 +93,13 @@ export function PluginsPage({
 		queryKey: queryKeys.pluginPackages,
 		queryFn: listPluginPackages,
 	});
-	const pluginDownloadByExtensionId = usePluginDownloadStore(
-		(state) => state.byExtensionId,
-	);
+	const pluginDownloadByExtensionId = usePluginDownloadStore((state) => state.byExtensionId);
 	const proxiesQuery = useProxiesQuery();
 	const downloadProxyId =
-		selectedDownloadProxyId === DIRECT_DOWNLOAD_PROXY_VALUE
-			? null
-			: selectedDownloadProxyId;
-	const activeInputDownload =
-		pluginDownloadByExtensionId[extensionIdInput.trim()] ?? null;
+		selectedDownloadProxyId === DIRECT_DOWNLOAD_PROXY_VALUE ? null : selectedDownloadProxyId;
+	const activeInputDownload = pluginDownloadByExtensionId[extensionIdInput.trim()] ?? null;
 	const availableProxies = useMemo(
-		() =>
-			(proxiesQuery.data ?? []).filter((item) => item.lifecycle === 'active'),
+		() => (proxiesQuery.data ?? []).filter((item) => item.lifecycle === 'active'),
 		[proxiesQuery.data],
 	);
 	const getPluginIconSrc = (iconPath?: string | null) =>
@@ -136,10 +116,7 @@ export function PluginsPage({
 		).sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
 	}, [groups]);
 
-	const filteredProfiles = useMemo(
-		() => filterProfiles(profiles, filters),
-		[profiles, filters],
-	);
+	const filteredProfiles = useMemo(() => filterProfiles(profiles, filters), [profiles, filters]);
 	const activeFilteredProfiles = useMemo(
 		() => filteredProfiles.filter((item) => item.lifecycle === 'active'),
 		[filteredProfiles],
@@ -156,18 +133,12 @@ export function PluginsPage({
 				if (cancelled) {
 					return;
 				}
-				setSelectedDownloadProxyId(
-					preference.proxyId?.trim() || DIRECT_DOWNLOAD_PROXY_VALUE,
-				);
+				setSelectedDownloadProxyId(preference.proxyId?.trim() || DIRECT_DOWNLOAD_PROXY_VALUE);
 			} catch (error) {
 				if (cancelled) {
 					return;
 				}
-				toast.error(
-					error instanceof Error
-						? error.message
-						: t('toast.readProxyPrefFailed'),
-				);
+				toast.error(error instanceof Error ? error.message : t('toast.readProxyPrefFailed'));
 			} finally {
 				if (!cancelled) {
 					preferenceHydratedRef.current = true;
@@ -190,16 +161,10 @@ export function PluginsPage({
 				const saved = await updatePluginDownloadPreference(
 					value === DIRECT_DOWNLOAD_PROXY_VALUE ? null : value,
 				);
-				setSelectedDownloadProxyId(
-					saved.proxyId?.trim() || DIRECT_DOWNLOAD_PROXY_VALUE,
-				);
+				setSelectedDownloadProxyId(saved.proxyId?.trim() || DIRECT_DOWNLOAD_PROXY_VALUE);
 			} catch (error) {
 				setSelectedDownloadProxyId(previousValue);
-				toast.error(
-					error instanceof Error
-						? error.message
-						: t('toast.saveProxyPrefFailed'),
-				);
+				toast.error(error instanceof Error ? error.message : t('toast.saveProxyPrefFailed'));
 			}
 		})();
 	};
@@ -212,17 +177,12 @@ export function PluginsPage({
 		}
 		setDownloadPending(true);
 		try {
-			const plugin = await downloadPluginByExtensionId(
-				extensionId,
-				downloadProxyId,
-			);
+			const plugin = await downloadPluginByExtensionId(extensionId, downloadProxyId);
 			await refreshAll();
 			setExtensionIdInput('');
 			toast.success(t('toast.downloaded', { name: plugin.name }));
 		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : t('toast.downloadFailed'),
-			);
+			toast.error(error instanceof Error ? error.message : t('toast.downloadFailed'));
 		} finally {
 			setDownloadPending(false);
 		}
@@ -239,9 +199,7 @@ export function PluginsPage({
 			await refreshAll();
 			toast.success(successText);
 		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : t('toast.operationFailed'),
-			);
+			toast.error(error instanceof Error ? error.message : t('toast.operationFailed'));
 		} finally {
 			setBusyPackageId(null);
 		}
@@ -255,9 +213,7 @@ export function PluginsPage({
 		try {
 			await openUrl(plugin.storeUrl);
 		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : t('toast.openStoreFailed'),
-			);
+			toast.error(error instanceof Error ? error.message : t('toast.openStoreFailed'));
 		}
 	};
 
@@ -280,9 +236,7 @@ export function PluginsPage({
 			setInstallDialogPackage(null);
 			setSelectedProfileIds([]);
 		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : t('toast.installFailed'),
-			);
+			toast.error(error instanceof Error ? error.message : t('toast.installFailed'));
 		} finally {
 			setBusyPackageId(null);
 		}
@@ -291,28 +245,18 @@ export function PluginsPage({
 	const handleCheckUpdate = async (plugin: PluginPackage) => {
 		setBusyPackageId(plugin.packageId);
 		try {
-			const updatedPlugin = await checkPluginUpdate(
-				plugin.packageId,
-				downloadProxyId,
-			);
+			const updatedPlugin = await checkPluginUpdate(plugin.packageId, downloadProxyId);
 			await refreshAll();
-			const toastText = t(
-				getPluginUpdateCheckToastKey(updatedPlugin.updateStatus),
-				{
-					version:
-						updatedPlugin.latestVersion ??
-						t('library.latestVersionUnknown'),
-				},
-			);
+			const toastText = t(getPluginUpdateCheckToastKey(updatedPlugin.updateStatus), {
+				version: updatedPlugin.latestVersion ?? t('library.latestVersionUnknown'),
+			});
 			if (updatedPlugin.updateStatus === 'error') {
 				toast.warning(toastText);
 			} else {
 				toast.success(toastText);
 			}
 		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : t('toast.operationFailed'),
-			);
+			toast.error(error instanceof Error ? error.message : t('toast.operationFailed'));
 		} finally {
 			setBusyPackageId(null);
 		}
@@ -321,20 +265,12 @@ export function PluginsPage({
 	const handleUpdatePlugin = async (plugin: PluginPackage) => {
 		setBusyPackageId(plugin.packageId);
 		try {
-			const updatedPlugin = await updatePluginPackage(
-				plugin.packageId,
-				downloadProxyId,
-			);
+			const updatedPlugin = await updatePluginPackage(plugin.packageId, downloadProxyId);
 			await refreshAll();
-			const toastText = t(
-				getPluginUpdatePackageToastKey(updatedPlugin.updateStatus),
-				{
-					version: updatedPlugin.version,
-					latestVersion:
-						updatedPlugin.latestVersion ??
-						t('library.latestVersionUnknown'),
-				},
-			);
+			const toastText = t(getPluginUpdatePackageToastKey(updatedPlugin.updateStatus), {
+				version: updatedPlugin.version,
+				latestVersion: updatedPlugin.latestVersion ?? t('library.latestVersionUnknown'),
+			});
 			if (
 				updatedPlugin.updateStatus === 'error' ||
 				updatedPlugin.updateStatus === 'unknown' ||
@@ -345,9 +281,7 @@ export function PluginsPage({
 				toast.success(toastText);
 			}
 		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : t('toast.operationFailed'),
-			);
+			toast.error(error instanceof Error ? error.message : t('toast.operationFailed'));
 		} finally {
 			setBusyPackageId(null);
 		}
@@ -372,10 +306,7 @@ export function PluginsPage({
 							onChange={(event) => setExtensionIdInput(event.target.value)}
 							placeholder={t('downloadCrx.placeholder')}
 						/>
-						<Select
-							value={selectedDownloadProxyId}
-							onValueChange={handleDownloadProxyChange}
-						>
+						<Select value={selectedDownloadProxyId} onValueChange={handleDownloadProxyChange}>
 							<SelectTrigger className="w-full cursor-pointer md:min-w-[220px] md:w-auto">
 								<SelectValue placeholder={t('downloadCrx.proxyNone')} />
 							</SelectTrigger>
@@ -410,9 +341,7 @@ export function PluginsPage({
 							stage={activeInputDownload.stage}
 						/>
 					) : null}
-					<p className="text-xs text-muted-foreground">
-						{t('downloadCrx.proxyHint')}
-					</p>
+					<p className="text-xs text-muted-foreground">{t('downloadCrx.proxyHint')}</p>
 				</CardContent>
 			</Card>
 
@@ -422,14 +351,10 @@ export function PluginsPage({
 				</CardHeader>
 				<CardContent className="space-y-3 flex-1 min-h-0 overflow-y-auto">
 					{pluginPackagesQuery.isLoading ? (
-						<p className="text-sm text-muted-foreground">
-							{t('library.loading')}
-						</p>
+						<p className="text-sm text-muted-foreground">{t('library.loading')}</p>
 					) : null}
 					{pluginPackagesQuery.error instanceof Error ? (
-						<p className="text-sm text-destructive">
-							{pluginPackagesQuery.error.message}
-						</p>
+						<p className="text-sm text-destructive">{pluginPackagesQuery.error.message}</p>
 					) : null}
 					{(pluginPackagesQuery.data ?? []).map((plugin) => (
 						<PluginPackageCard
@@ -449,9 +374,7 @@ export function PluginsPage({
 							onInstallToAll={() =>
 								void installToTargets(
 									plugin.packageId,
-									profiles
-										.filter((item) => item.lifecycle === 'active')
-										.map((item) => item.id),
+									profiles.filter((item) => item.lifecycle === 'active').map((item) => item.id),
 								)
 							}
 							onUninstall={() =>
@@ -463,11 +386,8 @@ export function PluginsPage({
 							}
 						/>
 					))}
-					{!pluginPackagesQuery.isLoading &&
-					(pluginPackagesQuery.data?.length ?? 0) === 0 ? (
-						<p className="text-sm text-muted-foreground">
-							{t('library.empty')}
-						</p>
+					{!pluginPackagesQuery.isLoading && (pluginPackagesQuery.data?.length ?? 0) === 0 ? (
+						<p className="text-sm text-muted-foreground">{t('library.empty')}</p>
 					) : null}
 				</CardContent>
 			</Card>
@@ -489,16 +409,12 @@ export function PluginsPage({
 					<div className="grid gap-2 md:grid-cols-4">
 						<Input
 							value={filters.keyword}
-							onChange={(event) =>
-								setFilters((prev) => ({ ...prev, keyword: event.target.value }))
-							}
+							onChange={(event) => setFilters((prev) => ({ ...prev, keyword: event.target.value }))}
 							placeholder={t('install.searchPlaceholder')}
 						/>
 						<Select
 							value={filters.groupFilter}
-							onValueChange={(value) =>
-								setFilters((prev) => ({ ...prev, groupFilter: value }))
-							}
+							onValueChange={(value) => setFilters((prev) => ({ ...prev, groupFilter: value }))}
 						>
 							<SelectTrigger className="cursor-pointer">
 								<SelectValue placeholder={t('install.allGroups')} />
@@ -526,12 +442,8 @@ export function PluginsPage({
 							</SelectTrigger>
 							<SelectContent>
 								<SelectItem value="all">{t('install.allStatus')}</SelectItem>
-								<SelectItem value="running">
-									{t('install.onlyRunning')}
-								</SelectItem>
-								<SelectItem value="stopped">
-									{t('install.onlyStopped')}
-								</SelectItem>
+								<SelectItem value="running">{t('install.onlyRunning')}</SelectItem>
+								<SelectItem value="stopped">{t('install.onlyStopped')}</SelectItem>
 							</SelectContent>
 						</Select>
 						<Select
@@ -547,9 +459,7 @@ export function PluginsPage({
 								<SelectValue placeholder={t('install.availableProfiles')} />
 							</SelectTrigger>
 							<SelectContent>
-								<SelectItem value="active">
-									{t('install.availableProfiles')}
-								</SelectItem>
+								<SelectItem value="active">{t('install.availableProfiles')}</SelectItem>
 								<SelectItem value="deleted">{t('install.archived')}</SelectItem>
 								<SelectItem value="all">{t('install.allLifecycle')}</SelectItem>
 							</SelectContent>
@@ -567,11 +477,7 @@ export function PluginsPage({
 							variant="outline"
 							size="sm"
 							className="cursor-pointer"
-							onClick={() =>
-								setSelectedProfileIds(
-									activeFilteredProfiles.map((item) => item.id),
-								)
-							}
+							onClick={() => setSelectedProfileIds(activeFilteredProfiles.map((item) => item.id))}
 						>
 							{t('install.selectFiltered')}
 						</Button>
@@ -601,27 +507,19 @@ export function PluginsPage({
 									/>
 									<div className="min-w-0 flex-1">
 										<div className="flex flex-wrap items-center gap-2">
-											<p className="font-medium text-foreground">
-												{profile.name}
-											</p>
+											<p className="font-medium text-foreground">{profile.name}</p>
 											<Badge variant="outline">
-												{profile.running
-													? t('install.running')
-													: t('install.notRunning')}
+												{profile.running ? t('install.running') : t('install.notRunning')}
 											</Badge>
 											<Badge variant="secondary">{profile.group}</Badge>
 										</div>
-										<p className="mt-1 text-xs text-muted-foreground">
-											{profile.note}
-										</p>
+										<p className="mt-1 text-xs text-muted-foreground">{profile.note}</p>
 									</div>
 								</label>
 							);
 						})}
 						{activeFilteredProfiles.length === 0 ? (
-							<p className="text-sm text-muted-foreground">
-								{t('install.emptyFilter')}
-							</p>
+							<p className="text-sm text-muted-foreground">{t('install.emptyFilter')}</p>
 						) : null}
 					</div>
 					<DialogFooter>
@@ -636,17 +534,12 @@ export function PluginsPage({
 						<Button
 							type="button"
 							className="cursor-pointer"
-							disabled={
-								!installDialogPackage || selectedProfileIds.length === 0
-							}
+							disabled={!installDialogPackage || selectedProfileIds.length === 0}
 							onClick={() => {
 								if (!installDialogPackage) {
 									return;
 								}
-								void installToTargets(
-									installDialogPackage.packageId,
-									selectedProfileIds,
-								);
+								void installToTargets(installDialogPackage.packageId, selectedProfileIds);
 							}}
 						>
 							{t('install.confirmInstall')}
@@ -741,11 +634,7 @@ function PluginPackageCard({
 								className="h-full w-full object-cover"
 							/>
 						) : (
-							<Icon
-								icon={Puzzle}
-								size={20}
-								className="text-muted-foreground"
-							/>
+							<Icon icon={Puzzle} size={20} className="text-muted-foreground" />
 						)}
 					</div>
 					<div className="min-w-0 flex-1">
@@ -764,8 +653,7 @@ function PluginPackageCard({
 						<p className="mt-1 text-[11px] text-muted-foreground">
 							{t('library.updateStatus', {
 								status: t(getPluginUpdateStatusLabelKey(plugin.updateStatus)),
-								version:
-									plugin.latestVersion ?? t('library.latestVersionUnknown'),
+								version: plugin.latestVersion ?? t('library.latestVersionUnknown'),
 							})}
 						</p>
 						{progress ? (

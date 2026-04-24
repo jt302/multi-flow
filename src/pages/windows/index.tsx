@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
-
-import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
-import { useDisplayMonitorsQuery } from '@/entities/window-session/model/use-display-monitors-query';
-import { useSyncTargetsQuery } from '@/entities/window-session/model/use-sync-targets-query';
-import { buildSyncTargetItems } from '@/entities/window-session/model/build-sync-target-items';
-import { useWindowSyncActions } from '@/features/window-session/model/use-window-sync-actions';
 import { useWorkspaceRefresh } from '@/app/model/use-workspace-refresh';
 import type { WorkspaceOutletContext } from '@/app/model/workspace-types';
+import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
+import { buildSyncTargetItems } from '@/entities/window-session/model/build-sync-target-items';
+import { useDisplayMonitorsQuery } from '@/entities/window-session/model/use-display-monitors-query';
+import { useSyncTargetsQuery } from '@/entities/window-session/model/use-sync-targets-query';
+import { useWindowSyncActions } from '@/features/window-session/model/use-window-sync-actions';
 import { WindowsPage } from '@/features/window-session/ui/windows-page';
 import { useSyncManagerStore } from '@/store/sync-manager-store';
 
@@ -18,7 +17,8 @@ export function WindowsRoutePage() {
 	useDisplayMonitorsQuery(); // preload for browser-control
 	const profiles = profilesQuery.data ?? [];
 	const localTargets = localTargetsQuery.data?.items ?? [];
-	const { refreshWindows, refreshWindowsStable, refreshProfilesAndBindings } = useWorkspaceRefresh();
+	const { refreshWindows, refreshWindowsStable, refreshProfilesAndBindings } =
+		useWorkspaceRefresh();
 	const syncConnectionStatus = useSyncManagerStore((state) => state.connectionStatus);
 	const sidecarPort = useSyncManagerStore((state) => state.sidecarPort);
 	const sessionPayload = useSyncManagerStore((state) => state.sessionPayload);

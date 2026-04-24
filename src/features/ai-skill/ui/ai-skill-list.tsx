@@ -1,14 +1,17 @@
+import { BadgeCheck, ChevronRight, Sparkles, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BadgeCheck, ChevronRight, Sparkles, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { ConfirmActionDialog } from '@/components/common/confirm-action-dialog';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { cn } from '@/lib/utils';
 import type { AiSkillMeta } from '@/entities/ai-skill/model/types';
-import { useDeleteAiSkill, useUpdateAiSkill } from '@/features/ai-skill/model/use-ai-skill-mutations';
+import {
+	useDeleteAiSkill,
+	useUpdateAiSkill,
+} from '@/features/ai-skill/model/use-ai-skill-mutations';
+import { cn } from '@/lib/utils';
 
 interface Props {
 	skills: AiSkillMeta[];
@@ -86,10 +89,7 @@ export function AiSkillList({ skills, isLoading, selectedSlug, onSelect, onDelet
 								</div>
 							</div>
 							<div className="flex items-center gap-2">
-								<div
-									className="flex items-center gap-2"
-									onClick={(e) => e.stopPropagation()}
-								>
+								<div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
 									<span className="text-xs text-muted-foreground">{t('skills.fieldEnabled')}</span>
 									<Switch
 										checked={skill.enabled}

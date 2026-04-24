@@ -1,13 +1,10 @@
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 import { getWorkspaceSection } from '@/app/model/workspace-sections';
 import { DataSection } from '@/components/common';
-import type {
-	ProxyPageProps,
-	UpdateProxyPayload,
-} from '@/features/proxy/model/types';
+import type { ProxyPageProps, UpdateProxyPayload } from '@/features/proxy/model/types';
 import { useProxyPageState } from '@/features/proxy/model/use-proxy-page-state';
+import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 import { ProxyBatchDeleteAlertDialog } from './proxy-batch-delete-alert-dialog';
 import { ProxyBatchEditDialog } from './proxy-batch-edit-dialog';
 import { ProxyBindingDialog } from './proxy-binding-dialog';
@@ -62,10 +59,7 @@ export function ProxyPage({
 		onBatchDeleteProxies,
 		onCheckProxy,
 	});
-	const activeProxyIds = useMemo(
-		() => activeProxies.map((item) => item.id),
-		[activeProxies],
-	);
+	const activeProxyIds = useMemo(() => activeProxies.map((item) => item.id), [activeProxies]);
 	const setSelectedProxyIds = store.setSelectedProxyIds;
 	const toggleProxy = store.toggleProxy;
 	const setImportDialogOpen = store.setImportDialogOpen;
@@ -117,11 +111,7 @@ export function ProxyPage({
 
 	return (
 		<div className="flex flex-col gap-3 h-full min-h-0">
-			<ActiveSectionCard
-				label={t('proxy:pool')}
-				title={section.title}
-				description={section.desc}
-			/>
+			<ActiveSectionCard label={t('proxy:pool')} title={section.title} description={section.desc} />
 			<ProxyStats
 				totalCount={activeProxies.length}
 				activeCount={activeProxies.length}
@@ -158,7 +148,11 @@ export function ProxyPage({
 			</DataSection>
 			{store.lastBatchResult && store.lastBatchResult.failedCount > 0 ? (
 				<p className="text-xs text-destructive">
-					{t('common:batchResult', { action: t('common:batchOperation'), success: store.lastBatchResult.successCount, fail: store.lastBatchResult.failedCount })}
+					{t('common:batchResult', {
+						action: t('common:batchOperation'),
+						success: store.lastBatchResult.successCount,
+						fail: store.lastBatchResult.failedCount,
+					})}
 				</p>
 			) : null}
 			{error ? <p className="text-xs text-destructive">{error}</p> : null}
@@ -180,9 +174,7 @@ export function ProxyPage({
 				pending={pending || busyAction === 'import'}
 				onOpenChange={store.setImportDialogOpen}
 				onConfirm={async (payload) => {
-					const result = await runNamedAction('import', () =>
-						onImportProxies(payload),
-					);
+					const result = await runNamedAction('import', () => onImportProxies(payload));
 					if (result) store.setLastBatchResult(result);
 				}}
 			/>
@@ -195,14 +187,10 @@ export function ProxyPage({
 				initialProxyId={store.bindingProxyId}
 				onOpenChange={store.setBindingDialogOpen}
 				onBindProfileProxy={async (profileId, proxyId) => {
-					await runNamedAction('binding', () =>
-						onBindProfileProxy(profileId, proxyId),
-					);
+					await runNamedAction('binding', () => onBindProfileProxy(profileId, proxyId));
 				}}
 				onUnbindProfileProxy={async (profileId) => {
-					await runNamedAction('binding', () =>
-						onUnbindProfileProxy(profileId),
-					);
+					await runNamedAction('binding', () => onUnbindProfileProxy(profileId));
 				}}
 			/>
 			<ProxyBatchEditDialog
@@ -239,8 +227,8 @@ export function ProxyPage({
 				onConfirm={() => {
 					const proxyId = store.deleteDialogProxyId;
 					if (!proxyId) return;
-					void runNamedAction('delete', () => onDeleteProxy(proxyId)).finally(
-						() => store.setDeleteDialogProxyId(null),
+					void runNamedAction('delete', () => onDeleteProxy(proxyId)).finally(() =>
+						store.setDeleteDialogProxyId(null),
 					);
 				}}
 			/>

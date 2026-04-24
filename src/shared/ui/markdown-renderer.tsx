@@ -1,9 +1,9 @@
-import { createContext, memo, useContext, useMemo } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { createContext, memo, useContext, useMemo } from 'react';
 import type { Components } from 'react-markdown';
+import ReactMarkdown from 'react-markdown';
+import rehypeHighlight from 'rehype-highlight';
+import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
 import { MarkdownCodeBlock } from './markdown-code-block';
 
@@ -77,11 +77,7 @@ function MdPre({ children }: React.ComponentPropsWithoutRef<'pre'>) {
 	// children 应为 <code className="language-xxx">
 	const child = children as React.ReactElement<{ className?: string; children?: React.ReactNode }>;
 	const className = child?.props?.className;
-	return (
-		<MarkdownCodeBlock className={className}>
-			{child?.props?.children}
-		</MarkdownCodeBlock>
-	);
+	return <MarkdownCodeBlock className={className}>{child?.props?.children}</MarkdownCodeBlock>;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -110,10 +106,7 @@ function MdImage({ src, alt, ...rest }: React.ComponentPropsWithoutRef<'img'>) {
 			alt={alt}
 			loading="lazy"
 			decoding="async"
-			className={cn(
-				'rounded-lg max-h-80 object-contain',
-				onImageClick && 'cursor-zoom-in',
-			)}
+			className={cn('rounded-lg max-h-80 object-contain', onImageClick && 'cursor-zoom-in')}
 			onClick={() => src && onImageClick?.(src)}
 		/>
 	);

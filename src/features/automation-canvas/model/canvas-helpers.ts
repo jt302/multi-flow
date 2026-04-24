@@ -5,14 +5,10 @@
  */
 
 import type { Edge, Node } from '@xyflow/react';
-
-import type { ScriptStep } from '@/entities/automation/model/types';
 import { isTerminalStepKind } from '@/entities/automation/model/step-flow';
+import type { ScriptStep } from '@/entities/automation/model/types';
 
-import {
-	buildStepCanvasNode,
-	type StepNodeData,
-} from './canvas-node-data';
+import { buildStepCanvasNode, type StepNodeData } from './canvas-node-data';
 
 // ─── 类型定义 ──────────────────────────────────────────────────────────────────
 
@@ -166,8 +162,7 @@ export function topologySortSteps(
 	orphanedCount: number;
 } {
 	const n = steps.length;
-	if (n === 0)
-		return { reorderedSteps: [], indexMap: new Map(), orphanedCount: 0 };
+	if (n === 0) return { reorderedSteps: [], indexMap: new Map(), orphanedCount: 0 };
 
 	// 构建邻接表和入度表
 	const adj = new Map<number, number[]>(); // source → targets
@@ -238,9 +233,10 @@ export function topologySortSteps(
  * @param nestedSteps - 后端返回的嵌套步骤树
  * @returns 扁平步骤数组和对应边列表
  */
-export function flattenControlFlowTree(
-	nestedSteps: ScriptStep[],
-): { flatSteps: ScriptStep[]; edges: Edge[] } {
+export function flattenControlFlowTree(nestedSteps: ScriptStep[]): {
+	flatSteps: ScriptStep[];
+	edges: Edge[];
+} {
 	const flatSteps: ScriptStep[] = [];
 	const edges: Edge[] = [];
 
@@ -298,7 +294,11 @@ export function flattenControlFlowTree(
 				// 条件步骤执行完任一分支后，都会继续执行后续主流程。
 				// 因此画布中显式保留一条 default continuation 边，避免仅靠“分支汇合点推断”导致错序。
 				pendingConnections = [currentIdx, ...exitIndices];
-			} else if (step.kind === 'confirm_dialog' && step.button_branches && step.button_branches.length > 0) {
+			} else if (
+				step.kind === 'confirm_dialog' &&
+				step.button_branches &&
+				step.button_branches.length > 0
+			) {
 				// 弹窗分支节点：清空 button_branches 后加入扁平数组
 				flatSteps.push({ ...step, button_branches: [] });
 				const exitIndices: number[] = [];
@@ -422,10 +422,7 @@ function distanceFrom(start: number, edgeMap: HandleEdgeMap): Map<number, number
  * 找到多个起点共同可达的最近公共后继。
  * 优先按图距离最小排序，距离相同时再按 index 稳定排序。
  */
-function findNearestSharedSuccessor(
-	starts: number[],
-	edgeMap: HandleEdgeMap,
-): number {
+function findNearestSharedSuccessor(starts: number[], edgeMap: HandleEdgeMap): number {
 	const validStarts = [...new Set(starts.filter((start) => start >= 0))];
 	if (validStarts.length < 2) return -1;
 
@@ -497,9 +494,7 @@ export type SerializedCanvasGraph = {
 };
 
 function remapEdgesToOrderedIds(edges: Edge[], orderedIds: string[]): Edge[] {
-	const nextIndexByOldId = new Map(
-		orderedIds.map((oldId, newIndex) => [oldId, newIndex] as const),
-	);
+	const nextIndexByOldId = new Map(orderedIds.map((oldId, newIndex) => [oldId, newIndex] as const));
 
 	return edges
 		.map((edge) => {
@@ -606,9 +601,8 @@ export function serializeControlFlowGraph(
 				const branchCount = getConfirmBranchCount(step, handles);
 				if (branchCount > 0) {
 					const nextTarget = getFirstHandleTarget(handles, null);
-					const branchTargets = Array.from(
-						{ length: branchCount },
-						(_, index) => getFirstHandleTarget(handles, `btn_${index}`),
+					const branchTargets = Array.from({ length: branchCount }, (_, index) =>
+						getFirstHandleTarget(handles, `btn_${index}`),
 					);
 					const continuation =
 						nextTarget >= 0
@@ -616,7 +610,7 @@ export function serializeControlFlowGraph(
 							: findNearestSharedSuccessor(
 									branchTargets.filter((target) => target >= 0),
 									edgeMap,
-							  );
+								);
 					const buttonBranches = branchTargets.map((target) =>
 						target >= 0 ? collectChain(target, continuation) : [],
 					);
@@ -634,8 +628,7 @@ export function serializeControlFlowGraph(
 			if (step.kind === 'loop') {
 				const bodyTarget = getFirstHandleTarget(handles, 'body');
 				const nextTarget = getFirstHandleTarget(handles, null);
-				const bodySteps =
-					bodyTarget >= 0 ? collectChain(bodyTarget, cur) : [];
+				const bodySteps = bodyTarget >= 0 ? collectChain(bodyTarget, cur) : [];
 
 				result.push({
 					...step,
@@ -729,10 +722,7 @@ export function serializeControlFlowGraph(
  * @param edges - 画布边列表
  * @returns 正确嵌套的步骤数组
  */
-export function resolveControlFlowGraph(
-	steps: ScriptStep[],
-	edges: Edge[],
-): ScriptStep[] {
+export function resolveControlFlowGraph(steps: ScriptStep[], edges: Edge[]): ScriptStep[] {
 	return serializeControlFlowGraph(steps, edges, {}).nestedSteps;
 }
 
@@ -743,9 +733,7 @@ export const START_NODE_ID = 'start';
 /** 默认起点节点位置：在第一个步骤左上方 */
 export function defaultStartPosition(positions: PositionsMap): { x: number; y: number } {
 	const firstPos = positions['step-0'];
-	return firstPos
-		? { x: firstPos.x + 60, y: firstPos.y - 100 }
-		: { x: 180, y: 20 };
+	return firstPos ? { x: firstPos.x + 60, y: firstPos.y - 100 } : { x: 180, y: 20 };
 }
 
 /** 创建起点节点对象 */
@@ -778,9 +766,7 @@ export function getStartEdgeTarget(edges: Edge[]): string | null {
 
 /** 从边数组中移除起点相关边（保存前调用） */
 export function stripStartEdges(edges: Edge[]): Edge[] {
-	return edges.filter(
-		(e) => e.source !== START_NODE_ID && e.target !== START_NODE_ID,
-	);
+	return edges.filter((e) => e.source !== START_NODE_ID && e.target !== START_NODE_ID);
 }
 
 export function buildCanvasDataJson(

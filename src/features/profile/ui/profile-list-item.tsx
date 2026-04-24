@@ -1,12 +1,14 @@
+import { useQuery } from '@tanstack/react-query';
+import { save } from '@tauri-apps/plugin-dialog';
 import {
 	Copy,
 	Eye,
 	FileDown,
+	FolderTree,
 	Globe,
 	Loader2,
 	Monitor,
 	MoreHorizontal,
-	FolderTree,
 	Palette,
 	Play,
 	Puzzle,
@@ -16,10 +18,8 @@ import {
 	Wrench,
 } from 'lucide-react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { save } from '@tauri-apps/plugin-dialog';
-import { useQuery } from '@tanstack/react-query';
-import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 
 import {
 	Badge,
@@ -49,6 +49,13 @@ import {
 	TableCell,
 	TableRow,
 } from '@/components/ui';
+import type { GroupItem } from '@/entities/group/model/types';
+import {
+	listPluginPackages,
+	readProfilePlugins,
+	updateProfilePlugins,
+} from '@/entities/plugin/api/plugins-api';
+import type { PluginPackage } from '@/entities/plugin/model/types';
 import {
 	formatProfileTime,
 	resolveBrowserVersionMeta,
@@ -64,14 +71,10 @@ import type {
 	ReadProfileCookiesResponse,
 	ToolbarLabelMode,
 } from '@/entities/profile/model/types';
-import { listPluginPackages, readProfilePlugins, updateProfilePlugins } from '@/entities/plugin/api/plugins-api';
-import type { PluginPackage } from '@/entities/plugin/model/types';
-import type { GroupItem } from '@/entities/group/model/types';
-import type { ProxyItem } from '@/entities/proxy/model/types';
-import { getReadableForeground } from '@/shared/lib/color';
-import { cn } from '@/lib/utils';
-
 import { PlatformMark } from '@/entities/profile/ui/platform-mark';
+import type { ProxyItem } from '@/entities/proxy/model/types';
+import { cn } from '@/lib/utils';
+import { getReadableForeground } from '@/shared/lib/color';
 
 type QuickEditField = 'visual';
 
@@ -112,7 +115,11 @@ type ProfileListItemProps = {
 	onRefreshProfiles: () => Promise<void>;
 };
 
-function resolveRunningLabel(running: boolean, actionState?: ProfileActionState, t?: (key: string) => string) {
+function resolveRunningLabel(
+	running: boolean,
+	actionState?: ProfileActionState,
+	t?: (key: string) => string,
+) {
 	if (!t) {
 		if (actionState === 'opening') return 'Opening';
 		if (actionState === 'closing') return 'Closing';
@@ -153,34 +160,55 @@ function resolveProxyExitIp(proxy?: ProxyItem, t?: (key: string) => string) {
 	if (proxy.exitIp.trim()) {
 		return proxy.exitIp;
 	}
-	return proxy.checkStatus === 'ok' ? t('profile:proxy.exitIpFailed') : t('profile:proxy.exitIpNotChecked');
+	return proxy.checkStatus === 'ok'
+		? t('profile:proxy.exitIpFailed')
+		: t('profile:proxy.exitIpNotChecked');
 }
 
-function resolveProxyConnectivity(proxy?: ProxyItem, t?: (key: string) => string): {
+function resolveProxyConnectivity(
+	proxy?: ProxyItem,
+	t?: (key: string) => string,
+): {
 	label: string;
 	toneClassName: string;
 } {
 	if (!t) {
 		if (!proxy) return { label: 'Not Bound', toneClassName: 'text-muted-foreground' };
 		switch (proxy.checkStatus) {
-			case 'ok': return { label: 'Available', toneClassName: 'text-emerald-600 dark:text-emerald-400' };
-			case 'error': return { label: 'Error', toneClassName: 'text-destructive' };
-			case 'unsupported': return { label: 'Not Supported', toneClassName: 'text-amber-600 dark:text-amber-400' };
-			default: return { label: 'Not Checked', toneClassName: 'text-muted-foreground' };
+			case 'ok':
+				return { label: 'Available', toneClassName: 'text-emerald-600 dark:text-emerald-400' };
+			case 'error':
+				return { label: 'Error', toneClassName: 'text-destructive' };
+			case 'unsupported':
+				return { label: 'Not Supported', toneClassName: 'text-amber-600 dark:text-amber-400' };
+			default:
+				return { label: 'Not Checked', toneClassName: 'text-muted-foreground' };
 		}
 	}
 	if (!proxy) {
-		return { label: t('profile:proxyConnectivity.notBound'), toneClassName: 'text-muted-foreground' };
+		return {
+			label: t('profile:proxyConnectivity.notBound'),
+			toneClassName: 'text-muted-foreground',
+		};
 	}
 	switch (proxy.checkStatus) {
 		case 'ok':
-			return { label: t('profile:proxyConnectivity.ok'), toneClassName: 'text-emerald-600 dark:text-emerald-400' };
+			return {
+				label: t('profile:proxyConnectivity.ok'),
+				toneClassName: 'text-emerald-600 dark:text-emerald-400',
+			};
 		case 'error':
 			return { label: t('profile:proxyConnectivity.error'), toneClassName: 'text-destructive' };
 		case 'unsupported':
-			return { label: t('profile:proxyConnectivity.unsupported'), toneClassName: 'text-amber-600 dark:text-amber-400' };
+			return {
+				label: t('profile:proxyConnectivity.unsupported'),
+				toneClassName: 'text-amber-600 dark:text-amber-400',
+			};
 		default:
-			return { label: t('profile:proxyConnectivity.notChecked'), toneClassName: 'text-muted-foreground' };
+			return {
+				label: t('profile:proxyConnectivity.notChecked'),
+				toneClassName: 'text-muted-foreground',
+			};
 	}
 }
 
@@ -203,7 +231,7 @@ async function selectCookieExportPath(profileName: string, scope: string) {
 	if (!selected) {
 		return null;
 	}
-	return Array.isArray(selected) ? selected[0] ?? null : selected;
+	return Array.isArray(selected) ? (selected[0] ?? null) : selected;
 }
 
 export const ProfileListItem = memo(function ProfileListItem({
@@ -249,10 +277,7 @@ export const ProfileListItem = memo(function ProfileListItem({
 		item.settings?.fingerprint?.fingerprintSnapshot?.presetLabel?.trim() ||
 		item.settings?.basic?.devicePresetId?.trim() ||
 		presetNotSet;
-	const browserVersionMeta = useMemo(
-		() => resolveBrowserVersionMeta(item),
-		[item, t],
-	);
+	const browserVersionMeta = useMemo(() => resolveBrowserVersionMeta(item), [item, t]);
 	const toolbarTextTrimmed = currentToolbarText.trim();
 	const showToolbarText = Boolean(toolbarTextTrimmed);
 	const proxyMeta = useMemo(() => {
@@ -282,11 +307,14 @@ export const ProfileListItem = memo(function ProfileListItem({
 	const initialBrowserBgColorMode =
 		item.settings?.basic?.browserBgColorMode ??
 		(currentGroup ? 'inherit' : currentBg ? 'custom' : 'none');
-	const [draftToolbarLabelMode, setDraftToolbarLabelMode] =
-		useState<'inherit' | ToolbarLabelMode>(initialToolbarLabelMode);
+	const [draftToolbarLabelMode, setDraftToolbarLabelMode] = useState<'inherit' | ToolbarLabelMode>(
+		initialToolbarLabelMode,
+	);
 	const [draftBrowserBgColorMode, setDraftBrowserBgColorMode] =
 		useState<BrowserBgColorMode>(initialBrowserBgColorMode);
-	const [draftBrowserBgColor, setDraftBrowserBgColor] = useState(currentBg ?? inheritedBgColor ?? '#0F8A73');
+	const [draftBrowserBgColor, setDraftBrowserBgColor] = useState(
+		currentBg ?? inheritedBgColor ?? '#0F8A73',
+	);
 	const [siteExportDialogOpen, setSiteExportDialogOpen] = useState(false);
 	const [cookieSiteUrls, setCookieSiteUrls] = useState<string[]>([]);
 	const [selectedCookieSiteUrl, setSelectedCookieSiteUrl] = useState('');
@@ -357,7 +385,9 @@ export const ProfileListItem = memo(function ProfileListItem({
 				setCookieSiteError(t('profile:cookies.noSitesToExport'));
 			}
 		} catch (error) {
-			setCookieSiteError(error instanceof Error ? error.message : t('profile:cookies.readSiteFailed'));
+			setCookieSiteError(
+				error instanceof Error ? error.message : t('profile:cookies.readSiteFailed'),
+			);
 			setCookieSiteUrls([]);
 			setSelectedCookieSiteUrl('');
 			setSiteExportDialogOpen(true);
@@ -388,11 +418,7 @@ export const ProfileListItem = memo(function ProfileListItem({
 			}
 			setPluginDialogOpen(false);
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: t('profile:plugins.updateFailed'),
-			);
+			toast.error(error instanceof Error ? error.message : t('profile:plugins.updateFailed'));
 		} finally {
 			setPluginSaving(false);
 		}
@@ -401,10 +427,7 @@ export const ProfileListItem = memo(function ProfileListItem({
 	const handleExportSiteCookie = async () => {
 		setCookieSiteExporting(true);
 		try {
-			const exportPath = await selectCookieExportPath(
-				item.name,
-				selectedCookieSiteUrl,
-			);
+			const exportPath = await selectCookieExportPath(item.name, selectedCookieSiteUrl);
 			if (!exportPath) {
 				return;
 			}
@@ -416,9 +439,7 @@ export const ProfileListItem = memo(function ProfileListItem({
 			setSiteExportDialogOpen(false);
 		} catch (error) {
 			setCookieSiteError(
-				error instanceof Error
-					? error.message
-					: t('profile:cookies.exportFailed'),
+				error instanceof Error ? error.message : t('profile:cookies.exportFailed'),
 			);
 		} finally {
 			setCookieSiteExporting(false);
@@ -427,17 +448,22 @@ export const ProfileListItem = memo(function ProfileListItem({
 
 	return (
 		<>
-			<TableRow className={cn('group relative transition-all duration-300 hover:bg-muted/30 hover:shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)]', index === total - 1 && 'border-b-0')}>
-					<TableCell className="w-[86px] align-top">
-						<div className="grid grid-cols-[1rem_2.25rem] items-center justify-center gap-2 pt-1">
-							<Checkbox
-								checked={selected}
-								disabled={item.lifecycle !== 'active'}
-								onCheckedChange={(checked) => handleSelectedChange(checked === true)}
-							/>
-							<PlatformMark meta={platformMeta} size="sm" />
-						</div>
-					</TableCell>
+			<TableRow
+				className={cn(
+					'group relative transition-all duration-300 hover:bg-muted/30 hover:shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)]',
+					index === total - 1 && 'border-b-0',
+				)}
+			>
+				<TableCell className="w-[86px] align-top">
+					<div className="grid grid-cols-[1rem_2.25rem] items-center justify-center gap-2 pt-1">
+						<Checkbox
+							checked={selected}
+							disabled={item.lifecycle !== 'active'}
+							onCheckedChange={(checked) => handleSelectedChange(checked === true)}
+						/>
+						<PlatformMark meta={platformMeta} size="sm" />
+					</div>
+				</TableCell>
 
 				<TableCell className="align-top">
 					<div className="min-w-0">
@@ -465,7 +491,9 @@ export const ProfileListItem = memo(function ProfileListItem({
 									{currentBg}
 								</span>
 							)}
-							<span className="truncate">{t('profile:basic.note')} {normalizedNote}</span>
+							<span className="truncate">
+								{t('profile:basic.note')} {normalizedNote}
+							</span>
 						</p>
 					</div>
 				</TableCell>
@@ -496,9 +524,18 @@ export const ProfileListItem = memo(function ProfileListItem({
 							)}
 							<span className="truncate">{proxyMeta.location}</span>
 						</p>
-						<p className="truncate text-[11px] text-muted-foreground">{t('profile:proxy.ip')}: {proxyMeta.ip}</p>
-						<p className="truncate text-[11px] text-muted-foreground">{t('profile:proxy.type')}: {proxyMeta.type}</p>
-						<p className={cn('truncate text-[11px] font-medium', proxyMeta.connectivity.toneClassName)}>
+						<p className="truncate text-[11px] text-muted-foreground">
+							{t('profile:proxy.ip')}: {proxyMeta.ip}
+						</p>
+						<p className="truncate text-[11px] text-muted-foreground">
+							{t('profile:proxy.type')}: {proxyMeta.type}
+						</p>
+						<p
+							className={cn(
+								'truncate text-[11px] font-medium',
+								proxyMeta.connectivity.toneClassName,
+							)}
+						>
 							{t('profile:proxy.connectivity')}: {proxyMeta.connectivity.label}
 						</p>
 					</div>
@@ -508,7 +545,9 @@ export const ProfileListItem = memo(function ProfileListItem({
 					<Badge variant={item.running || actionPending ? 'default' : 'secondary'}>
 						{runLabel}
 					</Badge>
-					<p className="mt-1 text-[11px] text-muted-foreground">{t('profile:time.recent')}: {formatProfileTime(item.lastOpenedAt)}</p>
+					<p className="mt-1 text-[11px] text-muted-foreground">
+						{t('profile:time.recent')}: {formatProfileTime(item.lastOpenedAt)}
+					</p>
 				</TableCell>
 
 				<TableCell className="w-[130px] align-top text-right">
@@ -526,7 +565,9 @@ export const ProfileListItem = memo(function ProfileListItem({
 									)}
 									disabled={actionPending}
 									onClick={() => {
-										void onRunAction(item.running ? () => onCloseProfile(item.id) : () => onOpenProfile(item.id));
+										void onRunAction(
+											item.running ? () => onCloseProfile(item.id) : () => onOpenProfile(item.id),
+										);
 									}}
 								>
 									{actionPending ? (
@@ -556,17 +597,15 @@ export const ProfileListItem = memo(function ProfileListItem({
 
 								<DropdownMenu>
 									<DropdownMenuTrigger asChild>
-										<Button
-											type="button"
-											size="icon-sm"
-											variant="ghost"
-											disabled={actionPending}
-										>
+										<Button type="button" size="icon-sm" variant="ghost" disabled={actionPending}>
 											<Icon icon={MoreHorizontal} size={13} />
 										</Button>
 									</DropdownMenuTrigger>
 									<DropdownMenuContent align="end" className="w-56">
-										<DropdownMenuItem className="cursor-pointer" onClick={() => onViewProfile(item.id)}>
+										<DropdownMenuItem
+											className="cursor-pointer"
+											onClick={() => onViewProfile(item.id)}
+										>
 											<Icon icon={Eye} size={13} />
 											{t('profile:actions.viewDetail')}
 										</DropdownMenuItem>
@@ -697,7 +736,9 @@ export const ProfileListItem = memo(function ProfileListItem({
 								) : (
 									<Icon icon={RotateCcw} size={12} />
 								)}
-								{actionState === 'restoring' ? t('profile:actions.recovering') : t('profile:actions.recover')}
+								{actionState === 'restoring'
+									? t('profile:actions.recovering')
+									: t('profile:actions.recover')}
 							</Button>
 						)}
 					</div>
@@ -713,9 +754,7 @@ export const ProfileListItem = memo(function ProfileListItem({
 				<DialogContent>
 					<DialogHeader>
 						<DialogTitle>{t('profile:visual.title')}</DialogTitle>
-						<DialogDescription>
-							{t('profile:visual.description')}
-						</DialogDescription>
+						<DialogDescription>{t('profile:visual.description')}</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-4">
 						<div className="space-y-2">
@@ -742,9 +781,7 @@ export const ProfileListItem = memo(function ProfileListItem({
 						</div>
 
 						<div className="space-y-2">
-							<p className="text-sm font-medium">
-								{t('profile:visual.backgroundColorLabel')}
-							</p>
+							<p className="text-sm font-medium">{t('profile:visual.backgroundColorLabel')}</p>
 							<Select
 								value={draftBrowserBgColorMode}
 								onValueChange={(value) => setDraftBrowserBgColorMode(value as BrowserBgColorMode)}
@@ -756,9 +793,7 @@ export const ProfileListItem = memo(function ProfileListItem({
 									{currentGroup ? (
 										<SelectItem value="inherit">{t('profile:visual.inheritGroup')}</SelectItem>
 									) : null}
-									<SelectItem value="none">
-										{t('profile:visual.noBackgroundColor')}
-									</SelectItem>
+									<SelectItem value="none">{t('profile:visual.noBackgroundColor')}</SelectItem>
 									<SelectItem value="custom">{t('profile:visual.customColor')}</SelectItem>
 								</SelectContent>
 							</Select>
@@ -830,106 +865,89 @@ export const ProfileListItem = memo(function ProfileListItem({
 				<DialogContent className="max-w-3xl">
 					<DialogHeader>
 						<DialogTitle>{t('profile:plugins.title')}</DialogTitle>
-						<DialogDescription>
-							{t('profile:plugins.desc')}
-						</DialogDescription>
+						<DialogDescription>{t('profile:plugins.desc')}</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-3">
 						{pluginPackagesQuery.isLoading || profilePluginsQuery.isLoading ? (
 							<p className="text-sm text-muted-foreground">{t('profile:plugins.loading')}</p>
 						) : null}
 						{pluginPackagesQuery.error instanceof Error ? (
-							<p className="text-sm text-destructive">
-								{pluginPackagesQuery.error.message}
-							</p>
+							<p className="text-sm text-destructive">{pluginPackagesQuery.error.message}</p>
 						) : null}
 						{profilePluginsQuery.error instanceof Error ? (
-							<p className="text-sm text-destructive">
-								{profilePluginsQuery.error.message}
-							</p>
+							<p className="text-sm text-destructive">{profilePluginsQuery.error.message}</p>
 						) : null}
-							{(pluginPackagesQuery.data ?? []).map((plugin) => {
-								const selected =
-									pluginDraft.find((entry) => entry.packageId === plugin.packageId) ??
-									null;
-								const installId = `profile-plugin-install-${item.id}-${plugin.packageId}`;
-								const enabledId = `profile-plugin-enabled-${item.id}-${plugin.packageId}`;
-								return (
+						{(pluginPackagesQuery.data ?? []).map((plugin) => {
+							const selected =
+								pluginDraft.find((entry) => entry.packageId === plugin.packageId) ?? null;
+							const installId = `profile-plugin-install-${item.id}-${plugin.packageId}`;
+							const enabledId = `profile-plugin-enabled-${item.id}-${plugin.packageId}`;
+							return (
 								<div
 									key={plugin.packageId}
 									className="rounded-lg border border-border/60 px-3 py-3"
 								>
 									<div className="flex flex-wrap items-start justify-between gap-3">
-											<label
-												htmlFor={installId}
-												className="flex min-w-0 flex-1 items-start gap-3 text-sm"
-											>
-												<Checkbox
-													id={installId}
-													checked={Boolean(selected)}
+										<label
+											htmlFor={installId}
+											className="flex min-w-0 flex-1 items-start gap-3 text-sm"
+										>
+											<Checkbox
+												id={installId}
+												checked={Boolean(selected)}
 												className="mt-0.5 cursor-pointer"
-													onCheckedChange={(checked) => {
-														setPluginDraft((prev) => {
-															if (checked !== true) {
-																return prev.filter(
-																	(entry) =>
-																		entry.packageId !== plugin.packageId,
-																);
-															}
-															return [
-																...prev.filter(
-																	(entry) =>
-																		entry.packageId !== plugin.packageId,
-																),
-																{ packageId: plugin.packageId, enabled: true },
-															];
-														});
-													}}
-												/>
-												<div className="min-w-0 flex-1">
-													<div className="flex flex-wrap items-center gap-2">
-														<p className="font-medium text-foreground">
-															{plugin.name}
-														</p>
-														<Badge variant="outline">v{plugin.version}</Badge>
-													</div>
-													<p className="mt-1 text-xs text-muted-foreground">
-															{plugin.description?.trim() || t('profile:plugins.noDescription')}
-														</p>
+												onCheckedChange={(checked) => {
+													setPluginDraft((prev) => {
+														if (checked !== true) {
+															return prev.filter((entry) => entry.packageId !== plugin.packageId);
+														}
+														return [
+															...prev.filter((entry) => entry.packageId !== plugin.packageId),
+															{ packageId: plugin.packageId, enabled: true },
+														];
+													});
+												}}
+											/>
+											<div className="min-w-0 flex-1">
+												<div className="flex flex-wrap items-center gap-2">
+													<p className="font-medium text-foreground">{plugin.name}</p>
+													<Badge variant="outline">v{plugin.version}</Badge>
 												</div>
-											</label>
-											<label
-												htmlFor={enabledId}
-												className="flex items-center gap-2 text-xs text-muted-foreground"
-											>
-												<Checkbox
-													id={enabledId}
-													checked={selected?.enabled ?? false}
-													disabled={!selected}
-													className="cursor-pointer"
-													onCheckedChange={(checked) => {
-														setPluginDraft((prev) =>
-															prev.map((entry) =>
-																entry.packageId === plugin.packageId
-																	? {
-																			...entry,
-																			enabled: checked === true,
-																		}
-																	: entry,
-															),
-														);
-													}}
-												/>
-												{t('profile:plugins.enabled')}
-											</label>
+												<p className="mt-1 text-xs text-muted-foreground">
+													{plugin.description?.trim() || t('profile:plugins.noDescription')}
+												</p>
+											</div>
+										</label>
+										<label
+											htmlFor={enabledId}
+											className="flex items-center gap-2 text-xs text-muted-foreground"
+										>
+											<Checkbox
+												id={enabledId}
+												checked={selected?.enabled ?? false}
+												disabled={!selected}
+												className="cursor-pointer"
+												onCheckedChange={(checked) => {
+													setPluginDraft((prev) =>
+														prev.map((entry) =>
+															entry.packageId === plugin.packageId
+																? {
+																		...entry,
+																		enabled: checked === true,
+																	}
+																: entry,
+														),
+													);
+												}}
+											/>
+											{t('profile:plugins.enabled')}
+										</label>
 									</div>
 								</div>
 							);
 						})}
 						{!pluginPackagesQuery.isLoading && (pluginPackagesQuery.data?.length ?? 0) === 0 ? (
-							<p className="text-sm text-muted-foreground">
-								{t('profile:plugins.noPlugins')}
-							</p>
+							<p className="text-sm text-muted-foreground">{t('profile:plugins.noPlugins')}</p>
 						) : null}
 					</div>
 					<DialogFooter>
@@ -950,9 +968,7 @@ export const ProfileListItem = memo(function ProfileListItem({
 								void handleSavePlugins();
 							}}
 						>
-							{pluginSaving ? (
-								<Icon icon={Loader2} size={12} className="animate-spin" />
-							) : null}
+							{pluginSaving ? <Icon icon={Loader2} size={12} className="animate-spin" /> : null}
 							{t('profile:plugins.saveConfig')}
 						</Button>
 					</DialogFooter>
@@ -971,13 +987,13 @@ export const ProfileListItem = memo(function ProfileListItem({
 				<DialogContent>
 					<DialogHeader>
 						<DialogTitle>{t('profile:cookies.exportBySite')}</DialogTitle>
-						<DialogDescription>
-							{t('profile:basic.cookieHelp')}
-						</DialogDescription>
+						<DialogDescription>{t('profile:basic.cookieHelp')}</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-3">
 						<div>
-							<p className="mb-1 text-xs text-muted-foreground">{t('profile:cookies.selectSite')}</p>
+							<p className="mb-1 text-xs text-muted-foreground">
+								{t('profile:cookies.selectSite')}
+							</p>
 							<Select
 								value={selectedCookieSiteUrl}
 								onValueChange={setSelectedCookieSiteUrl}
@@ -986,7 +1002,9 @@ export const ProfileListItem = memo(function ProfileListItem({
 								<SelectTrigger className="cursor-pointer">
 									<SelectValue
 										placeholder={
-											cookieSiteLoading ? t('profile:cookies.reading') : t('profile:cookies.selectSite')
+											cookieSiteLoading
+												? t('profile:cookies.reading')
+												: t('profile:cookies.selectSite')
 										}
 									/>
 								</SelectTrigger>
@@ -999,9 +1017,7 @@ export const ProfileListItem = memo(function ProfileListItem({
 								</SelectContent>
 							</Select>
 						</div>
-						{cookieSiteError ? (
-							<p className="text-xs text-destructive">{cookieSiteError}</p>
-						) : null}
+						{cookieSiteError ? <p className="text-xs text-destructive">{cookieSiteError}</p> : null}
 					</div>
 					<DialogFooter>
 						<Button
@@ -1015,11 +1031,7 @@ export const ProfileListItem = memo(function ProfileListItem({
 						<Button
 							type="button"
 							className="cursor-pointer"
-							disabled={
-								cookieSiteLoading ||
-								cookieSiteExporting ||
-								!selectedCookieSiteUrl
-							}
+							disabled={cookieSiteLoading || cookieSiteExporting || !selectedCookieSiteUrl}
 							onClick={() => {
 								setCookieSiteExporting(true);
 								void handleExportSiteCookie();

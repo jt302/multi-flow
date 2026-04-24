@@ -1,8 +1,8 @@
-import { useTranslation } from 'react-i18next';
 import { FolderOpen, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { useIsMobile } from '@/hooks/use-mobile';
-
+import { useTranslation } from 'react-i18next';
+import { getWorkspaceSection } from '@/app/model/workspace-sections';
+import { DataSection, EmptyState } from '@/components/common';
 import {
 	Badge,
 	Button,
@@ -15,12 +15,11 @@ import {
 	TableHeader,
 	TableRow,
 } from '@/components/ui';
-import { DataSection, EmptyState } from '@/components/common';
 import type { GroupItem } from '@/entities/group/model/types';
-import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
-import { getWorkspaceSection } from '@/app/model/workspace-sections';
-import { useGroupManagementStore } from '@/store/group-management-store';
 import type { GroupsPageProps } from '@/features/group/model/types';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useGroupManagementStore } from '@/store/group-management-store';
+import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 import { GroupDeleteAlertDialog } from './group-delete-alert-dialog';
 import { GroupFormDialog, type GroupFormValues } from './group-form-dialog';
 
@@ -36,16 +35,10 @@ export function GroupsPage({
 	const section = getWorkspaceSection('groups');
 	const searchKeyword = useGroupManagementStore((state) => state.searchKeyword);
 	const isFormOpen = useGroupManagementStore((state) => state.isFormOpen);
-	const editingGroupId = useGroupManagementStore(
-		(state) => state.editingGroupId,
-	);
+	const editingGroupId = useGroupManagementStore((state) => state.editingGroupId);
 	const editorMode = useGroupManagementStore((state) => state.editorMode);
-	const setSearchKeyword = useGroupManagementStore(
-		(state) => state.setSearchKeyword,
-	);
-	const openCreateForm = useGroupManagementStore(
-		(state) => state.openCreateForm,
-	);
+	const setSearchKeyword = useGroupManagementStore((state) => state.setSearchKeyword);
+	const openCreateForm = useGroupManagementStore((state) => state.openCreateForm);
 	const openEditForm = useGroupManagementStore((state) => state.openEditForm);
 	const closeForm = useGroupManagementStore((state) => state.closeForm);
 	const resetState = useGroupManagementStore((state) => state.reset);
@@ -80,12 +73,7 @@ export function GroupsPage({
 			toolbarLabelMode: values.toolbarLabelMode,
 		};
 		if (editorMode === 'edit' && editingGroupId) {
-			await onUpdateGroup(
-				editingGroupId,
-				values.name.trim(),
-				values.note.trim(),
-				visualOptions,
-			);
+			await onUpdateGroup(editingGroupId, values.name.trim(), values.note.trim(), visualOptions);
 		} else {
 			await onCreateGroup(values.name.trim(), values.note.trim(), visualOptions);
 		}
@@ -118,12 +106,7 @@ export function GroupsPage({
 								className="pl-8"
 							/>
 						</div>
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							onClick={openCreateForm}
-						>
+						<Button type="button" variant="outline" size="sm" onClick={openCreateForm}>
 							<Icon icon={Plus} size={14} />
 							{t('page.newGroup')}
 						</Button>
@@ -158,9 +141,7 @@ export function GroupsPage({
 												{t('page.profileCountBadge', { count: group.profileCount })}
 											</Badge>
 										</div>
-										<p className="mt-1 text-xs text-muted-foreground">
-											{group.note || '—'}
-										</p>
+										<p className="mt-1 text-xs text-muted-foreground">{group.note || '—'}</p>
 										<p className="mt-2 text-[11px] text-muted-foreground">
 											{t('page.table.lastUpdated')} · {group.updatedAt}
 										</p>
@@ -219,13 +200,9 @@ export function GroupsPage({
 												</Badge>
 											</div>
 										</TableCell>
-										<TableCell className="text-muted-foreground">
-											{group.note}
-										</TableCell>
+										<TableCell className="text-muted-foreground">{group.note}</TableCell>
 										<TableCell>{group.profileCount}</TableCell>
-										<TableCell className="text-muted-foreground">
-											{group.updatedAt}
-										</TableCell>
+										<TableCell className="text-muted-foreground">{group.updatedAt}</TableCell>
 										<TableCell>
 											<div className="flex justify-end gap-1">
 												<Button

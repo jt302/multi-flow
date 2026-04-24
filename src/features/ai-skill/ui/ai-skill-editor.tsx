@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
-import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { useEffect } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,10 @@ import { useAiSkillQuery } from '@/entities/ai-skill/model/use-ai-skills-query';
 import { useCreateAiSkill, useUpdateAiSkill } from '../model/use-ai-skill-mutations';
 
 const schema = z.object({
-	slug: z.string().regex(/^[a-z0-9-]+$/, 'slug 只允许 a-z、0-9、-').min(1),
+	slug: z
+		.string()
+		.regex(/^[a-z0-9-]+$/, 'slug 只允许 a-z、0-9、-')
+		.min(1),
 	name: z.string().min(1),
 	description: z.string().optional(),
 	version: z.string().optional(),
@@ -31,7 +34,10 @@ function arrToLines(arr: string[] | undefined): string {
 }
 
 function linesToArr(s: string | undefined): string[] {
-	return (s ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
+	return (s ?? '')
+		.split('\n')
+		.map((l) => l.trim())
+		.filter(Boolean);
 }
 
 interface Props {
@@ -48,9 +54,25 @@ export function AiSkillEditor({ slug, isNew, onSaved, onCancel }: Props) {
 	const updateMut = useUpdateAiSkill();
 	const readOnly = Boolean(existing?.builtIn && !isNew);
 
-	const { register, handleSubmit, reset, control, formState: { errors, isDirty } } = useForm<FormValues>({
+	const {
+		register,
+		handleSubmit,
+		reset,
+		control,
+		formState: { errors, isDirty },
+	} = useForm<FormValues>({
 		resolver: zodResolver(schema),
-		defaultValues: { slug: '', name: '', description: '', version: '0.1.0', enabled: true, triggers: '', allowedTools: '', model: '', body: '' },
+		defaultValues: {
+			slug: '',
+			name: '',
+			description: '',
+			version: '0.1.0',
+			enabled: true,
+			triggers: '',
+			allowedTools: '',
+			model: '',
+			body: '',
+		},
 	});
 
 	useEffect(() => {
@@ -67,7 +89,17 @@ export function AiSkillEditor({ slug, isNew, onSaved, onCancel }: Props) {
 				body: existing.body,
 			});
 		} else if (isNew) {
-			reset({ slug: '', name: '', description: '', version: '0.1.0', enabled: true, triggers: '', allowedTools: '', model: '', body: '' });
+			reset({
+				slug: '',
+				name: '',
+				description: '',
+				version: '0.1.0',
+				enabled: true,
+				triggers: '',
+				allowedTools: '',
+				model: '',
+				body: '',
+			});
 		}
 	}, [existing, isNew, reset]);
 
@@ -88,7 +120,10 @@ export function AiSkillEditor({ slug, isNew, onSaved, onCancel }: Props) {
 					body: values.body,
 				},
 				{
-					onSuccess: (saved) => { toast.success(t('skills.saved')); onSaved(saved.slug); },
+					onSuccess: (saved) => {
+						toast.success(t('skills.saved'));
+						onSaved(saved.slug);
+					},
 					onError: (err) => toast.error(String(err)),
 				},
 			);
@@ -108,7 +143,10 @@ export function AiSkillEditor({ slug, isNew, onSaved, onCancel }: Props) {
 					},
 				},
 				{
-					onSuccess: () => { toast.success(t('skills.saved')); onSaved(slug); },
+					onSuccess: () => {
+						toast.success(t('skills.saved'));
+						onSaved(slug);
+					},
 					onError: (err) => toast.error(String(err)),
 				},
 			);
@@ -124,7 +162,12 @@ export function AiSkillEditor({ slug, isNew, onSaved, onCancel }: Props) {
 			<div className="grid grid-cols-2 gap-3">
 				<div className="flex flex-col gap-1">
 					<Label className="text-xs">Slug</Label>
-					<Input {...register('slug')} disabled={!isNew || readOnly} placeholder="my-skill" className="h-8 text-sm" />
+					<Input
+						{...register('slug')}
+						disabled={!isNew || readOnly}
+						placeholder="my-skill"
+						className="h-8 text-sm"
+					/>
 					{errors.slug && <span className="text-xs text-destructive">{errors.slug.message}</span>}
 				</div>
 				<div className="flex flex-col gap-1">
@@ -161,11 +204,18 @@ export function AiSkillEditor({ slug, isNew, onSaved, onCancel }: Props) {
 							/>
 						)}
 					/>
-					<Label htmlFor="skill-enabled" className="text-xs cursor-pointer">{t('skills.fieldEnabled')}</Label>
+					<Label htmlFor="skill-enabled" className="text-xs cursor-pointer">
+						{t('skills.fieldEnabled')}
+					</Label>
 				</div>
 				<div className="flex flex-col gap-1">
 					<Label className="text-xs">{t('skills.fieldModel')}</Label>
-					<Input {...register('model')} disabled={readOnly} placeholder="claude-opus-4-7" className="h-8 text-sm font-mono" />
+					<Input
+						{...register('model')}
+						disabled={readOnly}
+						placeholder="claude-opus-4-7"
+						className="h-8 text-sm font-mono"
+					/>
 				</div>
 			</div>
 
@@ -196,9 +246,7 @@ export function AiSkillEditor({ slug, isNew, onSaved, onCancel }: Props) {
 			{/* Body */}
 			<div className="flex flex-1 flex-col gap-1">
 				<Label className="text-xs">{t('skills.fieldBody')}</Label>
-				{readOnly && (
-					<p className="text-xs text-muted-foreground">{t('skills.builtInReadonly')}</p>
-				)}
+				{readOnly && <p className="text-xs text-muted-foreground">{t('skills.builtInReadonly')}</p>}
 				<Textarea
 					{...register('body')}
 					disabled={readOnly}
@@ -210,8 +258,16 @@ export function AiSkillEditor({ slug, isNew, onSaved, onCancel }: Props) {
 			</div>
 
 			<div className="flex justify-end gap-2">
-				<Button type="button" variant="ghost" onClick={onCancel} className="cursor-pointer">{t('common:cancel')}</Button>
-				<Button type="submit" disabled={readOnly || createMut.isPending || updateMut.isPending || (!isNew && !isDirty)} className="cursor-pointer">{t('common:save')}</Button>
+				<Button type="button" variant="ghost" onClick={onCancel} className="cursor-pointer">
+					{t('common:cancel')}
+				</Button>
+				<Button
+					type="submit"
+					disabled={readOnly || createMut.isPending || updateMut.isPending || (!isNew && !isDirty)}
+					className="cursor-pointer"
+				>
+					{t('common:save')}
+				</Button>
 			</div>
 		</form>
 	);

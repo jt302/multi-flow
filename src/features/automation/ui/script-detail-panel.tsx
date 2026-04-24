@@ -1,21 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-
 import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
-import { Download, Loader2, Network, Pencil, Play, Trash2 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-
 import i18next from 'i18next';
-
-import { openAutomationCanvasWindow } from '@/entities/automation/api/automation-api';
-import { resolveScriptFlowEntryState } from '@/entities/automation/model/script-flow-entry';
-import type {
-	AutomationRun,
-	AutomationScript,
-	RunDelayConfig,
-	StepResult,
-} from '@/entities/automation/model/types';
-import type { ProfileItem } from '@/entities/profile/model/types';
+import { Download, Loader2, Network, Pencil, Play, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -27,6 +15,15 @@ import {
 	AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { openAutomationCanvasWindow } from '@/entities/automation/api/automation-api';
+import { resolveScriptFlowEntryState } from '@/entities/automation/model/script-flow-entry';
+import type {
+	AutomationRun,
+	AutomationScript,
+	RunDelayConfig,
+	StepResult,
+} from '@/entities/automation/model/types';
+import type { ProfileItem } from '@/entities/profile/model/types';
 import { RunDialog } from './run-dialog';
 import { ScriptRunsPanel } from './script-runs-panel';
 import { ScriptStepsViewer } from './script-steps-viewer';
@@ -56,9 +53,7 @@ async function exportScript(script: AutomationScript) {
 	const sanitized = script.name.replace(/[^\w\u4e00-\u9fa5-]/g, '_');
 	const filePath = await save({
 		defaultPath: `${sanitized}.json`,
-		filters: [
-			{ name: i18next.t('automation:detail.jsonFile'), extensions: ['json'] },
-		],
+		filters: [{ name: i18next.t('automation:detail.jsonFile'), extensions: ['json'] }],
 	});
 	if (!filePath) return;
 	await invoke('export_automation_script_to_file', {
@@ -112,10 +107,7 @@ export function ScriptDetailPanel({
 			const delta = startY.current - e.clientY;
 			const containerH = containerRef.current?.clientHeight ?? 600;
 			// 下方最小 160px，最大留给上方 160px
-			const next = Math.min(
-				containerH - 160,
-				Math.max(160, startHeight.current + delta),
-			);
+			const next = Math.min(containerH - 160, Math.max(160, startHeight.current + delta));
 			setLowerHeight(next);
 		}
 		function onMouseUp() {
@@ -137,9 +129,7 @@ export function ScriptDetailPanel({
 					<div className="min-w-0">
 						<h2 className="text-sm font-semibold truncate">{script.name}</h2>
 						{script.description && (
-							<p className="text-xs text-muted-foreground mt-0.5 truncate">
-								{script.description}
-							</p>
+							<p className="text-xs text-muted-foreground mt-0.5 truncate">{script.description}</p>
 						)}
 					</div>
 					<Button
@@ -210,9 +200,7 @@ export function ScriptDetailPanel({
 					<div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
 						<span>
 							{t('detail.stepsCount', { count: script.steps.length })}
-							{isRunning && (
-								<Loader2 className="inline h-3 w-3 ml-1 animate-spin" />
-							)}
+							{isRunning && <Loader2 className="inline h-3 w-3 ml-1 animate-spin" />}
 						</span>
 						{!flowEntryState.entryConnected && (
 							<span className="rounded-full border border-amber-300/80 bg-amber-100/80 px-2 py-0.5 text-[11px] font-medium text-amber-700">
@@ -253,10 +241,7 @@ export function ScriptDetailPanel({
 			</div>
 
 			{/* 下方：运行记录 */}
-			<div
-				className="shrink-0 overflow-hidden flex flex-col"
-				style={{ height: lowerHeight }}
-			>
+			<div className="shrink-0 overflow-hidden flex flex-col" style={{ height: lowerHeight }}>
 				<div className="flex items-center px-5 pt-2 pb-1 shrink-0">
 					<span className="text-xs font-medium text-muted-foreground">
 						{t('detail.runHistoryCount', { count: runs.length })}
@@ -276,7 +261,9 @@ export function ScriptDetailPanel({
 			<AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>{t('common:deleteItem', { item: t('common:script') })}</AlertDialogTitle>
+						<AlertDialogTitle>
+							{t('common:deleteItem', { item: t('common:script') })}
+						</AlertDialogTitle>
 						<AlertDialogDescription>
 							{t('automation:detail.deleteScriptConfirm', { name: script.name })}
 						</AlertDialogDescription>

@@ -3,11 +3,11 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import '@/styles/global.css';
-import i18n, { normalizeAppLanguage } from '@/shared/i18n';
+import { invoke } from '@tauri-apps/api/core';
 import { QueryProvider } from '@/app/providers/query-provider';
+import i18n, { normalizeAppLanguage } from '@/shared/i18n';
 import { installInputSelectAllHotkey } from '@/shared/lib/hotkeys/install-input-select-all-hotkey';
 import { installWindowHotkeys } from '@/shared/lib/hotkeys/install-window-hotkeys';
-import { invoke } from '@tauri-apps/api/core';
 
 installInputSelectAllHotkey();
 installWindowHotkeys();

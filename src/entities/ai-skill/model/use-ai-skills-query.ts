@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { aiSkillApi } from '../api/ai-skill-api';
 import { queryKeys } from '@/shared/config/query-keys';
+import { aiSkillApi } from '../api/ai-skill-api';
 
 export function useAiSkillsQuery() {
 	return useQuery({

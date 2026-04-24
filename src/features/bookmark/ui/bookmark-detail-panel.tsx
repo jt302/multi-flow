@@ -1,8 +1,6 @@
+import { ExternalLink, Folder, Globe, Pencil, Save, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ExternalLink, Folder, Globe, Pencil, Save, Trash2, X } from 'lucide-react';
-
-import type { BookmarkDisplayNode } from '@/entities/bookmark/model/types';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -18,6 +16,7 @@ import {
 	Label,
 	Separator,
 } from '@/components/ui';
+import type { BookmarkDisplayNode } from '@/entities/bookmark/model/types';
 
 type BookmarkDetailPanelProps = {
 	node: BookmarkDisplayNode | null;
@@ -195,18 +194,13 @@ export function BookmarkDetailPanel({
 									<AlertDialogTitle>
 										{t('detail.deleteConfirm', { title: node.title })}
 									</AlertDialogTitle>
-									<AlertDialogDescription>
-										{t('detail.deleteWarning')}
-									</AlertDialogDescription>
+									<AlertDialogDescription>{t('detail.deleteWarning')}</AlertDialogDescription>
 								</AlertDialogHeader>
 								<AlertDialogFooter>
 									<AlertDialogCancel className="cursor-pointer">
 										{t('detail.cancel')}
 									</AlertDialogCancel>
-									<AlertDialogAction
-										className="cursor-pointer"
-										onClick={() => onRemove(node.id)}
-									>
+									<AlertDialogAction className="cursor-pointer" onClick={() => onRemove(node.id)}>
 										{t('detail.delete')}
 									</AlertDialogAction>
 								</AlertDialogFooter>

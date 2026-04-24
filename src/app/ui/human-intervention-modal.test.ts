@@ -7,7 +7,10 @@ const source = readFileSync(new URL('./human-intervention-modal.tsx', import.met
 test('table dialog uses viewport-based width instead of fixed max-w-2xl', () => {
 	assert.equal(source.includes('max-w-2xl'), false);
 	assert.equal(source.includes('w-[min(96vw,1200px)]'), true);
-	assert.equal(source.includes('flex max-h-[85vh] w-[min(96vw,1200px)] max-w-none flex-col overflow-hidden'), true);
+	assert.equal(
+		source.includes('flex max-h-[85vh] w-[min(96vw,1200px)] max-w-none flex-col overflow-hidden'),
+		true,
+	);
 });
 
 test('table dialog keeps an explicit horizontal overflow container', () => {

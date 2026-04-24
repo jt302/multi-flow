@@ -1,20 +1,15 @@
-import { useState, useMemo, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from '@/components/ui/tabs';
-import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
-import type { ProfileItem } from '@/entities/profile/model/types';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useGroupsQuery } from '@/entities/group/model/use-groups-query';
+import type { ProfileItem } from '@/entities/profile/model/types';
+import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
 import { cn } from '@/lib/utils';
 
 export type ProfileGroupSelectorProps = {
@@ -38,9 +33,7 @@ export function ProfileGroupSelector({
 }: ProfileGroupSelectorProps) {
 	const { t } = useTranslation('common');
 	const [search, setSearch] = useState('');
-	const [activeTab, setActiveTab] = useState<'profiles' | 'groups'>(
-		'profiles',
-	);
+	const [activeTab, setActiveTab] = useState<'profiles' | 'groups'>('profiles');
 
 	const profilesQuery = useProfilesQuery({ enabled: profiles == null });
 	const groupsQuery = useGroupsQuery();
@@ -71,8 +64,7 @@ export function ProfileGroupSelector({
 
 	// 按搜索词过滤分组
 	const filteredGroups = useMemo(
-		() =>
-			allGroups.filter((g) => g.name.toLowerCase().includes(lowerSearch)),
+		() => allGroups.filter((g) => g.name.toLowerCase().includes(lowerSearch)),
 		[allGroups, lowerSearch],
 	);
 
@@ -98,11 +90,7 @@ export function ProfileGroupSelector({
 				onChange(selectedSet.has(id) ? [] : [id]);
 				return;
 			}
-			onChange(
-				selectedSet.has(id)
-					? selectedIds.filter((x) => x !== id)
-					: [...selectedIds, id],
-			);
+			onChange(selectedSet.has(id) ? selectedIds.filter((x) => x !== id) : [...selectedIds, id]);
 		},
 		[disabled, mode, selectedSet, selectedIds, onChange],
 	);
@@ -152,9 +140,7 @@ export function ProfileGroupSelector({
 		(groupName: string): boolean | 'indeterminate' => {
 			const groupIds = groupProfileMap.get(groupName) ?? [];
 			if (groupIds.length === 0) return false;
-			const selectedCount = groupIds.filter((id) =>
-				selectedSet.has(id),
-			).length;
+			const selectedCount = groupIds.filter((id) => selectedSet.has(id)).length;
 			if (selectedCount === 0) return false;
 			if (selectedCount === groupIds.length) return true;
 			return 'indeterminate';
@@ -163,8 +149,7 @@ export function ProfileGroupSelector({
 	);
 
 	const allProfilesSelected =
-		filteredProfiles.length > 0 &&
-		filteredProfiles.every((p) => selectedSet.has(p.id));
+		filteredProfiles.length > 0 && filteredProfiles.every((p) => selectedSet.has(p.id));
 
 	return (
 		<div className={cn('flex flex-col gap-2', className)}>
@@ -180,10 +165,7 @@ export function ProfileGroupSelector({
 				/>
 			</div>
 
-			<Tabs
-				value={activeTab}
-				onValueChange={(v) => setActiveTab(v as 'profiles' | 'groups')}
-			>
+			<Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'profiles' | 'groups')}>
 				<TabsList className="grid w-full grid-cols-2 h-8">
 					<TabsTrigger value="profiles" className="text-xs cursor-pointer">
 						{t('profileGroupSelector.profiles')}
@@ -265,22 +247,13 @@ export function ProfileGroupSelector({
 											)}
 										>
 											<Checkbox
-												checked={
-													state === 'indeterminate'
-														? 'indeterminate'
-														: state
-												}
+												checked={state === 'indeterminate' ? 'indeterminate' : state}
 												onCheckedChange={() => toggleGroup(g.name)}
 												disabled={disabled}
 												className="cursor-pointer"
 											/>
-											<span className="text-xs truncate flex-1">
-												{g.name}
-											</span>
-											<Badge
-												variant="secondary"
-												className="h-4 px-1.5 text-[10px]"
-											>
+											<span className="text-xs truncate flex-1">{g.name}</span>
+											<Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
 												{count}
 											</Badge>
 										</label>

@@ -1,6 +1,6 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import test from 'node:test';
 
 test('plugin api exposes progress events and active download snapshots', () => {
 	const api = readFileSync(
@@ -8,7 +8,10 @@ test('plugin api exposes progress events and active download snapshots', () => {
 		'utf8',
 	);
 
-	assert.equal(api.includes("listen<PluginDownloadProgressEvent>('plugin_download_progress'"), true);
+	assert.equal(
+		api.includes("listen<PluginDownloadProgressEvent>('plugin_download_progress'"),
+		true,
+	);
 	assert.equal(api.includes("'get_active_plugin_downloads'"), true);
 	assert.equal(api.includes('createPluginTaskId'), true);
 });
@@ -28,16 +31,16 @@ test('plugin backend emits progress and registers active download command', () =
 		new URL('../../../../src-tauri/src/commands/plugin_commands.rs', import.meta.url),
 		'utf8',
 	);
-	const lib = readFileSync(
-		new URL('../../../../src-tauri/src/lib.rs', import.meta.url),
-		'utf8',
-	);
+	const lib = readFileSync(new URL('../../../../src-tauri/src/lib.rs', import.meta.url), 'utf8');
 	const state = readFileSync(
 		new URL('../../../../src-tauri/src/state.rs', import.meta.url),
 		'utf8',
 	);
 
-	assert.equal(pluginCommands.includes('const PLUGIN_PROGRESS_EVENT: &str = "plugin_download_progress";'), true);
+	assert.equal(
+		pluginCommands.includes('const PLUGIN_PROGRESS_EVENT: &str = "plugin_download_progress";'),
+		true,
+	);
 	assert.equal(pluginCommands.includes('pub fn get_active_plugin_downloads'), true);
 	assert.equal(pluginCommands.includes('emit_plugin_progress'), true);
 	assert.equal(pluginCommands.includes('download_binary_with_progress'), true);

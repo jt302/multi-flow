@@ -18,16 +18,15 @@ test('fs workspace page localizes the default root label instead of rendering ba
 		true,
 	);
 	assert.equal(
-		source.includes("selectedRoot?.isDefault ? t('fileSystem.defaultRootLabel') : selectedRoot?.label"),
+		/const selectedRootLabel = selectedRoot\?\.isDefault\s*\?\s*t\('fileSystem\.defaultRootLabel'\)\s*:\s*selectedRoot\?\.label;/.test(
+			source,
+		),
 		true,
 	);
 });
 
 test('fs workspace page localizes the description badge', () => {
-	assert.equal(
-		source.includes("t('fileSystem.hasDescriptionBadge')"),
-		true,
-	);
+	assert.equal(source.includes("t('fileSystem.hasDescriptionBadge')"), true);
 });
 
 test('fs workspace locales include file system root and description badge labels', () => {

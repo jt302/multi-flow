@@ -1,16 +1,6 @@
+import { Send } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send } from 'lucide-react';
-
-import {
-	useBookmarkTemplatesQuery,
-	useTemplateSubscriptionsQuery,
-} from '@/entities/bookmark/model/use-bookmark-templates-query';
-import type {
-	BookmarkTemplateItem,
-	UpdateBookmarkTemplateRequest,
-} from '@/entities/bookmark/model/types';
-import type { ProfileItem } from '@/entities/profile/model/types';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -29,7 +19,14 @@ import {
 import type {
 	ApplyBookmarkTemplateRequest,
 	BatchProfileActionResponse,
+	BookmarkTemplateItem,
+	UpdateBookmarkTemplateRequest,
 } from '@/entities/bookmark/model/types';
+import {
+	useBookmarkTemplatesQuery,
+	useTemplateSubscriptionsQuery,
+} from '@/entities/bookmark/model/use-bookmark-templates-query';
+import type { ProfileItem } from '@/entities/profile/model/types';
 import { ApplyTemplateDialog } from './apply-template-dialog';
 
 type TemplateEditorProps = {
@@ -204,10 +201,7 @@ export function TemplateEditor({
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel
-							className="cursor-pointer"
-							onClick={() => setShowSyncConfirm(false)}
-						>
+						<AlertDialogCancel className="cursor-pointer" onClick={() => setShowSyncConfirm(false)}>
 							{t('templates.skipSync')}
 						</AlertDialogCancel>
 						<AlertDialogAction className="cursor-pointer" onClick={handleSyncNow}>

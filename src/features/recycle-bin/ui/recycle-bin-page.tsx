@@ -1,13 +1,8 @@
 import { RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
+import { ConfirmActionDialog, DataSection, PageHeader } from '@/components/common';
 import { Badge, Button, Icon, TableCell, TableRow } from '@/components/ui';
-import {
-	ConfirmActionDialog,
-	DataSection,
-	PageHeader,
-} from '@/components/common';
 import { countDeletedRecycleBinItems } from '@/features/recycle-bin/model/recycle-bin-counts';
 
 import type { RecycleBinPageProps } from '@/features/recycle-bin/model-types';
@@ -22,10 +17,8 @@ function formatDeletedAt(
 	}
 	const diff = Math.max(0, Math.floor(Date.now() / 1000) - ts);
 	if (diff < 60) return t('common:justNow');
-	if (diff < 3600)
-		return t('common:minutesAgo', { count: Math.floor(diff / 60) });
-	if (diff < 86400)
-		return t('common:hoursAgo', { count: Math.floor(diff / 3600) });
+	if (diff < 3600) return t('common:minutesAgo', { count: Math.floor(diff / 60) });
+	if (diff < 86400) return t('common:hoursAgo', { count: Math.floor(diff / 3600) });
 	return t('common:daysAgo', { count: Math.floor(diff / 86400) });
 }
 
@@ -60,19 +53,12 @@ function DeletedItemRow({
 			</TableCell>
 			<TableCell className="w-[280px]">
 				<p className="truncate text-xs text-muted-foreground">
-					{item.id} ·{' '}
-					{t('deletedAt', { time: formatDeletedAt(item.deletedAt, t) })}
+					{item.id} · {t('deletedAt', { time: formatDeletedAt(item.deletedAt, t) })}
 				</p>
 			</TableCell>
 			<TableCell className="w-[220px] text-right">
 				<div className="flex justify-end gap-2">
-					<Button
-						type="button"
-						size="sm"
-						variant="outline"
-						disabled={pending}
-						onClick={onRestore}
-					>
+					<Button type="button" size="sm" variant="outline" disabled={pending} onClick={onRestore}>
 						<Icon icon={RotateCcw} size={12} />
 						{t('restore')}
 					</Button>
@@ -193,9 +179,7 @@ export function RecycleBinPage({
 						onRestore={() => {
 							void runAction(() => onRestoreProfile(item.id));
 						}}
-						onPurge={() =>
-							setPurgeTarget({ kind: 'profile', id: item.id, name: item.name })
-						}
+						onPurge={() => setPurgeTarget({ kind: 'profile', id: item.id, name: item.name })}
 					/>
 				)}
 			</RecycleBinSection>
@@ -209,9 +193,7 @@ export function RecycleBinPage({
 						onRestore={() => {
 							void runAction(() => onRestoreProxy(item.id));
 						}}
-						onPurge={() =>
-							setPurgeTarget({ kind: 'proxy', id: item.id, name: item.name })
-						}
+						onPurge={() => setPurgeTarget({ kind: 'proxy', id: item.id, name: item.name })}
 					/>
 				)}
 			</RecycleBinSection>
@@ -219,9 +201,7 @@ export function RecycleBinPage({
 			<RecycleBinSection
 				title={t('groups')}
 				items={deletedGroups}
-				footer={
-					error ? <p className="text-xs text-destructive">{error}</p> : null
-				}
+				footer={error ? <p className="text-xs text-destructive">{error}</p> : null}
 			>
 				{(item) => (
 					<DeletedItemRow
@@ -231,9 +211,7 @@ export function RecycleBinPage({
 						onRestore={() => {
 							void runAction(() => onRestoreGroup(item.id));
 						}}
-						onPurge={() =>
-							setPurgeTarget({ kind: 'group', id: item.id, name: item.name })
-						}
+						onPurge={() => setPurgeTarget({ kind: 'group', id: item.id, name: item.name })}
 					/>
 				)}
 			</RecycleBinSection>

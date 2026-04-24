@@ -1,7 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import i18next from 'i18next';
 import { openPath, revealItemInDir } from '@tauri-apps/plugin-opener';
+import i18next from 'i18next';
 import {
 	ArrowLeft,
 	ChevronDown,
@@ -12,6 +10,8 @@ import {
 	Sparkles,
 	Trash2,
 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import {
@@ -37,8 +37,8 @@ import {
 	resolveBrowserVersionMeta,
 	resolvePlatformMeta,
 } from '@/entities/profile/lib/profile-list';
-import { useProfileRuntimeDetailsQuery } from '@/entities/profile/model/use-profile-runtime-details-query';
 import type { ProfileItem } from '@/entities/profile/model/types';
+import { useProfileRuntimeDetailsQuery } from '@/entities/profile/model/use-profile-runtime-details-query';
 import { PlatformMark } from '@/entities/profile/ui/platform-mark';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 import type { ResourceItem } from '@/entities/resource/model/types';
@@ -67,17 +67,13 @@ function formatWebRtcModeLabel(value: string | undefined) {
 }
 
 function formatCustomValueModeLabel(value: string | undefined) {
-	return value === 'custom'
-		? i18next.t('common:custom')
-		: i18next.t('common:real');
+	return value === 'custom' ? i18next.t('common:custom') : i18next.t('common:real');
 }
 
 function DetailMetric({ label, value }: { label: string; value: string }) {
 	return (
 		<div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-			<p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-				{label}
-			</p>
+			<p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
 			<p className="mt-1 break-words whitespace-pre-wrap text-sm">{value}</p>
 		</div>
 	);
@@ -101,9 +97,7 @@ export function ProfileDetailPage({
 	const snapshot = fingerprint?.fingerprintSnapshot;
 	const browserVersionMeta = resolveBrowserVersionMeta(profile);
 	const platformMeta = resolvePlatformMeta(profile);
-	const statusLabel = profile.running
-		? t('common:running')
-		: t('common:notRunning');
+	const statusLabel = profile.running ? t('common:running') : t('common:notRunning');
 	const editConfigDisabled = profile.running;
 	const toolbarText = profile.resolvedToolbarText?.trim();
 	const startupUrls =
@@ -112,15 +106,10 @@ export function ProfileDetailPage({
 	const proxyLabel = boundProxy
 		? `${boundProxy.name} · ${boundProxy.protocol.toUpperCase()}://${boundProxy.host}:${boundProxy.port}`
 		: t('detail.noProxy');
-	const runtimeDetailsQuery = useProfileRuntimeDetailsQuery(
-		profile.id,
-		profile.running,
-	);
+	const runtimeDetailsQuery = useProfileRuntimeDetailsQuery(profile.id, profile.running);
 	const runtimeDetails = runtimeDetailsQuery.data;
 	const activeChromiumVersion =
-		resources.find(
-			(item) => item.kind === 'chromium' && item.active,
-		)?.version ?? '';
+		resources.find((item) => item.kind === 'chromium' && item.active)?.version ?? '';
 	const keyLaunchArgs = useMemo(() => {
 		return (runtimeDetails?.launchArgs ?? []).filter(
 			(item) =>
@@ -167,12 +156,7 @@ export function ProfileDetailPage({
 					<h2 className="text-base font-semibold">{t('detail.pageTitle')}</h2>
 				</div>
 				<div className="flex items-center gap-2">
-					<Button
-						type="button"
-						variant="outline"
-						className="cursor-pointer"
-						onClick={onBack}
-					>
+					<Button type="button" variant="outline" className="cursor-pointer" onClick={onBack}>
 						<Icon icon={ArrowLeft} size={14} />
 						{backLabel ?? t('detail.backToList')}
 					</Button>
@@ -210,12 +194,8 @@ export function ProfileDetailPage({
 					</div>
 					<div className="flex flex-wrap items-center justify-end gap-2">
 						<Badge variant="secondary">{platformMeta.label}</Badge>
-						<Badge variant={profile.running ? 'default' : 'outline'}>
-							{statusLabel}
-						</Badge>
-						<Badge variant="secondary">
-							{browserVersionMeta.versionLabel}
-						</Badge>
+						<Badge variant={profile.running ? 'default' : 'outline'}>{statusLabel}</Badge>
+						<Badge variant="secondary">{browserVersionMeta.versionLabel}</Badge>
 					</div>
 				</CardHeader>
 				<CardContent className="grid gap-3 p-0 md:grid-cols-2 xl:grid-cols-4">
@@ -225,9 +205,7 @@ export function ProfileDetailPage({
 					/>
 					<DetailMetric
 						label={t('detail.startupUrl')}
-						value={
-							startupUrls.length ? startupUrls.join('\n') : t('common:notSet')
-						}
+						value={startupUrls.length ? startupUrls.join('\n') : t('common:notSet')}
 					/>
 					<DetailMetric label={t('detail.proxy')} value={proxyLabel} />
 					<DetailMetric
@@ -241,9 +219,7 @@ export function ProfileDetailPage({
 				<CardHeader className="flex flex-row items-center justify-between gap-3 p-0 pb-3">
 					<div>
 						<CardTitle className="text-sm">{t('detail.runAndDir')}</CardTitle>
-						<p className="mt-1 text-xs text-muted-foreground">
-							{t('detail.runAndDirDesc')}
-						</p>
+						<p className="mt-1 text-xs text-muted-foreground">{t('detail.runAndDirDesc')}</p>
 					</div>
 					<div className="flex items-center gap-2">
 						<Button
@@ -253,10 +229,7 @@ export function ProfileDetailPage({
 							className="cursor-pointer"
 							onClick={() => setShowHiddenInfo((value) => !value)}
 						>
-							<Icon
-								icon={showHiddenInfo ? ChevronDown : ChevronRight}
-								size={14}
-							/>
+							<Icon icon={showHiddenInfo ? ChevronDown : ChevronRight} size={14} />
 							{showHiddenInfo ? t('detail.hideInfo') : t('detail.showInfo')}
 						</Button>
 						<Button
@@ -323,9 +296,7 @@ export function ProfileDetailPage({
 
 					<Card className="border border-border/60 shadow-none">
 						<CardHeader className="px-4 pt-4 pb-2">
-							<CardTitle className="text-sm">
-								{t('detail.launchParams')}
-							</CardTitle>
+							<CardTitle className="text-sm">{t('detail.launchParams')}</CardTitle>
 						</CardHeader>
 						<CardContent className="space-y-3 px-4 pb-4 pt-0">
 							{profile.running ? (
@@ -334,9 +305,7 @@ export function ProfileDetailPage({
 										<DetailMetric
 											label={t('detail.keyParams')}
 											value={
-												keyLaunchArgs.length
-													? keyLaunchArgs.join('\n')
-													: t('detail.noKeyParams')
+												keyLaunchArgs.length ? keyLaunchArgs.join('\n') : t('detail.noKeyParams')
 											}
 										/>
 										<DetailMetric
@@ -362,17 +331,13 @@ export function ProfileDetailPage({
 									</div>
 								</>
 							) : (
-								<p className="text-sm text-muted-foreground">
-									{t('detail.notRunningHint')}
-								</p>
+								<p className="text-sm text-muted-foreground">{t('detail.notRunningHint')}</p>
 							)}
 						</CardContent>
 					</Card>
 
 					{runtimeDetailsQuery.error instanceof Error ? (
-						<p className="text-xs text-destructive">
-							{runtimeDetailsQuery.error.message}
-						</p>
+						<p className="text-xs text-destructive">{runtimeDetailsQuery.error.message}</p>
 					) : null}
 				</CardContent>
 			</Card>
@@ -381,9 +346,7 @@ export function ProfileDetailPage({
 				<Card className="p-4">
 					<CardHeader className="flex flex-row items-center gap-2 p-0 pb-3">
 						<Icon icon={Shield} size={16} />
-						<CardTitle className="text-sm">
-							{t('detail.fingerprintSource')}
-						</CardTitle>
+						<CardTitle className="text-sm">{t('detail.fingerprintSource')}</CardTitle>
 					</CardHeader>
 					<CardContent className="grid gap-3 p-0 md:grid-cols-2">
 						<DetailMetric
@@ -396,11 +359,7 @@ export function ProfileDetailPage({
 						/>
 						<DetailMetric
 							label={t('detail.browserVersion')}
-							value={
-								source?.browserVersion ||
-								basic?.browserVersion ||
-								t('common:notSet')
-							}
+							value={source?.browserVersion || basic?.browserVersion || t('common:notSet')}
 						/>
 						<DetailMetric
 							label={t('detail.seedPolicy')}
@@ -432,11 +391,7 @@ export function ProfileDetailPage({
 						/>
 						<DetailMetric
 							label={t('detail.doNotTrack')}
-							value={
-								fingerprint?.doNotTrackEnabled
-									? t('common:enabled')
-									: t('common:disabled')
-							}
+							value={fingerprint?.doNotTrackEnabled ? t('common:enabled') : t('common:disabled')}
 						/>
 					</CardContent>
 				</Card>
@@ -444,9 +399,7 @@ export function ProfileDetailPage({
 				<Card className="p-4">
 					<CardHeader className="flex flex-row items-center gap-2 p-0 pb-3">
 						<Icon icon={Sparkles} size={16} />
-						<CardTitle className="text-sm">
-							{t('detail.fingerprintSummary')}
-						</CardTitle>
+						<CardTitle className="text-sm">{t('detail.fingerprintSummary')}</CardTitle>
 					</CardHeader>
 					<CardContent className="space-y-3 p-0">
 						<div className="rounded-xl border border-border/70 bg-muted/20 p-3">
@@ -478,14 +431,14 @@ export function ProfileDetailPage({
 										: t('common:notSet')
 								}
 							/>
-						<DetailMetric
-							label={t('detail.cpuRam')}
-							value={
-								snapshot?.customCpuCores && snapshot?.customRamGb
-									? `${snapshot.customCpuCores} ${t('detail.core')} / ${snapshot.customRamGb} ${t('detail.gb')}`
-									: t('common:notSet')
-							}
-						/>
+							<DetailMetric
+								label={t('detail.cpuRam')}
+								value={
+									snapshot?.customCpuCores && snapshot?.customRamGb
+										? `${snapshot.customCpuCores} ${t('detail.core')} / ${snapshot.customRamGb} ${t('detail.gb')}`
+										: t('common:notSet')
+								}
+							/>
 							<DetailMetric
 								label={t('detail.touchFormFactor')}
 								value={`${snapshot?.customTouchPoints ?? 0} / ${snapshot?.formFactor || t('common:notSet')}`}
@@ -512,10 +465,7 @@ export function ProfileDetailPage({
 							/>
 							<DetailMetric
 								label={t('detail.seed')}
-								value={
-									snapshot?.fingerprintSeed?.toString() ||
-									t('common:generatedOnStartup')
-								}
+								value={snapshot?.fingerprintSeed?.toString() || t('common:generatedOnStartup')}
 							/>
 						</div>
 						<div className="rounded-xl border border-border/70 bg-muted/20 p-3">
@@ -530,32 +480,22 @@ export function ProfileDetailPage({
 									: t('common:notSet')}
 							</p>
 							<p className="mt-1 break-words text-xs text-muted-foreground">
-								{snapshot?.customFontList?.slice(0, 10).join(' / ') ||
-									t('common:notSet')}
+								{snapshot?.customFontList?.slice(0, 10).join(' / ') || t('common:notSet')}
 							</p>
 						</div>
 					</CardContent>
 				</Card>
 			</div>
 
-			<AlertDialog
-				open={confirmClearCacheOpen}
-				onOpenChange={setConfirmClearCacheOpen}
-			>
+			<AlertDialog open={confirmClearCacheOpen} onOpenChange={setConfirmClearCacheOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>{t('detail.confirmCleanCache')}</AlertDialogTitle>
-						<AlertDialogDescription>
-							{t('detail.confirmCleanCacheDesc')}
-						</AlertDialogDescription>
+						<AlertDialogDescription>{t('detail.confirmCleanCacheDesc')}</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel asChild>
-							<Button
-								type="button"
-								variant="outline"
-								className="cursor-pointer"
-							>
+							<Button type="button" variant="outline" className="cursor-pointer">
 								{t('common:cancel')}
 							</Button>
 						</AlertDialogCancel>
@@ -566,9 +506,7 @@ export function ProfileDetailPage({
 								disabled={clearingCache}
 								onClick={() => void handleClearCache()}
 							>
-								{clearingCache
-									? t('common:cleaningInProgress')
-									: t('detail.confirmClean')}
+								{clearingCache ? t('common:cleaningInProgress') : t('detail.confirmClean')}
 							</Button>
 						</AlertDialogAction>
 					</AlertDialogFooter>
@@ -591,12 +529,8 @@ function PathMetric({
 		<div className="rounded-xl border border-border/70 bg-muted/20 p-3">
 			<div className="flex items-start justify-between gap-2">
 				<div className="min-w-0">
-					<p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-						{label}
-					</p>
-					<p className="mt-1 break-words whitespace-pre-wrap text-sm">
-						{value}
-					</p>
+					<p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+					<p className="mt-1 break-words whitespace-pre-wrap text-sm">{value}</p>
 				</div>
 				{onOpen ? (
 					<Button

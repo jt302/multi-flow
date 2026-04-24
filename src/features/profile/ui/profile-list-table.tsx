@@ -1,14 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import {
-	Checkbox,
-	Table,
-	TableBody,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from '@/components/ui';
+import { Checkbox, Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui';
 import type { GroupItem } from '@/entities/group/model/types';
 import type {
 	BrowserBgColorMode,
@@ -20,11 +13,8 @@ import type {
 	ToolbarLabelMode,
 } from '@/entities/profile/model/types';
 import type { ProxyItem } from '@/entities/proxy/model/types';
+import type { ProfileListQuickEditState, QuickEditField } from '@/store/profile-list-store';
 import { ProfileListItem } from './profile-list-item';
-import type {
-	QuickEditField,
-	ProfileListQuickEditState,
-} from '@/store/profile-list-store';
 
 type ProfileListTableProps = {
 	profiles: ProfileItem[];
@@ -40,9 +30,7 @@ type ProfileListTableProps = {
 	onSetSelectedProfiles: (profileIds: string[]) => void;
 	onClearSelection: () => void;
 	onToggleProfile: (profileId: string, checked: boolean) => void;
-	onQuickEditChange: (
-		value: { profileId: string; field: QuickEditField } | null,
-	) => void;
+	onQuickEditChange: (value: { profileId: string; field: QuickEditField } | null) => void;
 	onViewProfile: (profileId: string) => void;
 	onEditProfile: (profileId: string) => void;
 	onUpdateProfileVisual: (
@@ -102,10 +90,7 @@ export function ProfileListTable({
 	onErrorReset,
 }: ProfileListTableProps) {
 	const { t } = useTranslation('profile');
-	const selectedProfileIdSet = useMemo(
-		() => new Set(selectedProfileIds),
-		[selectedProfileIds],
-	);
+	const selectedProfileIdSet = useMemo(() => new Set(selectedProfileIds), [selectedProfileIds]);
 	const handleQuickEditChange = useCallback(
 		(value: { profileId: string; field: QuickEditField } | null) => {
 			onQuickEditChange(value);
@@ -127,11 +112,7 @@ export function ProfileListTable({
 							<TableHead className="w-[86px]">
 								<div className="grid grid-cols-[1rem_2.25rem] items-center justify-center gap-2">
 									<Checkbox
-										checked={
-											filteredSelectionIndeterminate
-												? 'indeterminate'
-												: allFilteredSelected
-										}
+										checked={filteredSelectionIndeterminate ? 'indeterminate' : allFilteredSelected}
 										disabled={filteredActiveIds.length === 0}
 										onCheckedChange={(checked) => {
 											if (checked === true) {
@@ -144,21 +125,19 @@ export function ProfileListTable({
 									<span aria-hidden="true" className="h-9 w-9" />
 								</div>
 							</TableHead>
-						<TableHead>{t('list.profile')}</TableHead>
-						<TableHead>{t('list.group')}</TableHead>
-						<TableHead>{t('list.noteVersion')}</TableHead>
-						<TableHead>{t('list.device')}</TableHead>
-						<TableHead>{t('list.proxy')}</TableHead>
-						<TableHead className="w-[140px]">{t('list.status')}</TableHead>
-						<TableHead className="w-[130px] text-right">{t('list.action')}</TableHead>
+							<TableHead>{t('list.profile')}</TableHead>
+							<TableHead>{t('list.group')}</TableHead>
+							<TableHead>{t('list.noteVersion')}</TableHead>
+							<TableHead>{t('list.device')}</TableHead>
+							<TableHead>{t('list.proxy')}</TableHead>
+							<TableHead className="w-[140px]">{t('list.status')}</TableHead>
+							<TableHead className="w-[130px] text-right">{t('list.action')}</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
 						{profiles.map((item, index) => {
 							const boundProxyId = profileProxyBindings[item.id];
-							const boundProxy = boundProxyId
-								? proxyById[boundProxyId]
-								: undefined;
+							const boundProxy = boundProxyId ? proxyById[boundProxyId] : undefined;
 							return (
 								<ProfileListItem
 									key={item.id}

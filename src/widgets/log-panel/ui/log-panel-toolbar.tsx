@@ -10,14 +10,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
-import {
-	Badge,
-	Button,
-	CardHeader,
-	CardTitle,
-	Icon,
-	Input,
-} from '@/components/ui';
+import { Badge, Button, CardHeader, CardTitle, Icon, Input } from '@/components/ui';
 import { LEVEL_OPTIONS } from '../model/use-log-panel-state';
 
 type LogPanelToolbarProps = {
@@ -108,12 +101,7 @@ export function LogPanelToolbar({
 						<Icon icon={ScanSearch} size={13} />
 						{t('toolbar.autoScroll')}
 					</Button>
-					<Button
-						type="button"
-						variant="outline"
-						size="sm"
-						onClick={onClearLogs}
-					>
+					<Button type="button" variant="outline" size="sm" onClick={onClearLogs}>
 						<Icon icon={Trash2} size={13} />
 						{t('toolbar.clearView')}
 					</Button>
@@ -156,9 +144,7 @@ export function LogPanelToolbar({
 				</div>
 				<Input
 					value={componentFilter}
-					onChange={(event) =>
-						onComponentFilterChange(event.currentTarget.value)
-					}
+					onChange={(event) => onComponentFilterChange(event.currentTarget.value)}
 					placeholder={t('toolbar.componentFilter')}
 					className="bg-background/75"
 				/>
@@ -177,18 +163,10 @@ export function LogPanelToolbar({
 			</div>
 
 			<div className="flex items-center gap-2 text-xs text-muted-foreground">
-				<Badge variant="secondary">
-					{t('toolbar.total', { count: logCount })}
-				</Badge>
-				<Badge variant="secondary">
-					{t('toolbar.filtered', { count: filteredCount })}
-				</Badge>
-				<Badge variant="secondary">
-					{t('toolbar.level', { level: levelFilter })}
-				</Badge>
-				{groupByProfile ? (
-					<Badge variant="secondary">{t('toolbar.groupView')}</Badge>
-				) : null}
+				<Badge variant="secondary">{t('toolbar.total', { count: logCount })}</Badge>
+				<Badge variant="secondary">{t('toolbar.filtered', { count: filteredCount })}</Badge>
+				<Badge variant="secondary">{t('toolbar.level', { level: levelFilter })}</Badge>
+				{groupByProfile ? <Badge variant="secondary">{t('toolbar.groupView')}</Badge> : null}
 				{loading ? (
 					<span className="inline-flex items-center gap-1">
 						<Icon icon={RefreshCw} size={12} className="animate-spin" />

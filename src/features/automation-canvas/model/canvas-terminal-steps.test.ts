@@ -62,9 +62,7 @@ test('serializeControlFlowGraph strips outgoing edges from magic_safe_quit', () 
 		{ kind: 'cdp_navigate', url: 'https://example.com' },
 		{ kind: 'magic_safe_quit' },
 	]);
-	assert.deepEqual(result.orphanedSteps, [
-		{ kind: 'cdp_click', selector: '#after-close' },
-	]);
+	assert.deepEqual(result.orphanedSteps, [{ kind: 'cdp_click', selector: '#after-close' }]);
 	assert.deepEqual(
 		result.remappedEdges.map((edge) => ({ source: edge.source, target: edge.target })),
 		[{ source: 'step-0', target: 'step-1' }],

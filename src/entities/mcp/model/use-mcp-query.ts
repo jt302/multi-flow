@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { mcpApi } from '../api/mcp-api';
 import { queryKeys } from '@/shared/config/query-keys';
+import { mcpApi } from '../api/mcp-api';
 
 export function useMcpServersQuery() {
 	return useQuery({

@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import type { ImportBookmarksRequest } from '@/entities/bookmark/model/types';
 import {
 	Button,
 	Dialog,
@@ -18,6 +16,7 @@ import {
 	SelectValue,
 	Textarea,
 } from '@/components/ui';
+import type { ImportBookmarksRequest } from '@/entities/bookmark/model/types';
 
 type ImportDialogProps = {
 	open: boolean;
@@ -27,9 +26,17 @@ type ImportDialogProps = {
 	isPending?: boolean;
 };
 
-export function BookmarkImportDialog({ open, onClose, profileId, onImport, isPending }: ImportDialogProps) {
+export function BookmarkImportDialog({
+	open,
+	onClose,
+	profileId,
+	onImport,
+	isPending,
+}: ImportDialogProps) {
 	const { t } = useTranslation('bookmark');
-	const [strategy, setStrategy] = useState<'mount_as_folder' | 'merge' | 'replace'>('mount_as_folder');
+	const [strategy, setStrategy] = useState<'mount_as_folder' | 'merge' | 'replace'>(
+		'mount_as_folder',
+	);
 	const [folderTitle, setFolderTitle] = useState('');
 	const [content, setContent] = useState('');
 	const [error, setError] = useState<string | null>(null);
@@ -60,10 +67,7 @@ export function BookmarkImportDialog({ open, onClose, profileId, onImport, isPen
 				<div className="space-y-3">
 					<div className="space-y-1">
 						<Label className="text-xs">{t('actions.strategy')}</Label>
-						<Select
-							value={strategy}
-							onValueChange={(v) => setStrategy(v as typeof strategy)}
-						>
+						<Select value={strategy} onValueChange={(v) => setStrategy(v as typeof strategy)}>
 							<SelectTrigger className="h-8 text-xs cursor-pointer">
 								<SelectValue />
 							</SelectTrigger>
@@ -103,17 +107,10 @@ export function BookmarkImportDialog({ open, onClose, profileId, onImport, isPen
 						/>
 					</div>
 
-					{error && (
-						<p className="text-xs text-destructive">{error}</p>
-					)}
+					{error && <p className="text-xs text-destructive">{error}</p>}
 				</div>
 				<DialogFooter>
-					<Button
-						variant="outline"
-						size="sm"
-						className="cursor-pointer"
-						onClick={onClose}
-					>
+					<Button variant="outline" size="sm" className="cursor-pointer" onClick={onClose}>
 						{t('detail.cancel')}
 					</Button>
 					<Button
@@ -152,25 +149,12 @@ export function BookmarkExportDialog({ open, onClose, content }: ExportDialogPro
 				<DialogHeader>
 					<DialogTitle>{t('actions.exportTitle')}</DialogTitle>
 				</DialogHeader>
-				<Textarea
-					value={content}
-					readOnly
-					className="h-64 text-xs font-mono resize-none"
-				/>
+				<Textarea value={content} readOnly className="h-64 text-xs font-mono resize-none" />
 				<DialogFooter>
-					<Button
-						variant="outline"
-						size="sm"
-						className="cursor-pointer"
-						onClick={onClose}
-					>
+					<Button variant="outline" size="sm" className="cursor-pointer" onClick={onClose}>
 						{t('detail.cancel')}
 					</Button>
-					<Button
-						size="sm"
-						className="cursor-pointer"
-						onClick={() => void handleCopy()}
-					>
+					<Button size="sm" className="cursor-pointer" onClick={() => void handleCopy()}>
 						{copied ? t('actions.exportCopied') : t('actions.exportJson')}
 					</Button>
 				</DialogFooter>

@@ -22,14 +22,19 @@ import type { CreateProxyPayload, ProxyProtocol } from '@/features/proxy/model/t
 
 const PROTOCOL_OPTIONS: ProxyProtocol[] = ['http', 'https', 'socks5', 'ssh'];
 
-const createProxyFormSchema = (t: (key: string) => string) => z.object({
-	name: z.string().trim().min(1, t('common:errors.proxyNameRequired')),
-	protocol: z.enum(['http', 'https', 'socks5', 'ssh']),
-	host: z.string().trim().min(1, t('common:errors.hostRequired')),
-	port: z.coerce.number().int(t('common:errors.portInteger')).min(1, t('common:errors.portRange')).max(65535, t('common:errors.portRange')),
-	provider: z.string(),
-	note: z.string(),
-});
+const createProxyFormSchema = (t: (key: string) => string) =>
+	z.object({
+		name: z.string().trim().min(1, t('common:errors.proxyNameRequired')),
+		protocol: z.enum(['http', 'https', 'socks5', 'ssh']),
+		host: z.string().trim().min(1, t('common:errors.hostRequired')),
+		port: z.coerce
+			.number()
+			.int(t('common:errors.portInteger'))
+			.min(1, t('common:errors.portRange'))
+			.max(65535, t('common:errors.portRange')),
+		provider: z.string(),
+		note: z.string(),
+	});
 
 type ProxyCreateFormValues = z.infer<ReturnType<typeof createProxyFormSchema>>;
 
@@ -62,7 +67,9 @@ export function ProxyCreateCard({ pending, onCreateProxy }: ProxyCreateCardProps
 	return (
 		<Card className="p-4">
 			<CardHeader className="p-0">
-				<CardTitle className="text-sm">{t('common:createItem', { item: t('common:proxy') })}</CardTitle>
+				<CardTitle className="text-sm">
+					{t('common:createItem', { item: t('common:proxy') })}
+				</CardTitle>
 			</CardHeader>
 			<CardContent className="p-0 pt-3">
 				<form
@@ -89,11 +96,18 @@ export function ProxyCreateCard({ pending, onCreateProxy }: ProxyCreateCardProps
 					<div>
 						<p className="mb-1 text-xs text-muted-foreground">{t('common:name')}</p>
 						<Input {...register('name')} placeholder={t('common:placeholder.proxyNameExample')} />
-						{errors.name ? <p className="mt-1 text-xs text-destructive">{errors.name.message}</p> : null}
+						{errors.name ? (
+							<p className="mt-1 text-xs text-destructive">{errors.name.message}</p>
+						) : null}
 					</div>
 					<div className="grid grid-cols-[120px_minmax(0,1fr)_90px] gap-2">
 						<div>
-							<Select value={watch('protocol')} onValueChange={(value: string) => setValue('protocol', value as ProxyProtocol, { shouldValidate: true })}>
+							<Select
+								value={watch('protocol')}
+								onValueChange={(value: string) =>
+									setValue('protocol', value as ProxyProtocol, { shouldValidate: true })
+								}
+							>
 								<SelectTrigger className="w-full">
 									<SelectValue placeholder={t('common:protocol')} />
 								</SelectTrigger>
@@ -108,11 +122,19 @@ export function ProxyCreateCard({ pending, onCreateProxy }: ProxyCreateCardProps
 						</div>
 						<div>
 							<Input {...register('host')} placeholder={t('common:placeholder.hostIp')} />
-							{errors.host ? <p className="mt-1 text-xs text-destructive">{errors.host.message}</p> : null}
+							{errors.host ? (
+								<p className="mt-1 text-xs text-destructive">{errors.host.message}</p>
+							) : null}
 						</div>
 						<div>
-							<Input type="number" {...register('port')} placeholder={t('common:placeholder.port')} />
-							{errors.port ? <p className="mt-1 text-xs text-destructive">{errors.port.message}</p> : null}
+							<Input
+								type="number"
+								{...register('port')}
+								placeholder={t('common:placeholder.port')}
+							/>
+							{errors.port ? (
+								<p className="mt-1 text-xs text-destructive">{errors.port.message}</p>
+							) : null}
 						</div>
 					</div>
 					<Input {...register('provider')} placeholder={t('common:protocol')} />

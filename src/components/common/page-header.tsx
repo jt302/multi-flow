@@ -12,11 +12,7 @@ type PageHeaderProps = {
 	className?: string;
 };
 
-export function PageHeader({
-	label: _label,
-	actions,
-	className,
-}: PageHeaderProps) {
+export function PageHeader({ label: _label, actions, className }: PageHeaderProps) {
 	if (!actions) return null;
 
 	return (

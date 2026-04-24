@@ -1,8 +1,6 @@
 import i18next from 'i18next';
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
-
-import { tauriInvoke } from '../shared/api/tauri-invoke.ts';
 import type {
 	EnsureSyncSidecarStartedResponse,
 	LocalSyncTargetItem,
@@ -11,10 +9,8 @@ import type {
 	SyncSessionPayload,
 	SyncWarningItem,
 } from '../entities/window-session/model/types.ts';
-import {
-	MultiFlowSyncManagerClient,
-	type SyncManagerClient,
-} from './sync-manager-client.ts';
+import { tauriInvoke } from '../shared/api/tauri-invoke.ts';
+import { MultiFlowSyncManagerClient, type SyncManagerClient } from './sync-manager-client.ts';
 import {
 	EMPTY_SYNC_METRICS,
 	normalizeInstance,
@@ -48,7 +44,6 @@ type SyncManagerStoreDeps = {
 	clearTimeoutFn?: typeof clearTimeout;
 	reconnectDelayMs?: number;
 };
-
 
 async function defaultEnsureSidecarStarted() {
 	return tauriInvoke<EnsureSyncSidecarStartedResponse>('ensure_sync_sidecar_started');
@@ -211,14 +206,14 @@ export function createSyncManagerStore(options: CreateStoreOptions = {}) {
 					targets
 						.filter((item) => item.magicSocketServerPort !== null)
 						.map((item) =>
-						client!.request('instances.upsert', {
-							id: item.profileId,
-							host: item.host,
-							port: item.magicSocketServerPort,
-							status: 'unknown',
-							label: item.label,
-						}),
-					),
+							client!.request('instances.upsert', {
+								id: item.profileId,
+								host: item.host,
+								port: item.magicSocketServerPort,
+								status: 'unknown',
+								label: item.label,
+							}),
+						),
 				);
 				await Promise.all(
 					[...previousIds]

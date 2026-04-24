@@ -44,6 +44,6 @@ export function useResourceDownloadProgress(
 	resourceId: string | null | undefined,
 ): ResourceDownloadEntry | null {
 	return useResourceDownloadStore((state) =>
-		resourceId ? state.byResourceId[resourceId] ?? null : null,
+		resourceId ? (state.byResourceId[resourceId] ?? null) : null,
 	);
 }

@@ -12,8 +12,7 @@ import type {
 	UpdateChatSessionRequest,
 } from '../model/types';
 
-export const listChatSessions = () =>
-	tauriInvoke<ChatSession[]>('list_chat_sessions');
+export const listChatSessions = () => tauriInvoke<ChatSession[]>('list_chat_sessions');
 
 export const createChatSession = (payload: CreateChatSessionRequest) =>
 	tauriInvoke<ChatSession>('create_chat_session', { payload });

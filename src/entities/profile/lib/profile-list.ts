@@ -1,8 +1,8 @@
-import type { ProfileItem } from '@/entities/profile/model/types';
+import i18next from 'i18next';
 import type { PlatformVisualMeta } from '@/entities/profile/lib/platform-meta';
 import { getPlatformMeta } from '@/entities/profile/lib/platform-meta';
+import type { ProfileItem } from '@/entities/profile/model/types';
 import { detectClientPlatform } from '@/shared/lib/platform';
-import i18next from 'i18next';
 
 export type ProfileListRunningFilter = 'all' | 'running' | 'stopped';
 export type ProfileListLifecycleFilter = 'all' | 'active' | 'deleted';

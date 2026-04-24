@@ -1,9 +1,6 @@
 import { emit, listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import i18next from 'i18next';
-
-import { tauriInvoke } from '@/shared/api/tauri-invoke';
-
 import type {
 	AiConfigEntry,
 	AiDialogRequest,
@@ -21,6 +18,7 @@ import type {
 	CreateAutomationScriptPayload,
 	SaveAutomationCanvasGraphPayload,
 } from '@/entities/automation/model/types';
+import { tauriInvoke } from '@/shared/api/tauri-invoke';
 
 export async function listAutomationScripts(): Promise<AutomationScript[]> {
 	return tauriInvoke<AutomationScript[]>('list_automation_scripts');
@@ -111,33 +109,45 @@ export async function listenAutomationVariablesUpdated(
 export async function listenAutomationHumanRequired(
 	onEvent: (event: AutomationHumanRequiredEvent) => void,
 ): Promise<() => void> {
-	return getCurrentWindow().listen<AutomationHumanRequiredEvent>('automation_human_required', (event) => {
-		onEvent(event.payload);
-	});
+	return getCurrentWindow().listen<AutomationHumanRequiredEvent>(
+		'automation_human_required',
+		(event) => {
+			onEvent(event.payload);
+		},
+	);
 }
 
 export async function listenAutomationHumanDismissed(
 	onEvent: (event: AutomationHumanDismissedEvent) => void,
 ): Promise<() => void> {
-	return getCurrentWindow().listen<AutomationHumanDismissedEvent>('automation_human_dismissed', (event) => {
-		onEvent(event.payload);
-	});
+	return getCurrentWindow().listen<AutomationHumanDismissedEvent>(
+		'automation_human_dismissed',
+		(event) => {
+			onEvent(event.payload);
+		},
+	);
 }
 
 export async function listenAutomationStepErrorPause(
 	onEvent: (event: AutomationStepErrorPauseEvent) => void,
 ): Promise<() => void> {
-	return getCurrentWindow().listen<AutomationStepErrorPauseEvent>('automation_step_error_pause', (event) => {
-		onEvent(event.payload);
-	});
+	return getCurrentWindow().listen<AutomationStepErrorPauseEvent>(
+		'automation_step_error_pause',
+		(event) => {
+			onEvent(event.payload);
+		},
+	);
 }
 
 export async function listenAutomationRunCancelled(
 	onEvent: (event: AutomationRunCancelledEvent) => void,
 ): Promise<() => void> {
-	return getCurrentWindow().listen<AutomationRunCancelledEvent>('automation_run_cancelled', (event) => {
-		onEvent(event.payload);
-	});
+	return getCurrentWindow().listen<AutomationRunCancelledEvent>(
+		'automation_run_cancelled',
+		(event) => {
+			onEvent(event.payload);
+		},
+	);
 }
 
 export async function listenAutomationNotification(
@@ -165,7 +175,11 @@ export async function runAutomationScriptDebug(
 	profileId: string | null,
 	initialVars?: Record<string, string>,
 ): Promise<string> {
-	return tauriInvoke<string>('run_automation_script_debug', { scriptId, profileId, initialVars: initialVars ?? null });
+	return tauriInvoke<string>('run_automation_script_debug', {
+		scriptId,
+		profileId,
+		initialVars: initialVars ?? null,
+	});
 }
 
 export async function openAutomationCanvasWindow(

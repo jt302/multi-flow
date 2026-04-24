@@ -1,20 +1,17 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, extname, join } from 'node:path';
+import test from 'node:test';
 
 test('app bootstrap does not manually show the main window', () => {
 	const file = readFileSync(new URL('./app.tsx', import.meta.url), 'utf8');
 
 	assert.equal(file.includes('getCurrentWindow().show()'), false);
-	assert.equal(file.includes("@tauri-apps/api/window"), false);
+	assert.equal(file.includes('@tauri-apps/api/window'), false);
 });
 
 test('tauri main window is manually created from config with dedicated state persistence', () => {
-	const libFile = readFileSync(
-		new URL('../../src-tauri/src/lib.rs', import.meta.url),
-		'utf8',
-	);
+	const libFile = readFileSync(new URL('../../src-tauri/src/lib.rs', import.meta.url), 'utf8');
 	const tauriConfigFile = readFileSync(
 		new URL('../../src-tauri/tauri.conf.json', import.meta.url),
 		'utf8',
@@ -31,10 +28,7 @@ test('tauri main window is manually created from config with dedicated state per
 });
 
 test('main window startup keeps a backend fallback for missed frontend ready handshakes', () => {
-	const libFile = readFileSync(
-		new URL('../../src-tauri/src/lib.rs', import.meta.url),
-		'utf8',
-	);
+	const libFile = readFileSync(new URL('../../src-tauri/src/lib.rs', import.meta.url), 'utf8');
 	const windowCommandsFile = readFileSync(
 		new URL('../../src-tauri/src/commands/window_commands.rs', import.meta.url),
 		'utf8',
@@ -48,10 +42,7 @@ test('main window startup keeps a backend fallback for missed frontend ready han
 test('main app router disables transition-based navigation updates during startup', () => {
 	const mainFile = readFileSync(new URL('../main.tsx', import.meta.url), 'utf8');
 
-	assert.equal(
-		mainFile.includes('<BrowserRouter unstable_useTransitions={false}>'),
-		true,
-	);
+	assert.equal(mainFile.includes('<BrowserRouter unstable_useTransitions={false}>'), true);
 });
 
 function collectRuntimeSourceFiles(dir: string): string[] {
@@ -76,9 +67,7 @@ test('frontend runtime source does not emit console logs', () => {
 	const srcRoot = dirname(new URL('../main.tsx', import.meta.url).pathname);
 	const sourceFiles = collectRuntimeSourceFiles(srcRoot);
 	const filesWithConsole = sourceFiles.filter((file) =>
-		/console\.(log|warn|error|debug|info)\s*\(/.test(
-			readFileSync(file, 'utf8'),
-		),
+		/console\.(log|warn|error|debug|info)\s*\(/.test(readFileSync(file, 'utf8')),
 	);
 
 	assert.deepEqual(filesWithConsole, []);

@@ -1,16 +1,15 @@
-import { Position, type Node } from '@xyflow/react';
+import { type Node, Position } from '@xyflow/react';
 import i18next from 'i18next';
-
-import type { ScriptStep } from '@/entities/automation/model/types';
 import { isTerminalStepKind } from '@/entities/automation/model/step-flow';
 import {
 	GROUP_ACCENT_COLORS,
 	GROUP_COLORS,
-	KIND_GROUPS,
 	getGroupLabel,
 	getKindLabel,
 	getStepSummaryText,
+	KIND_GROUPS,
 } from '@/entities/automation/model/step-registry';
+import type { ScriptStep } from '@/entities/automation/model/types';
 
 export type StepNodeSourceHandle = {
 	id: string | null;

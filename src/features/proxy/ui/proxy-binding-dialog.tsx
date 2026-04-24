@@ -27,10 +27,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui';
-import type {
-	ProfileItem,
-	ProfileProxyBindingMap,
-} from '@/entities/profile/model/types';
+import type { ProfileItem, ProfileProxyBindingMap } from '@/entities/profile/model/types';
 import type { ProxyItem } from '@/entities/proxy/model/types';
 
 type Values = {
@@ -69,10 +66,12 @@ export function ProxyBindingDialog({
 		watch,
 		formState: { errors },
 	} = useForm<Values>({
-		resolver: zodResolver(z.object({
-			profileId: z.string().trim().min(1, t('common:placeholder.selectProfile')),
-			proxyId: z.string().trim().min(1, t('common:placeholder.selectProxy')),
-		})),
+		resolver: zodResolver(
+			z.object({
+				profileId: z.string().trim().min(1, t('common:placeholder.selectProfile')),
+				proxyId: z.string().trim().min(1, t('common:placeholder.selectProxy')),
+			}),
+		),
 		defaultValues: { profileId: '', proxyId: '' },
 	});
 
@@ -90,14 +89,10 @@ export function ProxyBindingDialog({
 		.filter((profile) => profileProxyBindings[profile.id])
 		.map((profile) => ({
 			profile,
-			proxy: activeProxies.find(
-				(proxy) => proxy.id === profileProxyBindings[profile.id],
-			),
+			proxy: activeProxies.find((proxy) => proxy.id === profileProxyBindings[profile.id]),
 		}))
 		.filter((item) => Boolean(item.proxy))
-		.filter((item) =>
-			initialProxyId ? item.proxy?.id === initialProxyId : true,
-		);
+		.filter((item) => (initialProxyId ? item.proxy?.id === initialProxyId : true));
 
 	useEffect(() => {
 		if (!open) {
@@ -107,10 +102,7 @@ export function ProxyBindingDialog({
 
 	useEffect(() => {
 		if (!open) return;
-		if (
-			!selectedProfileId ||
-			!activeProfiles.some((item) => item.id === selectedProfileId)
-		) {
+		if (!selectedProfileId || !activeProfiles.some((item) => item.id === selectedProfileId)) {
 			const fallback = activeProfiles[0]?.id ?? '';
 			if (selectedProfileId !== fallback) {
 				setValue('profileId', fallback, { shouldValidate: true });
@@ -120,19 +112,13 @@ export function ProxyBindingDialog({
 
 	useEffect(() => {
 		if (!open) return;
-		if (
-			initialProxyId &&
-			activeProxies.some((item) => item.id === initialProxyId)
-		) {
+		if (initialProxyId && activeProxies.some((item) => item.id === initialProxyId)) {
 			if (selectedProxyId !== initialProxyId) {
 				setValue('proxyId', initialProxyId, { shouldValidate: true });
 			}
 			return;
 		}
-		if (
-			!selectedProxyId ||
-			!activeProxies.some((item) => item.id === selectedProxyId)
-		) {
+		if (!selectedProxyId || !activeProxies.some((item) => item.id === selectedProxyId)) {
 			const fallback = activeProxies[0]?.id ?? '';
 			if (selectedProxyId !== fallback) {
 				setValue('proxyId', fallback, { shouldValidate: true });
@@ -159,9 +145,7 @@ export function ProxyBindingDialog({
 							<p className="mb-1 text-xs text-muted-foreground">{t('common:profile')}</p>
 							<Select
 								value={selectedProfileId}
-								onValueChange={(value) =>
-									setValue('profileId', value, { shouldValidate: true })
-								}
+								onValueChange={(value) => setValue('profileId', value, { shouldValidate: true })}
 							>
 								<SelectTrigger className="w-full cursor-pointer">
 									<SelectValue placeholder={t('common:placeholder.selectProfile')} />
@@ -175,18 +159,14 @@ export function ProxyBindingDialog({
 								</SelectContent>
 							</Select>
 							{errors.profileId ? (
-								<p className="mt-1 text-xs text-destructive">
-									{errors.profileId.message}
-								</p>
+								<p className="mt-1 text-xs text-destructive">{errors.profileId.message}</p>
 							) : null}
 						</div>
 						<div>
 							<p className="mb-1 text-xs text-muted-foreground">{t('common:proxy')}</p>
 							<Select
 								value={selectedProxyId}
-								onValueChange={(value) =>
-									setValue('proxyId', value, { shouldValidate: true })
-								}
+								onValueChange={(value) => setValue('proxyId', value, { shouldValidate: true })}
 								disabled={Boolean(initialProxyId)}
 							>
 								<SelectTrigger className="w-full cursor-pointer">
@@ -201,9 +181,7 @@ export function ProxyBindingDialog({
 								</SelectContent>
 							</Select>
 							{errors.proxyId ? (
-								<p className="mt-1 text-xs text-destructive">
-									{errors.proxyId.message}
-								</p>
+								<p className="mt-1 text-xs text-destructive">{errors.proxyId.message}</p>
 							) : null}
 						</div>
 						<div className="flex justify-end">
@@ -214,12 +192,12 @@ export function ProxyBindingDialog({
 								disabled={pending || !selectedProfileId || !selectedProxyId}
 							>
 								<Icon
-								icon={pending ? LoaderCircle : Link2}
-								size={13}
-								className={pending ? 'animate-spin' : ''}
-							/>
-							{t('common:bind')}
-						</Button>
+									icon={pending ? LoaderCircle : Link2}
+									size={13}
+									className={pending ? 'animate-spin' : ''}
+								/>
+								{t('common:bind')}
+							</Button>
 						</div>
 						<div className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-border/70 p-2">
 							{boundRows.length === 0 ? (
@@ -233,9 +211,7 @@ export function ProxyBindingDialog({
 										className="flex items-center justify-between rounded-lg border border-border/70 bg-background/70 px-2 py-2"
 									>
 										<div className="min-w-0">
-											<p className="truncate text-xs font-medium">
-												{profile.name}
-											</p>
+											<p className="truncate text-xs font-medium">{profile.name}</p>
 											<p className="truncate text-[11px] text-muted-foreground">
 												{proxy?.name} · {proxy?.protocol.toUpperCase()}
 											</p>
@@ -270,12 +246,7 @@ export function ProxyBindingDialog({
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel asChild>
-							<Button
-								type="button"
-								variant="ghost"
-								className="cursor-pointer"
-								disabled={pending}
-							>
+							<Button type="button" variant="ghost" className="cursor-pointer" disabled={pending}>
 								{t('common:cancel')}
 							</Button>
 						</AlertDialogCancel>

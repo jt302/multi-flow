@@ -176,19 +176,14 @@ function buildMainSidebarBounds(
 	const out: WindowBoundsItem[] = [];
 
 	if (mainPosition === 'left' || mainPosition === 'right') {
-		const mainW = Math.max(
-			MIN_WINDOW_W,
-			Math.floor(rect.width * ratio) - Math.floor(gapX / 2),
-		);
+		const mainW = Math.max(MIN_WINDOW_W, Math.floor(rect.width * ratio) - Math.floor(gapX / 2));
 		const sideW = Math.max(MIN_WINDOW_W, rect.width - mainW - gapX);
 		const sideH = Math.max(
 			MIN_WINDOW_H,
 			Math.floor((rect.height - (sidebars - 1) * gapY) / sidebars),
 		);
 		const [mainX, sideX] =
-			mainPosition === 'left'
-				? [rect.x, rect.x + mainW + gapX]
-				: [rect.x + sideW + gapX, rect.x];
+			mainPosition === 'left' ? [rect.x, rect.x + mainW + gapX] : [rect.x + sideW + gapX, rect.x];
 
 		out.push({ x: mainX, y: rect.y, width: mainW, height: rect.height });
 		for (let i = 0; i < sidebars; i++) {
@@ -200,19 +195,14 @@ function buildMainSidebarBounds(
 			});
 		}
 	} else {
-		const mainH = Math.max(
-			MIN_WINDOW_H,
-			Math.floor(rect.height * ratio) - Math.floor(gapY / 2),
-		);
+		const mainH = Math.max(MIN_WINDOW_H, Math.floor(rect.height * ratio) - Math.floor(gapY / 2));
 		const sideH = Math.max(MIN_WINDOW_H, rect.height - mainH - gapY);
 		const sideW = Math.max(
 			MIN_WINDOW_W,
 			Math.floor((rect.width - (sidebars - 1) * gapX) / sidebars),
 		);
 		const [mainY, sideY] =
-			mainPosition === 'top'
-				? [rect.y, rect.y + mainH + gapY]
-				: [rect.y + sideH + gapY, rect.y];
+			mainPosition === 'top' ? [rect.y, rect.y + mainH + gapY] : [rect.y + sideH + gapY, rect.y];
 
 		out.push({ x: rect.x, y: mainY, width: rect.width, height: mainH });
 		for (let i = 0; i < sidebars; i++) {

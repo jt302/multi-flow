@@ -7,27 +7,26 @@
 import '@xyflow/react/dist/style.css';
 
 import {
+	Background,
+	BackgroundVariant,
+	Controls,
+	MiniMap,
+	type OnSelectionChangeFunc,
+	ReactFlow,
+	ReactFlowProvider,
+	SelectionMode,
+	useReactFlow,
+} from '@xyflow/react';
+import {
+	type MutableRefObject,
+	type KeyboardEvent as ReactKeyboardEvent,
+	type MouseEvent as ReactMouseEvent,
 	useCallback,
 	useEffect,
 	useMemo,
 	useRef,
 	useState,
-	type KeyboardEvent as ReactKeyboardEvent,
-	type MouseEvent as ReactMouseEvent,
-	type MutableRefObject,
 } from 'react';
-
-import {
-	Background,
-	BackgroundVariant,
-	Controls,
-	MiniMap,
-	ReactFlow,
-	ReactFlowProvider,
-	SelectionMode,
-	type OnSelectionChangeFunc,
-	useReactFlow,
-} from '@xyflow/react';
 
 import type {
 	AutomationScript,
@@ -39,13 +38,9 @@ import type { ProfileItem } from '@/entities/profile/model/types';
 import { RunDialog } from '@/features/automation/ui/run-dialog';
 
 import { resolveCanvasDeleteTargets } from '../model/canvas-delete-shortcut';
-import {
-	createCanvasStore,
-	useCanvasStore,
-	type CanvasStoreApi,
-} from '../model/canvas-store';
 import { START_NODE_ID } from '../model/canvas-helpers';
 import type { StepNodeData } from '../model/canvas-node-data';
+import { type CanvasStoreApi, createCanvasStore, useCanvasStore } from '../model/canvas-store';
 import { CanvasToolbar } from './canvas-toolbar';
 import { NODE_TYPES } from './step-node';
 import { StepPalette } from './step-palette';
@@ -133,7 +128,7 @@ function StepPaletteHost({
 					? screenToFlowPosition({
 							x: rect.x + rect.width / 2,
 							y: rect.y + rect.height / 2,
-					  })
+						})
 					: undefined;
 				void addStep(kind, center);
 			}}
@@ -159,18 +154,12 @@ function CanvasViewport({
 	const onNodeClick = useCanvasStore(canvasStore, (state) => state.onNodeClick);
 	const onPaneClick = useCanvasStore(canvasStore, (state) => state.onPaneClick);
 
-	const defaultEdgeOptions = useMemo(
-		() => ({ type: 'smoothstep', interactionWidth: 40 }),
-		[],
-	);
+	const defaultEdgeOptions = useMemo(() => ({ type: 'smoothstep', interactionWidth: 40 }), []);
 
 	const handleSelectionChange = useCallback<OnSelectionChangeFunc>(
 		({ nodes: selectedNodes, edges: selectedEdges }) => {
-			const selectedStepNodes = selectedNodes.filter(
-				(node) => node.id !== START_NODE_ID,
-			);
-			lastClickedEdgeRef.current =
-				selectedEdges.length === 1 ? selectedEdges[0].id : null;
+			const selectedStepNodes = selectedNodes.filter((node) => node.id !== START_NODE_ID);
+			lastClickedEdgeRef.current = selectedEdges.length === 1 ? selectedEdges[0].id : null;
 
 			if (selectedStepNodes.length >= 2) {
 				const selectedNodeIds = new Set(selectedNodes.map((node) => node.id));
@@ -179,16 +168,13 @@ function CanvasViewport({
 					.filter((edge) => edge.source !== START_NODE_ID)
 					.filter((edge) => {
 						const shouldSelect =
-							selectedNodeIds.has(edge.source) &&
-							selectedNodeIds.has(edge.target);
+							selectedNodeIds.has(edge.source) && selectedNodeIds.has(edge.target);
 						return edge.selected !== shouldSelect;
 					})
 					.map((edge) => ({
 						id: edge.id,
 						type: 'select' as const,
-						selected:
-							selectedNodeIds.has(edge.source) &&
-							selectedNodeIds.has(edge.target),
+						selected: selectedNodeIds.has(edge.source) && selectedNodeIds.has(edge.target),
 					}));
 				if (edgeChanges.length > 0) {
 					onEdgesChange(edgeChanges);
@@ -458,11 +444,7 @@ function InnerCanvas({
 	);
 
 	return (
-		<div
-			className="flex flex-col h-screen outline-none"
-			tabIndex={-1}
-			onKeyDown={handleKeyDown}
-		>
+		<div className="flex flex-col h-screen outline-none" tabIndex={-1} onKeyDown={handleKeyDown}>
 			<CanvasToolbarHost
 				canvasStore={canvasStore}
 				scriptName={script.name}
@@ -504,10 +486,7 @@ function InnerCanvas({
 					collapsed={paletteCollapsed}
 					onToggleCollapse={() => setPaletteCollapsed((collapsed) => !collapsed)}
 				/>
-				<CanvasViewport
-					canvasStore={canvasStore}
-					lastClickedEdgeRef={lastClickedEdgeRef}
-				/>
+				<CanvasViewport canvasStore={canvasStore} lastClickedEdgeRef={lastClickedEdgeRef} />
 				<StepPropertiesSidebarHost
 					canvasStore={canvasStore}
 					panelWidth={panelWidth}

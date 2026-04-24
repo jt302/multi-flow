@@ -1,12 +1,5 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
-import type {
-	ApplyBookmarkTemplateRequest,
-	BatchProfileActionResponse,
-	BookmarkTemplateItem,
-} from '@/entities/bookmark/model/types';
-import type { ProfileItem } from '@/entities/profile/model/types';
 import {
 	Button,
 	Dialog,
@@ -14,15 +7,21 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
+	Input,
 	Label,
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-	Input,
 	Separator,
 } from '@/components/ui';
+import type {
+	ApplyBookmarkTemplateRequest,
+	BatchProfileActionResponse,
+	BookmarkTemplateItem,
+} from '@/entities/bookmark/model/types';
+import type { ProfileItem } from '@/entities/profile/model/types';
 import { cn } from '@/lib/utils';
 
 type ApplyResult = BatchProfileActionResponse;
@@ -124,12 +123,7 @@ export function ApplyTemplateDialog({
 									))}
 							</ul>
 						)}
-						<Button
-							size="sm"
-							variant="outline"
-							className="cursor-pointer"
-							onClick={handleClose}
-						>
+						<Button size="sm" variant="outline" className="cursor-pointer" onClick={handleClose}>
 							{t('detail.cancel')}
 						</Button>
 					</div>
@@ -140,9 +134,7 @@ export function ApplyTemplateDialog({
 							<Label className="text-xs">{t('actions.strategy')}</Label>
 							<Select
 								value={strategy}
-								onValueChange={(v) =>
-									setStrategy(v as ApplyBookmarkTemplateRequest['strategy'])
-								}
+								onValueChange={(v) => setStrategy(v as ApplyBookmarkTemplateRequest['strategy'])}
 							>
 								<SelectTrigger className="h-8 text-xs cursor-pointer">
 									<SelectValue />
@@ -215,6 +207,7 @@ export function ApplyTemplateDialog({
 												>
 													{selectedIds.has(p.id) && (
 														<svg
+															aria-hidden="true"
 															viewBox="0 0 10 10"
 															className="h-2 w-2"
 															fill="none"
@@ -254,12 +247,7 @@ export function ApplyTemplateDialog({
 
 				{!result && (
 					<DialogFooter>
-						<Button
-							variant="outline"
-							size="sm"
-							className="cursor-pointer"
-							onClick={handleClose}
-						>
+						<Button variant="outline" size="sm" className="cursor-pointer" onClick={handleClose}>
 							{t('detail.cancel')}
 						</Button>
 						<Button

@@ -1,15 +1,14 @@
-import { useTranslation } from 'react-i18next';
 import { Download } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@/components/ui';
-import { useChromiumRuntimeStore, type DownloadItem } from '@/store/chromium-runtime-store';
 import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
 import { cn } from '@/lib/utils';
+import { type DownloadItem, useChromiumRuntimeStore } from '@/store/chromium-runtime-store';
 
 function DownloadRow({ item, profileName }: { item: DownloadItem; profileName?: string }) {
 	const { t } = useTranslation('chromium');
-	const percent =
-		item.totalBytes > 0 ? Math.round((item.bytesSoFar / item.totalBytes) * 100) : 0;
+	const percent = item.totalBytes > 0 ? Math.round((item.bytesSoFar / item.totalBytes) * 100) : 0;
 
 	return (
 		<li className="space-y-1 px-3 py-2 border-b border-border/30 last:border-0">
@@ -42,9 +41,7 @@ function DownloadRow({ item, profileName }: { item: DownloadItem; profileName?: 
 				</div>
 			)}
 
-			{item.error && (
-				<p className="text-[10px] text-destructive truncate">{item.error}</p>
-			)}
+			{item.error && <p className="text-[10px] text-destructive truncate">{item.error}</p>}
 
 			{profileName && (
 				<p className="text-[10px] text-muted-foreground">
@@ -61,9 +58,7 @@ export function DownloadsPopover() {
 	const clearCompleted = useChromiumRuntimeStore((s) => s.clearCompleted);
 	const profilesQuery = useProfilesQuery({ refetchInterval: false });
 
-	const profileMap = Object.fromEntries(
-		(profilesQuery.data ?? []).map((p) => [p.id, p.name]),
-	);
+	const profileMap = Object.fromEntries((profilesQuery.data ?? []).map((p) => [p.id, p.name]));
 
 	const items = Object.values(downloads).sort((a, b) => b.updatedAt - a.updatedAt);
 	const activeCount = items.filter((i) => i.state === 'in_progress').length;

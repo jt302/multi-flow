@@ -1,6 +1,13 @@
 import type { UseFormReturn } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
+import {
+	Input,
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui';
 import { TimezoneCombobox } from '@/shared/ui/timezone-combobox';
 import type { ProfileFormValues } from '../model/profile-form';
 import { SectionTitle } from './section-title';
@@ -37,9 +44,7 @@ export function LocaleSettingsSection({
 			<SectionTitle title={t('locale.title')} description={t('locale.desc')} />
 
 			<div className="mb-3">
-				<label className="mb-1 block text-xs text-muted-foreground">
-					{t('locale.modeLabel')}
-				</label>
+				<label className="mb-1 block text-xs text-muted-foreground">{t('locale.modeLabel')}</label>
 				<Select
 					value={localeMode}
 					onValueChange={(value) =>
@@ -64,9 +69,7 @@ export function LocaleSettingsSection({
 
 			<div className="grid gap-3 md:grid-cols-2">
 				<div>
-					<label className="mb-1 block text-xs text-muted-foreground">
-						{t('locale.language')}
-					</label>
+					<label className="mb-1 block text-xs text-muted-foreground">{t('locale.language')}</label>
 					<Input
 						{...register('language', {
 							onChange: () => !isAuto && onMarkManual('language'),
@@ -83,9 +86,7 @@ export function LocaleSettingsSection({
 				</div>
 
 				<div>
-					<label className="mb-1 block text-xs text-muted-foreground">
-						{t('locale.timezone')}
-					</label>
+					<label className="mb-1 block text-xs text-muted-foreground">{t('locale.timezone')}</label>
 					{isAuto ? (
 						<Input
 							value={timezoneId}

@@ -1,6 +1,6 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import test from 'node:test';
 
 function extractFunctionBody(source: string, fnName: string): string {
 	const signature = new RegExp(`pub(?: async)? fn ${fnName}\\s*\\(`);
@@ -40,14 +40,8 @@ function extractFunctionSignature(source: string, fnName: string): string {
 }
 
 test('reload bootstrap commands avoid inline runtime reconciliation', () => {
-	const profileCommands = readFileSync(
-		new URL('./profile_commands.rs', import.meta.url),
-		'utf8',
-	);
-	const windowCommands = readFileSync(
-		new URL('./window_commands.rs', import.meta.url),
-		'utf8',
-	);
+	const profileCommands = readFileSync(new URL('./profile_commands.rs', import.meta.url), 'utf8');
+	const windowCommands = readFileSync(new URL('./window_commands.rs', import.meta.url), 'utf8');
 
 	const listProfilesBody = extractFunctionBody(profileCommands, 'list_profiles');
 	const listOpenProfileWindowsBody = extractFunctionBody(
@@ -55,10 +49,7 @@ test('reload bootstrap commands avoid inline runtime reconciliation', () => {
 		'list_open_profile_windows',
 	);
 
-	assert.equal(
-		listProfilesBody.includes('runtime_guard::reconcile_runtime_state'),
-		false,
-	);
+	assert.equal(listProfilesBody.includes('runtime_guard::reconcile_runtime_state'), false);
 	assert.equal(
 		listOpenProfileWindowsBody.includes('runtime_guard::reconcile_runtime_state'),
 		false,
@@ -66,10 +57,7 @@ test('reload bootstrap commands avoid inline runtime reconciliation', () => {
 });
 
 test('profile launch commands offload blocking startup work from the invoke path', () => {
-	const profileCommands = readFileSync(
-		new URL('./profile_commands.rs', import.meta.url),
-		'utf8',
-	);
+	const profileCommands = readFileSync(new URL('./profile_commands.rs', import.meta.url), 'utf8');
 	const openProfileSignature = extractFunctionSignature(profileCommands, 'open_profile');
 	const batchOpenProfilesSignature = extractFunctionSignature(
 		profileCommands,
@@ -97,34 +85,13 @@ test('profile launch commands offload blocking startup work from the invoke path
 });
 
 test('reload bootstrap commands offload synchronous profile queries from the main-thread invoke path', () => {
-	const profileCommands = readFileSync(
-		new URL('./profile_commands.rs', import.meta.url),
-		'utf8',
-	);
-	const windowCommands = readFileSync(
-		new URL('./window_commands.rs', import.meta.url),
-		'utf8',
-	);
-	const syncCommands = readFileSync(
-		new URL('./sync_commands.rs', import.meta.url),
-		'utf8',
-	);
-	const groupCommands = readFileSync(
-		new URL('./group_commands.rs', import.meta.url),
-		'utf8',
-	);
-	const proxyCommands = readFileSync(
-		new URL('./proxy_commands.rs', import.meta.url),
-		'utf8',
-	);
-	const resourceCommands = readFileSync(
-		new URL('./resource_commands.rs', import.meta.url),
-		'utf8',
-	);
-	const pluginCommands = readFileSync(
-		new URL('./plugin_commands.rs', import.meta.url),
-		'utf8',
-	);
+	const profileCommands = readFileSync(new URL('./profile_commands.rs', import.meta.url), 'utf8');
+	const windowCommands = readFileSync(new URL('./window_commands.rs', import.meta.url), 'utf8');
+	const syncCommands = readFileSync(new URL('./sync_commands.rs', import.meta.url), 'utf8');
+	const groupCommands = readFileSync(new URL('./group_commands.rs', import.meta.url), 'utf8');
+	const proxyCommands = readFileSync(new URL('./proxy_commands.rs', import.meta.url), 'utf8');
+	const resourceCommands = readFileSync(new URL('./resource_commands.rs', import.meta.url), 'utf8');
+	const pluginCommands = readFileSync(new URL('./plugin_commands.rs', import.meta.url), 'utf8');
 	const automationCommands = readFileSync(
 		new URL('./automation_commands.rs', import.meta.url),
 		'utf8',
@@ -152,10 +119,7 @@ test('reload bootstrap commands offload synchronous profile queries from the mai
 		true,
 	);
 	assert.equal(proxyCommands.includes('pub async fn list_proxies('), true);
-	assert.equal(
-		extractFunctionBody(proxyCommands, 'list_proxies').includes('spawn_blocking'),
-		true,
-	);
+	assert.equal(extractFunctionBody(proxyCommands, 'list_proxies').includes('spawn_blocking'), true);
 	assert.equal(resourceCommands.includes('pub async fn list_resources('), true);
 	assert.equal(
 		extractFunctionBody(resourceCommands, 'list_resources').includes('spawn_blocking'),
@@ -166,21 +130,14 @@ test('reload bootstrap commands offload synchronous profile queries from the mai
 		extractFunctionBody(pluginCommands, 'list_plugin_packages').includes('spawn_blocking'),
 		true,
 	);
+	assert.equal(automationCommands.includes('pub async fn list_automation_scripts('), true);
 	assert.equal(
-		automationCommands.includes('pub async fn list_automation_scripts('),
-		true,
-	);
-	assert.equal(
-		extractFunctionBody(automationCommands, 'list_automation_scripts').includes(
-			'spawn_blocking',
-		),
+		extractFunctionBody(automationCommands, 'list_automation_scripts').includes('spawn_blocking'),
 		true,
 	);
 	assert.equal(automationCommands.includes('pub async fn list_automation_runs('), true);
 	assert.equal(
-		extractFunctionBody(automationCommands, 'list_automation_runs').includes(
-			'spawn_blocking',
-		),
+		extractFunctionBody(automationCommands, 'list_automation_runs').includes('spawn_blocking'),
 		true,
 	);
 	assert.equal(automationCommands.includes('pub async fn list_ai_configs('), true);
@@ -190,9 +147,7 @@ test('reload bootstrap commands offload synchronous profile queries from the mai
 	);
 	assert.equal(automationCommands.includes('pub async fn list_captcha_configs('), true);
 	assert.equal(
-		extractFunctionBody(automationCommands, 'list_captcha_configs').includes(
-			'spawn_blocking',
-		),
+		extractFunctionBody(automationCommands, 'list_captcha_configs').includes('spawn_blocking'),
 		true,
 	);
 });

@@ -1,22 +1,6 @@
+import { Download, RefreshCw, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download, RefreshCw, Upload } from 'lucide-react';
-
-import { useProfileBookmarksQuery } from '@/entities/bookmark/model/use-profile-bookmarks-query';
-import { useBookmarkTemplatesQuery } from '@/entities/bookmark/model/use-bookmark-templates-query';
-import type { BookmarkDisplayNode, BookmarkTemplateItem } from '@/entities/bookmark/model/types';
-import { useBookmarkActions } from '@/features/bookmark/model/use-bookmark-actions';
-import { useTemplateActions } from '@/features/bookmark/model/use-template-actions';
-import { BookmarkTreeView } from '@/features/bookmark/ui/bookmark-tree-view';
-import { BookmarkDetailPanel } from '@/features/bookmark/ui/bookmark-detail-panel';
-import {
-	BookmarkExportDialog,
-	BookmarkImportDialog,
-} from '@/features/bookmark/ui/bookmark-import-export-dialog';
-import { TemplateList } from '@/features/bookmark/ui/template-list';
-import { TemplateEditor } from '@/features/bookmark/ui/template-editor';
-import { exportProfileBookmarks } from '@/entities/bookmark/api/bookmark-api';
-import type { ProfileItem as ProfileItemType } from '@/entities/profile/model/types';
 import {
 	Button,
 	Select,
@@ -30,6 +14,21 @@ import {
 	TabsList,
 	TabsTrigger,
 } from '@/components/ui';
+import { exportProfileBookmarks } from '@/entities/bookmark/api/bookmark-api';
+import type { BookmarkDisplayNode, BookmarkTemplateItem } from '@/entities/bookmark/model/types';
+import { useBookmarkTemplatesQuery } from '@/entities/bookmark/model/use-bookmark-templates-query';
+import { useProfileBookmarksQuery } from '@/entities/bookmark/model/use-profile-bookmarks-query';
+import type { ProfileItem as ProfileItemType } from '@/entities/profile/model/types';
+import { useBookmarkActions } from '@/features/bookmark/model/use-bookmark-actions';
+import { useTemplateActions } from '@/features/bookmark/model/use-template-actions';
+import { BookmarkDetailPanel } from '@/features/bookmark/ui/bookmark-detail-panel';
+import {
+	BookmarkExportDialog,
+	BookmarkImportDialog,
+} from '@/features/bookmark/ui/bookmark-import-export-dialog';
+import { BookmarkTreeView } from '@/features/bookmark/ui/bookmark-tree-view';
+import { TemplateEditor } from '@/features/bookmark/ui/template-editor';
+import { TemplateList } from '@/features/bookmark/ui/template-list';
 
 type BookmarkTabProps = {
 	profiles: ProfileItemType[];
@@ -133,10 +132,7 @@ export function BookmarkTab({ profiles }: BookmarkTabProps) {
 			<TabsContent value="profile" className="flex flex-col flex-1 min-h-0 mt-0 gap-2 pt-2">
 				{/* Toolbar */}
 				<div className="flex items-center gap-2 shrink-0 flex-wrap">
-					<Select
-						value={selectedProfileId ?? ''}
-						onValueChange={handleProfileChange}
-					>
+					<Select value={selectedProfileId ?? ''} onValueChange={handleProfileChange}>
 						<SelectTrigger className="h-8 text-xs w-[180px] cursor-pointer">
 							<SelectValue placeholder={t('selector.placeholder')} />
 						</SelectTrigger>
@@ -165,9 +161,7 @@ export function BookmarkTab({ profiles }: BookmarkTabProps) {
 					{bookmarksQuery.data && (
 						<span
 							className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-								isLive
-									? 'bg-green-500/10 text-green-600'
-									: 'bg-muted/60 text-muted-foreground'
+								isLive ? 'bg-green-500/10 text-green-600' : 'bg-muted/60 text-muted-foreground'
 							}`}
 						>
 							<span
@@ -244,9 +238,7 @@ export function BookmarkTab({ profiles }: BookmarkTabProps) {
 							isLive={isLive}
 							onUpdate={handleUpdate}
 							onRemove={handleRemove}
-							isPending={
-								actions.updateBookmark.isPending || actions.removeBookmark.isPending
-							}
+							isPending={actions.updateBookmark.isPending || actions.removeBookmark.isPending}
 						/>
 					</div>
 				</div>
@@ -271,10 +263,7 @@ export function BookmarkTab({ profiles }: BookmarkTabProps) {
 			</TabsContent>
 
 			{/* ── 书签模板 SubTab ──────────────────────────────────────────── */}
-			<TabsContent
-				value="templates"
-				className="flex flex-1 min-h-0 mt-0 overflow-hidden"
-			>
+			<TabsContent value="templates" className="flex flex-1 min-h-0 mt-0 overflow-hidden">
 				{/* 左侧模板列表（1/3 宽） */}
 				<div className="w-1/3 min-w-0 border-r border-border/60 overflow-hidden">
 					<TemplateList

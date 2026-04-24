@@ -1,10 +1,9 @@
 import { useMemo } from 'react';
-
+import { useWorkspaceRefresh } from '@/app/model/use-workspace-refresh';
 import { useProfileProxyBindingsQuery } from '@/entities/profile/model/use-profile-proxy-bindings-query';
 import { useProfilesQuery } from '@/entities/profile/model/use-profiles-query';
 import { useProxiesQuery } from '@/entities/proxy/model/use-proxies-query';
 import { useProxyActions } from '@/features/proxy/model/use-proxy-actions';
-import { useWorkspaceRefresh } from '@/app/model/use-workspace-refresh';
 import { ProxyPage } from '@/features/proxy/ui/proxy-page';
 
 export function ProxyRoutePage() {

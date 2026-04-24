@@ -1,16 +1,8 @@
-import { useEffect, useState } from 'react';
-import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-	FolderCog,
-	FolderOpen,
-	FolderPlus,
-	FolderTree,
-	Save,
-	Shield,
-	Trash2,
-} from 'lucide-react';
+import { open as openDialog } from '@tauri-apps/plugin-dialog';
+import { FolderCog, FolderOpen, FolderPlus, FolderTree, Save, Shield, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -60,7 +52,7 @@ type WhitelistFormValues = z.infer<ReturnType<typeof whitelistFormSchema>>;
 
 function pickResultToPath(result: string | string[] | null) {
 	if (!result) return null;
-	return Array.isArray(result) ? result[0] ?? null : result;
+	return Array.isArray(result) ? (result[0] ?? null) : result;
 }
 
 function buildLabelFromPath(path: string) {
@@ -147,21 +139,25 @@ export function FsPreferencesDrawer({ open, onClose }: Props) {
 	});
 
 	const handlePickSandboxRoot = async () => {
-		const selected = pickResultToPath(await openDialog({
-			directory: true,
-			multiple: false,
-			title: t('fileSystem.pickSandboxRoot'),
-		}));
+		const selected = pickResultToPath(
+			await openDialog({
+				directory: true,
+				multiple: false,
+				title: t('fileSystem.pickSandboxRoot'),
+			}),
+		);
 		if (!selected) return;
 		sandboxForm.setValue('path', selected, { shouldDirty: true });
 	};
 
 	const handlePickWhitelistPath = async () => {
-		const selected = pickResultToPath(await openDialog({
-			directory: true,
-			multiple: false,
-			title: t('fileSystem.pickWhitelistPath'),
-		}));
+		const selected = pickResultToPath(
+			await openDialog({
+				directory: true,
+				multiple: false,
+				title: t('fileSystem.pickWhitelistPath'),
+			}),
+		);
 		if (!selected) return;
 
 		whitelistForm.setValue('path', selected, { shouldValidate: true, shouldDirty: true });
@@ -261,11 +257,7 @@ export function FsPreferencesDrawer({ open, onClose }: Props) {
 											>
 												{t('fileSystem.restoreDefault')}
 											</Button>
-											<Button
-												type="submit"
-												size="sm"
-												disabled={setSandboxMut.isPending}
-											>
+											<Button type="submit" size="sm" disabled={setSandboxMut.isPending}>
 												<Save className="h-4 w-4" />
 												{t('common:save')}
 											</Button>
@@ -312,10 +304,7 @@ export function FsPreferencesDrawer({ open, onClose }: Props) {
 													<FormItem>
 														<FormLabel>{t('common:name')}</FormLabel>
 														<FormControl>
-															<Input
-																{...field}
-																placeholder={t('fileSystem.labelPlaceholder')}
-															/>
+															<Input {...field} placeholder={t('fileSystem.labelPlaceholder')} />
 														</FormControl>
 														<FormMessage />
 													</FormItem>

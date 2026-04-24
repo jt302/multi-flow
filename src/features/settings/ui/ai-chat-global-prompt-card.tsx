@@ -1,20 +1,10 @@
+import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-import {
-	Button,
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle,
-	Textarea,
-} from '@/components/ui';
-import {
-	readAiChatGlobalPrompt,
-	updateAiChatGlobalPrompt,
-} from '@/entities/chat/api/chat-api';
+import { Button, Card, CardContent, CardHeader, CardTitle, Textarea } from '@/components/ui';
+import { readAiChatGlobalPrompt, updateAiChatGlobalPrompt } from '@/entities/chat/api/chat-api';
 
 export function AiChatGlobalPromptCard() {
 	const { t } = useTranslation('settings');
@@ -47,12 +37,8 @@ export function AiChatGlobalPromptCard() {
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle className="text-base">
-					{t('aiChatGlobalPrompt.title')}
-				</CardTitle>
-				<p className="text-xs text-muted-foreground">
-					{t('aiChatGlobalPrompt.desc')}
-				</p>
+				<CardTitle className="text-base">{t('aiChatGlobalPrompt.title')}</CardTitle>
+				<p className="text-xs text-muted-foreground">{t('aiChatGlobalPrompt.desc')}</p>
 			</CardHeader>
 			<CardContent className="space-y-3">
 				<Textarea
@@ -63,12 +49,7 @@ export function AiChatGlobalPromptCard() {
 					rows={4}
 				/>
 				<div className="flex justify-end">
-					<Button
-						type="button"
-						size="sm"
-						disabled={!dirty}
-						onClick={handleSave}
-					>
+					<Button type="button" size="sm" disabled={!dirty} onClick={handleSave}>
 						{t('aiChatGlobalPrompt.save')}
 					</Button>
 				</div>

@@ -1,11 +1,17 @@
-import type { BatchProfileActionResponse } from '@/entities/profile/model/types';
-import type { ProfileItem } from '@/entities/profile/model/types';
+import type { BatchProfileActionResponse, ProfileItem } from '@/entities/profile/model/types';
 import { ProfileBatchClearGroupDialog } from './profile-batch-clear-group-dialog';
 import { ProfileBatchGroupDialog } from './profile-batch-group-dialog';
 import { ProfileBatchOpenResultCard } from './profile-batch-open-result-card';
 import { ProfileListFilters } from './profile-list-filters';
 
-type ProfileBatchAction = 'refresh' | 'open' | 'close' | 'stopAll' | 'setGroup' | 'clearGroup' | 'retryOpen';
+type ProfileBatchAction =
+	| 'refresh'
+	| 'open'
+	| 'close'
+	| 'stopAll'
+	| 'setGroup'
+	| 'clearGroup'
+	| 'retryOpen';
 
 type ProfileListToolbarProps = {
 	keyword: string;

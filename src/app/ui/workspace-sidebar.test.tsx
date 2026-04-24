@@ -7,7 +7,11 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { initReactI18next } from 'react-i18next';
 import { MemoryRouter } from 'react-router-dom';
 
-import { AI_CHAT_PATHS, PROFILES_DEVICE_PRESETS_PATH, SETTINGS_PATHS } from '@/app/workspace-routes';
+import {
+	AI_CHAT_PATHS,
+	PROFILES_DEVICE_PRESETS_PATH,
+	SETTINGS_PATHS,
+} from '@/app/workspace-routes';
 import { Sidebar, SidebarProvider } from '@/components/ui';
 import zhCommon from '@/shared/i18n/locales/zh-CN/common.json';
 import zhNav from '@/shared/i18n/locales/zh-CN/nav.json';
@@ -125,7 +129,10 @@ test('workspace sidebar 在展开态展示环境列表与机型预设子菜单',
 test('workspace sidebar footer padding keeps vertical spacing aligned with horizontal spacing', () => {
 	const file = readFileSync(new URL('./workspace-sidebar.tsx', import.meta.url), 'utf8');
 
-	assert.equal(file.includes("SidebarFooter className={cn('p-3 pt-1', collapsed && 'p-2 pt-1')}"), false);
+	assert.equal(
+		file.includes("SidebarFooter className={cn('p-3 pt-1', collapsed && 'p-2 pt-1')}"),
+		false,
+	);
 	assert.equal(file.includes("SidebarFooter className={cn('p-3', collapsed && 'p-2')}"), true);
 });
 
@@ -147,11 +154,15 @@ test('sidebar footer status card keeps top and bottom spacing aligned with horiz
 	const file = readFileSync(new URL('./sidebar-footer-status.tsx', import.meta.url), 'utf8');
 
 	assert.equal(
-		file.includes('Card className="border-sidebar-border/40 bg-sidebar-accent/30 shadow-sm transition-all duration-300"'),
+		file.includes(
+			'Card className="border-sidebar-border/40 bg-sidebar-accent/30 shadow-sm transition-all duration-300"',
+		),
 		false,
 	);
 	assert.equal(
-		file.includes('Card className="gap-3 border-sidebar-border/40 bg-sidebar-accent/30 px-3 py-3 shadow-sm transition-all duration-300"'),
+		file.includes(
+			'Card className="gap-3 border-sidebar-border/40 bg-sidebar-accent/30 px-3 py-3 shadow-sm transition-all duration-300"',
+		),
 		true,
 	);
 	assert.equal(file.includes('CardHeader className="p-2 pb-1"'), false);
@@ -181,8 +192,8 @@ test('workspace sidebar top-level expandable menus toggle only submenu state wit
 	const file = readFileSync(new URL('./workspace-sidebar.tsx', import.meta.url), 'utf8');
 
 	assert.equal(
-		file.includes(
-			"if (expandable) {\n\t\t\t\t\t\t\t\t\t\t\t\tsetExpandedNavIds((current) =>\n\t\t\t\t\t\t\t\t\t\t\t\t\tresolveNextExpandedNavIds(current, item.id),\n\t\t\t\t\t\t\t\t\t\t\t\t);\n\t\t\t\t\t\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t\t\t\t\t\t}",
+		/if \(expandable\) \{\s*setExpandedNavIds\(\(current\) =>\s*resolveNextExpandedNavIds\(current, item\.id\),?\s*\);\s*return;\s*\}/.test(
+			file,
 		),
 		true,
 	);

@@ -1,18 +1,17 @@
 import { setTheme as setNativeAppTheme } from '@tauri-apps/api/app';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
-
+import {
+	addCustomThemePreset,
+	readCustomThemePresets,
+	removeCustomThemePreset,
+} from '@/entities/theme/model/custom-presets';
+import { THEME_PRESET_KEYS, THEME_PRESETS } from '@/entities/theme/model/presets';
 import type {
 	CustomThemePreset,
 	Palette,
 	PresetKey,
 	ThemeMode,
 } from '@/entities/theme/model/types';
-import { THEME_PRESET_KEYS, THEME_PRESETS } from '@/entities/theme/model/presets';
-import {
-	addCustomThemePreset,
-	readCustomThemePresets,
-	removeCustomThemePreset,
-} from '@/entities/theme/model/custom-presets';
 import { getReadableForeground, hexToRgb, mixHex } from '@/shared/lib/color';
 
 const THEME_SYNC_CHANNEL = 'mf-theme-sync';
@@ -87,9 +86,7 @@ export function useThemeSettings() {
 	const [preset, setPreset] = useState<PresetKey>(getInitialPreset);
 	const [customColor, setCustomColor] = useState(getInitialCustomColor);
 	const [useCustomColor, setUseCustomColor] = useState(getInitialUseCustomColor);
-	const [customPresets, setCustomPresets] = useState<CustomThemePreset[]>(
-		getInitialCustomPresets,
-	);
+	const [customPresets, setCustomPresets] = useState<CustomThemePreset[]>(getInitialCustomPresets);
 	const [systemDark, setSystemDark] = useState(getInitialSystemDark);
 	const resolvedMode = themeMode === 'system' ? (systemDark ? 'dark' : 'light') : themeMode;
 
@@ -118,7 +115,10 @@ export function useThemeSettings() {
 				setCustomColor(event.newValue);
 				return;
 			}
-			if (event.key === STORAGE_KEYS.useCustom && (event.newValue === 'true' || event.newValue === 'false')) {
+			if (
+				event.key === STORAGE_KEYS.useCustom &&
+				(event.newValue === 'true' || event.newValue === 'false')
+			) {
 				setUseCustomColor(event.newValue === 'true');
 				return;
 			}
@@ -181,10 +181,7 @@ export function useThemeSettings() {
 		localStorage.setItem(STORAGE_KEYS.preset, preset);
 		localStorage.setItem(STORAGE_KEYS.customColor, customColor);
 		localStorage.setItem(STORAGE_KEYS.useCustom, String(useCustomColor));
-		localStorage.setItem(
-			STORAGE_KEYS.customPresets,
-			JSON.stringify(customPresets),
-		);
+		localStorage.setItem(STORAGE_KEYS.customPresets, JSON.stringify(customPresets));
 
 		if (typeof BroadcastChannel !== 'undefined') {
 			const channel = new BroadcastChannel(THEME_SYNC_CHANNEL);
@@ -201,7 +198,10 @@ export function useThemeSettings() {
 		const root = document.documentElement;
 		root.style.setProperty('--primary-light', activePalette.light);
 		root.style.setProperty('--primary-dark', activePalette.dark);
-		root.style.setProperty('--primary-foreground-light', getReadableForeground(activePalette.light));
+		root.style.setProperty(
+			'--primary-foreground-light',
+			getReadableForeground(activePalette.light),
+		);
 		root.style.setProperty('--primary-foreground-dark', getReadableForeground(activePalette.dark));
 		root.style.setProperty('--ring-light', mixHex(activePalette.light, '#FFFFFF', 0.4));
 		root.style.setProperty('--ring-dark', mixHex(activePalette.dark, '#0B1220', 0.35));
