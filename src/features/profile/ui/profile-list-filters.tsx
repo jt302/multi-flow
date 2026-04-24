@@ -1,4 +1,4 @@
-import { Play, Square } from 'lucide-react';
+import { LoaderCircle, Play, Square } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -18,6 +18,8 @@ import type {
 	ProfileListRunningFilter,
 } from '@/entities/profile/lib/profile-list';
 
+type ProfileBatchAction = 'refresh' | 'open' | 'close' | 'stopAll' | 'setGroup' | 'clearGroup' | 'retryOpen';
+
 type ProfileListFiltersProps = {
 	keyword: string;
 	groupFilter: string;
@@ -29,7 +31,8 @@ type ProfileListFiltersProps = {
 	stoppedSelectedCount: number;
 	runningSelectedCount: number;
 	stopAllRunningCount: number;
-	stopAllRunningPending: boolean;
+	pending: boolean;
+	busyAction: ProfileBatchAction | null;
 	onChange: (patch: Partial<ProfileListFiltersState>) => void;
 	onBatchOpen: () => void;
 	onBatchClose: () => void;
@@ -49,7 +52,8 @@ export function ProfileListFilters({
 	stoppedSelectedCount,
 	runningSelectedCount,
 	stopAllRunningCount,
-	stopAllRunningPending,
+	pending,
+	busyAction,
 	onChange,
 	onBatchOpen,
 	onBatchClose,
@@ -122,7 +126,7 @@ export function ProfileListFilters({
 						size="sm"
 						className="cursor-pointer"
 						onClick={onOpenBatchGroupDialog}
-						disabled={selectedCount === 0 || groupOptions.length === 0}
+						disabled={pending || selectedCount === 0 || groupOptions.length === 0}
 					>
 						{t('common:batchSetGroup')}
 					</Button>
@@ -132,7 +136,7 @@ export function ProfileListFilters({
 						size="sm"
 						className="cursor-pointer"
 						onClick={onOpenBatchClearDialog}
-						disabled={selectedCount === 0}
+						disabled={pending || selectedCount === 0}
 					>
 						{t('common:clearGroup')}
 					</Button>
@@ -142,9 +146,9 @@ export function ProfileListFilters({
 						size="sm"
 						className="cursor-pointer"
 						onClick={onBatchOpen}
-						disabled={stoppedSelectedCount === 0}
+						disabled={pending || stoppedSelectedCount === 0}
 					>
-						<Icon icon={Play} size={12} />
+						<Icon icon={busyAction === 'open' ? LoaderCircle : Play} size={12} className={busyAction === 'open' ? 'animate-spin' : undefined} />
 						{t('common:batchOpen')} {stoppedSelectedCount > 0 ? `(${stoppedSelectedCount})` : ''}
 					</Button>
 					<Button
@@ -153,9 +157,9 @@ export function ProfileListFilters({
 						size="sm"
 						className="cursor-pointer"
 						onClick={onBatchClose}
-						disabled={runningSelectedCount === 0}
+						disabled={pending || runningSelectedCount === 0}
 					>
-						<Icon icon={Square} size={12} />
+						<Icon icon={busyAction === 'close' ? LoaderCircle : Square} size={12} className={busyAction === 'close' ? 'animate-spin' : undefined} />
 						{t('common:batchClose')} {runningSelectedCount > 0 ? `(${runningSelectedCount})` : ''}
 					</Button>
 					<Button
@@ -164,9 +168,9 @@ export function ProfileListFilters({
 						size="sm"
 						className="cursor-pointer"
 						onClick={onStopAllRunning}
-						disabled={stopAllRunningPending || stopAllRunningCount === 0}
+						disabled={pending || stopAllRunningCount === 0}
 					>
-						<Icon icon={Square} size={12} />
+						<Icon icon={busyAction === 'stopAll' ? LoaderCircle : Square} size={12} className={busyAction === 'stopAll' ? 'animate-spin' : undefined} />
 						{t('common:stopAllRunning')} {stopAllRunningCount > 0 ? `(${stopAllRunningCount})` : ''}
 					</Button>
 				</div>

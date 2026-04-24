@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Plus, RefreshCw } from 'lucide-react';
@@ -18,6 +18,8 @@ import type { ProfileListPageProps } from '../model/profile-list-types';
 import { ProfileListStats } from './profile-list-stats';
 import { ProfileListTable } from './profile-list-table';
 import { ProfileListToolbar } from './profile-list-toolbar';
+
+type ProfileBatchAction = 'refresh' | 'open' | 'close' | 'stopAll' | 'setGroup' | 'clearGroup' | 'retryOpen';
 
 export function ProfileListPage({
 	profiles,
@@ -50,7 +52,8 @@ export function ProfileListPage({
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [stopAllRunningDialogOpen, setStopAllRunningDialogOpen] =
 		useState(false);
-	const [stopAllRunningPending, setStopAllRunningPending] = useState(false);
+	const [batchAction, setBatchAction] = useState<ProfileBatchAction | null>(null);
+	const batchActionRef = useRef<ProfileBatchAction | null>(null);
 	const error = useProfileListStore((state) => state.error);
 	const filters = useProfileListStore((state) => state.filters);
 	const quickEdit = useProfileListStore((state) => state.quickEdit);
@@ -193,6 +196,29 @@ export function ProfileListPage({
 		}
 	};
 
+	const runBatchAction = async <T,>(
+		actionName: ProfileBatchAction,
+		action: () => Promise<T>,
+	) => {
+		if (batchActionRef.current) {
+			return null;
+		}
+		batchActionRef.current = actionName;
+		setBatchAction(actionName);
+		setError(null);
+		try {
+			return await action();
+		} catch (err) {
+			setError(
+				err instanceof Error ? err.message : t('errors.operationFailed'),
+			);
+			return null;
+		} finally {
+			batchActionRef.current = null;
+			setBatchAction(null);
+		}
+	};
+
 	const isEmpty = filteredProfiles.length === 0;
 	const emptyText =
 		profiles.length === 0 ? t('list.emptyNoProfiles') : t('list.emptyNoMatch');
@@ -221,19 +247,11 @@ export function ProfileListPage({
 							variant="ghost"
 							size="sm"
 							className="cursor-pointer"
+							disabled={Boolean(batchAction)}
 							onClick={() => {
-								void (async () => {
-									setError(null);
-									try {
-										await onRefreshProfiles();
-									} catch (err) {
-										setError(
-											err instanceof Error
-												? err.message
-												: t('errors.refreshFailed'),
-										);
-									}
-								})();
+								void runBatchAction('refresh', async () => {
+									await onRefreshProfiles();
+								});
 							}}
 						>
 							<Icon icon={RefreshCw} size={12} />
@@ -267,7 +285,7 @@ export function ProfileListPage({
 					batchGroupDialogOpen={batchGroupDialogOpen}
 					batchClearGroupDialogOpen={batchClearGroupDialogOpen}
 					batchGroupTarget={batchGroupTarget}
-					stopAllRunningPending={stopAllRunningPending}
+					busyAction={batchAction}
 					lastBatchOpenResult={lastBatchOpenResult}
 					profiles={profiles}
 					onChange={handleFilterChange}
@@ -279,14 +297,14 @@ export function ProfileListPage({
 					}}
 					onOpenBatchClearDialog={() => setBatchClearGroupDialogOpen(true)}
 					onBatchOpen={() => {
-						void runAction(async () => {
+						void runBatchAction('open', async () => {
 							const result = await onBatchOpenProfiles(selectedStoppedIds);
 							setBatchOpenResult(result.failedCount > 0 ? result : null);
 							clearSelection();
 						});
 					}}
 					onBatchClose={() => {
-						void runAction(async () => {
+						void runBatchAction('close', async () => {
 							await onBatchCloseProfiles(selectedRunningIds);
 							setBatchOpenResult(null);
 							clearSelection();
@@ -297,7 +315,7 @@ export function ProfileListPage({
 					onBatchClearDialogOpenChange={setBatchClearGroupDialogOpen}
 					onBatchGroupTargetChange={setBatchGroupTarget}
 					onConfirmBatchGroup={() => {
-						void runAction(async () => {
+						void runBatchAction('setGroup', async () => {
 							await onBatchSetProfileGroup(
 								selectedFilteredActiveIds,
 								batchGroupTarget,
@@ -308,7 +326,7 @@ export function ProfileListPage({
 						});
 					}}
 					onConfirmBatchClearGroup={() => {
-						void runAction(async () => {
+						void runBatchAction('clearGroup', async () => {
 							await onBatchSetProfileGroup(selectedFilteredActiveIds);
 							setBatchClearGroupDialogOpen(false);
 							setBatchGroupTarget('');
@@ -316,7 +334,7 @@ export function ProfileListPage({
 						});
 					}}
 					onRetryFailed={(failedProfileIds) => {
-						void runAction(async () => {
+						void runBatchAction('retryOpen', async () => {
 							const result = await onBatchOpenProfiles(failedProfileIds);
 							setBatchOpenResult(result.failedCount > 0 ? result : null);
 						});
@@ -329,24 +347,15 @@ export function ProfileListPage({
 					description={t('list.stopAllConfirmDesc', {
 						count: filteredRunningIds.length,
 					})}
-					confirmText={
-						stopAllRunningPending ? t('list.stopping') : t('list.confirmStop')
-					}
-					pending={stopAllRunningPending}
+					confirmText={batchAction === 'stopAll' ? t('list.stopping') : t('list.confirmStop')}
+					pending={batchAction === 'stopAll'}
 					onOpenChange={setStopAllRunningDialogOpen}
 					onConfirm={() => {
-						void (async () => {
-							setStopAllRunningPending(true);
-							try {
-								await runAction(async () => {
-									await onBatchCloseProfiles(filteredRunningIds);
-									setBatchOpenResult(null);
-								});
-								setStopAllRunningDialogOpen(false);
-							} finally {
-								setStopAllRunningPending(false);
-							}
-						})();
+						void runBatchAction('stopAll', async () => {
+							await onBatchCloseProfiles(filteredRunningIds);
+							setBatchOpenResult(null);
+							setStopAllRunningDialogOpen(false);
+						});
 					}}
 				/>
 

@@ -21,6 +21,7 @@ type ProfileBatchGroupDialogProps = {
 	groupOptions: string[];
 	selectedCount: number;
 	value: string;
+	pending: boolean;
 	onOpenChange: (open: boolean) => void;
 	onValueChange: (value: string) => void;
 	onConfirm: () => void;
@@ -31,6 +32,7 @@ export function ProfileBatchGroupDialog({
 	groupOptions,
 	selectedCount,
 	value,
+	pending,
 	onOpenChange,
 	onValueChange,
 	onConfirm,
@@ -55,7 +57,7 @@ export function ProfileBatchGroupDialog({
 
 				<div className="space-y-2">
 					<p className="text-sm font-medium">{t('list:targetGroup')}</p>
-					<Select value={value} onValueChange={onValueChange}>
+					<Select value={value} onValueChange={onValueChange} disabled={pending}>
 						<SelectTrigger>
 							<SelectValue placeholder={t('list:selectGroup')} />
 						</SelectTrigger>
@@ -74,6 +76,7 @@ export function ProfileBatchGroupDialog({
 						type="button"
 						variant="ghost"
 						className="cursor-pointer"
+						disabled={pending}
 						onClick={() => onOpenChange(false)}
 					>
 						{t('common:cancel')}
@@ -82,7 +85,7 @@ export function ProfileBatchGroupDialog({
 						type="button"
 						className="cursor-pointer"
 						onClick={onConfirm}
-						disabled={!value}
+						disabled={pending || !value}
 					>
 						{t('list:confirmSet')}
 					</Button>

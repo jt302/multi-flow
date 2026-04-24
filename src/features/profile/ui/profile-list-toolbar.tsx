@@ -5,6 +5,8 @@ import { ProfileBatchGroupDialog } from './profile-batch-group-dialog';
 import { ProfileBatchOpenResultCard } from './profile-batch-open-result-card';
 import { ProfileListFilters } from './profile-list-filters';
 
+type ProfileBatchAction = 'refresh' | 'open' | 'close' | 'stopAll' | 'setGroup' | 'clearGroup' | 'retryOpen';
+
 type ProfileListToolbarProps = {
 	keyword: string;
 	groupFilter: string;
@@ -19,7 +21,7 @@ type ProfileListToolbarProps = {
 	batchGroupDialogOpen: boolean;
 	batchClearGroupDialogOpen: boolean;
 	batchGroupTarget: string;
-	stopAllRunningPending: boolean;
+	busyAction: ProfileBatchAction | null;
 	lastBatchOpenResult: BatchProfileActionResponse | null;
 	profiles: ProfileItem[];
 	onChange: (patch: {
@@ -56,7 +58,7 @@ export function ProfileListToolbar({
 	batchGroupDialogOpen,
 	batchClearGroupDialogOpen,
 	batchGroupTarget,
-	stopAllRunningPending,
+	busyAction,
 	lastBatchOpenResult,
 	profiles,
 	onChange,
@@ -86,7 +88,8 @@ export function ProfileListToolbar({
 				stoppedSelectedCount={stoppedSelectedCount}
 				runningSelectedCount={runningSelectedCount}
 				stopAllRunningCount={stopAllRunningCount}
-				stopAllRunningPending={stopAllRunningPending}
+				pending={Boolean(busyAction)}
+				busyAction={busyAction}
 				onChange={onChange}
 				onOpenBatchGroupDialog={onOpenBatchGroupDialog}
 				onOpenBatchClearDialog={onOpenBatchClearDialog}
@@ -100,6 +103,7 @@ export function ProfileListToolbar({
 				groupOptions={groupOptions}
 				selectedCount={selectedCount}
 				value={batchGroupTarget}
+				pending={Boolean(busyAction)}
 				onOpenChange={onBatchGroupDialogOpenChange}
 				onValueChange={onBatchGroupTargetChange}
 				onConfirm={onConfirmBatchGroup}
@@ -108,6 +112,7 @@ export function ProfileListToolbar({
 			<ProfileBatchClearGroupDialog
 				open={batchClearGroupDialogOpen}
 				selectedCount={selectedCount}
+				pending={Boolean(busyAction)}
 				onOpenChange={onBatchClearDialogOpenChange}
 				onConfirm={onConfirmBatchClearGroup}
 			/>

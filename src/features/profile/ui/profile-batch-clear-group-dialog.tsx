@@ -14,6 +14,7 @@ import {
 type ProfileBatchClearGroupDialogProps = {
 	open: boolean;
 	selectedCount: number;
+	pending: boolean;
 	onOpenChange: (open: boolean) => void;
 	onConfirm: () => void;
 };
@@ -21,6 +22,7 @@ type ProfileBatchClearGroupDialogProps = {
 export function ProfileBatchClearGroupDialog({
 	open,
 	selectedCount,
+	pending,
 	onOpenChange,
 	onConfirm,
 }: ProfileBatchClearGroupDialogProps) {
@@ -38,7 +40,7 @@ export function ProfileBatchClearGroupDialog({
 				</AlertDialogHeader>
 				<AlertDialogFooter>
 					<AlertDialogCancel asChild>
-						<Button type="button" variant="ghost" className="cursor-pointer">
+						<Button type="button" variant="ghost" className="cursor-pointer" disabled={pending}>
 							{t('common:cancel')}
 						</Button>
 					</AlertDialogCancel>
@@ -47,6 +49,7 @@ export function ProfileBatchClearGroupDialog({
 							type="button"
 							variant="destructive"
 							className="cursor-pointer"
+							disabled={pending}
 							onClick={onConfirm}
 						>
 							{t('common:confirmClear')}

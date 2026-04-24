@@ -93,6 +93,54 @@ test('profile list page adds one-click stop action for all filtered running prof
 	assert.equal(filtersFile.includes("t('common:stopAllRunning')"), true);
 });
 
+test('profile list batch actions share pending state and release it in finally', () => {
+	const pageFile = readFileSync(new URL('./profile-list-page.tsx', import.meta.url), 'utf8');
+	const toolbarFile = readFileSync(new URL('./profile-list-toolbar.tsx', import.meta.url), 'utf8');
+	const filtersFile = readFileSync(new URL('./profile-list-filters.tsx', import.meta.url), 'utf8');
+	const groupDialogFile = readFileSync(new URL('./profile-batch-group-dialog.tsx', import.meta.url), 'utf8');
+	const clearGroupDialogFile = readFileSync(new URL('./profile-batch-clear-group-dialog.tsx', import.meta.url), 'utf8');
+
+	assert.equal(pageFile.includes("type ProfileBatchAction = 'refresh' | 'open' | 'close' | 'stopAll' | 'setGroup' | 'clearGroup' | 'retryOpen';"), true);
+	assert.equal(pageFile.includes('const [batchAction, setBatchAction] = useState<ProfileBatchAction | null>(null);'), true);
+	assert.equal(pageFile.includes('const batchActionRef = useRef<ProfileBatchAction | null>(null);'), true);
+	assert.equal(pageFile.includes('const runBatchAction = async <T,'), true);
+	assert.equal(pageFile.includes('if (batchActionRef.current) {'), true);
+	assert.equal(pageFile.includes('batchActionRef.current = actionName;'), true);
+	assert.equal(pageFile.includes('setBatchAction(actionName);'), true);
+	assert.equal(pageFile.includes('batchActionRef.current = null;'), true);
+	assert.equal(pageFile.includes('setBatchAction(null);'), true);
+	assert.equal(pageFile.includes("void runBatchAction('refresh'"), true);
+	assert.equal(pageFile.includes("void runBatchAction('open'"), true);
+	assert.equal(pageFile.includes("void runBatchAction('close'"), true);
+	assert.equal(pageFile.includes("void runBatchAction('setGroup'"), true);
+	assert.equal(pageFile.includes("void runBatchAction('clearGroup'"), true);
+	assert.equal(pageFile.includes("void runBatchAction('retryOpen'"), true);
+	assert.equal(pageFile.includes("void runBatchAction('stopAll'"), true);
+	assert.equal(pageFile.includes("busyAction={batchAction}"), true);
+	assert.equal(pageFile.includes("pending={batchAction === 'stopAll'}"), true);
+	assert.equal(pageFile.includes("confirmText={batchAction === 'stopAll' ? t('list.stopping') : t('list.confirmStop')}"), true);
+	assert.equal(pageFile.includes('setStopAllRunningPending'), false);
+
+	assert.equal(toolbarFile.includes('busyAction: ProfileBatchAction | null;'), true);
+	assert.equal(toolbarFile.includes('pending={Boolean(busyAction)}'), true);
+	assert.equal(toolbarFile.includes('busyAction={busyAction}'), true);
+
+	assert.equal(filtersFile.includes('pending: boolean;'), true);
+	assert.equal(filtersFile.includes('busyAction: ProfileBatchAction | null;'), true);
+	assert.equal(filtersFile.includes('disabled={pending || stoppedSelectedCount === 0}'), true);
+	assert.equal(filtersFile.includes('disabled={pending || runningSelectedCount === 0}'), true);
+	assert.equal(filtersFile.includes('disabled={pending || stopAllRunningCount === 0}'), true);
+	assert.equal(filtersFile.includes("busyAction === 'open'"), true);
+	assert.equal(filtersFile.includes("busyAction === 'close'"), true);
+	assert.equal(filtersFile.includes("busyAction === 'stopAll'"), true);
+
+	assert.equal(groupDialogFile.includes('pending: boolean;'), true);
+	assert.equal(groupDialogFile.includes('disabled={pending}'), true);
+	assert.equal(groupDialogFile.includes('disabled={pending || !value}'), true);
+	assert.equal(clearGroupDialogFile.includes('pending: boolean;'), true);
+	assert.equal(clearGroupDialogFile.includes('disabled={pending}'), true);
+});
+
 test('profile list item exposes cookie export actions', () => {
 	const file = readFileSync(new URL('./profile-list-item.tsx', import.meta.url), 'utf8');
 
