@@ -827,19 +827,19 @@ fn handle_cmd_w_window(window: WebviewWindow) {
 fn open_focused_window_devtools(app: &AppHandle) {
     #[cfg(any(debug_assertions, feature = "devtools"))]
     {
-    let Some(window) = focused_webview_window(app) else {
-        logger::warn(
-            "menu",
-            "open devtools requested but no webview window was found".to_string(),
-        );
-        return;
-    };
+        let Some(window) = focused_webview_window(app) else {
+            logger::warn(
+                "menu",
+                "open devtools requested but no webview window was found".to_string(),
+            );
+            return;
+        };
 
-    logger::info(
-        "menu",
-        format!("open devtools requested for window={}", window.label()),
-    );
-    window.open_devtools();
+        logger::info(
+            "menu",
+            format!("open devtools requested for window={}", window.label()),
+        );
+        window.open_devtools();
     }
 
     #[cfg(not(any(debug_assertions, feature = "devtools")))]
