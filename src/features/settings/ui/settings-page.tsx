@@ -1,23 +1,42 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ActiveSectionCard } from '@/widgets/active-section-card/ui/active-section-card';
 import { getWorkspaceSection } from '@/app/model/workspace-sections';
 import type { SettingsPageProps } from '@/features/settings/model/types';
-import {
-	getSettingsTabs,
-} from './settings-tab-constants';
-import { ThemeCustomizerCard } from './theme-customizer-card';
-import { AiProviderConfigCard } from './ai-provider-config-card';
-import { AiChatGlobalPromptCard } from './ai-chat-global-prompt-card';
-import { AiChatSettingsCard } from './ai-chat-settings-card';
-import { CaptchaSolverConfigCard } from './captcha-solver-config-card';
-import { ToolPermissionsCard } from './tool-permissions-card';
-import { ResourceManagementCard } from './resource-management-card';
-import { GeneralSettingsPlaceholder } from './general-settings-placeholder';
-import { RecycleBinRoutePage } from '@/pages/recycle-bin';
-import { DevConfigCard } from './dev-config-card';
+import { getSettingsTabs } from './settings-tab-constants';
 import { ScrollArea } from '@/components/ui/scroll-area';
+
+const GeneralSettingsPlaceholder = lazy(() =>
+	import('./general-settings-placeholder').then((module) => ({
+		default: module.GeneralSettingsPlaceholder,
+	})),
+);
+const ThemeCustomizerCard = lazy(() =>
+	import('./theme-customizer-card').then((module) => ({
+		default: module.ThemeCustomizerCard,
+	})),
+);
+const ResourceManagementCard = lazy(() =>
+	import('./resource-management-card').then((module) => ({
+		default: module.ResourceManagementCard,
+	})),
+);
+const AiSettingsPanel = lazy(() =>
+	import('./ai-settings-panel').then((module) => ({
+		default: module.AiSettingsPanel,
+	})),
+);
+const RecycleBinRoutePage = lazy(() =>
+	import('@/pages/recycle-bin').then((module) => ({
+		default: module.RecycleBinRoutePage,
+	})),
+);
+const DevConfigCard = lazy(() =>
+	import('./dev-config-card').then((module) => ({
+		default: module.DevConfigCard,
+	})),
+);
 
 export function SettingsPage({
 	activeTab,
@@ -36,11 +55,15 @@ export function SettingsPage({
 	onInstallChromium,
 	onDownloadResource,
 }: SettingsPageProps) {
-	const { t } = useTranslation('settings');
+	const { t, i18n } = useTranslation('settings');
 	const section = getWorkspaceSection('settings');
 	const [pendingKey, setPendingKey] = useState('');
+	const settingsTabs = useMemo(
+		() => getSettingsTabs(),
+		[i18n.resolvedLanguage],
+	);
 	const activeTabItem =
-		getSettingsTabs().find((tab) => tab.id === activeTab) ?? getSettingsTabs()[0];
+		settingsTabs.find((tab) => tab.id === activeTab) ?? settingsTabs[0];
 
 	const chromiumItems = useMemo(
 		() => resources.filter((item) => item.kind === 'chromium'),
@@ -75,60 +98,58 @@ export function SettingsPage({
 
 			<ScrollArea className="min-h-0 min-w-0 w-full flex-1">
 				<div className="pr-1">
-					{activeTab === 'general' && <GeneralSettingsPlaceholder />}
+					<Suspense
+						fallback={
+							<div className="min-h-40 rounded-xl border border-border/60 bg-muted/20" />
+						}
+					>
+						{activeTab === 'general' && <GeneralSettingsPlaceholder />}
 
-					{activeTab === 'appearance' && (
-						<ThemeCustomizerCard
-							useCustomColor={useCustomColor}
-							preset={preset}
-							customColor={customColor}
-							customPresets={customPresets}
-							onPresetChange={onPresetChange}
-							onCustomColorChange={onCustomColorChange}
-							onToggleCustomColor={onToggleCustomColor}
-							onAddCustomPreset={onAddCustomPreset}
-							onApplyCustomPreset={onApplyCustomPreset}
-							onDeleteCustomPreset={onDeleteCustomPreset}
-						/>
-					)}
+						{activeTab === 'appearance' && (
+							<ThemeCustomizerCard
+								useCustomColor={useCustomColor}
+								preset={preset}
+								customColor={customColor}
+								customPresets={customPresets}
+								onPresetChange={onPresetChange}
+								onCustomColorChange={onCustomColorChange}
+								onToggleCustomColor={onToggleCustomColor}
+								onAddCustomPreset={onAddCustomPreset}
+								onApplyCustomPreset={onApplyCustomPreset}
+								onDeleteCustomPreset={onDeleteCustomPreset}
+							/>
+						)}
 
-					{activeTab === 'resources' && (
-						<ResourceManagementCard
-							chromiumItems={chromiumItems}
-							geoItems={geoItems}
-							pendingKey={pendingKey}
-							onRefreshResources={() => {
-								void runAction('refresh-resources', onRefreshResources);
-							}}
-							onInstallChromium={(resourceId, options) => {
-								const actionKey = options?.force
-									? `redownload-${resourceId}`
-									: `install-${resourceId}`;
-								void runAction(actionKey, () =>
-									onInstallChromium(resourceId, options),
-								);
-							}}
-							onDownloadResource={(resourceId, label) => {
-								void runAction(`download-${resourceId}`, () =>
-									onDownloadResource(resourceId, label),
-								);
-							}}
-						/>
-					)}
+						{activeTab === 'resources' && (
+							<ResourceManagementCard
+								chromiumItems={chromiumItems}
+								geoItems={geoItems}
+								pendingKey={pendingKey}
+								onRefreshResources={() => {
+									void runAction('refresh-resources', onRefreshResources);
+								}}
+								onInstallChromium={(resourceId, options) => {
+									const actionKey = options?.force
+										? `redownload-${resourceId}`
+										: `install-${resourceId}`;
+									void runAction(actionKey, () =>
+										onInstallChromium(resourceId, options),
+									);
+								}}
+								onDownloadResource={(resourceId, label) => {
+									void runAction(`download-${resourceId}`, () =>
+										onDownloadResource(resourceId, label),
+									);
+								}}
+							/>
+						)}
 
-					{activeTab === 'ai' && (
-						<div className="space-y-4">
-							<AiProviderConfigCard />
-							<AiChatSettingsCard />
-							<AiChatGlobalPromptCard />
-							<CaptchaSolverConfigCard />
-							<ToolPermissionsCard />
-						</div>
-					)}
+						{activeTab === 'ai' && <AiSettingsPanel />}
 
-					{activeTab === 'recycle-bin' && <RecycleBinRoutePage />}
+						{activeTab === 'recycle-bin' && <RecycleBinRoutePage />}
 
-					{import.meta.env.DEV && activeTab === 'dev' && <DevConfigCard />}
+						{import.meta.env.DEV && activeTab === 'dev' && <DevConfigCard />}
+					</Suspense>
 				</div>
 			</ScrollArea>
 		</div>

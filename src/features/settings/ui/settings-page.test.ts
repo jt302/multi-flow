@@ -15,3 +15,12 @@ test('settings page derives section content from route instead of local tab stat
 	assert.match(source, /activeTab,/);
 	assert.match(source, /activeTabItem/);
 });
+
+test('settings page lazy loads tab bodies instead of bundling every settings panel', () => {
+	assert.match(source, /lazy\(/);
+	assert.match(source, /<Suspense/);
+	assert.doesNotMatch(source, /import \{ AiProviderConfigCard \}/);
+	assert.doesNotMatch(source, /import \{ ResourceManagementCard \}/);
+	assert.doesNotMatch(source, /import \{ RecycleBinRoutePage \}/);
+	assert.doesNotMatch(source, /import \{ DevConfigCard \}/);
+});

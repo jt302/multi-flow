@@ -10,11 +10,12 @@ import { resolveSettingsTab } from '@/features/settings/ui/settings-tab-constant
 export function SettingsRoutePage() {
 	const { theme } = useOutletContext<WorkspaceOutletContext>();
 	const location = useLocation();
-	const resourcesQuery = useResourcesQuery();
+	const activeTab = resolveSettingsTab(location.pathname);
+	const isResourcesTab = activeTab.id === 'resources';
+	const resourcesQuery = useResourcesQuery({ enabled: isResourcesTab });
 	const resources = resourcesQuery.data ?? [];
 	const { refreshResources } = useWorkspaceRefresh();
 	const resourceActions = useResourceActions({ refreshResources });
-	const activeTab = resolveSettingsTab(location.pathname);
 
 	return (
 		<SettingsPage
