@@ -23,6 +23,11 @@
   - 前端：`pnpm -s build`
   - 后端：`cargo check --manifest-path src-tauri/Cargo.toml`
   - 有测试时：`cargo test --manifest-path src-tauri/Cargo.toml`
+- Tauri 命令禁止阻塞 invoke 路径：
+  - `#[tauri::command]` 中涉及同步 I/O、数据库重查询、进程启动/关闭、资源下载/安装、网络请求、批量循环等耗时逻辑时，必须使用 `pub async fn` + `tauri::async_runtime::spawn_blocking` 或等价异步卸载。
+  - 不允许在同步 command 里直接执行可能阻塞 UI 的重逻辑。
+  - 传入 `AppHandle` 后，在 blocking 闭包内通过 `app.state::<AppState>()` 获取状态，避免把 `State<'_, AppState>` 跨线程/跨生命周期传递。
+  - 批量操作默认保持现有串行语义，除非明确评估资源竞争后再改并发。
 - 不使用破坏性 git 命令（如 `reset --hard`）处理问题。
 - 新增或修改 AI 可用工具时，必须同步更新 `docs/ai/ai-tools-developer.md`（开发者文档）和 `docs/ai/ai-tools-agent.md`（Agent 使用文档）。
 
