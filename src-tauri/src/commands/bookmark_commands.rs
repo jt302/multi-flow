@@ -1,5 +1,4 @@
-use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::json;
@@ -154,24 +153,31 @@ fn roots_from_magic_data(data: &serde_json::Value) -> BookmarkDisplayRoots {
     }
 }
 
-fn read_bookmark_state_file(path: &PathBuf) -> Result<Option<BookmarkStateFile>, String> {
-    if !path.exists() {
+async fn read_bookmark_state_file(path: &Path) -> Result<Option<BookmarkStateFile>, String> {
+    if !tokio::fs::try_exists(path)
+        .await
+        .map_err(|e| format!("check bookmark-state.json: {e}"))?
+    {
         return Ok(None);
     }
-    let content =
-        fs::read_to_string(path).map_err(|e| format!("read bookmark-state.json: {e}"))?;
+    let content = tokio::fs::read_to_string(path)
+        .await
+        .map_err(|e| format!("read bookmark-state.json: {e}"))?;
     let state: BookmarkStateFile =
         serde_json::from_str(&content).map_err(|e| format!("parse bookmark-state.json: {e}"))?;
     Ok(Some(state))
 }
 
-fn write_bookmark_state_file(path: &PathBuf, state: &BookmarkStateFile) -> Result<(), String> {
+async fn write_bookmark_state_file(path: &Path, state: &BookmarkStateFile) -> Result<(), String> {
     if let Some(dir) = path.parent() {
-        fs::create_dir_all(dir).map_err(|e| format!("create runtime dir: {e}"))?;
+        tokio::fs::create_dir_all(dir)
+            .await
+            .map_err(|e| format!("create runtime dir: {e}"))?;
     }
     let content = serde_json::to_string_pretty(state)
         .map_err(|e| format!("serialize bookmark state: {e}"))?;
-    fs::write(path, format!("{content}\n"))
+    tokio::fs::write(path, format!("{content}\n"))
+        .await
         .map_err(|e| format!("write bookmark-state.json: {e}"))
 }
 
@@ -204,9 +210,9 @@ pub async fn get_profile_bookmarks(
 
     // Snapshot path
     let path = bookmark_state_path(&state, &profile_id)?;
-    match read_bookmark_state_file(&path)? {
+    match read_bookmark_state_file(&path).await? {
         Some(file) => {
-            let meta = fs::metadata(&path).ok();
+            let meta = tokio::fs::metadata(&path).await.ok();
             let snapshot_at = meta
                 .and_then(|m| m.modified().ok())
                 .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
@@ -374,9 +380,13 @@ pub async fn export_profile_bookmarks(
     }
 
     let path = bookmark_state_path(&state, &profile_id)?;
-    if path.exists() {
-        let content =
-            fs::read_to_string(&path).map_err(|e| format!("read bookmark-state.json: {e}"))?;
+    if tokio::fs::try_exists(&path)
+        .await
+        .map_err(|e| format!("check bookmark-state.json: {e}"))?
+    {
+        let content = tokio::fs::read_to_string(&path)
+            .await
+            .map_err(|e| format!("read bookmark-state.json: {e}"))?;
         return Ok(content);
     }
     Err(format!("No bookmark data for profile '{profile_id}'"))
@@ -411,10 +421,13 @@ pub async fn import_bookmarks_to_profile(
                     url: None,
                     children: Some(import_state.roots.bookmark_bar),
                 };
-                let mut merged = read_bookmark_state_file(&path)?.unwrap_or(BookmarkStateFile {
-                    environment_id: Some(req.profile_id.clone()),
-                    roots: Default::default(),
-                });
+                let mut merged =
+                    read_bookmark_state_file(&path)
+                        .await?
+                        .unwrap_or(BookmarkStateFile {
+                            environment_id: Some(req.profile_id.clone()),
+                            roots: Default::default(),
+                        });
                 merged.roots.bookmark_bar.push(folder);
                 merged
             }
@@ -424,17 +437,20 @@ pub async fn import_bookmarks_to_profile(
             },
             _ => {
                 // merge: append all nodes from import (dedup by title+url is best-effort)
-                let mut merged = read_bookmark_state_file(&path)?.unwrap_or(BookmarkStateFile {
-                    environment_id: Some(req.profile_id.clone()),
-                    roots: Default::default(),
-                });
+                let mut merged =
+                    read_bookmark_state_file(&path)
+                        .await?
+                        .unwrap_or(BookmarkStateFile {
+                            environment_id: Some(req.profile_id.clone()),
+                            roots: Default::default(),
+                        });
                 merged.roots.bookmark_bar.extend(import_state.roots.bookmark_bar);
                 merged.roots.other.extend(import_state.roots.other);
                 merged.roots.mobile.extend(import_state.roots.mobile);
                 merged
             }
         };
-        write_bookmark_state_file(&path, &final_state)
+        write_bookmark_state_file(&path, &final_state).await
     }
 }
 
@@ -662,10 +678,12 @@ async fn apply_template_to_profile(
                     children: Some(import.roots.bookmark_bar.clone()),
                 };
                 let mut merged =
-                    read_bookmark_state_file(&path)?.unwrap_or(BookmarkStateFile {
-                        environment_id: Some(profile_id.to_string()),
-                        roots: Default::default(),
-                    });
+                    read_bookmark_state_file(&path)
+                        .await?
+                        .unwrap_or(BookmarkStateFile {
+                            environment_id: Some(profile_id.to_string()),
+                            roots: Default::default(),
+                        });
                 merged.roots.bookmark_bar.push(folder);
                 merged
             }
@@ -676,10 +694,12 @@ async fn apply_template_to_profile(
             _ => {
                 // merge
                 let mut merged =
-                    read_bookmark_state_file(&path)?.unwrap_or(BookmarkStateFile {
-                        environment_id: Some(profile_id.to_string()),
-                        roots: Default::default(),
-                    });
+                    read_bookmark_state_file(&path)
+                        .await?
+                        .unwrap_or(BookmarkStateFile {
+                            environment_id: Some(profile_id.to_string()),
+                            roots: Default::default(),
+                        });
                 merged
                     .roots
                     .bookmark_bar
@@ -689,7 +709,7 @@ async fn apply_template_to_profile(
                 merged
             }
         };
-        write_bookmark_state_file(&path, &final_state)
+        write_bookmark_state_file(&path, &final_state).await
     }
 }
 
@@ -817,7 +837,7 @@ pub async fn diff_template_with_profile(
     } else {
         // 离线：读取 bookmark-state.json
         let path = bookmark_state_path(&state, &profile_id)?;
-        if let Some(file) = read_bookmark_state_file(&path)? {
+        if let Some(file) = read_bookmark_state_file(&path).await? {
             let bm_bar: Vec<BookmarkDisplayNode> = file
                 .roots
                 .bookmark_bar
