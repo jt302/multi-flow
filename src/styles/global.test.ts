@@ -11,6 +11,6 @@ test('global styles define reusable themed scrollbar tokens and utility class', 
 	assert.match(source, /\.mf-scrollbar\s*\{/);
 	assert.match(
 		source,
-		/--scrollbar-thumb-hover:\s*color-mix\(in oklab, var\(--muted-foreground\) 70%, transparent\);/,
+		/--scrollbar-thumb-hover:\s*color-mix\(\s*in oklab,\s*var\(--muted-foreground\) 70%,\s*transparent\s*\);/,
 	);
 });

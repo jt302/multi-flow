@@ -12,6 +12,6 @@ test('script detail panel surfaces a disconnected entry badge and helper copy', 
 		'utf8',
 	);
 
-	assert.equal(detailPanel.includes('入口未连接'), true);
-	assert.equal(stepsViewer.includes('Start 未连接任何步骤'), true);
+	assert.equal(detailPanel.includes("t('detail.entryNotConnected')"), true);
+	assert.equal(stepsViewer.includes("t('common:entryNotConnectedHint')"), true);
 });

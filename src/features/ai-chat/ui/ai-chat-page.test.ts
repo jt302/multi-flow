@@ -6,7 +6,7 @@ test('ai chat page hydrates the persisted session lazily before loading the righ
 	const source = readFileSync(new URL('./ai-chat-page.tsx', import.meta.url), 'utf8');
 
 	assert.equal(source.includes('startTransition'), true);
-	assert.equal(source.includes('requestAnimationFrame'), true);
+	assert.equal(source.includes('requestAnimationFrame'), false);
 	assert.equal(source.includes('hydratedSessionId'), true);
 	assert.equal(source.includes('useChatMessagesQuery(hydratedSessionId)'), true);
 	assert.equal(source.includes('hydratedSessionId && hydratedSession'), true);

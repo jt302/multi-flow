@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import i18next from 'i18next';
+
+import zhWindow from '@/shared/i18n/locales/zh-CN/window.json';
 
 import {
 	arrangeWindowsFormSchema,
@@ -7,6 +10,17 @@ import {
 	syncTextFormSchema,
 	windowBoundsBatchFormSchema,
 } from './window-sync-forms.ts';
+
+await i18next.init({
+	lng: 'zh-CN',
+	fallbackLng: 'zh-CN',
+	defaultNS: 'window',
+	resources: {
+		'zh-CN': {
+			window: zhWindow,
+		},
+	},
+});
 
 test('getWindowSyncStartValidation only requires correct master and slave selection', () => {
 	const validWithoutProbe = getWindowSyncStartValidation(

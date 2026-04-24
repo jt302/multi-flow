@@ -10,7 +10,7 @@ test('local api server avoids reqwest blocking client in async runtime paths', (
 	);
 
 	assert.equal(source.includes('reqwest::blocking::Client'), false);
-	assert.equal(source.includes('use reqwest::Client;'), true);
+	assert.match(source, /use reqwest::\{[^}]*Client/);
 	assert.equal(source.includes('crate::runtime_compat::block_on_compat'), true);
 	assert.equal(profileCommands.includes('reqwest::blocking::Client'), false);
 });

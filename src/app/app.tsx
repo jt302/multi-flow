@@ -9,6 +9,7 @@ import { HumanInterventionModal } from './ui/human-intervention-modal';
 import { StepErrorPauseModal } from './ui/step-error-pause-modal';
 import { ToolConfirmationModal } from './ui/tool-confirmation-modal';
 import { AppRouter } from './router';
+import { reportFrontendError } from '@/shared/lib/frontend-errors';
 
 class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
 	state = { error: null };
@@ -18,7 +19,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error
 	}
 
 	componentDidCatch(error: Error, info: ErrorInfo) {
-		console.error('[AppErrorBoundary]', error, info.componentStack);
+		reportFrontendError('AppErrorBoundary', error, info.componentStack ?? undefined);
 	}
 
 	render() {

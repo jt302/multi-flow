@@ -182,5 +182,6 @@ test('workspace sidebar top-level expandable menus toggle only submenu state wit
 test('workspace sidebar memoizes nav items so active child routes do not force submenu reopen on each render', () => {
 	const file = readFileSync(new URL('./workspace-sidebar.tsx', import.meta.url), 'utf8');
 
-	assert.equal(file.includes('useMemo(() => getWorkspaceNavItems()'), true);
+	assert.equal(file.includes('const navItems = useMemo('), true);
+	assert.equal(file.includes('() => getWorkspaceNavItems()'), true);
 });
