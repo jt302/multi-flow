@@ -8,8 +8,8 @@ use std::time::{Duration, Instant};
 use crate::error::{AppError, AppResult};
 use crate::logger;
 use crate::models::{
-    now_ts, CookieStateFile, EngineRuntimeHandle, EngineSession, ExportProfileCookiesMode,
-    ProfileWindow, ProfileWindowState, WindowBounds, WindowTab,
+    now_ts, EngineRuntimeHandle, EngineSession, ProfileWindow, ProfileWindowState, WindowBounds,
+    WindowTab,
 };
 use serde_json::{json, Value};
 
@@ -378,45 +378,6 @@ impl EngineManager {
         }
     }
 
-    pub fn export_profile_cookie_state(
-        &self,
-        profile_id: &str,
-        mode: ExportProfileCookiesMode,
-        url: Option<&str>,
-        environment_id: Option<&str>,
-    ) -> AppResult<CookieStateFile> {
-        let Some(magic_port) = self.chromium_magic_port_for_profile(profile_id)? else {
-            return Err(AppError::NotFound(format!(
-                "running session not found: {profile_id}"
-            )));
-        };
-        let mut payload = match mode {
-            ExportProfileCookiesMode::All => json!({
-                "cmd": "export_cookie_state",
-                "mode": "all",
-            }),
-            ExportProfileCookiesMode::Site => json!({
-                "cmd": "export_cookie_state",
-                "mode": "url",
-                "url": url.unwrap_or_default(),
-            }),
-        };
-        if let Some(value) = environment_id.and_then(trim_to_option) {
-            payload["environment_id"] = Value::String(value);
-        }
-        let response = self.chromium_magic_command(profile_id, magic_port, payload)?;
-        let data = response.get("data").cloned().ok_or_else(|| {
-            AppError::Validation(format!(
-                "magic export_cookie_state missing data profile_id={profile_id}"
-            ))
-        })?;
-        serde_json::from_value::<CookieStateFile>(data).map_err(|err| {
-            AppError::Validation(format!(
-                "magic export_cookie_state invalid data profile_id={profile_id}: {err}"
-            ))
-        })
-    }
-
     pub fn profile_data_dirs(&self, profile_id: &str) -> AppResult<(PathBuf, PathBuf, PathBuf)> {
         let profiles_root_dir = self.profiles_root_dir.as_ref().ok_or_else(|| {
             AppError::Validation("profiles root dir is not configured".to_string())
@@ -467,9 +428,7 @@ impl EngineManager {
                                         "chromium zero windows detected, auto force kill profile_id={profile_id} pid={pid:?}"
                                     ),
                                 );
-                                if let EngineProcess::Chromium { child, .. } =
-                                    &mut record.process
-                                {
+                                if let EngineProcess::Chromium { child, .. } = &mut record.process {
                                     force_kill_child(&profile_id, &profile_name, child);
                                 }
                             }
@@ -1112,11 +1071,8 @@ impl EngineManager {
                 "magic_get_window_bounds requires a real chromium session".to_string(),
             ));
         };
-        let response = self.chromium_magic_command(
-            profile_id,
-            magic_port,
-            json!({ "cmd": "get_bounds" }),
-        )?;
+        let response =
+            self.chromium_magic_command(profile_id, magic_port, json!({ "cmd": "get_bounds" }))?;
         // 返回格式: {"status":"ok","data":{"status":"ok","x":100,"y":100,"width":1280,"height":900}}
         let data = response
             .get("data")
@@ -1133,7 +1089,12 @@ impl EngineManager {
             .and_then(|v| v.as_i64())
             .ok_or_else(|| AppError::Validation("get_bounds: missing height".to_string()))?
             as i32;
-        Ok(WindowBounds { x, y, width, height })
+        Ok(WindowBounds {
+            x,
+            y,
+            width,
+            height,
+        })
     }
 
     pub fn restore_window(
@@ -1696,7 +1657,8 @@ fn build_chromium_launch_args(
         .as_ref()
         .and_then(|value| trim_to_option(value))
     {
-        args.push(format!("--lang={language}"));
+        let ui_locale = normalize_chromium_ui_locale(&language);
+        args.push(format!("--lang={ui_locale}"));
     }
     if let Some(user_agent) = options
         .user_agent
@@ -1780,6 +1742,9 @@ fn build_chromium_launch_args(
     }
     for extra in &options.extra_args {
         if let Some(arg) = trim_to_option(extra) {
+            if is_chromium_ui_lang_arg(&arg) {
+                continue;
+            }
             args.push(arg);
         }
     }
@@ -1789,6 +1754,94 @@ fn build_chromium_launch_args(
         }
     }
     Ok(args)
+}
+
+fn is_chromium_ui_lang_arg(arg: &str) -> bool {
+    arg == "--lang" || arg.starts_with("--lang=")
+}
+
+fn normalize_chromium_ui_locale(locale: &str) -> &'static str {
+    let normalized = locale.trim().replace('_', "-").to_ascii_lowercase();
+    let (language, region) = normalized
+        .split_once('-')
+        .map(|(lang, region)| (lang, Some(region)))
+        .unwrap_or((normalized.as_str(), None));
+
+    match normalized.as_str() {
+        "zh-cn" => return "zh-CN",
+        "zh-tw" => return "zh-TW",
+        "en-us" => return "en-US",
+        "en-gb" => return "en-GB",
+        "pt-br" => return "pt-BR",
+        "pt-pt" => return "pt-PT",
+        "es-419" => return "es-419",
+        _ => {}
+    }
+
+    match language {
+        "zh" => "zh-CN",
+        "en" => match region {
+            Some("us") => "en-US",
+            Some("gb") => "en-GB",
+            _ => "en-GB",
+        },
+        "es" => match region {
+            Some("es") | None => "es",
+            _ => "es-419",
+        },
+        "pt" => match region {
+            Some("br") | None => "pt-BR",
+            _ => "pt-PT",
+        },
+        "de" => "de",
+        "ur" => "ur",
+        "he" => "he",
+        "ar" => "ar",
+        "el" => "el",
+        "ja" => "ja",
+        "fa" => "fa",
+        "mr" => "mr",
+        "uk" => "uk",
+        "gu" => "gu",
+        "kn" => "kn",
+        "nb" => "nb",
+        "am" => "am",
+        "sw" => "sw",
+        "sl" => "sl",
+        "da" => "da",
+        "et" => "et",
+        "it" => "it",
+        "bg" => "bg",
+        "sk" => "sk",
+        "sr" => "sr",
+        "ms" => "ms",
+        "ta" => "ta",
+        "ml" => "ml",
+        "sv" => "sv",
+        "te" => "te",
+        "cs" => "cs",
+        "ko" => "ko",
+        "fil" => "fil",
+        "hu" => "hu",
+        "tr" => "tr",
+        "pl" => "pl",
+        "vi" => "vi",
+        "lv" => "lv",
+        "lt" => "lt",
+        "ru" => "ru",
+        "af" => "af",
+        "fr" => "fr",
+        "fi" => "fi",
+        "id" => "id",
+        "nl" => "nl",
+        "th" => "th",
+        "bn" => "bn",
+        "ro" => "ro",
+        "hr" => "hr",
+        "hi" => "hi",
+        "ca" => "ca",
+        _ => "en-US",
+    }
 }
 
 struct MagicHttpResponse {
@@ -2353,8 +2406,7 @@ pub(crate) async fn subscribe_chromium_events(
                 backoff_ms = 500;
                 let (mut tx, mut rx) = ws_stream.split();
 
-                let subscribe =
-                    serde_json::json!({"type": "sync.subscribe_events"}).to_string();
+                let subscribe = serde_json::json!({"type": "sync.subscribe_events"}).to_string();
                 if tx.send(WsMsg::Text(subscribe.into())).await.is_err() {
                     logger::warn(
                         "engine_manager.ws",
@@ -2364,9 +2416,7 @@ pub(crate) async fn subscribe_chromium_events(
                 }
                 logger::info(
                     "engine_manager.ws",
-                    format!(
-                        "ws events subscribed profile_id={profile_id} magic_port={magic_port}"
-                    ),
+                    format!("ws events subscribed profile_id={profile_id} magic_port={magic_port}"),
                 );
 
                 while let Some(msg) = rx.next().await {
@@ -2377,9 +2427,7 @@ pub(crate) async fn subscribe_chromium_events(
                             else {
                                 continue;
                             };
-                            if value.get("type").and_then(|v| v.as_str())
-                                != Some("sync.event")
-                            {
+                            if value.get("type").and_then(|v| v.as_str()) != Some("sync.event") {
                                 continue;
                             }
                             let Some(payload) = value.get("payload") else {
@@ -2449,9 +2497,7 @@ pub(crate) async fn subscribe_chromium_events(
         if !is_magic_server_alive(magic_port) {
             logger::info(
                 "engine_manager.ws",
-                format!(
-                    "magic server down, stopping ws subscription profile_id={profile_id}"
-                ),
+                format!("magic server down, stopping ws subscription profile_id={profile_id}"),
             );
             break;
         }
@@ -2506,11 +2552,9 @@ mod tests {
                                         .lines()
                                         .find_map(|line| {
                                             let lower = line.to_ascii_lowercase();
-                                            lower
-                                                .strip_prefix("content-length:")
-                                                .and_then(|value| {
-                                                    value.trim().parse::<usize>().ok()
-                                                })
+                                            lower.strip_prefix("content-length:").and_then(
+                                                |value| value.trim().parse::<usize>().ok(),
+                                            )
                                         })
                                         .unwrap_or(0);
                                     expected_total = Some(header_end + 4 + content_length);
@@ -2570,10 +2614,7 @@ mod tests {
         if request.contains("\"cmd\":\"safe_quit\"") {
             return (safe_quit_status, safe_quit_body.to_string());
         }
-        (
-            200,
-            r#"{"status":"ok"}"#.to_string(),
-        )
+        (200, r#"{"status":"ok"}"#.to_string())
     }
 
     fn spawn_sleeping_child() -> Child {
@@ -2738,6 +2779,81 @@ mod tests {
     }
 
     #[test]
+    fn normalize_chromium_ui_locale_maps_region_locale_to_pack_locale() {
+        assert_eq!(normalize_chromium_ui_locale("cs-CZ"), "cs");
+        assert_eq!(normalize_chromium_ui_locale("fr-CA"), "fr");
+        assert_eq!(normalize_chromium_ui_locale("de-DE"), "de");
+        assert_eq!(normalize_chromium_ui_locale("ja-JP"), "ja");
+        assert_eq!(normalize_chromium_ui_locale("zh-CN"), "zh-CN");
+        assert_eq!(normalize_chromium_ui_locale("zh-TW"), "zh-TW");
+        assert_eq!(normalize_chromium_ui_locale("en-US"), "en-US");
+        assert_eq!(normalize_chromium_ui_locale("en-GB"), "en-GB");
+        assert_eq!(normalize_chromium_ui_locale("pt-BR"), "pt-BR");
+        assert_eq!(normalize_chromium_ui_locale("pt-PT"), "pt-PT");
+        assert_eq!(normalize_chromium_ui_locale("es-419"), "es-419");
+        assert_eq!(normalize_chromium_ui_locale("xx-YY"), "en-US");
+    }
+
+    #[test]
+    fn build_chromium_launch_args_normalizes_lang_to_ui_locale() {
+        let options = EngineLaunchOptions {
+            language: Some(" cs-CZ ".to_string()),
+            ..Default::default()
+        };
+        let args = build_chromium_launch_args(
+            &PathBuf::from("/tmp/multi-flow-tests/user-data"),
+            &PathBuf::from("/tmp/multi-flow-tests/cache-data"),
+            19222,
+            19322,
+            &options,
+        )
+        .expect("build args");
+
+        assert!(
+            args.iter().any(|arg| arg == "--lang=cs"),
+            "expected normalized --lang in args: {args:?}"
+        );
+        assert!(
+            !args.iter().any(|arg| arg == "--lang=cs-CZ"),
+            "raw region locale should not be used for --lang: {args:?}"
+        );
+    }
+
+    #[test]
+    fn build_chromium_launch_args_ignores_extra_lang_override() {
+        let options = EngineLaunchOptions {
+            language: Some("cs-CZ".to_string()),
+            extra_args: vec![
+                "--custom-main-language=cs-CZ".to_string(),
+                "--lang=cs-CZ".to_string(),
+            ],
+            ..Default::default()
+        };
+        let args = build_chromium_launch_args(
+            &PathBuf::from("/tmp/multi-flow-tests/user-data"),
+            &PathBuf::from("/tmp/multi-flow-tests/cache-data"),
+            19222,
+            19322,
+            &options,
+        )
+        .expect("build args");
+
+        assert_eq!(
+            args.iter().filter(|arg| arg.starts_with("--lang=")).count(),
+            1,
+            "--lang should have one source: {args:?}"
+        );
+        assert!(
+            args.iter().any(|arg| arg == "--lang=cs"),
+            "expected normalized --lang in args: {args:?}"
+        );
+        assert!(
+            args.iter().any(|arg| arg == "--custom-main-language=cs-CZ"),
+            "fingerprint language should remain complete: {args:?}"
+        );
+    }
+
+    #[test]
     fn build_chromium_launch_args_enables_chromium_stderr_logging() {
         let options = EngineLaunchOptions {
             logging_enabled: true,
@@ -2867,7 +2983,9 @@ mod tests {
         server.join().expect("join test magic server");
         let requests = commands.lock().expect("commands lock");
         assert!(
-            requests.iter().any(|request| request.contains("\"cmd\":\"safe_quit\"")),
+            requests
+                .iter()
+                .any(|request| request.contains("\"cmd\":\"safe_quit\"")),
             "expected safe_quit request, got: {requests:?}"
         );
     }
@@ -2898,11 +3016,8 @@ mod tests {
         let commands = Arc::new(Mutex::new(Vec::<String>::new()));
         let commands_clone = Arc::clone(&commands);
         let (magic_port, server) = spawn_magic_test_server(move |request| {
-            let response = test_magic_http_response(
-                &request,
-                500,
-                r#"{"status":"error","message":"boom"}"#,
-            );
+            let response =
+                test_magic_http_response(&request, 500, r#"{"status":"error","message":"boom"}"#);
             commands_clone.lock().expect("commands lock").push(request);
             response
         });
@@ -2918,7 +3033,9 @@ mod tests {
         server.join().expect("join test magic server");
         let requests = commands.lock().expect("commands lock");
         assert!(
-            requests.iter().any(|request| request.contains("\"cmd\":\"safe_quit\"")),
+            requests
+                .iter()
+                .any(|request| request.contains("\"cmd\":\"safe_quit\"")),
             "expected safe_quit request, got: {requests:?}"
         );
         assert!(

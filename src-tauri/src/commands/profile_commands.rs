@@ -1041,58 +1041,6 @@ fn filter_cookie_state_by_site_label(
     })
 }
 
-fn snapshot_running_profile_cookie_state_quietly(
-    profile_id: &str,
-    engine_manager: &crate::engine_manager::EngineManager,
-) {
-    let cookie_state = match engine_manager.export_profile_cookie_state(
-        profile_id,
-        ExportProfileCookiesMode::All,
-        None,
-        Some(profile_id),
-    ) {
-        Ok(value) => value,
-        Err(err) => {
-            logger::warn(
-                "profile_cmd",
-                format!(
-                    "skip cookie snapshot because export failed profile_id={profile_id}: {err}"
-                ),
-            );
-            return;
-        }
-    };
-    let path = match resolve_profile_cookie_state_path(engine_manager, profile_id) {
-        Ok(value) => value,
-        Err(err) => {
-            logger::warn(
-                "profile_cmd",
-                format!(
-                    "skip cookie snapshot because resolve path failed profile_id={profile_id}: {err}"
-                ),
-            );
-            return;
-        }
-    };
-    if let Err(err) = write_cookie_state_file(
-        path.parent().unwrap_or_else(|| Path::new(".")),
-        &cookie_state,
-    ) {
-        logger::warn(
-            "profile_cmd",
-            format!("write cookie snapshot failed profile_id={profile_id}: {err}"),
-        );
-        return;
-    }
-    logger::info(
-        "profile_cmd",
-        format!(
-            "cookie snapshot saved before close profile_id={profile_id} path={}",
-            path.to_string_lossy()
-        ),
-    );
-}
-
 #[tauri::command]
 pub fn set_profile_group(
     state: State<'_, AppState>,
@@ -1268,7 +1216,10 @@ pub fn update_profile_device_preset(
         0
     };
 
-    Ok(UpdateDevicePresetOutcome { preset, synced_count })
+    Ok(UpdateDevicePresetOutcome {
+        preset,
+        synced_count,
+    })
 }
 
 #[tauri::command]
@@ -1312,7 +1263,6 @@ fn do_delete_profile(state: &AppState, profile_id: &str) -> Result<Profile, Stri
         .map_err(|_| "engine manager lock poisoned".to_string())?;
 
     if engine_manager.is_running(profile_id) {
-        snapshot_running_profile_cookie_state_quietly(profile_id, &engine_manager);
         let _ = engine_manager.close_profile(profile_id);
     }
     let _ = engine_session_service.delete_session(profile_id);
@@ -1566,7 +1516,9 @@ pub(crate) fn do_open_profile(
             })
             .unwrap_or_else(|| {
                 // Use host platform (macOS) as fallback since this path runs on the host.
-                crate::chromium_version_catalog::latest_for("macos").version.to_string()
+                crate::chromium_version_catalog::latest_for("macos")
+                    .version
+                    .to_string()
             });
         // 在 debug 模式下，优先使用开发者配置的自定义 Chromium 路径
         #[cfg(debug_assertions)]
@@ -1641,7 +1593,10 @@ pub(crate) fn do_open_profile(
     let mut merged_options = merge_open_options(profile_snapshot.settings.as_ref(), user_options);
     merged_options.fingerprint_seed = Some(fingerprint_seed);
     // 若未指定启动 URL，使用全局默认启动 URL（若已配置）
-    if merged_options.startup_urls.as_ref().map_or(true, |v| v.is_empty())
+    if merged_options
+        .startup_urls
+        .as_ref()
+        .map_or(true, |v| v.is_empty())
         && merged_options.startup_url.is_none()
     {
         if let Ok(global_url) = state
@@ -1671,48 +1626,46 @@ pub(crate) fn do_open_profile(
         .unwrap_or(crate::models::LocaleMode::Auto);
 
     // Auto 模式 + 有代理：若代理 effective locale 缺失则触发一次轻量 GeoIP 查询并持久化
-    let refreshed_proxy: Option<crate::models::Proxy> =
-        if locale_mode == crate::models::LocaleMode::Auto {
-            if let (Some(proxy), Some(ref db_path)) =
-                (bound_proxy.as_ref(), geoip_database.as_ref())
-            {
-                if proxy.effective_language.is_none() && proxy.effective_timezone.is_none() {
-                    match state
-                        .lock_proxy_service()
-                        .ensure_proxy_locale_fresh(&proxy.id, db_path)
-                    {
-                        Ok(fresh) => Some(fresh),
-                        Err(err) => {
-                            logger::warn(
-                                "profile_cmd",
-                                format!(
-                                    "proxy locale refresh failed, falling back to host locale: {err}"
-                                ),
-                            );
-                            None
-                        }
+    let refreshed_proxy: Option<crate::models::Proxy> = if locale_mode
+        == crate::models::LocaleMode::Auto
+    {
+        if let (Some(proxy), Some(ref db_path)) = (bound_proxy.as_ref(), geoip_database.as_ref()) {
+            if proxy.effective_language.is_none() && proxy.effective_timezone.is_none() {
+                match state
+                    .lock_proxy_service()
+                    .ensure_proxy_locale_fresh(&proxy.id, db_path)
+                {
+                    Ok(fresh) => Some(fresh),
+                    Err(err) => {
+                        logger::warn(
+                            "profile_cmd",
+                            format!(
+                                "proxy locale refresh failed, falling back to host locale: {err}"
+                            ),
+                        );
+                        None
                     }
-                } else {
-                    None
                 }
             } else {
                 None
             }
         } else {
             None
-        };
+        }
+    } else {
+        None
+    };
 
     let effective_bound_proxy = refreshed_proxy.as_ref().or(bound_proxy.as_ref());
 
     let device_preset_service = state.lock_device_preset_service();
     // Auto 模式 + 无代理：若缓存过期则同步刷新 host locale
-    let host_locale = if locale_mode == crate::models::LocaleMode::Auto
-        && effective_bound_proxy.is_none()
-    {
-        state.host_locale_service.refresh_for_launch()
-    } else {
-        None
-    };
+    let host_locale =
+        if locale_mode == crate::models::LocaleMode::Auto && effective_bound_proxy.is_none() {
+            state.host_locale_service.refresh_for_launch()
+        } else {
+            None
+        };
 
     let mut launch_options = resolve_launch_options(
         &device_preset_service,
@@ -1772,13 +1725,11 @@ pub(crate) fn do_open_profile(
         if let Some(magic_port) = session.magic_port {
             let app_ws = app.clone();
             let profile_id_ws = profile_id.to_string();
-            tauri::async_runtime::spawn(
-                crate::engine_manager::subscribe_chromium_events(
-                    app_ws,
-                    profile_id_ws,
-                    magic_port,
-                ),
-            );
+            tauri::async_runtime::spawn(crate::engine_manager::subscribe_chromium_events(
+                app_ws,
+                profile_id_ws,
+                magic_port,
+            ));
         }
         std::thread::spawn(move || {
             let state = app.state::<AppState>();
@@ -2074,7 +2025,12 @@ fn resolve_launch_options(
         .image_loading_mode
         .as_deref()
         .and_then(trim_str_to_option)
-        .or_else(|| options.disable_images.unwrap_or(false).then(|| "block".to_string()));
+        .or_else(|| {
+            options
+                .disable_images
+                .unwrap_or(false)
+                .then(|| "block".to_string())
+        });
     if let Some(mode) = image_loading_mode {
         match mode.as_str() {
             "off" => {}
@@ -3016,7 +2972,6 @@ pub(crate) fn do_close_profile(state: &AppState, profile_id: &str) -> Result<Pro
             "profile_cmd",
             format!("do_close_profile engine_manager session found profile_id={profile_id}"),
         );
-        snapshot_running_profile_cookie_state_quietly(profile_id, &engine_manager);
         engine_manager
             .close_profile(profile_id)
             .map_err(error_to_string)?;
@@ -3076,8 +3031,11 @@ pub async fn host_locale_suggestion(
 
 #[cfg(test)]
 mod tests {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
     use std::sync::Mutex;
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::thread;
+    use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
     const TEST_BROWSER_VERSION: &str = "144.0.7559.97";
 
     use sea_orm::ConnectionTrait;
@@ -3088,10 +3046,10 @@ mod tests {
     use crate::engine_manager::EngineManager;
     use crate::local_api_server::LocalApiServer;
     use crate::models::{
-        CookieStateFile, CreateProfileRequest, CreateProxyRequest, ExportProfileCookiesMode,
-        ExportProfileCookiesRequest, GeolocationOverride, ManagedCookie, OpenProfileOptions,
-        ProfileAdvancedSettings, ProfilePluginSelection, ProfileSettings, Proxy, ProxyLifecycle,
-        SavePluginPackageInput, WebRtcMode,
+        CookieStateFile, CreateProfileRequest, CreateProxyRequest, EngineSession,
+        ExportProfileCookiesMode, ExportProfileCookiesRequest, GeolocationOverride, ManagedCookie,
+        OpenProfileOptions, ProfileAdvancedSettings, ProfilePluginSelection, ProfileSettings,
+        Proxy, ProxyLifecycle, SavePluginPackageInput, WebRtcMode,
     };
     use crate::services::app_preference_service::AppPreferenceService;
     use crate::services::automation_service::AutomationService;
@@ -3128,7 +3086,9 @@ mod tests {
         local_api_server.mark_started();
 
         AppState {
-            active_runs: std::sync::Arc::new(crate::services::automation_context::ActiveRunRegistry::new()),
+            active_runs: std::sync::Arc::new(
+                crate::services::automation_context::ActiveRunRegistry::new(),
+            ),
             active_run_channels: Mutex::new(std::collections::HashMap::new()),
             cancel_tokens: Mutex::new(std::collections::HashMap::new()),
             ai_dialog_channels: Mutex::new(std::collections::HashMap::new()),
@@ -3153,7 +3113,11 @@ mod tests {
             chromium_magic_adapter_service: Mutex::new(ChromiumMagicAdapterService::new()),
             sync_manager_service: Mutex::new(SyncManagerService::new_mock(None, None)),
             mcp_manager: std::sync::Arc::new(crate::services::mcp::McpManager::from_db(db.clone())),
-            bookmark_template_service: Mutex::new(crate::services::bookmark_template_service::BookmarkTemplateService::from_db(db.clone())),
+            bookmark_template_service: Mutex::new(
+                crate::services::bookmark_template_service::BookmarkTemplateService::from_db(
+                    db.clone(),
+                ),
+            ),
             require_real_engine: false,
             last_arrangement_snapshot: Mutex::new(Vec::new()),
             host_locale_service: std::sync::Arc::new(
@@ -3165,6 +3129,76 @@ mod tests {
     fn new_test_device_preset_service() -> DevicePresetService {
         let db = db::init_test_database().expect("init test db");
         DevicePresetService::from_db(db)
+    }
+
+    fn spawn_cookie_export_magic_server() -> (u16, thread::JoinHandle<usize>) {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind cookie export magic server");
+        listener
+            .set_nonblocking(true)
+            .expect("set nonblocking cookie export magic server");
+        let port = listener.local_addr().expect("listener addr").port();
+        let handle = thread::spawn(move || {
+            let started_at = Instant::now();
+            let mut handled_requests = 0usize;
+            loop {
+                match listener.accept() {
+                    Ok((mut stream, _)) => {
+                        let mut buffer = Vec::new();
+                        let mut chunk = [0u8; 4096];
+                        let mut expected_total = None::<usize>;
+                        loop {
+                            let bytes_read = stream.read(&mut chunk).expect("read request");
+                            if bytes_read == 0 {
+                                break;
+                            }
+                            buffer.extend_from_slice(&chunk[..bytes_read]);
+                            if expected_total.is_none() {
+                                if let Some(header_end) =
+                                    buffer.windows(4).position(|item| item == b"\r\n\r\n")
+                                {
+                                    let header_text =
+                                        String::from_utf8_lossy(&buffer[..header_end + 4]);
+                                    let content_length = header_text
+                                        .lines()
+                                        .find_map(|line| {
+                                            line.to_ascii_lowercase()
+                                                .strip_prefix("content-length:")
+                                                .and_then(|value| {
+                                                    value.trim().parse::<usize>().ok()
+                                                })
+                                        })
+                                        .unwrap_or(0);
+                                    expected_total = Some(header_end + 4 + content_length);
+                                }
+                            }
+                            if expected_total.is_some_and(|total| buffer.len() >= total) {
+                                break;
+                            }
+                        }
+                        let body = r#"{"status":"ok","data":{"environment_id":"pf_close_snapshot","managed_cookies":[{"cookie_id":"ck_1","url":"https://example.com/","name":"sid","value":"abc"}]}}"#;
+                        let response = format!(
+                            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                            body.len(),
+                            body
+                        );
+                        stream
+                            .write_all(response.as_bytes())
+                            .expect("write response");
+                        handled_requests += 1;
+                        break;
+                    }
+                    Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
+                        if started_at.elapsed() >= Duration::from_millis(500) {
+                            break;
+                        }
+                        thread::sleep(Duration::from_millis(10));
+                    }
+                    Err(err) => panic!("accept request: {err}"),
+                }
+            }
+            handled_requests
+        });
+        (port, handle)
     }
 
     #[test]
@@ -3768,7 +3802,7 @@ mod tests {
             None,
             None,
             None,
-        None,
+            None,
         )
         .expect("resolve launch options");
         assert_eq!(options.language.as_deref(), Some("en-US"));
@@ -3825,15 +3859,21 @@ mod tests {
             None,
             None,
             None,
-        None,
+            None,
         )
         .expect("resolve inherited launch options");
         inherited_options.toolbar_text = inherited.resolved_toolbar_text.clone();
         inherited_options.background_color = inherited.resolved_browser_bg_color.clone();
         inherited_options.dock_icon_text = inherited.resolved_toolbar_text.clone();
         assert_eq!(inherited_options.toolbar_text.as_deref(), Some("growth-1"));
-        assert_eq!(inherited_options.background_color.as_deref(), Some("#0F8A73"));
-        assert_eq!(inherited_options.dock_icon_text.as_deref(), Some("growth-1"));
+        assert_eq!(
+            inherited_options.background_color.as_deref(),
+            Some("#0F8A73")
+        );
+        assert_eq!(
+            inherited_options.dock_icon_text.as_deref(),
+            Some("growth-1")
+        );
 
         let overridden = profile_service
             .create_profile(CreateProfileRequest {
@@ -3863,7 +3903,7 @@ mod tests {
             None,
             None,
             None,
-        None,
+            None,
         )
         .expect("resolve overridden launch options");
         overridden_options.toolbar_text = overridden.resolved_toolbar_text.clone();
@@ -3923,7 +3963,7 @@ mod tests {
             None,
             None,
             None,
-        None,
+            None,
         )
         .expect("resolve launch options");
 
@@ -3952,7 +3992,7 @@ mod tests {
             None,
             None,
             None,
-        None,
+            None,
         )
         .expect_err("invalid geolocation should fail");
         assert!(err.contains("invalid latitude"));
@@ -4042,7 +4082,7 @@ mod tests {
             None,
             None,
             None,
-        None,
+            None,
         )
         .expect("resolve launch options");
 
@@ -4083,7 +4123,7 @@ mod tests {
             None,
             None,
             None,
-        None,
+            None,
         )
         .expect("resolve launch options");
 
@@ -4111,7 +4151,7 @@ mod tests {
             None,
             None,
             None,
-        None,
+            None,
         )
         .expect("resolve launch options");
 
@@ -4267,7 +4307,7 @@ mod tests {
             None,
             None,
             None,
-        None,
+            None,
         )
         .expect("resolve launch options");
 
@@ -4334,7 +4374,7 @@ mod tests {
             None,
             None,
             None,
-        None,
+            None,
         )
         .expect("resolve launch options");
 
@@ -4368,7 +4408,7 @@ mod tests {
             None,
             None,
             None,
-        None,
+            None,
         )
         .expect_err("invalid startup url should fail");
         assert!(err.contains("invalid startupUrl"));
@@ -4398,7 +4438,7 @@ mod tests {
             None,
             None,
             None,
-        None,
+            None,
         )
         .expect("resolve launch options");
         assert_eq!(
@@ -4440,7 +4480,7 @@ mod tests {
             None,
             None,
             Some("144.0.7559.97"),
-        None,
+            None,
         )
         .expect("resolve launch options");
 
@@ -4488,7 +4528,7 @@ mod tests {
             None,
             None,
             Some("144.0.7559.97"),
-        None,
+            None,
         )
         .expect("resolve launch options");
 
@@ -4570,7 +4610,7 @@ mod tests {
             None,
             None,
             Some("144.0.7559.97"),
-        None,
+            None,
         )
         .expect("resolve launch options");
 
@@ -4607,7 +4647,7 @@ mod tests {
             None,
             None,
             Some("144.0.7559.97"),
-        None,
+            None,
         )
         .expect("resolve launch options");
 
@@ -4672,6 +4712,29 @@ mod tests {
     }
 
     #[test]
+    fn append_snapshot_args_keeps_full_fingerprint_language() {
+        let mut extra_args = Vec::new();
+        append_snapshot_args(
+            &mut extra_args,
+            &ProfileFingerprintSnapshot {
+                language: Some("cs-CZ".to_string()),
+                accept_languages: Some("cs-CZ,cs;q=0.9,en;q=0.8".to_string()),
+                ..Default::default()
+            },
+        );
+
+        assert!(extra_args
+            .iter()
+            .any(|item| item == "--custom-main-language=cs-CZ"));
+        assert!(extra_args
+            .iter()
+            .any(|item| item == "--custom-languages=cs-CZ,cs,en"));
+        assert!(extra_args
+            .iter()
+            .any(|item| item == "--custom-accept-languages=cs-CZ,cs;q=0.9,en;q=0.8"));
+    }
+
+    #[test]
     fn resolve_launch_options_applies_android_mobile_flags() {
         let preset_service = new_test_device_preset_service();
         let options = resolve_launch_options(
@@ -4692,7 +4755,7 @@ mod tests {
             None,
             None,
             Some("144.0.7559.97"),
-        None,
+            None,
         )
         .expect("resolve launch options");
 
@@ -4771,7 +4834,7 @@ mod tests {
             None,
             None,
             Some("144.0.7559.97"),
-        None,
+            None,
         )
         .expect("resolve launch options");
 
@@ -4887,6 +4950,62 @@ mod tests {
 
         let closed = do_close_profile(&state, &profile.id).expect("close stale profile");
         assert!(!closed.running);
+    }
+
+    #[test]
+    fn close_profile_does_not_snapshot_cookies_before_shutdown() {
+        let state = new_test_state();
+        let (magic_port, server) = spawn_cookie_export_magic_server();
+
+        let profile = {
+            let service = state.profile_service.lock().expect("profile service lock");
+            let created = service
+                .create_profile(CreateProfileRequest {
+                    name: "close-no-snapshot".to_string(),
+                    group: None,
+                    note: None,
+                    proxy_id: None,
+                    settings: None,
+                })
+                .expect("create profile");
+            service
+                .mark_profile_running(&created.id, true)
+                .expect("mark running");
+            created
+        };
+        {
+            let mut engine_manager = state.engine_manager.lock().expect("engine manager lock");
+            engine_manager.restore_session(
+                EngineSession {
+                    profile_id: profile.id.clone(),
+                    session_id: 1,
+                    pid: None,
+                    started_at: crate::models::now_ts(),
+                    debug_port: Some(29222),
+                    magic_port: Some(magic_port),
+                },
+                profile.name.clone(),
+            );
+            assert!(engine_manager.is_running(&profile.id));
+        }
+
+        let cookie_path = {
+            let engine_manager = state.engine_manager.lock().expect("engine manager lock");
+            resolve_profile_cookie_state_path(&engine_manager, &profile.id).expect("cookie path")
+        };
+
+        let closed = do_close_profile(&state, &profile.id).expect("close profile");
+        let handled_requests = server.join().expect("join cookie export magic server");
+
+        assert!(!closed.running);
+        assert_eq!(
+            handled_requests, 0,
+            "close must not call magic cookie export before shutdown"
+        );
+        assert!(
+            !cookie_path.exists(),
+            "close must not write cookie snapshot before shutdown"
+        );
     }
 
     #[test]

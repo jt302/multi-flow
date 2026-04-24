@@ -2927,6 +2927,14 @@ Chromium 实际接收的仍是这些注入结果：
 - `--custom-main-language`
 - `--custom-time-zone`
 
+约定：
+
+- `--lang` 表示 Chromium UI 资源语言，必须归一化为资源包可加载值，例如 `cs-CZ` 启动时传 `cs`
+- `--lang` 只由 App 的 `EngineLaunchOptions.language` 生成；自定义启动参数里的 `--lang` 会被忽略，避免覆盖归一化结果
+- 指纹语言保持完整 BCP47 值，例如 `--custom-main-language=cs-CZ`、`--custom-accept-languages=cs-CZ,cs;q=0.9,en;q=0.8`
+- Chromium 侧 `BrowserProcessImpl::GetApplicationLocale()` 不读取 `--custom-main-language`，该参数只用于网页指纹和 Blink 注入
+- Chromium 子进程加载资源包前会解析 `--lang`；无法解析时回退 `en-US`，不能因地区化或非法 locale fatal
+
 ### 12.4 环境背景色约定
 
 上层 app 当前约定：
@@ -3002,12 +3010,15 @@ Chromium 实际接收的仍是这些注入结果：
 | `--force-device-scale-factor`          | 设备缩放因子 / DPR                                         | `--force-device-scale-factor=3`                                                                                                |
 | `--touch-events=enabled`               | 显式开启触摸事件                                           | `--touch-events=enabled`                                                                                                       |
 | `--use-mobile-user-agent`              | 使用移动端 UA 行为                                         | `--use-mobile-user-agent`                                                                                                      |
-| `--lang`                               | 浏览器语言                                                 | `--lang=en-US`                                                                                                                 |
+| `--lang`                               | Chromium UI 资源语言，使用资源包可加载值                   | `--lang=cs`                                                                                                                    |
 | `TZ`                                   | 进程时区环境变量                                           | `TZ=Asia/Shanghai`                                                                                                             |
 
 说明：
 
 - 当同时传入 `custom-resolution-width/height/dpr` 与 `window-size`、`force-device-scale-factor` 时，以 `custom-resolution-*` 为准
+- `--lang` 不等同于指纹语言：App 会把 `cs-CZ` 等地区语言归一化为 Chromium 可加载的 UI locale；网页指纹仍通过 `--custom-main-language` / `--custom-accept-languages` 保留完整值
+- 自定义启动参数不要传 `--lang`；即使传入也会被 App 过滤，防止 `--lang=cs-CZ` 触发 Chromium locale 资源崩溃
+- 关闭或删除环境时，App 不在关闭前同步导出 cookie snapshot；关闭优先释放运行状态，避免 magic HTTP 无响应时卡住 UI
 - `custom-resolution-*` 同时影响 `screen.width/height`、`screen.availWidth/availHeight`、`window.innerWidth/innerHeight` 和 `window.devicePixelRatio`
 - `extension-state-file` 当前只支持绝对路径，文件内容必须包含 `managed_extensions` 数组
 - `extension-state-file` 当前只管理由该文件声明的受管理扩展，不接管用户手动安装的其他扩展
