@@ -54,5 +54,10 @@ open = "5"
 keyring = "3"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSEvent"] }
+block2 = "0.6"
+
 [dev-dependencies]
 tempfile = "3"
