@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify signing and notarization secrets
+      - name: Verify updater signing secret
         shell: bash
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -46,23 +46,30 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           missing=()
+          if [[ -z "$TAURI_SIGNING_PRIVATE_KEY" ]]; then
+            missing+=("TAURI_SIGNING_PRIVATE_KEY")
+          fi
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            echo "::error::Missing required updater signing secret: ${missing[*]}"
+            exit 1
+          fi
+
+          apple_missing=()
           for name in \
             APPLE_CERTIFICATE \
             APPLE_CERTIFICATE_PASSWORD \
             APPLE_SIGNING_IDENTITY \
             APPLE_ID \
             APPLE_PASSWORD \
-            APPLE_TEAM_ID \
-            TAURI_SIGNING_PRIVATE_KEY
+            APPLE_TEAM_ID
           do
             if [[ -z "${!name}" ]]; then
-              missing+=("$name")
+              apple_missing+=("$name")
             fi
           done
-          if [[ ${#missing[@]} -gt 0 ]]; then
-            echo "::error::Missing required macOS signing/notarization secrets: ${missing[*]}"
-            echo "Unsigned release artifacts are blocked by policy."
-            exit 1
+          if [[ ${#apple_missing[@]} -gt 0 ]]; then
+            echo "::warning::Missing macOS signing/notarization secrets: ${apple_missing[*]}"
+            echo "Release will build unsigned/not-notarized macOS artifacts."
           fi
 
       # ── Sidecar pre-flight check ────────────────────────────────────────────

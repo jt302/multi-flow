@@ -34,17 +34,21 @@ Tag pushes matching `v*` trigger `.github/workflows/release.yml`.
 
 Required GitHub secrets:
 
+- `TAURI_SIGNING_PRIVATE_KEY`: Tauri updater private key
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: updater key password, if the key uses one
+
+Optional macOS signing/notarization secrets:
+
 - `APPLE_CERTIFICATE`: base64 `.p12` Developer ID Application certificate
 - `APPLE_CERTIFICATE_PASSWORD`: `.p12` export password
 - `APPLE_SIGNING_IDENTITY`: `Developer ID Application: ...`
 - `APPLE_ID`: Apple ID used for notarization
 - `APPLE_PASSWORD`: app-specific password
 - `APPLE_TEAM_ID`: 10-character Apple Team ID
-- `TAURI_SIGNING_PRIVATE_KEY`: Tauri updater private key
-- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: updater key password, if the key uses one
 
-Unsigned releases are blocked. If any required secret is missing, the release
-workflow exits before building artifacts.
+If the updater signing key is missing, the release workflow exits before
+building artifacts. If Apple signing/notarization secrets are missing, the
+workflow still builds unsigned/not-notarized macOS artifacts.
 
 Current macOS targets:
 
