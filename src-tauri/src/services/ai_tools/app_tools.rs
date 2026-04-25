@@ -126,10 +126,8 @@ pub async fn execute(
 
         "app_delete_profile" => {
             let profile_id = require_str(&args, "profile_id")?;
-            let svc = state.lock_profile_service();
-            let deleted = svc
-                .soft_delete_profile(&profile_id)
-                .map_err(|e| e.to_string())?;
+            let deleted =
+                crate::commands::profile_commands::do_delete_profile(state.inner(), &profile_id)?;
             Ok(ToolResult::text(format!(
                 "Profile '{}' deleted (soft)",
                 deleted.id
@@ -290,8 +288,19 @@ pub async fn execute(
             let preset = svc
                 .update_preset(&preset_id, payload)
                 .map_err(|e| e.to_string())?;
+            let profile_svc = state
+                .profile_service
+                .lock()
+                .map_err(|_| "profile service lock poisoned".to_string())?;
+            let synced_count = profile_svc
+                .sync_preset_to_profiles(&preset_id, &svc)
+                .map_err(|e| e.to_string())?;
             Ok(ToolResult::text(
-                serde_json::to_string(&preset).unwrap_or_default(),
+                serde_json::to_string(&json!({
+                    "preset": preset,
+                    "synced_count": synced_count,
+                }))
+                .unwrap_or_default(),
             ))
         }
 
@@ -549,7 +558,7 @@ fn parse_device_preset_request(args: &Value) -> Result<SaveProfileDevicePresetRe
         custom_gl_renderer: require_str(args, "custom_gl_renderer")?,
         custom_cpu_cores: require_u32(args, "custom_cpu_cores")?,
         custom_ram_gb: require_u32(args, "custom_ram_gb")?,
-        browser_version: require_str(args, "browser_version").unwrap_or_default(),
+        browser_version: require_str(args, "browser_version")?,
     })
 }
 

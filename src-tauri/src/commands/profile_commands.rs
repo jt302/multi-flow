@@ -1223,6 +1223,7 @@ pub fn update_profile_device_preset(
     payload: SaveProfileDevicePresetRequest,
     sync_to_profiles: Option<bool>,
 ) -> Result<UpdateDevicePresetOutcome, String> {
+    let _ = sync_to_profiles;
     let device_svc = state
         .device_preset_service
         .lock()
@@ -1231,17 +1232,13 @@ pub fn update_profile_device_preset(
         .update_preset(&preset_id, payload)
         .map_err(error_to_string)?;
 
-    let synced_count = if sync_to_profiles.unwrap_or(false) {
-        let profile_svc = state
-            .profile_service
-            .lock()
-            .map_err(|_| "profile service lock poisoned".to_string())?;
-        profile_svc
-            .sync_preset_to_profiles(&preset_id, &device_svc)
-            .map_err(error_to_string)?
-    } else {
-        0
-    };
+    let profile_svc = state
+        .profile_service
+        .lock()
+        .map_err(|_| "profile service lock poisoned".to_string())?;
+    let synced_count = profile_svc
+        .sync_preset_to_profiles(&preset_id, &device_svc)
+        .map_err(error_to_string)?;
 
     Ok(UpdateDevicePresetOutcome {
         preset,
@@ -1275,7 +1272,9 @@ pub fn delete_profile_device_preset(
     service.delete_preset(&preset_id).map_err(error_to_string)
 }
 
-fn do_delete_profile(state: &AppState, profile_id: &str) -> Result<Profile, String> {
+pub(crate) fn do_delete_profile(state: &AppState, profile_id: &str) -> Result<Profile, String> {
+    ensure_profile_stopped_before_delete(state, profile_id)?;
+
     let profile_service = state
         .profile_service
         .lock()
@@ -1284,19 +1283,40 @@ fn do_delete_profile(state: &AppState, profile_id: &str) -> Result<Profile, Stri
         .engine_session_service
         .lock()
         .map_err(|_| "engine session service lock poisoned".to_string())?;
-    let mut engine_manager = state
-        .engine_manager
-        .lock()
-        .map_err(|_| "engine manager lock poisoned".to_string())?;
-
-    if engine_manager.is_running(profile_id) {
-        let _ = engine_manager.close_profile(profile_id);
-    }
     let _ = engine_session_service.delete_session(profile_id);
 
     profile_service
         .soft_delete_profile(profile_id)
         .map_err(error_to_string)
+}
+
+fn ensure_profile_stopped_before_delete(state: &AppState, profile_id: &str) -> Result<(), String> {
+    {
+        let engine_manager = state
+            .engine_manager
+            .lock()
+            .map_err(|_| "engine manager lock poisoned".to_string())?;
+        if engine_manager.is_running(profile_id) {
+            return Err(format!(
+                "profile must be stopped before delete: {profile_id}"
+            ));
+        }
+    }
+
+    let profile_service = state
+        .profile_service
+        .lock()
+        .map_err(|_| "profile service lock poisoned".to_string())?;
+    let profile = profile_service
+        .get_profile(profile_id)
+        .map_err(error_to_string)?;
+    if profile.running {
+        return Err(format!(
+            "profile must be stopped before delete: {profile_id}"
+        ));
+    }
+
+    Ok(())
 }
 
 fn build_profile_runtime_details(
@@ -3306,7 +3326,16 @@ mod tests {
             assert!(engine_manager.is_running(&profile.id));
         }
 
-        let deleted = do_delete_profile(&state, &profile.id).expect("delete profile");
+        let delete_running_err =
+            do_delete_profile(&state, &profile.id).expect_err("running profile cannot delete");
+        assert!(delete_running_err.contains("must be stopped before delete"));
+        {
+            let engine_manager = state.engine_manager.lock().expect("engine manager lock");
+            assert!(engine_manager.is_running(&profile.id));
+        }
+
+        do_close_profile(&state, &profile.id).expect("close before delete");
+        let deleted = do_delete_profile(&state, &profile.id).expect("delete stopped profile");
         assert!(!deleted.running);
         assert!(matches!(
             deleted.lifecycle,

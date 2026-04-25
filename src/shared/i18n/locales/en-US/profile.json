@@ -366,6 +366,7 @@
 		"exportAll": "Export Entire Profile",
 		"exportBySite": "Export by Site",
 		"delete": "Delete Profile",
+		"deleteRequiresStopped": "Stop the environment before deleting it",
 		"duplicate": "Duplicate Profile",
 		"recovering": "Restoring",
 		"recover": "Restore"

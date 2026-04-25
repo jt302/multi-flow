@@ -764,6 +764,7 @@ pub fn merge_preset_into_snapshot(
         FingerprintStrategy::Template,
     );
 
+    snapshot.browser_version = Some(version.to_string());
     snapshot.preset_label = Some(preset.label.clone());
     snapshot.platform = Some(preset.platform.clone());
     snapshot.platform_version = Some(preset.platform_version.clone());

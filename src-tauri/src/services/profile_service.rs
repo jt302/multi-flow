@@ -454,45 +454,38 @@ impl ProfileService {
                 Some(s) => s,
                 None => continue,
             };
-            let platform = settings
-                .fingerprint
-                .as_ref()
-                .and_then(|f| f.fingerprint_source.as_ref())
-                .and_then(|s| s.platform.as_deref())
-                .or_else(|| settings.basic.as_ref().and_then(|b| b.platform.as_deref()))
-                .unwrap_or("macos")
-                .to_string();
-            let preset_spec = match device_preset_service.resolve_preset(&platform, Some(preset_id))
-            {
-                Ok(p) => p,
-                Err(e) => {
+            let preset_spec = match device_preset_service.get_preset_spec_by_key(preset_id) {
+                Some(p) => p,
+                None => {
                     crate::logger::warn(
                         "sync_preset",
-                        format!("profile {}: resolve_preset failed: {e}", model.id),
+                        format!("profile {}: preset not found: {preset_id}", model.id),
                     );
                     continue;
                 }
             };
-
-            let fingerprint = settings.fingerprint.get_or_insert_with(Default::default);
-            let snapshot = fingerprint
-                .fingerprint_snapshot
-                .get_or_insert_with(Default::default);
-            let seed = snapshot.fingerprint_seed;
-            let browser_version = snapshot
-                .browser_version
-                .clone()
-                .or_else(|| {
-                    settings
-                        .basic
-                        .as_ref()
-                        .and_then(|b| b.browser_version.clone())
-                })
-                .unwrap_or_else(|| {
+            let browser_version =
+                trim_str_to_option(&preset_spec.browser_version).unwrap_or_else(|| {
                     crate::chromium_version_catalog::latest_for(&preset_spec.platform)
                         .version
                         .to_string()
                 });
+
+            let basic = settings.basic.get_or_insert_with(Default::default);
+            basic.platform = Some(preset_spec.platform.clone());
+            basic.device_preset_id = Some(preset_id.to_string());
+            basic.browser_version = Some(browser_version.clone());
+            let fingerprint = settings.fingerprint.get_or_insert_with(Default::default);
+            let source = fingerprint
+                .fingerprint_source
+                .get_or_insert_with(Default::default);
+            source.platform = Some(preset_spec.platform.clone());
+            source.device_preset_id = Some(preset_id.to_string());
+            source.browser_version = Some(browser_version.clone());
+            let snapshot = fingerprint
+                .fingerprint_snapshot
+                .get_or_insert_with(Default::default);
+            let seed = snapshot.fingerprint_seed;
             fingerprint_catalog::merge_preset_into_snapshot(
                 snapshot,
                 &preset_spec,
@@ -1424,8 +1417,10 @@ mod tests {
     use crate::db;
     use crate::models::{
         CreateProfileGroupRequest, CreateProfileRequest, ProfileBasicSettings,
-        ProfileFingerprintSettings, ProfileFingerprintSource, ProfileSettings, UserAgentMode,
+        ProfileFingerprintSettings, ProfileFingerprintSource, ProfileSettings,
+        SaveProfileDevicePresetRequest, UserAgentMode,
     };
+    use crate::services::device_preset_service::DevicePresetService;
     use crate::services::profile_group_service::ProfileGroupService;
     use sea_orm::ConnectionTrait;
 
@@ -1749,6 +1744,121 @@ mod tests {
             .user_agent
             .as_deref()
             .is_some_and(|value| value.contains("Chrome/144.0.0.0")));
+    }
+
+    #[test]
+    fn sync_preset_to_profiles_updates_browser_version_fields() {
+        let db = db::init_test_database().expect("init test db");
+        let service = ProfileService::from_db(db.clone());
+        let preset_service = DevicePresetService::from_db(db);
+        let preset = preset_service
+            .create_preset(SaveProfileDevicePresetRequest {
+                label: "Windows Sync Lab".to_string(),
+                platform: "windows".to_string(),
+                platform_version: "10.0.0".to_string(),
+                viewport_width: 1600,
+                viewport_height: 900,
+                device_scale_factor: 1.0,
+                touch_points: 0,
+                custom_platform: "Win32".to_string(),
+                arch: "x86".to_string(),
+                bitness: "64".to_string(),
+                mobile: false,
+                form_factor: "Desktop".to_string(),
+                user_agent_template:
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36"
+                        .to_string(),
+                custom_gl_vendor: "Google Inc. (Intel)".to_string(),
+                custom_gl_renderer: "ANGLE (Intel Iris Xe)".to_string(),
+                custom_cpu_cores: 8,
+                custom_ram_gb: 16,
+                browser_version: TEST_BROWSER_VERSION.to_string(),
+            })
+            .expect("create preset");
+        let profile = service
+            .create_profile(CreateProfileRequest {
+                name: "sync-version-profile".to_string(),
+                group: None,
+                note: None,
+                proxy_id: None,
+                settings: Some(ProfileSettings {
+                    basic: Some(ProfileBasicSettings {
+                        platform: Some("windows".to_string()),
+                        browser_version: Some(TEST_BROWSER_VERSION.to_string()),
+                        device_preset_id: Some(preset.id.clone()),
+                        ..Default::default()
+                    }),
+                    fingerprint: Some(ProfileFingerprintSettings {
+                        fingerprint_source: Some(ProfileFingerprintSource {
+                            platform: Some("windows".to_string()),
+                            device_preset_id: Some(preset.id.clone()),
+                            browser_version: Some(TEST_BROWSER_VERSION.to_string()),
+                            ..Default::default()
+                        }),
+                        language: Some("en-US".to_string()),
+                        timezone_id: Some("America/New_York".to_string()),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+            })
+            .expect("create profile");
+        let new_version = "145.0.8123.44";
+        preset_service
+            .update_preset(
+                &preset.id,
+                SaveProfileDevicePresetRequest {
+                    label: "Windows Sync Lab".to_string(),
+                    platform: "windows".to_string(),
+                    platform_version: "10.0.0".to_string(),
+                    viewport_width: 1600,
+                    viewport_height: 900,
+                    device_scale_factor: 1.0,
+                    touch_points: 0,
+                    custom_platform: "Win32".to_string(),
+                    arch: "x86".to_string(),
+                    bitness: "64".to_string(),
+                    mobile: false,
+                    form_factor: "Desktop".to_string(),
+                    user_agent_template:
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36"
+                            .to_string(),
+                    custom_gl_vendor: "Google Inc. (Intel)".to_string(),
+                    custom_gl_renderer: "ANGLE (Intel Iris Xe)".to_string(),
+                    custom_cpu_cores: 8,
+                    custom_ram_gb: 16,
+                    browser_version: new_version.to_string(),
+                },
+            )
+            .expect("update preset");
+
+        let synced = service
+            .sync_preset_to_profiles(&preset.id, &preset_service)
+            .expect("sync profiles");
+        assert_eq!(synced, 1);
+
+        let updated = service.get_profile(&profile.id).expect("get profile");
+        let settings = updated.settings.as_ref().expect("settings");
+        let basic = settings.basic.as_ref().expect("basic settings");
+        let fingerprint = settings.fingerprint.as_ref().expect("fingerprint settings");
+        let source = fingerprint
+            .fingerprint_source
+            .as_ref()
+            .expect("fingerprint source");
+        let snapshot = fingerprint
+            .fingerprint_snapshot
+            .as_ref()
+            .expect("fingerprint snapshot");
+
+        assert_eq!(basic.browser_version.as_deref(), Some(new_version));
+        assert_eq!(source.browser_version.as_deref(), Some(new_version));
+        assert_eq!(snapshot.browser_version.as_deref(), Some(new_version));
+        assert!(snapshot
+            .user_agent
+            .as_deref()
+            .is_some_and(|value| value.contains("Chrome/145.0.0.0")));
+        assert_eq!(snapshot.language.as_deref(), Some("en-US"));
+        assert_eq!(snapshot.time_zone.as_deref(), Some("America/New_York"));
     }
 
     #[test]

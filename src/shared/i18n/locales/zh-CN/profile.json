@@ -366,6 +366,7 @@
 		"exportAll": "导出整个 profile",
 		"exportBySite": "按站点导出",
 		"delete": "删除环境",
+		"deleteRequiresStopped": "停止环境后才能删除",
 		"duplicate": "复制环境",
 		"recovering": "恢复中",
 		"recover": "恢复"

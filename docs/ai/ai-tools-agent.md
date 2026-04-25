@@ -474,7 +474,7 @@ magic_set_bounds(x=0, y=0, width=1200, height=800)
 | `app_get_profile`             | 获取单个 profile 详情          | `profile_id`                                        |
 | `app_create_profile`          | 创建新 profile                 | `name`（可选 `group_id`, `note`）                   |
 | `app_update_profile`          | 更新 profile 信息              | `profile_id`（可选 `name`, `group_id`, `note`）     |
-| `app_delete_profile`          | ⚠️ 删除 profile                | `profile_id`                                        |
+| `app_delete_profile`          | ⚠️ 删除已停止的 profile        | `profile_id`                                        |
 | `app_start_profile`           | 启动 profile 的浏览器          | `profile_id`                                        |
 | `app_stop_profile`            | 停止 profile 的浏览器          | `profile_id`                                        |
 | `app_get_running_profiles`    | 获取所有运行中的 profile       | 无                                                  |
@@ -488,7 +488,7 @@ magic_set_bounds(x=0, y=0, width=1200, height=800)
 | `app_list_device_presets`  | 列出机型预设            | 无（可选 `platform`）                 |
 | `app_get_device_preset`    | 获取机型预设详情        | `preset_id`                           |
 | `app_create_device_preset` | 创建机型预设            | 见下方完整字段说明                    |
-| `app_update_device_preset` | ⚠️ 更新机型预设         | `preset_id` + 完整机型字段            |
+| `app_update_device_preset` | ⚠️ 更新机型预设并同步环境 | `preset_id` + 完整机型字段          |
 | `app_delete_device_preset` | ⚠️ 删除机型预设         | `preset_id`                           |
 
 **分组操作**：
@@ -547,7 +547,8 @@ app_list_device_presets(platform="android")
 **注意事项**：
 
 - ⚠️ `app_update_device_preset`、`app_delete_device_preset`、`app_delete_profile` 和 `app_delete_group` 是高风险操作，通常会触发 Multi-Flow 的工具确认弹窗。
-- `app_create_device_preset` / `app_update_device_preset` 需要传完整字段，字段语义与设置页“机型预设”表单一致。
+- `app_delete_profile` 只能删除已停止环境；运行中先调用 `app_stop_profile`。
+- `app_create_device_preset` / `app_update_device_preset` 需要传完整字段，字段语义与设置页“机型预设”表单一致；更新会自动同步引用该预设的活跃环境。
 - `app_start_profile` 启动浏览器需要几秒钟，建议配合 `wait` 或 `cdp_wait_for_page_load` 使用。
 - 在多环境聊天会话中，先调用 `app_set_chat_active_profile(profile_id)`，再执行 `cdp_*` / `magic_*`。
 - `app_get_current_profile` 返回当前工具目标环境，适合在脚本或聊天中确认当前上下文。
@@ -626,7 +627,7 @@ file_read(path="notes/data.txt")
 
 ```
 dialog_confirm(message="确定要删除这个 Profile 吗？")
-  → (如果返回 true) app_delete_profile(profile_id="xxx")
+  → 如果返回 true：运行中先 app_stop_profile(profile_id="xxx")，再 app_delete_profile(profile_id="xxx")
 ```
 
 让用户选择文件并上传：
@@ -763,9 +764,9 @@ magic_toggle_sync_mode(role="master")
 
 | 工具                    | 风险                             | 建议                                |
 | ----------------------- | -------------------------------- | ----------------------------------- |
-| `app_update_device_preset` | 修改机型预设并影响后续环境创建 | 确认目标预设 ID 和完整字段后再执行   |
+| `app_update_device_preset` | 修改机型预设并同步引用环境配置 | 确认目标预设 ID 和完整字段后再执行   |
 | `app_delete_device_preset` | 永久删除机型预设               | 先核对是否仍有环境依赖该预设         |
-| `app_delete_profile`    | 永久删除 profile 数据            | 先 `dialog_confirm` 让用户确认      |
+| `app_delete_profile`    | 删除已停止的 profile 数据        | 先停止环境并让用户确认              |
 | `app_delete_group`      | 永久删除分组                     | 先 `dialog_confirm` 让用户确认      |
 | `file_write`            | 覆盖文件内容                     | 确认路径正确，或先 `file_read` 备份 |
 | `magic_set_closed`      | 关闭浏览器窗口                   | 确认不会丢失未保存的工作            |
@@ -1006,7 +1007,7 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 2   | `app_get_profile`             | 获取 profile 详情                   |
 | 3   | `app_create_profile`          | 创建新 profile                      |
 | 4   | `app_update_profile`          | 更新 profile 信息                   |
-| 5   | `app_delete_profile`          | ⚠️ 删除 profile                     |
+| 5   | `app_delete_profile`          | ⚠️ 删除已停止的 profile             |
 | 6   | `app_start_profile`           | 启动 profile 的浏览器               |
 | 7   | `app_stop_profile`            | 停止 profile 的浏览器               |
 | 8   | `app_get_running_profiles`    | 获取运行中的 profile 列表           |
@@ -1015,7 +1016,7 @@ cdp_get_text(selector=".title", output_key="page_title")
 | 11  | `app_list_device_presets`     | 列出机型预设                        |
 | 12  | `app_get_device_preset`       | 获取机型预设详情                    |
 | 13  | `app_create_device_preset`    | 创建机型预设                        |
-| 14  | `app_update_device_preset`    | ⚠️ 更新机型预设                     |
+| 14  | `app_update_device_preset`    | ⚠️ 更新机型预设并同步环境           |
 | 15  | `app_delete_device_preset`    | ⚠️ 删除机型预设                     |
 | 16  | `app_list_groups`             | 列出所有分组                        |
 | 17  | `app_get_group`               | 获取分组详情                        |

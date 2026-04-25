@@ -296,6 +296,7 @@ export const ProfileListItem = memo(function ProfileListItem({
 		};
 	}, [boundProxy, t]);
 	const editConfigDisabled = actionPending || item.running;
+	const deleteDisabled = actionPending || item.running;
 	const currentGroup = useMemo(
 		() => groups.find((group) => group.name === item.group),
 		[groups, item.group],
@@ -710,7 +711,12 @@ export const ProfileListItem = memo(function ProfileListItem({
 										<DropdownMenuSeparator />
 										<DropdownMenuItem
 											className="cursor-pointer text-destructive focus:text-destructive"
-											disabled={actionPending}
+											disabled={deleteDisabled}
+											title={
+												item.running
+													? t('profile:actions.deleteRequiresStopped')
+													: undefined
+											}
 											onClick={() => {
 												void onRunAction(() => onDeleteProfile(item.id));
 											}}

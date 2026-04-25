@@ -1695,11 +1695,11 @@ fn app_tools() -> Vec<Value> {
         ),
         tool(
             "app_delete_profile",
-            "删除 profile（可能需要用户确认）",
+            "删除已停止的 profile（可能需要用户确认）",
             json!({
                 "type": "object",
                 "properties": {
-                    "profile_id": { "type": "string", "description": "要删除的 Profile ID，格式为 pf_NNNNNN" }
+                    "profile_id": { "type": "string", "description": "要删除的 Profile ID，格式为 pf_NNNNNN；运行中的环境必须先停止" }
                 },
                 "required": ["profile_id"]
             }),
@@ -1797,7 +1797,8 @@ fn app_tools() -> Vec<Value> {
                     "custom_gl_vendor": { "type": "string", "description": "WebGL vendor" },
                     "custom_gl_renderer": { "type": "string", "description": "WebGL renderer" },
                     "custom_cpu_cores": { "type": "integer", "description": "CPU 核心数" },
-                    "custom_ram_gb": { "type": "integer", "description": "RAM 大小（GB）" }
+                    "custom_ram_gb": { "type": "integer", "description": "RAM 大小（GB）" },
+                    "browser_version": { "type": "string", "description": "Chromium 伪装版本" }
                 },
                 "required": [
                     "label",
@@ -1816,13 +1817,14 @@ fn app_tools() -> Vec<Value> {
                     "custom_gl_vendor",
                     "custom_gl_renderer",
                     "custom_cpu_cores",
-                    "custom_ram_gb"
+                    "custom_ram_gb",
+                    "browser_version"
                 ]
             }),
         ),
         tool(
             "app_update_device_preset",
-            "更新已有机型预设（可能需要用户确认）",
+            "更新已有机型预设并同步引用环境（可能需要用户确认）",
             json!({
                 "type": "object",
                 "properties": {
@@ -1843,7 +1845,8 @@ fn app_tools() -> Vec<Value> {
                     "custom_gl_vendor": { "type": "string", "description": "WebGL vendor" },
                     "custom_gl_renderer": { "type": "string", "description": "WebGL renderer" },
                     "custom_cpu_cores": { "type": "integer", "description": "CPU 核心数" },
-                    "custom_ram_gb": { "type": "integer", "description": "RAM 大小（GB）" }
+                    "custom_ram_gb": { "type": "integer", "description": "RAM 大小（GB）" },
+                    "browser_version": { "type": "string", "description": "Chromium 伪装版本" }
                 },
                 "required": [
                     "preset_id",
@@ -1863,7 +1866,8 @@ fn app_tools() -> Vec<Value> {
                     "custom_gl_vendor",
                     "custom_gl_renderer",
                     "custom_cpu_cores",
-                    "custom_ram_gb"
+                    "custom_ram_gb",
+                    "browser_version"
                 ]
             }),
         ),
@@ -2994,6 +2998,7 @@ mod tests {
             "custom_gl_renderer",
             "custom_cpu_cores",
             "custom_ram_gb",
+            "browser_version",
         ] {
             assert!(
                 create_required.iter().any(|value| value == field),

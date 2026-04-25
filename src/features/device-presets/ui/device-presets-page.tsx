@@ -5,14 +5,12 @@ import {
 	Badge,
 	Button,
 	Card,
-	Checkbox,
 	Dialog,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	Label,
 	ScrollArea,
 } from '@/components/ui';
 import { getPlatformMeta } from '@/entities/profile/lib/platform-meta';
@@ -20,7 +18,6 @@ import type {
 	ProfileDevicePresetItem,
 	SaveProfileDevicePresetPayload,
 } from '@/entities/profile/model/types';
-import { useDevicePresetRefCountQuery } from '@/entities/profile/model/use-device-preset-ref-count-query';
 import { PlatformGlyph } from '@/entities/profile/ui/platform-mark';
 import { useDevicePresetEditor } from '@/features/device-presets/model/use-device-preset-editor';
 import { DevicePresetForm } from '@/features/device-presets/ui/device-preset-form';
@@ -50,9 +47,6 @@ export function DevicePresetsPage({
 	const [formMode, setFormMode] = useState<DevicePresetFormMode>('create');
 	const [deleteTarget, setDeleteTarget] = useState<ProfileDevicePresetItem | null>(null);
 	const [deleting, setDeleting] = useState(false);
-	const [syncConfirmOpen, setSyncConfirmOpen] = useState(false);
-	const [syncChecked, setSyncChecked] = useState(true);
-	const [saving, setSaving] = useState(false);
 	const { t } = useTranslation(['device', 'common']);
 
 	const { form, activePreset, copyPreset, setActivePresetId, resetPresetEditor, handleSavePreset } =
@@ -63,8 +57,6 @@ export function DevicePresetsPage({
 			onRefreshDevicePresets,
 			t,
 		});
-
-	const { data: refCount = 0 } = useDevicePresetRefCountQuery(activePreset?.id);
 
 	function openCreate() {
 		resetPresetEditor();
@@ -105,24 +97,8 @@ export function DevicePresetsPage({
 		if (formMode === 'view') {
 			return;
 		}
-		if (formMode === 'edit' && activePreset && refCount > 0) {
-			setSyncChecked(true);
-			setSyncConfirmOpen(true);
-			return;
-		}
-		await handleSavePreset()();
+		await handleSavePreset({ syncToProfiles: formMode === 'edit' })();
 		setFormOpen(false);
-	}
-
-	async function handleSyncConfirm() {
-		setSaving(true);
-		try {
-			await handleSavePreset({ syncToProfiles: syncChecked })();
-			setSyncConfirmOpen(false);
-			setFormOpen(false);
-		} finally {
-			setSaving(false);
-		}
 	}
 
 	async function confirmDelete() {
@@ -291,51 +267,6 @@ export function DevicePresetsPage({
 							void handleFormSubmit();
 						}}
 					/>
-				</DialogContent>
-			</Dialog>
-
-			{/* Sync Confirm Dialog */}
-			<Dialog
-				open={syncConfirmOpen}
-				onOpenChange={(v) => {
-					if (!v) setSyncConfirmOpen(false);
-				}}
-			>
-				<DialogContent className="max-w-md">
-					<DialogHeader>
-						<DialogTitle>{t('page.syncTitle')}</DialogTitle>
-						<DialogDescription>{t('page.syncDesc', { count: refCount })}</DialogDescription>
-					</DialogHeader>
-					<div className="flex items-center gap-2 py-2">
-						<Checkbox
-							id="sync-profiles"
-							checked={syncChecked}
-							onCheckedChange={(v) => setSyncChecked(v === true)}
-						/>
-						<Label htmlFor="sync-profiles" className="cursor-pointer text-sm">
-							{t('page.syncOption', { count: refCount })}
-						</Label>
-					</div>
-					<DialogFooter className="gap-2">
-						<Button
-							type="button"
-							variant="outline"
-							onClick={() => setSyncConfirmOpen(false)}
-							className="cursor-pointer"
-						>
-							{t('common:cancel')}
-						</Button>
-						<Button
-							type="button"
-							disabled={saving}
-							onClick={() => {
-								void handleSyncConfirm();
-							}}
-							className="cursor-pointer"
-						>
-							{t('page.syncConfirm')}
-						</Button>
-					</DialogFooter>
 				</DialogContent>
 			</Dialog>
 

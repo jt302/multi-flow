@@ -416,7 +416,7 @@ fn get_tool_metadata(name: &str) -> (String, String) {
         // 应用级别操作
         "app_delete_profile" => (
             "删除环境".to_string(),
-            "永久删除指定的浏览器环境配置".to_string(),
+            "删除已停止的浏览器环境配置".to_string(),
         ),
         "app_delete_proxy" => ("删除代理".to_string(), "永久删除指定的代理配置".to_string()),
         "app_delete_group" => ("删除分组".to_string(), "永久删除指定的环境分组".to_string()),
@@ -426,7 +426,7 @@ fn get_tool_metadata(name: &str) -> (String, String) {
         ),
         "app_update_device_preset" => (
             "修改机型预设".to_string(),
-            "修改指定的机型预设参数，可能影响后续环境创建与指纹解析".to_string(),
+            "修改指定的机型预设参数，并同步引用它的环境配置".to_string(),
         ),
         "app_delete_device_preset" => (
             "删除机型预设".to_string(),

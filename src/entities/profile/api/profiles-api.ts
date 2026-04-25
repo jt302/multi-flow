@@ -164,7 +164,7 @@ export async function updateProfileDevicePreset(
 	return tauriInvoke<UpdateDevicePresetOutcome>('update_profile_device_preset', {
 		presetId,
 		payload,
-		syncToProfiles: options?.syncToProfiles ?? false,
+		syncToProfiles: options?.syncToProfiles ?? true,
 	});
 }
 
