@@ -69,13 +69,13 @@ jobs:
 
       # ── Sidecar pre-flight check ────────────────────────────────────────────
       # Tauri requires external binaries named <binary>-<target-triple>.
-      # Ensure both sidecars exist for the current build target before wasting
+      # Ensure required sidecars exist for the current build target before wasting
       # runner time on a compile that will fail at the bundle step.
       - name: Verify sidecar binaries for ${{ matrix.target }}
         shell: bash
         run: |
           missing=()
-          for bin in proxy-daemon multi-flow-sync-manager; do
+          for bin in multi-flow-sync-manager; do
             path="src-tauri/binaries/${bin}-${{ matrix.target }}"
             if [[ ! -f "$path" ]]; then
               missing+=("$path")
