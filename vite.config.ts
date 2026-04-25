@@ -6,6 +6,21 @@ import svgr from 'vite-plugin-svgr';
 
 const host = process.env.TAURI_DEV_HOST;
 
+function getNodeModulePackageName(id: string) {
+	const parts = id.split('node_modules/');
+	const packagePath = parts[parts.length - 1];
+	if (!packagePath) {
+		return null;
+	}
+
+	const segments = packagePath.split('/');
+	if (segments[0]?.startsWith('@')) {
+		return `${segments[0]}/${segments[1] ?? ''}`;
+	}
+
+	return segments[0] ?? null;
+}
+
 // https://vite.dev/config/
 export default defineConfig(async () => ({
 	plugins: [react(), svgr(), tailwindcss()],
@@ -13,6 +28,7 @@ export default defineConfig(async () => ({
 		alias: {
 			'@': path.resolve(__dirname, 'src'),
 		},
+		dedupe: ['react', 'react-dom'],
 	},
 
 	// Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
@@ -45,65 +61,76 @@ export default defineConfig(async () => ({
 						return;
 					}
 
+					const packageName = getNodeModulePackageName(id);
+					if (!packageName) {
+						return;
+					}
+
 					if (
-						id.includes('/react/') ||
-						id.includes('/react-dom/') ||
-						id.includes('/scheduler/') ||
-						id.includes('/react-router') ||
-						id.includes('/react-router-dom') ||
-						id.includes('@tanstack/react-query') ||
-						id.includes('/zustand/') ||
-						id.includes('/react-i18next/')
+						packageName === 'react' ||
+						packageName === 'react-dom' ||
+						packageName === 'scheduler' ||
+						packageName === 'use-sync-external-store'
+					) {
+						return 'vendor-react-core';
+					}
+
+					if (
+						packageName === 'react-router' ||
+						packageName === 'react-router-dom' ||
+						packageName === '@tanstack/react-query' ||
+						packageName === 'zustand' ||
+						packageName === 'react-i18next'
 					) {
 						return 'vendor-react';
 					}
 
-					if (id.includes('@tauri-apps')) {
+					if (packageName.startsWith('@tauri-apps/')) {
 						return 'vendor-tauri';
 					}
 
 					if (
-						id.includes('@radix-ui') ||
-						id.includes('/radix-ui/') ||
-						id.includes('/cmdk/') ||
-						id.includes('/sonner/') ||
-						id.includes('/react-resizable-panels/')
+						packageName.startsWith('@radix-ui/') ||
+						packageName === 'radix-ui' ||
+						packageName === 'cmdk' ||
+						packageName === 'sonner' ||
+						packageName === 'react-resizable-panels'
 					) {
 						return 'vendor-ui';
 					}
 
-					if (id.includes('/lucide-react/')) {
+					if (packageName === 'lucide-react') {
 						return 'vendor-icons';
 					}
 
 					if (
-						id.includes('/react-markdown/') ||
-						id.includes('/remark-') ||
-						id.includes('/rehype-') ||
-						id.includes('/highlight.js/') ||
-						id.includes('/unified/') ||
-						id.includes('/vfile/') ||
-						id.includes('/micromark') ||
-						id.includes('/mdast-util-') ||
-						id.includes('/hast-util-') ||
-						id.includes('/unist-util-')
+						packageName === 'react-markdown' ||
+						packageName.startsWith('remark-') ||
+						packageName.startsWith('rehype-') ||
+						packageName === 'highlight.js' ||
+						packageName === 'unified' ||
+						packageName === 'vfile' ||
+						packageName.startsWith('micromark') ||
+						packageName.startsWith('mdast-util-') ||
+						packageName.startsWith('hast-util-') ||
+						packageName.startsWith('unist-util-')
 					) {
 						return 'vendor-markdown';
 					}
 
-					if (id.includes('@xyflow')) {
+					if (packageName === '@xyflow/react' || packageName.startsWith('@xyflow/')) {
 						return 'vendor-flow';
 					}
 
 					if (
-						id.includes('/zod/') ||
-						id.includes('/react-hook-form/') ||
-						id.includes('@hookform')
+						packageName === 'zod' ||
+						packageName === 'react-hook-form' ||
+						packageName.startsWith('@hookform/')
 					) {
 						return 'vendor-forms';
 					}
 
-					if (id.includes('/i18next')) {
+					if (packageName === 'i18next' || packageName.startsWith('i18next-')) {
 						return 'vendor-i18n';
 					}
 				},
