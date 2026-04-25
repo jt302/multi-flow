@@ -154,6 +154,76 @@ fn captcha_verification_diagnostics(
     .unwrap_or_else(|_| "{\"error\":\"failed_to_serialize_captcha_diagnostics\"}".to_string())
 }
 
+fn captcha_cookie_header_from_cdp_response(value: &serde_json::Value) -> Option<String> {
+    let cookies = value.get("cookies")?.as_array()?;
+    let header = cookies
+        .iter()
+        .filter_map(|cookie| {
+            let name = cookie.get("name")?.as_str()?.trim();
+            if name.is_empty() {
+                return None;
+            }
+            let value = cookie.get("value").and_then(|v| v.as_str()).unwrap_or("");
+            Some(format!("{name}={value}"))
+        })
+        .collect::<Vec<_>>()
+        .join("; ");
+    if header.is_empty() {
+        None
+    } else {
+        Some(header)
+    }
+}
+
+async fn collect_captcha_cookie_header(cdp: &CdpClient, website_url: &str) -> Option<String> {
+    let result = cdp
+        .call(
+            "Network.getCookies",
+            json!({
+                "urls": [website_url],
+            }),
+        )
+        .await
+        .ok()?;
+    captcha_cookie_header_from_cdp_response(&result)
+}
+
+fn captcha_proxy_config_from_proxy(
+    proxy: &crate::models::Proxy,
+) -> Option<crate::services::captcha_service::CaptchaProxyConfig> {
+    let proxy_type = match proxy.protocol.as_str() {
+        "http" | "https" | "socks5" => proxy.protocol.clone(),
+        _ => return None,
+    };
+    if proxy.host.trim().is_empty() || !(1..=65535).contains(&proxy.port) {
+        return None;
+    }
+    Some(crate::services::captcha_service::CaptchaProxyConfig {
+        proxy_type,
+        proxy_address: proxy.host.clone(),
+        proxy_port: proxy.port,
+        proxy_login: proxy
+            .username
+            .clone()
+            .filter(|value| !value.trim().is_empty()),
+        proxy_password: proxy.password.clone(),
+    })
+}
+
+fn resolve_captcha_proxy_config(
+    app: &AppHandle,
+    vars: &RunVariables,
+) -> Option<crate::services::captcha_service::CaptchaProxyConfig> {
+    let profile_id = vars.get("__profile_id__")?;
+    let state = app.state::<AppState>();
+    let proxy = state
+        .lock_proxy_service()
+        .get_profile_proxy(profile_id)
+        .ok()
+        .flatten()?;
+    captcha_proxy_config_from_proxy(&proxy)
+}
+
 /// CSS 选择器查找元素
 async fn find_element_by_css(cdp: &CdpClient, selector: &str) -> Result<i64, String> {
     let doc = cdp.call("DOM.getDocument", json!({ "depth": 0 })).await?;
@@ -6053,6 +6123,12 @@ pub async fn execute_step(
             } else {
                 None
             };
+            let captcha_cookies = if let Some(c) = cdp {
+                collect_captcha_cookie_header(c, &website_url).await
+            } else {
+                None
+            };
+            let captcha_proxy = resolve_captcha_proxy_config(app, vars);
 
             let task = crate::services::captcha_service::CaptchaTask {
                 captcha_type: ct,
@@ -6076,6 +6152,8 @@ pub async fn execute_step(
                     .clone()
                     .or_else(|| detected.as_ref().and_then(|d| d.enterprise_payload.clone())),
                 user_agent: user_agent.clone().or(browser_user_agent),
+                cookies: captcha_cookies,
+                proxy: captcha_proxy,
             };
             let result = captcha_svc.solve(&captcha_config, task).await?;
             let result_json = serde_json::to_string(&result).unwrap_or_default();
@@ -6167,6 +6245,8 @@ pub async fn execute_step(
             } else {
                 runtime_eval_string(cdp, "navigator.userAgent").await.ok()
             };
+            let captcha_cookies = collect_captcha_cookie_header(cdp, &website_url).await;
+            let captcha_proxy = resolve_captcha_proxy_config(app, vars);
 
             // 2. 求解
             let task = crate::services::captcha_service::CaptchaTask {
@@ -6181,6 +6261,8 @@ pub async fn execute_step(
                 public_key: detect.public_key.clone(),
                 enterprise_payload: detect.enterprise_payload.clone(),
                 user_agent: browser_user_agent.clone(),
+                cookies: captcha_cookies,
+                proxy: captcha_proxy,
             };
             let result = captcha_svc.solve(&captcha_config, task).await?;
 
@@ -6191,7 +6273,7 @@ pub async fn execute_step(
                     inject_type,
                     &result.token,
                     detect.callback.as_deref(),
-                    *auto_submit || detect.callback.is_none(),
+                    *auto_submit,
                 );
             let inject_raw = runtime_eval_string(cdp, &inject_js).await?;
             let injection =
@@ -6642,6 +6724,76 @@ mod tests {
             form_submitted: false,
             submit_result: None,
         }
+    }
+
+    fn test_proxy(protocol: &str) -> crate::models::Proxy {
+        crate::models::Proxy {
+            id: "proxy-1".into(),
+            name: "Proxy 1".into(),
+            protocol: protocol.into(),
+            host: "127.0.0.1".into(),
+            port: 8080,
+            username: Some("user".into()),
+            password: Some("pass".into()),
+            country: None,
+            region: None,
+            city: None,
+            provider: None,
+            note: None,
+            check_status: None,
+            check_message: None,
+            last_checked_at: None,
+            exit_ip: None,
+            latitude: None,
+            longitude: None,
+            geo_accuracy_meters: None,
+            suggested_language: None,
+            suggested_timezone: None,
+            language_source: None,
+            custom_language: None,
+            effective_language: None,
+            timezone_source: None,
+            custom_timezone: None,
+            effective_timezone: None,
+            target_site_checks: None,
+            expires_at: None,
+            lifecycle: crate::models::ProxyLifecycle::Active,
+            created_at: 1,
+            updated_at: 1,
+            deleted_at: None,
+        }
+    }
+
+    #[test]
+    fn captcha_cookie_header_from_cdp_response_builds_header() {
+        let value = json!({
+            "cookies": [
+                { "name": "sid", "value": "abc" },
+                { "name": "pref", "value": "zh" },
+                { "name": "", "value": "ignored" }
+            ]
+        });
+
+        assert_eq!(
+            captcha_cookie_header_from_cdp_response(&value),
+            Some("sid=abc; pref=zh".to_string())
+        );
+    }
+
+    #[test]
+    fn captcha_proxy_config_from_proxy_maps_supported_proxy() {
+        let config = captcha_proxy_config_from_proxy(&test_proxy("socks5")).expect("proxy config");
+
+        assert_eq!(config.proxy_type, "socks5");
+        assert_eq!(config.proxy_address, "127.0.0.1");
+        assert_eq!(config.proxy_port, 8080);
+        assert_eq!(config.proxy_login.as_deref(), Some("user"));
+        assert_eq!(config.proxy_password.as_deref(), Some("pass"));
+    }
+
+    #[test]
+    fn captcha_proxy_config_from_proxy_rejects_unsupported_proxy() {
+        assert!(captcha_proxy_config_from_proxy(&test_proxy("ssh")).is_none());
     }
 
     #[tokio::test]

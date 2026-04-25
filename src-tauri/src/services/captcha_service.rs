@@ -38,6 +38,17 @@ pub struct CaptchaTask {
     pub public_key: Option<String>,
     pub enterprise_payload: Option<Value>,
     pub user_agent: Option<String>,
+    pub cookies: Option<String>,
+    pub proxy: Option<CaptchaProxyConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CaptchaProxyConfig {
+    pub proxy_type: String,
+    pub proxy_address: String,
+    pub proxy_port: i32,
+    pub proxy_login: Option<String>,
+    pub proxy_password: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -438,7 +449,7 @@ impl CaptchaService {
                         visit(window.___grecaptcha_cfg.clients, 0);
                     }}
                     const form = document.querySelector('form');
-                    if ((autoSubmit || (!result.callbackInvoked && result.fieldInjected && form))) {{
+                    if (autoSubmit && form) {{
                         try {{
                             if (form && typeof form.requestSubmit === 'function') {{
                                 form.requestSubmit();
@@ -800,6 +811,26 @@ impl CaptchaService {
                 task_obj["userAgent"] = json!(user_agent);
             }
         }
+        if config.provider == "capmonster" {
+            if let Some(ref cookies) = task.cookies {
+                if !cookies.trim().is_empty() {
+                    task_obj["cookies"] = json!(cookies);
+                }
+            }
+            if let Some(ref proxy) = task.proxy {
+                task_obj["proxyType"] = json!(proxy.proxy_type);
+                task_obj["proxyAddress"] = json!(proxy.proxy_address);
+                task_obj["proxyPort"] = json!(proxy.proxy_port);
+                if let Some(ref login) = proxy.proxy_login {
+                    if !login.trim().is_empty() {
+                        task_obj["proxyLogin"] = json!(login);
+                    }
+                }
+                if let Some(ref password) = proxy.proxy_password {
+                    task_obj["proxyPassword"] = json!(password);
+                }
+            }
+        }
         Ok(json!({
             "clientKey": config.api_key,
             "task": task_obj,
@@ -889,6 +920,8 @@ mod tests {
             public_key: Some("public-key".into()),
             enterprise_payload: Some(json!({ "s": "enterprise-token" })),
             user_agent: Some("Mozilla/5.0 Test".into()),
+            cookies: None,
+            proxy: None,
         }
     }
 
@@ -945,6 +978,8 @@ mod tests {
             public_key: None,
             enterprise_payload: Some(json!({ "s": "enterprise-token" })),
             user_agent: Some("Mozilla/5.0 Test".into()),
+            cookies: None,
+            proxy: None,
         };
 
         let body = service
@@ -996,6 +1031,42 @@ mod tests {
                 "provider {provider} should use {expected_type}"
             );
         }
+    }
+
+    #[test]
+    fn capmonster_create_task_body_includes_browser_context() {
+        let service = build_service();
+        let config = build_config("capmonster");
+        let mut task = token_task(CaptchaType::RecaptchaV2);
+        task.cookies = Some("sid=abc; pref=zh".into());
+        task.proxy = Some(CaptchaProxyConfig {
+            proxy_type: "http".into(),
+            proxy_address: "127.0.0.1".into(),
+            proxy_port: 8080,
+            proxy_login: Some("user".into()),
+            proxy_password: Some("pass".into()),
+        });
+
+        let body = service
+            .build_create_task_body(&config, &task)
+            .expect("build capmonster body");
+        let task_obj = &body["task"];
+
+        assert_eq!(task_obj["type"], "RecaptchaV2Task");
+        assert_eq!(task_obj["cookies"], "sid=abc; pref=zh");
+        assert_eq!(task_obj["proxyType"], "http");
+        assert_eq!(task_obj["proxyAddress"], "127.0.0.1");
+        assert_eq!(task_obj["proxyPort"], 8080);
+        assert_eq!(task_obj["proxyLogin"], "user");
+        assert_eq!(task_obj["proxyPassword"], "pass");
+    }
+
+    #[test]
+    fn recaptcha_injection_respects_auto_submit_false() {
+        let js = CaptchaService::injection_js_with_options("recaptcha_v2", "token", None, false);
+
+        assert!(js.contains("if (autoSubmit && form)"));
+        assert!(!js.contains("!result.callbackInvoked && result.fieldInjected && form"));
     }
 
     #[tokio::test]

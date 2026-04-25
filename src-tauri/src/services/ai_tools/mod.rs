@@ -473,13 +473,26 @@ impl ToolRegistry {
         let inner_step: ScriptStep = serde_json::from_value(step_json)
             .map_err(|e| format!("Tool '{name}' args parse error: {e}"))?;
 
+        let mut owned_vars;
+        let step_vars = if ctx.vars.get("__profile_id__").is_none() {
+            if let Some(profile_id) = ctx.current_profile_id {
+                owned_vars = ctx.vars.clone();
+                owned_vars.set("__profile_id__", profile_id.to_string());
+                &owned_vars
+            } else {
+                ctx.vars
+            }
+        } else {
+            ctx.vars
+        };
+
         // 调用 execute_step（需要从 automation_commands 中导出）
         let (output, step_vars) = Box::pin(crate::commands::automation_commands::execute_step(
             ctx.cdp,
             ctx.http_client,
             ctx.magic_port,
             &inner_step,
-            ctx.vars,
+            step_vars,
             ctx.app,
             ctx.run_id,
             ctx.step_index,

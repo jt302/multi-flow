@@ -2656,9 +2656,9 @@ DOM 元素查询，返回匹配元素候选列表（用于后续 `magic_click_do
 | 工具名 | 必填参数 | 说明 |
 |--------|----------|------|
 | `captcha_detect` | — | 检测当前页面上的 CAPTCHA 类型与参数，返回 `type / sitekey / callback / pageAction / enterprisePayload / userAgent / gt / challenge / publicKey / params` 等信息 |
-| `captcha_solve` | `captcha_type` | 调用求解服务获取 token；当 `captcha_type=auto` 时会先读取当前页面检测结果并透传页面 UA、enterprise、GeeTest、FunCaptcha 参数 |
+| `captcha_solve` | `captcha_type` | 调用求解服务获取 token；当 `captcha_type=auto` 时会先读取当前页面检测结果并透传页面 UA、enterprise、GeeTest、FunCaptcha 参数；CapMonster 会尽量附带当前页面 cookies 和绑定 profile 代理 |
 | `captcha_inject_token` | `type`, `token` | 将 token 注入页面，并严格校验页面是否真正脱离验证码/风控阻塞；仅写入字段成功但页面仍阻塞会返回失败 |
-| `captcha_solve_and_inject` | — | 自动执行检测 → 求解 → 注入 → 页面级回验；只有页面真实通过验证才返回成功 |
+| `captcha_solve_and_inject` | — | 自动执行检测 → 求解 → 注入 → 页面级回验；只有页面真实通过验证才返回成功；`auto_submit=false` 时不会隐式提交表单 |
 | `captcha_get_balance` | — | 查询当前 CAPTCHA 求解服务余额 |
 
 #### 严格状态语义
@@ -2675,6 +2675,8 @@ DOM 元素查询，返回匹配元素候选列表（用于后续 `magic_click_do
 #### 实现备注
 
 - 后端检测逻辑会尽量提取 `callback`、`pageAction`、`data-s / enterprisePayload`、GeeTest `gt/challenge`、FunCaptcha `publicKey`、页面真实 `userAgent` 等上下文，并在求解时按服务商支持情况透传。
+- CapMonster 求解 reCAPTCHA/hCaptcha/Turnstile 等 token 类任务时，会尽量把当前页面 cookies 和当前 profile 绑定代理传给服务商；未绑定代理或服务商不支持时自动忽略。
+- `captcha_solve_and_inject(auto_submit=false)` 只注入 token 并回验页面状态，不再因为页面缺少回调而 fallback 提交表单；需要提交类页面请显式传 `auto_submit=true`。
 - 求解服务统一走官方 `createTask → getTaskResult` 流程；CapSolver 支持 `createTask` 同步返回 `ready` 时直接取解，其他 `processing` 状态继续轮询。
 - 聊天系统提示词要求：验证码未通过时必须明确说明阻塞，不能把“注入成功”表述成“验证通过”，也不能未经用户同意擅自切换到 DuckDuckGo 等替代站点。
 

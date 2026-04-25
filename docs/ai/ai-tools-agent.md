@@ -62,6 +62,8 @@
 
 - `captcha_detect` 会尽量返回 `type / sitekey / callback / pageAction / enterprisePayload / userAgent / gt / challenge / publicKey / params` 等上下文，便于后续求解与注入。
 - `captcha_solve` 只表示求解服务拿到了非空 token/text；它**不代表页面已经通过验证**。
+- CapMonster 会尽量复用当前页面 cookies 和当前 profile 绑定代理，降低 token 与页面上下文不一致导致的失败。
+- `captcha_solve_and_inject` 默认只在 `auto_submit=true` 时提交表单；`auto_submit=false` 适合只注入并等待页面脚本自行处理的场景。
 - `captcha_inject_token` 与 `captcha_solve_and_inject` 会执行页面级回验：
   - 页面真实通过验证 → 成功
   - 仅注入成功但页面仍被 challenge/风控拦截 → 失败
