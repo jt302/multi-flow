@@ -246,7 +246,7 @@ export function computeArrangePreview(params: ArrangePreviewParams): WindowBound
 		gapX = 16,
 		gapY = 16,
 		padding = { top: 12, right: 12, bottom: 12, left: 12 },
-		lastRowAlign = 'stretch',
+		lastRowAlign = 'start',
 		flow = 'row_major',
 		width = 1280,
 		height = 800,

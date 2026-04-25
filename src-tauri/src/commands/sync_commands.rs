@@ -973,6 +973,27 @@ mod tests {
     }
 
     #[test]
+    fn grid_default_last_row_align_does_not_stretch() {
+        let rect = make_rect(1000, 800);
+        let bounds = build_grid_bounds(
+            &rect,
+            3,
+            2,
+            2,
+            0,
+            0,
+            0,
+            0,
+            LastRowAlign::default(),
+            ArrangeFlow::RowMajor,
+        )
+        .expect("grid ok");
+
+        assert_eq!(bounds[2].x, 0);
+        assert_eq!(bounds[2].width, 500);
+    }
+
+    #[test]
     fn grid_decoration_delta_compensated() {
         // delta_h=28: we send height=(cell_h - 28); y step uses target_h so visual gap == gap_y
         let rect = make_rect(1800, 1080);

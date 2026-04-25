@@ -837,9 +837,9 @@ pub enum WindowArrangeMode {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum LastRowAlign {
+    #[default]
     Start,
     Center,
-    #[default]
     Stretch,
 }
 

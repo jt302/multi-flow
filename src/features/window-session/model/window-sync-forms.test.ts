@@ -52,3 +52,28 @@ test('arrangeWindowsFormSchema accepts monitor selection and mode', () => {
 	});
 	assert.equal(result.success, true);
 });
+
+test('arrangeWindowsFormSchema ignores blank inactive layout fields for main sidebar mode', () => {
+	const result = arrangeWindowsFormSchema.safeParse({
+		monitorId: 'display-1',
+		mode: 'main_with_sidebar',
+		rows: '',
+		columns: '',
+		width: '',
+		height: '',
+		gapX: 16,
+		gapY: 16,
+		paddingTop: 12,
+		paddingRight: 12,
+		paddingBottom: 12,
+		paddingLeft: 12,
+		lastRowAlign: 'stretch',
+		flow: 'row_major',
+		cascadeStep: 32,
+		mainRatio: 0.66,
+		mainPosition: 'left',
+		order: 'selection',
+		chromeDecorationCompensation: 'auto',
+	});
+	assert.equal(result.success, true);
+});

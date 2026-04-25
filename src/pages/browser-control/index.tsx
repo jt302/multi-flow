@@ -81,7 +81,8 @@ const batchActionFormSchema = z.object({
 		}),
 });
 
-type ArrangeWindowsFormValues = z.input<typeof arrangeWindowsFormSchema>;
+type ArrangeWindowsFormInput = z.input<typeof arrangeWindowsFormSchema>;
+type ArrangeWindowsFormValues = z.infer<typeof arrangeWindowsFormSchema>;
 
 export function BrowserControlRoutePage() {
 	const { t } = useTranslation(['window', 'common']);
@@ -213,7 +214,7 @@ export function BrowserControlRoutePage() {
 		resolver: zodResolver(windowBoundsBatchFormSchema),
 		defaultValues: { width: 1280, height: 800 },
 	});
-	const arrangeForm = useForm<ArrangeWindowsFormValues>({
+	const arrangeForm = useForm<ArrangeWindowsFormInput, unknown, ArrangeWindowsFormValues>({
 		resolver: zodResolver(arrangeWindowsFormSchema),
 		defaultValues: {
 			monitorId: displayMonitors[0]?.id ?? '',
@@ -226,7 +227,7 @@ export function BrowserControlRoutePage() {
 			paddingRight: 12,
 			paddingBottom: 12,
 			paddingLeft: 12,
-			lastRowAlign: 'stretch',
+			lastRowAlign: 'start',
 			flow: 'row_major',
 			width: 1280,
 			height: 800,
@@ -458,7 +459,8 @@ export function BrowserControlRoutePage() {
 											bottom: parseNum(watchedValues.paddingBottom, 12),
 											left: parseNum(watchedValues.paddingLeft, 12),
 										},
-										lastRowAlign: watchedValues.lastRowAlign,
+										lastRowAlign:
+											watchedValues.mode === 'grid' ? 'start' : watchedValues.lastRowAlign,
 										flow: watchedValues.flow,
 										width: parseNum(watchedValues.width, 1280),
 										height: parseNum(watchedValues.height, 800),
@@ -503,7 +505,7 @@ export function BrowserControlRoutePage() {
 													values.columns === 'auto'
 														? undefined
 														: (values.columns as number | undefined),
-												lastRowAlign: values.lastRowAlign,
+												lastRowAlign: mode === 'grid' ? 'start' : values.lastRowAlign,
 												flow: values.flow,
 												width: values.width ?? undefined,
 												height: values.height ?? undefined,
@@ -652,7 +654,7 @@ export function BrowserControlRoutePage() {
 												<Label>{t('arrange.mainRatio')}</Label>
 												<Input
 													type="number"
-													step={0.05}
+													step={0.01}
 													min={0.2}
 													max={0.9}
 													{...arrangeForm.register('mainRatio')}

@@ -17,25 +17,38 @@ export function createWindowBoundsBatchFormSchema() {
 }
 export const windowBoundsBatchFormSchema = createWindowBoundsBatchFormSchema();
 
+function emptyToUndefined(value: unknown) {
+	return value === '' || value === null ? undefined : value;
+}
+
 export function createArrangeWindowsFormSchema() {
+	const optionalPositiveInt = z.preprocess(
+		emptyToUndefined,
+		z.coerce.number().int().positive().optional(),
+	);
+	const optionalAutoPositiveInt = z.preprocess(
+		emptyToUndefined,
+		z.union([z.literal('auto'), z.coerce.number().int().positive()]).optional(),
+	);
+
 	return z
 		.object({
 			monitorId: z.string().trim().min(1, i18next.t('window:validation.selectMonitor')),
 			mode: z.enum(['grid', 'cascade', 'main_with_sidebar']),
 			// grid 专用
-			rows: z.union([z.literal('auto'), z.coerce.number().int().positive()]).optional(),
-			columns: z.union([z.literal('auto'), z.coerce.number().int().positive()]).optional(),
+			rows: optionalAutoPositiveInt,
+			columns: optionalAutoPositiveInt,
 			gapX: z.coerce.number().int().min(0).default(16),
 			gapY: z.coerce.number().int().min(0).default(16),
 			paddingTop: z.coerce.number().int().min(0).default(12),
 			paddingRight: z.coerce.number().int().min(0).default(12),
 			paddingBottom: z.coerce.number().int().min(0).default(12),
 			paddingLeft: z.coerce.number().int().min(0).default(12),
-			lastRowAlign: z.enum(['start', 'center', 'stretch']).default('stretch'),
+			lastRowAlign: z.enum(['start', 'center', 'stretch']).default('start'),
 			flow: z.enum(['row_major', 'col_major']).default('row_major'),
 			// cascade 专用
-			width: z.coerce.number().int().positive().optional(),
-			height: z.coerce.number().int().positive().optional(),
+			width: optionalPositiveInt,
+			height: optionalPositiveInt,
 			cascadeStep: z.coerce.number().int().min(8).default(32),
 			// mainWithSidebar 专用
 			mainRatio: z.coerce.number().min(0.2).max(0.9).default(0.66),
