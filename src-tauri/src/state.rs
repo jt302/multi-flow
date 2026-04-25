@@ -10,7 +10,6 @@ use tauri::Manager;
 use crate::db;
 use crate::engine_manager::EngineManager;
 use crate::error::AppResult;
-use crate::local_api_server::{LocalApiServer, DEFAULT_PROXY_DAEMON_BIND_ADDRESS};
 use crate::logger;
 use crate::models::{
     ArrangementSnapshotItem, PluginDownloadProgressSnapshot, ResourceProgressSnapshot,
@@ -66,7 +65,6 @@ pub struct AppState {
     /// 进行中的插件下载任务快照：task_id → 最新进度。
     pub active_plugin_downloads: Mutex<HashMap<String, PluginDownloadProgressSnapshot>>,
     pub engine_manager: Mutex<EngineManager>,
-    pub local_api_server: Mutex<LocalApiServer>,
     pub chromium_magic_adapter_service: Mutex<ChromiumMagicAdapterService>,
     pub sync_manager_service: Mutex<SyncManagerService>,
     /// MCP 服务器管理器（Arc 而非 Mutex，因为内部已有 tokio::sync::Mutex）
@@ -114,10 +112,6 @@ impl AppState {
 
     pub fn lock_engine_manager(&self) -> MutexGuard<'_, EngineManager> {
         recover_lock(&self.engine_manager, "state", "engine manager")
-    }
-
-    pub fn lock_local_api_server(&self) -> MutexGuard<'_, LocalApiServer> {
-        recover_lock(&self.local_api_server, "state", "local api server")
     }
 
     pub fn lock_chromium_magic_adapter_service(
@@ -176,7 +170,6 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
     let resource_service = ResourceService::from_app_handle(app)?;
     let resource_service_for_locale = resource_service.clone();
     let engine_manager = build_engine_manager(app)?;
-    let local_api_server = LocalApiServer::new(DEFAULT_PROXY_DAEMON_BIND_ADDRESS);
     let chromium_magic_adapter_service = ChromiumMagicAdapterService::new();
     let sync_manager_service = SyncManagerService::new(None, None);
     ensure_app_fs_root(app)?;
@@ -202,7 +195,6 @@ pub fn build_app_state(app: &AppHandle) -> AppResult<AppState> {
         active_resource_downloads: Mutex::new(HashMap::new()),
         active_plugin_downloads: Mutex::new(HashMap::new()),
         engine_manager: Mutex::new(engine_manager),
-        local_api_server: Mutex::new(local_api_server),
         chromium_magic_adapter_service: Mutex::new(chromium_magic_adapter_service),
         sync_manager_service: Mutex::new(sync_manager_service),
         bookmark_template_service: Mutex::new(bookmark_template_service),

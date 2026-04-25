@@ -55,10 +55,10 @@ Current macOS targets:
 
 | Platform | Status | Blocker |
 |---|---|---|
-| Windows 10/11 x64 | CI source check only | Missing `proxy-daemon-x86_64-pc-windows-msvc.exe` and `multi-flow-sync-manager-x86_64-pc-windows-msvc.exe` |
-| Ubuntu/Fedora x64 | CI source check only | Missing `proxy-daemon-x86_64-unknown-linux-gnu` and `multi-flow-sync-manager-x86_64-unknown-linux-gnu` |
+| Windows 10/11 x64 | CI source check only | Missing `multi-flow-sync-manager-x86_64-pc-windows-msvc.exe` |
+| Ubuntu/Fedora x64 | CI source check only | Missing `multi-flow-sync-manager-x86_64-unknown-linux-gnu` |
 
-Do not enable Windows or Linux installer publishing until those sidecars are
+Do not enable Windows or Linux installer publishing until the sync sidecar is
 built, signed where applicable, and covered by smoke tests.
 
 ## Updater

@@ -33,8 +33,7 @@ Forms that submit user input use `react-hook-form` with `zodResolver`.
 - `src-tauri/src/commands`: Tauri command boundary and input mapping.
 - `src-tauri/src/services`: application services and persistence orchestration.
 - `src-tauri/src/db`: SeaORM entities, migrations, and database setup.
-- `src-tauri/src/engine_manager`: Chromium process/session lifecycle.
-- `src-tauri/src/local_api_server`: local HTTP API.
+- `src-tauri/src/engine_manager`: Chromium process/session lifecycle and launch arguments.
 - `src-tauri/src/runtime_guard.rs`: runtime reconciliation and process recovery.
 
 Commands that do file I/O, database re-query, process work, downloads, or loops must be `async` and offload blocking work with `tauri::async_runtime::spawn_blocking` or an equivalent async boundary.

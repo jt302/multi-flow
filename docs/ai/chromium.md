@@ -468,29 +468,12 @@ agent 不要假设所有接口都严格遵守同一个返回模板。
 
 说明：
 
-- 这个命令调用后会立即返回 `status=ok`，表示”已发起退出流程”
+- 这个命令调用后会立即返回 `status=ok`，表示“已发起退出流程”
 - 它不等待进程真正结束
 - 调用方应自行等待控制端口断开或浏览器进程退出
 - `set_closed` 和 `safe_quit` 语义不同：
   - `set_closed` 只关闭当前活动窗口
   - `safe_quit` 退出整个应用
-
-**注意：零窗口空壳态崩溃（重要）**
-
-macOS 上自定义 Chromium 在最后一个标签被用户手动关闭后，`NSApplication` 主线程仍保留运行，但内部 `BrowserList` / `WebContents` 已销毁，处于”空壳”态。此时**任何** magic HTTP 请求（包括 `get_browsers`、`safe_quit` 等）都会触发 magic server 把任务 PostTask 到主线程 `NSApplication` runloop 的 `Source0`；Source0 回调访问已释放对象，引发 `EXC_BAD_ACCESS at 0x1b0`（fault_address=0x1b0，thread=CrBrowserMain，栈顶 `__CFRunLoopDoSource0 → [NSApplication run]`）。
-
-**崩溃时机**：不需要用户点”停止环境”按钮；multi-flow 后台 3 秒轮询（`is_magic_server_alive` → `get_browsers`）或前端 5 秒轮询（`list_window_states` → `get_browsers`）是最常见的触发源。
-
-multi-flow 端的应对策略（V2，`engine_manager/mod.rs`）：
-
-1. **`is_magic_server_alive` 改为 TCP-only**：仅用 `TcpStream::connect_timeout(300ms)` 检测端口是否可达，不发任何 HTTP payload，彻底消除 3 秒 prune 循环对 NSApp 的扰动。
-2. **`list_window_states` 零窗口自治退出**：`sync_chromium_window_state` 返回 `total_windows == 0` 时，立即对该 profile 触发 SIGKILL（`force_kill_child`），阻止下一次轮询再向 NSApp 发 HTTP 请求。
-3. **`shutdown_chromium_process` 三道守卫（V1，保留）**：用户手动点停止时，Guard A `try_wait()` 检测进程是否已退出，Guard B `is_magic_server_alive`（TCP）检测端口是否死，Guard C `count_magic_windows` 检测窗口数是否为 0——只有确认有窗口时才发 `safe_quit`。
-
-未来在 Chromium 侧可通过以下方式根治：
-
-- 启动时传 `--keep-alive-for-test` 保留空壳态下的 NSApp（使 `safe_quit` 有窗口可操作）；
-- 或在 magic handler 的所有命令分支加 `BrowserList` 空壳判定，返回特殊错误码而非 PostTask 到主线程。
 
 #### `set_restored`
 
@@ -567,6 +550,8 @@ multi-flow 端的应对策略（V2，`engine_manager/mod.rs`）：
 - `toolbar-text`
 - `fingerprint-seed`
 - `enable-automation-detection-shield`
+- `proxy-server`（内嵌用户名密码会脱敏）
+- `proxy-auth-password`（始终返回 `[redacted]`）
 - 其他 Chromium 启动参数
 
 #### `get_host_name`
@@ -2471,7 +2456,7 @@ WebSocket 主要用于同步功能。
 
 ### 6.3 浏览器生命周期事件推送
 
-订阅 `sync.subscribe_events` 后，除了鼠标/键盘同步事件，还会收到浏览器的窗口、Tab、书签、下载、扩展、网络等生命周期推送，格式统一复用 `sync.event` 外层包装，通过 `payload.event_type` 前缀区分：
+除了同步鼠标/键盘事件，订阅后还会收到浏览器的窗口、Tab、书签生命周期事件，格式统一复用 `sync.event` 外层包装：
 
 ```json
 {
@@ -2484,31 +2469,17 @@ WebSocket 主要用于同步功能。
 }
 ```
 
-#### 事件前缀与推荐 Tauri emit 名称
+`event_type` 完整清单：
 
-| event_type 前缀           | 含义                                | 推荐 Tauri emit 名称       |
-| ------------------------- | ----------------------------------- | -------------------------- |
-| `window.*`                | 浏览器窗口开/关/激活                | `chromium_window_event`    |
-| `tab.*`                   | Tab 增删移动/切换/导航/favicon 更新 | `chromium_window_event`    |
-| `bookmark.*`              | 书签增删改序                        | `chromium_bookmark_event`  |
-| `download.*`              | 下载创建/进度/完成/中断             | `chromium_download_event`  |
-| `extension.*`             | 扩展安装/卸载/启用/禁用             | `chromium_extension_event` |
-| `renderer.*`              | 渲染进程崩溃/无响应                 | `chromium_renderer_event`  |
-| `media.*`                 | 全屏进入/退出                       | `chromium_media_event`     |
-| `network.*`               | 网络连接状态变化                    | `chromium_network_event`   |
-| `browser.*` / `profile.*` | 浏览器就绪/Profile 关闭             | `chromium_lifecycle_event` |
+#### 窗口事件
 
-#### 完整 event_type 清单
+| event_type         | 触发时机         | data 字段                                                                     |
+| ------------------ | ---------------- | ----------------------------------------------------------------------------- |
+| `window.opened`    | 新浏览器窗口创建 | `session_id`, `type`(normal/popup/app/devtools/app_popup/pip), `is_incognito` |
+| `window.closed`    | 浏览器窗口关闭   | `session_id`                                                                  |
+| `window.activated` | 窗口获得焦点     | `session_id`                                                                  |
 
-**窗口事件**
-
-| event_type         | 触发时机         | data 字段                                                       |
-| ------------------ | ---------------- | --------------------------------------------------------------- |
-| `window.opened`    | 新浏览器窗口创建 | `session_id`, `type`(normal/popup/app/devtools), `is_incognito` |
-| `window.closed`    | 浏览器窗口关闭   | `session_id`                                                    |
-| `window.activated` | 窗口获得焦点     | `session_id`                                                    |
-
-**Tab 事件**
+#### Tab 事件
 
 | event_type            | 触发时机                         | data 字段                                                     |
 | --------------------- | -------------------------------- | ------------------------------------------------------------- |
@@ -2520,7 +2491,7 @@ WebSocket 主要用于同步功能。
 | `tab.navigated`       | Tab URL/标题变化（仅 kAll 类型） | `window_session_id`, `index`, `url`, `title`                  |
 | `tab.favicon_updated` | Tab favicon 候选列表更新         | `window_session_id`, `index`, `url`                           |
 
-**书签事件**
+#### 书签事件
 
 | event_type             | 触发时机         | data 字段                                                             |
 | ---------------------- | ---------------- | --------------------------------------------------------------------- |
@@ -2531,7 +2502,7 @@ WebSocket 主要用于同步功能。
 | `bookmark.reordered`   | 文件夹内整体重排 | `parent_id`, `new_order`([id...])                                     |
 | `bookmark.all_removed` | 清除所有用户书签 | _(空)_                                                                |
 
-**下载事件**
+#### 下载事件
 
 | event_type             | 触发时机     | data 字段                                             |
 | ---------------------- | ------------ | ----------------------------------------------------- |
@@ -2540,7 +2511,7 @@ WebSocket 主要用于同步功能。
 | `download.completed`   | 下载完成     | `download_id`, `target_path`, `total_bytes`           |
 | `download.interrupted` | 下载中断     | `download_id`, `error`, `bytes_so_far`, `total_bytes` |
 
-**扩展事件**
+#### 扩展事件
 
 | event_type              | 触发时机              | data 字段                 |
 | ----------------------- | --------------------- | ------------------------- |
@@ -2549,52 +2520,37 @@ WebSocket 主要用于同步功能。
 | `extension.installed`   | 扩展安装或更新        | `id`, `name`, `is_update` |
 | `extension.uninstalled` | 扩展卸载（永久删除）  | `id`, `name`, `reason`    |
 
-**渲染进程健康事件**
+#### 渲染进程健康事件
 
 | event_type         | 触发时机       | data 字段                                              |
 | ------------------ | -------------- | ------------------------------------------------------ |
 | `renderer.crashed` | 渲染进程崩溃   | `window_session_id`, `index`, `url`, `title`, `status` |
 | `renderer.hung`    | 渲染进程无响应 | `window_session_id`, `index`, `url`, `title`           |
 
-**媒体/全屏事件**
+#### 媒体/全屏事件
 
 | event_type                 | 触发时机     | data 字段                                    |
 | -------------------------- | ------------ | -------------------------------------------- |
 | `media.fullscreen_entered` | Tab 进入全屏 | `window_session_id`, `index`, `url`, `title` |
 | `media.fullscreen_exited`  | Tab 退出全屏 | `window_session_id`, `index`, `url`, `title` |
 
-**网络事件**
+#### 网络事件
 
 | event_type                     | 触发时机         | data 字段                                                           |
 | ------------------------------ | ---------------- | ------------------------------------------------------------------- |
 | `network.connectivity_changed` | 网络连接状态变化 | `connection_type`(none/wifi/ethernet/2g/3g/4g/5g/bluetooth/unknown) |
 
-**生命周期事件**
+#### 生命周期事件
 
 | event_type                   | 触发时机                       | data 字段 |
 | ---------------------------- | ------------------------------ | --------- |
 | `browser.ready`              | 第一个窗口可见、控制端口已绑定 | `port`    |
 | `profile.shutdown_initiated` | 浏览器进程开始关闭             | _(空)_    |
 
-#### 在 multi-flow 中接入
+实现位置：
 
-Rust sidecar（`engine_manager::subscribe_chromium_events`）连接 WebSocket 后发送 `sync.subscribe_events`，按 `payload.event_type` 前缀分发到 Tauri emit：
-
-```rust
-match event_type.split('.').next() {
-    Some("window") | Some("tab") => app.emit("chromium_window_event", payload),
-    Some("bookmark")             => app.emit("chromium_bookmark_event", payload),
-    Some("download")             => app.emit("chromium_download_event", payload),
-    Some("extension")            => app.emit("chromium_extension_event", payload),
-    Some("renderer")             => app.emit("chromium_renderer_event", payload),
-    Some("media")                => app.emit("chromium_media_event", payload),
-    Some("network")              => app.emit("chromium_network_event", payload),
-    Some("browser") | Some("profile") => app.emit("chromium_lifecycle_event", payload),
-    _ => {}
-}
-```
-
-前端用 Tauri `listen()` 接收后，调用 `queryClient.invalidateQueries(...)` 或做 optimistic 更新，替代 5s 轮询。
+- 窗口/Tab/下载/扩展/网络/生命周期事件：[browser_event_relay.cc](/Users/tt/Developer/Personal/chromium/src/chrome/browser/magic_controller/browser_event_relay.cc)
+- 书签事件：[bookmark_state_service.cc](/Users/tt/Developer/Personal/chromium/src/chrome/browser/bookmarks/bookmark_state_service.cc)
 
 ## 7. 同步事件字段定义
 
@@ -2883,18 +2839,18 @@ curl -X POST http://127.0.0.1:9999/ \
 
 ### 12.1 当前资源与版本约定
 
-- `browserVersion` 是对外指纹版本，不是实际 Chromium 本体版本
-- 这个字段决定：
-  - UA / Sec-CH-UA 中网站看到的 Chrome 版本
-  - 指纹 catalog 与设备预设解析使用的版本
-- 实际运行的 Chromium 可执行文件由当前宿主系统的 active Chromium 资源决定
+- 浏览器资源版本与指纹版本统一使用同一个字段：`browserVersion`
+- 这个字段同时决定：
+  - 运行内核版本
+  - 对外暴露的浏览器版本
 - 宿主资源平台和模拟平台拆开：
   - 宿主资源平台：由当前系统自动推导，只用于匹配和下载可执行文件
   - 模拟平台：由环境配置决定，可模拟 `macos/windows/linux/android/ios`
-- 启动时不会按 `browserVersion` 匹配或下载 Chromium 本体：
-  - 已配置开发调试路径时使用该路径
-  - 否则使用当前 active Chromium 资源
-  - 若 active Chromium 不存在，直接报错并引导到设置页资源管理
+- 启动时如果当前宿主系统缺少目标 `browserVersion`：
+  - 自动下载并安装该版本
+  - 安装完成后继续本次启动
+  - 不切换全局 active Chromium
+- 如果当前宿主系统没有该版本构建，直接报错，不回退其他版本
 
 ### 12.2 环境持久化字段
 
@@ -2911,10 +2867,6 @@ curl -X POST http://127.0.0.1:9999/ \
 2. 代理的 `effectiveLanguage / effectiveTimezone`
 3. 如果代理没有生效值，再回退旧的国家码默认映射
 
-绑定代理会先刷新代理画像，再把 `effectiveLanguage / effectiveTimezone`
-覆盖写回 Profile 指纹快照；解绑代理会重新获取宿主 IP 对应语言 / 时区并写回。
-运行中的 Profile 不热更新，重启后使用新配置。
-
 代理内部区分：
 
 - `suggestedLanguage / suggestedTimezone`
@@ -2926,14 +2878,6 @@ Chromium 实际接收的仍是这些注入结果：
 - `TZ`
 - `--custom-main-language`
 - `--custom-time-zone`
-
-约定：
-
-- `--lang` 表示 Chromium UI 资源语言，必须归一化为资源包可加载值，例如 `cs-CZ` 启动时传 `cs`
-- `--lang` 只由 App 的 `EngineLaunchOptions.language` 生成；自定义启动参数里的 `--lang` 会被忽略，避免覆盖归一化结果
-- 指纹语言保持完整 BCP47 值，例如 `--custom-main-language=cs-CZ`、`--custom-accept-languages=cs-CZ,cs;q=0.9,en;q=0.8`
-- Chromium 侧 `BrowserProcessImpl::GetApplicationLocale()` 不读取 `--custom-main-language`，该参数只用于网页指纹和 Blink 注入
-- Chromium 子进程加载资源包前会解析 `--lang`；无法解析时回退 `en-US`，不能因地区化或非法 locale fatal
 
 ### 12.4 环境背景色约定
 
@@ -3004,21 +2948,20 @@ Chromium 实际接收的仍是这些注入结果：
 | `--bookmark-state-file`                | 启动时加载受管理书签目标状态 JSON 文件                     | `--bookmark-state-file=/Users/tt/app_data/environments/env_001/runtime/bookmark-state.json`                                    |
 | `--enable-port-scan-protection`        | 启用普通网页端口扫描保护                                   | `--enable-port-scan-protection`                                                                                                |
 | `--enable-dns-leak-protection`         | 启用代理场景 DNS 泄露防护                                  | `--proxy-server=socks5://127.0.0.1:1080 --enable-dns-leak-protection`                                                          |
+| `--proxy-auth-username`                | 固定代理默认认证用户名                                     | `--proxy-server=socks5://127.0.0.1:1080 --proxy-auth-username=user`                                                            |
+| `--proxy-auth-password`                | 固定代理默认认证密码                                       | `--proxy-auth-password=pass`                                                                                                   |
 | `--enable-automation-detection-shield` | 启用自动化检测隔绝                                         | `--enable-automation-detection-shield`                                                                                         |
 | `--enable-do-not-track`                | 启动时为当前 profile 开启 Do Not Track                     | `--enable-do-not-track`                                                                                                        |
 | `--window-size`                        | 窗口尺寸                                                   | `--window-size=393,852`                                                                                                        |
 | `--force-device-scale-factor`          | 设备缩放因子 / DPR                                         | `--force-device-scale-factor=3`                                                                                                |
 | `--touch-events=enabled`               | 显式开启触摸事件                                           | `--touch-events=enabled`                                                                                                       |
 | `--use-mobile-user-agent`              | 使用移动端 UA 行为                                         | `--use-mobile-user-agent`                                                                                                      |
-| `--lang`                               | Chromium UI 资源语言，使用资源包可加载值                   | `--lang=cs`                                                                                                                    |
+| `--lang`                               | 浏览器语言                                                 | `--lang=en-US`                                                                                                                 |
 | `TZ`                                   | 进程时区环境变量                                           | `TZ=Asia/Shanghai`                                                                                                             |
 
 说明：
 
 - 当同时传入 `custom-resolution-width/height/dpr` 与 `window-size`、`force-device-scale-factor` 时，以 `custom-resolution-*` 为准
-- `--lang` 不等同于指纹语言：App 会把 `cs-CZ` 等地区语言归一化为 Chromium 可加载的 UI locale；网页指纹仍通过 `--custom-main-language` / `--custom-accept-languages` 保留完整值
-- 自定义启动参数不要传 `--lang`；即使传入也会被 App 过滤，防止 `--lang=cs-CZ` 触发 Chromium locale 资源崩溃
-- 关闭或删除环境时，App 不在关闭前同步导出 cookie snapshot；关闭优先释放运行状态，避免 magic HTTP 无响应时卡住 UI
 - `custom-resolution-*` 同时影响 `screen.width/height`、`screen.availWidth/availHeight`、`window.innerWidth/innerHeight` 和 `window.devicePixelRatio`
 - `extension-state-file` 当前只支持绝对路径，文件内容必须包含 `managed_extensions` 数组
 - `extension-state-file` 当前只管理由该文件声明的受管理扩展，不接管用户手动安装的其他扩展
@@ -3036,8 +2979,12 @@ Chromium 实际接收的仍是这些注入结果：
 - `enable-port-scan-protection` 当前不影响 `chrome://`、`devtools://`、`chrome-extension://`、IWA 和浏览器内部受信页面
 - `enable-dns-leak-protection` 默认关闭；没有代理时不改变 DNS 行为
 - `enable-dns-leak-protection` 有代理时会注入 `MAP * ^NOTFOUND`，普通目标域名不能走本机 DNS
-- 如果代理 host 是域名，会自动 `EXCLUDE` 该代理域名；如需尽量零本机 DNS，推荐代理写 IP
+- 如果代理 host 是域名，会自动 `EXCLUDE` 该代理域名；如需零本机 DNS，推荐代理写 IP
 - 与 `--host-resolver-rules` 同时存在时，DNS 防护规则排在前面
+- `proxy-auth-username/password` 作为默认凭据，应用到未内嵌凭据的 `http/https/socks5` 固定代理
+- `--proxy-server` 内嵌凭据优先级高于 `proxy-auth-username/password`
+- 代理 URL 里的特殊字符必须 percent-encode，例如 `@` 写成 `%40`
+- `get_switches` 查询 `proxy-server` / `proxy-auth-password` 时不会返回明文密码
 - `custom-image-loading-mode` 默认关闭；当前支持 `block` 和 `max-area`
 - `custom-image-loading-mode=block` 时，会阻断普通 `http/https` 网页上下文中的图片子资源请求；不影响 `chrome://`、`chrome-extension://`、favicon 和浏览器内部资源
 - `custom-image-loading-mode=max-area` 时，必须同时传入正整数 `custom-image-max-area`；按图片固有像素面积 `width * height` 判定，超过阈值则阻断
@@ -3057,10 +3004,28 @@ Chromium 实际接收的仍是这些注入结果：
 
 #### `--custom-ua-metadata`
 
-旧文档中的格式示例：
+格式：`key=value|key=value|...`，支持字段如下：
+
+| Key                 | 说明                                                         | 示例值                                               |
+| ------------------- | ------------------------------------------------------------ | ---------------------------------------------------- |
+| `platform`          | UA-CH Sec-CH-UA-Platform                                     | `macOS` / `Windows`                                  |
+| `platform_version`  | Sec-CH-UA-Platform-Version                                   | `14.0` / `10.0.0`                                    |
+| `arch`              | Sec-CH-UA-Arch                                               | `arm` / `x86`                                        |
+| `bitness`           | Sec-CH-UA-Bitness                                            | `64`                                                 |
+| `mobile`            | Sec-CH-UA-Mobile                                             | `0` / `1`                                            |
+| `model`             | Sec-CH-UA-Model（可为空）                                    | ``/`Pixel 6`                                         |
+| `wow64`             | Sec-CH-UA-WoW64                                              | `0`                                                  |
+| `brands`            | 主版本 brands（`Name:Major,...`）                            | `Google Chrome:144,Chromium:144`                     |
+| `full_version_list` | 完整版本 brands（`Name:full.ver,...`），覆盖 brands 自动推算 | `Google Chrome:144.0.7559.97,Chromium:144.0.7559.97` |
+| `ua_full_version`   | 完整 UA 版本（填充 `navigator.userAgentData.uaFullVersion`） | `144.0.7559.97`                                      |
+| `form_factors`      | 设备形态                                                     | `Desktop` / `Mobile`                                 |
+
+**注意**：`model=` 允许为空值，解析器会正确处理。
+
+完整示例（macOS Chrome 144）：
 
 ```text
-platform=Windows|platform_version=13.0.0|arch=x86|bitness=64|mobile=0|brands=Google Chrome:144,Chromium:144|form_factors=Desktop
+platform=macOS|platform_version=14.0|arch=arm|bitness=64|mobile=0|brands=Google Chrome:144,Chromium:144,Not?A_Brand:99|full_version_list=Google Chrome:144.0.7559.97,Chromium:144.0.7559.97,Not?A_Brand:99.0.0.0|ua_full_version=144.0.7559.97|model=|wow64=0|form_factors=Desktop
 ```
 
 它通常需要和下面这些参数保持一致：
@@ -3189,6 +3154,36 @@ platform=Windows|platform_version=13.0.0|arch=x86|bitness=64|mobile=0|brands=Goo
 - 当前不提供 allowlist，也不提供运行时开关
 - 当前仓库的 `start.py` 可通过环境变量 `CHROMIUM_ENABLE_PORT_SCAN_PROTECTION=1` 透传这个参数
 
+#### 带用户名密码的固定代理
+
+支持 `HTTP`、`HTTPS`、`SOCKS5` 固定代理认证。
+
+内嵌凭据示例：
+
+```text
+--proxy-server=socks5://user:pass@127.0.0.1:1080
+```
+
+独立参数示例：
+
+```text
+--proxy-server=socks5://127.0.0.1:1080
+--proxy-auth-username=user
+--proxy-auth-password=pass
+```
+
+当前行为：
+
+- 内嵌凭据优先级高于独立参数
+- 独立参数是默认凭据，会应用到所有未内嵌凭据的 `http/https/socks5` 固定代理
+- Multi-Flow 绑定代理启动时直接传 `--proxy-server` 和可选 `--proxy-auth-username/password`，不再启动本地代理中转
+- HTTP/HTTPS 代理 407 会自动提交凭据，不弹认证框
+- SOCKS5 使用 username/password 子协商
+- `SOCKS4` 不支持认证
+- PAC 返回的动态代理不新增独立凭据协议
+- URL 里的特殊字符必须 percent-encode，例如 `@` 写成 `%40`
+- 密码仍可能出现在系统进程命令行；`get_switches` 和 Chromium 日志不会主动回显明文
+
 #### `--enable-dns-leak-protection`
 
 该参数用于在启用代理时阻断网页目标域名走本机 DNS。
@@ -3212,7 +3207,7 @@ platform=Windows|platform_version=13.0.0|arch=x86|bitness=64|mobile=0|brands=Goo
 
 - 主要面向固定代理；不覆盖 PAC 动态切换后的全部代理 host
 - 为避免泄露，代理不可用或目标必须本机解析时，页面访问会失败
-- Multi-Flow 绑定代理启动 Chromium 时，推荐传 `socks5://IP:PORT` 并同时追加该开关
+- 若要尽量做到零本机 DNS，代理建议使用 `socks5://IP:PORT`
 
 #### `--custom-gl-vendor` / `--custom-gl-renderer`
 

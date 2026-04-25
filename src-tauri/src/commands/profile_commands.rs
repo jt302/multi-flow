@@ -17,12 +17,12 @@ use crate::models::{
     BatchSetProfileGroupRequest, ClearProfileCacheResponse, CookieStateFile, CreateProfileRequest,
     CustomValueMode, ExportProfileCookiesMode, ExportProfileCookiesRequest,
     ExportProfileCookiesResponse, ExtensionStateFile, FontListMode, GeolocationMode,
-    GeolocationOverride, ListProfilesQuery, ListProfilesResponse, LocalApiServerStatus,
-    ManagedCookie, ManagedExtension, OpenProfileOptions, OpenProfileResponse, Profile,
-    ProfileDevicePreset, ProfileFingerprintSnapshot, ProfileFingerprintSource,
-    ProfilePluginSelection, ProfileRuntimeDetails, ProfileSettings, Proxy,
-    ReadProfileCookiesResponse, SaveProfileDevicePresetRequest, SetProfileGroupRequest,
-    UpdateDevicePresetOutcome, UpdateProfileVisualRequest, WebRtcMode,
+    GeolocationOverride, ListProfilesQuery, ListProfilesResponse, ManagedCookie, ManagedExtension,
+    OpenProfileOptions, OpenProfileResponse, Profile, ProfileDevicePreset,
+    ProfileFingerprintSnapshot, ProfileFingerprintSource, ProfilePluginSelection,
+    ProfileRuntimeDetails, ProfileSettings, Proxy, ReadProfileCookiesResponse,
+    SaveProfileDevicePresetRequest, SetProfileGroupRequest, UpdateDevicePresetOutcome,
+    UpdateProfileVisualRequest, WebRtcMode,
 };
 use crate::runtime_guard;
 use crate::services::device_preset_service::DevicePresetService;
@@ -1293,7 +1293,6 @@ fn do_delete_profile(state: &AppState, profile_id: &str) -> Result<Profile, Stri
         let _ = engine_manager.close_profile(profile_id);
     }
     let _ = engine_session_service.delete_session(profile_id);
-    stop_profile_proxy_runtime_quietly(state, profile_id);
 
     profile_service
         .soft_delete_profile(profile_id)
@@ -1475,17 +1474,6 @@ pub fn batch_close_profiles(
     Ok(response)
 }
 
-#[tauri::command]
-pub fn get_local_api_server_status(
-    state: State<'_, AppState>,
-) -> Result<LocalApiServerStatus, String> {
-    let local_api_server = state
-        .local_api_server
-        .lock()
-        .map_err(|_| "local api server lock poisoned".to_string())?;
-    Ok(local_api_server.status())
-}
-
 pub(crate) fn do_open_profile(
     state: &AppState,
     app: Option<&AppHandle>,
@@ -1615,13 +1603,6 @@ pub(crate) fn do_open_profile(
         .lock_proxy_service()
         .get_profile_proxy(profile_id)
         .map_err(error_to_string)?;
-    let daemon_proxy_server = match bound_proxy.as_ref() {
-        Some(proxy) => {
-            let mut local_api_server = state.lock_local_api_server();
-            Some(local_api_server.start_proxy_runtime(profile_id, proxy)?)
-        }
-        None => None,
-    };
     let geoip_database = state.lock_resource_service().resolve_geoip_database_path();
     let mut engine_manager = state.lock_engine_manager();
     let mut merged_options = merge_open_options(profile_snapshot.settings.as_ref(), user_options);
@@ -1707,7 +1688,6 @@ pub(crate) fn do_open_profile(
         profile_snapshot.settings.as_ref(),
         merged_options,
         effective_bound_proxy,
-        daemon_proxy_server.clone(),
         geoip_database,
         Some(resolved_browser_version.as_str()),
         host_locale.as_ref(),
@@ -1738,10 +1718,7 @@ pub(crate) fn do_open_profile(
 
     let session = engine_manager
         .open_profile_with_options(profile_id, &launch_options)
-        .map_err(|err| {
-            stop_profile_proxy_runtime_quietly(state, profile_id);
-            error_to_string(err)
-        })?;
+        .map_err(error_to_string)?;
 
     // Release engine_manager lock before any blocking HTTP calls.
     // apply_profile_visual_overrides contacts the Magic Controller which is not yet ready
@@ -1780,7 +1757,6 @@ pub(crate) fn do_open_profile(
             Ok(profile) => profile,
             Err(err) => {
                 let _ = state.lock_engine_manager().close_profile(profile_id);
-                stop_profile_proxy_runtime_quietly(state, profile_id);
                 return Err(error_to_string(err));
             }
         }
@@ -1793,7 +1769,6 @@ pub(crate) fn do_open_profile(
         let _ = state
             .lock_profile_service()
             .mark_profile_running(profile_id, false);
-        stop_profile_proxy_runtime_quietly(state, profile_id);
         return Err(error_to_string(err));
     }
     logger::info(
@@ -1890,7 +1865,6 @@ fn resolve_launch_options(
     profile_settings: Option<&ProfileSettings>,
     options: OpenProfileOptions,
     bound_proxy: Option<&Proxy>,
-    daemon_proxy_server: Option<String>,
     geoip_database: Option<std::path::PathBuf>,
     resolved_browser_version: Option<&str>,
     host_locale: Option<&crate::services::host_locale_service::HostLocaleSuggestion>,
@@ -1907,14 +1881,19 @@ fn resolve_launch_options(
         bound_proxy,
         geoip_database.as_deref(),
     )?;
-    let proxy_server = if let Some(proxy_server) = daemon_proxy_server.and_then(trim_to_option) {
-        Some(proxy_server)
-    } else {
-        match bound_proxy {
-            Some(proxy) => Some(proxy_to_arg(proxy)?),
-            None => None,
-        }
+    let proxy_launch_config = match bound_proxy {
+        Some(proxy) => Some(proxy_to_launch_config(proxy)?),
+        None => None,
     };
+    let proxy_server = proxy_launch_config
+        .as_ref()
+        .map(|config| config.proxy_server.clone());
+    let proxy_auth_username = proxy_launch_config
+        .as_ref()
+        .and_then(|config| config.proxy_auth_username.clone());
+    let proxy_auth_password = proxy_launch_config
+        .as_ref()
+        .and_then(|config| config.proxy_auth_password.clone());
     let mut runtime_snapshot = resolve_runtime_fingerprint_snapshot(
         device_preset_service,
         profile_settings,
@@ -2144,6 +2123,8 @@ fn resolve_launch_options(
         timezone_id,
         startup_urls,
         proxy_server,
+        proxy_auth_username,
+        proxy_auth_password,
         web_rtc_policy: None,
         headless: options.headless.unwrap_or(false),
         disable_images: false,
@@ -2831,6 +2812,30 @@ fn resolve_fingerprint_seed(
     Ok(fixed_seed)
 }
 
+struct ProxyLaunchConfig {
+    proxy_server: String,
+    proxy_auth_username: Option<String>,
+    proxy_auth_password: Option<String>,
+}
+
+fn proxy_to_launch_config(proxy: &Proxy) -> Result<ProxyLaunchConfig, String> {
+    let proxy_auth_username = proxy.username.as_deref().and_then(trim_str_to_option);
+    let proxy_auth_password = proxy.password.as_deref().and_then(trim_str_to_option);
+
+    if proxy_auth_username.is_some() ^ proxy_auth_password.is_some() {
+        return Err(format!(
+            "validation failed: proxy username and password must be both set or both empty for chromium launch: {}",
+            proxy.id
+        ));
+    }
+
+    Ok(ProxyLaunchConfig {
+        proxy_server: proxy_to_arg(proxy)?,
+        proxy_auth_username,
+        proxy_auth_password,
+    })
+}
+
 fn proxy_to_arg(proxy: &Proxy) -> Result<String, String> {
     match proxy.protocol.as_str() {
         "http" | "https" | "socks5" => Ok(format!(
@@ -2999,7 +3004,6 @@ pub(crate) fn do_close_profile(state: &AppState, profile_id: &str) -> Result<Pro
     engine_session_service
         .delete_session(profile_id)
         .map_err(error_to_string)?;
-    stop_profile_proxy_runtime_quietly(state, profile_id);
 
     let profile = profile_service
         .mark_profile_running(profile_id, false)
@@ -3013,16 +3017,6 @@ pub(crate) fn do_close_profile(state: &AppState, profile_id: &str) -> Result<Pro
 
 fn error_to_string(err: AppError) -> String {
     err.to_string()
-}
-
-fn stop_profile_proxy_runtime_quietly(state: &AppState, profile_id: &str) {
-    let mut local_api_server = state.lock_local_api_server();
-    if let Err(err) = local_api_server.stop_proxy_runtime(profile_id) {
-        logger::warn(
-            "profile_cmd",
-            format!("proxy daemon stop failed profile_id={profile_id} err={err}"),
-        );
-    }
 }
 
 /// 查询本机公网 IP 的地理建议（语言 / 时区），用于无代理场景下档案表单预填。
@@ -3047,7 +3041,6 @@ mod tests {
     use super::*;
     use crate::db;
     use crate::engine_manager::EngineManager;
-    use crate::local_api_server::LocalApiServer;
     use crate::models::{
         CookieStateFile, CreateProfileRequest, CreateProxyRequest, EngineSession,
         ExportProfileCookiesMode, ExportProfileCookiesRequest, GeolocationOverride, ManagedCookie,
@@ -3085,9 +3078,6 @@ mod tests {
         let app_preference_service = AppPreferenceService::from_data_dir(resource_dir.clone());
         let profiles_root = std::env::temp_dir().join(format!("multi-flow-profile-root-{unique}"));
         std::fs::create_dir_all(&profiles_root).expect("profiles root");
-        let mut local_api_server = LocalApiServer::new("127.0.0.1:18180");
-        local_api_server.mark_started();
-
         AppState {
             active_runs: std::sync::Arc::new(
                 crate::services::automation_context::ActiveRunRegistry::new(),
@@ -3112,7 +3102,6 @@ mod tests {
             active_resource_downloads: Mutex::new(std::collections::HashMap::new()),
             active_plugin_downloads: Mutex::new(std::collections::HashMap::new()),
             engine_manager: Mutex::new(EngineManager::with_profiles_root(profiles_root)),
-            local_api_server: Mutex::new(local_api_server),
             chromium_magic_adapter_service: Mutex::new(ChromiumMagicAdapterService::new()),
             sync_manager_service: Mutex::new(SyncManagerService::new_mock(None, None)),
             mcp_manager: std::sync::Arc::new(crate::services::mcp::McpManager::from_db(db.clone())),
@@ -3805,7 +3794,6 @@ mod tests {
             None,
             None,
             None,
-            None,
         )
         .expect("resolve launch options");
         assert_eq!(options.language.as_deref(), Some("en-US"));
@@ -3862,7 +3850,6 @@ mod tests {
             None,
             None,
             None,
-            None,
         )
         .expect("resolve inherited launch options");
         inherited_options.toolbar_text = inherited.resolved_toolbar_text.clone();
@@ -3902,7 +3889,6 @@ mod tests {
             &overridden.name,
             overridden.settings.as_ref(),
             OpenProfileOptions::default(),
-            None,
             None,
             None,
             None,
@@ -3966,7 +3952,6 @@ mod tests {
             None,
             None,
             None,
-            None,
         )
         .expect("resolve launch options");
 
@@ -3991,7 +3976,6 @@ mod tests {
                 web_rtc_mode: Some(WebRtcMode::Real),
                 ..Default::default()
             },
-            None,
             None,
             None,
             None,
@@ -4085,7 +4069,6 @@ mod tests {
             None,
             None,
             None,
-            None,
         )
         .expect("resolve launch options");
 
@@ -4126,7 +4109,6 @@ mod tests {
             None,
             None,
             None,
-            None,
         )
         .expect("resolve launch options");
 
@@ -4150,7 +4132,6 @@ mod tests {
             "test-profile",
             None,
             options,
-            None,
             None,
             None,
             None,
@@ -4213,7 +4194,6 @@ mod tests {
             None,
             None,
             None,
-            None,
         )
         .expect("resolve launch options");
 
@@ -4225,6 +4205,184 @@ mod tests {
             .extra_args
             .iter()
             .any(|arg| arg == "--enable-dns-leak-protection"));
+    }
+
+    #[test]
+    fn resolve_launch_options_adds_proxy_auth_for_authenticated_proxy() {
+        let preset_service = new_test_device_preset_service();
+        let proxy = Proxy {
+            id: "px_000001".to_string(),
+            name: "proxy-auth".to_string(),
+            protocol: "https".to_string(),
+            host: "proxy.example".to_string(),
+            port: 8443,
+            username: Some(" alice ".to_string()),
+            password: Some(" secret ".to_string()),
+            country: None,
+            region: None,
+            city: None,
+            provider: None,
+            note: None,
+            check_status: Some("ok".to_string()),
+            check_message: None,
+            last_checked_at: None,
+            exit_ip: None,
+            latitude: None,
+            longitude: None,
+            geo_accuracy_meters: None,
+            suggested_language: None,
+            suggested_timezone: None,
+            language_source: Some("ip".to_string()),
+            custom_language: None,
+            effective_language: None,
+            timezone_source: Some("ip".to_string()),
+            custom_timezone: None,
+            effective_timezone: None,
+            target_site_checks: None,
+            expires_at: None,
+            lifecycle: ProxyLifecycle::Active,
+            created_at: 1,
+            updated_at: 1,
+            deleted_at: None,
+        };
+
+        let resolved = resolve_launch_options(
+            &preset_service,
+            "pf_000001",
+            "test-profile",
+            None,
+            OpenProfileOptions::default(),
+            Some(&proxy),
+            None,
+            None,
+            None,
+        )
+        .expect("resolve launch options");
+
+        assert_eq!(
+            resolved.proxy_server.as_deref(),
+            Some("https://proxy.example:8443")
+        );
+        assert_eq!(resolved.proxy_auth_username.as_deref(), Some("alice"));
+        assert_eq!(resolved.proxy_auth_password.as_deref(), Some("secret"));
+        assert!(resolved
+            .extra_args
+            .iter()
+            .any(|arg| arg == "--enable-dns-leak-protection"));
+        assert!(!resolved
+            .extra_args
+            .iter()
+            .any(|arg| arg.starts_with("--proxy-auth-")));
+    }
+
+    #[test]
+    fn resolve_launch_options_rejects_partial_proxy_auth() {
+        let preset_service = new_test_device_preset_service();
+        let proxy = Proxy {
+            id: "px_000001".to_string(),
+            name: "partial-auth".to_string(),
+            protocol: "http".to_string(),
+            host: "proxy.example".to_string(),
+            port: 8080,
+            username: Some("alice".to_string()),
+            password: None,
+            country: None,
+            region: None,
+            city: None,
+            provider: None,
+            note: None,
+            check_status: Some("ok".to_string()),
+            check_message: None,
+            last_checked_at: None,
+            exit_ip: None,
+            latitude: None,
+            longitude: None,
+            geo_accuracy_meters: None,
+            suggested_language: None,
+            suggested_timezone: None,
+            language_source: Some("ip".to_string()),
+            custom_language: None,
+            effective_language: None,
+            timezone_source: Some("ip".to_string()),
+            custom_timezone: None,
+            effective_timezone: None,
+            target_site_checks: None,
+            expires_at: None,
+            lifecycle: ProxyLifecycle::Active,
+            created_at: 1,
+            updated_at: 1,
+            deleted_at: None,
+        };
+
+        let err = resolve_launch_options(
+            &preset_service,
+            "pf_000001",
+            "test-profile",
+            None,
+            OpenProfileOptions::default(),
+            Some(&proxy),
+            None,
+            None,
+            None,
+        )
+        .expect_err("partial proxy auth should fail");
+
+        assert!(err.contains("username and password"));
+    }
+
+    #[test]
+    fn resolve_launch_options_rejects_ssh_proxy_for_chromium_launch() {
+        let preset_service = new_test_device_preset_service();
+        let proxy = Proxy {
+            id: "px_000001".to_string(),
+            name: "ssh-proxy".to_string(),
+            protocol: "ssh".to_string(),
+            host: "proxy.example".to_string(),
+            port: 22,
+            username: None,
+            password: None,
+            country: None,
+            region: None,
+            city: None,
+            provider: None,
+            note: None,
+            check_status: Some("unsupported".to_string()),
+            check_message: None,
+            last_checked_at: None,
+            exit_ip: None,
+            latitude: None,
+            longitude: None,
+            geo_accuracy_meters: None,
+            suggested_language: None,
+            suggested_timezone: None,
+            language_source: Some("ip".to_string()),
+            custom_language: None,
+            effective_language: None,
+            timezone_source: Some("ip".to_string()),
+            custom_timezone: None,
+            effective_timezone: None,
+            target_site_checks: None,
+            expires_at: None,
+            lifecycle: ProxyLifecycle::Active,
+            created_at: 1,
+            updated_at: 1,
+            deleted_at: None,
+        };
+
+        let err = resolve_launch_options(
+            &preset_service,
+            "pf_000001",
+            "test-profile",
+            None,
+            OpenProfileOptions::default(),
+            Some(&proxy),
+            None,
+            None,
+            None,
+        )
+        .expect_err("ssh proxy should fail");
+
+        assert!(err.contains("ssh proxy is not supported"));
     }
 
     #[test]
@@ -4241,7 +4399,6 @@ mod tests {
             "test-profile",
             None,
             options,
-            None,
             None,
             None,
             None,
@@ -4271,7 +4428,6 @@ mod tests {
             "test-profile",
             None,
             options,
-            None,
             None,
             None,
             None,
@@ -4306,7 +4462,6 @@ mod tests {
             "test-profile",
             None,
             options,
-            None,
             None,
             None,
             None,
@@ -4377,7 +4532,6 @@ mod tests {
             None,
             None,
             None,
-            None,
         )
         .expect("resolve launch options");
 
@@ -4411,7 +4565,6 @@ mod tests {
             None,
             None,
             None,
-            None,
         )
         .expect_err("invalid startup url should fail");
         assert!(err.contains("invalid startupUrl"));
@@ -4437,7 +4590,6 @@ mod tests {
             "test-profile",
             Some(&settings),
             merged,
-            None,
             None,
             None,
             None,
@@ -4479,7 +4631,6 @@ mod tests {
                 ..Default::default()
             }),
             OpenProfileOptions::default(),
-            None,
             None,
             None,
             Some("144.0.7559.97"),
@@ -4527,7 +4678,6 @@ mod tests {
                 timezone_id: Some("Europe/Berlin".to_string()),
                 ..Default::default()
             },
-            None,
             None,
             None,
             Some("144.0.7559.97"),
@@ -4611,7 +4761,6 @@ mod tests {
             OpenProfileOptions::default(),
             None,
             None,
-            None,
             Some("144.0.7559.97"),
             None,
         )
@@ -4646,7 +4795,6 @@ mod tests {
                 ..Default::default()
             }),
             OpenProfileOptions::default(),
-            None,
             None,
             None,
             Some("144.0.7559.97"),
@@ -4756,7 +4904,6 @@ mod tests {
             OpenProfileOptions::default(),
             None,
             None,
-            None,
             Some("144.0.7559.97"),
             None,
         )
@@ -4833,7 +4980,6 @@ mod tests {
                 ..Default::default()
             }),
             OpenProfileOptions::default(),
-            None,
             None,
             None,
             Some("144.0.7559.97"),

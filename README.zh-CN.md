@@ -101,7 +101,6 @@ multi-flow/
 - [docs/ai/current-task.md](docs/ai/current-task.md)
 - [docs/ai/project-context.md](docs/ai/project-context.md)
 - [docs/ai/session-summary.md](docs/ai/session-summary.md)
-- [docs/ai/proxy-daemon.md](docs/ai/proxy-daemon.md)
 - [docs/ai/multi-flow-sync-manager.md](docs/ai/multi-flow-sync-manager.md)
 
 ## 说明

@@ -789,7 +789,6 @@ mod tests {
 
     use crate::db;
     use crate::engine_manager::EngineManager;
-    use crate::local_api_server::LocalApiServer;
     use crate::services::app_preference_service::AppPreferenceService;
     use crate::services::automation_service::AutomationService;
     use crate::services::chromium_magic_adapter_service::ChromiumMagicAdapterService;
@@ -831,9 +830,6 @@ mod tests {
         let resource_service =
             ResourceService::from_data_dir(&resource_dir).expect("resource service");
         let app_preference_service = AppPreferenceService::from_data_dir(resource_dir.clone());
-        let mut local_api_server = LocalApiServer::new("127.0.0.1:18180");
-        local_api_server.mark_started();
-
         AppState {
             active_runs: std::sync::Arc::new(
                 crate::services::automation_context::ActiveRunRegistry::new(),
@@ -858,7 +854,6 @@ mod tests {
             active_resource_downloads: Mutex::new(std::collections::HashMap::new()),
             active_plugin_downloads: Mutex::new(std::collections::HashMap::new()),
             engine_manager: Mutex::new(EngineManager::new()),
-            local_api_server: Mutex::new(local_api_server),
             chromium_magic_adapter_service: Mutex::new(ChromiumMagicAdapterService::new()),
             sync_manager_service: Mutex::new(SyncManagerService::new_mock(None, None)),
             mcp_manager: std::sync::Arc::new(crate::services::mcp::McpManager::from_db(db.clone())),

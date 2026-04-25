@@ -19,8 +19,6 @@ use tauri::{
     AppHandle, Emitter, Manager, RunEvent, WebviewWindow, WebviewWindowBuilder, Window, WindowEvent,
 };
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
-use tauri_plugin_shell::process::CommandEvent;
-use tauri_plugin_shell::ShellExt;
 
 use crate::services::app_preference_service::normalize_app_language;
 use crate::state::resolve_app_data_dir;
@@ -32,9 +30,6 @@ const MENU_ID_RELOAD_WINDOW: &str = "reload_window";
 const MAIN_WINDOW_LABEL: &str = "main";
 const MAIN_WINDOW_STATE_FILENAME: &str = "main-window-state.json";
 const PLUGIN_WINDOW_STATE_FILENAME: &str = ".window-state.json";
-const PROXY_DAEMON_SIDECAR_NAME: &str = "proxy-daemon";
-const PROXY_DAEMON_RUST_LOG_ENV: &str = "MULTI_FLOW_PROXY_DAEMON_RUST_LOG";
-const DEFAULT_PROXY_DAEMON_RUST_LOG: &str = "info";
 static PANIC_HOOK_ONCE: Once = Once::new();
 /// init 完成且 400ms 动画延迟已过，React 可安全触发窗口切换
 static INIT_COMPLETE: AtomicBool = AtomicBool::new(false);
@@ -70,7 +65,6 @@ mod engine_manager;
 mod error;
 mod fingerprint_catalog;
 mod font_catalog;
-mod local_api_server;
 mod logger;
 mod models;
 mod runtime_compat;
@@ -322,7 +316,6 @@ pub fn run() {
             commands::profile_commands::count_profile_device_preset_references,
             commands::profile_commands::batch_open_profiles,
             commands::profile_commands::batch_close_profiles,
-            commands::profile_commands::get_local_api_server_status,
             commands::profile_commands::host_locale_suggestion,
             commands::proxy_commands::create_proxy,
             commands::proxy_commands::update_proxy,
@@ -681,107 +674,6 @@ fn start_runtime_guard(app: AppHandle) {
         });
 }
 
-fn start_proxy_daemon_sidecar(app: &AppHandle, app_state: &state::AppState) -> Result<(), String> {
-    let (bind_address, bind_port) = {
-        let local_api_server = app_state
-            .local_api_server
-            .lock()
-            .map_err(|_| "local api server lock poisoned".to_string())?;
-        (
-            local_api_server.bind_address().to_string(),
-            local_api_server.bind_port()?,
-        )
-    };
-
-    {
-        let mut local_api_server = app_state
-            .local_api_server
-            .lock()
-            .map_err(|_| "local api server lock poisoned".to_string())?;
-        if local_api_server.check_daemon_health() {
-            local_api_server.mark_started();
-            logger::info(
-                "proxy_daemon",
-                format!("proxy daemon already reachable at {bind_address}, skip sidecar spawn"),
-            );
-            return Ok(());
-        }
-    }
-
-    let bind_port_text = bind_port.to_string();
-    let daemon_log_level = std::env::var(PROXY_DAEMON_RUST_LOG_ENV)
-        .ok()
-        .and_then(trim_to_option)
-        .unwrap_or_else(|| DEFAULT_PROXY_DAEMON_RUST_LOG.to_string());
-    let sidecar_command = app
-        .shell()
-        .sidecar(PROXY_DAEMON_SIDECAR_NAME)
-        .map_err(|err| format!("resolve proxy daemon sidecar failed: {err}"))?;
-    let (mut events, child) = sidecar_command
-        .env("RUST_LOG", daemon_log_level.as_str())
-        .args(["--port", bind_port_text.as_str()])
-        .spawn()
-        .map_err(|err| format!("spawn proxy daemon sidecar failed: {err}"))?;
-    let daemon_pid = child.pid();
-    logger::info(
-        "proxy_daemon",
-        format!(
-            "proxy daemon sidecar spawn requested pid={daemon_pid} port={} rust_log={}",
-            bind_port, daemon_log_level
-        ),
-    );
-    tauri::async_runtime::spawn(async move {
-        while let Some(event) = events.recv().await {
-            match event {
-                CommandEvent::Stdout(bytes) => {
-                    if let Some(line) = sidecar_line(bytes.as_slice()) {
-                        logger::info("proxy_daemon.stdout", line);
-                    }
-                }
-                CommandEvent::Stderr(bytes) => {
-                    if let Some(line) = sidecar_line(bytes.as_slice()) {
-                        logger::warn("proxy_daemon.stderr", line);
-                    }
-                }
-                CommandEvent::Error(err) => {
-                    logger::error("proxy_daemon", format!("sidecar event stream error: {err}"));
-                }
-                CommandEvent::Terminated(payload) => {
-                    logger::warn(
-                        "proxy_daemon",
-                        format!(
-                            "proxy daemon terminated code={:?} signal={:?}",
-                            payload.code, payload.signal
-                        ),
-                    );
-                }
-                _ => {}
-            }
-        }
-        logger::warn("proxy_daemon", "proxy daemon sidecar event stream closed");
-    });
-
-    for _ in 0..20 {
-        thread::sleep(Duration::from_millis(120));
-        let mut local_api_server = app_state
-            .local_api_server
-            .lock()
-            .map_err(|_| "local api server lock poisoned".to_string())?;
-        if local_api_server.check_daemon_health() {
-            local_api_server.mark_started();
-            logger::info(
-                "proxy_daemon",
-                format!("proxy daemon sidecar started at {bind_address}"),
-            );
-            return Ok(());
-        }
-    }
-
-    Err(format!(
-        "proxy daemon sidecar spawned but health check timed out at {bind_address}"
-    ))
-}
-
 fn open_data_dir(app: &AppHandle) -> Result<(), String> {
     let data_dir = resolve_app_data_dir(app).map_err(|err| err.to_string())?;
     fs::create_dir_all(&data_dir).map_err(|err| format!("create data dir failed: {err}"))?;
@@ -863,24 +755,6 @@ fn reload_focused_window(app: &AppHandle) {
     logger::info("menu", format!("reload requested for window={label}"));
     if let Err(err) = window.reload() {
         logger::warn("menu", format!("reload failed for window={label}: {err}"));
-    }
-}
-
-fn sidecar_line(bytes: &[u8]) -> Option<String> {
-    let line = String::from_utf8_lossy(bytes).trim().to_string();
-    if line.is_empty() {
-        None
-    } else {
-        Some(line)
-    }
-}
-
-fn trim_to_option(input: String) -> Option<String> {
-    let trimmed = input.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
     }
 }
 
@@ -1389,10 +1263,7 @@ fn run_app_init(handle: AppHandle) -> Result<(), Box<dyn std::error::Error + Sen
     let app_state = state::build_app_state(&handle)
         .map_err(|err| -> Box<dyn std::error::Error + Send + Sync> { Box::new(err) })?;
 
-    emit_splash("proxy", 65);
-    start_proxy_daemon_sidecar(&handle, &app_state).map_err(
-        |err| -> Box<dyn std::error::Error + Send + Sync> { Box::new(std::io::Error::other(err)) },
-    )?;
+    emit_splash("services", 65);
     handle.manage(app_state);
 
     // 启动后台任务：连接所有已启用的 MCP 服务器

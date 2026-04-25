@@ -35,6 +35,7 @@ mod m20260417_000032_create_mcp_servers;
 mod m20260417_000033_chat_sessions_mcp_filter;
 mod m20260420_000034_create_bookmark_tables;
 mod m20260423_000035_add_browser_version_to_device_presets;
+mod m20260425_000036_drop_proxy_runtime_instances;
 
 use sea_orm_migration::prelude::*;
 
@@ -81,6 +82,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260417_000033_chat_sessions_mcp_filter::Migration),
             Box::new(m20260420_000034_create_bookmark_tables::Migration),
             Box::new(m20260423_000035_add_browser_version_to_device_presets::Migration),
+            Box::new(m20260425_000036_drop_proxy_runtime_instances::Migration),
         ]
     }
 }
@@ -100,6 +102,10 @@ mod tests {
         assert!(
             names.contains(&"m20260310_000012_rebuild_proxy_runtime_instances".to_string()),
             "missing legacy migration for already-applied local databases"
+        );
+        assert!(
+            names.contains(&"m20260425_000036_drop_proxy_runtime_instances".to_string()),
+            "missing legacy proxy relay table cleanup migration"
         );
     }
 

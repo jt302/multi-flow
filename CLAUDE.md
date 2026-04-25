@@ -31,7 +31,7 @@ If Node is managed by nvm, ensure the nvm environment is loaded before running c
 - **Frontend**: React 19 + TypeScript + Vite + Tailwind + shadcn/ui + TanStack Query + Zustand
 - **Backend**: Tauri v2 + Rust + SQLite + SeaORM
 - **Browser engine**: Custom Chromium (macOS primary)
-- **Sidecars**: proxy-daemon, sync-manager (external binaries)
+- **Sidecars**: sync-manager (external binary)
 
 ### Backend Layering (src-tauri/src/)
 
@@ -39,13 +39,12 @@ Commands → Services → SeaORM Entities → SQLite
 
 - `commands/` — Tauri command handlers (thin layer, delegates to services)
 - `services/` — Business logic (profile, proxy, resource, plugin, sync, etc.)
-- `engine_manager/` — Chromium process lifecycle, CDP connection, port management
+- `engine_manager/` — Chromium process lifecycle, launch args, CDP connection, port management
 - `db/entities/` — SeaORM entity definitions
 - `db/migrator/` — Database migrations
 - `state.rs` — `AppState` with `Mutex<T>` service access
 - `models.rs` — Shared type definitions for Tauri commands
 - `runtime_guard.rs` — Background process reconciliation on startup
-- `local_api_server/` — Local HTTP/WebSocket API (Axum)
 
 ### Frontend Structure (Feature-Sliced Design)
 
@@ -115,7 +114,6 @@ Read relevant docs before starting implementation, update them after changes:
 - `docs/ai/project-context.md` — Business context, roadmap, feature comparison
 - `docs/ai/chromium.md` — Custom Chromium integration, Magic Controller protocol, CDP
 - `docs/ai/multi-flow-sync-manager.md` — Window sync sidecar protocol
-- `docs/ai/proxy-daemon.md` — Proxy daemon sidecar
 - `docs/ai/current-task.md` — Active development prioritieS
 - `docs/ai/ai-tools-developer.md` — AI tool definitions, parameters, architecture (developer reference)
 - `docs/ai/ai-tools-agent.md` — AI tool usage guide, decision tree, task scenarios (agent reference)

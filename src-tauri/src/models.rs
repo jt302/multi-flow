@@ -978,14 +978,6 @@ pub struct DisplayMonitorItem {
     pub work_area: WindowBounds,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LocalApiServerStatus {
-    pub running: bool,
-    pub bind_address: String,
-    pub started_at: Option<i64>,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ProxyLifecycle {

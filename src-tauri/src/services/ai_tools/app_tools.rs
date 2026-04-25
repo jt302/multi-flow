@@ -154,8 +154,7 @@ pub async fn execute(
 
         "app_stop_profile" => {
             let profile_id = resolve_profile_id_arg(require_str(&args, "profile_id")?, ctx)?;
-            // 复用 UI 的完整关闭流程：Cookie 快照、mark_profile_running(false)、
-            // delete_session、proxy runtime 清理
+            // 复用 UI 的完整关闭流程：Cookie 快照、mark_profile_running(false)、delete_session
             let profile =
                 crate::commands::profile_commands::do_close_profile(state.inner(), &profile_id)?;
             Ok(ToolResult::text(

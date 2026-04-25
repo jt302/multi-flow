@@ -64,13 +64,15 @@ enum EngineProcess {
     },
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct EngineLaunchOptions {
     pub user_agent: Option<String>,
     pub language: Option<String>,
     pub timezone_id: Option<String>,
     pub startup_urls: Vec<String>,
     pub proxy_server: Option<String>,
+    pub proxy_auth_username: Option<String>,
+    pub proxy_auth_password: Option<String>,
     pub web_rtc_policy: Option<String>,
     pub headless: bool,
     pub disable_images: bool,
@@ -86,6 +88,44 @@ pub struct EngineLaunchOptions {
     pub dock_icon_text_color: Option<String>,
     pub extra_args: Vec<String>,
     pub logging_enabled: bool,
+}
+
+impl std::fmt::Debug for EngineLaunchOptions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EngineLaunchOptions")
+            .field("user_agent", &self.user_agent)
+            .field("language", &self.language)
+            .field("timezone_id", &self.timezone_id)
+            .field("startup_urls", &self.startup_urls)
+            .field(
+                "proxy_server",
+                &self
+                    .proxy_server
+                    .as_ref()
+                    .map(|value| redact_proxy_server_value(value)),
+            )
+            .field("proxy_auth_username", &self.proxy_auth_username)
+            .field(
+                "proxy_auth_password",
+                &self.proxy_auth_password.as_ref().map(|_| "[redacted]"),
+            )
+            .field("web_rtc_policy", &self.web_rtc_policy)
+            .field("headless", &self.headless)
+            .field("disable_images", &self.disable_images)
+            .field("toolbar_text", &self.toolbar_text)
+            .field("background_color", &self.background_color)
+            .field("custom_cpu_cores", &self.custom_cpu_cores)
+            .field("custom_ram_gb", &self.custom_ram_gb)
+            .field("custom_font_list", &self.custom_font_list)
+            .field("cookie_state_file", &self.cookie_state_file)
+            .field("extension_state_file", &self.extension_state_file)
+            .field("bookmark_state_file", &self.bookmark_state_file)
+            .field("dock_icon_text", &self.dock_icon_text)
+            .field("dock_icon_text_color", &self.dock_icon_text_color)
+            .field("extra_args", &redact_chromium_launch_args(&self.extra_args))
+            .field("logging_enabled", &self.logging_enabled)
+            .finish()
+    }
 }
 
 pub struct EngineManager {
@@ -222,7 +262,7 @@ impl EngineManager {
                 profile_name: profile_name.clone(),
                 process,
                 launch_args,
-                extra_args: options.extra_args.clone(),
+                extra_args: redact_chromium_launch_args(&options.extra_args),
                 windows: build_default_windows(options.startup_urls.clone()),
                 next_window_id: 2,
                 next_tab_id: options.startup_urls.len().max(1) as u64 + 1,
@@ -1507,6 +1547,7 @@ impl EngineManager {
             magic_port,
             options,
         )?;
+        let redacted_args = redact_chromium_launch_args(&args);
 
         let timezone = options
             .timezone_id
@@ -1517,7 +1558,7 @@ impl EngineManager {
             format!(
                 "spawn chromium profile_id={profile_id} profile_name=\"{profile_name}\" executable={} args={:?} env_TZ={:?} magic_port={magic_port}",
                 executable.to_string_lossy(),
-                args,
+                redacted_args,
                 timezone
             ),
         );
@@ -1620,7 +1661,7 @@ impl EngineManager {
                 debug_port,
                 magic_port,
             },
-            args,
+            redacted_args,
         )))
     }
 
@@ -1671,6 +1712,20 @@ fn build_chromium_launch_args(
         .and_then(|value| trim_to_option(value))
     {
         args.push(format!("--proxy-server={proxy_server}"));
+    }
+    if let Some(username) = options
+        .proxy_auth_username
+        .as_ref()
+        .and_then(|value| trim_to_option(value))
+    {
+        args.push(format!("--proxy-auth-username={username}"));
+    }
+    if let Some(password) = options
+        .proxy_auth_password
+        .as_ref()
+        .and_then(|value| trim_to_option(value))
+    {
+        args.push(format!("--proxy-auth-password={password}"));
     }
     if let Some(policy) = options
         .web_rtc_policy
@@ -1752,6 +1807,44 @@ fn build_chromium_launch_args(
         }
     }
     Ok(args)
+}
+
+fn redact_chromium_launch_args(args: &[String]) -> Vec<String> {
+    args.iter()
+        .map(|arg| redact_chromium_launch_arg(arg))
+        .collect()
+}
+
+fn redact_chromium_launch_arg(arg: &str) -> String {
+    if arg.starts_with("--proxy-auth-password=") {
+        return "--proxy-auth-password=[redacted]".to_string();
+    }
+    if let Some(value) = arg.strip_prefix("--proxy-server=") {
+        return format!("--proxy-server={}", redact_proxy_server_value(value));
+    }
+    arg.to_string()
+}
+
+fn redact_proxy_server_value(value: &str) -> String {
+    let Some(scheme_end) = value.find("://") else {
+        return value.to_string();
+    };
+    let authority_start = scheme_end + 3;
+    let Some(at_offset) = value[authority_start..].find('@') else {
+        return value.to_string();
+    };
+    let at_index = authority_start + at_offset;
+    let credentials = &value[authority_start..at_index];
+    let redacted_credentials = credentials
+        .split_once(':')
+        .map(|(username, _)| format!("{username}:[redacted]"))
+        .unwrap_or_else(|| "[redacted]".to_string());
+    format!(
+        "{}{}{}",
+        &value[..authority_start],
+        redacted_credentials,
+        &value[at_index..]
+    )
 }
 
 fn is_chromium_ui_lang_arg(arg: &str) -> bool {
@@ -2874,6 +2967,59 @@ mod tests {
             args.iter().any(|arg| arg == "--v=1"),
             "expected chromium verbose logging level in args: {args:?}"
         );
+    }
+
+    #[test]
+    fn build_chromium_launch_args_adds_proxy_auth_switches_when_configured() {
+        let options = EngineLaunchOptions {
+            proxy_server: Some("socks5://127.0.0.1:1080".to_string()),
+            proxy_auth_username: Some(" user ".to_string()),
+            proxy_auth_password: Some(" pass ".to_string()),
+            ..Default::default()
+        };
+        let args = build_chromium_launch_args(
+            &PathBuf::from("/tmp/multi-flow-tests/user-data"),
+            &PathBuf::from("/tmp/multi-flow-tests/cache-data"),
+            19222,
+            19322,
+            &options,
+        )
+        .expect("build args");
+
+        assert!(
+            args.iter()
+                .any(|arg| arg == "--proxy-server=socks5://127.0.0.1:1080"),
+            "expected proxy server arg in args: {args:?}"
+        );
+        assert!(
+            args.iter().any(|arg| arg == "--proxy-auth-username=user"),
+            "expected proxy auth username arg in args: {args:?}"
+        );
+        assert!(
+            args.iter().any(|arg| arg == "--proxy-auth-password=pass"),
+            "expected proxy auth password arg in args: {args:?}"
+        );
+    }
+
+    #[test]
+    fn redact_chromium_launch_args_hides_proxy_credentials() {
+        let args = vec![
+            "--proxy-server=socks5://user:secret@proxy.example:1080".to_string(),
+            "--proxy-auth-username=user".to_string(),
+            "--proxy-auth-password=secret".to_string(),
+            "--user-agent=example".to_string(),
+        ];
+
+        let redacted = redact_chromium_launch_args(&args);
+
+        assert!(redacted
+            .iter()
+            .any(|arg| arg == "--proxy-server=socks5://user:[redacted]@proxy.example:1080"));
+        assert!(redacted
+            .iter()
+            .any(|arg| arg == "--proxy-auth-password=[redacted]"));
+        assert!(!redacted.iter().any(|arg| arg.contains("secret")));
+        assert!(redacted.iter().any(|arg| arg == "--user-agent=example"));
     }
 
     #[test]

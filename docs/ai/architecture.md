@@ -23,12 +23,11 @@
 ## 3) Tauri 后端分层（目标）
 
 - `commands/*`：Tauri command 入参校验、调用应用服务、错误映射
-- `application/*`：用例编排（profile lifecycle、batch open/close、local api status）
+- `application/*`：用例编排（profile lifecycle、batch open/close）
 - `domain/*`：领域模型与规则（Profile 生命周期、状态机、校验）
 - `infra/db/*`：SeaORM 数据访问（Entity / ActiveModel / Repository）
 - `infra/migration/*`：SeaORM migration（建表、索引、版本升级）
-- `engine_manager/*`：引擎会话管理与 sidecar 调度
-- `local_api_server/*`：本地 API（127.0.0.1）与鉴权/日志
+- `engine_manager/*`：引擎会话管理、Chromium 启动参数与运行态控制
 
 ## 4) 数据层规范（SQLite + SeaORM）
 
@@ -66,7 +65,6 @@
   - 启动阶段会先执行一次 reconcile，随后后台线程按固定间隔巡检
   - `list_profiles`、`list_open_profile_windows` 这类首屏/高频轮询命令不要内联同步执行 `reconcile_runtime_state`，避免在 macOS WebView 原生 `Reload` 期间阻塞主线程
   - 首屏列表型 command（如 profiles / groups / windows / proxies / resources / plugins / automation 配置）优先使用 `async command + spawn_blocking`，不要让同步存储查询直接跑在原生 invoke 主线程上
-  - `local_api_server`
   - `db`（SQLite 连接 + migrator + profile/group/proxy/binding/engine_session entities）
 - 当前持久化：
   - `release`：沿用 `app_local_data_dir/multi-flow.sqlite3`
@@ -79,7 +77,7 @@
   - `open_profile` 支持可选 `OpenProfileOptions`（语言、时区、默认打开 URL 列表、地理位置、WebRTC、headless、禁图、附加启动参数、运行时 seed）
   - `ProfileBasicSettings.startupUrls` 支持多个默认打开 URL；启动时会按列表顺序直接追加到 Chromium 启动参数中
   - `OpenProfileOptions` 不再承载 `UA / CPU / RAM / 字体` 这类强关联指纹覆盖；这组参数统一由 `fingerprintSnapshot` 生成
-  - 自动读取 Profile 绑定代理并注入 `--proxy-server`
+  - 自动读取 Profile 绑定代理并注入 `--proxy-server`；有用户名密码时追加 `--proxy-auth-username/password`
   - 绑定固定代理时建议同时注入 `--enable-dns-leak-protection`，避免网页目标域名走本机 DNS；代理地址优先使用 IP
   - 代理资产已升级为“代理画像”模型：
     - 检测阶段会写入 `exitIp / country / region / city / latitude / longitude / suggestedLanguage / suggestedTimezone`

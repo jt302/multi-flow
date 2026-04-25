@@ -63,7 +63,6 @@
 - [当前任务清单](docs/ai/current-task.md)
 - [项目背景与路线](docs/ai/project-context.md)
 - [会话摘要与阶段记录](docs/ai/session-summary.md)
-- [Proxy Daemon 用法说明](docs/ai/proxy-daemon.md)
 - 自研 chromium 源码（单独克隆，路径通过 `MULTI_FLOW_CHROMIUM_EXECUTABLE` 配置）
 - sync-manager 源码（单独仓库 `multi-flow-sync-manager`）
 - tauri 日志文件位置：`~/Library/Application Support/io.multiflow.app/logs/backend.log`
