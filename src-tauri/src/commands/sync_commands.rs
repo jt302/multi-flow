@@ -471,20 +471,23 @@ fn apply_last_row_align(
     col: u32,
     items_in_row: u32,
     cell_w: i32,
+    target_w: i32,
     gap_x: i32,
     rect_w: i32,
+    delta_w: i32,
 ) -> (i32, i32) {
     match align {
-        LastRowAlign::Start => (col as i32 * (cell_w + gap_x), cell_w),
+        LastRowAlign::Start => (col as i32 * (cell_w + gap_x), target_w),
         LastRowAlign::Center => {
             let total = items_in_row as i32 * cell_w + (items_in_row as i32 - 1) * gap_x;
             let offset = ((rect_w - total) / 2).max(0);
-            (offset + col as i32 * (cell_w + gap_x), cell_w)
+            (offset + col as i32 * (cell_w + gap_x), target_w)
         }
         LastRowAlign::Stretch => {
-            let new_w = ((rect_w - (items_in_row as i32 - 1) * gap_x) / items_in_row as i32)
-                .max(MIN_WINDOW_W);
-            (col as i32 * (new_w + gap_x), new_w)
+            let outer_w = ((rect_w - (items_in_row as i32 - 1) * gap_x) / items_in_row as i32)
+                .max(MIN_WINDOW_W + delta_w);
+            let request_w = (outer_w - delta_w).max(MIN_WINDOW_W);
+            (col as i32 * (outer_w + gap_x), request_w)
         }
     }
 }
@@ -505,8 +508,7 @@ fn build_grid_bounds(
     let cell_w = ((rect.width - (cols as i32 - 1) * gap_x) / cols as i32).max(0);
     let cell_h = ((rect.height - (rows as i32 - 1) * gap_y) / rows as i32).max(0);
 
-    // 实际下发给 Magic 的尺寸 = cell - delta
-    // 步长也用 target_*，保证视觉间距严格等于 gap（与 delta 无关）
+    // 实际下发给 Magic 的尺寸 = cell - delta；步长按外框单元格计算，避免补偿后视觉间距变小。
     let target_w = (cell_w - delta_w).max(MIN_WINDOW_W);
     let target_h = (cell_h - delta_h).max(MIN_WINDOW_H);
 
@@ -530,17 +532,19 @@ fn build_grid_bounds(
                 last_row_align,
                 col,
                 items_in_row,
+                cell_w,
                 target_w,
                 gap_x,
                 rect.width,
+                delta_w,
             )
         } else {
-            (col as i32 * (target_w + gap_x), target_w)
+            (col as i32 * (cell_w + gap_x), target_w)
         };
 
         out.push(WindowBounds {
             x: rect.x + x_off,
-            y: rect.y + row as i32 * (target_h + gap_y),
+            y: rect.y + row as i32 * (cell_h + gap_y),
             width: w_i,
             height: target_h,
         });
@@ -995,7 +999,7 @@ mod tests {
 
     #[test]
     fn grid_decoration_delta_compensated() {
-        // delta_h=28: we send height=(cell_h - 28); y step uses target_h so visual gap == gap_y
+        // delta_h=28: 下发高度减小，但行步进仍按外框单元格计算，视觉间距才等于 gap_y。
         let rect = make_rect(1800, 1080);
         let (rows, cols) = (3u32, 3u32);
         let cell_h = (1080 - 2 * 16) / 3; // gap_y=16
@@ -1014,8 +1018,7 @@ mod tests {
         .expect("grid ok");
         let expected_h = (cell_h - 28).max(MIN_WINDOW_H);
         assert_eq!(bounds[0].height, expected_h);
-        // y step should be target_h + gap_y (visual gap equals gap_y regardless of delta)
-        assert_eq!(bounds[3].y, expected_h + 16);
+        assert_eq!(bounds[3].y, cell_h + 16);
     }
 
     #[test]
