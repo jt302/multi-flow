@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-04-25
+
+### Fixed
+
+- Release builds no longer pass empty Apple signing variables to Tauri.
+
 ## [0.2.6] - 2026-04-25
 
 ### Fixed
@@ -256,7 +262,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Frontend built with React 19, TypeScript, Vite, Tailwind CSS, shadcn/ui, TanStack Query, and Zustand
 - Backend built with Tauri v2, Rust, SQLite, and SeaORM
 
-[Unreleased]: https://github.com/jt302/multi-flow/compare/v0.2.6...HEAD
+[Unreleased]: https://github.com/jt302/multi-flow/compare/v0.2.7...HEAD
+[0.2.7]: https://github.com/jt302/multi-flow/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/jt302/multi-flow/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/jt302/multi-flow/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/jt302/multi-flow/compare/v0.2.3...v0.2.4
