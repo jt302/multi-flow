@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   check:
     name: Build and test (${{ matrix.os }})
@@ -19,7 +16,7 @@ jobs:
         os: [macos-latest, windows-latest, ubuntu-22.04]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Linux Tauri dependencies
         if: runner.os == 'Linux'
@@ -32,12 +29,12 @@ jobs:
             patchelf
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10.33.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -66,13 +63,17 @@ jobs:
         run: pnpm -s build
 
       - name: Backend — cargo check
+        if: runner.os == 'macOS'
         run: cargo check --manifest-path src-tauri/Cargo.toml
 
       - name: Backend — cargo fmt
+        if: runner.os == 'macOS'
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
 
       - name: Backend — cargo clippy
+        if: runner.os == 'macOS'
         run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 
       - name: Backend — cargo test
+        if: runner.os == 'macOS'
         run: cargo test --manifest-path src-tauri/Cargo.toml

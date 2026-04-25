@@ -13,9 +13,6 @@ concurrency:
 permissions:
   contents: write # Required to create GitHub Releases and upload assets
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     name: Build DMG (${{ matrix.target }})
@@ -31,7 +28,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Verify updater signing secret
         shell: bash
@@ -97,12 +94,12 @@ jobs:
 
       # ── Toolchain ───────────────────────────────────────────────────────────
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10.33.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: pnpm

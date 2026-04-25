@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, extname, join } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 test('app bootstrap does not manually show the main window', () => {
 	const file = readFileSync(new URL('./app.tsx', import.meta.url), 'utf8');
@@ -64,7 +65,7 @@ function collectRuntimeSourceFiles(dir: string): string[] {
 }
 
 test('frontend runtime source does not emit console logs', () => {
-	const srcRoot = dirname(new URL('../main.tsx', import.meta.url).pathname);
+	const srcRoot = dirname(fileURLToPath(new URL('../main.tsx', import.meta.url)));
 	const sourceFiles = collectRuntimeSourceFiles(srcRoot);
 	const filesWithConsole = sourceFiles.filter((file) =>
 		/console\.(log|warn|error|debug|info)\s*\(/.test(readFileSync(file, 'utf8')),

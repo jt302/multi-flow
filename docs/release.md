@@ -1,8 +1,8 @@
 # Release Guide
 
 This project currently ships signed macOS DMG builds only. Windows and Linux CI
-coverage validates source compatibility, but installer publishing is blocked
-until sidecar binaries exist for those targets.
+coverage validates frontend compatibility, but backend checks and installer
+publishing are blocked until sidecar binaries exist for those targets.
 
 ## Version Source
 
@@ -61,8 +61,8 @@ Current macOS targets:
 
 | Platform | Status | Blocker |
 |---|---|---|
-| Windows 10/11 x64 | CI source check only | Missing `multi-flow-sync-manager-x86_64-pc-windows-msvc.exe` |
-| Ubuntu/Fedora x64 | CI source check only | Missing `multi-flow-sync-manager-x86_64-unknown-linux-gnu` |
+| Windows 10/11 x64 | Frontend CI only | Missing `multi-flow-sync-manager-x86_64-pc-windows-msvc.exe` |
+| Ubuntu/Fedora x64 | Frontend CI only | Missing `multi-flow-sync-manager-x86_64-unknown-linux-gnu` |
 
 Do not enable Windows or Linux installer publishing until the sync sidecar is
 built, signed where applicable, and covered by smoke tests.
@@ -110,7 +110,7 @@ artifacts signed by a new key.
 
 ```mermaid
 flowchart LR
-  PR["Pull request"] --> CI["CI: build + cargo check + cargo test"]
+  PR["Pull request"] --> CI["CI: frontend all OS + backend macOS"]
   CI --> TAG["Push v* tag"]
   TAG --> SECRETS["Signing secret gate"]
   SECRETS --> SIDECARS["Sidecar preflight"]
