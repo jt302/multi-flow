@@ -74,5 +74,17 @@
 		"overrides": {
 			"picomatch": "4.0.4"
 		}
+	},
+	"madge": {
+		"fileExtensions": [
+			"ts",
+			"tsx",
+			"js",
+			"jsx"
+		],
+		"excludeRegExp": [
+			"^dist/"
+		],
+		"tsConfig": "./tsconfig.json"
 	}
 }

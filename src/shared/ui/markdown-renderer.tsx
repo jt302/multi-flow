@@ -1,19 +1,12 @@
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { createContext, memo, useContext, useMemo } from 'react';
+import { memo, useContext, useMemo } from 'react';
 import type { Components, Options as ReactMarkdownOptions } from 'react-markdown';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
 import { MarkdownCodeBlock } from './markdown-code-block';
-
-// ── Context ──────────────────────────────────────────────────────────────────
-// 通过 context 透传，避免把闭包写入 components map 导致 ReactMarkdown 管道重建
-export type MarkdownCtxValue = {
-	onImageClick?: (src: string) => void;
-	streaming?: boolean;
-};
-export const MarkdownCtx = createContext<MarkdownCtxValue>({});
+import { MarkdownCtx, type MarkdownCtxValue } from './markdown-context';
 
 // ── 模块级稳定引用（绝不移入组件内部）────────────────────────────────────────
 // 每次引用变化都会触发 ReactMarkdown 重初始化整个 unified pipeline
