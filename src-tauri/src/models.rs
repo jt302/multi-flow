@@ -2482,6 +2482,16 @@ pub enum ScriptStep {
         #[serde(skip_serializing_if = "Option::is_none")]
         image_base64: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
+        gt: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        challenge: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        public_key: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        enterprise_payload: Option<serde_json::Value>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        user_agent: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         output_key: Option<String>,
     },
     /// 将 token 注入页面表单

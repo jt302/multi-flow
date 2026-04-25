@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Pencil, Plus, Star, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { z } from 'zod';
 
 import {
 	AlertDialog,
@@ -35,6 +37,9 @@ import {
 import type { CaptchaSolverConfig } from '@/entities/automation/model/types';
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
 
+const CAPTCHA_PROVIDER_VALUES = ['2captcha', 'capsolver', 'anticaptcha', 'capmonster'] as const;
+type CaptchaProviderValue = (typeof CAPTCHA_PROVIDER_VALUES)[number];
+
 const CAPTCHA_PROVIDERS = [
 	{ value: '2captcha', label: '2Captcha' },
 	{ value: 'capsolver', label: 'CapSolver' },
@@ -42,12 +47,37 @@ const CAPTCHA_PROVIDERS = [
 	{ value: 'capmonster', label: 'CapMonster Cloud' },
 ];
 
-type FormValues = {
-	provider: string;
-	apiKey: string;
-	baseUrl: string;
-	isDefault: boolean;
-};
+function normalizeCaptchaProvider(provider: string): CaptchaProviderValue {
+	return CAPTCHA_PROVIDER_VALUES.includes(provider as CaptchaProviderValue)
+		? (provider as CaptchaProviderValue)
+		: '2captcha';
+}
+
+export const captchaSolverFormSchema = z.object({
+	provider: z.enum(CAPTCHA_PROVIDER_VALUES),
+	apiKey: z.string().trim().min(1),
+	baseUrl: z
+		.string()
+		.trim()
+		.refine((value) => value === '' || /^https?:\/\//.test(value), {
+			message: 'Invalid URL',
+		})
+		.refine(
+			(value) => {
+				if (value === '') return true;
+				try {
+					new URL(value);
+					return true;
+				} catch {
+					return false;
+				}
+			},
+			{ message: 'Invalid URL' },
+		),
+	isDefault: z.boolean(),
+});
+
+type FormValues = z.infer<typeof captchaSolverFormSchema>;
 
 async function listCaptchaConfigs(): Promise<CaptchaSolverConfig[]> {
 	return tauriInvoke<CaptchaSolverConfig[]>('list_captcha_configs');
@@ -79,7 +109,15 @@ export function CaptchaSolverConfigCard() {
 		queryFn: listCaptchaConfigs,
 	});
 
-	const { register, handleSubmit, reset, setValue, watch } = useForm<FormValues>({
+	const {
+		register,
+		handleSubmit,
+		reset,
+		setValue,
+		watch,
+		formState: { errors },
+	} = useForm<FormValues>({
+		resolver: zodResolver(captchaSolverFormSchema),
 		defaultValues: {
 			provider: '2captcha',
 			apiKey: '',
@@ -127,7 +165,7 @@ export function CaptchaSolverConfigCard() {
 	function openEdit(entry: CaptchaSolverConfig) {
 		setEditingEntry(entry);
 		reset({
-			provider: entry.provider,
+			provider: normalizeCaptchaProvider(entry.provider),
 			apiKey: entry.apiKey,
 			baseUrl: entry.baseUrl ?? '',
 			isDefault: entry.isDefault,
@@ -143,8 +181,8 @@ export function CaptchaSolverConfigCard() {
 	function onSubmit(values: FormValues) {
 		const payload = {
 			provider: values.provider,
-			apiKey: values.apiKey,
-			baseUrl: values.baseUrl || undefined,
+			apiKey: values.apiKey.trim(),
+			baseUrl: values.baseUrl.trim() || undefined,
 			isDefault: values.isDefault,
 		};
 		if (editingEntry) {
@@ -230,7 +268,12 @@ export function CaptchaSolverConfigCard() {
 					<form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
 						<div className="space-y-1.5">
 							<Label className="text-xs">{t('settings:captcha.provider')}</Label>
-							<Select value={selectedProvider} onValueChange={(v) => setValue('provider', v)}>
+							<Select
+								value={selectedProvider}
+								onValueChange={(v) =>
+									setValue('provider', v as FormValues['provider'], { shouldValidate: true })
+								}
+							>
 								<SelectTrigger className="h-8 text-xs cursor-pointer">
 									<SelectValue />
 								</SelectTrigger>
@@ -242,6 +285,9 @@ export function CaptchaSolverConfigCard() {
 									))}
 								</SelectContent>
 							</Select>
+							{errors.provider && (
+								<p className="text-xs text-destructive">{t('settings:captcha.invalidProvider')}</p>
+							)}
 						</div>
 						<div className="space-y-1.5">
 							<Label className="text-xs">{t('settings:captcha.apiKey')}</Label>
@@ -251,6 +297,9 @@ export function CaptchaSolverConfigCard() {
 								placeholder="API Key"
 								className="h-8 text-xs"
 							/>
+							{errors.apiKey && (
+								<p className="text-xs text-destructive">{t('settings:captcha.apiKeyRequired')}</p>
+							)}
 						</div>
 						<div className="space-y-1.5">
 							<Label className="text-xs">
@@ -264,6 +313,9 @@ export function CaptchaSolverConfigCard() {
 								placeholder={t('settings:captcha.baseUrlPlaceholder')}
 								className="h-8 text-xs"
 							/>
+							{errors.baseUrl && (
+								<p className="text-xs text-destructive">{t('settings:captcha.baseUrlInvalid')}</p>
+							)}
 						</div>
 						<DialogFooter>
 							<Button type="submit" size="sm" className="cursor-pointer" disabled={isPending}>

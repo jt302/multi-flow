@@ -139,6 +139,9 @@ fn captcha_verification_diagnostics(
         "sitekey": detect.and_then(|d| d.sitekey.clone()),
         "callback": detect.and_then(|d| d.callback.clone()),
         "pageAction": detect.and_then(|d| d.page_action.clone()),
+        "gt": detect.and_then(|d| d.gt.clone()),
+        "challenge": detect.and_then(|d| d.challenge.clone()),
+        "publicKey": detect.and_then(|d| d.public_key.clone()),
         "browserUserAgent": browser_user_agent,
         "solverUserAgent": solver_user_agent,
         "userAgentMismatch": crate::services::captcha_service::CaptchaService::is_user_agent_mismatch(
@@ -1033,36 +1036,51 @@ pub async fn list_captcha_configs(
 }
 
 #[tauri::command]
-pub fn create_captcha_config(
-    state: State<'_, AppState>,
+pub async fn create_captcha_config(
+    app: AppHandle,
     entry: crate::services::captcha_service::CaptchaSolverConfig,
 ) -> Result<crate::services::captcha_service::CaptchaSolverConfig, String> {
-    let svc = state
-        .app_preference_service
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-    svc.create_captcha_config(entry).map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let svc = state
+            .app_preference_service
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        svc.create_captcha_config(entry).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|err| format!("create captcha config task join failed: {err}"))?
 }
 
 #[tauri::command]
-pub fn update_captcha_config(
-    state: State<'_, AppState>,
+pub async fn update_captcha_config(
+    app: AppHandle,
     entry: crate::services::captcha_service::CaptchaSolverConfig,
 ) -> Result<(), String> {
-    let svc = state
-        .app_preference_service
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-    svc.update_captcha_config(entry).map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let svc = state
+            .app_preference_service
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        svc.update_captcha_config(entry).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|err| format!("update captcha config task join failed: {err}"))?
 }
 
 #[tauri::command]
-pub fn delete_captcha_config(state: State<'_, AppState>, id: String) -> Result<(), String> {
-    let svc = state
-        .app_preference_service
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-    svc.delete_captcha_config(&id).map_err(|e| e.to_string())
+pub async fn delete_captcha_config(app: AppHandle, id: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let svc = state
+            .app_preference_service
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        svc.delete_captcha_config(&id).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|err| format!("delete captcha config task join failed: {err}"))?
 }
 
 // ── Dev 模式 Chromium 可执行文件覆盖 ─────────────────────────────────────
@@ -5975,6 +5993,11 @@ pub async fn execute_step(
             sitekey,
             page_action,
             image_base64,
+            gt,
+            challenge,
+            public_key,
+            enterprise_payload,
+            user_agent,
             output_key,
         } => {
             let app_state = app.state::<AppState>();
@@ -6040,11 +6063,19 @@ pub async fn execute_step(
                     .or_else(|| detected.as_ref().and_then(|d| d.page_action.clone())),
                 is_invisible: detected.as_ref().map(|d| d.is_invisible).unwrap_or(false),
                 image_base64: image_base64.clone(),
-                gt: None,
-                challenge: None,
-                public_key: None,
-                enterprise_payload: detected.as_ref().and_then(|d| d.enterprise_payload.clone()),
-                user_agent: browser_user_agent,
+                gt: gt
+                    .clone()
+                    .or_else(|| detected.as_ref().and_then(|d| d.gt.clone())),
+                challenge: challenge
+                    .clone()
+                    .or_else(|| detected.as_ref().and_then(|d| d.challenge.clone())),
+                public_key: public_key
+                    .clone()
+                    .or_else(|| detected.as_ref().and_then(|d| d.public_key.clone())),
+                enterprise_payload: enterprise_payload
+                    .clone()
+                    .or_else(|| detected.as_ref().and_then(|d| d.enterprise_payload.clone())),
+                user_agent: user_agent.clone().or(browser_user_agent),
             };
             let result = captcha_svc.solve(&captcha_config, task).await?;
             let result_json = serde_json::to_string(&result).unwrap_or_default();
@@ -6145,9 +6176,9 @@ pub async fn execute_step(
                 page_action: detect.page_action.clone(),
                 is_invisible: detect.is_invisible,
                 image_base64: None,
-                gt: None,
-                challenge: None,
-                public_key: None,
+                gt: detect.gt.clone(),
+                challenge: detect.challenge.clone(),
+                public_key: detect.public_key.clone(),
                 enterprise_payload: detect.enterprise_payload.clone(),
                 user_agent: browser_user_agent.clone(),
             };

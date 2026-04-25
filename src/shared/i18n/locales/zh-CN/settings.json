@@ -107,9 +107,12 @@
 		"deleteDesc": "确定要删除此求解配置吗？此操作无法撤销。",
 		"provider": "服务商",
 		"apiKey": "API Key",
+		"apiKeyRequired": "请输入 API Key",
 		"baseUrl": "Base URL",
 		"baseUrlHint": "（留空使用默认值）",
-		"baseUrlPlaceholder": "留空使用默认"
+		"baseUrlPlaceholder": "留空使用默认",
+		"baseUrlInvalid": "请输入有效的 http(s) 地址",
+		"invalidProvider": "请选择有效服务商"
 	},
 	"resource": {
 		"chromiumVersions": "Chromium 版本",

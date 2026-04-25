@@ -150,4 +150,19 @@ test('reload bootstrap commands offload synchronous profile queries from the mai
 		extractFunctionBody(automationCommands, 'list_captcha_configs').includes('spawn_blocking'),
 		true,
 	);
+	assert.equal(automationCommands.includes('pub async fn create_captcha_config('), true);
+	assert.equal(
+		extractFunctionBody(automationCommands, 'create_captcha_config').includes('spawn_blocking'),
+		true,
+	);
+	assert.equal(automationCommands.includes('pub async fn update_captcha_config('), true);
+	assert.equal(
+		extractFunctionBody(automationCommands, 'update_captcha_config').includes('spawn_blocking'),
+		true,
+	);
+	assert.equal(automationCommands.includes('pub async fn delete_captcha_config('), true);
+	assert.equal(
+		extractFunctionBody(automationCommands, 'delete_captcha_config').includes('spawn_blocking'),
+		true,
+	);
 });

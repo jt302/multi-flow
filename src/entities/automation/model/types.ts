@@ -538,6 +538,11 @@ export type ScriptStep =
 			sitekey?: string;
 			page_action?: string;
 			image_base64?: string;
+			gt?: string;
+			challenge?: string;
+			public_key?: string;
+			enterprise_payload?: Record<string, unknown>;
+			user_agent?: string;
 			output_key?: string;
 	  }
 	| { kind: 'captcha_inject_token'; type: string; token: string }

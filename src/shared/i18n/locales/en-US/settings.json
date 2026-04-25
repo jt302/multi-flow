@@ -107,9 +107,12 @@
 		"deleteDesc": "Are you sure you want to delete this solver config? This action cannot be undone.",
 		"provider": "Provider",
 		"apiKey": "API Key",
+		"apiKeyRequired": "Enter an API Key",
 		"baseUrl": "Base URL",
 		"baseUrlHint": "(Leave empty for default)",
-		"baseUrlPlaceholder": "Leave empty for default"
+		"baseUrlPlaceholder": "Leave empty for default",
+		"baseUrlInvalid": "Enter a valid http(s) URL",
+		"invalidProvider": "Choose a valid provider"
 	},
 	"resource": {
 		"chromiumVersions": "Chromium Versions",

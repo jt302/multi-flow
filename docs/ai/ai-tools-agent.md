@@ -60,8 +60,8 @@
 
 **严格语义**：
 
-- `captcha_detect` 会尽量返回 `type / sitekey / callback / pageAction / enterprisePayload / userAgent / params` 等上下文，便于后续求解与注入。
-- `captcha_solve` 只表示求解服务拿到了 token；它**不代表页面已经通过验证**。
+- `captcha_detect` 会尽量返回 `type / sitekey / callback / pageAction / enterprisePayload / userAgent / gt / challenge / publicKey / params` 等上下文，便于后续求解与注入。
+- `captcha_solve` 只表示求解服务拿到了非空 token/text；它**不代表页面已经通过验证**。
 - `captcha_inject_token` 与 `captcha_solve_and_inject` 会执行页面级回验：
   - 页面真实通过验证 → 成功
   - 仅注入成功但页面仍被 challenge/风控拦截 → 失败

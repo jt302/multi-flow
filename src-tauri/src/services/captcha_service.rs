@@ -70,6 +70,9 @@ pub struct CaptchaDetectResult {
     pub sitekey: Option<String>,
     pub callback: Option<String>,
     pub page_action: Option<String>,
+    pub gt: Option<String>,
+    pub challenge: Option<String>,
+    pub public_key: Option<String>,
     #[serde(default)]
     pub is_invisible: bool,
     #[serde(default)]
@@ -162,6 +165,46 @@ pub struct CaptchaService {
     http: Client,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TaskIdWireType {
+    Number,
+    String,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ProviderSpec {
+    default_base_url: &'static str,
+    poll_task_id_type: TaskIdWireType,
+    supports_sync_ready: bool,
+}
+
+impl ProviderSpec {
+    fn for_provider(provider: &str) -> Self {
+        match provider {
+            "capsolver" => Self {
+                default_base_url: "https://api.capsolver.com",
+                poll_task_id_type: TaskIdWireType::String,
+                supports_sync_ready: true,
+            },
+            "anticaptcha" => Self {
+                default_base_url: "https://api.anti-captcha.com",
+                poll_task_id_type: TaskIdWireType::Number,
+                supports_sync_ready: false,
+            },
+            "capmonster" => Self {
+                default_base_url: "https://api.capmonster.cloud",
+                poll_task_id_type: TaskIdWireType::Number,
+                supports_sync_ready: false,
+            },
+            _ => Self {
+                default_base_url: "https://api.2captcha.com",
+                poll_task_id_type: TaskIdWireType::Number,
+                supports_sync_ready: false,
+            },
+        }
+    }
+}
+
 impl CaptchaService {
     pub fn new(http: Client) -> Self {
         Self { http }
@@ -175,6 +218,9 @@ impl CaptchaService {
                 sitekey: null,
                 callback: null,
                 pageAction: null,
+                gt: null,
+                challenge: null,
+                publicKey: null,
                 isInvisible: false,
                 enterprise: false,
                 enterprisePayload: null,
@@ -268,9 +314,15 @@ impl CaptchaService {
             if (ts) { result.type = 'turnstile'; result.sitekey = ts.getAttribute('data-sitekey'); }
             if (document.querySelector('.geetest_widget') || typeof initGeetest !== 'undefined') {
                 result.type = 'geetest';
+                const gtEl = document.querySelector('[data-gt], input[name="gt"]');
+                const challengeEl = document.querySelector('[data-challenge], input[name="challenge"]');
+                if (gtEl) setIfMissing('gt', gtEl.getAttribute('data-gt') || gtEl.value);
+                if (challengeEl) setIfMissing('challenge', challengeEl.getAttribute('data-challenge') || challengeEl.value);
             }
             if (document.querySelector('#FunCaptcha') || typeof ArkoseEnforcement !== 'undefined') {
                 result.type = 'funcaptcha';
+                const fc = document.querySelector('#FunCaptcha, [data-pkey], [data-public-key]');
+                if (fc) setIfMissing('publicKey', fc.getAttribute('data-pkey') || fc.getAttribute('data-public-key'));
             }
             if (document.title === 'Just a moment...' || document.querySelector('#challenge-form')) {
                 result.type = 'cloudflare_challenge';
@@ -573,6 +625,7 @@ impl CaptchaService {
         task: CaptchaTask,
     ) -> Result<CaptchaResult, String> {
         let base_url = self.provider_base_url(config);
+        let spec = ProviderSpec::for_provider(&config.provider);
         let task_body = self.build_create_task_body(config, &task)?;
 
         // 创建任务
@@ -593,6 +646,11 @@ impl CaptchaService {
             return Err(format!("创建任务失败: {desc}"));
         }
 
+        let start = std::time::Instant::now();
+        if spec.supports_sync_ready && result["status"].as_str() == Some("ready") {
+            return self.result_from_ready_response(&result, start.elapsed());
+        }
+
         let task_id = result["taskId"]
             .as_str()
             .or_else(|| result["taskId"].as_i64().map(|_| ""))
@@ -604,12 +662,11 @@ impl CaptchaService {
         };
 
         // 轮询结果
-        let start = std::time::Instant::now();
         for _ in 0..24 {
             tokio::time::sleep(Duration::from_secs(5)).await;
             let poll_body = json!({
                 "clientKey": config.api_key,
-                "taskId": if config.provider == "2captcha" || config.provider == "capmonster" {
+                "taskId": if spec.poll_task_id_type == TaskIdWireType::Number {
                     Value::Number(task_id_val.parse::<i64>().unwrap_or(0).into())
                 } else {
                     Value::String(task_id_val.clone())
@@ -627,24 +684,12 @@ impl CaptchaService {
                 .await
                 .map_err(|e| format!("解析轮询响应失败: {e}"))?;
 
-            if result["status"].as_str() == Some("ready") {
-                let solution = &result["solution"];
-                let token = solution["gRecaptchaResponse"]
-                    .as_str()
-                    .or(solution["token"].as_str())
-                    .or(solution["text"].as_str())
-                    .unwrap_or("")
-                    .to_string();
-                return Ok(CaptchaResult {
-                    token,
-                    user_agent: solution["userAgent"].as_str().map(String::from),
-                    cost: result["cost"].as_str().and_then(|s| s.parse().ok()),
-                    solve_time_ms: start.elapsed().as_millis() as u64,
-                });
-            }
             if result["errorId"].as_i64().unwrap_or(0) != 0 {
                 let desc = result["errorDescription"].as_str().unwrap_or("unknown");
                 return Err(format!("求解失败: {desc}"));
+            }
+            if result["status"].as_str() == Some("ready") {
+                return self.result_from_ready_response(&result, start.elapsed());
             }
         }
         Err("求解超时（120秒）".to_string())
@@ -679,13 +724,37 @@ impl CaptchaService {
                 return url.clone();
             }
         }
-        match config.provider.as_str() {
-            "2captcha" => "https://api.2captcha.com".to_string(),
-            "capsolver" => "https://api.capsolver.com".to_string(),
-            "anticaptcha" => "https://api.anti-captcha.com".to_string(),
-            "capmonster" => "https://api.capmonster.cloud".to_string(),
-            _ => "https://api.2captcha.com".to_string(),
-        }
+        ProviderSpec::for_provider(&config.provider)
+            .default_base_url
+            .to_string()
+    }
+
+    fn result_from_ready_response(
+        &self,
+        result: &Value,
+        elapsed: std::time::Duration,
+    ) -> Result<CaptchaResult, String> {
+        let solution = &result["solution"];
+        let token = solution["gRecaptchaResponse"]
+            .as_str()
+            .or(solution["token"].as_str())
+            .or(solution["text"].as_str())
+            .or(solution["captchaSolve"].as_str())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| {
+                "求解服务返回 ready，但 solution token 为空（empty solution token）".to_string()
+            })?
+            .to_string();
+        let cost = result["cost"]
+            .as_f64()
+            .or_else(|| result["cost"].as_str().and_then(|s| s.parse().ok()));
+        Ok(CaptchaResult {
+            token,
+            user_agent: solution["userAgent"].as_str().map(String::from),
+            cost,
+            solve_time_ms: elapsed.as_millis() as u64,
+        })
     }
 
     fn build_create_task_body(
@@ -716,6 +785,7 @@ impl CaptchaService {
         }
         if let Some(ref pk) = task.public_key {
             task_obj["websitePublicKey"] = json!(pk);
+            task_obj["publicKey"] = json!(pk);
         }
         if let Some(ref payload) = task.enterprise_payload {
             match config.provider.as_str() {
@@ -737,64 +807,42 @@ impl CaptchaService {
     }
 
     fn map_task_type(&self, config: &CaptchaSolverConfig, task: &CaptchaTask) -> &'static str {
-        let is_capsolver = config.provider == "capsolver";
+        let provider = config.provider.as_str();
         match task.captcha_type {
-            CaptchaType::RecaptchaV2 => {
-                if is_capsolver {
-                    "ReCaptchaV2TaskProxyLess"
-                } else {
-                    "RecaptchaV2TaskProxyless"
-                }
-            }
-            CaptchaType::RecaptchaV2Invisible => {
-                if is_capsolver {
-                    "ReCaptchaV2TaskProxyLess"
-                } else {
-                    "RecaptchaV2TaskProxyless"
-                }
-            }
-            CaptchaType::RecaptchaV3 => {
-                if is_capsolver {
-                    "ReCaptchaV3TaskProxyLess"
-                } else {
-                    "RecaptchaV3TaskProxyless"
-                }
-            }
-            CaptchaType::RecaptchaEnterprise => {
-                if is_capsolver {
-                    "ReCaptchaV2EnterpriseTaskProxyLess"
-                } else {
-                    "RecaptchaV2EnterpriseTaskProxyless"
-                }
-            }
-            CaptchaType::HCaptcha => {
-                if is_capsolver {
-                    "HCaptchaTaskProxyLess"
-                } else {
-                    "HCaptchaTaskProxyless"
-                }
-            }
-            CaptchaType::CloudflareTurnstile => {
-                if is_capsolver {
-                    "AntiTurnstileTaskProxyLess"
-                } else {
-                    "TurnstileTaskProxyless"
-                }
-            }
-            CaptchaType::GeeTest => {
-                if is_capsolver {
-                    "GeeTestTaskProxyLess"
-                } else {
-                    "GeeTestTaskProxyless"
-                }
-            }
-            CaptchaType::FunCaptcha => {
-                if is_capsolver {
-                    "FunCaptchaTaskProxyLess"
-                } else {
-                    "FunCaptchaTaskProxyless"
-                }
-            }
+            CaptchaType::RecaptchaV2 | CaptchaType::RecaptchaV2Invisible => match provider {
+                "capsolver" => "ReCaptchaV2TaskProxyLess",
+                "capmonster" => "RecaptchaV2Task",
+                _ => "RecaptchaV2TaskProxyless",
+            },
+            CaptchaType::RecaptchaV3 => match provider {
+                "capsolver" => "ReCaptchaV3TaskProxyLess",
+                "capmonster" => "RecaptchaV3TaskProxyless",
+                _ => "RecaptchaV3TaskProxyless",
+            },
+            CaptchaType::RecaptchaEnterprise => match provider {
+                "capsolver" => "ReCaptchaV2EnterpriseTaskProxyLess",
+                "capmonster" => "RecaptchaV2EnterpriseTask",
+                _ => "RecaptchaV2EnterpriseTaskProxyless",
+            },
+            CaptchaType::HCaptcha => match provider {
+                "capsolver" => "HCaptchaTaskProxyLess",
+                "capmonster" => "HCaptchaTask",
+                _ => "HCaptchaTaskProxyless",
+            },
+            CaptchaType::CloudflareTurnstile => match provider {
+                "capsolver" => "AntiTurnstileTaskProxyLess",
+                "capmonster" => "TurnstileTask",
+                _ => "TurnstileTaskProxyless",
+            },
+            CaptchaType::GeeTest => match provider {
+                "capsolver" => "GeeTestTaskProxyLess",
+                "capmonster" => "GeeTestTask",
+                _ => "GeeTestTaskProxyless",
+            },
+            CaptchaType::FunCaptcha => match provider {
+                "capmonster" => "FunCaptchaTask",
+                _ => "FunCaptchaTaskProxyless",
+            },
             CaptchaType::ImageToText => "ImageToTextTask",
         }
     }
@@ -803,7 +851,9 @@ impl CaptchaService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::{extract::State, routing::post, Json, Router};
     use serde_json::json;
+    use std::sync::{Arc, Mutex};
 
     fn build_service() -> CaptchaService {
         CaptchaService::new(Client::new())
@@ -817,6 +867,66 @@ mod tests {
             base_url: None,
             is_default: true,
         }
+    }
+
+    fn build_config_with_base_url(provider: &str, base_url: String) -> CaptchaSolverConfig {
+        CaptchaSolverConfig {
+            base_url: Some(base_url),
+            ..build_config(provider)
+        }
+    }
+
+    fn token_task(captcha_type: CaptchaType) -> CaptchaTask {
+        CaptchaTask {
+            captcha_type,
+            website_url: "https://example.com/login".into(),
+            website_key: "site-key".into(),
+            page_action: Some("submit".into()),
+            is_invisible: false,
+            image_base64: None,
+            gt: Some("gt-value".into()),
+            challenge: Some("challenge-value".into()),
+            public_key: Some("public-key".into()),
+            enterprise_payload: Some(json!({ "s": "enterprise-token" })),
+            user_agent: Some("Mozilla/5.0 Test".into()),
+        }
+    }
+
+    #[derive(Clone)]
+    struct MockCaptchaApiState {
+        requests: Arc<Mutex<Vec<Value>>>,
+        responses: Arc<Mutex<Vec<Value>>>,
+    }
+
+    async fn mock_captcha_handler(
+        State(state): State<MockCaptchaApiState>,
+        Json(body): Json<Value>,
+    ) -> Json<Value> {
+        state.requests.lock().expect("requests lock").push(body);
+        let response = state.responses.lock().expect("responses lock").remove(0);
+        Json(response)
+    }
+
+    async fn spawn_mock_captcha_api(responses: Vec<Value>) -> (String, Arc<Mutex<Vec<Value>>>) {
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let state = MockCaptchaApiState {
+            requests: requests.clone(),
+            responses: Arc::new(Mutex::new(responses)),
+        };
+        let app = Router::new()
+            .route("/createTask", post(mock_captcha_handler))
+            .route("/getTaskResult", post(mock_captcha_handler))
+            .with_state(state);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind mock captcha api");
+        let addr = listener.local_addr().expect("mock api addr");
+        tokio::spawn(async move {
+            axum::serve(listener, app)
+                .await
+                .expect("serve mock captcha api");
+        });
+        (format!("http://{addr}"), requests)
     }
 
     #[test]
@@ -846,6 +956,145 @@ mod tests {
         assert_eq!(task_obj["isInvisible"], true);
         assert_eq!(task_obj["enterprisePayload"]["s"], "enterprise-token");
         assert_eq!(task_obj["userAgent"], "Mozilla/5.0 Test");
+    }
+
+    #[test]
+    fn build_create_task_body_maps_provider_specific_task_types() {
+        let service = build_service();
+        let cases = [
+            (
+                "2captcha",
+                CaptchaType::RecaptchaV2,
+                "RecaptchaV2TaskProxyless",
+            ),
+            (
+                "capsolver",
+                CaptchaType::RecaptchaV2,
+                "ReCaptchaV2TaskProxyLess",
+            ),
+            (
+                "anticaptcha",
+                CaptchaType::RecaptchaV2,
+                "RecaptchaV2TaskProxyless",
+            ),
+            ("capmonster", CaptchaType::RecaptchaV2, "RecaptchaV2Task"),
+            (
+                "capmonster",
+                CaptchaType::CloudflareTurnstile,
+                "TurnstileTask",
+            ),
+            ("capmonster", CaptchaType::FunCaptcha, "FunCaptchaTask"),
+        ];
+
+        for (provider, captcha_type, expected_type) in cases {
+            let body = service
+                .build_create_task_body(&build_config(provider), &token_task(captcha_type))
+                .expect("build task body");
+
+            assert_eq!(
+                body["task"]["type"], expected_type,
+                "provider {provider} should use {expected_type}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn solve_returns_synchronous_ready_solution_from_capsolver() {
+        let (base_url, requests) = spawn_mock_captcha_api(vec![json!({
+            "errorId": 0,
+            "status": "ready",
+            "taskId": "task-sync",
+            "solution": {
+                "gRecaptchaResponse": "token-sync",
+                "userAgent": "solver-ua"
+            },
+            "cost": "0.0012"
+        })])
+        .await;
+        let service = build_service();
+        let config = build_config_with_base_url("capsolver", base_url);
+
+        let result = service
+            .solve(&config, token_task(CaptchaType::RecaptchaV2))
+            .await
+            .expect("sync ready solution");
+
+        assert_eq!(result.token, "token-sync");
+        assert_eq!(result.user_agent.as_deref(), Some("solver-ua"));
+        assert_eq!(result.cost, Some(0.0012));
+        assert_eq!(requests.lock().expect("requests lock").len(), 1);
+    }
+
+    #[tokio::test]
+    async fn solve_polls_processing_until_ready() {
+        let (base_url, requests) = spawn_mock_captcha_api(vec![
+            json!({ "errorId": 0, "taskId": 123 }),
+            json!({ "errorId": 0, "status": "processing" }),
+            json!({
+                "errorId": 0,
+                "status": "ready",
+                "solution": { "token": "turnstile-token" },
+                "cost": 0.002
+            }),
+        ])
+        .await;
+        let service = build_service();
+        let config = build_config_with_base_url("2captcha", base_url);
+
+        let result = service
+            .solve(&config, token_task(CaptchaType::CloudflareTurnstile))
+            .await
+            .expect("polled ready solution");
+
+        assert_eq!(result.token, "turnstile-token");
+        assert_eq!(result.cost, Some(0.002));
+        let requests = requests.lock().expect("requests lock");
+        assert_eq!(requests.len(), 3);
+        assert_eq!(requests[1]["taskId"], 123);
+    }
+
+    #[tokio::test]
+    async fn solve_returns_provider_error_from_poll_response() {
+        let (base_url, _requests) = spawn_mock_captcha_api(vec![
+            json!({ "errorId": 0, "taskId": 123 }),
+            json!({
+                "errorId": 12,
+                "errorCode": "ERROR_CAPTCHA_UNSOLVABLE",
+                "errorDescription": "Workers could not solve the Captcha"
+            }),
+        ])
+        .await;
+        let service = build_service();
+        let config = build_config_with_base_url("2captcha", base_url);
+
+        let err = service
+            .solve(&config, token_task(CaptchaType::RecaptchaV2))
+            .await
+            .expect_err("provider error");
+
+        assert!(err.contains("Workers could not solve the Captcha"));
+    }
+
+    #[tokio::test]
+    async fn solve_rejects_ready_response_without_token() {
+        let (base_url, _requests) = spawn_mock_captcha_api(vec![
+            json!({ "errorId": 0, "taskId": 123 }),
+            json!({
+                "errorId": 0,
+                "status": "ready",
+                "solution": {}
+            }),
+        ])
+        .await;
+        let service = build_service();
+        let config = build_config_with_base_url("2captcha", base_url);
+
+        let err = service
+            .solve(&config, token_task(CaptchaType::RecaptchaV2))
+            .await
+            .expect_err("empty token should fail");
+
+        assert!(err.contains("empty solution token"));
     }
 
     #[test]

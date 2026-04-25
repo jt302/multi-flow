@@ -2456,7 +2456,7 @@ fn captcha_tools() -> Vec<Value> {
     vec![
         tool(
             "captcha_detect",
-            "检测当前页面上的 CAPTCHA 类型和参数（sitekey 等），返回 JSON 包含 type / sitekey / params",
+            "检测当前页面上的 CAPTCHA 类型和参数，返回 JSON 包含 type / sitekey / callback / pageAction / enterprisePayload / userAgent / gt / challenge / publicKey / params",
             json!({
                 "type": "object",
                 "properties": {},
@@ -2476,7 +2476,12 @@ fn captcha_tools() -> Vec<Value> {
                     },
                     "sitekey": { "type": "string", "description": "站点密钥（从 captcha_detect 获取）" },
                     "page_action": { "type": "string", "description": "reCAPTCHA v3 action 参数" },
-                    "image_base64": { "type": "string", "description": "图片验证码的 base64 数据" }
+                    "image_base64": { "type": "string", "description": "图片验证码的 base64 数据" },
+                    "gt": { "type": "string", "description": "GeeTest gt 参数" },
+                    "challenge": { "type": "string", "description": "GeeTest challenge 参数" },
+                    "public_key": { "type": "string", "description": "FunCaptcha / Arkose public key" },
+                    "enterprise_payload": { "type": "object", "description": "reCAPTCHA Enterprise 附加参数，例如 data-s" },
+                    "user_agent": { "type": "string", "description": "页面真实 User-Agent，默认由检测结果填充" }
                 },
                 "required": ["captcha_type"]
             }),
