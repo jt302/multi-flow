@@ -91,6 +91,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
             tauri_plugin_window_state::Builder::new()
                 .skip_initial_state(MAIN_WINDOW_LABEL)
@@ -206,6 +207,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::app_update_commands::check_app_update,
+            commands::app_update_commands::install_app_update,
             commands::chat_commands::list_chat_sessions,
             commands::chat_commands::create_chat_session,
             commands::chat_commands::update_chat_session,

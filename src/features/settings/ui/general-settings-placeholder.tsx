@@ -2,7 +2,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+import {
+	AlertDialog,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+} from '@/components/ui';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -14,6 +26,11 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select';
+import {
+	checkAppUpdate,
+	installAppUpdate,
+	type AppUpdateInfo,
+} from '@/entities/app-update/api/app-update-api';
 import { tauriInvoke } from '@/shared/api/tauri-invoke';
 import { normalizeAppLanguage } from '@/shared/i18n';
 
@@ -59,6 +76,8 @@ export function GeneralSettingsPlaceholder() {
 
 	const [urlInput, setUrlInput] = useState('');
 	const [urlError, setUrlError] = useState('');
+	const [manualUpdate, setManualUpdate] = useState<AppUpdateInfo | null>(null);
+	const [installingUpdate, setInstallingUpdate] = useState(false);
 	useEffect(() => {
 		if (defaultUrlQuery.data !== undefined) {
 			setUrlInput(defaultUrlQuery.data ?? '');
@@ -93,6 +112,30 @@ export function GeneralSettingsPlaceholder() {
 	});
 
 	const loggingEnabled = loggingQuery.data ?? true;
+
+	const checkUpdate = useMutation({
+		mutationFn: checkAppUpdate,
+		onSuccess: (update) => {
+			if (!update) {
+				toast.success(t('appUpdate.upToDate'));
+				return;
+			}
+			setManualUpdate(update);
+		},
+		onError: (error) => {
+			toast.error(t('appUpdate.checkFailed', { error: String(error) }));
+		},
+	});
+
+	const installUpdate = async () => {
+		setInstallingUpdate(true);
+		try {
+			await installAppUpdate();
+		} catch (error) {
+			toast.error(t('appUpdate.installFailed', { error: String(error) }));
+			setInstallingUpdate(false);
+		}
+	};
 
 	return (
 		<div className="space-y-4">
@@ -159,6 +202,24 @@ export function GeneralSettingsPlaceholder() {
 
 			<Card className="border-border/40 bg-card/60 backdrop-blur-md">
 				<CardHeader>
+					<CardTitle className="text-base">{t('appUpdate.title')}</CardTitle>
+					<p className="text-xs text-muted-foreground">{t('appUpdate.desc')}</p>
+				</CardHeader>
+				<CardContent>
+					<Button
+						type="button"
+						size="sm"
+						onClick={() => checkUpdate.mutate()}
+						disabled={checkUpdate.isPending}
+						className="cursor-pointer"
+					>
+						{checkUpdate.isPending ? t('appUpdate.checking') : t('appUpdate.check')}
+					</Button>
+				</CardContent>
+			</Card>
+
+			<Card className="border-border/40 bg-card/60 backdrop-blur-md">
+				<CardHeader>
 					<CardTitle className="text-base">{t('language.title')}</CardTitle>
 					<p className="text-xs text-muted-foreground">{t('language.desc')}</p>
 				</CardHeader>
@@ -185,6 +246,32 @@ export function GeneralSettingsPlaceholder() {
 					</Select>
 				</CardContent>
 			</Card>
+			<AlertDialog
+				open={!!manualUpdate}
+				onOpenChange={(open) => !open && !installingUpdate && setManualUpdate(null)}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>
+							{t('appUpdate.foundTitle', { version: manualUpdate?.version })}
+						</AlertDialogTitle>
+						<AlertDialogDescription>
+							{t('appUpdate.foundDesc', { currentVersion: manualUpdate?.currentVersion })}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					{manualUpdate?.body && (
+						<div className="max-h-48 overflow-auto rounded-md border bg-muted/40 p-3 text-sm whitespace-pre-wrap">
+							{manualUpdate.body}
+						</div>
+					)}
+					<AlertDialogFooter>
+						<AlertDialogCancel disabled={installingUpdate}>{t('appUpdate.cancel')}</AlertDialogCancel>
+						<Button type="button" onClick={installUpdate} disabled={installingUpdate}>
+							{installingUpdate ? t('appUpdate.installing') : t('appUpdate.install')}
+						</Button>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</div>
 	);
 }

@@ -40,6 +40,8 @@ Required GitHub secrets:
 - `APPLE_ID`: Apple ID used for notarization
 - `APPLE_PASSWORD`: app-specific password
 - `APPLE_TEAM_ID`: 10-character Apple Team ID
+- `TAURI_SIGNING_PRIVATE_KEY`: Tauri updater private key
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: updater key password, if the key uses one
 
 Unsigned releases are blocked. If any required secret is missing, the release
 workflow exits before building artifacts.
@@ -63,23 +65,42 @@ built, signed where applicable, and covered by smoke tests.
 
 ## Updater
 
-The in-app updater is not enabled yet.
+The in-app updater is enabled for macOS releases. It reads:
 
-Before enabling it:
+```text
+https://github.com/jt302/multi-flow/releases/latest/download/latest.json
+```
 
-1. Add `tauri-plugin-updater` to Rust and frontend dependencies.
-2. Generate updater signing keys with the Tauri CLI.
-3. Store the private key only in offline secret storage or CI secrets.
-4. Commit only the public key and HTTPS endpoints.
-5. Enable updater artifact generation in `tauri.conf.json`.
-6. Test install, update, downgrade rejection, and rollback on each published target.
+Generate the updater key locally and keep the private key out of git:
+
+```bash
+pnpm tauri signer generate --ci -w ~/.tauri/multi-flow.key
+```
+
+Commit only the public key in `src-tauri/tauri.conf.json`. Add the private key
+contents to GitHub secret `TAURI_SIGNING_PRIVATE_KEY`; set
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` only when the key is password protected.
+
+Release verification:
+
+1. Confirm the release assets include `.app.tar.gz`, `.app.tar.gz.sig`, `.dmg`,
+   and `latest.json`.
+2. Open the `latest.json` URL above and verify the version, notes, URLs, and
+   signatures point to the current release.
+3. Install the previous release, trigger update check, approve install, and
+   confirm the app restarts into the new version.
+4. With running environments or automation tasks, confirm update install is
+   blocked with a clear message.
+
+If the private key is lost, existing installs cannot trust future updater
+artifacts signed by a new key.
 
 ## Rollback
 
 1. Keep the previous GitHub Release available.
 2. If a release is bad, mark it as pre-release or remove it from the download page.
 3. Publish a new patch tag from the previous known-good commit.
-4. If the updater is later enabled, update `latest.json` to point to the rollback patch.
+4. Publish a signed rollback patch so `latest.json` points to the fixed version.
 
 ## Flow
 

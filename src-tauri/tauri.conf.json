@@ -40,6 +40,7 @@
 	"bundle": {
 		"active": true,
 		"targets": ["app", "dmg"],
+		"createUpdaterArtifacts": true,
 		"licenseFile": "../LICENSE",
 		"resources": {
 			"../docs/default-skills": "default-skills"
@@ -54,6 +55,14 @@
 		],
 		"macOS": {
 			"hardenedRuntime": true
+		}
+	},
+	"plugins": {
+		"updater": {
+			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJCNkRBMzIyMzRCRjFENTkKUldSWkhiODBJcU50S3luYllkbDc2SFFJUW5YMzJpTFhmdnpPVzFyTHZ5dnl2R3UwdW5wVzFFVTgK",
+			"endpoints": [
+				"https://github.com/jt302/multi-flow/releases/latest/download/latest.json"
+			]
 		}
 	}
 }

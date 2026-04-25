@@ -3,6 +3,7 @@ import { ThemeRuntime } from '@/entities/theme/ui/theme-runtime';
 import { reportFrontendError } from '@/shared/lib/frontend-errors';
 import { AppRouter } from './router';
 import { AiDialogModal } from './ui/ai-dialog-modal';
+import { AppUpdateListener } from './ui/app-update-listener';
 import { AutomationNotificationListener } from './ui/automation-notification-listener';
 import { AutomationProgressListener } from './ui/automation-progress-listener';
 import { ChatEventsListener } from './ui/chat-events-listener';
@@ -85,6 +86,7 @@ export function App() {
 			<ToolConfirmationModal />
 			<AutomationNotificationListener />
 			<AutomationProgressListener />
+			<AppUpdateListener />
 			<ChatEventsListener />
 			<ChromiumEventsListener />
 			<AppRouter />

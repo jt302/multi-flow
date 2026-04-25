@@ -1,4 +1,5 @@
 pub mod ai_skill_commands;
+pub mod app_update_commands;
 pub mod automation_canvas_commands;
 pub mod automation_commands;
 pub mod bookmark_commands;

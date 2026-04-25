@@ -39,6 +39,23 @@
 		"defaultStartupUrlSaved": "Default startup URL saved",
 		"defaultStartupUrlInvalid": "Please enter a valid URL starting with http:// or https://"
 	},
+	"appUpdate": {
+		"title": "App Updates",
+		"desc": "The app checks once on startup. You can also retry manually.",
+		"check": "Check for Updates",
+		"checking": "Checking...",
+		"install": "Download and Install",
+		"installing": "Installing...",
+		"upToDate": "You are already on the latest version",
+		"foundTitle": "Version {{version}} is available",
+		"foundDesc": "Current version {{currentVersion}}. Download and install now? The app will restart automatically.",
+		"date": "Published: {{date}}",
+		"downloadProgress": "Download progress {{percent}}%",
+		"downloadUnknown": "Downloading update...",
+		"checkFailed": "Update check failed: {{error}}",
+		"installFailed": "Update install failed: {{error}}",
+		"cancel": "Later"
+	},
 	"theme": {
 		"title": "Theme Customization",
 		"presetSection": "Preset Theme",
