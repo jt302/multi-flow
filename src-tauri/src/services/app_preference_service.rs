@@ -265,9 +265,47 @@ impl AppPreferenceService {
         self.write_preferences_file(&preferences)
     }
 
-    pub fn find_ai_config_by_id(&self, id: &str) -> AppResult<Option<AiConfigEntry>> {
-        let preferences = self.read_preferences_file()?;
-        Ok(preferences.ai_configs.into_iter().find(|e| e.id == id))
+    pub fn resolve_ai_provider_config(
+        &self,
+        explicit_config_id: Option<&str>,
+    ) -> AppResult<AiProviderConfig> {
+        let default_config_id = self.get_default_ai_config_id()?;
+        let configs = self.list_ai_configs()?;
+
+        if let Some(config_id) = explicit_config_id
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            if let Some(entry) = configs.iter().find(|entry| entry.id == config_id) {
+                return Ok(ai_config_entry_to_provider_config(entry));
+            }
+            crate::logger::warn(
+                "ai-config",
+                format!("AI config id not found, falling back to global default: {config_id}"),
+            );
+        }
+
+        if let Some(config_id) = default_config_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            if let Some(entry) = configs.iter().find(|entry| entry.id == config_id) {
+                return Ok(ai_config_entry_to_provider_config(entry));
+            }
+            crate::logger::warn(
+                "ai-config",
+                format!(
+                    "Default AI config id not found, falling back to first config: {config_id}"
+                ),
+            );
+        }
+
+        if let Some(entry) = configs.first() {
+            return Ok(ai_config_entry_to_provider_config(entry));
+        }
+
+        self.read_ai_provider_config()
     }
 
     pub fn get_default_ai_config_id(&self) -> AppResult<Option<String>> {
@@ -493,6 +531,16 @@ fn trim_to_option(value: Option<String>) -> Option<String> {
     })
 }
 
+fn ai_config_entry_to_provider_config(entry: &AiConfigEntry) -> AiProviderConfig {
+    AiProviderConfig {
+        provider: entry.provider.clone(),
+        base_url: entry.base_url.clone(),
+        api_key: entry.api_key.clone(),
+        model: entry.model.clone(),
+        locale: entry.locale.clone(),
+    }
+}
+
 pub(crate) fn normalize_app_language(locale: &str) -> &'static str {
     let normalized = locale.trim().to_ascii_lowercase();
     if normalized.starts_with("en") {
@@ -505,6 +553,28 @@ pub(crate) fn normalize_app_language(locale: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn temp_service(name: &str) -> (AppPreferenceService, PathBuf) {
+        let unique = format!("{name}-{}", crate::models::now_ts());
+        let temp_dir = std::env::temp_dir().join(unique);
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        (
+            AppPreferenceService::from_data_dir(temp_dir.clone()),
+            temp_dir,
+        )
+    }
+
+    fn ai_entry(name: &str, provider: &str, model: &str) -> AiConfigEntry {
+        AiConfigEntry {
+            id: String::new(),
+            name: name.to_string(),
+            provider: Some(provider.to_string()),
+            base_url: None,
+            api_key: Some(format!("{name}-key")),
+            model: Some(model.to_string()),
+            locale: Some("zh".to_string()),
+        }
+    }
 
     #[test]
     fn normalize_app_language_maps_supported_variants() {
@@ -578,6 +648,95 @@ mod tests {
             .read_app_language()
             .expect("read cleared app language");
         assert_eq!(cleared, None);
+
+        let _ = std::fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    fn resolve_ai_provider_config_uses_default_config_before_first_entry() {
+        let (service, temp_dir) = temp_service("multi-flow-ai-config-default-second-test");
+        let gemini = service
+            .create_ai_config(ai_entry("Gemini", "gemini", "gemini-2.5-flash"))
+            .expect("create first config");
+        let kimi = service
+            .create_ai_config(ai_entry("Kimi", "openrouter", "moonshotai/kimi-k2.5"))
+            .expect("create default config");
+        service
+            .set_default_ai_config_id(Some(kimi.id.clone()))
+            .expect("set default config");
+
+        let resolved = service
+            .resolve_ai_provider_config(None)
+            .expect("resolve default config");
+
+        assert_eq!(resolved.model.as_deref(), Some("moonshotai/kimi-k2.5"));
+        assert_ne!(resolved.model.as_deref(), gemini.model.as_deref());
+
+        let _ = std::fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    fn resolve_ai_provider_config_prefers_explicit_config_over_default() {
+        let (service, temp_dir) = temp_service("multi-flow-ai-config-explicit-test");
+        let gemini = service
+            .create_ai_config(ai_entry("Gemini", "gemini", "gemini-2.5-flash"))
+            .expect("create explicit config");
+        let kimi = service
+            .create_ai_config(ai_entry("Kimi", "openrouter", "moonshotai/kimi-k2.5"))
+            .expect("create default config");
+        service
+            .set_default_ai_config_id(Some(kimi.id))
+            .expect("set default config");
+
+        let resolved = service
+            .resolve_ai_provider_config(Some(&gemini.id))
+            .expect("resolve explicit config");
+
+        assert_eq!(resolved.model.as_deref(), Some("gemini-2.5-flash"));
+
+        let _ = std::fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    fn resolve_ai_provider_config_falls_back_to_default_when_explicit_id_is_missing() {
+        let (service, temp_dir) = temp_service("multi-flow-ai-config-missing-explicit-test");
+        service
+            .create_ai_config(ai_entry("Gemini", "gemini", "gemini-2.5-flash"))
+            .expect("create first config");
+        let kimi = service
+            .create_ai_config(ai_entry("Kimi", "openrouter", "moonshotai/kimi-k2.5"))
+            .expect("create default config");
+        service
+            .set_default_ai_config_id(Some(kimi.id))
+            .expect("set default config");
+
+        let resolved = service
+            .resolve_ai_provider_config(Some("deleted-config-id"))
+            .expect("resolve fallback config");
+
+        assert_eq!(resolved.model.as_deref(), Some("moonshotai/kimi-k2.5"));
+
+        let _ = std::fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    fn resolve_ai_provider_config_falls_back_to_first_entry_when_default_id_is_missing() {
+        let (service, temp_dir) = temp_service("multi-flow-ai-config-missing-default-test");
+        service
+            .create_ai_config(ai_entry("Gemini", "gemini", "gemini-2.5-flash"))
+            .expect("create first config");
+        service
+            .create_ai_config(ai_entry("Kimi", "openrouter", "moonshotai/kimi-k2.5"))
+            .expect("create second config");
+        service
+            .set_default_ai_config_id(Some("deleted-default-id".to_string()))
+            .expect("set missing default config");
+
+        let resolved = service
+            .resolve_ai_provider_config(None)
+            .expect("resolve first fallback config");
+
+        assert_eq!(resolved.model.as_deref(), Some("gemini-2.5-flash"));
 
         let _ = std::fs::remove_dir_all(temp_dir);
     }

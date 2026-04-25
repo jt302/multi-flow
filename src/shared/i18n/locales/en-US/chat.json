@@ -23,10 +23,6 @@
 	"collapsePrompt": "Collapse Prompt",
 	"regenerate": "Regenerate",
 	"terminal": {
-		"stalled": {
-			"title": "AI Stopped Responding",
-			"description": "The AI returned empty responses multiple times and was stopped. Click \"Continue\" to retry, or type your next instruction."
-		},
 		"maxRounds": {
 			"title": "Max Rounds Reached",
 			"description": "The maximum round limit (100) was reached. The task may not be complete. Check the page and decide whether to continue."

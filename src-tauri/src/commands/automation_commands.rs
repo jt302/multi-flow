@@ -516,22 +516,9 @@ fn load_ai_config(
         .lock()
         .unwrap_or_else(|e| e.into_inner());
 
-    // Try resolving by ai_config_id first (multi-model)
-    let mut config = if let Some(cfg_id) = ai_config_id {
-        if let Ok(Some(entry)) = svc.find_ai_config_by_id(cfg_id) {
-            AiProviderConfig {
-                provider: entry.provider,
-                base_url: entry.base_url,
-                api_key: entry.api_key,
-                model: entry.model,
-                locale: entry.locale,
-            }
-        } else {
-            svc.read_ai_provider_config().unwrap_or_default()
-        }
-    } else {
-        svc.read_ai_provider_config().unwrap_or_default()
-    };
+    let mut config = svc
+        .resolve_ai_provider_config(ai_config_id.map(String::as_str))
+        .unwrap_or_default();
 
     // Legacy script-level inline config override
     if let Some(script_cfg) = script_ai_config {
@@ -570,14 +557,16 @@ fn resolve_script_ai_config(
             .app_preference_service
             .lock()
             .unwrap_or_else(|e| e.into_inner());
-        if let Ok(Some(entry)) = svc.find_ai_config_by_id(cfg_id) {
-            return Some(AiProviderConfig {
-                provider: entry.provider,
-                base_url: entry.base_url,
-                api_key: entry.api_key,
-                model: entry.model,
-                locale: entry.locale,
-            });
+        match svc.resolve_ai_provider_config(Some(cfg_id.as_str())) {
+            Ok(config) => return Some(config),
+            Err(err) => {
+                crate::logger::warn(
+                    "ai-config",
+                    format!(
+                        "Resolve script AI config failed, falling back to legacy config: {err}"
+                    ),
+                );
+            }
         }
     }
     legacy_config

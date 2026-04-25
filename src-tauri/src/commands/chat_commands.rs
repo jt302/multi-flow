@@ -128,26 +128,9 @@ pub async fn send_chat_message(
             .app_preference_service
             .lock()
             .unwrap_or_else(|p| p.into_inner());
-        if let Some(ref cid) = ai_config_id {
-            pref_svc
-                .find_ai_config_by_id(cid)
-                .map_err(|e| e.to_string())?
-                .map(|e| {
-                    crate::services::chat_execution_service::ai_config_entry_to_provider_config(&e)
-                })
-                .unwrap_or_default()
-        } else {
-            // 使用第一个可用配置
-            pref_svc
-                .list_ai_configs()
-                .map_err(|e| e.to_string())?
-                .into_iter()
-                .next()
-                .map(|e| {
-                    crate::services::chat_execution_service::ai_config_entry_to_provider_config(&e)
-                })
-                .unwrap_or_default()
-        }
+        pref_svc
+            .resolve_ai_provider_config(ai_config_id.as_deref())
+            .map_err(|e| e.to_string())?
     };
 
     // 全局提示词

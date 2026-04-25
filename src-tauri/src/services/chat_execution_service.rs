@@ -331,12 +331,10 @@ impl ChatExecutionService {
         // 失败升级计数器
         let mut consecutive_tool_failures: HashMap<String, u32> = HashMap::new();
         let mut error_signature_repeats: HashMap<String, u32> = HashMap::new();
-        let mut consecutive_empty_rounds: u32 = 0;
         // 连续工具调用但未产出 assistant 文本的轮次计数
         let mut rounds_since_last_text: u32 = 0;
         let mut assistant_text_nudge_injected = false;
-        // 空文本自救：仅允许 1 次注入恢复提示
-        let mut empty_text_recovery_attempted = false;
+        let mut image_input_downgrade_retry_attempted = false;
         loop {
             round += 1;
             let mut escalation_injected = false;
@@ -411,7 +409,11 @@ impl ChatExecutionService {
             );
 
             // 保留最近 3 张工具截图，方便 AI 对比前后变化，避免死循环；其余降级为纯文本。
-            retain_recent_tool_images(&mut messages, 3);
+            prepare_messages_for_chat_model(
+                &mut messages,
+                ai_config.provider.as_deref().unwrap_or(""),
+                ai_config.model.as_deref().unwrap_or(""),
+            );
 
             // 滑动窗口压缩：估算 token 数，若超过上下文 75% 则压缩历史
             let ctx_limit = crate::services::token_counter::TokenCounter::context_limit(
@@ -610,6 +612,20 @@ impl ChatExecutionService {
 
             if !cancelled {
                 if let Some(err_msg) = stream_error {
+                    if is_image_input_unsupported_error(&err_msg)
+                        && !image_input_downgrade_retry_attempted
+                    {
+                        image_input_downgrade_retry_attempted = true;
+                        downgrade_all_tool_images_to_text(&mut messages);
+                        logger::info(
+                            "ai-chat",
+                            format!(
+                                "Image input unsupported, downgraded tool images and retrying once (session={})",
+                                session_id
+                            ),
+                        );
+                        continue;
+                    }
                     logger::error(
                         "ai-chat",
                         format!("Generation error: {} (session={})", err_msg, session_id),
@@ -657,78 +673,7 @@ impl ChatExecutionService {
                             (None, text_buf.clone())
                         };
 
-                    // 空回复处理：先自救一次，第二次则发 stalled 信号
-                    if final_text.trim().is_empty() {
-                        if !empty_text_recovery_attempted {
-                            empty_text_recovery_attempted = true;
-                            let recovery_prompt =
-                                crate::services::agent_limits::build_empty_text_recovery_prompt(
-                                    locale,
-                                );
-                            messages.push(ChatMessage::system(&recovery_prompt));
-                            logger::info(
-                                "ai-chat",
-                                format!(
-                                    "Empty text reply, injecting recovery prompt (session={})",
-                                    session_id
-                                ),
-                            );
-                            continue; // 再跑一轮
-                        }
-                        // 自救失败：stalled
-                        let stall_text = "⚠ AI 多次返回空回复，已自动停止。可以点击「继续」让我重试，或者直接描述下一步操作。".to_string();
-                        let stall_msg = chat_service
-                            .add_message_with_id(
-                                &format!("{}-stalled", stream_msg_id),
-                                session_id,
-                                "assistant",
-                                Some(stall_text.clone()),
-                                None,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None,
-                            )
-                            .await
-                            .map_err(|e| e.to_string())?;
-                        let refreshed_stall = chat_service
-                            .get_message(&stall_msg.id)
-                            .await
-                            .unwrap_or(stall_msg);
-                        emit_message(app, session_id, &refreshed_stall);
-                        logger::info(
-                            "ai-chat",
-                            format!(
-                                "Generation stalled: rounds={} tokens={}/{} (session={})",
-                                round,
-                                cumulative_prompt_tokens,
-                                cumulative_completion_tokens,
-                                session_id
-                            ),
-                        );
-                        emit_phase(
-                            app,
-                            session_id,
-                            "stalled",
-                            round,
-                            None,
-                            None,
-                            generation_start.elapsed().as_millis() as u64,
-                            Some(cumulative_prompt_tokens),
-                            Some(cumulative_completion_tokens),
-                            Some(last_ctx_used),
-                            Some(last_ctx_limit),
-                            MAX_ROUNDS,
-                        );
-                        completed = true;
-                        break;
-                    }
-
-                    // 正常文本回复
+                    // 文本回复按模型原始输出保存；空文本也不做自救或停滞改写。
                     let thinking_tokens = thinking_text.as_ref().map(|t| {
                         crate::services::token_counter::TokenCounter::count_text(t) as i32
                     });
@@ -837,12 +782,6 @@ impl ChatExecutionService {
                         .collect();
                     let raw_tool_calls: Vec<Value> = calls.iter().map(|c| c.raw.clone()).collect();
                     let tool_calls_str = serde_json::to_string(&raw_tool_calls).ok();
-                    // 空轮计数器：calls 为空则计数，有工具调用则清零
-                    if calls.is_empty() {
-                        consecutive_empty_rounds += 1;
-                    } else {
-                        consecutive_empty_rounds = 0;
-                    }
                     // 无文本计数：进入工具分支即代表本轮没有 assistant 文本
                     rounds_since_last_text += 1;
                     let asst_msg = chat_service
@@ -1182,7 +1121,7 @@ impl ChatExecutionService {
                                 Some(tool_call.name.clone()),
                                 serde_json::to_string(&tool_call.arguments).ok(),
                                 Some(result_text.clone()),
-                                Some(tool_status),
+                                Some(tool_status.clone()),
                                 Some(duration_ms),
                                 stored_image_base64,
                                 image_ref,
@@ -1200,6 +1139,18 @@ impl ChatExecutionService {
                             ));
                         } else {
                             messages.push(ChatMessage::tool_result(&tool_call.id, &result_text));
+                        }
+
+                        if tool_status == "failed"
+                            && matches!(
+                                tool_call.name.as_str(),
+                                "captcha_solve_and_inject" | "captcha_inject_token"
+                            )
+                        {
+                            messages.push(ChatMessage::system(
+                                captcha_failure_report_prompt(locale).as_str(),
+                            ));
+                            escalation_injected = true;
                         }
 
                         // 重复操作检测：如果最近 6 次中同一 (tool, args) 出现 >= 3 次，注入警告
@@ -1283,19 +1234,6 @@ impl ChatExecutionService {
                                 }
                             }
                         }
-                    }
-
-                    // 空轮升级检测：tool_calls 路径中 calls 为空，连续超限时注入提示
-                    if !escalation_injected
-                        && consecutive_empty_rounds
-                            >= crate::services::agent_limits::MAX_CONSECUTIVE_EMPTY_ROUNDS
-                    {
-                        let prompt = crate::services::agent_limits::build_empty_rounds_prompt(
-                            consecutive_empty_rounds,
-                            locale,
-                        );
-                        messages.push(ChatMessage::system(&prompt));
-                        consecutive_empty_rounds = 0;
                     }
 
                     // 无文本说明检测：连续 N 轮只调工具但不给用户文字说明，注入进度提醒（仅一次）
@@ -1572,6 +1510,48 @@ fn emit_message_delta(
     );
 }
 
+fn is_image_input_unsupported_error(error: &str) -> bool {
+    let normalized = error.to_ascii_lowercase();
+    normalized.contains("image input")
+        && (normalized.contains("not support")
+            || normalized.contains("not found")
+            || normalized.contains("unsupported")
+            || normalized.contains("no endpoints found"))
+}
+
+fn model_should_downgrade_tool_images(provider: &str, model: &str) -> bool {
+    let provider = provider.to_ascii_lowercase();
+    let model = model.to_ascii_lowercase();
+    provider.contains("moonshot")
+        || model.contains("kimi")
+        || model.contains("k2")
+        || model.contains("moonshot")
+}
+
+fn prepare_messages_for_chat_model(messages: &mut [ChatMessage], provider: &str, model: &str) {
+    if model_should_downgrade_tool_images(provider, model) {
+        downgrade_all_tool_images_to_text(messages);
+    } else {
+        retain_recent_tool_images(messages, 3);
+    }
+}
+
+fn downgrade_all_tool_images_to_text(messages: &mut [ChatMessage]) {
+    for message in messages.iter_mut() {
+        if tool_message_has_image(message) {
+            downgrade_tool_message_to_text(message);
+        }
+    }
+}
+
+fn captcha_failure_report_prompt(locale: &str) -> String {
+    if locale.starts_with("en") {
+        "CAPTCHA verification failed at the page level. Do not silently retry or call unrelated tools. Immediately tell the user that the token was injected but the page still blocks verification, summarize the diagnostic reason, and ask for human intervention if needed.".to_string()
+    } else {
+        "验证码页面级验证失败。不要静默重试，也不要调用无关工具。必须立即告诉用户：token 已注入但页面仍未通过验证，并概括诊断原因；如无法继续，申请人工介入。".to_string()
+    }
+}
+
 fn retain_recent_tool_images(messages: &mut [ChatMessage], keep: usize) {
     let mut preserved = 0usize;
 
@@ -1684,7 +1664,45 @@ mod tests {
                 if parts.iter().any(|part| matches!(
                     part,
                     crate::services::ai_service::ContentPart::ImageUrl { .. }
-                ))
+            ))
         ));
+    }
+
+    #[test]
+    fn image_input_unsupported_error_is_detected() {
+        assert!(is_image_input_unsupported_error(
+            "AI API error 404 Not Found: {\"error\":{\"message\":\"No endpoints found that support image input\"}}"
+        ));
+        assert!(!is_image_input_unsupported_error(
+            "AI API error 500: temporary failure"
+        ));
+    }
+
+    #[test]
+    fn text_only_models_downgrade_tool_images_before_streaming() {
+        let mut messages = vec![
+            ChatMessage::user("inspect"),
+            tool_image_message("tool_1", "/tmp/shot.png"),
+        ];
+
+        prepare_messages_for_chat_model(&mut messages, "openai", "kimi-k2.5");
+
+        assert!(matches!(
+            &messages[1].content,
+            crate::services::ai_service::ChatContent::Text(text)
+                if text == "/tmp/shot.png"
+        ));
+    }
+
+    #[test]
+    fn image_input_unsupported_retry_downgrades_all_tool_images() {
+        let mut messages = vec![
+            ChatMessage::user("inspect"),
+            tool_image_message("tool_1", "/tmp/shot.png"),
+        ];
+
+        downgrade_all_tool_images_to_text(&mut messages);
+
+        assert!(!tool_message_has_image(&messages[1]));
     }
 }

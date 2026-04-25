@@ -76,7 +76,7 @@ export type ChatMessageDeltaEvent = {
 
 export type ChatPhaseEvent = {
 	sessionId: string;
-	phase: 'thinking' | 'tool_calling' | 'done' | 'error' | 'stalled' | 'max_rounds_reached';
+	phase: 'thinking' | 'tool_calling' | 'done' | 'error' | 'max_rounds_reached';
 	round: number;
 	maxRounds: number;
 	toolName?: string;

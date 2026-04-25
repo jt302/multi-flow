@@ -46,3 +46,62 @@ test('chat store upserts live messages by id instead of appending duplicates', (
 	assert.equal(store.getState().liveMessages[0]?.imageRef, '/tmp/final.png');
 	assert.equal(store.getState().liveMessages[0]?.toolDurationMs, 42);
 });
+
+test('chat store stores empty assistant messages and completes normally', () => {
+	const store = createChatStore({ activeSessionId: 'session_1' });
+	store.getState().appendMessage(
+		createMessage({
+			id: 'msg_empty',
+			role: 'assistant',
+			contentText: '',
+			toolCallId: null,
+			toolName: null,
+			toolStatus: null,
+			toolDurationMs: null,
+			toolResult: null,
+			sortOrder: 2,
+		}),
+	);
+
+	store.getState().updatePhase({
+		sessionId: 'session_1',
+		phase: 'done',
+		round: 2,
+		maxRounds: 100,
+		elapsedMs: 10,
+	});
+
+	assert.equal(store.getState().liveMessages.length, 1);
+	assert.equal(store.getState().liveMessages[0]?.contentText, '');
+	assert.equal(store.getState().terminalState, 'success');
+});
+
+test('chat store keeps streaming assistant placeholders with tool names on terminal phase', () => {
+	const store = createChatStore({ activeSessionId: 'session_1' });
+	store.getState().startLiveMessage(
+		createMessage({
+			id: 'stream_1',
+			role: 'assistant',
+			contentText: null,
+			toolCallId: null,
+			toolName: null,
+			toolStatus: null,
+			toolDurationMs: null,
+			toolResult: null,
+			sortOrder: 2,
+		}),
+	);
+	store.getState().markToolCallPlaceholder('session_1', 'stream_1', 'captcha_detect');
+
+	store.getState().updatePhase({
+		sessionId: 'session_1',
+		phase: 'error',
+		round: 2,
+		maxRounds: 100,
+		elapsedMs: 10,
+	});
+
+	assert.equal(store.getState().liveMessages.length, 1);
+	assert.deepEqual(store.getState().liveMessages[0]?.streamingToolNames, ['captcha_detect']);
+	assert.equal(store.getState().liveMessages[0]?.status, 'complete');
+});

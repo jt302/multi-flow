@@ -23,10 +23,6 @@
 	"collapsePrompt": "收起提示词",
 	"regenerate": "重新生成",
 	"terminal": {
-		"stalled": {
-			"title": "AI 停止响应",
-			"description": "AI 多次返回空回复，已自动停止。你可以点击「继续」让它重试，或直接输入下一步指令。"
-		},
 		"maxRounds": {
 			"title": "已达到最大轮次",
 			"description": "已达到最大轮次（100），任务可能未完全完成。请检查页面后决定是否继续。"

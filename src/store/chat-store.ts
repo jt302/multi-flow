@@ -6,7 +6,7 @@ import type { ChatMessageRecord, ChatPhaseEvent } from '@/entities/chat/model/ty
 
 type GenerationPhase = 'idle' | 'thinking' | 'tool_calling' | 'done';
 
-export type TerminalState = 'success' | 'error' | 'stalled' | 'max_rounds' | null;
+export type TerminalState = 'success' | 'error' | 'max_rounds' | null;
 
 type ChatStoreState = {
 	activeSessionId: string | null;
@@ -70,6 +70,21 @@ function upsertLiveMessage(
 	return next;
 }
 
+function finalizeStreamingMessages(liveMessages: ChatMessageRecord[]): ChatMessageRecord[] {
+	return liveMessages.flatMap((message) => {
+		if (message.status !== 'streaming') return [message];
+		const hasText = Boolean(message.contentText?.trim() || message.thinkingText?.trim());
+		const hasToolNames = Boolean(message.streamingToolNames?.length || message.toolCallsJson);
+		if (!hasText && !hasToolNames) return [];
+		return [
+			{
+				...message,
+				status: 'complete' as const,
+			},
+		];
+	});
+}
+
 export function createChatStore(initial?: Partial<ChatStoreState>) {
 	return createStore<ChatStoreState & ChatStoreActions>((set) => ({
 		...INITIAL_STATE,
@@ -104,11 +119,7 @@ export function createChatStore(initial?: Partial<ChatStoreState>) {
 				generationPhase: 'idle',
 				currentToolName: null,
 				generationStartTime: null,
-				liveMessages: s.liveMessages.map((m) =>
-					m.status === 'streaming'
-						? { ...m, status: 'complete' as const, streamingToolNames: undefined }
-						: m,
-				),
+				liveMessages: finalizeStreamingMessages(s.liveMessages),
 			})),
 
 		appendMessage: (msg) =>
@@ -168,11 +179,7 @@ export function createChatStore(initial?: Partial<ChatStoreState>) {
 					contextUsed: event.contextUsed ?? s.contextUsed,
 					contextLimit: event.contextLimit ?? s.contextLimit,
 				};
-				const cleanedMessages = s.liveMessages.map((m) =>
-					m.status === 'streaming'
-						? { ...m, status: 'complete' as const, streamingToolNames: undefined }
-						: m,
-				);
+				const cleanedMessages = finalizeStreamingMessages(s.liveMessages);
 				if (event.phase === 'done') {
 					return {
 						isGenerating: false,
@@ -193,17 +200,6 @@ export function createChatStore(initial?: Partial<ChatStoreState>) {
 						liveMessages: cleanedMessages,
 						terminalState: 'error' as const,
 						terminalError: event.error ?? null,
-						...shared,
-					};
-				} else if (event.phase === 'stalled') {
-					return {
-						isGenerating: false,
-						generationPhase: 'idle',
-						currentToolName: null,
-						generationStartTime: null,
-						liveMessages: cleanedMessages,
-						terminalState: 'stalled' as const,
-						terminalError: null,
 						...shared,
 					};
 				} else if (event.phase === 'max_rounds_reached') {
@@ -267,11 +263,7 @@ export const chatStore = createStore<ChatStoreState & ChatStoreActions>()(
 					generationPhase: 'idle',
 					currentToolName: null,
 					generationStartTime: null,
-					liveMessages: s.liveMessages.map((m) =>
-						m.status === 'streaming'
-							? { ...m, status: 'complete' as const, streamingToolNames: undefined }
-							: m,
-					),
+					liveMessages: finalizeStreamingMessages(s.liveMessages),
 				})),
 
 			appendMessage: (msg) =>
@@ -331,11 +323,7 @@ export const chatStore = createStore<ChatStoreState & ChatStoreActions>()(
 					contextUsed: event.contextUsed ?? get().contextUsed,
 					contextLimit: event.contextLimit ?? get().contextLimit,
 				};
-				const cleanedMessages = get().liveMessages.map((m) =>
-					m.status === 'streaming'
-						? { ...m, status: 'complete' as const, streamingToolNames: undefined }
-						: m,
-				);
+				const cleanedMessages = finalizeStreamingMessages(get().liveMessages);
 				if (event.phase === 'done') {
 					set({
 						isGenerating: false,
@@ -356,17 +344,6 @@ export const chatStore = createStore<ChatStoreState & ChatStoreActions>()(
 						liveMessages: cleanedMessages,
 						terminalState: 'error',
 						terminalError: event.error ?? null,
-						...shared,
-					});
-				} else if (event.phase === 'stalled') {
-					set({
-						isGenerating: false,
-						generationPhase: 'idle',
-						currentToolName: null,
-						generationStartTime: null,
-						liveMessages: cleanedMessages,
-						terminalState: 'stalled',
-						terminalError: null,
 						...shared,
 					});
 				} else if (event.phase === 'max_rounds_reached') {

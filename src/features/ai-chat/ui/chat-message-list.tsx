@@ -234,6 +234,18 @@ const MessageItem = memo(function MessageItem({
 		);
 	}
 
+	if (message.role === 'assistant' && !message.contentText && message.streamingToolNames?.length) {
+		return (
+			<div className="flex justify-start">
+				<div className="text-xs text-muted-foreground/60 italic px-1">
+					{message.streamingToolNames
+						.map((name) => t('toolCallPending', { name }))
+						.join(' · ')}
+				</div>
+			</div>
+		);
+	}
+
 	if (message.role === 'assistant' && (message.contentText || message.status === 'streaming')) {
 		const isStreaming = message.status === 'streaming';
 		const displayText = message.contentText ?? '';
@@ -305,16 +317,17 @@ function TerminalNotice({
 }) {
 	const { t } = useTranslation('chat');
 
-	if (state === 'stalled' || state === 'max_rounds') {
-		const title = state === 'stalled' ? t('terminal.stalled.title') : t('terminal.maxRounds.title');
-		const desc =
-			state === 'stalled' ? t('terminal.stalled.description') : t('terminal.maxRounds.description');
+	if (state === 'max_rounds') {
 		return (
 			<div className="flex items-start gap-3 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm dark:border-yellow-900/50 dark:bg-yellow-950/30">
 				<TriangleAlert className="mt-0.5 size-4 shrink-0 text-yellow-600 dark:text-yellow-400" />
 				<div className="min-w-0 flex-1">
-					<p className="font-medium text-yellow-800 dark:text-yellow-300">{title}</p>
-					<p className="mt-0.5 text-yellow-700 dark:text-yellow-400/80">{desc}</p>
+					<p className="font-medium text-yellow-800 dark:text-yellow-300">
+						{t('terminal.maxRounds.title')}
+					</p>
+					<p className="mt-0.5 text-yellow-700 dark:text-yellow-400/80">
+						{t('terminal.maxRounds.description')}
+					</p>
 				</div>
 				{onContinue && (
 					<button

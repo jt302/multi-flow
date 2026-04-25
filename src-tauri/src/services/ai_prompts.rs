@@ -132,9 +132,7 @@ const BASE_CAPTCHA_CHAT_EN: &str = "\
 - If captcha fails 3 consecutive times, stop automation and report the blockage to the user; do not keep retrying";
 
 fn anti_loop_rules(locale: &str) -> String {
-    use crate::services::agent_limits::{
-        MAX_CONSECUTIVE_EMPTY_ROUNDS, MAX_CONSECUTIVE_TOOL_FAILURES, MAX_SAME_ERROR_REPEATS,
-    };
+    use crate::services::agent_limits::{MAX_CONSECUTIVE_TOOL_FAILURES, MAX_SAME_ERROR_REPEATS};
     if locale.starts_with("en") {
         format!(
             "[Anti-Loop & Self-Assessment]\n\
@@ -148,7 +146,6 @@ fn anti_loop_rules(locale: &str) -> String {
              - If {MAX_CONSECUTIVE_TOOL_FAILURES} different approaches to the same goal have all failed, use `dialog_message` to report \
              the specific blocker to the user and request manual intervention; pause and wait instead of continuing to guess\n\
              - If the same error repeats {MAX_SAME_ERROR_REPEATS} times, escalate immediately via the appropriate dialog_* tool\n\
-             - If {MAX_CONSECUTIVE_EMPTY_ROUNDS} consecutive rounds produce no output, report your status immediately\n\
              - When encountering any problem that cannot be resolved automatically (insufficient permissions, expired login, \
              network errors, page anomalies, etc.), immediately use `dialog_message` to notify the user and request manual intervention"
         )
@@ -162,7 +159,6 @@ fn anti_loop_rules(locale: &str) -> String {
              - 区分导航链接与筛选控件：电商网站的筛选通常是复选框或标签按钮，点击后要截图确认筛选状态是否生效\n\
              - 同一目标已尝试 {MAX_CONSECUTIVE_TOOL_FAILURES} 种不同方法均失败时，通过 `dialog_message` 向用户说明具体阻碍并申请人工介入，暂停等待用户指示\n\
              - 同一错误重复 {MAX_SAME_ERROR_REPEATS} 次时，立即通过合适的 dialog_* 工具升级处理\n\
-             - 连续 {MAX_CONSECUTIVE_EMPTY_ROUNDS} 轮无任何产出时，立即汇报当前状态\n\
              - 遇到任何无法自动解决的问题（权限不足、登录过期、网络异常、页面异常等），立即通过 `dialog_message` 通知用户并申请人工介入"
         )
     }
@@ -634,10 +630,6 @@ mod tests {
             rules.contains('3'),
             "ZH anti-loop rules should mention threshold 3"
         );
-        assert!(
-            rules.contains('2'),
-            "ZH anti-loop rules should mention threshold 2"
-        );
     }
 
     #[test]
@@ -646,10 +638,6 @@ mod tests {
         assert!(
             rules.contains('3'),
             "EN anti-loop rules should mention threshold 3"
-        );
-        assert!(
-            rules.contains('2'),
-            "EN anti-loop rules should mention threshold 2"
         );
     }
 
