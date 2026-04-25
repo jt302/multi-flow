@@ -22,8 +22,6 @@ jobs:
         include:
           - runner: macos-latest # Apple Silicon (ARM) — native build
             target: aarch64-apple-darwin
-          - runner: macos-13 # Intel runner — native x86_64 build
-            target: x86_64-apple-darwin
 
     runs-on: ${{ matrix.runner }}
 

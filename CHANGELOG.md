@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-04-25
+
+### Fixed
+
+- Release workflow now uses the active updater signing key and builds the macOS arm64 artifact only.
+
 ## [0.2.4] - 2026-04-25
 
 ### Added
@@ -244,7 +250,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Frontend built with React 19, TypeScript, Vite, Tailwind CSS, shadcn/ui, TanStack Query, and Zustand
 - Backend built with Tauri v2, Rust, SQLite, and SeaORM
 
-[Unreleased]: https://github.com/jt302/multi-flow/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/jt302/multi-flow/compare/v0.2.5...HEAD
+[0.2.5]: https://github.com/jt302/multi-flow/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/jt302/multi-flow/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/jt302/multi-flow/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/jt302/multi-flow/compare/v0.2.1...v0.2.2

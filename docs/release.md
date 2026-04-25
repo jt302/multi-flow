@@ -50,12 +50,11 @@ If the updater signing key is missing, the release workflow exits before
 building artifacts. If Apple signing/notarization secrets are missing, the
 workflow still builds unsigned/not-notarized macOS artifacts.
 
-Current macOS targets:
+Current macOS target:
 
 | Target | Runner | Artifact |
 |---|---|---|
 | `aarch64-apple-darwin` | `macos-latest` | `.app`, `.dmg` |
-| `x86_64-apple-darwin` | `macos-13` | `.app`, `.dmg` |
 
 ## Windows And Linux
 
