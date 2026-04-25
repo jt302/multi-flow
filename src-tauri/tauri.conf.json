@@ -30,6 +30,7 @@
 				"enable": true,
 				"scope": [
 					"$APPDATA/plugins/packages/**",
+					"$APPDATA/dev/plugins/packages/**",
 					"$APPDATA/screenshots/**",
 					"$APPDATA/automation_data/**"
 				]

@@ -300,6 +300,7 @@ test('tauri config enables asset protocol for app data icons', () => {
 	assert.equal(file.includes('"assetProtocol"'), true);
 	assert.equal(file.includes('"enable": true'), true);
 	assert.equal(file.includes('"$APPDATA/plugins/packages/**"'), true);
+	assert.equal(file.includes('"$APPDATA/dev/plugins/packages/**"'), true);
 	assert.equal(file.includes('"$APPDATA/screenshots/**"'), true);
 	assert.equal(file.includes('"$APPDATA/automation_data/**"'), true);
 	assert.equal(file.includes('"$APPDATA/**"'), false);
