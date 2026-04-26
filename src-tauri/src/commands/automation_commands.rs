@@ -68,12 +68,29 @@ async fn inspect_captcha_page(
     Ok(crate::services::captcha_service::CaptchaService::parse_page_state(&raw))
 }
 
+/// 默认页面级回验总超时（毫秒）。Commit 1 之前为 3000ms（6 × 500ms），
+/// 现在略放宽到 6000ms，给异步处理 token 的页面更多机会自动推进到 verified。
+const DEFAULT_VERIFY_TIMEOUT_MS: u32 = 6000;
+/// 单次轮询间隔
+const VERIFY_POLL_INTERVAL_MS: u64 = 500;
+
 async fn verify_captcha_resolution(
     cdp: &CdpClient,
     injection: &crate::services::captcha_service::CaptchaInjectionResult,
 ) -> Result<crate::services::captcha_service::CaptchaVerificationResult, String> {
+    verify_captcha_resolution_with_timeout(cdp, injection, None).await
+}
+
+async fn verify_captcha_resolution_with_timeout(
+    cdp: &CdpClient,
+    injection: &crate::services::captcha_service::CaptchaInjectionResult,
+    timeout_ms: Option<u32>,
+) -> Result<crate::services::captcha_service::CaptchaVerificationResult, String> {
+    let timeout = timeout_ms.unwrap_or(DEFAULT_VERIFY_TIMEOUT_MS).clamp(2000, 20000);
+    let attempts = (u64::from(timeout) / VERIFY_POLL_INTERVAL_MS).max(2) as usize;
+    let last_attempt = attempts.saturating_sub(1);
     let mut last = crate::services::captcha_service::CaptchaVerificationResult::default();
-    for attempt in 0..6 {
+    for attempt in 0..attempts {
         match inspect_captcha_page(cdp).await {
             Ok(page_state) => {
                 last = crate::services::captcha_service::CaptchaService::classify_verification(
@@ -82,19 +99,18 @@ async fn verify_captcha_resolution(
                 );
                 // 仅 verified 提前返回。token_injected 是软成功，但不立即退出——某些页面
                 // 在注入后会自行推进到 verified（异步处理 token），多等几次能捕获到这种
-                // 升级；6 × 500ms 总开销仅 3s，可接受。若 6 次都仍是 token_injected，
-                // 循环结束后返回该状态，让上层走软成功路径。
+                // 升级。若超时仍是 token_injected，循环结束后返回该状态，让上层走软成功路径。
                 if last.verified {
                     return Ok(last);
                 }
             }
             Err(err) => {
-                if attempt == 5 {
+                if attempt == last_attempt {
                     return Err(err);
                 }
             }
         }
-        tokio::time::sleep(Duration::from_millis(500)).await;
+        tokio::time::sleep(Duration::from_millis(VERIFY_POLL_INTERVAL_MS)).await;
     }
     Ok(last)
 }
@@ -6207,6 +6223,7 @@ pub async fn execute_step(
 
         ScriptStep::CaptchaSolveAndInject {
             auto_submit,
+            verify_timeout_ms,
             output_key,
         } => {
             let cdp = cdp.ok_or("captcha_solve_and_inject 需要 CDP 连接")?;
@@ -6279,7 +6296,9 @@ pub async fn execute_step(
                 );
 
             // 4. 页面级回验
-            let verification = verify_captcha_resolution(cdp, &injection).await?;
+            let verification =
+                verify_captcha_resolution_with_timeout(cdp, &injection, *verify_timeout_ms)
+                    .await?;
             // 硬失败：注入失败 / 页面被强阻塞。仍按 Err 返回触发上层失败处理。
             // 软成功：token 已注入但页面未给出通过信号（reCAPTCHA v2 普通模式典型情况）。
             //   走 Ok 路径，结果 JSON 标注 softSuccess=true 与 nextActionHint，让 LLM 知道

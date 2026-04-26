@@ -1973,7 +1973,14 @@ export const STEP_TOOL_INFO: Record<string, StepToolInfo> = {
 	},
 	captcha_solve_and_inject: {
 		description: '一键检测→求解→注入验证码',
-		inputs: [{ name: 'auto_submit', desc: '注入后是否自动提交表单', required: false }],
+		inputs: [
+			{ name: 'auto_submit', desc: '注入后是否自动提交表单', required: false },
+			{
+				name: 'verify_timeout_ms',
+				desc: '页面级回验总超时（毫秒，默认 6000，clamp 到 [2000, 20000]）',
+				required: false,
+			},
+		],
 		outputs: [{ name: 'output_key', desc: '求解结果' }],
 		whenToUse: '全自动处理页面验证码，无需手动分步操作',
 		example: 'auto_submit: false',

@@ -2518,6 +2518,12 @@ fn captcha_tools() -> Vec<Value> {
                     "auto_submit": {
                         "type": "boolean",
                         "description": "注入后是否自动提交表单（默认 false）"
+                    },
+                    "verify_timeout_ms": {
+                        "type": "integer",
+                        "minimum": 2000,
+                        "maximum": 20000,
+                        "description": "页面级回验总超时毫秒，默认 6000；clamp 到 [2000, 20000]"
                     }
                 },
                 "required": []

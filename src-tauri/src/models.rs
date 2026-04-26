@@ -2505,6 +2505,10 @@ pub enum ScriptStep {
     CaptchaSolveAndInject {
         #[serde(default)]
         auto_submit: bool,
+        /// 页面级回验的总超时（毫秒）。默认 6000（12 次 × 500ms 间隔）。
+        /// 范围会被 clamp 到 [2000, 20000]。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        verify_timeout_ms: Option<u32>,
         #[serde(skip_serializing_if = "Option::is_none")]
         output_key: Option<String>,
     },

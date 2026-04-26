@@ -546,7 +546,12 @@ export type ScriptStep =
 			output_key?: string;
 	  }
 	| { kind: 'captcha_inject_token'; type: string; token: string }
-	| { kind: 'captcha_solve_and_inject'; auto_submit?: boolean; output_key?: string }
+	| {
+			kind: 'captcha_solve_and_inject';
+			auto_submit?: boolean;
+			verify_timeout_ms?: number;
+			output_key?: string;
+	  }
 	| { kind: 'captcha_get_balance'; output_key?: string };
 
 export type ScriptVarDef = { name: string; defaultValue: string };
