@@ -1742,6 +1742,18 @@ pub enum ScriptStep {
         keys: Vec<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         tab_id: Option<i64>,
+        // 可选聚焦目标元素：提供 `selector` 时，后端会先注入 JS 聚焦该元素再发按键。
+        // 用于解决 fill_dom + send_keys 之间焦点漂移导致按键落到错误输入框的问题。
+        #[serde(skip_serializing_if = "Option::is_none")]
+        selector: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        by: Option<String>,
+        #[serde(rename = "match", skip_serializing_if = "Option::is_none")]
+        r#match: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        index: Option<i32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        visible_only: Option<bool>,
         #[serde(skip_serializing_if = "Option::is_none")]
         output_key: Option<String>,
     },

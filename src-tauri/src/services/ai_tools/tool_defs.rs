@@ -1536,12 +1536,17 @@ fn magic_tools() -> Vec<Value> {
         ),
         tool(
             "magic_send_keys",
-            "键盘输入（支持特殊键/快捷键组合/文字输入）",
+            "键盘输入（支持特殊键/快捷键组合/文字输入）。每次按键发送完整 RawKeyDown→Char→KeyUp 序列并补齐 dom_key/dom_code，确保 React/Vue 等现代框架的 event.key 监听器与 HTML form Enter submit 都能响应。",
             json!({
                 "type": "object",
                 "properties": {
                     "keys": { "type": "array", "items": { "type": "string" }, "description": "按键序列，支持 Enter、Tab、Escape、ArrowDown、ctrl+a 等" },
                     "tab_id": { "type": "integer", "description": "目标标签页 ID（可选）" },
+                    "selector": { "type": "string", "description": "可选：发送按键前先聚焦该元素（推荐与 magic_fill_dom 配合使用，避免按键落到错误的输入框/地址栏）" },
+                    "by": { "type": "string", "enum": ["css", "xpath", "text", "aria", "role", "placeholder", "name", "search", "idx"], "description": "selector 的查询方式（仅在提供 selector 时生效，默认 css）" },
+                    "match": { "type": "string", "enum": ["contains", "icontains", "exact", "regex", "starts_with", "ends_with"], "description": "selector 的文本匹配模式" },
+                    "index": { "type": "integer", "description": "多元素匹配时取第几个（从 0 开始）" },
+                    "visible_only": { "type": "boolean", "description": "只操作可见元素（默认 true）" },
                     "output_key": { "type": "string", "description": "将结果存入此变量名" }
                 },
                 "required": ["keys"]

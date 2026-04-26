@@ -1795,10 +1795,17 @@ curl -X POST http://127.0.0.1:9999/ \
 
 参数：
 
-| 字段     | 类型 | 必填   | 默认值 | 说明                                |
-| -------- | ---- | ------ | ------ | ----------------------------------- |
-| `keys`   | list | **是** | -      | 按键序列，每个元素见下表            |
-| `tab_id` | int  | 否     | null   | 目标标签页 ID，省略则使用活动标签页 |
+| 字段           | 类型   | 必填   | 默认值  | 说明                                                                                                            |
+| -------------- | ------ | ------ | ------- | --------------------------------------------------------------------------------------------------------------- |
+| `keys`         | list   | **是** | -       | 按键序列，每个元素见下表                                                                                        |
+| `tab_id`       | int    | 否     | null    | 目标标签页 ID，省略则使用活动标签页                                                                             |
+| `selector`     | string | 否     | null    | 发送按键前先聚焦该元素（推荐与 fill_dom 配合：避免按键落到错误的输入框/地址栏）                                 |
+| `by`           | string | 否     | `css`   | `selector` 的查询方式，同 `query_dom`（仅在提供 `selector` 时生效）                                             |
+| `match`        | string | 否     | 按 `by` | `selector` 的匹配模式，同 `query_dom`                                                                           |
+| `index`        | int    | 否     | 0       | 多元素匹配时取第几个                                                                                            |
+| `visible_only` | bool   | 否     | true    | 是否只在可见元素中查找                                                                                          |
+
+> 注：每次按键会发送完整的 `RawKeyDown → Char (可打印键) → KeyUp` 序列，并补齐 `dom_key`/`dom_code`/`text`，以便 React/Vue 等前端框架的 `event.key === "Enter"` 监听器与 HTML form 的 implicit-submit 默认行为正常触发。
 
 `keys` 数组每个元素的格式：
 
@@ -1829,6 +1836,10 @@ curl -X POST http://127.0.0.1:9999/ \
 # 新建标签页快捷键
 curl -X POST http://127.0.0.1:9999/ \
   -d '{“cmd”:”send_keys”,”keys”:[“meta+t”]}'
+
+# 显式聚焦目标元素再发按键（避免与 fill_dom 之间焦点漂移）
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”send_keys”,”by”:”name”,”selector”:”q”,”keys”:[“Enter”]}'
 ```
 
 **AI Agent 典型工作流示例：**

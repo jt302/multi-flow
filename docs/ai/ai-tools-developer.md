@@ -1860,13 +1860,18 @@ DOM 元素查询，返回匹配元素候选列表（用于后续 `magic_click_do
 
 ##### `magic_send_keys`
 
-键盘输入（支持特殊键/快捷键组合/文字输入）。
+键盘输入（支持特殊键/快捷键组合/文字输入）。每次按键会发送完整的 `RawKeyDown → Char(可打印键) → KeyUp` 序列，并补齐 `dom_key`/`dom_code`/`text`，确保现代前端框架（React/Vue/Google）的 `event.key` 监听器和 HTML form implicit-submit 都能正常响应。
 
-| 参数         | 类型     | 必需 | 描述                                                |
-| ------------ | -------- | ---- | --------------------------------------------------- |
-| `keys`       | string[] | ✅   | 按键序列，支持 `Enter`、`Tab`、`Escape`、`ArrowDown`、`ctrl+a` 等 |
-| `tab_id`     | integer  | ❌   | 目标标签页 ID                                       |
-| `output_key` | string   | ❌   | 将结果存入此变量名                                  |
+| 参数           | 类型     | 必需 | 描述                                                                                       |
+| -------------- | -------- | ---- | ------------------------------------------------------------------------------------------ |
+| `keys`         | string[] | ✅   | 按键序列，支持 `Enter`、`Tab`、`Escape`、`ArrowDown`、`ctrl+a` 等                          |
+| `tab_id`       | integer  | ❌   | 目标标签页 ID                                                                              |
+| `selector`     | string   | ❌   | 发送按键前先聚焦该元素（推荐与 `magic_fill_dom` 配合，避免按键落到错误的输入框/地址栏）    |
+| `by`           | string   | ❌   | `selector` 的查询方式，同 `magic_query_dom`（默认 `css`，仅在提供 `selector` 时生效）      |
+| `match`        | string   | ❌   | `selector` 的匹配模式，同 `magic_query_dom`                                                |
+| `index`        | integer  | ❌   | 多元素匹配时取第几个（从 0 开始）                                                          |
+| `visible_only` | boolean  | ❌   | 只操作可见元素（默认 `true`）                                                              |
+| `output_key`   | string   | ❌   | 将结果存入此变量名                                                                         |
 
 **返回值**: 输入结果
 

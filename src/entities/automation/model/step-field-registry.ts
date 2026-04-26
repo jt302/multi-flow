@@ -865,7 +865,30 @@ export const STEP_FIELD_REGISTRY: Record<string, FieldDescriptor[]> = {
 		{ type: 'output_key' },
 	],
 
-	magic_send_keys: [{ type: 'text', key: 'tab_id', label: 'Tab ID' }, { type: 'output_key' }],
+	magic_send_keys: [
+		{
+			type: 'select',
+			key: 'by',
+			label: 'By (focus selector)',
+			options: ['', 'css', 'xpath', 'text', 'aria', 'role', 'placeholder', 'name', 'search', 'idx'].map(
+				(v) => ({ value: v, label: v || '(none)' }),
+			),
+		},
+		{ type: 'text', key: 'selector', label: 'Selector (focus before keys)' },
+		{
+			type: 'select',
+			key: 'match',
+			label: 'Match',
+			options: ['', 'contains', 'icontains', 'exact', 'regex', 'starts_with', 'ends_with'].map((v) => ({
+				value: v,
+				label: v || '(default)',
+			})),
+		},
+		{ type: 'text', key: 'index', label: 'Index' },
+		{ type: 'checkbox', key: 'visible_only', label: 'Visible Only' },
+		{ type: 'text', key: 'tab_id', label: 'Tab ID' },
+		{ type: 'output_key' },
+	],
 
 	magic_get_page_info: [{ type: 'text', key: 'tab_id', label: 'Tab ID' }, { type: 'output_key' }],
 

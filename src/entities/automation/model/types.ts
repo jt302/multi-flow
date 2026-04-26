@@ -251,7 +251,17 @@ export type ScriptStep =
 			visible_only?: boolean;
 			output_key?: string;
 	  }
-	| { kind: 'magic_send_keys'; keys: string[]; tab_id?: string; output_key?: string }
+	| {
+			kind: 'magic_send_keys';
+			keys: string[];
+			tab_id?: string;
+			selector?: string;
+			by?: string;
+			match?: string;
+			index?: string;
+			visible_only?: boolean;
+			output_key?: string;
+	  }
 	| { kind: 'magic_get_page_info'; tab_id?: string; output_key?: string }
 	| {
 			kind: 'magic_scroll';

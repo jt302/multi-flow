@@ -1665,7 +1665,8 @@ export const STEP_TOOL_INFO: Record<string, StepToolInfo> = {
 		example: 'by: "css", selector: "#username", value: "myuser", clear: true',
 	},
 	magic_send_keys: {
-		description: '发送键盘序列，支持浏览器快捷键、通用修饰键组合、特殊键以及普通文本输入。',
+		description:
+			'发送键盘序列，支持浏览器快捷键、通用修饰键组合、特殊键以及普通文本输入。每次按键发送完整 RawKeyDown→Char→KeyUp 序列并补齐 dom_key/dom_code，确保 React/Vue 等现代框架的 event.key 监听器与 HTML form Enter submit 都能响应。',
 		inputs: [
 			{
 				name: 'keys',
@@ -1673,10 +1674,24 @@ export const STEP_TOOL_INFO: Record<string, StepToolInfo> = {
 				required: true,
 			},
 			{ name: 'tab_id', desc: '目标标签页 ID，省略时使用活动标签页', required: false },
+			{
+				name: 'selector',
+				desc: '可选：发送按键前先聚焦该元素（推荐与 magic_fill_dom 配合，避免按键落到错误的输入框/地址栏）',
+				required: false,
+			},
+			{
+				name: 'by',
+				desc: 'selector 的查询方式（仅在提供 selector 时生效，默认 css）',
+				required: false,
+			},
+			{ name: 'match', desc: 'selector 的文本匹配模式', required: false },
+			{ name: 'index', desc: '多元素匹配时取第几个（从 0 开始）', required: false },
+			{ name: 'visible_only', desc: '只操作可见元素（默认 true）', required: false },
 		],
 		outputs: [],
 		whenToUse: '需要触发快捷键、模拟真实键盘输入、提交表单或操作浏览器地址栏时使用。',
-		example: 'keys: ["meta+t"] 或 keys: ["Tab", "Enter"]',
+		example:
+			'keys: ["meta+t"] 或 keys: ["Tab", "Enter"]；配合 fill_dom 时推荐 by:"name", selector:"q", keys:["Enter"]',
 	},
 	magic_get_page_info: {
 		description: '获取页面综合状态，包括 URL、标题、加载状态、弹窗状态以及滚动位置。',

@@ -3900,12 +3900,33 @@ pub async fn execute_step(
         ScriptStep::MagicSendKeys {
             keys,
             tab_id,
+            selector,
+            by,
+            r#match,
+            index,
+            visible_only,
             output_key,
         } => {
             let port = get_magic_port()?;
             let mut payload = json!({ "cmd": "send_keys", "keys": keys });
             if let Some(id) = tab_id {
                 payload["tab_id"] = json!(id);
+            }
+            if let Some(sel) = selector {
+                // selector 支持模板插值（与 fill_dom 一致），允许 `${var}` 等占位符
+                payload["selector"] = json!(vars.interpolate(sel));
+            }
+            if let Some(b) = by {
+                payload["by"] = json!(b);
+            }
+            if let Some(m) = r#match {
+                payload["match"] = json!(m);
+            }
+            if let Some(i) = index {
+                payload["index"] = json!(i);
+            }
+            if let Some(v) = visible_only {
+                payload["visible_only"] = json!(v);
             }
             let body = magic_post(http_client, port, payload).await?;
             Ok((Some(body.clone()), opt_key(output_key, body)))
