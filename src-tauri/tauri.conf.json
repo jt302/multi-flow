@@ -34,7 +34,9 @@
 					"$APPDATA/screenshots/**",
 					"$APPDATA/dev/screenshots/**",
 					"$APPDATA/automation_data/**",
-					"$APPDATA/dev/automation_data/**"
+					"$APPDATA/dev/automation_data/**",
+					"$APPDATA/chat-attachments/**",
+					"$APPDATA/dev/chat-attachments/**"
 				]
 			}
 		}

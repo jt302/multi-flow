@@ -496,7 +496,23 @@ impl ChatService {
             match r.role.as_str() {
                 "user" => {
                     let text = r.content_text.clone().unwrap_or_default();
-                    if let Some(ref img) = r.image_base64 {
+                    // 优先用 image_ref（路径，由 expand_image_refs 在调 LLM 前展开），
+                    // 兼容老数据中仅有 image_base64 的记录
+                    if let Some(ref path) = r.image_ref {
+                        let content =
+                            crate::services::ai_service::build_vision_content_from_path(
+                                &text,
+                                Some(path),
+                                None,
+                            );
+                        messages.push(AiChatMessage {
+                            role: "user".into(),
+                            content,
+                            tool_calls: None,
+                            tool_call_id: None,
+                            name: None,
+                        });
+                    } else if let Some(ref img) = r.image_base64 {
                         let content =
                             crate::services::ai_service::build_vision_content(&text, Some(img));
                         messages.push(AiChatMessage {
@@ -535,7 +551,20 @@ impl ChatService {
                 "tool" => {
                     let result = r.tool_result.clone().unwrap_or_default();
                     let id = r.tool_call_id.clone().unwrap_or_default();
-                    messages.push(AiChatMessage::tool_result(&id, &result));
+                    // 优先用 image_ref（路径，由 expand_image_refs 在调 LLM 前展开），
+                    // 让重启会话/切换会话时历史截图也能正确回喂模型
+                    if let Some(ref path) = r.image_ref {
+                        messages.push(AiChatMessage::tool_result_with_image_ref(
+                            &id,
+                            &result,
+                            path.clone(),
+                            None,
+                        ));
+                    } else if let Some(ref img) = r.image_base64 {
+                        messages.push(AiChatMessage::tool_result_with_image(&id, &result, img));
+                    } else {
+                        messages.push(AiChatMessage::tool_result(&id, &result));
+                    }
                 }
                 "system" => {
                     // 仅加载压缩摘要消息（以 [Conversation Summary] 开头），跳过普通 system 通知
@@ -844,7 +873,10 @@ mod tests {
     }
 
     #[test]
-    fn build_ai_messages_does_not_reinject_historical_tool_screenshot_images() {
+    fn build_ai_messages_reinjects_historical_screenshot_via_image_ref() {
+        // 新语义：DB 里的工具截图以 image_ref（路径）形式存在时，
+        // build_ai_messages 把它构造成 ContentPart::ImageRef，
+        // 由调 LLM 前的 expand_image_refs 现读现压成 data URL。
         let db = db::init_test_database().expect("init test db");
         let service = ChatService::from_db(db);
 
@@ -875,7 +907,65 @@ mod tests {
                     Some("/tmp/chat-shot.png".to_string()),
                     Some("completed".to_string()),
                     Some(12),
-                    Some("ZmFrZS1iYXNlNjQ=".to_string()),
+                    None,                                       // image_base64
+                    Some("/tmp/chat-shot.png".to_string()),     // image_ref
+                )
+                .await
+                .expect("add tool message");
+
+            let messages = service
+                .build_ai_messages(&session.id)
+                .await
+                .expect("build ai messages");
+
+            assert_eq!(messages.len(), 1);
+            assert!(matches!(
+                &messages[0].content,
+                crate::services::ai_service::ChatContent::Parts(parts)
+                    if parts.iter().any(|p| matches!(
+                        p,
+                        crate::services::ai_service::ContentPart::ImageRef { path, .. }
+                            if path == "/tmp/chat-shot.png"
+                    ))
+            ));
+        });
+    }
+
+    #[test]
+    fn build_ai_messages_falls_back_to_legacy_image_base64_when_no_ref() {
+        // 兼容老数据：DB 里仍然只存 image_base64（image_ref=None）的旧消息，
+        // 仍然能被复原成 ImageUrl(data:...) 结构。
+        let db = db::init_test_database().expect("init test db");
+        let service = ChatService::from_db(db);
+
+        tauri::async_runtime::block_on(async {
+            let session = service
+                .create_session(CreateChatSessionRequest {
+                    title: Some("chat".to_string()),
+                    profile_id: Some("pf_a".to_string()),
+                    ai_config_id: None,
+                    system_prompt: None,
+                    tool_categories: None,
+                    profile_ids: None,
+                    enabled_skill_slugs: None,
+                    disabled_mcp_server_ids: None,
+                })
+                .await
+                .expect("create session");
+
+            service
+                .add_message(
+                    &session.id,
+                    "tool",
+                    None,
+                    None,
+                    Some("tool_call_1".to_string()),
+                    Some("cdp_screenshot".to_string()),
+                    None,
+                    Some("legacy result".to_string()),
+                    Some("completed".to_string()),
+                    Some(12),
+                    Some("ZmFrZS1iYXNlNjQ=".to_string()), // 老数据：仅有 image_base64
                     None,
                 )
                 .await
@@ -889,8 +979,11 @@ mod tests {
             assert_eq!(messages.len(), 1);
             assert!(matches!(
                 &messages[0].content,
-                crate::services::ai_service::ChatContent::Text(text)
-                    if text == "/tmp/chat-shot.png"
+                crate::services::ai_service::ChatContent::Parts(parts)
+                    if parts.iter().any(|p| matches!(
+                        p,
+                        crate::services::ai_service::ContentPart::ImageUrl { .. }
+                    ))
             ));
         });
     }

@@ -10,6 +10,7 @@ pub mod automation_interpolation;
 pub mod automation_service;
 pub mod bookmark_template_service;
 pub mod captcha_service;
+pub mod chat_attachment_store;
 pub mod chat_execution_service;
 pub mod chat_service;
 pub mod chromium_magic_adapter_service;

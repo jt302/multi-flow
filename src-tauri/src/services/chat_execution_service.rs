@@ -97,6 +97,25 @@ impl ChatExecutionService {
             .clone();
 
         // 1. 保存用户消息
+        // 入口图外部化：把 base64 落盘到 chat-attachments/<session>/，DB 只存 image_ref（路径），
+        // image_base64 列写 None。失败则降级为不带图（避免阻塞主流程）。
+        let user_image_ref: Option<String> = image_base64.and_then(|b64| {
+            match crate::services::chat_attachment_store::externalize_inline_image(
+                app, session_id, b64,
+            ) {
+                Ok(path) => Some(path),
+                Err(e) => {
+                    logger::warn(
+                        "ai-chat",
+                        format!(
+                            "externalize user inline image failed (session={session_id}): {e}; \
+                             dropping image and continuing"
+                        ),
+                    );
+                    None
+                }
+            }
+        });
         let user_msg = chat_service
             .add_message(
                 session_id,
@@ -109,8 +128,8 @@ impl ChatExecutionService {
                 None,
                 None,
                 None,
-                image_base64.map(|s| s.to_string()),
-                None,
+                None, // image_base64 列永久写 None
+                user_image_ref,
             )
             .await
             .map_err(|e| e.to_string())?;
@@ -1070,12 +1089,34 @@ impl ChatExecutionService {
                                 tool_call.name, tool_status, duration_ms, session_id
                             ),
                         );
-                        let image_ref = externalized_chat_tool_image_ref(
+                        // 第一步：白名单工具（cdp_screenshot 等）的 result_text 已经是落盘路径，直接采纳
+                        let mut image_ref = externalized_chat_tool_image_ref(
                             &tool_call.name,
                             &tool_status,
                             &result_text,
                             result_image.as_ref(),
                         );
+                        // 第二步：其他工具若返回了 base64 但未落盘，统一自动外部化到 chat-attachments，
+                        // 让 DB image_base64 列在 chat 流程中永远为 None。
+                        if image_ref.is_none() {
+                            if let Some(ref b64) = result_image {
+                                match crate::services::chat_attachment_store::externalize_inline_image(
+                                    app, session_id, b64,
+                                ) {
+                                    Ok(path) => image_ref = Some(path),
+                                    Err(e) => {
+                                        logger::warn(
+                                            "ai-chat",
+                                            format!(
+                                                "externalize tool '{}' inline image failed (session={session_id}): {e}; \
+                                                 falling back to inline base64",
+                                                tool_call.name
+                                            ),
+                                        );
+                                    }
+                                }
+                            }
+                        }
                         let stored_image_base64 = if image_ref.is_some() {
                             None
                         } else {
@@ -1143,14 +1184,24 @@ impl ChatExecutionService {
                                 Some(tool_status.clone()),
                                 Some(duration_ms),
                                 stored_image_base64,
-                                image_ref,
+                                image_ref.clone(),
                             )
                             .await
                             .map_err(|e| e.to_string())?;
                         emit_message(app, session_id, &tool_msg);
 
                         // 追加工具结果到 messages 历史
-                        if let Some(img) = result_image {
+                        // 优先使用 image_ref（绝对路径）让 messages 仅持路径，
+                        // 调 LLM 前由 expand_image_refs 现读现压成 data URL；
+                        // 仅在工具直接返回 base64 又没落盘的少数路径才走老的 tool_result_with_image。
+                        if let Some(ref path) = image_ref {
+                            messages.push(ChatMessage::tool_result_with_image_ref(
+                                &tool_call.id,
+                                &result_text,
+                                path.clone(),
+                                None,
+                            ));
+                        } else if let Some(img) = result_image {
                             messages.push(ChatMessage::tool_result_with_image(
                                 &tool_call.id,
                                 &result_text,
@@ -1659,6 +1710,7 @@ fn tool_message_has_image(message: &ChatMessage) -> bool {
             if parts.iter().any(|part| matches!(
                 part,
                 crate::services::ai_service::ContentPart::ImageUrl { .. }
+                    | crate::services::ai_service::ContentPart::ImageRef { .. }
             ))
     )
 }
@@ -1716,6 +1768,47 @@ mod tests {
 
     fn tool_image_message(id: &str, text: &str) -> ChatMessage {
         ChatMessage::tool_result_with_image(id, text, "ZmFrZS1pbWFnZQ==")
+    }
+
+    fn tool_image_ref_message(id: &str, text: &str, path: &str) -> ChatMessage {
+        ChatMessage::tool_result_with_image_ref(id, text, path.to_string(), None)
+    }
+
+    #[test]
+    fn retain_recent_tool_images_handles_image_ref_variant() {
+        // ImageRef 走和 ImageUrl 一致的"最近 N 张保留，其余降级"逻辑
+        let mut messages = vec![
+            ChatMessage::user("scenario"),
+            tool_image_ref_message("tool_1", "/tmp/a.png", "/tmp/a.png"),
+            tool_image_ref_message("tool_2", "/tmp/b.png", "/tmp/b.png"),
+            tool_image_ref_message("tool_3", "/tmp/c.png", "/tmp/c.png"),
+        ];
+
+        retain_recent_tool_images(&mut messages, 1);
+
+        // 旧的两条都被降级为纯文本
+        assert!(matches!(
+            &messages[1].content,
+            crate::services::ai_service::ChatContent::Text(_)
+        ));
+        assert!(matches!(
+            &messages[2].content,
+            crate::services::ai_service::ChatContent::Text(_)
+        ));
+        // 最新一条仍带图（ImageRef）
+        assert!(matches!(
+            &messages[3].content,
+            crate::services::ai_service::ChatContent::Parts(parts)
+                if parts.iter().any(|p| matches!(p, crate::services::ai_service::ContentPart::ImageRef { .. }))
+        ));
+    }
+
+    #[test]
+    fn tool_message_has_image_recognizes_both_image_url_and_image_ref() {
+        let url_msg = tool_image_message("a", "p");
+        let ref_msg = tool_image_ref_message("b", "p", "/tmp/x.png");
+        assert!(tool_message_has_image(&url_msg));
+        assert!(tool_message_has_image(&ref_msg));
     }
 
     #[test]
