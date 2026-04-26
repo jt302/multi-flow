@@ -53,17 +53,28 @@ const BASE_MULTI_PROFILE_ZH: &str = "\
 - `app_start_profile` 只负责启动环境，不会自动切换当前工具目标环境";
 
 const BASE_CAPTCHA_CHAT_ZH: &str = "\
-【验证码处理】
-- 遇到验证码时，首先调用 `auto_list_captcha_configs` 检查是否已配置求解服务
-- 如果已配置求解服务：按 `captcha_detect` → `captcha_solve_and_inject` 流程自动求解
-- 如果未配置求解服务或自动求解失败：通过 `dialog_message` 通知用户需要人工介入处理验证码，暂停当前操作等待用户处理完成
-- `captcha_*` 工具只有在页面实际离开验证码/风控阻塞状态时，才算处理成功
-- 拿到 token、写入隐藏字段或触发回调，不等于页面已经通过验证
-- **`captcha_solve_and_inject` 返回 `softSuccess: true` 时不要重复调用本工具**（会浪费 2captcha 等服务的配额）。直接按 `nextActionHint`（通常是 `click_submit_button`），用 `magic_click_dom` 点击页面 Submit/Verify/Check/提交 按钮完成验证
-- 如果验证码仍未通过，必须明确说明当前被验证码阻塞，不能表述成已完成
+【验证码处理（默认自动处理，禁止反问用户）】
+检测到任何形式的验证码 / 人机验证 / 反爬阻塞页面（reCAPTCHA、hCaptcha、滑块、Cloudflare Turnstile、\
+「请证明你不是机器人」、「unusual traffic」等），用户已**默认授权**你直接消耗已配置的付费求解配额，\
+**不要在 chat 中反问用户是否使用求解服务**。按以下流程立即自动执行：
+
+1. 先调用 `auto_list_captcha_configs` 查询求解服务配置
+2. **如果有配置**：直接按 `captcha_detect` → `captcha_solve_and_inject` 自动求解（不需要再问用户）
+3. **如果完全没有配置 captcha 求解服务**：调用 `dialog_message` 弹出对话框（**不是** chat 文本）告知用户「未配置 captcha 求解服务，请配置后重试或手动完成验证」，然后等待用户处理
+4. `captcha_solve_and_inject` 返回 `softSuccess: true` → 用 `magic_click_dom` 点击 Submit/Verify/Check/提交 按钮完成验证（不要重复调用 captcha_solve_and_inject，会浪费配额）
+5. 验证码连续失败 3 次 → 调用 `dialog_message` 报告阻碍，停止重试
+
+**严格禁止**的回应模式（这些都属于反问，违反默认授权）：
+- 在 chat 中说「如果你希望继续，我可以尝试…」或「你希望如何处理？」
+- 在 chat 中列出选项让用户选择是否求解
+- 看到验证码后等待用户在 chat 中回复后才行动
+任何需要用户输入的，必须用 `dialog_*` 工具弹原生对话框，不是 chat 文本。
+
+其他要点：
+- `captcha_*` 工具只有在页面**实际离开**验证码/风控阻塞状态时才算成功；拿到 token、写入隐藏字段或触发回调本身不等于通过
+- 如果验证码仍未通过，必须明确说明当前被阻塞，不能表述成已完成
 - 未经用户明确同意，不要因为验证码失败就擅自切换到 DuckDuckGo 或其他替代站点
-- 在调用 captcha_solve 前先准确识别验证码类型（slider != reCAPTCHA != hCaptcha）
-- 如果验证码连续失败 3 次，停止自动化并向用户报告阻碍；不要继续重试";
+- 调用 `captcha_solve` 前先准确识别类型（slider ≠ reCAPTCHA ≠ hCaptcha）";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // English (en) system prompts
@@ -121,17 +132,30 @@ const BASE_MULTI_PROFILE_EN: &str = "\
 - `app_start_profile` only starts a profile and does not switch the current tool target automatically";
 
 const BASE_CAPTCHA_CHAT_EN: &str = "\
-[Captcha Handling]
-- When encountering a captcha, first call `auto_list_captcha_configs` to check if a solving service is configured
-- If a solving service is configured: follow the `captcha_detect` → `captcha_solve_and_inject` flow to solve automatically
-- If no solving service is configured or auto-solving fails: use `dialog_message` to notify the user that manual intervention is needed for the captcha, and pause the current operation until the user resolves it
-- `captcha_*` tools are successful only when the page has actually exited the captcha or anti-bot blocking state
-- Receiving a token, filling a hidden field, or invoking a callback does not by itself mean the captcha passed
-- **When `captcha_solve_and_inject` returns `softSuccess: true`, do NOT call this tool again** (it wastes 2captcha/CapSolver credits). Follow `nextActionHint` (usually `click_submit_button`) and use `magic_click_dom` to click the page's Submit/Verify/Check button to complete verification
-- If verification is still blocked, explicitly report the blockage instead of claiming completion
+[Captcha Handling — auto-solve by default, NEVER ask the user in chat]
+When you detect any form of captcha / human-verification / anti-bot block page (reCAPTCHA, \
+hCaptcha, slider, Cloudflare Turnstile, \"prove you are not a robot\", \"unusual traffic\", \
+etc.), the user has **already authorized** you to consume configured paid solving credits. \
+**Do NOT reply in chat asking whether to use the solving service.** Execute this flow \
+immediately and automatically:
+
+1. First call `auto_list_captcha_configs` to check the solving service configuration
+2. **If a configuration exists**: directly run `captcha_detect` → `captcha_solve_and_inject` (no need to ask again)
+3. **If NO captcha solver is configured at all**: call `dialog_message` (a native dialog, NOT chat text) to inform the user \"no captcha solver configured, please configure one and retry, or solve manually\", then wait for the user's action
+4. If `captcha_solve_and_inject` returns `softSuccess: true` → use `magic_click_dom` to click the Submit/Verify/Check button (do NOT call captcha_solve_and_inject again — wastes credits)
+5. After 3 consecutive captcha failures → call `dialog_message` reporting the blockage and stop retrying
+
+**Strictly forbidden** response patterns (these violate the default authorization):
+- Saying \"if you'd like, I can try…\" or \"how would you like to proceed?\" in chat
+- Listing options in chat for the user to choose whether to solve
+- Pausing after detecting a captcha to wait for chat input
+Whenever you need user input, use a `dialog_*` tool to open a native dialog, not chat text.
+
+Additional rules:
+- `captcha_*` tools only succeed when the page has actually exited the captcha / anti-bot block; receiving a token, filling a hidden field, or invoking a callback does NOT by itself mean the captcha passed
+- If verification is still blocked, report the blockage explicitly; do not claim completion
 - Do not switch to DuckDuckGo or any other alternative site without the user's explicit permission just because captcha handling failed
-- Identify the captcha type accurately before calling captcha_solve (slider ≠ reCAPTCHA ≠ hCaptcha)
-- If captcha fails 3 consecutive times, stop automation and report the blockage to the user; do not keep retrying";
+- Identify the captcha type accurately before calling captcha_solve (slider ≠ reCAPTCHA ≠ hCaptcha)";
 
 fn anti_loop_rules(locale: &str) -> String {
     use crate::services::agent_limits::{MAX_CONSECUTIVE_TOOL_FAILURES, MAX_SAME_ERROR_REPEATS};
@@ -618,7 +642,8 @@ mod tests {
         let prompt = build_chat_system_prompt(None, None, &[], "zh", None, None);
 
         assert!(prompt.contains("captcha_*"));
-        assert!(prompt.contains("不等于页面已经通过验证"));
+        // 拿到 token / 触发回调本身不等于真的过了，必须页面实际离开阻塞状态
+        assert!(prompt.contains("拿到 token") || prompt.contains("不等于通过"));
         assert!(prompt.contains("DuckDuckGo"));
     }
 
@@ -663,8 +688,28 @@ mod tests {
     fn captcha_zh_aligned_with_en() {
         let zh = build_chat_system_prompt(None, None, &[], "zh", None, None);
         let en = build_chat_system_prompt(None, None, &[], "en", None, None);
-        // Both should mention 3 consecutive failures for captcha
+        // Both should mention the 3-failure escalation rule for captcha
         assert!(zh.contains("连续失败 3 次") || zh.contains("3 次"));
-        assert!(en.contains("3 consecutive times"));
+        assert!(
+            en.contains("3 consecutive captcha failures")
+                || en.contains("3 consecutive times")
+        );
+    }
+
+    #[test]
+    fn captcha_prompt_forbids_chat_questioning_and_authorizes_auto_solve() {
+        // 验证 prompt 明确禁止"在 chat 反问用户是否求解"，并声明已默认授权使用付费配额
+        let zh = build_chat_system_prompt(None, None, &[], "zh", None, None);
+        assert!(zh.contains("默认自动处理"));
+        assert!(zh.contains("禁止反问用户"));
+        assert!(zh.contains("默认授权"));
+        // 没配置时必须用 dialog_message，不是 chat 文本
+        assert!(zh.contains("dialog_message"));
+
+        let en = build_chat_system_prompt(None, None, &[], "en", None, None);
+        assert!(en.contains("auto-solve by default"));
+        assert!(en.contains("NEVER ask the user in chat"));
+        assert!(en.contains("already authorized"));
+        assert!(en.contains("dialog_message"));
     }
 }
