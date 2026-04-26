@@ -6252,6 +6252,17 @@ pub async fn execute_step(
 
             let ct = normalize_detected_captcha_type(&detected_type)?;
 
+            // 2. 余额预检：避免在余额耗尽时白等 120s 求解超时
+            //    余额查询失败不阻塞流程（可能是 provider 不支持或临时网络问题）
+            if let Ok(balance) = captcha_svc.get_balance(&captcha_config).await {
+                if balance < 0.01 {
+                    return Err(format!(
+                        "CAPTCHA 求解服务余额不足: ${balance:.4}（provider={}）",
+                        captcha_config.provider
+                    ));
+                }
+            }
+
             let website_url = runtime_eval_string(cdp, "location.href")
                 .await
                 .ok()

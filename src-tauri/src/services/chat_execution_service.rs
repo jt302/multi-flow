@@ -1653,7 +1653,9 @@ fn tool_execution_timeout(tool_name: &str) -> std::time::Duration {
     let secs = match category {
         "cdp" => 60,
         "dialog" => 300,
-        "captcha" => 120,
+        // captcha 工具的最坏情况：求解 120s + 注入 ~1s + 主回验 ≤20s + 自动点击 1s + 二次回验 ≤4s
+        // 余量再加 30s，定 180s。
+        "captcha" => 180,
         _ => 30,
     };
     std::time::Duration::from_secs(secs)
