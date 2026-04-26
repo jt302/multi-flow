@@ -11,7 +11,7 @@ test('table dialog is not locked to max-w-2xl', () => {
 	assert.equal(tableBlock.includes('className="max-w-2xl"'), false);
 	assert.equal(
 		tableBlock.includes(
-			'className="grid max-h-[85vh] w-[min(96vw,1200px)] max-w-none grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-0"',
+			'className="grid max-h-[85vh] w-fit max-w-[min(96vw,900px)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-0 sm:w-fit"',
 		),
 		true,
 	);
