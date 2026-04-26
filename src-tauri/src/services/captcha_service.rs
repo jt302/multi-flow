@@ -113,6 +113,19 @@ pub struct CaptchaInjectionResult {
     pub submit_result: Option<String>,
 }
 
+/// `submit_click_js` 的解析结果
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SubmitClickResult {
+    #[serde(default)]
+    pub clicked: bool,
+    pub label: Option<String>,
+    pub selector: Option<String>,
+    #[serde(default)]
+    pub candidates: usize,
+    pub error: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct CaptchaPageState {
@@ -532,6 +545,115 @@ impl CaptchaService {
         }
     }
 
+    /// 生成 JS 用于在页面中查找并点击 Submit/Verify/Check 按钮。
+    ///
+    /// 仅在已注入 token 但页面未给出通过信号时使用，目的是替代用户的"提交"动作。
+    /// 优先级：用户自定义提示 > input/button[type=submit] > 文本匹配 Verify/Check/Submit/中文。
+    /// 排除位于 reCAPTCHA / hCaptcha / Turnstile widget 内部的按钮，避免误点 widget
+    /// 自身的"我不是机器人"按钮。返回 JSON `{ clicked, label, selector, candidates }`。
+    pub fn submit_click_js(extra_hints: &[String]) -> String {
+        // 序列化用户自定义按钮文本（最高优先级）
+        let hints_json =
+            serde_json::to_string(extra_hints).unwrap_or_else(|_| "[]".to_string());
+        format!(
+            r#"(function clickSubmitButton() {{
+                const userHints = {hints_json};
+                // 文本匹配关键词（按优先级，分大小写不敏感）。包含中英常见提交按钮文本。
+                const PRIORITY_KEYWORDS = [
+                    'verify', 'check', 'submit', '验证', '确认', '提交',
+                    'continue', 'next', '下一步'
+                ];
+                // 排除选择器：reCAPTCHA / hCaptcha / Turnstile widget 自身的按钮
+                const EXCLUDE_SELECTORS = [
+                    '.g-recaptcha', '.h-captcha', '.cf-turnstile',
+                    'iframe[src*="recaptcha"]', 'iframe[src*="hcaptcha"]',
+                    'iframe[title*="recaptcha"]', 'iframe[title*="challenge"]'
+                ];
+
+                const isExcluded = (el) => {{
+                    for (const sel of EXCLUDE_SELECTORS) {{
+                        if (el.closest && el.closest(sel)) return true;
+                    }}
+                    return false;
+                }};
+                const isClickable = (el) => {{
+                    if (!el) return false;
+                    if (el.disabled) return false;
+                    if (el.getAttribute && el.getAttribute('aria-hidden') === 'true') return false;
+                    // offsetParent==null 表示元素不可见（display:none 或祖先 display:none）
+                    if (el.offsetParent === null && getComputedStyle(el).position !== 'fixed') return false;
+                    return true;
+                }};
+                const elementText = (el) => {{
+                    const v = (el.value || el.innerText || el.textContent || el.getAttribute('aria-label') || '').trim();
+                    return v;
+                }};
+                const cssPath = (el) => {{
+                    if (!el) return null;
+                    if (el.id) return '#' + el.id;
+                    const tag = el.tagName ? el.tagName.toLowerCase() : '';
+                    const cls = (el.className && typeof el.className === 'string')
+                        ? '.' + el.className.trim().split(/\s+/).join('.') : '';
+                    return tag + cls;
+                }};
+
+                // 候选打分：用户提示=100，type=submit=80，关键词命中按优先级 60-10
+                const score = (el) => {{
+                    if (isExcluded(el) || !isClickable(el)) return -1;
+                    const text = elementText(el).toLowerCase();
+                    const type = (el.getAttribute && (el.getAttribute('type') || '')).toLowerCase();
+                    let s = 0;
+                    if (text) {{
+                        for (const hint of userHints) {{
+                            if (text.includes(String(hint).toLowerCase())) {{ s = Math.max(s, 100); break; }}
+                        }}
+                    }}
+                    if (type === 'submit') s = Math.max(s, 80);
+                    PRIORITY_KEYWORDS.forEach((kw, idx) => {{
+                        if (text && text.includes(kw)) {{
+                            s = Math.max(s, 60 - idx * 5);
+                        }}
+                    }});
+                    return s > 0 ? s : -1;
+                }};
+
+                // 收集候选：button、input[type=submit/button]、[role=button]
+                const candidates = [];
+                document.querySelectorAll('button, input[type="submit"], input[type="button"], [role="button"]')
+                    .forEach((el) => {{
+                        const sc = score(el);
+                        if (sc > 0) {{
+                            candidates.push({{ el, score: sc, text: elementText(el).slice(0, 60) }});
+                        }}
+                    }});
+                candidates.sort((a, b) => b.score - a.score);
+
+                if (candidates.length === 0) {{
+                    return JSON.stringify({{ clicked: false, label: null, selector: null, candidates: 0 }});
+                }}
+
+                const top = candidates[0];
+                try {{
+                    top.el.click();
+                }} catch (err) {{
+                    return JSON.stringify({{
+                        clicked: false,
+                        label: top.text,
+                        selector: cssPath(top.el),
+                        candidates: candidates.length,
+                        error: String(err && err.message || err)
+                    }});
+                }}
+                return JSON.stringify({{
+                    clicked: true,
+                    label: top.text,
+                    selector: cssPath(top.el),
+                    candidates: candidates.length
+                }});
+            }})()"#
+        )
+    }
+
     pub fn verification_js() -> &'static str {
         r#"(function inspectCaptchaState() {
             const bodyText = (document.body && document.body.innerText ? document.body.innerText : '')
@@ -581,6 +703,10 @@ impl CaptchaService {
 
     pub fn parse_page_state(raw: &str) -> CaptchaPageState {
         serde_json::from_str::<CaptchaPageState>(raw).unwrap_or_default()
+    }
+
+    pub fn parse_submit_click_result(raw: &str) -> SubmitClickResult {
+        serde_json::from_str::<SubmitClickResult>(raw).unwrap_or_default()
     }
 
     /// 判断 blocking_indicators 是否包含"强阻塞"信号——这些信号表明页面被真实拦截

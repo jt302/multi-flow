@@ -2524,6 +2524,15 @@ fn captcha_tools() -> Vec<Value> {
                         "minimum": 2000,
                         "maximum": 20000,
                         "description": "页面级回验总超时毫秒，默认 6000；clamp 到 [2000, 20000]"
+                    },
+                    "auto_click_submit": {
+                        "type": "boolean",
+                        "description": "回验返回 token_injected 时是否自动点击 Submit/Verify 按钮（默认 true，仅 reCAPTCHA v2 系列生效）"
+                    },
+                    "submit_button_hints": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "自动点击时优先匹配的按钮文本（用户自定义关键词，最高优先级）"
                     }
                 },
                 "required": []

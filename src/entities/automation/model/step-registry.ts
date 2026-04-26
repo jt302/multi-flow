@@ -1980,6 +1980,16 @@ export const STEP_TOOL_INFO: Record<string, StepToolInfo> = {
 				desc: '页面级回验总超时（毫秒，默认 6000，clamp 到 [2000, 20000]）',
 				required: false,
 			},
+			{
+				name: 'auto_click_submit',
+				desc: '回验返回 token_injected 时是否自动点击 Submit/Verify 按钮（默认 true，仅 reCAPTCHA v2 系列生效）',
+				required: false,
+			},
+			{
+				name: 'submit_button_hints',
+				desc: '自动点击时优先匹配的按钮文本（用户自定义关键词列表）',
+				required: false,
+			},
 		],
 		outputs: [{ name: 'output_key', desc: '求解结果' }],
 		whenToUse: '全自动处理页面验证码，无需手动分步操作',

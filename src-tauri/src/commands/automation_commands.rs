@@ -6224,6 +6224,8 @@ pub async fn execute_step(
         ScriptStep::CaptchaSolveAndInject {
             auto_submit,
             verify_timeout_ms,
+            auto_click_submit,
+            submit_button_hints,
             output_key,
         } => {
             let cdp = cdp.ok_or("captcha_solve_and_inject 需要 CDP 连接")?;
@@ -6296,9 +6298,56 @@ pub async fn execute_step(
                 );
 
             // 4. 页面级回验
-            let verification =
+            let mut verification =
                 verify_captcha_resolution_with_timeout(cdp, &injection, *verify_timeout_ms)
                     .await?;
+
+            // 5. 自动点击 Submit 阶段：仅在以下条件下执行——
+            //    a) 状态是 token_injected（软成功）
+            //    b) auto_click_submit 未显式设为 false（默认开启）
+            //    c) captcha 类型是 reCAPTCHA v2 系列（其他类型如 turnstile/hcaptcha
+            //       通常 widget 隐式工作，不需要外部 Submit；强行点击反而可能引发副作用）
+            let auto_click_enabled = auto_click_submit.unwrap_or(true);
+            let captcha_type_supports_auto_click = matches!(
+                detected_type.as_str(),
+                "recaptcha_v2" | "recaptcha_v2_invisible" | "recaptcha_enterprise" | "recaptcha"
+            );
+            if verification.status == "token_injected"
+                && auto_click_enabled
+                && captcha_type_supports_auto_click
+            {
+                let hints = submit_button_hints.clone().unwrap_or_default();
+                let click_js = crate::services::captcha_service::CaptchaService::submit_click_js(
+                    &hints,
+                );
+                if let Ok(click_raw) = runtime_eval_string(cdp, &click_js).await {
+                    let click_result =
+                        crate::services::captcha_service::CaptchaService::parse_submit_click_result(
+                            &click_raw,
+                        );
+                    verification.submit_attempted = true;
+                    verification.submit_clicked_label = click_result.label.clone();
+                    if click_result.clicked {
+                        // 给页面 1s 处理点击事件（callback / form submit / 跳转）
+                        tokio::time::sleep(Duration::from_millis(1000)).await;
+                        // 二次回验：用稍短的 timeout，避免重复等待
+                        let second = verify_captcha_resolution_with_timeout(
+                            cdp,
+                            &injection,
+                            Some(verify_timeout_ms.unwrap_or(DEFAULT_VERIFY_TIMEOUT_MS).min(4000)),
+                        )
+                        .await
+                        .ok();
+                        if let Some(mut second) = second {
+                            // 二次结果继承首次的 submit_attempted/label
+                            second.submit_attempted = true;
+                            second.submit_clicked_label = click_result.label.clone();
+                            verification = second;
+                        }
+                    }
+                }
+            }
+
             // 硬失败：注入失败 / 页面被强阻塞。仍按 Err 返回触发上层失败处理。
             // 软成功：token 已注入但页面未给出通过信号（reCAPTCHA v2 普通模式典型情况）。
             //   走 Ok 路径，结果 JSON 标注 softSuccess=true 与 nextActionHint，让 LLM 知道
@@ -6322,6 +6371,8 @@ pub async fn execute_step(
                 "softSuccess": soft_success,
                 "hardFailure": false,
                 "nextActionHint": verification.next_action_hint.clone(),
+                "submitAttempted": verification.submit_attempted,
+                "submitClickedLabel": verification.submit_clicked_label.clone(),
                 "captchaType": detected_type,
                 "sitekey": detect.sitekey.clone(),
                 "solveTimeMs": result.solve_time_ms,

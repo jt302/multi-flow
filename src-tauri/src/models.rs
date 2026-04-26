@@ -2509,6 +2509,13 @@ pub enum ScriptStep {
         /// 范围会被 clamp 到 [2000, 20000]。
         #[serde(default, skip_serializing_if = "Option::is_none")]
         verify_timeout_ms: Option<u32>,
+        /// 当回验返回 token_injected 时，是否自动点击页面 Submit/Verify/Check 按钮。
+        /// 默认 None（即 true，仅对 reCAPTCHA v2 系列生效；turnstile/hcaptcha 强制跳过）。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        auto_click_submit: Option<bool>,
+        /// 自动点击 Submit 时优先匹配的按钮文本（用户自定义）。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        submit_button_hints: Option<Vec<String>>,
         #[serde(skip_serializing_if = "Option::is_none")]
         output_key: Option<String>,
     },

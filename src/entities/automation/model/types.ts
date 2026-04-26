@@ -550,6 +550,8 @@ export type ScriptStep =
 			kind: 'captcha_solve_and_inject';
 			auto_submit?: boolean;
 			verify_timeout_ms?: number;
+			auto_click_submit?: boolean;
+			submit_button_hints?: string[];
 			output_key?: string;
 	  }
 	| { kind: 'captcha_get_balance'; output_key?: string };
