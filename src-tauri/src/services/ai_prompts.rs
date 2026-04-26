@@ -59,6 +59,7 @@ const BASE_CAPTCHA_CHAT_ZH: &str = "\
 - 如果未配置求解服务或自动求解失败：通过 `dialog_message` 通知用户需要人工介入处理验证码，暂停当前操作等待用户处理完成
 - `captcha_*` 工具只有在页面实际离开验证码/风控阻塞状态时，才算处理成功
 - 拿到 token、写入隐藏字段或触发回调，不等于页面已经通过验证
+- **`captcha_solve_and_inject` 返回 `softSuccess: true` 时不要重复调用本工具**（会浪费 2captcha 等服务的配额）。直接按 `nextActionHint`（通常是 `click_submit_button`），用 `magic_click_dom` 点击页面 Submit/Verify/Check/提交 按钮完成验证
 - 如果验证码仍未通过，必须明确说明当前被验证码阻塞，不能表述成已完成
 - 未经用户明确同意，不要因为验证码失败就擅自切换到 DuckDuckGo 或其他替代站点
 - 在调用 captcha_solve 前先准确识别验证码类型（slider != reCAPTCHA != hCaptcha）
@@ -126,6 +127,7 @@ const BASE_CAPTCHA_CHAT_EN: &str = "\
 - If no solving service is configured or auto-solving fails: use `dialog_message` to notify the user that manual intervention is needed for the captcha, and pause the current operation until the user resolves it
 - `captcha_*` tools are successful only when the page has actually exited the captcha or anti-bot blocking state
 - Receiving a token, filling a hidden field, or invoking a callback does not by itself mean the captcha passed
+- **When `captcha_solve_and_inject` returns `softSuccess: true`, do NOT call this tool again** (it wastes 2captcha/CapSolver credits). Follow `nextActionHint` (usually `click_submit_button`) and use `magic_click_dom` to click the page's Submit/Verify/Check button to complete verification
 - If verification is still blocked, explicitly report the blockage instead of claiming completion
 - Do not switch to DuckDuckGo or any other alternative site without the user's explicit permission just because captcha handling failed
 - Identify the captcha type accurately before calling captcha_solve (slider ≠ reCAPTCHA ≠ hCaptcha)

@@ -1151,6 +1151,18 @@ impl ChatExecutionService {
                                 captcha_failure_report_prompt(locale).as_str(),
                             ));
                             escalation_injected = true;
+                        } else if tool_status == "completed"
+                            && matches!(
+                                tool_call.name.as_str(),
+                                "captcha_solve_and_inject" | "captcha_inject_token"
+                            )
+                            && result_text_indicates_soft_success(&result_text)
+                        {
+                            // 软成功路径：token 已注入但需要 LLM 主动点击 Submit。注入一条
+                            // 系统提示，避免 LLM 把"verified=false"误读为失败而重新求解。
+                            messages.push(ChatMessage::system(
+                                captcha_soft_success_hint_prompt(locale).as_str(),
+                            ));
                         }
 
                         // 重复操作检测：如果最近 6 次中同一 (tool, args) 出现 >= 3 次，注入警告
@@ -1550,6 +1562,24 @@ fn captcha_failure_report_prompt(locale: &str) -> String {
     } else {
         "验证码页面级验证失败。不要静默重试，也不要调用无关工具。必须立即告诉用户：token 已注入但页面仍未通过验证，并概括诊断原因；如无法继续，申请人工介入。".to_string()
     }
+}
+
+/// 工具返回 softSuccess=true 时追加的系统提示。引导 LLM 走"点击 Submit 按钮"路径，
+/// 而不是重复调用 captcha_solve_and_inject（会浪费求解服务配额）。
+fn captcha_soft_success_hint_prompt(locale: &str) -> String {
+    if locale.starts_with("en") {
+        "CAPTCHA token has been injected successfully but the page has not yet emitted a verification signal (this is normal for reCAPTCHA v2 demo / standard mode). Do NOT re-call `captcha_solve_and_inject` (it would waste solver credits). Use `magic_click_dom` to click the page's Submit/Verify/Check button to complete verification.".to_string()
+    } else {
+        "验证码 token 已成功注入字段，但页面尚未给出通过信号（reCAPTCHA v2 普通模式的典型情况）。**不要重复调用 `captcha_solve_and_inject`**（会浪费求解服务配额）。请用 `magic_click_dom` 点击页面上的 Submit / Verify / Check / 提交 按钮完成验证。".to_string()
+    }
+}
+
+/// 检测工具返回 JSON 中是否含 `"softSuccess":true`。容错于 JSON 中的空白和不同字段顺序。
+fn result_text_indicates_soft_success(result_text: &str) -> bool {
+    // 简化判定：直接子串匹配，避免对每条工具结果做完整 JSON 解析。
+    // 这两个 captcha 工具的结果 JSON 里 softSuccess 字段只会以小写 camelCase 出现。
+    result_text.contains("\"softSuccess\":true")
+        || result_text.contains("\"softSuccess\": true")
 }
 
 fn retain_recent_tool_images(messages: &mut [ChatMessage], keep: usize) {

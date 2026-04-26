@@ -2504,7 +2504,14 @@ fn captcha_tools() -> Vec<Value> {
         ),
         tool(
             "captcha_solve_and_inject",
-            "一键求解并注入：自动检测页面 CAPTCHA → 求解 → 注入 token → 严格验证页面是否真正通过；如果页面仍被验证码/风控拦截则返回失败",
+            "一键求解并注入：自动检测页面 CAPTCHA → 求解 → 注入 token → 验证页面状态。\
+              结果 JSON 字段：\
+              `verified`（页面已通过验证）、\
+              `softSuccess`（token 已注入但页面尚未给出通过信号，需点击页面 Submit/Verify/Check 按钮）、\
+              `hardFailure`（注入失败或页面仍被风控拦截）、\
+              `nextActionHint`（如 `click_submit_button`）。\
+              **当 `softSuccess=true` 时不要重复调用本工具（会浪费求解配额），\
+              而是用 `magic_click_dom` 点击页面 Submit/Verify/Check/提交 按钮。**",
             json!({
                 "type": "object",
                 "properties": {
