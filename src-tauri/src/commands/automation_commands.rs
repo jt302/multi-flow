@@ -80,6 +80,10 @@ async fn verify_captcha_resolution(
                     &page_state,
                     injection,
                 );
+                // 仅 verified 提前返回。token_injected 是软成功，但不立即退出——某些页面
+                // 在注入后会自行推进到 verified（异步处理 token），多等几次能捕获到这种
+                // 升级；6 × 500ms 总开销仅 3s，可接受。若 6 次都仍是 token_injected，
+                // 循环结束后返回该状态，让上层走软成功路径。
                 if last.verified {
                     return Ok(last);
                 }
@@ -6173,7 +6177,7 @@ pub async fn execute_step(
                     &inject_raw,
                 );
             let verification = verify_captcha_resolution(cdp, &injection).await?;
-            if !verification.verified {
+            if !verification.verified && !verification.soft_success {
                 let diagnostics = captcha_verification_diagnostics(
                     detect.as_ref(),
                     Some(&injection),
@@ -6186,8 +6190,12 @@ pub async fn execute_step(
                 ));
             }
 
+            let soft_success = verification.soft_success;
             let result_json = serde_json::to_string(&json!({
-                "verified": true,
+                "verified": verification.verified,
+                "softSuccess": soft_success,
+                "hardFailure": false,
+                "nextActionHint": verification.next_action_hint.clone(),
                 "captchaType": detect.as_ref().and_then(|d| d.captcha_type.clone()).unwrap_or_else(|| captcha_type.clone()),
                 "browserUserAgent": browser_user_agent,
                 "injection": injection,
@@ -6272,7 +6280,11 @@ pub async fn execute_step(
 
             // 4. 页面级回验
             let verification = verify_captcha_resolution(cdp, &injection).await?;
-            if !verification.verified {
+            // 硬失败：注入失败 / 页面被强阻塞。仍按 Err 返回触发上层失败处理。
+            // 软成功：token 已注入但页面未给出通过信号（reCAPTCHA v2 普通模式典型情况）。
+            //   走 Ok 路径，结果 JSON 标注 softSuccess=true 与 nextActionHint，让 LLM 知道
+            //   不要重复调用本工具，应当点击页面 Submit/Verify 按钮。
+            if !verification.verified && !verification.soft_success {
                 let diagnostics = captcha_verification_diagnostics(
                     Some(&detect),
                     Some(&injection),
@@ -6285,8 +6297,12 @@ pub async fn execute_step(
                 ));
             }
 
+            let soft_success = verification.soft_success;
             let result_json = serde_json::to_string(&json!({
-                "verified": true,
+                "verified": verification.verified,
+                "softSuccess": soft_success,
+                "hardFailure": false,
+                "nextActionHint": verification.next_action_hint.clone(),
                 "captchaType": detected_type,
                 "sitekey": detect.sitekey.clone(),
                 "solveTimeMs": result.solve_time_ms,
@@ -6795,7 +6811,7 @@ mod tests {
             captcha_widget_present: true,
             token_present: true,
             form_present: true,
-            blocking_indicators: vec!["google_sorry".into()],
+            blocking_indicators: vec!["google_sorry_path".into()],
             success_indicators: vec![],
         });
         let (cdp, server) = spawn_mock_cdp_client(vec![blocked]).await;
@@ -6809,7 +6825,7 @@ mod tests {
         assert_eq!(verification.status, "challenge_present");
         assert!(verification
             .blocking_indicators
-            .contains(&"google_sorry".to_string()));
+            .contains(&"google_sorry_path".to_string()));
     }
 
     #[tokio::test]

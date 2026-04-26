@@ -140,10 +140,18 @@ pub struct CaptchaPageState {
 pub struct CaptchaVerificationResult {
     #[serde(default)]
     pub verified: bool,
+    /// 软成功：token 已注入但页面尚未给出通过信号；调用方应据此尝试点击 Submit/Verify 按钮，
+    /// 而不是把整个工具调用判为失败、触发重新求解（会消耗 2captcha 等服务的配额）。
+    #[serde(default)]
+    pub soft_success: bool,
     #[serde(default)]
     pub status: String,
     #[serde(default)]
     pub message: String,
+    pub next_action_hint: Option<String>,
+    #[serde(default)]
+    pub submit_attempted: bool,
+    pub submit_clicked_label: Option<String>,
     #[serde(default)]
     pub url: String,
     #[serde(default)]
@@ -575,38 +583,93 @@ impl CaptchaService {
         serde_json::from_str::<CaptchaPageState>(raw).unwrap_or_default()
     }
 
+    /// 判断 blocking_indicators 是否包含"强阻塞"信号——这些信号表明页面被真实拦截
+    /// （如 Google sorry 页面、Cloudflare 异常流量页面），与单纯的 widget 文本（如
+    /// "not a robot"）相区分。后者会出现在所有正常的 reCAPTCHA v2 演示页面中，不能
+    /// 据此判定页面被拦截。
+    fn has_strong_blocking(indicators: &[String]) -> bool {
+        indicators.iter().any(|i| {
+            matches!(
+                i.as_str(),
+                "google_sorry_path"
+                    | "unusual traffic"
+                    | "google_unusual_traffic_copy"
+                    | "异常流量"
+                    | "captcha_form"
+            )
+        })
+    }
+
     pub fn classify_verification(
         page_state: &CaptchaPageState,
         injection: &CaptchaInjectionResult,
     ) -> CaptchaVerificationResult {
-        let (verified, status, message) = if page_state.challenge_present {
-            (
-                false,
-                "challenge_present".to_string(),
-                "页面仍停留在验证码/风控拦截状态".to_string(),
-            )
-        } else if !page_state.success_indicators.is_empty()
-            || injection.callback_invoked
-            || injection.form_submitted
-            || (!page_state.captcha_widget_present && page_state.token_present)
-        {
-            (
-                true,
-                "verified".to_string(),
-                "页面已离开验证码阻塞状态".to_string(),
-            )
-        } else {
-            (
-                false,
-                "pending_verification".to_string(),
-                "已注入 token，但页面还没有出现通过验证的信号".to_string(),
-            )
-        };
+        // 状态机判定优先级：
+        //   1. 注入彻底失败（field_injected=false） → injection_failed（硬失败）
+        //   2. 强阻塞信号存在（真实风控拦截） → challenge_present（硬失败，无论是否注入）
+        //   3. 已经满足任一通过信号 → verified（成功）
+        //   4. token 已写入字段且事件已派发 → token_injected（软成功，等待外部点击 Submit）
+        //   5. 兜底 → pending_verification
+        // 关键修正：原实现把 challenge_present 当作"任意 blocking_indicators 非空"，
+        //   导致 2captcha demo 等含 "not a robot" 文本的正常页面被误判为拦截。
+        //   这里把"强阻塞"与"弱阻塞（widget 文本）"区分开。
+        let strong_blocking = Self::has_strong_blocking(&page_state.blocking_indicators);
+        let (verified, soft_success, status, message, hint) =
+            if !injection.field_injected {
+                (
+                    false,
+                    false,
+                    "injection_failed".to_string(),
+                    "JS 注入失败：g-recaptcha-response 等字段未被设置".to_string(),
+                    None,
+                )
+            } else if strong_blocking {
+                (
+                    false,
+                    false,
+                    "challenge_present".to_string(),
+                    "页面仍停留在验证码/风控拦截状态".to_string(),
+                    None,
+                )
+            } else if !page_state.success_indicators.is_empty()
+                || injection.callback_invoked
+                || injection.form_submitted
+                || (!page_state.captcha_widget_present && page_state.token_present)
+            {
+                (
+                    true,
+                    false,
+                    "verified".to_string(),
+                    "页面已离开验证码阻塞状态".to_string(),
+                    None,
+                )
+            } else if injection.events_dispatched > 0 {
+                (
+                    false,
+                    true,
+                    "token_injected".to_string(),
+                    "token 已注入字段但页面尚未给出通过信号，建议点击页面 Submit/Verify 按钮"
+                        .to_string(),
+                    Some("click_submit_button".to_string()),
+                )
+            } else {
+                (
+                    false,
+                    false,
+                    "pending_verification".to_string(),
+                    "已注入 token，但页面还没有出现通过验证的信号".to_string(),
+                    None,
+                )
+            };
 
         CaptchaVerificationResult {
             verified,
+            soft_success,
             status,
             message,
+            next_action_hint: hint,
+            submit_attempted: false,
+            submit_clicked_label: None,
             url: page_state.url.clone(),
             title: page_state.title.clone(),
             challenge_present: page_state.challenge_present,
@@ -1199,7 +1262,11 @@ mod tests {
     }
 
     #[test]
-    fn classify_verification_requires_page_level_success_signal() {
+    fn classify_verification_returns_token_injected_when_only_field_set() {
+        // 场景：reCAPTCHA v2 普通模式，token 已注入字段，事件已派发，但页面没有强阻塞，
+        // 也没有 callback/form 信号——这是 2captcha demo 的典型情形。
+        // 期望：返回 token_injected（软成功），调用方据此点击 Submit/Verify 按钮，
+        // 而不是被判为 pending_verification 并触发上层重新求解。
         let page_state = CaptchaPageState {
             url: "https://example.com/login".into(),
             title: "Login".into(),
@@ -1225,6 +1292,109 @@ mod tests {
         let verification = CaptchaService::classify_verification(&page_state, &injection);
 
         assert!(!verification.verified);
+        assert!(verification.soft_success);
+        assert_eq!(verification.status, "token_injected");
+        assert_eq!(
+            verification.next_action_hint.as_deref(),
+            Some("click_submit_button")
+        );
+    }
+
+    #[test]
+    fn classify_verification_token_injected_when_widget_text_present_only() {
+        // 场景：2captcha demo 页面包含 "I'm not a robot" 字样（弱 blocking 指标），
+        // 旧逻辑会因 challenge_present=true 误判为硬失败；新逻辑应识别这是 widget
+        // 文本而非真实风控拦截，返回 token_injected。
+        let page_state = CaptchaPageState {
+            url: "https://2captcha.com/demo/recaptcha-v2".into(),
+            title: "reCAPTCHA v2 demo".into(),
+            ready_state: Some("complete".into()),
+            challenge_present: true,
+            captcha_widget_present: true,
+            token_present: true,
+            form_present: true,
+            blocking_indicators: vec!["not a robot".into(), "verify you are human".into()],
+            success_indicators: vec![],
+        };
+        let injection = CaptchaInjectionResult {
+            field_injected: true,
+            injected_fields: vec!["g-recaptcha-response".into()],
+            events_dispatched: 4,
+            callback_name: None,
+            callback_invoked: false,
+            callback_invocations: 0,
+            form_submitted: false,
+            submit_result: None,
+        };
+
+        let verification = CaptchaService::classify_verification(&page_state, &injection);
+
+        assert!(!verification.verified);
+        assert!(verification.soft_success);
+        assert_eq!(verification.status, "token_injected");
+    }
+
+    #[test]
+    fn classify_verification_returns_injection_failed_when_field_not_set() {
+        // 场景：JS 注入彻底失败，无论页面状态如何，工具都应硬失败。
+        let page_state = CaptchaPageState {
+            url: "https://example.com/login".into(),
+            title: "Login".into(),
+            ready_state: Some("complete".into()),
+            challenge_present: false,
+            captcha_widget_present: true,
+            token_present: false,
+            form_present: true,
+            blocking_indicators: vec![],
+            success_indicators: vec![],
+        };
+        let injection = CaptchaInjectionResult {
+            field_injected: false,
+            injected_fields: vec![],
+            events_dispatched: 0,
+            callback_name: None,
+            callback_invoked: false,
+            callback_invocations: 0,
+            form_submitted: false,
+            submit_result: None,
+        };
+
+        let verification = CaptchaService::classify_verification(&page_state, &injection);
+
+        assert!(!verification.verified);
+        assert!(!verification.soft_success);
+        assert_eq!(verification.status, "injection_failed");
+    }
+
+    #[test]
+    fn classify_verification_falls_back_to_pending_when_no_signal_and_no_events() {
+        // 兜底分支：注入完成但 events_dispatched=0（异常情况），也没有任何成功/阻塞信号。
+        let page_state = CaptchaPageState {
+            url: "https://example.com/login".into(),
+            title: "Login".into(),
+            ready_state: Some("complete".into()),
+            challenge_present: false,
+            captcha_widget_present: true,
+            token_present: true,
+            form_present: true,
+            blocking_indicators: vec![],
+            success_indicators: vec![],
+        };
+        let injection = CaptchaInjectionResult {
+            field_injected: true,
+            injected_fields: vec!["g-recaptcha-response".into()],
+            events_dispatched: 0,
+            callback_name: None,
+            callback_invoked: false,
+            callback_invocations: 0,
+            form_submitted: false,
+            submit_result: None,
+        };
+
+        let verification = CaptchaService::classify_verification(&page_state, &injection);
+
+        assert!(!verification.verified);
+        assert!(!verification.soft_success);
         assert_eq!(verification.status, "pending_verification");
     }
 
