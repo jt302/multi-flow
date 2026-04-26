@@ -186,6 +186,7 @@
 	"form": "Form",
 	"data": "Data",
 	"imagePreview": "Image Preview",
+	"imageLoadFailed": "Image failed to load",
 	"countdown": "Countdown",
 	"required": "Required",
 	"invalidFormat": "Invalid format",

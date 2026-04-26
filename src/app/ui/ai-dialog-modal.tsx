@@ -713,7 +713,23 @@ export function AiDialogModal() {
 							src={imageSrc}
 							alt="dialog preview"
 							className="max-h-80 max-w-full rounded object-contain"
+							onError={(e) => {
+								// LLM 偶尔会传非法的 image 字段（如纯文本）。直接露出浏览器
+								// 默认的 broken-image 图标体验很差，换成可见的占位卡片，把
+								// "图片加载失败"明确告诉用户。
+								const img = e.currentTarget;
+								img.style.display = 'none';
+								const placeholder = img.nextElementSibling as HTMLElement | null;
+								if (placeholder) placeholder.style.display = 'flex';
+							}}
 						/>
+						<div
+							className="hidden h-32 w-full max-w-xs items-center justify-center rounded border border-dashed border-muted-foreground/40 bg-muted/40 text-sm text-muted-foreground"
+							role="img"
+							aria-label={t('imageLoadFailed')}
+						>
+							{t('imageLoadFailed')}
+						</div>
 					</div>
 					{hasInput && (
 						<div className="space-y-1.5">
@@ -732,33 +748,25 @@ export function AiDialogModal() {
 					)}
 					<DialogFooter>
 						{actions && actions.length > 0 ? (
-							<>
+							// LLM 显式传入 actions 时由其完全控制按钮组合，不再叠加默认的
+							// "取消" 按钮，避免出现两个取消按钮（actions 里若已有取消会重复）
+							actions.map((action) => (
 								<Button
-									variant="outline"
-									onClick={handleCancel}
+									key={action.value}
+									variant={
+										action.variant === 'destructive'
+											? 'destructive'
+											: action.variant === 'outline'
+												? 'outline'
+												: 'default'
+									}
+									onClick={() => handleAction(action)}
 									disabled={submitting}
 									className="cursor-pointer"
 								>
-									{t('cancel')}
+									{action.label}
 								</Button>
-								{actions.map((action) => (
-									<Button
-										key={action.value}
-										variant={
-											action.variant === 'destructive'
-												? 'destructive'
-												: action.variant === 'outline'
-													? 'outline'
-													: 'default'
-										}
-										onClick={() => handleAction(action)}
-										disabled={submitting}
-										className="cursor-pointer"
-									>
-										{action.label}
-									</Button>
-								))}
-							</>
+							))
 						) : (
 							<>
 								<Button

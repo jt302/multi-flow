@@ -189,6 +189,7 @@
 	"form": "表单",
 	"data": "数据",
 	"imagePreview": "图片预览",
+	"imageLoadFailed": "图片加载失败",
 	"countdown": "倒计时",
 	"required": "必填",
 	"invalidFormat": "格式不正确",

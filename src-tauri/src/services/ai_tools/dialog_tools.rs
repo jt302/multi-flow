@@ -117,16 +117,22 @@ pub struct DialogSelectOption {
 }
 
 /// form 弹窗字段
+///
+/// 注意：工具 schema 告诉 LLM 用 `type` 与 `default_value`（snake_case），但本结构默认走
+/// `rename_all = "camelCase"` 输出 `fieldType`/`defaultValue` 给前端。`alias` 让反序列化
+/// 同时接受 LLM 输入的 `type`/`default_value` —— 否则字段会全部 fallback 到 default 值
+/// （field_type→"text"、default_value→None），导致 select/checkbox/textarea/date 等类型
+/// 全部退化成普通文本输入框，用户面对"乱码表单"通常会放弃交互直至工具 5 分钟超时。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DialogFormField {
     pub name: String,
     pub label: String,
-    #[serde(default = "default_field_type")]
+    #[serde(default = "default_field_type", alias = "type")]
     pub field_type: String,
     #[serde(default)]
     pub required: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", alias = "default_value")]
     pub default_value: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub placeholder: Option<String>,
