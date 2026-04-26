@@ -94,7 +94,7 @@ pub struct CaptchaDetectResult {
     pub params: Value,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct CaptchaInjectionResult {
     #[serde(default)]
@@ -111,6 +111,10 @@ pub struct CaptchaInjectionResult {
     #[serde(default)]
     pub form_submitted: bool,
     pub submit_result: Option<String>,
+    /// 注入侧 `___grecaptcha_cfg.clients` 深度优先搜索的诊断信息：
+    /// `{ visitedNodes, anonymousFound, namedFound[] }`。
+    /// 仅作透传，Rust 侧不做强解析。
+    pub callback_search: Option<Value>,
 }
 
 /// `submit_click_js` 的解析结果
@@ -313,8 +317,12 @@ impl CaptchaService {
             }
             if (window.___grecaptcha_cfg && window.___grecaptcha_cfg.clients) {
                 const seen = new WeakSet();
+                let nodesVisited = 0;
+                const NODES_CAP = 5000;
+                const DEPTH_CAP = 10;
                 const visit = (node, depth) => {
-                    if (!node || depth > 6) return;
+                    if (!node || depth > DEPTH_CAP || nodesVisited > NODES_CAP) return;
+                    nodesVisited++;
                     const nodeType = typeof node;
                     if ((nodeType === 'object' || nodeType === 'function') && seen.has(node)) return;
                     if (nodeType === 'object' || nodeType === 'function') seen.add(node);
@@ -329,6 +337,7 @@ impl CaptchaService {
                         if (key === 'action' && typeof value === 'string') setIfMissing('pageAction', value);
                         if (key === 'size' && value === 'invisible') result.isInvisible = true;
                         if (key === 's' && typeof value === 'string') setParam('s', value);
+                        // 命名回调：直接记录函数名，让注入侧用 resolvePath 重新拿到
                         if (key === 'callback' && typeof value === 'function' && value.name) setIfMissing('callback', value.name);
                         if (key === 'callback' && typeof value === 'string') setIfMissing('callback', value);
                         if ((key === 'enterprise' || key === 'isEnterprise') && value === true) result.enterprise = true;
@@ -448,8 +457,14 @@ impl CaptchaService {
                     if (window.___grecaptcha_cfg && window.___grecaptcha_cfg.clients) {{
                         const seen = new WeakSet();
                         const invoked = new Set();
+                        let nodesVisited = 0;
+                        let anonymousFound = 0;
+                        const namedFound = [];
+                        const NODES_CAP = 5000;
+                        const DEPTH_CAP = 10;
                         const visit = (node, depth) => {{
-                            if (!node || depth > 6) return;
+                            if (!node || depth > DEPTH_CAP || nodesVisited > NODES_CAP) return;
+                            nodesVisited++;
                             const nodeType = typeof node;
                             if ((nodeType === 'object' || nodeType === 'function') && seen.has(node)) return;
                             if (nodeType === 'object' || nodeType === 'function') seen.add(node);
@@ -460,14 +475,26 @@ impl CaptchaService {
                             if (nodeType !== 'object' && nodeType !== 'function') return;
                             Object.keys(node).forEach((key) => {{
                                 const value = node[key];
+                                // 接受所有 callback 函数，无论是否具名（匿名 callback 也可调用）
                                 if (key === 'callback' && typeof value === 'function' && !invoked.has(value)) {{
                                     invoked.add(value);
+                                    if (value.name) {{
+                                        namedFound.push(value.name);
+                                    }} else {{
+                                        anonymousFound++;
+                                    }}
                                     invokeCallback(value, value.name || key);
                                 }}
                                 visit(value, depth + 1);
                             }});
                         }};
                         visit(window.___grecaptcha_cfg.clients, 0);
+                        // 暴露搜索诊断信息，便于问题排查
+                        result.callbackSearch = {{
+                            visitedNodes: nodesVisited,
+                            anonymousFound: anonymousFound,
+                            namedFound: namedFound
+                        }};
                     }}
                     const form = document.querySelector('form');
                     if (autoSubmit && form) {{
@@ -1379,6 +1406,7 @@ mod tests {
             callback_invocations: 1,
             form_submitted: true,
             submit_result: Some("submitted".into()),
+            callback_search: None,
         };
 
         let verification = CaptchaService::classify_verification(&page_state, &injection);
@@ -1413,6 +1441,7 @@ mod tests {
             callback_invocations: 0,
             form_submitted: false,
             submit_result: None,
+            callback_search: None,
         };
 
         let verification = CaptchaService::classify_verification(&page_state, &injection);
@@ -1451,6 +1480,7 @@ mod tests {
             callback_invocations: 0,
             form_submitted: false,
             submit_result: None,
+            callback_search: None,
         };
 
         let verification = CaptchaService::classify_verification(&page_state, &injection);
@@ -1483,6 +1513,7 @@ mod tests {
             callback_invocations: 0,
             form_submitted: false,
             submit_result: None,
+            callback_search: None,
         };
 
         let verification = CaptchaService::classify_verification(&page_state, &injection);
@@ -1515,6 +1546,7 @@ mod tests {
             callback_invocations: 0,
             form_submitted: false,
             submit_result: None,
+            callback_search: None,
         };
 
         let verification = CaptchaService::classify_verification(&page_state, &injection);
@@ -1546,6 +1578,7 @@ mod tests {
             callback_invocations: 1,
             form_submitted: false,
             submit_result: None,
+            callback_search: None,
         };
 
         let verification = CaptchaService::classify_verification(&page_state, &injection);

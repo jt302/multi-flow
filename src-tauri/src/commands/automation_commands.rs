@@ -6798,6 +6798,7 @@ mod tests {
             callback_invocations: 0,
             form_submitted: false,
             submit_result: None,
+            callback_search: None,
         }
     }
 
