@@ -855,9 +855,15 @@ export function AiDialogModal() {
 							<DialogTitle>{request.title}</DialogTitle>
 						</DialogHeader>
 					)}
-					<ScrollArea style={{ maxHeight: maxH }}>
+					{/*
+					 * 不嵌 ScrollArea：DialogContent 自身已有 overflow-y-auto 和
+					 * max-h-[calc(100vh-1rem)]，再叠一层 radix ScrollArea 会在视口底部
+					 * 产生一条 1px 的水平滚动条 track 残影（CleanShot 截图里那条多余横线）。
+					 * 改用普通 div + maxHeight 控制内容滚动，让 DialogContent 主滚动接管。
+					 */}
+					<div className="overflow-y-auto" style={{ maxHeight: maxH }}>
 						<MarkdownRenderer content={request.content ?? ''} className="py-2" />
-					</ScrollArea>
+					</div>
 					<DialogFooter>
 						{request.copyable && (
 							<Button

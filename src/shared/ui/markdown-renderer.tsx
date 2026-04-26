@@ -78,12 +78,27 @@ function MdPre({ children }: React.ComponentPropsWithoutRef<'pre'>) {
 // 表格：外包 overflow-x-auto 容器
 // ────────────────────────────────────────────────────────────────────────────
 function MdTable({ children, ...rest }: React.ComponentPropsWithoutRef<'table'>) {
+	// `[word-break:keep-all]` 阻止 CJK 字符在字符之间任意断行（中文/日文/韩文），
+	// 否则当 LLM 生成"求解耗时 | 约 44 秒"这种短标签表格时，首列会被 auto-size 到
+	// 很窄并强制把 "求解耗时" 拆成 "求解耗"+"时"。CJK 不断字 + 空格仍然允许换行，
+	// 长英文段落不受影响。
 	return (
 		<div className="overflow-x-auto my-3">
-			<table className="min-w-full text-sm" {...rest}>
+			<table className="min-w-full text-sm [word-break:keep-all]" {...rest}>
 				{children}
 			</table>
 		</div>
+	);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 表头单元格：禁止换行，保证 LLM 用作"label | value"风格表格时标签整体显示
+// ────────────────────────────────────────────────────────────────────────────
+function MdTh({ className, children, ...rest }: React.ComponentPropsWithoutRef<'th'>) {
+	return (
+		<th className={cn('whitespace-nowrap', className)} {...rest}>
+			{children}
+		</th>
 	);
 }
 
@@ -120,6 +135,7 @@ const BASE_COMPONENTS: Components = {
 	code: MdCode,
 	pre: MdPre,
 	table: MdTable,
+	th: MdTh,
 	img: MdImage,
 };
 
