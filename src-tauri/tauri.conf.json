@@ -32,7 +32,9 @@
 					"$APPDATA/plugins/packages/**",
 					"$APPDATA/dev/plugins/packages/**",
 					"$APPDATA/screenshots/**",
-					"$APPDATA/automation_data/**"
+					"$APPDATA/dev/screenshots/**",
+					"$APPDATA/automation_data/**",
+					"$APPDATA/dev/automation_data/**"
 				]
 			}
 		}
