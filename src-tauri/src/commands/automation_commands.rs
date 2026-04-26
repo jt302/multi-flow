@@ -3929,6 +3929,23 @@ pub async fn execute_step(
                 payload["visible_only"] = json!(v);
             }
             let body = magic_post(http_client, port, payload).await?;
+            // 编辑命令（meta/ctrl + a/c/v/x/z/y）后置语义反馈：
+            // Chromium 端走 WebContents::SelectAll/Cut/Copy/Paste/Undo/Redo，是 fire-and-forget
+            // 0ms 返回 {status:"ok"}，LLM 无法判断是否生效，会反复 cdp_screenshot 试错。
+            // 这里在 keys 含编辑命令时追加一次 CDP 评估，把 selection / activeElement value
+            // 状态合并进返回值，让 LLM 直接读取 post_state 判断。
+            let body = if keys_contains_edit_command(keys) {
+                if let Some(cdp_ref) = cdp {
+                    match read_send_keys_post_state(cdp_ref).await {
+                        Ok(post_state) => merge_post_state_into_body(&body, post_state),
+                        Err(_) => body,
+                    }
+                } else {
+                    body
+                }
+            } else {
+                body
+            };
             Ok((Some(body.clone()), opt_key(output_key, body)))
         }
         ScriptStep::MagicGetPageInfo { tab_id, output_key } => {
@@ -6457,6 +6474,73 @@ fn prepare_model_screenshot_data_url(image_base64: &str) -> String {
     .unwrap_or_else(|_| format!("data:image/png;base64,{image_base64}"))
 }
 
+/// 判断 send_keys 的 keys 数组中是否含编辑/剪贴板快捷键
+/// （meta/ctrl + a/c/v/x/z/y），与 magic_http_handler.cc:1396 的列表对齐。
+fn keys_contains_edit_command(keys: &[String]) -> bool {
+    keys.iter().any(|k| {
+        let lk = k.to_ascii_lowercase();
+        let parts: Vec<&str> = lk.split('+').map(|p| p.trim()).collect();
+        if parts.len() < 2 {
+            return false;
+        }
+        let has_meta_or_ctrl = parts.iter().any(|p| *p == "meta" || *p == "ctrl");
+        let last = *parts.last().unwrap();
+        has_meta_or_ctrl && matches!(last, "a" | "c" | "v" | "x" | "z" | "y")
+    })
+}
+
+/// 通过 CDP 读取按键后的页面状态，让 LLM 直接判断编辑命令是否生效
+/// 不必再每次 send_keys 后都 cdp_screenshot 肉眼对比。
+async fn read_send_keys_post_state(
+    cdp: &CdpClient,
+) -> Result<serde_json::Value, String> {
+    let expr = r#"(function() {
+        try {
+            var sel = (typeof document !== 'undefined' && document.getSelection) ? (document.getSelection() || null) : null;
+            var selText = (sel && sel.toString && sel.toString()) || '';
+            var ae = document.activeElement || null;
+            var tag = ae ? ae.tagName : null;
+            var v = ae && typeof ae.value === 'string' ? ae.value : '';
+            var txt = ae && typeof ae.innerText === 'string' ? ae.innerText : '';
+            return {
+                selection_text: selText.slice(0, 200),
+                selection_len: selText.length,
+                active_tag: tag,
+                active_value_preview: v.slice(0, 200),
+                active_value_len: v.length,
+                active_text_len: txt.length
+            };
+        } catch (e) {
+            return { error: String(e && e.message || e) };
+        }
+    })()"#;
+    let res = cdp
+        .call(
+            "Runtime.evaluate",
+            json!({ "expression": expr, "returnByValue": true }),
+        )
+        .await?;
+    Ok(res
+        .get("result")
+        .and_then(|r| r.get("value"))
+        .cloned()
+        .unwrap_or(serde_json::Value::Null))
+}
+
+/// 把 post_state 合并进 magic_post 返回的 body 字符串
+/// - body 是 JSON 对象 → 添加 post_state 字段
+/// - body 不是 JSON 对象 → 包成 { raw, post_state }
+fn merge_post_state_into_body(body: &str, post_state: serde_json::Value) -> String {
+    match serde_json::from_str::<serde_json::Value>(body) {
+        Ok(serde_json::Value::Object(mut map)) => {
+            map.insert("post_state".to_string(), post_state);
+            serde_json::to_string(&serde_json::Value::Object(map))
+                .unwrap_or_else(|_| body.to_string())
+        }
+        _ => json!({ "raw": body, "post_state": post_state }).to_string(),
+    }
+}
+
 /// 发送 Magic Controller HTTP 请求，尝试多个路径并重试
 pub(crate) async fn magic_post(
     http_client: &reqwest::Client,
@@ -6727,6 +6811,59 @@ mod tests {
         atomic::{AtomicUsize, Ordering},
         Arc,
     };
+
+    #[test]
+    fn keys_contains_edit_command_detects_meta_and_ctrl_combos() {
+        assert!(keys_contains_edit_command(&["meta+a".into()]));
+        assert!(keys_contains_edit_command(&["meta+x".into()]));
+        assert!(keys_contains_edit_command(&["ctrl+c".into()]));
+        assert!(keys_contains_edit_command(&["CTRL+V".into()]));
+        assert!(keys_contains_edit_command(&["meta+z".into()]));
+        assert!(keys_contains_edit_command(&["ctrl+y".into()]));
+        // 含 shift 的修饰也认定为编辑命令（meta+shift+v 等同 PasteAndMatchStyle）
+        assert!(keys_contains_edit_command(&["meta+shift+v".into()]));
+    }
+
+    #[test]
+    fn keys_contains_edit_command_ignores_non_edit_keys() {
+        assert!(!keys_contains_edit_command(&["Enter".into()]));
+        assert!(!keys_contains_edit_command(&["Tab".into()]));
+        assert!(!keys_contains_edit_command(&["meta+l".into()])); // address bar focus, 不是编辑
+        assert!(!keys_contains_edit_command(&["alt+f4".into()]));
+        assert!(!keys_contains_edit_command(&["a".into()]));
+        assert!(!keys_contains_edit_command(&[]));
+    }
+
+    #[test]
+    fn keys_contains_edit_command_works_in_mixed_lists() {
+        // 列表中只要有一个编辑命令就算
+        assert!(keys_contains_edit_command(&[
+            "Enter".into(),
+            "meta+a".into(),
+            "Tab".into()
+        ]));
+    }
+
+    #[test]
+    fn merge_post_state_into_body_appends_to_object() {
+        let body = r#"{"status":"ok"}"#;
+        let merged = merge_post_state_into_body(body, json!({"selection_len": 5}));
+        let parsed: serde_json::Value = serde_json::from_str(&merged).unwrap();
+        assert_eq!(parsed.get("status").and_then(|v| v.as_str()), Some("ok"));
+        assert_eq!(
+            parsed.get("post_state").and_then(|v| v.get("selection_len")).and_then(|v| v.as_u64()),
+            Some(5)
+        );
+    }
+
+    #[test]
+    fn merge_post_state_into_body_wraps_non_object() {
+        let body = "raw text not json";
+        let merged = merge_post_state_into_body(body, json!({"a": 1}));
+        let parsed: serde_json::Value = serde_json::from_str(&merged).unwrap();
+        assert_eq!(parsed.get("raw").and_then(|v| v.as_str()), Some("raw text not json"));
+        assert!(parsed.get("post_state").is_some());
+    }
 
     use axum::{
         extract::{
