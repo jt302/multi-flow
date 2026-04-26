@@ -67,7 +67,9 @@ impl ChatMessage {
             name: None,
         }
     }
-    /// 带图片的工具结果（截图 → 视觉注入）
+    /// 带图片的工具结果（截图 → 视觉注入）。
+    /// 仅用于即时直接持有 base64 的少数路径（如来自外部 base64 数据的工具结果）。
+    /// 推荐改用 `tool_result_with_image_ref`：让 messages 仅持路径，调 LLM 前再展开。
     pub fn tool_result_with_image(
         tool_call_id: impl Into<String>,
         text: impl Into<String>,
@@ -81,6 +83,30 @@ impl ChatMessage {
                     image_url: ImageUrl {
                         url: normalize_image_data_url(image_base64),
                     },
+                },
+            ]),
+            tool_calls: None,
+            tool_call_id: Some(tool_call_id.into()),
+            name: None,
+        }
+    }
+
+    /// 带图片路径的工具结果。messages 在内存中仅持绝对路径，
+    /// 序列化进 provider 请求前必须先调 [`expand_image_refs`] 现读现压成 data URL。
+    /// 这是替代 `tool_result_with_image` 的推荐入口（避免 base64 在 chat 内存中堆积）。
+    pub fn tool_result_with_image_ref(
+        tool_call_id: impl Into<String>,
+        text: impl Into<String>,
+        image_path: impl Into<String>,
+        mime_hint: Option<String>,
+    ) -> Self {
+        Self {
+            role: "tool".into(),
+            content: ChatContent::Parts(vec![
+                ContentPart::Text { text: text.into() },
+                ContentPart::ImageRef {
+                    path: image_path.into(),
+                    mime_hint,
                 },
             ]),
             tool_calls: None,
@@ -163,7 +189,9 @@ impl std::fmt::Display for ChatContent {
                 for p in parts {
                     match p {
                         ContentPart::Text { text } => write!(f, "{}", text)?,
-                        ContentPart::ImageUrl { .. } => write!(f, "[image]")?,
+                        ContentPart::ImageUrl { .. } | ContentPart::ImageRef { .. } => {
+                            write!(f, "[image]")?
+                        }
                     }
                 }
                 Ok(())
@@ -177,6 +205,14 @@ impl std::fmt::Display for ChatContent {
 pub enum ContentPart {
     Text { text: String },
     ImageUrl { image_url: ImageUrl },
+    /// 仅用于内存中的延迟图像引用：持文件绝对路径，调 LLM 前须经
+    /// [`expand_image_refs`] 转成 `ImageUrl(data:...)`。
+    /// `#[serde(skip)]` 确保它不会被误序列化进 provider 请求体。
+    #[serde(skip)]
+    ImageRef {
+        path: String,
+        mime_hint: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -192,6 +228,48 @@ fn normalize_image_data_url(image_base64: &str) -> String {
     }
 }
 
+/// 把消息历史中的 [`ContentPart::ImageRef`] 现读现压成 [`ContentPart::ImageUrl`]（data URL）。
+///
+/// 用于"截图只在内存里持路径，调 LLM 前一刻才落到 base64"的延迟加载链路。
+/// 必须在每个 provider 入口（OpenAI 兼容 / Anthropic / Gemini，含流式与非流式）
+/// 序列化请求体之前调用一次。失败的图项会降级为占位文本提示，不影响其他消息发送。
+pub fn expand_image_refs(messages: &mut [ChatMessage]) {
+    for msg in messages.iter_mut() {
+        if let ChatContent::Parts(parts) = &mut msg.content {
+            for part in parts.iter_mut() {
+                if let ContentPart::ImageRef { path, mime_hint } = part {
+                    let path_owned = path.clone();
+                    let hint_owned = mime_hint.clone();
+                    match crate::services::model_image_service::prepare_image_for_model_from_path(
+                        &path_owned,
+                        hint_owned.as_deref(),
+                    ) {
+                        Ok(prepared) => {
+                            *part = ContentPart::ImageUrl {
+                                image_url: ImageUrl {
+                                    url: prepared.data_url,
+                                },
+                            };
+                        }
+                        Err(e) => {
+                            // 文件丢失或解码失败：降级为文本，避免整条消息发送失败
+                            crate::logger::warn(
+                                "ai-chat",
+                                format!(
+                                    "expand_image_refs: failed to load '{path_owned}': {e}"
+                                ),
+                            );
+                            *part = ContentPart::Text {
+                                text: format!("[image unavailable: {path_owned}]"),
+                            };
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn chat_content_text(content: &ChatContent) -> String {
     match content {
         ChatContent::Text(text) => text.clone(),
@@ -199,7 +277,7 @@ fn chat_content_text(content: &ChatContent) -> String {
             .iter()
             .filter_map(|part| match part {
                 ContentPart::Text { text } => Some(text.clone()),
-                ContentPart::ImageUrl { .. } => None,
+                ContentPart::ImageUrl { .. } | ContentPart::ImageRef { .. } => None,
             })
             .collect::<Vec<_>>()
             .join("\n"),
@@ -219,6 +297,10 @@ fn anthropic_blocks_from_content(content: &ChatContent) -> Result<Vec<Value>, St
 fn anthropic_block_from_part(part: &ContentPart) -> Result<Value, String> {
     match part {
         ContentPart::Text { text } => Ok(json!({ "type": "text", "text": text })),
+        ContentPart::ImageRef { .. } => Err(
+            "anthropic_block_from_part: ImageRef must be expanded via expand_image_refs first"
+                .to_string(),
+        ),
         ContentPart::ImageUrl { image_url } => {
             let (mime_type, data) = split_data_url(&image_url.url)
                 .ok_or_else(|| "anthropic image expects data url".to_string())?;
@@ -303,6 +385,10 @@ fn gemini_parts_from_content(content: &ChatContent) -> Result<Vec<Value>, String
             .iter()
             .map(|part| match part {
                 ContentPart::Text { text } => Ok(json!({ "text": text })),
+                ContentPart::ImageRef { .. } => Err(
+                    "gemini_parts_from_content: ImageRef must be expanded via expand_image_refs first"
+                        .to_string(),
+                ),
                 ContentPart::ImageUrl { image_url } => {
                     let (mime_type, data) = split_data_url(&image_url.url)
                         .ok_or_else(|| "gemini image expects data url".to_string())?;
@@ -394,7 +480,7 @@ impl AiService {
     pub async fn chat(
         &self,
         config: &AiProviderConfig,
-        messages: Vec<ChatMessage>,
+        mut messages: Vec<ChatMessage>,
         response_format: Option<Value>,
     ) -> Result<String, String> {
         let provider = config.provider.as_deref().unwrap_or("openai");
@@ -404,6 +490,9 @@ impl AiService {
             .unwrap_or_else(|| default_base_url(provider));
         let base_url = resolved_base.trim_end_matches('/');
         let api_key = config.api_key.as_deref().unwrap_or("");
+
+        // 把内存中的 ImageRef 现读现压成 ImageUrl(data:...)，必须在序列化为请求体前完成
+        expand_image_refs(&mut messages);
 
         if provider == "anthropic" {
             let model = config.model.as_deref().unwrap_or("claude-opus-4-5");
@@ -455,6 +544,11 @@ impl AiService {
             .unwrap_or_else(|| default_base_url(provider));
         let base_url = resolved_base.trim_end_matches('/');
         let api_key = config.api_key.as_deref().unwrap_or("");
+
+        // ImageRef → ImageUrl(data:...) 仅在请求构造时一次性展开
+        let mut messages_owned: Vec<ChatMessage> = messages.to_vec();
+        expand_image_refs(&mut messages_owned);
+        let messages = messages_owned.as_slice();
 
         if provider == "anthropic" {
             let model = config.model.as_deref().unwrap_or("claude-opus-4-5");
@@ -958,6 +1052,9 @@ impl AiService {
             .build()
             .expect("Failed to build streaming HTTP client");
         tokio::spawn(async move {
+            // ImageRef → ImageUrl(data:...) 在三个流式分支之前统一展开一次
+            let mut messages = messages;
+            expand_image_refs(&mut messages);
             match provider.as_str() {
                 "anthropic" => {
                     stream_anthropic(http, &base_url, &api_key, &model, messages, tools, tx).await
@@ -984,6 +1081,26 @@ pub fn build_vision_content(text_prompt: &str, image_base64: Option<&str>) -> Ch
                 image_url: ImageUrl {
                     url: normalize_image_data_url(b64),
                 },
+            },
+        ]),
+    }
+}
+
+/// 从图片绝对路径构造 vision 消息内容（仅持 ImageRef，调 LLM 前由 expand_image_refs 展开）
+pub fn build_vision_content_from_path(
+    text_prompt: &str,
+    image_path: Option<&str>,
+    mime_hint: Option<&str>,
+) -> ChatContent {
+    match image_path {
+        None => ChatContent::Text(text_prompt.to_string()),
+        Some(p) => ChatContent::Parts(vec![
+            ContentPart::Text {
+                text: text_prompt.to_string(),
+            },
+            ContentPart::ImageRef {
+                path: p.to_string(),
+                mime_hint: mime_hint.map(str::to_string),
             },
         ]),
     }

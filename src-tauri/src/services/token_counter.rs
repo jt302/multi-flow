@@ -39,7 +39,9 @@ impl TokenCounter {
                         crate::services::ai_service::ContentPart::Text { text } => {
                             Self::count_text(text)
                         }
-                        crate::services::ai_service::ContentPart::ImageUrl { .. } => 85, // 图片 token 固定估算
+                        // 图片 token 固定估算（ImageRef 也按图算，调 LLM 前会 expand）
+                        crate::services::ai_service::ContentPart::ImageUrl { .. }
+                        | crate::services::ai_service::ContentPart::ImageRef { .. } => 85,
                     })
                     .sum()
             }

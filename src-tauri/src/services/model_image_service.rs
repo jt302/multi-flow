@@ -77,6 +77,34 @@ pub fn prepare_image_for_model_from_bytes(
     best.ok_or("no image candidate generated".to_string())
 }
 
+/// 从绝对路径读取图片并转成 PreparedModelImage（即 data URL）。
+/// 用于"截图存路径，调 LLM 前临时展开"的延迟加载链路。
+/// 若 mime_hint 为 None，会从文件扩展名推断（仅识别 png/jpg/jpeg/webp/gif）。
+pub fn prepare_image_for_model_from_path(
+    path: &str,
+    mime_hint: Option<&str>,
+) -> Result<PreparedModelImage, String> {
+    let bytes = std::fs::read(path)
+        .map_err(|e| format!("read image file '{path}': {e}"))?;
+    let inferred = mime_hint.map(str::to_string).or_else(|| mime_from_path(path));
+    prepare_image_for_model_from_bytes(&bytes, inferred.as_deref())
+}
+
+fn mime_from_path(path: &str) -> Option<String> {
+    let lower = path.to_ascii_lowercase();
+    if lower.ends_with(".png") {
+        Some("image/png".into())
+    } else if lower.ends_with(".jpg") || lower.ends_with(".jpeg") {
+        Some("image/jpeg".into())
+    } else if lower.ends_with(".webp") {
+        Some("image/webp".into())
+    } else if lower.ends_with(".gif") {
+        Some("image/gif".into())
+    } else {
+        None
+    }
+}
+
 pub fn prepare_image_for_model_from_base64(
     image_base64_or_data_url: &str,
     mime_hint: Option<&str>,
@@ -250,6 +278,30 @@ mod tests {
 
         assert_eq!(prepared.mime_type, "image/jpeg");
         assert!(prepared.output_bytes > 0);
+    }
+
+    #[test]
+    fn prepare_from_path_reads_disk_and_infers_mime() {
+        let bytes = encode_jpeg(320, 200);
+        let dir = std::env::temp_dir().join("multi-flow-test-mis");
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let p = dir.join("shot.jpg");
+        std::fs::write(&p, &bytes).expect("write");
+
+        let prepared = prepare_image_for_model_from_path(p.to_str().unwrap(), None)
+            .expect("prepare from path");
+        assert_eq!(prepared.mime_type, "image/jpeg");
+        assert!(prepared.data_url.starts_with("data:image/jpeg;base64,"));
+
+        std::fs::remove_file(&p).ok();
+    }
+
+    #[test]
+    fn prepare_from_path_reports_io_error_when_missing() {
+        let err = prepare_image_for_model_from_path("/nonexistent/__no__.png", None)
+            .err()
+            .unwrap();
+        assert!(err.contains("read image file"));
     }
 
     #[test]
