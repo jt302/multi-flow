@@ -328,6 +328,8 @@ impl ChatExecutionService {
         let mut round: u32 = 0;
         // 重复操作检测：记录最近 10 次 (tool_name, args_json)
         let mut recent_tool_calls: VecDeque<(String, String)> = VecDeque::with_capacity(10);
+        // 连续工具名检测：记录最近 8 次 tool_name，检测"换参数但不换工具"的死循环
+        let mut recent_tool_names: VecDeque<String> = VecDeque::with_capacity(8);
         // 失败升级计数器
         let mut consecutive_tool_failures: HashMap<String, u32> = HashMap::new();
         let mut error_signature_repeats: HashMap<String, u32> = HashMap::new();
@@ -517,7 +519,24 @@ impl ChatExecutionService {
             let mut stream_completion_tokens: Option<i32> = None;
             let mut stream_error: Option<String> = None;
 
-            'stream_loop: while let Some(delta) = rx.recv().await {
+            // 流式 chunk 间隔超时：单次 chunk 等待超过 STREAM_IDLE_TIMEOUT 视为 provider 卡死
+            // 防止 LLM API 半挂时整个会话静默挂死（chat_execution_service.rs 既有工具级超时
+            // 但流式 rx.recv() 此前是裸 await，没有兜底）。
+            const STREAM_IDLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+            'stream_loop: loop {
+                let recv_result =
+                    tokio::time::timeout(STREAM_IDLE_TIMEOUT, rx.recv()).await;
+                let delta = match recv_result {
+                    Ok(Some(d)) => d,
+                    Ok(None) => break 'stream_loop, // 通道关闭，等价于原 while let None 分支
+                    Err(_) => {
+                        stream_error = Some(format!(
+                            "LLM stream idle for {}s (provider may be stalled or disconnected)",
+                            STREAM_IDLE_TIMEOUT.as_secs()
+                        ));
+                        break 'stream_loop;
+                    }
+                };
                 {
                     let tokens = cancel_tokens.lock().unwrap_or_else(|p| p.into_inner());
                     if tokens.get(session_id).copied().unwrap_or(false) {
@@ -1188,6 +1207,36 @@ impl ChatExecutionService {
                                 );
                                 messages.push(ChatMessage::system(&warning));
                                 recent_tool_calls.clear();
+                                completed = true;
+                                break; // break 内层 for tool_call in &calls
+                            }
+                        }
+
+                        // 连续工具名检测：换参数但不换工具的死循环（如反复 magic_send_keys 不同按键）
+                        // 上一道闸要求 args 完全相同，对"逐个验证快捷键"这种 args 不重复但语义重复的循环失效。
+                        if recent_tool_names.len() >= 8 {
+                            recent_tool_names.pop_front();
+                        }
+                        recent_tool_names.push_back(tool_call.name.clone());
+                        if recent_tool_names.len() >= 8 {
+                            let same_count = recent_tool_names
+                                .iter()
+                                .filter(|n| **n == tool_call.name)
+                                .count();
+                            if same_count >= 6 {
+                                let warning = format!(
+                                    "⚠ 系统警告：最近 8 次工具调用中 `{}` 出现了 {} 次（参数不同），\
+                                    很可能陷入了「逐项试错-验证」小循环。\n\n\
+                                    请立刻暂停工具调用，先用一段中文文字向用户说明：\n\
+                                    1. 当前你已经验证/完成了哪些项目；\n\
+                                    2. 还想验证/完成的剩余项目是什么；\n\
+                                    3. 是否可以一次性批量执行（例如把多个按键放进同一次 send_keys 的 keys 数组），\
+                                       而不是每个项目都单独循环 操作→截图→说明；\n\
+                                    4. 是否已经达成用户的最终目标，可以总结收尾。",
+                                    tool_call.name, same_count
+                                );
+                                messages.push(ChatMessage::system(&warning));
+                                recent_tool_names.clear();
                                 completed = true;
                                 break; // break 内层 for tool_call in &calls
                             }

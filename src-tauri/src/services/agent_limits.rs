@@ -5,7 +5,7 @@ pub const MAX_CONSECUTIVE_TOOL_FAILURES: u32 = 3;
 /// 同一 (tool, error) 组合重复超过此次数时注入升级提示
 pub const MAX_SAME_ERROR_REPEATS: u32 = 3;
 /// 连续工具调用但未产出任何 assistant 文本超过此轮次时，注入一次说明提醒
-pub const MAX_ROUNDS_WITHOUT_ASSISTANT_TEXT: u32 = 12;
+pub const MAX_ROUNDS_WITHOUT_ASSISTANT_TEXT: u32 = 6;
 
 /// 用于 ai_prompts 注入的阈值摘要（中文）
 #[cfg(test)]
@@ -139,7 +139,7 @@ mod tests {
         let s = format_zh();
         assert!(s.contains('3'), "format_zh should mention threshold 3");
         assert!(
-            s.contains("12"),
+            s.contains(&MAX_ROUNDS_WITHOUT_ASSISTANT_TEXT.to_string()),
             "format_zh should mention no-text threshold"
         );
     }
@@ -149,7 +149,7 @@ mod tests {
         let s = format_en();
         assert!(s.contains('3'), "format_en should mention threshold 3");
         assert!(
-            s.contains("12"),
+            s.contains(&MAX_ROUNDS_WITHOUT_ASSISTANT_TEXT.to_string()),
             "format_en should mention no-text threshold"
         );
     }

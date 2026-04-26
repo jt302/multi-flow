@@ -149,7 +149,16 @@ fn anti_loop_rules(locale: &str) -> String {
              the specific blocker to the user and request manual intervention; pause and wait instead of continuing to guess\n\
              - If the same error repeats {MAX_SAME_ERROR_REPEATS} times, escalate immediately via the appropriate dialog_* tool\n\
              - When encountering any problem that cannot be resolved automatically (insufficient permissions, expired login, \
-             network errors, page anomalies, etc.), immediately use `dialog_message` to notify the user and request manual intervention"
+             network errors, page anomalies, etc.), immediately use `dialog_message` to notify the user and request manual intervention\n\
+             - **Open-ended verification tasks** (e.g. \"test all the keyboard shortcuts\", \"try every feature\"): \
+             do NOT loop one-item-at-a-time as `operate → screenshot → narrate`. Instead: \
+             (1) list the items up front, (2) batch the operations where possible (e.g. put multiple keys into a single \
+             `magic_send_keys` keys array, or run several `cdp_execute_js` reads at once), (3) take ONE summary screenshot \
+             at the end, (4) write a single recap to the user. Reserve per-step screenshots for cases where each step's \
+             outcome must be visually verified before proceeding.\n\
+             - For `magic_send_keys` editing commands (meta/ctrl + a/c/v/x/z/y), the result body now includes a `post_state` \
+             field with `selection_text`, `selection_len`, `active_value_preview`, `active_value_len`, etc. Read these \
+             directly to judge whether the keystroke took effect — do NOT add an extra `cdp_screenshot` just to confirm"
         )
     } else {
         format!(
@@ -161,7 +170,14 @@ fn anti_loop_rules(locale: &str) -> String {
              - 区分导航链接与筛选控件：电商网站的筛选通常是复选框或标签按钮，点击后要截图确认筛选状态是否生效\n\
              - 同一目标已尝试 {MAX_CONSECUTIVE_TOOL_FAILURES} 种不同方法均失败时，通过 `dialog_message` 向用户说明具体阻碍并申请人工介入，暂停等待用户指示\n\
              - 同一错误重复 {MAX_SAME_ERROR_REPEATS} 次时，立即通过合适的 dialog_* 工具升级处理\n\
-             - 遇到任何无法自动解决的问题（权限不足、登录过期、网络异常、页面异常等），立即通过 `dialog_message` 通知用户并申请人工介入"
+             - 遇到任何无法自动解决的问题（权限不足、登录过期、网络异常、页面异常等），立即通过 `dialog_message` 通知用户并申请人工介入\n\
+             - **开放式测试任务**（如\"测试一堆快捷键\"、\"试一下各种功能\"）：禁止逐项 `操作→截图→说明` 循环。\
+             正确做法：(1) 先列出要测的项目清单；(2) 尽量批量执行（例如把多个按键塞进同一次 `magic_send_keys` 的 keys 数组、\
+             或同一段 `cdp_execute_js` 读多个状态）；(3) 末尾统一一次 `cdp_screenshot` 总览；(4) 用一段中文向用户汇总结论。\
+             仅当下一步必须依赖上一步的视觉结果时才中间截图\n\
+             - `magic_send_keys` 在编辑命令（meta/ctrl + a/c/v/x/z/y）后会在返回 body 里附带 `post_state` 字段，\
+             包含 `selection_text` / `selection_len` / `active_value_preview` / `active_value_len` 等。请直接读取这些字段判断按键是否生效，\
+             不要再额外 `cdp_screenshot` 验证"
         )
     }
 }
