@@ -5368,8 +5368,30 @@ pub async fn execute_step(
 
         ScriptStep::CdpWaitForNavigation { timeout_ms } => {
             let cdp = cdp.ok_or_else(|| "CDP not available".to_string())?;
-            let timeout = timeout_ms.unwrap_or(30000);
+            let timeout_ms = timeout_ms.unwrap_or(30000);
+            let total_timeout = Duration::from_millis(timeout_ms);
             let start = std::time::Instant::now();
+
+            // 阶段 1：订阅 Page.lifecycleEvent 真正等到导航事件。
+            // Page.navigate / form submit 是 fire-and-forget，导航请求发出后浏览器
+            // 还没切页，旧页面的 document.readyState 仍是 "complete"，纯 readyState
+            // 轮询会立即返回（race condition），导致 wait_for_navigation 在 4ms 内完成
+            // 但实际目标页还在加载，截图会是白屏。
+            //
+            // 这里给 lifecycleEvent 一段较短的窗口（默认 timeout 的 1/3，最少 5s）。
+            // 命中 networkAlmostIdle / load 即视为加载完成。如果窗口内没收到任何
+            // 目标事件（说明在等待之前 navigation 已结束 / 或根本没有 navigation），
+            // fallback 到阶段 2 的 readyState 轮询，行为兼容旧调用。
+            let lifecycle_window = std::cmp::max(total_timeout / 3, Duration::from_secs(5));
+            let lifecycle_window = std::cmp::min(lifecycle_window, total_timeout);
+            let lifecycle_result = cdp
+                .wait_for_page_lifecycle(&["networkAlmostIdle", "load"], lifecycle_window)
+                .await;
+
+            // 不论阶段 1 命中还是超时，都要做一次 readyState 校验：命中后页面可能仍在
+            // 渲染剩余资源；超时（无 navigation 发生）则按 readyState 兜底判断 ready。
+            let remaining = total_timeout.saturating_sub(start.elapsed());
+            let phase2_deadline = std::time::Instant::now() + remaining;
             loop {
                 let result = cdp
                     .call(
@@ -5399,10 +5421,11 @@ pub async fn execute_step(
                         .and_then(|v| v.as_str())
                         .unwrap_or("")
                         .to_string();
+                    let _ = lifecycle_result; // 仅用于消除未使用警告；命中与否都已影响等待时长
                     return Ok((Some(url), HashMap::new()));
                 }
-                if start.elapsed().as_millis() as u64 >= timeout {
-                    return Err(format!("Navigation timeout after {timeout}ms"));
+                if std::time::Instant::now() >= phase2_deadline {
+                    return Err(format!("Navigation timeout after {timeout_ms}ms"));
                 }
                 tokio::time::sleep(Duration::from_millis(200)).await;
             }

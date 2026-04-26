@@ -176,4 +176,78 @@ impl CdpClient {
         let ws_url = self.get_browser_ws_url().await?;
         self.call_on_ws(&ws_url, method, params).await
     }
+
+    /// 在同一 WebSocket 上启用 Page domain 并等待 `Page.lifecycleEvent` 事件，
+    /// 直到 params.name 命中 `target_names` 中任意一个为止；超过 `timeout` 则返回 Err。
+    ///
+    /// 用途：让导航后的 wait 真正 wait 到 `load` / `networkAlmostIdle` 事件，
+    /// 而不是轮询 `document.readyState`（旧页面的 readyState 在新导航开始前
+    /// 仍是 "complete"，会导致 wait 立即返回的 race condition）。
+    ///
+    /// 调用时机：应该**在导航请求之前 / 同时**启用，否则可能错过 `load` 事件。
+    /// 由 `cdp_wait_for_navigation` 在外层做 fallback：超时则查 readyState 当兜底。
+    pub async fn wait_for_page_lifecycle(
+        &self,
+        target_names: &[&str],
+        timeout: std::time::Duration,
+    ) -> Result<String, String> {
+        let ws_url = self.get_page_ws_url().await?;
+        let (mut ws, _) = connect_async(&ws_url)
+            .await
+            .map_err(|e| format!("CDP WebSocket connect failed: {e}"))?;
+
+        // 启用 Page domain（并打开 lifecycle 推送），让 backend 开始向我们推 lifecycle 事件
+        let enable_payload = serde_json::json!({ "id": 1, "method": "Page.enable", "params": {} });
+        ws.send(Message::Text(enable_payload.to_string().into()))
+            .await
+            .map_err(|e| format!("CDP send Page.enable failed: {e}"))?;
+        let lifecycle_payload = serde_json::json!({
+            "id": 2,
+            "method": "Page.setLifecycleEventsEnabled",
+            "params": { "enabled": true }
+        });
+        ws.send(Message::Text(lifecycle_payload.to_string().into()))
+            .await
+            .map_err(|e| format!("CDP send Page.setLifecycleEventsEnabled failed: {e}"))?;
+
+        let deadline = tokio::time::Instant::now() + timeout;
+        loop {
+            let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+            if remaining.is_zero() {
+                return Err(format!(
+                    "wait_for_page_lifecycle({:?}) timed out",
+                    target_names
+                ));
+            }
+            let msg = match tokio::time::timeout(remaining, ws.next()).await {
+                Ok(Some(m)) => m.map_err(|e| format!("CDP recv failed: {e}"))?,
+                Ok(None) => return Err("CDP connection closed".to_string()),
+                Err(_) => {
+                    return Err(format!(
+                        "wait_for_page_lifecycle({:?}) timed out",
+                        target_names
+                    ))
+                }
+            };
+            let text = match msg {
+                Message::Text(t) => t.to_string(),
+                Message::Close(_) => return Err("CDP connection closed".to_string()),
+                _ => continue,
+            };
+            let parsed: serde_json::Value = match serde_json::from_str(&text) {
+                Ok(v) => v,
+                Err(_) => continue,
+            };
+            // Page.lifecycleEvent 是事件帧，没有 id 字段，但有 method
+            if parsed.get("method").and_then(|v| v.as_str()) == Some("Page.lifecycleEvent") {
+                let name = parsed
+                    .pointer("/params/name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                if target_names.iter().any(|t| *t == name) {
+                    return Ok(name.to_string());
+                }
+            }
+        }
+    }
 }

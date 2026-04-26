@@ -30,7 +30,24 @@ const BASE_SCREENSHOTS_ZH: &str = "\
 - magic_capture_app_shell：截取完整窗口（包含浏览器标签栏和工具栏）
 - 判断页面视觉状态时用截图；精确提取数据时用 cdp_get_text 或 cdp_execute_js
 - 禁止用截图来提取文本数据 — 截图仅用于视觉判断，文本数据必须通过 cdp_get_text / cdp_get_full_ax_tree / cdp_execute_js 提取
-- SPA/动态页面数据提取：优先 cdp_get_full_ax_tree（语义结构）或 cdp_execute_js（自定义 JS 批量提取）";
+- SPA/动态页面数据提取：优先 cdp_get_full_ax_tree（语义结构）或 cdp_execute_js（自定义 JS 批量提取）
+
+【导航与等待（强制规则）】
+- 任何会触发页面跳转的操作（cdp_navigate、点击链接、表单提交、Enter 键、JS location.href= 等）**之后**，\
+  必须先调用 `cdp_wait_for_navigation` 等加载完成，再做 `cdp_screenshot` / 提取文本 / 后续点击。\
+  否则截图很可能是白屏（旧页面已离开、新页面未渲染），文本提取也会拿到空值
+- `cdp_wait_for_navigation` 在内部已经订阅 `Page.lifecycleEvent` 等加载完成事件，无需自己 sleep
+- 触发跳转后立即 `cdp_screenshot` 是错误模式
+
+【反幻觉铁律（描述截图必须基于本次实际像素）】
+- 描述当前页面状态时，**只能基于本轮 cdp_screenshot 工具刚刚返回的截图**实际像素内容；\
+  不允许用「之前看过的截图记忆」、「常理推断的页面应该长什么样」、「用户在 chat 里提到的目标页面」\
+  来代替对当前截图的观察
+- 如果当前截图是**纯白 / 纯色 / 加载占位 / 内容明显残缺**：必须明确说出「页面尚未加载完成」，然后立即\
+  调用 `cdp_wait_for_navigation`（并视情况配合 `wait`）后**重新** `cdp_screenshot` 再描述。\
+  禁止在白屏截图上叙述「搜索结果显示...」「页面包含...」「价格在...」之类具体内容
+- 如果不确定截图当前内容，宁可调 `cdp_get_text` / `cdp_get_full_ax_tree` 用文本 ground 一遍，\
+  也不要凭印象编内容";
 
 const BASE_EXECUTION_ZH: &str = "\
 【执行机制】
@@ -109,7 +126,29 @@ const BASE_SCREENSHOTS_EN: &str = "\
 - magic_capture_app_shell: Capture the full window (including browser tab bar and toolbar)
 - Use screenshots for visual state assessment; use cdp_get_text or cdp_execute_js for precise data extraction
 - Never use screenshots to extract text data — screenshots are for visual judgment only; text must be extracted via cdp_get_text / cdp_get_full_ax_tree / cdp_execute_js
-- For SPA/dynamic page data: prefer cdp_get_full_ax_tree (semantic structure) or cdp_execute_js (custom JS batch extraction)";
+- For SPA/dynamic page data: prefer cdp_get_full_ax_tree (semantic structure) or cdp_execute_js (custom JS batch extraction)
+
+[Navigation & Waiting (mandatory)]
+- After ANY action that may trigger a page transition (cdp_navigate, link click, form submit, \
+  Enter key, JS location.href=, etc.), you MUST call `cdp_wait_for_navigation` first before \
+  `cdp_screenshot` / text extraction / further clicks. Otherwise the screenshot is likely \
+  white (old page gone, new page not rendered yet) and text extraction returns empty
+- `cdp_wait_for_navigation` already subscribes to `Page.lifecycleEvent` internally — \
+  do not add your own sleep around it
+- Calling `cdp_screenshot` immediately after a navigation trigger without wait is a bug pattern
+
+[Anti-Hallucination Rule (describe ONLY actual pixels of THIS screenshot)]
+- When describing the current page state, you may ONLY base your description on the actual \
+  pixel content of the screenshot returned by THIS round's `cdp_screenshot`. Do NOT substitute \
+  with: memory of earlier screenshots, common sense about what the target page \"should\" look \
+  like, or the user's stated goal in chat
+- If the current screenshot is blank / solid color / loading placeholder / clearly incomplete: \
+  explicitly say \"the page has not finished loading\", then immediately call \
+  `cdp_wait_for_navigation` (and `wait` if needed) and `cdp_screenshot` AGAIN before describing. \
+  Do NOT narrate \"the page shows search results...\", \"the page contains...\", \"prices range \
+  from...\" against a blank screenshot
+- When unsure about screenshot content, prefer grounding via `cdp_get_text` / \
+  `cdp_get_full_ax_tree` rather than fabricating from memory";
 
 const BASE_EXECUTION_EN: &str = "\
 [Execution Mechanism]
@@ -694,6 +733,22 @@ mod tests {
             en.contains("3 consecutive captcha failures")
                 || en.contains("3 consecutive times")
         );
+    }
+
+    #[test]
+    fn navigation_wait_and_anti_hallucination_rules_present() {
+        // 确认导航后强制 wait 与反幻觉铁律两条规则被注入
+        let zh = build_chat_system_prompt(None, None, &[], "zh", None, None);
+        assert!(zh.contains("cdp_wait_for_navigation"));
+        assert!(zh.contains("白屏"));
+        assert!(zh.contains("反幻觉"));
+        assert!(zh.contains("尚未加载完成"));
+
+        let en = build_chat_system_prompt(None, None, &[], "en", None, None);
+        assert!(en.contains("cdp_wait_for_navigation"));
+        assert!(en.contains("Anti-Hallucination"));
+        assert!(en.contains("not finished loading"));
+        assert!(en.contains("THIS round"));
     }
 
     #[test]
