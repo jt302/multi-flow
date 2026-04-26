@@ -599,7 +599,10 @@ export function AiDialogModal() {
 		return (
 			<Dialog open onOpenChange={() => {}}>
 				<DialogContent
-					className="grid max-h-[85vh] w-[min(96vw,1200px)] max-w-none grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-0"
+					// 旧实现强制 w-[min(96vw,1200px)] 让弹窗几乎占满屏幕；表格只有几行短数据
+					// 时显得很空。改成 w-fit 自适应内容宽度，保留 96vw / 900px 的合理上限，
+					// 列数多时仍能让内层 overflow-x-auto 横向滚动。
+					className="grid max-h-[85vh] w-fit max-w-[min(96vw,900px)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-0 sm:w-fit"
 					onInteractOutside={(e) => e.preventDefault()}
 					onEscapeKeyDown={(e) => e.preventDefault()}
 				>
