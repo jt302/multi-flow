@@ -1862,6 +1862,8 @@ DOM 元素查询，返回匹配元素候选列表（用于后续 `magic_click_do
 
 键盘输入（支持特殊键/快捷键组合/文字输入）。每次按键会发送完整的 `RawKeyDown → Char(可打印键) → KeyUp` 序列，并补齐 `dom_key`/`dom_code`/`text`，确保现代前端框架（React/Vue/Google）的 `event.key` 监听器和 HTML form implicit-submit 都能正常响应。
 
+通用编辑/剪贴板快捷键（`ctrl+a/c/v/x/z`、`ctrl+shift+v`、`ctrl+shift+z`、`ctrl+y` 及对应的 `meta+`）会绕过 OS accelerator，直接调用 `WebContents::SelectAll/Cut/Copy/Paste/PasteAndMatchStyle/Undo/Redo`，**`ctrl+` 与 `meta+` 跨平台等价**（解决 macOS 上 `ctrl+a` 实际是 Emacs `move-to-beginning` 的问题）。
+
 | 参数           | 类型     | 必需 | 描述                                                                                       |
 | -------------- | -------- | ---- | ------------------------------------------------------------------------------------------ |
 | `keys`         | string[] | ✅   | 按键序列，支持 `Enter`、`Tab`、`Escape`、`ArrowDown`、`ctrl+a` 等                          |

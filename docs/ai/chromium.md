@@ -1809,12 +1809,13 @@ curl -X POST http://127.0.0.1:9999/ \
 
 `keys` 数组每个元素的格式：
 
-| 格式             | 示例                                                                                                                                                                                                     | 说明                                                                       |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| 已知浏览器快捷键 | `”meta+t”`, `”meta+w”`, `”meta+l”`, `”ctrl+r”`, `”meta+shift+t”` 等                                                                                                                                      | 走 `chrome::ExecuteCommand` IDC 通道                                       |
-| 通用修饰键组合   | `”meta+a”`, `”ctrl+c”`, `”ctrl+shift+j”`, `”alt+F4”`                                                                                                                                                     | 发到页面 keydown+keyup，支持 `ctrl`/`shift`/`alt`/`meta`/`cmd`/`option` 等 |
-| 特殊键名         | `”Return”`, `”Enter”`, `”Tab”`, `”Escape”`, `”Backspace”`, `”Delete”`, `”Space”`, `”ArrowUp”`, `”ArrowDown”`, `”ArrowLeft”`, `”ArrowRight”`, `”F1”`-`”F12”`, `”Home”`, `”End”`, `”PageUp”`, `”PageDown”` | 注入真实按键事件                                                           |
-| 普通文字         | `”hello”`, `”@”`                                                                                                                                                                                         | 逐字符发送 `kChar` 事件                                                    |
+| 格式                 | 示例                                                                                                                                                                                                     | 说明                                                                                                                                              |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 编辑/剪贴板快捷键    | `”ctrl+a”`/`”meta+a”` (SelectAll), `”ctrl+c”`/`”meta+c”` (Copy), `”ctrl+x”`/`”meta+x”` (Cut), `”ctrl+v”`/`”meta+v”` (Paste), `”ctrl+shift+v”` (PasteAndMatchStyle), `”ctrl+z”`/`”meta+z”` (Undo), `”ctrl+shift+z”`/`”ctrl+y”` (Redo) | 直接调用 `WebContents::SelectAll/Cut/Copy/Paste/Undo/Redo`，跨平台一致；macOS 上 `ctrl+` 与 `cmd+` 等价（OS 层 ctrl+ 不解释为编辑命令的问题已规避） |
+| 已知浏览器快捷键     | `”meta+t”`, `”meta+w”`, `”meta+l”`, `”ctrl+r”`, `”meta+shift+t”` 等                                                                                                                                      | 走 `chrome::ExecuteCommand` IDC 通道                                                                                                              |
+| 通用修饰键组合       | `”ctrl+shift+j”`, `”alt+F4”`                                                                                                                                                                             | 发到页面 keydown+keyup，支持 `ctrl`/`shift`/`alt`/`meta`/`cmd`/`option` 等                                                                        |
+| 特殊键名             | `”Return”`, `”Enter”`, `”Tab”`, `”Escape”`, `”Backspace”`, `”Delete”`, `”Space”`, `”ArrowUp”`, `”ArrowDown”`, `”ArrowLeft”`, `”ArrowRight”`, `”F1”`-`”F12”`, `”Home”`, `”End”`, `”PageUp”`, `”PageDown”` | 注入真实按键事件                                                                                                                                  |
+| 普通文字             | `”hello”`, `”@”`                                                                                                                                                                                         | 逐字符发送 `kChar` 事件                                                                                                                           |
 
 响应：
 
@@ -1840,6 +1841,10 @@ curl -X POST http://127.0.0.1:9999/ \
 # 显式聚焦目标元素再发按键（避免与 fill_dom 之间焦点漂移）
 curl -X POST http://127.0.0.1:9999/ \
   -d '{“cmd”:”send_keys”,”by”:”name”,”selector”:”q”,”keys”:[“Enter”]}'
+
+# 编辑/剪贴板快捷键（ctrl+ 与 meta+ 等价，跨平台一致）
+curl -X POST http://127.0.0.1:9999/ \
+  -d '{“cmd”:”send_keys”,”keys”:[“ctrl+a”,”ctrl+c”]}'   # 全选 + 复制
 ```
 
 **AI Agent 典型工作流示例：**
